@@ -29,7 +29,22 @@ try {
         "ALTER TABLE `site_settings` ADD COLUMN `smtp_settings` text DEFAULT NULL AFTER `logo_url`",
         "ALTER TABLE `site_settings` ADD COLUMN `logistics_config` text DEFAULT NULL AFTER `smtp_settings`",
         "ALTER TABLE `users` ADD COLUMN `reset_code` varchar(10) DEFAULT NULL AFTER `role`",
-        "ALTER TABLE `users` ADD COLUMN `reset_expiry` datetime DEFAULT NULL AFTER `reset_code`"
+        "ALTER TABLE `users` ADD COLUMN `reset_expiry` datetime DEFAULT NULL AFTER `reset_code`",
+        "ALTER TABLE `products` ADD COLUMN `description` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `sizes` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `colors` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `materials` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `tags` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `featured` tinyint(1) DEFAULT 0",
+        "ALTER TABLE `products` ADD COLUMN `sku` varchar(100) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `stock` int(11) DEFAULT 50",
+        "ALTER TABLE `products` ADD COLUMN `weight` varchar(50) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `dimensions` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `variations` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `additional_images` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `size_chart_image` text DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `discount_percentage` int(11) DEFAULT NULL",
+        "ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL"
     ];
 
     foreach ($migrations as $m) {

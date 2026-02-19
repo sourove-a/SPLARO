@@ -107,7 +107,7 @@ const ProductModal: React.FC<{
 
   const availableSizes = ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
   const availableBrands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Splaro', 'Luxury Imports'];
-  const availableCategories = ['Sneakers', 'Running', 'Casual', 'Basketball', 'Sandals', 'Boots', 'Formal', 'Bags'];
+  const availableCategories = ['Shoes', 'Bags', 'Sneakers', 'Running', 'Casual', 'Basketball', 'Sandals', 'Boots', 'Formal'];
   const availableMaterials = ['Leather', 'Synthetic', 'Mesh', 'Canvas', 'Knit', 'Suede'];
 
   const toggleSize = (size: string) => {

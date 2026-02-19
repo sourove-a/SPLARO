@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, X, Sparkles, Tag, SortAsc, Clock, Box, Trash2 } from 'lucide-react';
+import { Filter, X, Sparkles, Tag, SortAsc, Clock, Box, Trash2, Layers } from 'lucide-react';
 import { useApp } from '../store';
 import { ProductCard } from './ProductCard';
 import { GlassCard } from './LiquidGlass';
@@ -84,6 +84,12 @@ export const ShopPage: React.FC = () => {
     return Object.keys(counts).sort().map(b => ({ name: b, count: counts[b] }));
   }, [products]);
 
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach(p => counts[p.category] = (counts[p.category] || 0) + 1);
+    return Object.keys(counts).sort().map(c => ({ name: c, count: counts[c] }));
+  }, [products]);
+
   const colors = useMemo(() => Array.from(new Set(products.flatMap(p => p.colors))).sort((a: string, b: string) => a.localeCompare(b)), [products]);
   const sizes = useMemo(() => Array.from(new Set(products.flatMap(p => p.sizes))).sort((a: string, b: string) => parseInt(a) - parseInt(b)), [products]);
 
@@ -129,10 +135,20 @@ export const ShopPage: React.FC = () => {
               <Sparkles className="w-5 h-5" />
               <span className="text-[10px] font-black uppercase tracking-[0.5em]">2026 Boutique archive</span>
             </motion.div>
-            <h1 className="text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.8] mb-8 uppercase">
-              {selectedCategory === 'Shoes' ? (<>FOOTWEAR<br />ARCHIVE.</>) :
-                selectedCategory === 'Bags' ? (<>LUXURY<br />BAGS.</>) :
-                  (<>CURATED<br />VAULT.</>)}
+            <h1 className="text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.8] mb-8 uppercase italic">
+              {selectedCategory ? (
+                <>
+                  {selectedCategory === 'Shoes' ? 'FOOTWEAR' : selectedCategory.toUpperCase()}
+                  <br />
+                  <span className="text-cyan-500">ARCHIVE.</span>
+                </>
+              ) : (
+                <>
+                  CURATED
+                  <br />
+                  <span className="text-cyan-500">VAULT.</span>
+                </>
+              )}
             </h1>
           </div>
 
@@ -167,6 +183,18 @@ export const ShopPage: React.FC = () => {
         {/* Persistent Desktop Sidebar */}
         <aside className={`lg:w-80 shrink-0 space-y-12 ${showFilters ? 'block' : 'hidden lg:block'}`}>
           <div className="space-y-10 sticky top-48">
+            <div className="space-y-6">
+              <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
+                <Layers className="w-4 h-4 text-cyan-500" /> Category Registry
+              </h4>
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+                <FilterPill label="All Assets" isSelected={!selectedCategory} onClick={() => setSelectedCategory(null)} />
+                {categories.map(cat => (
+                  <FilterPill key={cat.name} label={cat.name} count={cat.count} isSelected={selectedCategory === cat.name} onClick={() => setSelectedCategory(cat.name)} />
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-6">
               <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
                 <Tag className="w-4 h-4 text-cyan-500" /> Brands Register

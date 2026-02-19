@@ -78,11 +78,11 @@ export const ProductDetailPage: React.FC = () => {
         <div className="lg:w-3/5 flex flex-col md:flex-row gap-6">
           {/* Vertical Thumbnails */}
           <div className="flex md:flex-col gap-4 order-2 md:order-1 shrink-0 overflow-x-auto md:overflow-visible pb-4 md:pb-0">
-            {[product.image, product.image, product.image, product.image].map((img, i) => (
+            {[product.image, ...(product.additionalImages || [])].filter(img => !!img).map((img, i) => (
               <button
                 key={i}
                 onClick={() => setActiveImg(img)}
-                className={`w-20 md:w-24 aspect-square rounded-2xl overflow-hidden border-2 transition-all ${activeImg === img ? 'border-cyan-500' : 'border-white/5 hover:border-white/20'}`}
+                className={`w-20 md:w-24 aspect-square rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-cyan-500' : 'border-white/5 hover:border-white/20'}`}
               >
                 <img src={img} className="w-full h-full object-cover" />
               </button>
@@ -118,13 +118,13 @@ export const ProductDetailPage: React.FC = () => {
 
           <div className="space-y-10">
             <div>
-              <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-6">SHOE SIZE: {selectedSize}</h3>
+              <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-6">SELECT ARCHIVAL SIZE: {selectedSize}</h3>
               <div className="flex flex-wrap gap-3">
-                {['37', '38', '39', '40', '41', '42', '43', '44', '45', '46'].map(s => (
+                {(product.sizes || []).map(s => (
                   <button
                     key={s}
                     onClick={() => setSelectedSize(s)}
-                    className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-xs font-black transition-all ${selectedSize === s ? 'bg-zinc-800 border-zinc-800 text-white scale-110 shadow-lg' : 'border-zinc-800/20 text-zinc-500 hover:border-zinc-800'}`}
+                    className={`min-w-[3.5rem] h-14 rounded-2xl border flex items-center justify-center px-4 text-sm font-black transition-all ${selectedSize === s ? 'bg-white border-white text-black scale-105 shadow-[0_15px_30px_rgba(255,255,255,0.2)]' : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/30'}`}
                   >
                     {s}
                   </button>

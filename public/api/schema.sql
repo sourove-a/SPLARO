@@ -13,6 +13,20 @@ CREATE TABLE IF NOT EXISTS `products` (
   `image` text NOT NULL,
   `category` varchar(100) NOT NULL,
   `type` varchar(50) NOT NULL,
+  `description` longtext DEFAULT NULL,
+  `sizes` longtext DEFAULT NULL,
+  `colors` longtext DEFAULT NULL,
+  `materials` longtext DEFAULT NULL,
+  `tags` longtext DEFAULT NULL,
+  `featured` tinyint(1) DEFAULT 0,
+  `sku` varchar(100) DEFAULT NULL,
+  `stock` int(11) DEFAULT 50,
+  `weight` varchar(50) DEFAULT NULL,
+  `dimensions` longtext DEFAULT NULL,
+  `variations` longtext DEFAULT NULL,
+  `additional_images` longtext DEFAULT NULL,
+  `size_chart_image` text DEFAULT NULL,
+  `discount_percentage` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

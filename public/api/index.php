@@ -25,8 +25,25 @@ if ($method === 'GET' && $action === 'sync') {
         $settings['hero_slides'] = json_decode($settings['hero_slides'], true);
     }
 
+    $products = $db->query("SELECT * FROM products")->fetchAll();
+    foreach ($products as &$p) {
+        $p['description'] = json_decode($p['description'], true) ?? ['EN' => '', 'BN' => ''];
+        $p['sizes'] = json_decode($p['sizes'], true) ?? [];
+        $p['colors'] = json_decode($p['colors'], true) ?? [];
+        $p['materials'] = json_decode($p['materials'], true) ?? [];
+        $p['tags'] = json_decode($p['tags'], true) ?? [];
+        $p['dimensions'] = json_decode($p['dimensions'], true) ?? ['l'=>'', 'w'=>'', 'h'=>''];
+        $p['variations'] = json_decode($p['variations'], true) ?? [];
+        $p['additionalImages'] = json_decode($p['additional_images'], true) ?? [];
+        $p['sizeChartImage'] = $p['size_chart_image'];
+        $p['discountPercentage'] = $p['discount_percentage'];
+        $p['featured'] = $p['featured'] == 1;
+        $p['stock'] = (int)$p['stock'];
+        $p['price'] = (int)$p['price'];
+    }
+
     $data = [
-        'products' => $db->query("SELECT * FROM products")->fetchAll(),
+        'products' => $products,
         'orders'   => $db->query("SELECT * FROM orders ORDER BY created_at DESC")->fetchAll(),
         'users'    => $db->query("SELECT * FROM users")->fetchAll(),
         'settings' => $settings,
@@ -210,8 +227,32 @@ if ($method === 'POST' && $action === 'sync_products') {
     $db->prepare("DELETE FROM products")->execute(); // Flush for fresh sync
     
     foreach ($products as $p) {
-        $stmt = $db->prepare("INSERT INTO products (id, name, brand, price, image, category, type) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$p['id'], $p['name'], $p['brand'], $p['price'], $p['image'], $p['category'], $p['type']]);
+        $stmt = $db->prepare("INSERT INTO products 
+            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $p['id'], 
+            $p['name'], 
+            $p['brand'], 
+            $p['price'], 
+            $p['image'], 
+            $p['category'], 
+            $p['type'],
+            json_encode($p['description'] ?? []),
+            json_encode($p['sizes'] ?? []),
+            json_encode($p['colors'] ?? []),
+            json_encode($p['materials'] ?? []),
+            json_encode($p['tags'] ?? []),
+            ($p['featured'] ?? false) ? 1 : 0,
+            $p['sku'] ?? null,
+            $p['stock'] ?? 50,
+            $p['weight'] ?? null,
+            json_encode($p['dimensions'] ?? []),
+            json_encode($p['variations'] ?? []),
+            json_encode($p['additionalImages'] ?? []),
+            $p['sizeChartImage'] ?? null,
+            $p['discountPercentage'] ?? null
+        ]);
     }
 
     echo json_encode(["status" => "success", "message" => "PRODUCT_MANIFEST_UPDATED"]);
