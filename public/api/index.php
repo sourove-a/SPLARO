@@ -200,8 +200,8 @@ if ($method === 'POST' && $action === 'login') {
  * INSTITUTIONAL GOOGLE SHEETS SYNC PROTOCOL
  */
 function sync_to_sheets($type, $data) {
-    // This URL will be provided by the user after setting up Apps Script
-    $webhook_url = "https://script.google.com/macros/s/AKfycbyR_PLACEHOLDER/exec"; 
+    // This URL is provided by the user for Google Apps Script Webhook
+    $webhook_url = "https://script.google.com/macros/s/AKfycbxNzFhipuQJVVyvUZAMlrZDFWdo1qpnCkJ1oTyEn9RCwL1vEbhn840W6iQfiDAm0Dmg/exec"; 
     
     $payload = [
         'type' => $type,
