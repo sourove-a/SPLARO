@@ -26,9 +26,10 @@ try {
     $migrations = [
         "ALTER TABLE `orders` ADD COLUMN `user_id` varchar(50) DEFAULT NULL AFTER `id`",
         "ALTER TABLE `orders` ADD COLUMN `district` varchar(100) DEFAULT NULL AFTER `phone`",
-        "ALTER TABLE `orders` ADD COLUMN `thana` varchar(100) DEFAULT NULL AFTER `district`",
         "ALTER TABLE `site_settings` ADD COLUMN `smtp_settings` text DEFAULT NULL AFTER `logo_url`",
-        "ALTER TABLE `site_settings` ADD COLUMN `logistics_config` text DEFAULT NULL AFTER `smtp_settings`"
+        "ALTER TABLE `site_settings` ADD COLUMN `logistics_config` text DEFAULT NULL AFTER `smtp_settings`",
+        "ALTER TABLE `users` ADD COLUMN `reset_code` varchar(10) DEFAULT NULL AFTER `role`",
+        "ALTER TABLE `users` ADD COLUMN `reset_expiry` datetime DEFAULT NULL AFTER `reset_code`"
     ];
 
     foreach ($migrations as $m) {

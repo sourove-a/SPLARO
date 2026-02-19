@@ -271,7 +271,7 @@ if ($method === 'POST' && $action === 'signup') {
     exit;
 }
 
-// 5.1 PASSWORD RECOVERY PROTOCOL
+// 5.1 PASSWORD RECOVERY PROTOCOL (GENERATE OTP)
 if ($method === 'POST' && $action === 'forgot_password') {
     $input = json_decode(file_get_contents('php://input'), true);
     $email = $input['email'];
@@ -282,25 +282,47 @@ if ($method === 'POST' && $action === 'forgot_password') {
     
     if ($user) {
         $otp = rand(100000, 999999);
+        $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
         
-        $subject = "PASSWORD RECOVERY: Identity Verification Code";
-        $message = "Your Splaro Identity Verification Code is: " . $otp . "\n\nIf you did not request this, please ignore this manifest.";
+        $stmt = $db->prepare("UPDATE users SET reset_code = ?, reset_expiry = ? WHERE email = ?");
+        $stmt->execute([$otp, $expiry, $email]);
         
-        // Use SMTP_USER from config.php for headers
+        $subject = "IDENTITY RECOVERY: Verification Code";
+        $message = "Your Splaro Identity Verification Code is: " . $otp . "\n\nThis code expires in 15 minutes. If you did not request this, please ignore.";
         $from = "SPLARO SECURITY <" . SMTP_USER . ">";
         $headers = "From: " . $from . "\r\n";
-        $headers .= "Reply-To: " . SMTP_USER . "\r\n";
-        $headers .= "X-Mailer: PHP/" . phpversion();
         
         $success = @mail($email, $subject, $message, $headers);
         
         if ($success) {
-            echo json_encode(["status" => "success", "message" => "RECOVERY_CODE_DISPATCHED"]);
+            echo json_encode(["status" => "success", "message" => "RECOVERY_SIGNAL_DISPATCHED"]);
         } else {
-            echo json_encode(["status" => "error", "message" => "SIGNAL_DISPATCH_FAILURE: Server mail rejection."]);
+            echo json_encode(["status" => "error", "message" => "SIGNAL_DISPATCH_FAILURE"]);
         }
     } else {
         echo json_encode(["status" => "error", "message" => "IDENTITY_NOT_FOUND"]);
+    }
+    exit;
+}
+
+// 5.2 PASSWORD RESET EXECUTION (VERIFY OTP & UPDATE)
+if ($method === 'POST' && $action === 'reset_password') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $email = $input['email'];
+    $otp = $input['otp'];
+    $new_password = $input['password'];
+    
+    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND reset_code = ? AND reset_expiry > NOW()");
+    $stmt->execute([$email, $otp]);
+    $user = $stmt->fetch();
+    
+    if ($user) {
+        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL WHERE email = ?");
+        $stmt->execute([$new_password, $email]);
+        
+        echo json_encode(["status" => "success", "message" => "PASSWORD_OVERRIDDEN"]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);
     }
     exit;
 }

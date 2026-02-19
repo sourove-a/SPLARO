@@ -29,7 +29,8 @@ export const LoginForm: React.FC = () => {
   const isSignupPath = location.pathname.includes('signup');
 
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>(isSignupPath ? 'signup' : 'login');
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', identifier: '', password: '', confirmPassword: '' });
+  const [recoveryStep, setRecoveryStep] = useState<'email' | 'reset'>('email');
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', identifier: '', password: '', confirmPassword: '', otp: '' });
 
   useEffect(() => {
     if (isSignupPath && authMode !== 'signup') setAuthMode('signup');
@@ -152,23 +153,49 @@ export const LoginForm: React.FC = () => {
         setTimeout(() => setStatus('idle'), 3000);
       }
     } else if (authMode === 'forgot') {
-      try {
-        const res = await fetch(`${API_NODE}?action=forgot_password`, {
-          method: 'POST',
-          body: JSON.stringify({ email: formData.identifier })
-        });
-        const result = await res.json();
-        if (result.status === 'success') {
-          setStatus('success');
-          alert('RECOVERY_SIGNAL: An institutional verification code has been dispatched to your email.');
-          setAuthMode('login');
-        } else {
-          throw new Error(result.message);
+      if (recoveryStep === 'email') {
+        try {
+          const res = await fetch(`${API_NODE}?action=forgot_password`, {
+            method: 'POST',
+            body: JSON.stringify({ email: formData.identifier })
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            setStatus('success');
+            setRecoveryStep('reset');
+            setTimeout(() => setStatus('idle'), 2000);
+          } else {
+            throw new Error(result.message);
+          }
+        } catch (e) {
+          setErrors({ identifier: 'Identity not found in the archive' });
+          setStatus('error');
+          setTimeout(() => setStatus('idle'), 3000);
         }
-      } catch (e) {
-        setErrors({ identifier: 'Identity not found in the archive' });
-        setStatus('error');
-        setTimeout(() => setStatus('idle'), 3000);
+      } else {
+        try {
+          const res = await fetch(`${API_NODE}?action=reset_password`, {
+            method: 'POST',
+            body: JSON.stringify({
+              email: formData.identifier,
+              otp: formData.otp,
+              password: formData.password
+            })
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            setStatus('success');
+            alert('PASSWORD_OVERRIDDEN: Identity access restored. Please sign in.');
+            setAuthMode('login');
+            setRecoveryStep('email');
+          } else {
+            throw new Error(result.message);
+          }
+        } catch (e) {
+          setErrors({ otp: 'Invalid or expired verification code' });
+          setStatus('error');
+          setTimeout(() => setStatus('idle'), 3000);
+        }
       }
     }
   };  // Google Identity Payload Decoder
@@ -368,6 +395,33 @@ export const LoginForm: React.FC = () => {
             )}
 
 
+            {authMode === 'forgot' && recoveryStep === 'reset' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <LuxuryFloatingInput
+                  label="Verification Code (OTP)"
+                  value={formData.otp}
+                  onChange={v => setFormData({ ...formData, otp: v })}
+                  icon={<KeyRound className="w-5 h-5" />}
+                  error={errors.otp}
+                  placeholder="123456"
+                />
+                <LuxuryFloatingInput
+                  label="New Institutional Password"
+                  type={showPass ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={v => setFormData({ ...formData, password: v })}
+                  icon={<Lock className="w-5 h-5" />}
+                  error={errors.password}
+                  placeholder="••••••••"
+                  suffix={
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-zinc-600 hover:text-white p-2">
+                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                />
+              </motion.div>
+            )}
+
             {authMode !== 'forgot' && (
               <div className="relative">
                 <LuxuryFloatingInput
@@ -387,7 +441,7 @@ export const LoginForm: React.FC = () => {
 
                 {authMode === 'login' && (
                   <div className="flex justify-end mt-[-1rem]">
-                    <button type="button" onClick={() => setAuthMode('forgot')} className="text-[9px] font-black uppercase text-cyan-500/60 hover:text-cyan-400 tracking-widest transition-colors">
+                    <button type="button" onClick={() => { setAuthMode('forgot'); setRecoveryStep('email'); }} className="text-[9px] font-black uppercase text-cyan-500/60 hover:text-cyan-400 tracking-widest transition-colors">
                       Forgot Password?
                     </button>
                   </div>
@@ -416,7 +470,7 @@ export const LoginForm: React.FC = () => {
                 isLoading={status === 'loading'}
                 className="w-full h-16 text-[11px] uppercase tracking-[0.4em]"
               >
-                {authMode === 'login' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+                {authMode === 'login' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : recoveryStep === 'email' ? 'Send Reset Link' : 'Override Password'}
                 {!status.includes('loading') && <Sparkles className="w-4 h-4 ml-3" />}
               </PrimaryButton>
 

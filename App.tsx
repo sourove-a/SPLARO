@@ -417,7 +417,16 @@ const AppContent = () => {
     }
 
     if (view !== targetView) setView(targetView);
-  }, [location.pathname]);
+
+    // IDENTITY SEPARATION PROTOCOL: Enforcement Guard
+    if (user) {
+      if (user.role === 'ADMIN' && p === 'user_dashboard') {
+        navigate('/admin_dashboard');
+      } else if (user.role === 'USER' && (p === 'admin_dashboard' || p === 'sourove-admin')) {
+        navigate('/user_dashboard');
+      }
+    }
+  }, [location.pathname, user]);
 
   useEffect(() => {
     document.body.className = isDark ? 'dark' : 'light';

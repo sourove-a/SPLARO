@@ -132,7 +132,7 @@ export const Navbar: React.FC = () => {
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
-    { label: 'IDENTITY', view: user ? View.USER_DASHBOARD : View.LOGIN, icon: User },
+    { label: 'IDENTITY', view: user ? (user.role === 'ADMIN' ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
 
@@ -142,9 +142,11 @@ export const Navbar: React.FC = () => {
     { label: 'SHOES', view: View.SHOP, category: 'Shoes', prefix: 'PROCEED TO' },
     { label: 'BAGS', view: View.SHOP, category: 'Bags', prefix: 'PROCEED TO' },
     { label: 'STORY', view: View.STORY, prefix: 'PROCEED TO' },
-    { label: 'IDENTITY VAULT', view: user ? View.USER_DASHBOARD : View.LOGIN, prefix: 'PROCEED TO' },
     { label: 'SUPPORT', view: View.SUPPORT, prefix: 'PROCEED TO' },
-    { label: 'ADMIN DASHBOARD', view: View.ADMIN_DASHBOARD, prefix: 'ACCESS PORTAL' },
+    ...(user?.role === 'ADMIN'
+      ? [{ label: 'ADMIN DASHBOARD', view: View.ADMIN_DASHBOARD, prefix: 'ACCESS PORTAL' }]
+      : [{ label: 'IDENTITY VAULT', view: user ? View.USER_DASHBOARD : View.LOGIN, prefix: 'PROCEED TO' }]
+    )
   ];
 
 
@@ -219,7 +221,11 @@ export const Navbar: React.FC = () => {
                 <button
                   key={item.label}
                   onClick={() => {
-                    navigate(user ? '/user_dashboard' : '/login');
+                    if (user) {
+                      navigate(user.role === 'ADMIN' ? '/admin_dashboard' : '/user_dashboard');
+                    } else {
+                      navigate('/login');
+                    }
                     setIsSearchOpen(false);
                     setMenuOpen(false);
                   }}
