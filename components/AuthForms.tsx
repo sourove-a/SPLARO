@@ -200,17 +200,22 @@ export const LoginForm: React.FC = () => {
       // @ts-ignore
       google.accounts.id.initialize({
         client_id: '779989369894-avivmlct6nk0luien08fo4rl1gpn74c5.apps.googleusercontent.com',
-        callback: handleGoogleSuccess
+        callback: handleGoogleSuccess,
+        auto_select: false,
+        cancel_on_tap_outside: true
       });
+
+      // Render official button
+      // @ts-ignore
+      google.accounts.id.renderButton(
+        document.getElementById("googleSignInBtn"),
+        { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" }
+      );
     }
   }, []);
 
   const triggerGoogleLogin = () => {
-    // @ts-ignore
-    if (window.google) {
-      // @ts-ignore
-      google.accounts.id.prompt();
-    }
+    // google.accounts.id.prompt(); // Optional One-Tap
   };
 
   const getIdentityIcon = () => {
@@ -403,12 +408,8 @@ export const LoginForm: React.FC = () => {
             <div className="h-[1px] flex-1 bg-white/5" />
           </div>
 
-          <div className="mt-8">
-            <SocialButton
-              icon={<GoogleIcon />}
-              label="Continue with Google"
-              onClick={triggerGoogleLogin}
-            />
+          <div className="mt-8 flex justify-center">
+            <div id="googleSignInBtn" className="w-full max-w-sm"></div>
           </div>
 
           <footer className="mt-10 text-center">
