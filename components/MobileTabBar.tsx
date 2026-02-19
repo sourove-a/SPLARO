@@ -29,7 +29,8 @@ export const MobileTabBar: React.FC = () => {
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },
     { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
-    { icon: Search, view: View.SHOP, label: 'DISCOVER' }
+    { icon: Search, view: View.SHOP, label: 'DISCOVER' },
+    { icon: User, view: View.LOGIN, label: 'IDENTITY' }
   ];
 
   const getIsActive = (item: any) => {
