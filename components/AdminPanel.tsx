@@ -1263,12 +1263,11 @@ export const AdminPanel = () => {
                       <RefreshCcw className="w-3 h-3" /> Database Integration Protocol
                     </h4>
                     <p className="text-[11px] text-zinc-400 font-bold uppercase leading-relaxed mb-6">
-                      Institutional Registry is currently operating on <b>Local Persistence Sovereignty</b>. To transition to a <b>Global SQL Matrix</b> (MySQL/PostgreSQL), you must:
+                      Institutional Registry is currently operating on <b>Production SQL Matrix</b> via Hostinger. Synchronization is manifest.
                     </p>
                     <ul className="space-y-3 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1" /> Deploy a Backend API (Express.js/Supabase)</li>
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1" /> Replace 'localStorage' handlers with 'fetch' signals</li>
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1" /> Configure Environment Variable Handshakes</li>
+                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1" /> SQL Handshake: {dbStatus}</li>
+                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-emerald-500 mt-1" /> Automation: Active</li>
                     </ul>
                   </div>
                 </div>
@@ -1283,15 +1282,14 @@ export const AdminPanel = () => {
                   <h3 className="text-2xl font-black uppercase italic">Real-Time Event Stream</h3>
                   <div className="space-y-4">
                     {[
-                      { event: 'ARCHIVAL_SYNC', status: 'SUCCESS', time: '12ms ago', target: 'Product Registry' },
-                      { event: 'IDENTITY_AUTH', status: 'VERIFIED', time: '4m ago', target: 'Admin Node' },
-                      { event: 'ORDER_DECAY_CLEANUP', status: 'COMPLETED', time: '1h ago', target: 'Garbage Collector' },
-                      { event: 'SMTP_HANDSHAKE', status: 'STABLE', time: '2h ago', target: 'Hostinger' },
-                      { event: 'SEO_REINDEX', status: 'PENDING', time: '5h ago', target: 'Google Search Console' }
+                      ...orders.slice(0, 3).map(o => ({ event: 'NEW_ACQUISITION', status: 'VERIFIED', time: 'LIVE', target: `Order #${o.id}` })),
+                      ...users.slice(0, 3).map(u => ({ event: 'IDENTITY_ARCHIVED', status: 'SUCCESS', time: 'MANIFEST', target: u.name })),
+                      { event: 'SQL_HANDSHAKE', status: dbStatus, time: 'CURRENT', target: 'Hostinger Matrix' },
+                      { event: 'SMTP_HANDSHAKE', status: 'STABLE', time: 'ACTIVE', target: 'Mail Server' }
                     ].map((log, i) => (
                       <div key={i} className="flex justify-between items-center p-6 liquid-glass border border-white/5 rounded-2xl group hover:border-blue-500/30 transition-all">
                         <div className="flex items-center gap-6">
-                          <div className={`w-2 h-2 rounded-full ${log.status === 'SUCCESS' || log.status === 'STABLE' || log.status === 'VERIFIED' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+                          <div className={`w-2 h-2 rounded-full ${log.status === 'SUCCESS' || log.status === 'STABLE' || log.status === 'VERIFIED' || log.status === 'CONNECTED' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
                           <div>
                             <p className="text-xs font-black text-white">{log.event}</p>
                             <p className="text-[10px] text-zinc-600 font-bold uppercase">{log.target}</p>

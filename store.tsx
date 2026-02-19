@@ -445,7 +445,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (result.status === 'success') {
             setDbStatus('CONNECTED');
             if (result.data.products?.length > 0) setProducts(result.data.products);
-            if (result.data.orders?.length > 0) setOrders(result.data.orders);
+            if (result.data.orders?.length > 0) {
+              const mappedOrders = result.data.orders.map((o: any) => ({
+                ...o,
+                customerName: o.customer_name,
+                customerEmail: o.customer_email,
+                items: JSON.parse(o.items),
+                createdAt: o.created_at,
+                shippingFee: o.shipping_fee || 120,
+              }));
+              setOrders(mappedOrders);
+            }
+            if (result.data.users?.length > 0) setUsers(result.data.users);
             if (result.data.settings) setSiteSettings(result.data.settings);
           } else {
             setDbStatus('LOCAL');
