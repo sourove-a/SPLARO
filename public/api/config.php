@@ -11,9 +11,9 @@ header("Content-Type: application/json");
 
 // 1. DATABASE COORDINATES
 define('DB_HOST', 'localhost'); // Hostinger usually uses 'localhost'
-define('DB_NAME', 'u123456789_splaro_db'); // Replace with your Hostinger DB Name
-define('DB_USER', 'u123456789_admin');    // Replace with your Hostinger DB User
-define('DB_PASS', 'YourStrongPassword123!'); // Replace with your Hostinger DB Password
+define('DB_NAME', 'u134578371_SPLARO'); 
+define('DB_USER', 'u134578371_splaro');    
+define('DB_PASS', 'Sourove017@#%&*-+()'); 
 
 // 2. SMTP COMMAND CENTER
 define('SMTP_HOST', 'smtp.hostinger.com');
