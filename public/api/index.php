@@ -22,6 +22,7 @@ if ($method === 'GET' && $action === 'sync') {
     if ($settings) {
         $settings['smtp_settings'] = json_decode($settings['smtp_settings'], true);
         $settings['logistics_config'] = json_decode($settings['logistics_config'], true);
+        $settings['hero_slides'] = json_decode($settings['hero_slides'], true);
     }
 
     $data = [
@@ -364,7 +365,8 @@ if ($method === 'POST' && $action === 'update_settings') {
             instagram_link = ?, 
             maintenance_mode = ?,
             smtp_settings = ?,
-            logistics_config = ?
+            logistics_config = ?,
+            hero_slides = ?
             WHERE id = 1");
             
         $stmt->execute([
@@ -376,7 +378,8 @@ if ($method === 'POST' && $action === 'update_settings') {
             $input['instagramLink'] ?? '',
             isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : 0,
             json_encode($input['smtpSettings'] ?? []),
-            json_encode($input['logisticsConfig'] ?? [])
+            json_encode($input['logisticsConfig'] ?? []),
+            json_encode($input['slides'] ?? [])
         ]);
 
         // Security Protocol: Log the system update

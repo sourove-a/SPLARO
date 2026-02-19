@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   `logo_url` text DEFAULT NULL,
   `smtp_settings` text DEFAULT NULL,
   `logistics_config` text DEFAULT NULL,
+  `hero_slides` longtext DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

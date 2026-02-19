@@ -86,7 +86,7 @@ export const HeroSlider = () => {
           className="absolute inset-0"
         >
           <div className="w-full h-full relative">
-            <img src={SLIDES[index].img} className="w-full h-full object-cover opacity-50 grayscale contrast-125" />
+            <img src={SLIDES[index]?.img || ''} className="w-full h-full object-cover opacity-50 grayscale contrast-125" />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/60" />
             <div className="absolute inset-0 bg-blue-900/10 mix-blend-overlay" />
           </div>
@@ -98,19 +98,19 @@ export const HeroSlider = () => {
         <AnimatePresence mode="wait">
           <motion.div key={`meta-${index}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-6 flex flex-col items-center gap-4">
             <div className="flex items-center gap-3 text-white/40">
-              <span className="text-[10px] font-black uppercase tracking-[0.8em]">{SLIDES[index].tag}</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.8em]">{SLIDES[index]?.tag || SLIDES[index]?.tags?.[0] || 'DISCOVERY'}</span>
             </div>
 
             <div className="overflow-hidden">
               <h1 className="text-6xl md:text-[10rem] font-black text-white tracking-tighter leading-none">
-                {SLIDES[index].title.split("").map((char, i) => (
+                {(SLIDES[index]?.title || "SPLARO").split("").map((char, i) => (
                   <KineticLetter key={i} letter={char} index={i} active={true} />
                 ))}
               </h1>
             </div>
 
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} className="text-white text-xs md:text-sm font-bold uppercase tracking-[0.4em] mt-4">
-              {SLIDES[index].subtitle}
+              {SLIDES[index]?.subtitle || "Official Registry Archive"}
             </motion.p>
           </motion.div>
         </AnimatePresence>

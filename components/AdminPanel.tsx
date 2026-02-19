@@ -1209,6 +1209,16 @@ export const AdminPanel = () => {
                         newSlides[idx].title = v;
                         setSlides(newSlides);
                       }} />
+                      <LuxuryFloatingInput label="Subtitle Manifest" value={slide.subtitle} onChange={v => {
+                        const newSlides = [...slides];
+                        newSlides[idx].subtitle = v;
+                        setSlides(newSlides);
+                      }} />
+                      <LuxuryFloatingInput label="Tactical Tag" value={slide.tag || slide.tags?.[0] || ''} onChange={v => {
+                        const newSlides = [...slides];
+                        newSlides[idx].tag = v;
+                        setSlides(newSlides);
+                      }} />
                       <div className="flex gap-4">
                         <button
                           onClick={() => {
@@ -1221,8 +1231,8 @@ export const AdminPanel = () => {
                           Remove
                         </button>
                         <button
-                          onClick={() => alert('SYNC PROTOCOL: Banner sequence modified in discovery manifest.')}
-                          className="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-black text-[10px] uppercase shadow-lg shadow-blue-600/30"
+                          onClick={() => updateSettings({ slides })}
+                          className="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-black text-[10px] uppercase shadow-lg shadow-blue-600/30 transition-all hover:bg-blue-500"
                         >
                           Push Manifest
                         </button>

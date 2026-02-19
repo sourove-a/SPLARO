@@ -490,6 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               });
               if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
               if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
+              if (s.hero_slides && Array.isArray(s.hero_slides)) setSlides(s.hero_slides);
             }
             if (result.data.logs) setLogs(result.data.logs);
           } else {
@@ -672,6 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...siteSettings,
         smtpSettings,
         logisticsConfig,
+        slides,
         ...data
       };
 
