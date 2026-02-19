@@ -1,0 +1,11 @@
+<svg viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="10" y="45" width="10" height="25" rx="5" transform="rotate(-30 10 45)" fill="url(#logo-grad)" />
+  <rect x="25" y="15" width="10" height="50" rx="5" transform="rotate(-30 25 15)" fill="url(#logo-grad)" />
+  <rect x="40" y="10" width="10" height="25" rx="5" transform="rotate(-30 40 10)" fill="url(#logo-grad)" />
+  <defs>
+    <linearGradient id="logo-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="white" />
+      <stop offset="1" stop-color="#00D4FF" />
+    </linearGradient>
+  </defs>
+</svg>
