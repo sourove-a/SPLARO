@@ -495,7 +495,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+    setProducts(prev => {
+      const newProducts = prev.filter(p => p.id !== id);
+      if (IS_PROD) {
+        fetch(`${API_NODE}?action=sync_products`, {
+          method: 'POST',
+          body: JSON.stringify(newProducts)
+        });
+      }
+      return newProducts;
+    });
   };
 
   const addOrder = (o: Order) => {
@@ -512,10 +521,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteOrder = (id: string) => {
     setOrders(prev => prev.filter(o => o.id !== id));
+    if (IS_PROD) {
+      fetch(`${API_NODE}?action=delete_order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    }
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    // Optimistic Update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+
+    try {
+      await fetch(`${API_NODE}?action=update_order_status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId, status })
+      });
+    } catch (error) {
+      console.error('Logistics Sync Failure:', error);
+    }
   };
 
   const updateOrderMetadata = (orderId: string, data: { trackingNumber?: string; adminNotes?: string }) => {
@@ -554,6 +581,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
+    if (IS_PROD) {
+      fetch(`${API_NODE}?action=delete_user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    }
   };
 
   const updateUser = (updatedUser: User) => {

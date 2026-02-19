@@ -146,6 +146,48 @@ if ($method === 'POST' && $action === 'create_order') {
     exit;
 }
 
+// 2.1 LOGISTICS UPDATE PROTOCOL
+if ($method === 'POST' && $action === 'update_order_status') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($input['id']) || !isset($input['status'])) {
+        echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
+        exit;
+    }
+
+    $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
+    $stmt->execute([$input['status'], $input['id']]);
+
+    // SYNC TO GOOGLE SHEETS
+    sync_to_sheets('UPDATE_STATUS', $input);
+
+    // Log the event
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+       ->execute(['LOGISTICS_UPDATE', "Order " . $input['id'] . " status updated to " . $input['status'], $ip]);
+
+    echo json_encode(["status" => "success", "message" => "STATUS_SYNCHRONIZED"]);
+    exit;
+}
+
+// 2.2 REGISTRY ERASURE PROTOCOL
+if ($method === 'POST' && $action === 'delete_order') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (isset($input['id'])) {
+        $stmt = $db->prepare("DELETE FROM orders WHERE id = ?");
+        $stmt->execute([$input['id']]);
+        sync_to_sheets('DELETE_ORDER', $input);
+
+        // Security Protocol: Log the erasure
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+           ->execute(['REGISTRY_ERASURE', "Order " . $input['id'] . " was purged from the archive.", $ip]);
+
+        echo json_encode(["status" => "success"]);
+    }
+    exit;
+}
+
 // 3. PRODUCT SYCHRONIZATION
 if ($method === 'POST' && $action === 'sync_products') {
     $products = json_decode(file_get_contents('php://input'), true);
@@ -180,7 +222,7 @@ if ($method === 'POST' && $action === 'signup') {
         $input['id'],
         $input['name'],
         $input['email'],
-        $input['phone'],
+        '', // Identity Optimization: Phone coordinates terminated for account registry
         $input['password'] ?? 'social_auth_sync',
         $input['role']
     ]);
@@ -220,6 +262,24 @@ if ($method === 'POST' && $action === 'login') {
            ->execute(['SECURITY_ALERT', 'Failed login attempt for ' . ($input['identifier'] ?? 'Unknown'), $ip]);
         
         echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
+    }
+    exit;
+}
+
+// 5.1 IDENTITY ERASURE PROTOCOL
+if ($method === 'POST' && $action === 'delete_user') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (isset($input['id'])) {
+        $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$input['id']]);
+        sync_to_sheets('DELETE_USER', $input);
+
+        // Security Protocol: Log the identity termination
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+           ->execute(['IDENTITY_TERMINATION', "Identity record " . $input['id'] . " was purged from registry.", $ip]);
+
+        echo json_encode(["status" => "success"]);
     }
     exit;
 }

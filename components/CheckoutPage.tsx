@@ -103,14 +103,37 @@ export const CheckoutPage: React.FC = () => {
 
   // Per user request: Empty by default so user can input manually
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
+    fullName: user?.name || '',
+    email: user?.email || '',
+    phone: '', // Terminated retention as per protocol
     district: '',
     thana: '',
     address: '',
     paymentMethod: 'COD'
   });
+
+  // Identity Synchronization Protocol
+  React.useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.name || prev.fullName,
+        email: user.email || prev.email
+      }));
+    }
+  }, [user]);
+
+  // Velocity Sync: Initialize form data when user identity is validated
+  React.useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.name || prev.fullName,
+        email: user.email || prev.email,
+        phone: (user.phone && user.phone !== 'Not provided') ? user.phone : prev.phone
+      }));
+    }
+  }, [user]);
 
 
   const [errors, setErrors] = useState<Record<string, string>>({});
