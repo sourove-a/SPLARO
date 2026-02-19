@@ -150,10 +150,68 @@ export const LoginForm: React.FC = () => {
         setTimeout(() => setStatus('idle'), 3000);
       }
     }
+  };  // Google Identity Payload Decoder
+  const decodeJwt = (token: string) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
   };
 
+  const handleGoogleSuccess = async (response: any) => {
+    setStatus('loading');
+    const payload = decodeJwt(response.credential);
+    if (!payload) {
+      setStatus('error');
+      return;
+    }
 
+    const googleUser = {
+      id: 'google_' + payload.sub,
+      name: payload.name,
+      email: payload.email,
+      phone: 'Not provided',
+      role: 'USER',
+      createdAt: new Date().toISOString()
+    };
 
+    const IS_PROD = window.location.hostname !== 'localhost';
+    if (IS_PROD) {
+      await fetch('/api/index.php?action=signup', {
+        method: 'POST',
+        body: JSON.stringify(googleUser)
+      });
+    }
+
+    setUser(googleUser);
+    setStatus('success');
+    setTimeout(() => navigate('/'), 1000);
+  };
+
+  useEffect(() => {
+    // @ts-ignore
+    if (window.google) {
+      // @ts-ignore
+      google.accounts.id.initialize({
+        client_id: '915494002633-unh9at0pqc16h9e9vpg1f9pqiih89t9j.apps.googleusercontent.com',
+        callback: handleGoogleSuccess
+      });
+    }
+  }, []);
+
+  const triggerGoogleLogin = () => {
+    // @ts-ignore
+    if (window.google) {
+      // @ts-ignore
+      google.accounts.id.prompt();
+    }
+  };
 
   const getIdentityIcon = () => {
     return <Mail className="w-5 h-5 text-cyan-400" />;
@@ -349,32 +407,7 @@ export const LoginForm: React.FC = () => {
             <SocialButton
               icon={<GoogleIcon />}
               label="Continue with Google"
-              onClick={async () => {
-                setStatus('loading');
-                // INSTITUTIONAL SIMULATION: Google Identity discovery
-                await new Promise(r => setTimeout(r, 1500));
-
-                const mockGoogleUser = {
-                  id: 'google_' + Math.random().toString(36).substr(2, 9),
-                  name: 'Google Discovery User',
-                  email: 'identity@gmail.com',
-                  phone: '01700000000',
-                  role: 'USER',
-                  createdAt: new Date().toISOString()
-                };
-
-                const IS_PROD = window.location.hostname !== 'localhost';
-                if (IS_PROD) {
-                  await fetch('/api/index.php?action=signup', {
-                    method: 'POST',
-                    body: JSON.stringify(mockGoogleUser)
-                  });
-                }
-
-                setUser(mockGoogleUser);
-                setStatus('success');
-                setTimeout(() => navigate('/'), 1000);
-              }}
+              onClick={triggerGoogleLogin}
             />
           </div>
 
