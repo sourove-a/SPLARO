@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Splaro | Boutique Imported Archive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --obsidian: #000000;
+            --midnight: #050505;
+            --pearl: #FFFFFF;
+
+            /* Strict monochrome theme */
+            --bg-main: var(--obsidian);
+            --text-main: #FFFFFF;
+            --text-dim: rgba(255, 255, 255, 0.45);
+            --glass-bg: rgba(10, 10, 10, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --ribbed-opacity: 0.02;
+            --glow-strength: 0px;
+            /* Removed colored glow */
+        }
+
+        .light {
+            --bg-main: #FFFFFF;
+            --text-main: #000000;
+            --text-dim: rgba(0, 0, 0, 0.55);
+            --glass-bg: rgba(245, 245, 245, 0.95);
+            --glass-border: rgba(0, 0, 0, 0.05);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            letter-spacing: -0.01em;
+            text-rendering: optimizeLegibility;
+            font-style: normal !important;
+            user-select: auto;
+            -webkit-user-select: auto;
+        }
+
+        * {
+            font-style: normal !important;
+            -webkit-user-drag: none;
+        }
+
+        .liquid-glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(50px) saturate(200%);
+            -webkit-backdrop-filter: blur(50px) saturate(200%);
+            border: 1px solid var(--glass-border);
+        }
+
+        .ribbed-texture {
+            background-image: repeating-linear-gradient(90deg,
+                    rgba(255, 255, 255, var(--ribbed-opacity)) 0px,
+                    rgba(255, 255, 255, var(--ribbed-opacity)) 1px,
+                    transparent 1px,
+                    transparent 10px);
+        }
+
+        @keyframes shine-sweep {
+            0% {
+                transform: translateX(-200%) skewX(-30deg);
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 0.15;
+            }
+
+            100% {
+                transform: translateX(300%) skewX(-30deg);
+                opacity: 0;
+            }
+        }
+
+        .shine-sweep {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shine-sweep 6s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 0px;
+        }
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "framer-motion": "https://esm.sh/framer-motion@^12.34.2",
+    "lucide-react": "https://esm.sh/lucide-react@^0.574.0"
+  }
+}
+</script>
+</head>
+
+<body class="dark">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

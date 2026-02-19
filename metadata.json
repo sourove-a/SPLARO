@@ -1,0 +1,8 @@
+{
+  "name": "Splaro - Luxury Footwear & Bags",
+  "description": "An ultra-premium 2026-themed luxury e-commerce platform featuring liquid glass aesthetics, immersive animations, and a powerful admin command center.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

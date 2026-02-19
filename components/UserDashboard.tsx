@@ -1,0 +1,261 @@
+
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Package, User as UserIcon, LogOut, Heart, MapPin, Mail, Smartphone, Edit3, Camera, Check } from 'lucide-react';
+import { useApp } from '../store';
+import { View, User } from '../types';
+import { GlassCard, LuxuryFloatingInput, PrimaryButton } from './LiquidGlass';
+import { useNavigate } from 'react-router-dom';
+
+export const UserDashboard: React.FC = () => {
+  const { user, updateUser, setUser, orders } = useApp();
+  const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<Partial<User>>({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+    profileImage: user?.profileImage || ''
+  });
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
+
+  const userOrders = orders.filter(o => o.userId === user?.id);
+
+  const handleLogout = () => {
+    setUser(null);
+    navigate('/');
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaveStatus('saving');
+    // Simulate API call
+    await new Promise(r => setTimeout(r, 1000));
+
+    const updatedUser: User = {
+      ...user,
+      name: formData.name || user.name,
+      phone: formData.phone || user.phone,
+      address: formData.address || user.address,
+      profileImage: formData.profileImage || user.profileImage
+    };
+
+    updateUser(updatedUser);
+    setSaveStatus('success');
+    setTimeout(() => {
+      setSaveStatus('idle');
+      setIsEditing(false);
+    }, 1500);
+  };
+
+  return (
+    <div className="min-h-screen pt-32 pb-40 px-6 max-w-7xl mx-auto">
+      <header className="mb-12">
+        <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Identity <span className="text-cyan-500">Vault</span></h1>
+        <p className="text-[10px] font-black uppercase tracking-[0.6em] text-zinc-500 mt-4">Authorized Access Only — Secure Archive</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        {/* Sidebar / Profile Card */}
+        <div className="lg:col-span-4 space-y-6">
+          <GlassCard className="p-10 !rounded-[48px] border-white/10 bg-white/[0.03] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-[60px] rounded-full -translate-y-1/2 translate-x-1/2" />
+
+            <div className="flex flex-col items-center relative z-10">
+              <div className="relative group mb-8">
+                <div className="w-32 h-32 rounded-full border-4 border-cyan-500/20 p-1 bg-zinc-900 overflow-hidden">
+                  {user?.profileImage || formData.profileImage ? (
+                    <img src={formData.profileImage || user?.profileImage} className="w-full h-full object-cover rounded-full" alt="Profile" />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-4xl font-black text-zinc-600">
+                      {user?.name?.[0]}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="absolute bottom-0 right-0 p-3 bg-cyan-500 text-black rounded-2xl shadow-xl hover:scale-110 transition-transform"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+              </div>
+
+              <h2 className="text-2xl font-black tracking-tight text-white uppercase italic">{user?.name}</h2>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10B981]" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Collector Level: Elite</p>
+              </div>
+
+              <div className="w-full space-y-3 mt-10">
+                <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-4">
+                  <Mail className="w-4 h-4 text-cyan-500" />
+                  <div>
+                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Permanent Identification</p>
+                    <p className="text-xs font-bold text-white">{user?.email}</p>
+                  </div>
+                </div>
+                <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-4">
+                  <Smartphone className="w-4 h-4 text-blue-500" />
+                  <div>
+                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Tactical Contact</p>
+                    <p className="text-xs font-bold text-white">{user?.phone}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="mt-12 w-full flex items-center justify-center gap-4 p-5 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20 font-black text-[10px] tracking-[0.3em] uppercase hover:bg-rose-500 hover:text-white transition-all duration-500"
+              >
+                <LogOut className="w-4 h-4" /> TERMINATE SESSION
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="lg:col-span-8 space-y-10">
+          <GlassCard className="p-10 !rounded-[48px] border-white/10 bg-white/[0.03]">
+            <div className="flex justify-between items-center mb-10">
+              <div className="flex items-center gap-4">
+                <Edit3 className="w-6 h-6 text-cyan-500" />
+                <h3 className="text-2xl font-black tracking-tighter text-white uppercase italic">Archive Details</h3>
+              </div>
+              {!isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-500 transition-all"
+                >
+                  Edit Information
+                </button>
+              )}
+            </div>
+
+            {isEditing ? (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <LuxuryFloatingInput
+                    label="Full Identity"
+                    value={formData.name || ''}
+                    onChange={v => setFormData({ ...formData, name: v })}
+                    icon={<UserIcon className="w-4 h-4" />}
+                  />
+                  <LuxuryFloatingInput
+                    label="Archive Contact"
+                    value={formData.phone || ''}
+                    onChange={v => setFormData({ ...formData, phone: v })}
+                    icon={<Smartphone className="w-4 h-4" />}
+                  />
+                </div>
+                <LuxuryFloatingInput
+                  label="Profile Image Manifest (URL)"
+                  value={formData.profileImage || ''}
+                  onChange={v => setFormData({ ...formData, profileImage: v })}
+                  icon={<Camera className="w-4 h-4" />}
+                />
+                <LuxuryFloatingInput
+                  label="Mission Deployment Address"
+                  value={formData.address || ''}
+                  onChange={v => setFormData({ ...formData, address: v })}
+                  icon={<MapPin className="w-4 h-4" />}
+                />
+
+                <div className="flex gap-4">
+                  <PrimaryButton
+                    onClick={handleSave}
+                    isLoading={saveStatus === 'saving'}
+                    className="flex-1 h-16 !rounded-2xl text-[10px] tracking-[0.3em]"
+                  >
+                    {saveStatus === 'success' ? 'ARCHIVE UPDATED' : 'SAVE CHANGES'}
+                    {saveStatus === 'success' && <Check className="w-4 h-4 ml-3" />}
+                  </PrimaryButton>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-10 h-16 rounded-2xl bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-2">Full Identity</p>
+                    <p className="text-lg font-bold text-white uppercase tracking-tight">{user?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-2">Mission Coordinates</p>
+                    <p className="text-sm font-medium text-zinc-400 italic">
+                      {user?.address || 'No primary deployment coordinate registered.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-8 rounded-[32px] bg-cyan-500/5 border border-cyan-500/10 flex flex-col justify-center items-center text-center">
+                  <Package className="w-10 h-10 text-cyan-500 mb-4" />
+                  <p className="text-2xl font-black text-white">{userOrders.length}</p>
+                  <p className="text-[9px] font-black text-cyan-500/60 uppercase tracking-widest mt-1">Total Acquisitions</p>
+                </div>
+              </div>
+            )}
+          </GlassCard>
+
+          <GlassCard className="p-10 !rounded-[48px] border-white/10 bg-white/[0.03]">
+            <div className="flex items-center gap-4 mb-10">
+              <Package className="w-6 h-6 text-blue-500" />
+              <h3 className="text-2xl font-black tracking-tighter text-white uppercase italic">Order Manifest</h3>
+            </div>
+
+            <div className="space-y-4">
+              {userOrders.length > 0 ? userOrders.map((order) => (
+                <div key={order.id} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-white/[0.05] transition-all group">
+                  <div>
+                    <p className="text-[8px] text-zinc-600 font-black uppercase tracking-[0.3em]">SECURE ID: {order.id}</p>
+                    <p className="text-xl font-black text-white mt-1 uppercase italic tracking-tighter">৳{order.total.toLocaleString()}</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{order.items.length} Items</span>
+                      <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{new Date(order.createdAt).toLocaleDateString()}</span>
+                      {order.trackingNumber && (
+                        <>
+                          <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                          <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest">Tracking: {order.trackingNumber}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6 w-full md:w-auto">
+                    <span className={`px-6 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border ${order.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                      order.status === 'Shipped' ? 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' :
+                        'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                      }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'Delivered' ? 'bg-emerald-500' :
+                        order.status === 'Shipped' ? 'bg-cyan-500' : 'bg-amber-500'
+                        }`} />
+                      {order.status}
+                    </span>
+                    <button className="p-4 rounded-2xl bg-white/5 text-zinc-400 group-hover:bg-cyan-500 group-hover:text-black transition-all ml-auto">
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-center py-20 bg-white/[0.01] rounded-[32px] border border-white/5 border-dashed">
+                  <p className="text-zinc-600 font-bold italic uppercase tracking-widest text-[10px]">No acquisition records found in archive.</p>
+                  <button onClick={() => navigate('/shop')} className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-cyan-400 font-black uppercase tracking-widest text-[9px] mt-6 hover:bg-white hover:text-black transition-all">Start Collection</button>
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ArrowRight = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="9 5l7 7-7 7" />
+  </svg>
+);
+
