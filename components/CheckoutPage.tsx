@@ -105,32 +105,21 @@ export const CheckoutPage: React.FC = () => {
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
     email: user?.email || '',
-    phone: '', // Terminated retention as per protocol
+    phone: user?.phone || '',
     district: '',
     thana: '',
     address: '',
     paymentMethod: 'COD'
   });
 
-  // Identity Synchronization Protocol
+  // Identity Synchronization Protocol: Projecting archived identity markers to logistics form
   React.useEffect(() => {
     if (user) {
       setFormData(prev => ({
         ...prev,
-        fullName: user.name || prev.fullName,
-        email: user.email || prev.email
-      }));
-    }
-  }, [user]);
-
-  // Velocity Sync: Initialize form data when user identity is validated
-  React.useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        fullName: user.name || prev.fullName,
-        email: user.email || prev.email,
-        phone: (user.phone && user.phone !== 'Not provided') ? user.phone : prev.phone
+        fullName: prev.fullName || user.name || '',
+        email: prev.email || user.email || '',
+        phone: prev.phone || (user.phone && user.phone !== 'Not provided' ? user.phone : '')
       }));
     }
   }, [user]);

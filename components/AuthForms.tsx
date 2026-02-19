@@ -139,18 +139,8 @@ export const LoginForm: React.FC = () => {
         } else {
           const savedUsers = JSON.parse(localStorage.getItem('splaro-registered-users') || '[]');
 
-          // Identity Optimization: Archive only high-precision markers (Email, Password)
-          // Transient coordinates (Phone) terminated for browser security.
-          const archivalUser = {
-            id: newUser.id,
-            email: newUser.email,
-            password: newUser.password,
-            name: newUser.name,
-            role: newUser.role,
-            createdAt: newUser.createdAt
-          };
-
-          localStorage.setItem('splaro-registered-users', JSON.stringify([...savedUsers, archivalUser]));
+          // Identity Synchronization: Archive all precision markers (including Phone)
+          localStorage.setItem('splaro-registered-users', JSON.stringify([...savedUsers, newUser]));
         }
 
         setUser(newUser);

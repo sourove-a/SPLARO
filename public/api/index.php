@@ -222,7 +222,7 @@ if ($method === 'POST' && $action === 'signup') {
         $input['id'],
         $input['name'],
         $input['email'],
-        '', // Identity Optimization: Phone coordinates terminated for account registry
+        $input['phone'],
         $input['password'] ?? 'social_auth_sync',
         $input['role']
     ]);
