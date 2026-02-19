@@ -657,8 +657,9 @@ export const AdminPanel = () => {
                             <p className="text-[10px] text-zinc-500 font-mono">{order.phone}</p>
                           </td>
                           <td className="p-8">
-                            <p className="font-bold text-[11px] uppercase tracking-tighter">{order.district || 'N/A'}</p>
+                            <p className="font-bold text-[11px] uppercase tracking-tighter text-white">{order.district || 'N/A'}</p>
                             <p className="text-[10px] text-zinc-500 uppercase font-black">{order.thana || 'N/A'}</p>
+                            <p className="text-[9px] text-zinc-600 uppercase font-medium mt-1 truncate max-w-[150px]">{order.address}</p>
                           </td>
                           <td className="p-8">
                             <p className="font-black text-blue-500">৳{order.total.toLocaleString()}</p>

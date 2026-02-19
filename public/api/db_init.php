@@ -10,23 +10,34 @@ try {
     $db = get_db_connection();
     $sql = file_get_contents('schema.sql');
 
-    // Split SQL into individual queries (basic splitting by semicolon)
-    // Note: This is a simple parser, might need adjustment for complex triggers
-    $queries = explode(';', $sql);
-
     $success_count = 0;
     $error_count = 0;
 
+    // 1. RUN REGISTRY SCHEMA (CREATE TABLES)
+    $queries = explode(';', $sql);
     foreach ($queries as $query) {
         $query = trim($query);
         if (!empty($query)) {
-            try {
-                $db->exec($query);
-                $success_count++;
-            } catch (PDOException $e) {
-                // Log error but continue
-                $error_count++;
-            }
+            try { $db->exec($query); $success_count++; } catch (PDOException $e) { $error_count++; }
+        }
+    }
+
+    // 2. RUN ARCHIVAL MIGRATIONS (ADD MISSING COLUMNS TO EXISTING TABLES)
+    $migrations = [
+        "ALTER TABLE `orders` ADD COLUMN `user_id` varchar(50) DEFAULT NULL AFTER `id`",
+        "ALTER TABLE `orders` ADD COLUMN `district` varchar(100) DEFAULT NULL AFTER `phone`",
+        "ALTER TABLE `orders` ADD COLUMN `thana` varchar(100) DEFAULT NULL AFTER `district`",
+        "ALTER TABLE `site_settings` ADD COLUMN `smtp_settings` text DEFAULT NULL AFTER `logo_url`",
+        "ALTER TABLE `site_settings` ADD COLUMN `logistics_config` text DEFAULT NULL AFTER `smtp_settings`"
+    ];
+
+    foreach ($migrations as $m) {
+        try {
+            $db->exec($m);
+            $success_count++;
+        } catch (PDOException $e) {
+            // Likely column already exists
+            $error_count++;
         }
     }
 

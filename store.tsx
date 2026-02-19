@@ -668,13 +668,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       try {
-        await fetch(`${API_NODE}?action=update_settings`, {
+        const res = await fetch(`${API_NODE}?action=update_settings`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        alert('CONFIGURATION_ARCHIVED: Institutional manifest successfully synchronized.');
+        const result = await res.json();
+
+        if (result.status === 'success') {
+          alert('CONFIGURATION_ARCHIVED: Institutional manifest successfully synchronized.');
+        } else {
+          alert(`PROTOCOL_FAILURE: ${result.message || 'Unknown archival error.'}`);
+          console.error('SETTING_SYNC_ERROR:', result);
+        }
       } catch (e) {
+        alert('TERMINAL_CONNECTION_FAILURE: Could not reach the production sync node.');
         console.error('SETTING_SYNC_FAILURE:', e);
       }
     }

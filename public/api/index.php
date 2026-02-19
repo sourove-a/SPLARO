@@ -75,46 +75,51 @@ if ($method === 'POST' && $action === 'create_order') {
     }
 
     $invoice_body = "
-    <div style='background: #000; color: #fff; font-family: \"Inter\", sans-serif; padding: 60px; max-width: 800px; margin: auto; border: 1px solid #111; box-shadow: 0 50px 100px rgba(0,0,0,0.8); border-radius: 40px;'>
-        <!-- HEADER MANIFEST -->
-        <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 80px; border-bottom: 2px solid #00cfd5; padding-bottom: 40px;'>
+    <div style='background: #000; color: #fff; font-family: \"Inter\", sans-serif; padding: 100px 80px; max-width: 850px; margin: auto; border: 1px solid #111; box-shadow: 0 80px 150px rgba(0,0,0,0.95); border-radius: 60px; position: relative;'>
+        <!-- HEADER -->
+        <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 120px; border-bottom: 1px solid #1a1a1a; padding-bottom: 60px;'>
             <div>
-                <h1 style='letter-spacing: 25px; margin: 0; font-weight: 950; font-size: 42px; background: linear-gradient(135deg, #fff 0%, #333 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>SPLARO</h1>
-                <p style='font-size: 9px; color: #444; letter-spacing: 8px; margin-top: 15px; text-transform: uppercase; font-weight: 900;'>Luxury Institutional Archive &copy; SPL-2026</p>
+                <h1 style='letter-spacing: 25px; margin: 0; font-weight: 950; font-size: 52px; background: linear-gradient(180deg, #fff 0%, #444 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>SPLARO</h1>
+                <p style='font-size: 10px; color: #555; letter-spacing: 12px; margin-top: 25px; text-transform: uppercase; font-weight: 950;'>Institutional Luxury Heritage</p>
             </div>
             <div style='text-align: right;'>
-                <div style='background: #00cfd5; color: #000; padding: 8px 15px; border-radius: 8px; font-size: 10px; font-weight: 950; letter-spacing: 3px; display: inline-block; margin-bottom: 15px;'>ACQUISITION VERIFIED</div>
-                <p style='margin: 0; font-size: 12px; color: #555; font-family: monospace; letter-spacing: 1px;'>HASH: " . strtoupper(substr(md5($input['id']), 0, 16)) . "</p>
+                <div style='background: linear-gradient(90deg, #00cfd5, #008fa0); color: #000; padding: 15px 30px; border-radius: 20px; font-size: 11px; font-weight: 950; letter-spacing: 5px; display: inline-block; margin-bottom: 25px; box-shadow: 0 15px 40px rgba(0,207,213,0.3);'>VERIFIED ACQUISITION</div>
+                <p style='margin: 0; font-size: 12px; color: #333; font-family: monospace; letter-spacing: 3px;'>PROTOCOL: ENABLED</p>
             </div>
         </div>
         
-        <!-- REGIONAL COORDINATES -->
-        <div style='display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 60px; margin-bottom: 80px;'>
-            <div style='background: rgba(255,255,255,0.02); padding: 40px; border-radius: 30px; border: 1px solid #111;'>
-                <p style='margin: 0; font-size: 10px; color: #00cfd5; text-transform: uppercase; font-weight: 950; letter-spacing: 4px; mb: 20px;'>Recipient Identity</p>
-                <h2 style='margin: 20px 0 10px; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;'>{$input['customerName']}</h2>
-                <div style='height: 1px; width: 40px; background: #222; margin-bottom: 20px;'></div>
-                <p style='margin: 0; font-size: 14px; color: #888; line-height: 1.8; font-weight: 500;'>
-                    <strong style='color: #eee;'>Location:</strong> {$input['address']}<br>
-                    <strong style='color: #eee;'>Sector:</strong> {$input['thana']}, {$input['district']}<br>
-                    <strong style='color: #eee;'>Coordinate:</strong> {$input['phone']}
-                </p>
+        <!-- CLIENT & REGION -->
+        <div style='display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 100px; margin-bottom: 120px;'>
+            <div style='background: rgba(255,255,255,0.01); padding: 50px; border-radius: 40px; border: 1px solid #111;'>
+                <p style='margin: 0; font-size: 10px; color: #00cfd5; text-transform: uppercase; font-weight: 950; letter-spacing: 6px; margin-bottom: 35px;'>Collector Identity</p>
+                <h2 style='margin: 0 0 20px; font-size: 32px; font-weight: 950; color: #fff; letter-spacing: -1px;'>{$input['customerName']}</h2>
+                
+                <div style='margin-bottom: 35px;'>
+                    <p style='margin: 0 0 10px; font-size: 9px; color: #444; text-transform: uppercase; font-weight: 950; letter-spacing: 3px;'>Deployment Sector</p>
+                    <p style='margin: 0; font-size: 18px; color: #eee; font-weight: 500; line-height: 1.8;'>
+                        {$input['address']}<br>
+                        <span style='color: #00cfd5; font-weight: 950; font-size: 15px; letter-spacing: 1px;'>{$input['thana']} • {$input['district']}</span>
+                    </p>
+                </div>
+                <div>
+                    <p style='margin: 0 0 10px; font-size: 9px; color: #444; text-transform: uppercase; font-weight: 950; letter-spacing: 3px;'>Signal Coordinate</p>
+                    <p style='margin: 0; font-size: 18px; color: #eee; font-weight: 500;'>{$input['phone']}</p>
+                </div>
             </div>
-            <div style='text-align: right; padding-top: 20px;'>
-                <p style='margin: 0; font-size: 10px; color: #333; text-transform: uppercase; font-weight: 950; letter-spacing: 4px;'>Registry ID</p>
-                <h2 style='margin: 15px 0; font-size: 28px; font-weight: 900; color: #fff;'>#{$input['id']}</h2>
-                <p style='margin: 5px 0; font-size: 14px; color: #555; font-weight: 600;'>" . date('F d, Y | H:i') . "</p>
-                <div style='margin-top: 30px; display: inline-block; padding: 10px 20px; border: 1px solid #222; border-radius: 12px; font-size: 10px; color: #444; font-weight: 900; letter-spacing: 2px;'>STATUS: DEPLOYED</div>
+            <div style='text-align: right; padding-top: 40px;'>
+                <p style='margin: 0; font-size: 10px; color: #222; text-transform: uppercase; font-weight: 950; letter-spacing: 6px;'>Archive ID</p>
+                <h2 style='margin: 25px 0; font-size: 38px; font-weight: 950; color: #fff; letter-spacing: 4px;'>#{$input['id']}</h2>
+                <p style='margin: 10px 0; font-size: 16px; color: #444; font-weight: 800;'>" . date('F d, Y') . "</p>
             </div>
         </div>
 
-        <!-- ASSET MANIFEST -->
-        <table style='width: 100%; border-collapse: separate; border-spacing: 0 10px; margin-bottom: 80px;'>
+        <!-- ASSETS -->
+        <table style='width: 100%; border-collapse: separate; border-spacing: 0 20px; margin-bottom: 120px;'>
             <thead>
-                <tr style='font-size: 10px; text-transform: uppercase; letter-spacing: 3px;'>
-                    <th style='padding: 20px; text-align: left; color: #333; font-weight: 950;'>Institutional Asset</th>
-                    <th style='padding: 20px; text-align: center; color: #333; font-weight: 950;'>Count</th>
-                    <th style='padding: 20px; text-align: right; color: #333; font-weight: 950;'>Valuation</th>
+                <tr style='font-size: 11px; text-transform: uppercase; letter-spacing: 5px;'>
+                    <th style='padding: 20px; text-align: left; color: #222; font-weight: 950; border-bottom: 1px solid #111;'>Institutional Asset</th>
+                    <th style='padding: 20px; text-align: center; color: #222; font-weight: 950; border-bottom: 1px solid #111;'>Qty</th>
+                    <th style='padding: 20px; text-align: right; color: #222; font-weight: 950; border-bottom: 1px solid #111;'>Valuation</th>
                 </tr>
             </thead>
             <tbody>
@@ -122,35 +127,33 @@ if ($method === 'POST' && $action === 'create_order') {
             </tbody>
         </table>
 
-        <!-- VALUATION PROTOCOL -->
-        <div style='background: linear-gradient(135deg, #080808 0%, #000 100%); border: 2px solid #111; padding: 50px; border-radius: 35px; box-shadow: inset 0 0 50px rgba(0,207,213,0.02);'>
-            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;'>
-                <span style='font-size: 12px; color: #444; text-transform: uppercase; font-weight: 950; letter-spacing: 2px;'>Subtotal Manifest</span>
-                <span style='font-size: 18px; font-weight: 600; color: #888;'>৳" . number_format($input['total']) . "</span>
+        <!-- TOTALS -->
+        <div style='background: #050505; border: 1px solid #111; padding: 60px; border-radius: 45px; box-shadow: inset 0 0 100px rgba(0,207,213,0.02);'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px;'>
+                <span style='font-size: 14px; color: #333; text-transform: uppercase; font-weight: 950; letter-spacing: 4px;'>Registry Subtotal</span>
+                <span style='font-size: 22px; font-weight: 600; color: #555;'>৳" . number_format($input['total']) . "</span>
             </div>
-            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;'>
-                <span style='font-size: 12px; color: #444; text-transform: uppercase; font-weight: 950; letter-spacing: 2px;'>Logistics Fee</span>
-                <span style='font-size: 18px; font-weight: 600; color: #888;'>৳" . number_format($input['shippingFee'] ?? 0) . "</span>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px;'>
+                <span style='font-size: 14px; color: #333; text-transform: uppercase; font-weight: 950; letter-spacing: 4px;'>Logistics Manifest</span>
+                <span style='font-size: 22px; font-weight: 600; color: #555;'>৳" . number_format($input['shippingFee'] ?? 0) . "</span>
             </div>
-            <div style='height: 1px; background: #111; margin: 30px 0;'></div>
+            <div style='height: 1px; background: #111; margin: 40px 0;'></div>
             <div style='display: flex; justify-content: space-between; align-items: center;'>
-                <span style='font-size: 16px; color: #00cfd5; text-transform: uppercase; font-weight: 950; letter-spacing: 5px;'>Net Protocol Amount</span>
-                <span style='font-size: 42px; font-weight: 950; color: #fff; letter-spacing: -1px;'>৳" . number_format($input['total']) . "</span>
+                <span style='font-size: 18px; color: #00cfd5; text-transform: uppercase; font-weight: 950; letter-spacing: 8px;'>Total Valuation</span>
+                <span style='font-size: 56px; font-weight: 950; color: #fff; letter-spacing: -3px; text-shadow: 0 0 40px rgba(0,207,213,0.1);'>৳" . number_format($input['total']) . "</span>
             </div>
         </div>
 
-        <!-- AUTHENTICITY SIGNATURE -->
-        <div style='margin-top: 100px; text-align: center;'>
-            <div style='margin-bottom: 40px;'>
-                 <div style='font-family: \"Brush Script MT\", cursive; font-size: 48px; color: rgba(255,255,255,0.05); margin-bottom: -30px;'>Splaro Elite</div>
-                <p style='font-family: \"Georgia\", serif; font-style: italic; font-size: 32px; color: #eee; margin: 0; position: relative;'>Archivist Signature</p>
-                <div style='width: 180px; height: 1px; background: linear-gradient(to right, transparent, #00cfd5, transparent); margin: 15px auto;'></div>
-                <p style='font-size: 9px; color: #444; text-transform: uppercase; letter-spacing: 5px; font-weight: 900;'>Chief Logistics Authorization</p>
+        <!-- AUTHENTICITY -->
+        <div style='margin-top: 150px; text-align: center;'>
+            <div style='margin-bottom: 60px;'>
+                <p style='font-family: \"Georgia\", serif; font-style: italic; font-size: 42px; color: #eee; margin: 0;'>Chief Archivist</p>
+                <div style='width: 300px; height: 1px; background: linear-gradient(to right, transparent, #00cfd5, transparent); margin: 25px auto;'></div>
+                <p style='font-size: 11px; color: #333; text-transform: uppercase; letter-spacing: 10px; font-weight: 950;'>Authorization Node #2026</p>
             </div>
-            <p style='font-size: 11px; color: #222; text-transform: uppercase; letter-spacing: 2px; line-height: 2; font-weight: 800;'>
-                This is a digitally encrypted institutional manifest.<br>
-                Unauthorized duplication is prohibited by protocol.<br>
-                &copy; " . date('Y') . " SPLARO LUXURY BOUTIQUE. ALL RIGHTS RESERVED.
+            <p style='font-size: 11px; color: #222; text-transform: uppercase; letter-spacing: 4px; line-height: 2.5; font-weight: 950;'>
+                Authenticated institutional manifest. Unauthorized duplication is prohibited.<br>
+                &copy; 2026 SPLARO LUXURY BOUTIQUE. ALL RIGHTS RESERVED.
             </p>
         </div>
     </div>";
@@ -296,37 +299,59 @@ if ($method === 'POST' && $action === 'login') {
 if ($method === 'POST' && $action === 'update_settings') {
     $input = json_decode(file_get_contents('php://input'), true);
     
-    // Update basic settings
-    $stmt = $db->prepare("UPDATE site_settings SET 
-        site_name = ?, 
-        support_email = ?, 
-        support_phone = ?, 
-        whatsapp_number = ?, 
-        facebook_link = ?, 
-        instagram_link = ?, 
-        maintenance_mode = ?,
-        smtp_settings = ?,
-        logistics_config = ?
-        WHERE id = 1");
-        
-    $stmt->execute([
-        $input['siteName'] ?? 'SPLARO',
-        $input['supportEmail'] ?? 'info@splaro.co',
-        $input['supportPhone'] ?? '',
-        $input['whatsappNumber'] ?? '',
-        $input['facebookLink'] ?? '',
-        $input['instagramLink'] ?? '',
-        isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : 0,
-        json_encode($input['smtpSettings'] ?? []),
-        json_encode($input['logisticsConfig'] ?? [])
-    ]);
+    try {
+        // Update basic settings
+        $stmt = $db->prepare("UPDATE site_settings SET 
+            site_name = ?, 
+            support_email = ?, 
+            support_phone = ?, 
+            whatsapp_number = ?, 
+            facebook_link = ?, 
+            instagram_link = ?, 
+            maintenance_mode = ?,
+            smtp_settings = ?,
+            logistics_config = ?
+            WHERE id = 1");
+            
+        $stmt->execute([
+            $input['siteName'] ?? 'SPLARO',
+            $input['supportEmail'] ?? 'info@splaro.co',
+            $input['supportPhone'] ?? '',
+            $input['whatsappNumber'] ?? '',
+            $input['facebookLink'] ?? '',
+            $input['instagramLink'] ?? '',
+            isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : 0,
+            json_encode($input['smtpSettings'] ?? []),
+            json_encode($input['logisticsConfig'] ?? [])
+        ]);
 
-    // Security Protocol: Log the system update
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-       ->execute(['SYSTEM_OVERRIDE', "Institutional configuration manifest was modified by the Chief Archivist.", $ip]);
+        // Security Protocol: Log the system update
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+           ->execute(['SYSTEM_OVERRIDE', "Institutional configuration manifest was modified by the Chief Archivist.", $ip]);
 
-    echo json_encode(["status" => "success", "message" => "CONFIGURATION_ARCHIVED"]);
+        echo json_encode(["status" => "success", "message" => "CONFIGURATION_ARCHIVED"]);
+    } catch (PDOException $e) {
+        echo json_encode(["status" => "error", "message" => "PROTOCOL_ERROR: " . $e->getMessage()]);
+    }
+    exit;
+}
+
+// 5.3 IDENTITY ERASURE PROTOCOL
+if ($method === 'POST' && $action === 'delete_user') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (isset($input['id'])) {
+        $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->execute([$input['id']]);
+        sync_to_sheets('DELETE_USER', $input);
+
+        // Security Protocol: Log the identity termination
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+           ->execute(['IDENTITY_TERMINATION', "Identity record " . $input['id'] . " was purged from registry.", $ip]);
+
+        echo json_encode(["status" => "success"]);
+    }
     exit;
 }
 
