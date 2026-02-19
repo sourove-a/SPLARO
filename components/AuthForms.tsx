@@ -199,7 +199,7 @@ export const LoginForm: React.FC = () => {
     if (window.google) {
       // @ts-ignore
       google.accounts.id.initialize({
-        client_id: '915494002633-unh9at0pqc16h9e9vpg1f9pqiih89t9j.apps.googleusercontent.com',
+        client_id: '779989369894-avivmlct6nk0luien08fo4rl1gpn74c5.apps.googleusercontent.com',
         callback: handleGoogleSuccess
       });
     }
