@@ -50,13 +50,17 @@ if ($method === 'POST' && $action === 'create_order') {
         $input['createdAt']
     ]);
 
-    // TRIGGER EMAIL NOTIFICATION
+    // TRIGGER EMAIL NOTIFICATION (ORDER)
     $to = SMTP_USER;
     $subject = "NEW ACQUISITION ALERT: " . $input['id'];
     $message = "Institutional Order Received.\n\nCollector: " . $input['customerName'] . "\nValue: ৳" . $input['total'] . "\nID: " . $input['id'];
-    $headers = "From: " . SMTP_USER;
+    $headers = "From: SPLARO HQ <" . SMTP_USER . ">\r\n";
+    $headers .= "Reply-To: " . SMTP_USER . "\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
     
-    mail($to, $subject, $message, $headers);
+    @mail($to, $subject, $message, $headers);
+    @mail($input['customerEmail'], "ORDER CONFIRMED: " . $input['id'], "Hello " . $input['customerName'] . ",\n\nYour order has been archived and is being prepared for deployment.\n\nTotal: ৳" . $input['total'], $headers);
 
     echo json_encode(["status" => "success", "message" => "ORDER_PERSISTED_IN_SQL"]);
     exit;
@@ -100,6 +104,14 @@ if ($method === 'POST' && $action === 'signup') {
         $input['password'] ?? 'social_auth_sync',
         $input['role']
     ]);
+
+    // TRIGGER EMAIL NOTIFICATION (SIGNUP)
+    $to = SMTP_USER;
+    $subject = "NEW IDENTITY ARCHIVED: " . $input['name'];
+    $message = "A new client has joined the Splaro Archive.\n\nName: " . $input['name'] . "\nEmail: " . $input['email'];
+    $headers = "From: SPLARO HQ <" . SMTP_USER . ">\r\n";
+    
+    @mail($to, $subject, $message, $headers);
 
     echo json_encode(["status" => "success", "user" => $input]);
     exit;

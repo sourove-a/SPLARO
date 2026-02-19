@@ -18,7 +18,7 @@ define('DB_PASS', 'Sourove017@#%&*-+()');
 // 2. SMTP COMMAND CENTER
 define('SMTP_HOST', 'smtp.hostinger.com');
 define('SMTP_PORT', 465);
-define('SMTP_USER', 'admin@splaro.co');
+define('SMTP_USER', 'info@splaro.co');
 define('SMTP_PASS', 'Sourove017@'); 
 
 /**
