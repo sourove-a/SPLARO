@@ -502,28 +502,7 @@ const AppContent = () => {
 
       {/* Global Controls & Redesigned WhatsApp Orb */}
       {view !== View.ORDER_SUCCESS && (
-        <div className="fixed bottom-48 right-8 lg:bottom-24 lg:right-16 z-[110] flex flex-col gap-6 items-end">
-          {/* Support Intelligence Beacon */}
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, x: 20 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              className="mb-2"
-            >
-              <div className="bg-white/5 backdrop-blur-2xl border border-white/10 px-4 py-3 rounded-[18px] shadow-2xl relative">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]" />
-                    <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping opacity-40" />
-                  </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">Advisory Online</span>
-                </div>
-
-                <div className="absolute top-1/2 -right-2 -translate-y-1/2 w-4 h-4 bg-white/5 border-t border-r border-white/10 rotate-45" />
-              </div>
-            </motion.div>
-          </AnimatePresence>
-
+        <div className="fixed bottom-32 right-8 lg:bottom-24 lg:right-16 z-[110] flex flex-col gap-6 items-end">
           <motion.a
             whileHover={{ scale: 1.1, y: -8 }}
             whileTap={{ scale: 0.9 }}

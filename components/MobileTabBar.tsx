@@ -29,8 +29,6 @@ export const MobileTabBar: React.FC = () => {
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },
     { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
-    { icon: Footprints, view: View.SHOP, label: 'SHOES', category: 'Shoes' },
-    { icon: Briefcase, view: View.SHOP, label: 'BAGS', category: 'Bags' },
     { icon: Search, view: View.SHOP, label: 'DISCOVER' }
   ];
 

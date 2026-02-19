@@ -201,7 +201,7 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="flex-none flex justify-center items-center cursor-pointer px-10 pointer-events-auto" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex justify-center items-center cursor-pointer pointer-events-auto" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
