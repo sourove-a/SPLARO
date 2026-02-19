@@ -50,6 +50,9 @@ if ($method === 'POST' && $action === 'create_order') {
         $input['createdAt']
     ]);
 
+    // SYNC TO GOOGLE SHEETS
+    sync_to_sheets('ORDER', $input);
+
     // TRIGGER EMAIL NOTIFICATION (ORDER)
     $to = SMTP_USER;
     $subject = "NEW ACQUISITION ALERT: " . $input['id'];
@@ -105,6 +108,9 @@ if ($method === 'POST' && $action === 'signup') {
         $input['role']
     ]);
 
+    // SYNC TO GOOGLE SHEETS
+    sync_to_sheets('SIGNUP', $input);
+
     // TRIGGER EMAIL NOTIFICATION (SIGNUP)
     $to = SMTP_USER;
     $subject = "NEW IDENTITY ARCHIVED: " . $input['name'];
@@ -131,6 +137,32 @@ if ($method === 'POST' && $action === 'login') {
         echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
     }
     exit;
+}
+
+/**
+ * INSTITUTIONAL GOOGLE SHEETS SYNC PROTOCOL
+ */
+function sync_to_sheets($type, $data) {
+    // This URL will be provided by the user after setting up Apps Script
+    $webhook_url = "https://script.google.com/macros/s/AKfycbyR_PLACEHOLDER/exec"; 
+    
+    $payload = [
+        'type' => $type,
+        'timestamp' => date('Y-m-d H:i:s'),
+        'data' => $data
+    ];
+
+    $options = [
+        'http' => [
+            'header'  => "Content-type: application/json\r\n",
+            'method'  => 'POST',
+            'content' => json_encode($payload),
+            'timeout' => 5
+        ],
+    ];
+
+    $context  = stream_context_create($options);
+    @file_get_contents($webhook_url, false, $context);
 }
 
 http_response_code(404);
