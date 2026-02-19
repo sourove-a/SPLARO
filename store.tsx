@@ -328,6 +328,7 @@ interface AppContextType {
   setSiteSettings: (s: SiteSettings) => void;
   dbStatus: 'CONNECTED' | 'LOCAL' | 'OFFLINE';
   logs: any[];
+  trafficData: any[];
   initializeSheets: () => Promise<void>;
 }
 
@@ -370,6 +371,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [slides, setSlides] = useState<any[]>(loadFromStorage('splaro-slides', INITIAL_SLIDES));
   const [logs, setLogs] = useState<any[]>([]);
+  const [trafficData, setTrafficData] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [smtpSettings, setSmtpSettings] = useState(loadFromStorage('splaro-smtp', { host: 'smtp.hostinger.com', port: '465', user: 'info@splaro.co' }));
   const [logisticsConfig, setLogisticsConfig] = useState(loadFromStorage('splaro-logistics', { metro: 90, regional: 140 }));
@@ -448,12 +450,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (result.status === 'success') {
             setDbStatus('CONNECTED');
             if (result.data.products?.length > 0) setProducts(result.data.products);
+            if (result.data.logs?.length > 0) setLogs(result.data.logs);
+            if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
             if (result.data.orders?.length > 0) {
               const mappedOrders = result.data.orders.map((o: any) => ({
                 ...o,
+                userId: o.user_id,
                 customerName: o.customer_name,
                 customerEmail: o.customer_email,
-                items: JSON.parse(o.items),
+                items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
                 createdAt: o.created_at,
                 shippingFee: o.shipping_fee || 120,
               }));
@@ -476,7 +481,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [IS_PROD]);
 
+  // LIVE HEARTBEAT PROTOCOL: PROJECTING COLLECTOR COORDINATES
+  useEffect(() => {
+    if (!IS_PROD) return;
 
+    let sessionId = localStorage.getItem('splaro-session-id');
+    if (!sessionId) {
+      sessionId = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('splaro-session-id', sessionId);
+    }
+
+    const sendHeartbeat = async () => {
+      try {
+        await fetch(`${API_NODE}?action=heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            userId: user?.id,
+            path: window.location.pathname
+          })
+        });
+      } catch (e) {
+        console.error('HEARTBEAT_FAILURE: Lost connection to archival node.');
+      }
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000); // 30s Protocol
+    return () => clearInterval(interval);
+  }, [IS_PROD, user, window.location.pathname]);
 
   const addOrUpdateProduct = (p: Product) => {
     setProducts(prev => {
@@ -618,8 +652,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isSearchOpen, setIsSearchOpen,
     siteSettings, setSiteSettings,
     updateOrderMetadata,
-    dbStatus, initializeSheets, logs
-  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs]);
+    dbStatus, initializeSheets, logs, trafficData
+  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData]);
 
 
 

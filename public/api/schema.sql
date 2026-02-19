@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `products` (
 -- 2. SHIPMENT MANIFEST (ORDERS)
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` varchar(50) NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
   `customer_name` varchar(255) NOT NULL,
   `customer_email` varchar(255) NOT NULL,
   `phone` varchar(50) NOT NULL,
@@ -68,6 +69,19 @@ CREATE TABLE IF NOT EXISTS `system_logs` (
   `ip_address` varchar(45) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. COLLECTOR TRAFFIC HEARTBEAT
+CREATE TABLE IF NOT EXISTS `traffic_metrics` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `session_id` varchar(100) NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `path` varchar(255) DEFAULT '/',
+  `user_agent` text DEFAULT NULL,
+  `last_active` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `session_id` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- INITIALIZE SETTINGS & ADMIN

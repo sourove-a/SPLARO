@@ -24,6 +24,7 @@ if ($method === 'GET' && $action === 'sync') {
         'users'    => $db->query("SELECT * FROM users")->fetchAll(),
         'settings' => $db->query("SELECT * FROM site_settings LIMIT 1")->fetch(),
         'logs'     => $db->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll(),
+        'traffic'  => $db->query("SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC")->fetchAll(),
     ];
     echo json_encode(["status" => "success", "data" => $data]);
     exit;
@@ -38,17 +39,17 @@ if ($method === 'POST' && $action === 'create_order') {
         exit;
     }
 
-    $stmt = $db->prepare("INSERT INTO orders (id, customer_name, customer_email, phone, address, items, total, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, address, items, total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $input['id'],
+        $input['userId'] ?? null,
         $input['customerName'],
         $input['customerEmail'],
         $input['phone'],
         $input['address'],
         json_encode($input['items']),
         $input['total'],
-        $input['status'],
-        $input['createdAt']
+        $input['status']
     ]);
 
     // SYNC TO GOOGLE SHEETS
@@ -288,6 +289,34 @@ if ($method === 'POST' && $action === 'delete_user') {
 if ($method === 'POST' && $action === 'initialize_sheets') {
     sync_to_sheets('INIT', ["message" => "INITIALIZING_RECORDS"]);
     echo json_encode(["status" => "success", "message" => "REGISTRY_INITIALIZED"]);
+    exit;
+}
+
+// 7. COLLECTOR HEARTBEAT PROTOCOL
+if ($method === 'POST' && $action === 'heartbeat') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!isset($input['sessionId'])) {
+        echo json_encode(["status" => "error", "message" => "MISSING_IDENTITY"]);
+        exit;
+    }
+
+    $session_id = $input['sessionId'];
+    $user_id = $input['userId'] ?? null;
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $path = $input['path'] ?? '/';
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+
+    $stmt = $db->prepare("INSERT INTO traffic_metrics (session_id, user_id, ip_address, path, user_agent) 
+                          VALUES (?, ?, ?, ?, ?) 
+                          ON DUPLICATE KEY UPDATE 
+                          user_id = VALUES(user_id), 
+                          ip_address = VALUES(ip_address), 
+                          path = VALUES(path), 
+                          user_agent = VALUES(user_agent),
+                          last_active = CURRENT_TIMESTAMP");
+    $stmt->execute([$session_id, $user_id, $ip, $path, $user_agent]);
+
+    echo json_encode(["status" => "success"]);
     exit;
 }
 
