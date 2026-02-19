@@ -41,6 +41,15 @@ try {
         }
     }
 
+    // 3. RUN IDENTITY INITIALIZATION (DEFAULT ADMIN)
+    $stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE role = 'ADMIN' OR email = 'admin@splaro.co'");
+    $stmt->execute();
+    if ($stmt->fetchColumn() == 0) {
+        $db->prepare("INSERT INTO users (id, name, email, phone, password, role) VALUES (?, ?, ?, ?, ?, ?)")
+           ->execute(['admin_chief', 'Sourove Admin', 'admin@splaro.co', '01700000000', 'Sourove017@#%&*-+()', 'ADMIN']);
+        $success_count++;
+    }
+
     echo json_encode([
         "status" => "success",
         "message" => "DATABASE_INITIALIZATION_COMPLETE",

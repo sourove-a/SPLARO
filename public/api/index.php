@@ -271,6 +271,53 @@ if ($method === 'POST' && $action === 'signup') {
     exit;
 }
 
+// 5.1 PASSWORD RECOVERY PROTOCOL
+if ($method === 'POST' && $action === 'forgot_password') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $email = $input['email'];
+    
+    $stmt = $db->prepare("SELECT * FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+    
+    if ($user) {
+        $otp = rand(100000, 999999);
+        
+        $subject = "PASSWORD RECOVERY: Identity Verification Code";
+        $message = "Your Splaro Identity Verification Code is: " . $otp . "\n\nIf you did not request this, please ignore this manifest.";
+        
+        // Use SMTP_USER from config.php for headers
+        $from = "SPLARO SECURITY <" . SMTP_USER . ">";
+        $headers = "From: " . $from . "\r\n";
+        $headers .= "Reply-To: " . SMTP_USER . "\r\n";
+        $headers .= "X-Mailer: PHP/" . phpversion();
+        
+        $success = @mail($email, $subject, $message, $headers);
+        
+        if ($success) {
+            echo json_encode(["status" => "success", "message" => "RECOVERY_CODE_DISPATCHED"]);
+        } else {
+            echo json_encode(["status" => "error", "message" => "SIGNAL_DISPATCH_FAILURE: Server mail rejection."]);
+        }
+    } else {
+        echo json_encode(["status" => "error", "message" => "IDENTITY_NOT_FOUND"]);
+    }
+    exit;
+}
+
+// 5.2 COMMUNICATION DIAGNOSTICS
+if ($method === 'GET' && $action === 'test_email') {
+    $to = $_GET['email'] ?? SMTP_USER;
+    $subject = "SIGNAL TEST: Institutional Handshake";
+    $message = "Universal Splaro diagnostic signal confirmed. Handshake successful.";
+    $from = "SPLARO HQ <" . SMTP_USER . ">";
+    $headers = "From: " . $from . "\r\n";
+    
+    $success = @mail($to, $subject, $message, $headers);
+    echo json_encode(["status" => $success ? "success" : "error", "message" => $success ? "SIGNAL_SENT" : "SIGNAL_FAILED"]);
+    exit;
+}
+
 // 5. IDENTITY VALIDATION (LOGIN)
 if ($method === 'POST' && $action === 'login') {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -419,7 +466,7 @@ if ($method === 'POST' && $action === 'heartbeat') {
  */
 function sync_to_sheets($type, $data) {
     // Updated Final Webhook URL
-    $webhook_url = "https://script.google.com/macros/s/AKfycbyiWVuxn3OLyaTCz8EwIaxdByxKJFHP2yjPwvuXARWckbY5xBBymeIOWOcy0STAQgvd1Q/exec"; 
+    $webhook_url = "https://script.google.com/macros/s/AKfycbyZH_H_Sma1J4007WpX8sSrW19Q8UhYKZUd108OV62Y4DIOQ6OTakFEpIxKfQNI9YAS/exec"; 
     
     $payload = [
         'type' => $type,

@@ -151,6 +151,25 @@ export const LoginForm: React.FC = () => {
         setStatus('error');
         setTimeout(() => setStatus('idle'), 3000);
       }
+    } else if (authMode === 'forgot') {
+      try {
+        const res = await fetch(`${API_NODE}?action=forgot_password`, {
+          method: 'POST',
+          body: JSON.stringify({ email: formData.identifier })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+          setStatus('success');
+          alert('RECOVERY_SIGNAL: An institutional verification code has been dispatched to your email.');
+          setAuthMode('login');
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (e) {
+        setErrors({ identifier: 'Identity not found in the archive' });
+        setStatus('error');
+        setTimeout(() => setStatus('idle'), 3000);
+      }
     }
   };  // Google Identity Payload Decoder
   const decodeJwt = (token: string) => {
