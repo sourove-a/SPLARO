@@ -326,6 +326,7 @@ interface AppContextType {
   setIsSearchOpen: (b: boolean) => void;
   siteSettings: SiteSettings;
   setSiteSettings: (s: SiteSettings) => void;
+  updateSettings: (data: Partial<SiteSettings> & { smtpSettings?: any, logisticsConfig?: any }) => Promise<void>;
   dbStatus: 'CONNECTED' | 'LOCAL' | 'OFFLINE';
   logs: any[];
   trafficData: any[];
@@ -458,6 +459,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 userId: o.user_id,
                 customerName: o.customer_name,
                 customerEmail: o.customer_email,
+                district: o.district,
+                thana: o.thana,
                 items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
                 createdAt: o.created_at,
                 shippingFee: o.shipping_fee || 120,
@@ -465,7 +468,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setOrders(mappedOrders);
             }
             if (result.data.users?.length > 0) setUsers(result.data.users);
-            if (result.data.settings) setSiteSettings(result.data.settings);
+            if (result.data.settings) {
+              const s = result.data.settings;
+              setSiteSettings({
+                siteName: s.site_name,
+                maintenanceMode: s.maintenance_mode === 1,
+                supportEmail: s.support_email,
+                supportPhone: s.support_phone,
+                whatsappNumber: s.whatsapp_number,
+                facebookLink: s.facebook_link,
+                instagramLink: s.instagram_link,
+                logoUrl: s.logo_url
+              });
+              if (s.smtp_settings) setSmtpSettings(s.smtp_settings);
+              if (s.logistics_config) setLogisticsConfig(s.logistics_config);
+            }
             if (result.data.logs) setLogs(result.data.logs);
           } else {
             setDbStatus('LOCAL');
@@ -579,8 +596,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateOrderMetadata = (orderId: string, data: { trackingNumber?: string; adminNotes?: string }) => {
+  const updateOrderMetadata = async (orderId: string, data: { trackingNumber?: string; adminNotes?: string }) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...data } : o));
+
+    if (IS_PROD) {
+      try {
+        await fetch(`${API_NODE}?action=update_order_metadata`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: orderId, ...data })
+        });
+      } catch (e) {
+        console.error('METADATA_SYNC_FAILURE:', e);
+      }
+    }
   };
 
   const addToCart = (item: any) => {
@@ -629,6 +658,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
   };
 
+  const updateSettings = async (data: any) => {
+    if (IS_PROD) {
+      const payload = {
+        ...siteSettings,
+        smtpSettings,
+        logisticsConfig,
+        ...data
+      };
+
+      try {
+        await fetch(`${API_NODE}?action=update_settings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        alert('CONFIGURATION_ARCHIVED: Institutional manifest successfully synchronized.');
+      } catch (e) {
+        console.error('SETTING_SYNC_FAILURE:', e);
+      }
+    }
+  };
+
 
   const initializeSheets = async () => {
     if (IS_PROD) {
@@ -650,7 +701,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
     searchQuery, setSearchQuery,
     isSearchOpen, setIsSearchOpen,
-    siteSettings, setSiteSettings,
+    siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata,
     dbStatus, initializeSheets, logs, trafficData
   }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData]);

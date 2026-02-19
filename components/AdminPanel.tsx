@@ -388,7 +388,8 @@ export const AdminPanel = () => {
     addOrUpdateProduct, deleteProduct, discounts,
     addDiscount, toggleDiscount, deleteDiscount,
     slides, setSlides, smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
-    siteSettings, setSiteSettings, updateOrderMetadata, dbStatus, initializeSheets, logs, trafficData
+    siteSettings, setSiteSettings, updateSettings,
+    updateOrderMetadata, dbStatus, initializeSheets, logs, trafficData
   } = useApp();
 
 
@@ -641,6 +642,7 @@ export const AdminPanel = () => {
                       <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                         <th className="p-8">ORDER ID</th>
                         <th className="p-8">CLIENT</th>
+                        <th className="p-8">LOCATION</th>
                         <th className="p-8">FISCAL VALUE</th>
                         <th className="p-8">STATUS PROTOCOL</th>
                         <th className="p-8">OPERATIONS</th>
@@ -653,6 +655,10 @@ export const AdminPanel = () => {
                           <td className="p-8">
                             <p className="font-bold">{order.customerName}</p>
                             <p className="text-[10px] text-zinc-500 font-mono">{order.phone}</p>
+                          </td>
+                          <td className="p-8">
+                            <p className="font-bold text-[11px] uppercase tracking-tighter">{order.district || 'N/A'}</p>
+                            <p className="text-[10px] text-zinc-500 uppercase font-black">{order.thana || 'N/A'}</p>
                           </td>
                           <td className="p-8">
                             <p className="font-black text-blue-500">৳{order.total.toLocaleString()}</p>
@@ -1111,6 +1117,7 @@ export const AdminPanel = () => {
                       />
                     </div>
                   </div>
+                  <PrimaryButton className="mt-10 w-full rounded-2xl h-16 text-[10px]" onClick={() => updateSettings(siteSettings)}>SAVE INSTITUTIONAL PROFILE</PrimaryButton>
                 </GlassCard>
               </div>
 
@@ -1128,7 +1135,7 @@ export const AdminPanel = () => {
                     </div>
                     <LuxuryFloatingInput label="Archive Email Account" value={smtpSettings.user} onChange={v => setSmtpSettings({ ...smtpSettings, user: v })} />
                   </div>
-                  <PrimaryButton className="mt-10 w-full" onClick={() => alert('PROTOCOL SYNC: SMTP handshake successful via Hostinger.')}>Update Mail Server</PrimaryButton>
+                  <PrimaryButton className="mt-10 w-full" onClick={() => updateSettings({ smtpSettings })}>Update Mail Server</PrimaryButton>
 
                   <div className="mt-8 p-6 bg-blue-600/5 rounded-2xl border border-blue-500/10">
                     <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -1173,7 +1180,7 @@ export const AdminPanel = () => {
                       </div>
                     </div>
                   </div>
-                  <PrimaryButton className="mt-12 w-full py-6" onClick={() => alert('PROTOCOL OVERRIDE: Logistics pricing manifests updated across all terminals.')}>COMMIT OVERRIDE</PrimaryButton>
+                  <PrimaryButton className="mt-12 w-full py-6" onClick={() => updateSettings({ logisticsConfig })}>COMMIT OVERRIDE</PrimaryButton>
                 </GlassCard>
               </div>
             </motion.div>
@@ -1511,9 +1518,9 @@ export const AdminPanel = () => {
                         <MapPin className="w-6 h-6 text-blue-500 mt-2 shrink-0" />
                         <div>
                           <p className="text-xl font-bold leading-relaxed">{selectedOrder.address}</p>
-                          <div className="mt-4 flex flex-wrap gap-3">
-                            <span className="px-4 py-2 bg-white/5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">{selectedOrder.thana}</span>
-                            <span className="px-4 py-2 bg-blue-600/20 text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-500/20">{selectedOrder.district}</span>
+                          <div className="flex gap-3 mt-4">
+                            <span className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
+                            <span className="px-4 py-1.5 bg-zinc-800 border border-white/5 text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.thana}</span>
                           </div>
                         </div>
                       </div>

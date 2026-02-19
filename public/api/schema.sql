@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `customer_name` varchar(255) NOT NULL,
   `customer_email` varchar(255) NOT NULL,
   `phone` varchar(50) NOT NULL,
+  `district` varchar(100) DEFAULT NULL,
+  `thana` varchar(100) DEFAULT NULL,
   `address` text NOT NULL,
   `items` longtext NOT NULL,
   `total` int(11) NOT NULL,
@@ -57,6 +59,8 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   `facebook_link` varchar(255) DEFAULT NULL,
   `instagram_link` varchar(255) DEFAULT NULL,
   `logo_url` text DEFAULT NULL,
+  `smtp_settings` text DEFAULT NULL,
+  `logistics_config` text DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
