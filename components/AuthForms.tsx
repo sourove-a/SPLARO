@@ -101,7 +101,7 @@ export const LoginForm: React.FC = () => {
           }
         } else {
           // Local Admin/Dev Bypass
-          const isAdmin = (formData.identifier === 'admin@splaro.co' && (formData.password === 'ADMIN_SPLARO_2026' || formData.password === 'Sourove017@'));
+          const isAdmin = (formData.identifier === 'admin@splaro.co' && (formData.password === 'Sourove017@#%&*-+()'));
           if (isAdmin) {
             const adminUser = { id: 'admin', name: 'Chief Admin', email: 'admin@splaro.co', phone: '01700000000', role: 'ADMIN', createdAt: new Date().toISOString() };
             setUser(adminUser);
