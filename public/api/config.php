@@ -19,7 +19,7 @@ define('DB_PASS', 'Sourove017@#%&*-+()');
 define('SMTP_HOST', 'smtp.hostinger.com');
 define('SMTP_PORT', 465);
 define('SMTP_USER', 'info@splaro.co');
-define('SMTP_PASS', 'Sourove017@'); 
+define('SMTP_PASS', 'Sourove017@#%&*-+()'); 
 
 /**
  * Establish Security Handshake with MySQL Database
