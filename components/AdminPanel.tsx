@@ -388,7 +388,7 @@ export const AdminPanel = () => {
     addOrUpdateProduct, deleteProduct, discounts,
     addDiscount, toggleDiscount, deleteDiscount,
     slides, setSlides, smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
-    siteSettings, setSiteSettings, updateOrderMetadata, dbStatus, initializeSheets
+    siteSettings, setSiteSettings, updateOrderMetadata, dbStatus, initializeSheets, logs
   } = useApp();
 
 
@@ -1281,26 +1281,26 @@ export const AdminPanel = () => {
                 <div className="xl:col-span-2 space-y-6">
                   <h3 className="text-2xl font-black uppercase italic">Real-Time Event Stream</h3>
                   <div className="space-y-4">
-                    {[
-                      ...orders.slice(0, 3).map(o => ({ event: 'NEW_ACQUISITION', status: 'VERIFIED', time: 'LIVE', target: `Order #${o.id}` })),
-                      ...users.slice(0, 3).map(u => ({ event: 'IDENTITY_ARCHIVED', status: 'SUCCESS', time: 'MANIFEST', target: u.name })),
-                      { event: 'SQL_HANDSHAKE', status: dbStatus, time: 'CURRENT', target: 'Hostinger Matrix' },
-                      { event: 'SMTP_HANDSHAKE', status: 'STABLE', time: 'ACTIVE', target: 'Mail Server' }
-                    ].map((log, i) => (
+                    {logs.length > 0 ? logs.map((log, i) => (
                       <div key={i} className="flex justify-between items-center p-6 liquid-glass border border-white/5 rounded-2xl group hover:border-blue-500/30 transition-all">
                         <div className="flex items-center gap-6">
-                          <div className={`w-2 h-2 rounded-full ${log.status === 'SUCCESS' || log.status === 'STABLE' || log.status === 'VERIFIED' || log.status === 'CONNECTED' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+                          <div className={`w-2 h-2 rounded-full ${log.event_type === 'IDENTITY_VALIDATION' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
                           <div>
-                            <p className="text-xs font-black text-white">{log.event}</p>
-                            <p className="text-[10px] text-zinc-600 font-bold uppercase">{log.target}</p>
+                            <p className="text-xs font-black text-white">{log.event_type}</p>
+                            <p className="text-[10px] text-zinc-600 font-bold uppercase">{log.event_description}</p>
+                            <p className="text-[9px] text-blue-500/50 font-mono">IP: {log.ip_address}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] font-black text-blue-500">{log.status}</p>
-                          <p className="text-[10px] text-zinc-700 font-mono">{log.time}</p>
+                          <p className="text-[10px] font-black text-blue-500">PROCESSED</p>
+                          <p className="text-[10px] text-zinc-700 font-mono">{new Date(log.created_at).toLocaleTimeString()}</p>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-center p-10 border border-dashed border-white/5 rounded-2xl">
+                        <p className="text-xs text-zinc-600 font-bold uppercase">No archival events detected.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-8">

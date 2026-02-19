@@ -327,6 +327,7 @@ interface AppContextType {
   siteSettings: SiteSettings;
   setSiteSettings: (s: SiteSettings) => void;
   dbStatus: 'CONNECTED' | 'LOCAL' | 'OFFLINE';
+  logs: any[];
   initializeSheets: () => Promise<void>;
 }
 
@@ -368,6 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [users, setUsers] = useState<User[]>(loadFromStorage('splaro-registered-users', []));
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [slides, setSlides] = useState<any[]>(loadFromStorage('splaro-slides', INITIAL_SLIDES));
+  const [logs, setLogs] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [smtpSettings, setSmtpSettings] = useState(loadFromStorage('splaro-smtp', { host: 'smtp.hostinger.com', port: '465', user: 'info@splaro.co' }));
   const [logisticsConfig, setLogisticsConfig] = useState(loadFromStorage('splaro-logistics', { metro: 90, regional: 140 }));
@@ -459,6 +461,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             if (result.data.users?.length > 0) setUsers(result.data.users);
             if (result.data.settings) setSiteSettings(result.data.settings);
+            if (result.data.logs) setLogs(result.data.logs);
           } else {
             setDbStatus('LOCAL');
           }
@@ -581,8 +584,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isSearchOpen, setIsSearchOpen,
     siteSettings, setSiteSettings,
     updateOrderMetadata,
-    dbStatus, initializeSheets
-  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus]);
+    dbStatus, initializeSheets, logs
+  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs]);
 
 
 

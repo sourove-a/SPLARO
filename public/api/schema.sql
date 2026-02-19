@@ -59,6 +59,17 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 5. EVENT STREAM (SYSTEM LOGS)
+CREATE TABLE IF NOT EXISTS `system_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_type` varchar(100) NOT NULL,
+  `event_description` text NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- INITIALIZE SETTINGS & ADMIN
 INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'SPLARO LUXURY', 'admin@splaro.co');
 INSERT IGNORE INTO `users` (`id`, `name`, `email`, `phone`, `password`, `role`) VALUES ('admin_root', 'Chief Admin', 'admin@splaro.co', '01700000000', 'Sourove017@#%&*-+()', 'ADMIN');

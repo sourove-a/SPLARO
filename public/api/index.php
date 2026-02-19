@@ -23,6 +23,7 @@ if ($method === 'GET' && $action === 'sync') {
         'orders'   => $db->query("SELECT * FROM orders ORDER BY created_at DESC")->fetchAll(),
         'users'    => $db->query("SELECT * FROM users")->fetchAll(),
         'settings' => $db->query("SELECT * FROM site_settings LIMIT 1")->fetch(),
+        'logs'     => $db->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll(),
     ];
     echo json_encode(["status" => "success", "data" => $data]);
     exit;
@@ -65,23 +66,37 @@ if ($method === 'POST' && $action === 'create_order') {
     }
 
     $invoice_body = "
-    <div style='background: #050505; color: #fff; font-family: sans-serif; padding: 40px; max-width: 600px; margin: auto; border: 1px solid #111;'>
-        <div style='text-align: center; margin-bottom: 40px;'>
-            <h1 style='letter-spacing: 15px; margin: 0; font-weight: 900;'>SPLARO</h1>
-            <p style='font-size: 10px; color: #555; letter-spacing: 3px; margin-top: 5px; text-transform: uppercase;'>Luxury Boutique Archive</p>
+    <div style='background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; padding: 60px; max-width: 700px; margin: auto; border: 1px solid #1a1a1a; box-shadow: 0 50px 100px rgba(0,0,0,0.5);'>
+        <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60px; border-bottom: 1px solid #111; padding-bottom: 40px;'>
+            <div>
+                <h1 style='letter-spacing: 20px; margin: 0; font-weight: 900; background: linear-gradient(to right, #fff, #555); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>SPLARO</h1>
+                <p style='font-size: 8px; color: #444; letter-spacing: 5px; margin-top: 10px; text-transform: uppercase;'>Luxury Institutional Archive &copy; SPL-2026</p>
+            </div>
+            <div style='text-align: right;'>
+                <p style='margin: 0; font-size: 10px; color: #00cfd5; font-weight: 900; letter-spacing: 2px;'>AUTHENTIC ACQUISITION</p>
+                <p style='margin: 5px 0 0; font-size: 11px; color: #555; font-family: monospace;'>PROTO-VERIFY: " . strtoupper(substr(md5($input['id']), 0, 12)) . "</p>
+            </div>
         </div>
         
-        <div style='margin-bottom: 30px; border-left: 2px solid #00cfd5; padding-left: 15px;'>
-            <p style='margin: 0; font-size: 12px; color: #00cfd5; text-transform: uppercase; font-weight: bold;'>Order Confirmed</p>
-            <p style='margin: 5px 0 0; font-size: 18px; font-weight: bold;'>#{$input['id']}</p>
+        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 60px;'>
+            <div style='border-left: 2px solid #00cfd5; padding-left: 20px;'>
+                <p style='margin: 0; font-size: 10px; color: #333; text-transform: uppercase; font-weight: 900; letter-spacing: 1px;'>Shipment To</p>
+                <h2 style='margin: 10px 0; font-size: 18px; font-weight: 700;'>{$input['customerName']}</h2>
+                <p style='margin: 0; font-size: 13px; color: #777; line-height: 1.6;'>{$input['address']}<br>T: {$input['phone']}</p>
+            </div>
+            <div style='text-align: right;'>
+                <p style='margin: 0; font-size: 10px; color: #333; text-transform: uppercase; font-weight: 900; letter-spacing: 1px;'>Invoice Reference</p>
+                <h2 style='margin: 10px 0; font-size: 18px; font-weight: 700;'>#{$input['id']}</h2>
+                <p style='margin: 0; font-size: 13px; color: #777;'>" . date('F d, Y') . "</p>
+            </div>
         </div>
 
-        <table style='width: 100%; border-collapse: collapse; margin-bottom: 30px;'>
+        <table style='width: 100%; border-collapse: collapse; margin-bottom: 60px;'>
             <thead>
-                <tr style='background: #111; font-size: 10px; text-transform: uppercase; letter-spacing: 1px;'>
-                    <th style='padding: 12px; text-align: left; color: #555;'>Item</th>
-                    <th style='padding: 12px; text-align: center; color: #555;'>Qty</th>
-                    <th style='padding: 12px; text-align: right; color: #555;'>Price</th>
+                <tr style='background: #080808; font-size: 9px; text-transform: uppercase; letter-spacing: 2px;'>
+                    <th style='padding: 20px; text-align: left; color: #444; border-bottom: 1px solid #111;'>Institutional Item</th>
+                    <th style='padding: 20px; text-align: center; color: #444; border-bottom: 1px solid #111;'>Qty</th>
+                    <th style='padding: 20px; text-align: right; color: #444; border-bottom: 1px solid #111;'>Valuation</th>
                 </tr>
             </thead>
             <tbody>
@@ -89,23 +104,28 @@ if ($method === 'POST' && $action === 'create_order') {
             </tbody>
         </table>
 
-        <div style='text-align: right; margin-bottom: 40px;'>
-            <p style='margin: 0; font-size: 14px; color: #555;'>Total Amount</p>
-            <p style='margin: 5px 0 0; font-size: 28px; font-weight: bold; color: #00cfd5;'>৳" . number_format($input['total']) . "</p>
+        <div style='background: #050505; border: 1px solid #111; padding: 40px; border-radius: 20px;'>
+            <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;'>
+                <span style='font-size: 12px; color: #444; text-transform: uppercase; font-weight: 900;'>Subtotal Archive</span>
+                <span style='font-size: 16px; font-weight: 600;'>৳" . number_format($input['total']) . "</span>
+            </div>
+            <div style='display: flex; justify-content: space-between; align-items: center; padding-top: 20px; border-top: 1px solid #111;'>
+                <span style='font-size: 14px; color: #00cfd5; text-transform: uppercase; font-weight: 900; letter-spacing: 2px;'>Total Protocol Amount</span>
+                <span style='font-size: 32px; font-weight: 900; color: #fff;'>৳" . number_format($input['total']) . "</span>
+            </div>
         </div>
 
-        <div style='background: #111; padding: 20px; border-radius: 5px; font-size: 13px;'>
-            <p style='margin: 0 0 10px; color: #555; text-transform: uppercase; font-weight: bold; font-size: 10px;'>Shipping Address</p>
-            <p style='margin: 0; color: #ccc; line-height: 1.6;'>
-                <strong>{$input['customerName']}</strong><br>
-                {$input['address']}<br>
-                Phone: {$input['phone']}
+        <div style='margin-top: 60px; text-align: center;'>
+            <div style='margin-bottom: 30px;'>
+                <p style='font-family: \"Georgia\", serif; font-style: italic; font-size: 24px; color: #333; margin: 0;'>Splaro Signature</p>
+                <div style='width: 150px; h-1px; background: #111; margin: 10px auto;'></div>
+                <p style='font-size: 8px; color: #444; text-transform: uppercase; letter-spacing: 3px;'>Chief Archivist Authorization</p>
+            </div>
+            <p style='font-size: 10px; color: #222; text-transform: uppercase; letter-spacing: 1px; line-height: 1.8;'>
+                This is a digitally authorized institutional invoice.<br>
+                Security Hash: " . hash('sha256', $input['id']) . "<br>
+                &copy; 2026 SPLARO LUXURY BOUTIQUE. ALL RIGHTS RESERVED.
             </p>
-        </div>
-
-        <div style='text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #111;'>
-            <p style='font-size: 11px; color: #444;'>Thank you for choosing Splaro. Your acquisition is being prepared.</p>
-            <p style='font-size: 10px; color: #333; margin-top: 10px;'>&copy; " . date('Y') . " SPLARO HQ. Authorized Access Only.</p>
         </div>
     </div>";
 
@@ -188,9 +208,17 @@ if ($method === 'POST' && $action === 'login') {
     $user = $stmt->fetch();
 
     if ($user) {
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
+           ->execute(['IDENTITY_VALIDATION', 'Login Successful for ' . $user['name'], $user['id'], $ip]);
+
         unset($user['password']); // Safety Protocol
         echo json_encode(["status" => "success", "user" => $user]);
     } else {
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+           ->execute(['SECURITY_ALERT', 'Failed login attempt for ' . ($input['identifier'] ?? 'Unknown'), $ip]);
+        
         echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
     }
     exit;
