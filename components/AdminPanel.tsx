@@ -388,7 +388,7 @@ export const AdminPanel = () => {
     addOrUpdateProduct, deleteProduct, discounts,
     addDiscount, toggleDiscount, deleteDiscount,
     slides, setSlides, smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
-    siteSettings, setSiteSettings, updateOrderMetadata, dbStatus
+    siteSettings, setSiteSettings, updateOrderMetadata, dbStatus, initializeSheets
   } = useApp();
 
 
@@ -1254,8 +1254,8 @@ export const AdminPanel = () => {
                       <p className="text-lg font-bold text-white uppercase">Inventory Registry</p>
                     </div>
                   </div>
-                  <PrimaryButton className="w-full h-20 shadow-[0_20px_40px_rgba(16,185,129,0.1)]" onClick={() => alert('GLOBAL SYNC PROTOCOL: Institutional Registry synchronized with Google Sheets Manifest.')}>
-                    <RefreshCcw className="w-5 h-5 mr-3" /> INITIALIZE GLOBAL SYNC
+                  <PrimaryButton className="w-full h-20 shadow-[0_20px_40px_rgba(16,185,129,0.1)]" onClick={initializeSheets}>
+                    <RefreshCcw className="w-5 h-5 mr-3" /> INITIALIZE SHEET COLUMNS
                   </PrimaryButton>
 
                   <div className="mt-6 p-8 bg-emerald-500/5 rounded-3xl border border-emerald-500/10">

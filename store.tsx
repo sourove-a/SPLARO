@@ -327,6 +327,7 @@ interface AppContextType {
   siteSettings: SiteSettings;
   setSiteSettings: (s: SiteSettings) => void;
   dbStatus: 'CONNECTED' | 'LOCAL' | 'OFFLINE';
+  initializeSheets: () => Promise<void>;
 }
 
 
@@ -558,6 +559,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
+  const initializeSheets = async () => {
+    if (IS_PROD) {
+      const res = await fetch(`${API_NODE}?action=initialize_sheets`, { method: 'POST' });
+      const result = await res.json();
+      if (result.status === 'success') {
+        alert('REGISTRY_SYNC: Institutional Columns initialized on Google Sheets.');
+      }
+    }
+  };
+
+
   const value = useMemo(() => ({
     view, setView, products, addOrUpdateProduct, deleteProduct, language, setLanguage, theme, setTheme,
     cart, addToCart, removeFromCart, orders, addOrder, updateOrderStatus, deleteOrder, user, setUser,
@@ -569,7 +581,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isSearchOpen, setIsSearchOpen,
     siteSettings, setSiteSettings,
     updateOrderMetadata,
-    dbStatus
+    dbStatus, initializeSheets
   }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus]);
 
 

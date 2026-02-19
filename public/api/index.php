@@ -196,6 +196,13 @@ if ($method === 'POST' && $action === 'login') {
     exit;
 }
 
+// 6. REGISTRY INITIALIZATION (GOOGLE SHEETS HEADERS)
+if ($method === 'POST' && $action === 'initialize_sheets') {
+    sync_to_sheets('INIT', ["message" => "INITIALIZING_RECORDS"]);
+    echo json_encode(["status" => "success", "message" => "REGISTRY_INITIALIZED"]);
+    exit;
+}
+
 /**
  * INSTITUTIONAL GOOGLE SHEETS SYNC PROTOCOL
  */
