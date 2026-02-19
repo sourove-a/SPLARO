@@ -349,7 +349,32 @@ export const LoginForm: React.FC = () => {
             <SocialButton
               icon={<GoogleIcon />}
               label="Continue with Google"
-              onClick={() => { }}
+              onClick={async () => {
+                setStatus('loading');
+                // INSTITUTIONAL SIMULATION: Google Identity discovery
+                await new Promise(r => setTimeout(r, 1500));
+
+                const mockGoogleUser = {
+                  id: 'google_' + Math.random().toString(36).substr(2, 9),
+                  name: 'Google Discovery User',
+                  email: 'identity@gmail.com',
+                  phone: '01700000000',
+                  role: 'USER',
+                  createdAt: new Date().toISOString()
+                };
+
+                const IS_PROD = window.location.hostname !== 'localhost';
+                if (IS_PROD) {
+                  await fetch('/api/index.php?action=signup', {
+                    method: 'POST',
+                    body: JSON.stringify(mockGoogleUser)
+                  });
+                }
+
+                setUser(mockGoogleUser);
+                setStatus('success');
+                setTimeout(() => navigate('/'), 1000);
+              }}
             />
           </div>
 

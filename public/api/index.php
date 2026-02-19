@@ -77,14 +77,17 @@ if ($method === 'POST' && $action === 'sync_products') {
     exit;
 }
 
-// 4. IDENTITY AUTHENTICATION (SIGNUP)
+// 4. IDENTITY AUTHENTICATION (SIGNUP / SOCIAL SYNC)
 if ($method === 'POST' && $action === 'signup') {
     $input = json_decode(file_get_contents('php://input'), true);
     
-    $check = $db->prepare("SELECT id FROM users WHERE email = ?");
+    $check = $db->prepare("SELECT * FROM users WHERE email = ?");
     $check->execute([$input['email']]);
-    if ($check->fetch()) {
-        echo json_encode(["status" => "error", "message" => "IDENTITY_ALREADY_ARCHIVED"]);
+    $existing = $check->fetch();
+    
+    if ($existing) {
+        unset($existing['password']);
+        echo json_encode(["status" => "success", "user" => $existing]);
         exit;
     }
 
@@ -94,7 +97,7 @@ if ($method === 'POST' && $action === 'signup') {
         $input['name'],
         $input['email'],
         $input['phone'],
-        $input['password'],
+        $input['password'] ?? 'social_auth_sync',
         $input['role']
     ]);
 
