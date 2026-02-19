@@ -1,8 +1,7 @@
 -- SPLARO INSTITUTIONAL DATABASE SCHEMA
--- Target: MySQL / MariaDB (Hostinger)
+-- Optimized for Hostinger MySQL/MariaDB Compatibility
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
 SET time_zone = "+00:00";
 
 -- 1. PRODUCTS REGISTRY
@@ -24,12 +23,12 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `customer_email` varchar(255) NOT NULL,
   `phone` varchar(50) NOT NULL,
   `address` text NOT NULL,
-  `items` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`items`)),
+  `items` longtext NOT NULL,
   `total` int(11) NOT NULL,
   `status` varchar(50) NOT NULL,
   `tracking_number` varchar(100) DEFAULT NULL,
   `admin_notes` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -41,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `phone` varchar(50) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
   `role` varchar(20) DEFAULT 'USER',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -61,6 +60,4 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- INITIALIZE SETTINGS
-INSERT INTO `site_settings` (`site_name`, `support_email`) VALUES ('SPLARO LUXURY', 'admin@splaro.co') ON DUPLICATE KEY UPDATE id=id;
-
-COMMIT;
+INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'SPLARO LUXURY', 'admin@splaro.co');
