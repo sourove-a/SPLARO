@@ -81,72 +81,73 @@ export const LoginForm: React.FC = () => {
     }
 
     setStatus('loading');
-    await new Promise(r => setTimeout(r, 1500));
 
-    const savedUsers = JSON.parse(localStorage.getItem('splaro-registered-users') || '[]');
-
-    if (authMode === 'forgot') {
-      const existingUser = savedUsers.find((u: any) => u.identifier === formData.identifier);
-      if (existingUser || formData.identifier === 'admin@splaro.co') {
-        alert(`ARCHIVE PROTOCOL: Recovery instructions sent to ${formData.identifier} via Hostinger SMTP.`);
-        setAuthMode('login');
-        setStatus('idle');
-      } else {
-        setErrors({ identifier: 'Identity not found in archive registry' });
-        setStatus('error');
-        setTimeout(() => setStatus('idle'), 3000);
-      }
-      return;
-    }
+    const IS_PROD = window.location.hostname !== 'localhost';
+    const API_NODE = '/api/index.php';
 
     if (authMode === 'login') {
-      const existingUser = savedUsers.find((u: any) => u.identifier === formData.identifier && u.password === formData.password);
-      // Admin Authentication Manifest
-      const isAdmin = (formData.identifier === 'admin@splaro.co' && (formData.password === 'ADMIN_SPLARO_2026' || formData.password === 'Sourove017@'));
+      try {
+        if (IS_PROD) {
+          const res = await fetch(`${API_NODE}?action=login`, {
+            method: 'POST',
+            body: JSON.stringify({ identifier: formData.identifier, password: formData.password })
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            setUser(result.user);
+            setStatus('success');
+            setTimeout(() => navigate(result.user.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
+            return;
+          }
+        } else {
+          // Local Admin/Dev Bypass
+          const isAdmin = (formData.identifier === 'admin@splaro.co' && (formData.password === 'ADMIN_SPLARO_2026' || formData.password === 'Sourove017@'));
+          if (isAdmin) {
+            const adminUser = { id: 'admin', name: 'Chief Admin', email: 'admin@splaro.co', phone: '01700000000', role: 'ADMIN', createdAt: new Date().toISOString() };
+            setUser(adminUser);
+            setStatus('success');
+            setTimeout(() => navigate('/admin_dashboard'), 1000);
+            return;
+          }
+        }
 
-      if (existingUser || isAdmin) {
-
-        const userToSet = existingUser || {
-          id: 'admin',
-          name: 'Chief Admin',
-          email: 'admin@splaro.co',
-          phone: '01700000000',
-          role: 'ADMIN',
-          createdAt: new Date().toISOString()
-        };
-        setUser(userToSet);
-        setStatus('success');
-
-        setTimeout(() => navigate(userToSet.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
-      } else {
+        throw new Error('INVALID_CREDENTIALS');
+      } catch (e) {
         setErrors({ identifier: 'Invalid Credentials', password: 'Check identity or access code' });
         setStatus('error');
         setTimeout(() => setStatus('idle'), 3000);
       }
-    } else {
-      // Signup Logic
-      const updatedIdentifier = formData.email || formData.phone;
-      const userExists = savedUsers.some((u: any) => u.identifier === updatedIdentifier);
-      if (userExists) {
-        setErrors({ identifier: 'Identity already archived' });
-        setStatus('error');
-        setTimeout(() => setStatus('idle'), 3000);
-      } else {
+    } else if (authMode === 'signup') {
+      try {
         const newUser = {
           id: Math.random().toString(36).substr(2, 9),
           name: formData.name,
-          identifier: updatedIdentifier,
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
           role: 'USER',
           createdAt: new Date().toISOString()
         };
-        const updatedUsers = [...savedUsers, newUser];
-        localStorage.setItem('splaro-registered-users', JSON.stringify(updatedUsers));
+
+        if (IS_PROD) {
+          const res = await fetch(`${API_NODE}?action=signup`, {
+            method: 'POST',
+            body: JSON.stringify(newUser)
+          });
+          const result = await res.json();
+          if (result.status !== 'success') throw new Error(result.message);
+        } else {
+          const savedUsers = JSON.parse(localStorage.getItem('splaro-registered-users') || '[]');
+          localStorage.setItem('splaro-registered-users', JSON.stringify([...savedUsers, newUser]));
+        }
+
         setUser(newUser);
         setStatus('success');
         setTimeout(() => navigate('/'), 1000);
+      } catch (e) {
+        setErrors({ identifier: 'Identity already archived or system error' });
+        setStatus('error');
+        setTimeout(() => setStatus('idle'), 3000);
       }
     }
   };

@@ -77,5 +77,46 @@ if ($method === 'POST' && $action === 'sync_products') {
     exit;
 }
 
+// 4. IDENTITY AUTHENTICATION (SIGNUP)
+if ($method === 'POST' && $action === 'signup') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    $check = $db->prepare("SELECT id FROM users WHERE email = ?");
+    $check->execute([$input['email']]);
+    if ($check->fetch()) {
+        echo json_encode(["status" => "error", "message" => "IDENTITY_ALREADY_ARCHIVED"]);
+        exit;
+    }
+
+    $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, password, role) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $input['id'],
+        $input['name'],
+        $input['email'],
+        $input['phone'],
+        $input['password'],
+        $input['role']
+    ]);
+
+    echo json_encode(["status" => "success", "user" => $input]);
+    exit;
+}
+
+// 5. IDENTITY VALIDATION (LOGIN)
+if ($method === 'POST' && $action === 'login') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND password = ?");
+    $stmt->execute([$input['identifier'], $input['password']]);
+    $user = $stmt->fetch();
+
+    if ($user) {
+        unset($user['password']); // Safety Protocol
+        echo json_encode(["status" => "success", "user" => $user]);
+    } else {
+        echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
+    }
+    exit;
+}
+
 http_response_code(404);
 echo json_encode(["status" => "error", "message" => "ACTION_NOT_RECOGNIZED"]);
