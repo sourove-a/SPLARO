@@ -521,11 +521,17 @@ export const AdminPanel = () => {
               />
             </div>
             <div className="flex gap-4">
-              <button className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group">
+              <button
+                onClick={() => setActiveTab('LOGS')}
+                className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group"
+              >
                 <Bell className="w-7 h-7 text-zinc-500 group-hover:text-white transition-all" />
                 <div className="absolute top-5 right-5 w-3 h-3 bg-rose-500 rounded-full border-4 border-[#0A0C12]" />
               </button>
-              <button className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group">
+              <button
+                onClick={() => setActiveTab('SYNC')}
+                className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group"
+              >
                 <Database className="w-7 h-7 text-zinc-500 group-hover:text-emerald-500 transition-all" />
               </button>
             </div>
