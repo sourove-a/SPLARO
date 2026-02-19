@@ -1108,12 +1108,12 @@ export const AdminPanel = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                       <LuxuryFloatingInput
                         label="Facebook Matrix Link"
-                        value={siteSettings.facebookLink}
+                        value={siteSettings?.facebookLink || ''}
                         onChange={v => setSiteSettings({ ...siteSettings, facebookLink: v })}
                       />
                       <LuxuryFloatingInput
                         label="Instagram Matrix Link"
-                        value={siteSettings.instagramLink}
+                        value={siteSettings?.instagramLink || ''}
                         onChange={v => setSiteSettings({ ...siteSettings, instagramLink: v })}
                       />
                     </div>
@@ -1129,12 +1129,12 @@ export const AdminPanel = () => {
                     <h3 className="text-3xl font-black uppercase italic">Handshake Protocols (SMTP)</h3>
                   </div>
                   <div className="space-y-6">
-                    <LuxuryFloatingInput label="SMTP Server Host" value={smtpSettings.host} onChange={v => setSmtpSettings({ ...smtpSettings, host: v })} />
+                    <LuxuryFloatingInput label="SMTP Server Host" value={smtpSettings?.host || ''} onChange={v => setSmtpSettings({ ...smtpSettings, host: v })} />
                     <div className="grid grid-cols-2 gap-6">
-                      <LuxuryFloatingInput label="SMTP Port" value={smtpSettings.port} onChange={v => setSmtpSettings({ ...smtpSettings, port: v })} />
+                      <LuxuryFloatingInput label="SMTP Port" value={smtpSettings?.port || ''} onChange={v => setSmtpSettings({ ...smtpSettings, port: v })} />
                       <LuxuryFloatingInput label="Encryption" value="SSL/TLS" onChange={() => { }} />
                     </div>
-                    <LuxuryFloatingInput label="Archive Email Account" value={smtpSettings.user} onChange={v => setSmtpSettings({ ...smtpSettings, user: v })} />
+                    <LuxuryFloatingInput label="Archive Email Account" value={smtpSettings?.user || ''} onChange={v => setSmtpSettings({ ...smtpSettings, user: v })} />
                   </div>
                   <PrimaryButton className="mt-10 w-full" onClick={() => updateSettings({ smtpSettings })}>Update Mail Server</PrimaryButton>
 
@@ -1162,7 +1162,7 @@ export const AdminPanel = () => {
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">৳</span>
                         <input
                           type="number"
-                          value={logisticsConfig.metro}
+                          value={logisticsConfig?.metro || 0}
                           onChange={e => setLogisticsConfig({ ...logisticsConfig, metro: Number(e.target.value) })}
                           className="w-full h-16 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-xl outline-none bg-white/5 text-white"
                         />
@@ -1174,7 +1174,7 @@ export const AdminPanel = () => {
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">৳</span>
                         <input
                           type="number"
-                          value={logisticsConfig.regional}
+                          value={logisticsConfig?.regional || 0}
                           onChange={e => setLogisticsConfig({ ...logisticsConfig, regional: Number(e.target.value) })}
                           className="w-full h-16 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-xl outline-none bg-white/5 text-white"
                         />

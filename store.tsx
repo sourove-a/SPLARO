@@ -453,35 +453,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (result.data.products?.length > 0) setProducts(result.data.products);
             if (result.data.logs?.length > 0) setLogs(result.data.logs);
             if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
-            if (result.data.orders?.length > 0) {
-              const mappedOrders = result.data.orders.map((o: any) => ({
-                ...o,
-                userId: o.user_id,
-                customerName: o.customer_name,
-                customerEmail: o.customer_email,
-                district: o.district,
-                thana: o.thana,
-                items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items,
-                createdAt: o.created_at,
-                shippingFee: o.shipping_fee || 120,
-              }));
+            if (result.data.orders) {
+              const mappedOrders = result.data.orders.map((o: any) => {
+                let items = [];
+                try {
+                  items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+                } catch (e) {
+                  console.error('ASSET_DECODE_FAILURE:', o.id);
+                }
+                return {
+                  ...o,
+                  userId: o.user_id,
+                  customerName: o.customer_name,
+                  customerEmail: o.customer_email,
+                  district: o.district,
+                  thana: o.thana,
+                  items: items,
+                  createdAt: o.created_at,
+                  shippingFee: Number(o.shipping_fee) || 120,
+                };
+              });
               setOrders(mappedOrders);
             }
-            if (result.data.users?.length > 0) setUsers(result.data.users);
+            if (result.data.users) setUsers(result.data.users);
             if (result.data.settings) {
               const s = result.data.settings;
               setSiteSettings({
-                siteName: s.site_name,
+                siteName: s.site_name || 'SPLARO',
                 maintenanceMode: s.maintenance_mode === 1,
-                supportEmail: s.support_email,
-                supportPhone: s.support_phone,
-                whatsappNumber: s.whatsapp_number,
-                facebookLink: s.facebook_link,
-                instagramLink: s.instagram_link,
-                logoUrl: s.logo_url
+                supportEmail: s.support_email || '',
+                supportPhone: s.support_phone || '',
+                whatsappNumber: s.whatsapp_number || '',
+                facebookLink: s.facebook_link || '',
+                instagramLink: s.instagram_link || '',
+                logoUrl: s.logo_url || ''
               });
-              if (s.smtp_settings) setSmtpSettings(s.smtp_settings);
-              if (s.logistics_config) setLogisticsConfig(s.logistics_config);
+              if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
+              if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
             }
             if (result.data.logs) setLogs(result.data.logs);
           } else {
