@@ -1630,7 +1630,12 @@ export const AdminPanel = () => {
                   <div className="flex flex-col md:row gap-6">
                     <PrimaryButton onClick={() => window.print()} className="flex-1 h-20 text-[11px] tracking-[0.4em] shadow-[0_20px_40px_rgba(0,212,255,0.15)]">GENERATE FISCAL INVOICE</PrimaryButton>
                     <button
-                      onClick={() => { updateOrderStatus(selectedOrder.id, 'Shipped'); setSelectedOrder(null); alert(`LOGISTICS ALERT: Asset ${selectedOrder.id} deployed to regional terminal.`); }}
+                      onClick={() => {
+                        const id = selectedOrder.id;
+                        updateOrderStatus(id, 'Shipped');
+                        setSelectedOrder(null);
+                        alert(`LOGISTICS ALERT: Asset ${id} deployed to regional terminal.`);
+                      }}
                       className="flex-1 h-20 bg-blue-600 hover:bg-blue-500 text-white rounded-[32px] text-[11px] font-black uppercase tracking-[0.4em] transition-all shadow-[0_20px_40px_rgba(37,99,235,0.2)]"
                     >
                       DEPLOY ASSET

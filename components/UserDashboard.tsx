@@ -50,9 +50,18 @@ export const UserDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-32 pb-40 px-6 max-w-7xl mx-auto">
-      <header className="mb-12">
-        <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Identity <span className="text-cyan-500">Vault</span></h1>
-        <p className="text-[10px] font-black uppercase tracking-[0.6em] text-zinc-500 mt-4">Authorized Access Only — Secure Archive</p>
+      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div>
+          <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Identity <span className="text-cyan-500">Vault</span></h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.6em] text-zinc-500 mt-4">Authorized Access Only — Secure Archive</p>
+        </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-cyan-500 hover:border-cyan-500/30 transition-all flex items-center gap-3"
+        >
+          <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+          Synchronize Registry
+        </button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
