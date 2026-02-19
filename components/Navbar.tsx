@@ -12,31 +12,10 @@ import { useNavigate } from 'react-router-dom';
 
 export const SplaroLogo = ({ className = "h-8 md:h-12" }: { className?: string }) => (
   <div
-    className={`relative flex items-center gap-3 md:gap-4 ${className}`}
-    style={{ minWidth: '160px' }}
+    className={`relative flex items-center ${className}`}
   >
-    {/* Institutional Symbol (The S-Type Logo) */}
-    <div className="relative w-10 md:w-12 h-full flex items-center justify-center">
-      <svg
-        viewBox="0 0 60 80"
-        className="w-full h-full drop-shadow-[0_0_15px_rgba(0,212,255,0.4)]"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <rect x="10" y="45" width="10" height="25" rx="5" transform="rotate(-30 10 45)" fill="url(#logo-grad)" />
-        <rect x="25" y="15" width="10" height="50" rx="5" transform="rotate(-30 25 15)" fill="url(#logo-grad)" />
-        <rect x="40" y="10" width="10" height="25" rx="5" transform="rotate(-30 40 10)" fill="url(#logo-grad)" />
-        <defs>
-          <linearGradient id="logo-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop stopColor="white" />
-            <stop offset="1" stopColor="#00D4FF" />
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-
-    {/* Identity Manifest Text */}
-    <span className="text-2xl md:text-3xl font-black italic tracking-tighter text-white uppercase flex items-center">
+    {/* Identity Manifest Text Only */}
+    <span className="text-2xl md:text-4xl font-black italic tracking-tighter text-white uppercase flex items-center">
       SPL<span className="text-cyan-500">A</span>RO
     </span>
   </div>
