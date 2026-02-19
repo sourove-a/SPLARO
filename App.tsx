@@ -398,32 +398,8 @@ const AppContent = () => {
   const isDark = theme === 'DARK';
 
   useEffect(() => {
-    // SECURITY HANDSHAKE: TERMINATE UNAUTHORIZED INSPECTION
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Cmd+Option+I/J/U (Mac)
-      const ctrlOrMeta = e.ctrlKey || e.metaKey;
-      const shift = e.shiftKey;
-      const opt = e.altKey;
-
-      if (
-        e.keyCode === 123 || // F12
-        (ctrlOrMeta && shift && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // I, J, C
-        (ctrlOrMeta && e.keyCode === 85) || // U
-        (ctrlOrMeta && opt && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 85)) // I, J, U
-      ) {
-        e.preventDefault();
-        return false;
-      }
-    };
-
-    window.addEventListener('contextmenu', handleContextMenu);
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    // Velocity Protocol: Ensure the browser environment is primed for high-speed discovery
+    console.log('SPLARO_ARCHIVE: Institutional Terminal Initialized.');
   }, []);
 
   useEffect(() => {
