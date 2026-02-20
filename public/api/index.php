@@ -148,6 +148,38 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'subscriptions', "CREATE TABLE IF NOT EXISTS `subscriptions` (
+      `id` varchar(50) NOT NULL,
+      `email` varchar(255) NOT NULL,
+      `consent` tinyint(1) DEFAULT 0,
+      `source` varchar(20) DEFAULT 'footer',
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `email` (`email`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'system_logs', "CREATE TABLE IF NOT EXISTS `system_logs` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `event_type` varchar(100) NOT NULL,
+      `event_description` text NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'traffic_metrics', "CREATE TABLE IF NOT EXISTS `traffic_metrics` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `session_id` varchar(100) NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `path` varchar(255) DEFAULT '/',
+      `user_agent` text DEFAULT NULL,
+      `last_active` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `session_id` (`session_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_column($db, 'site_settings', 'smtp_settings', 'text DEFAULT NULL');
     ensure_column($db, 'site_settings', 'logistics_config', 'text DEFAULT NULL');
     ensure_column($db, 'site_settings', 'hero_slides', 'longtext DEFAULT NULL');
@@ -247,6 +279,292 @@ function smtp_send_mail($db, $to, $subject, $body, $isHtml = true) {
     );
 }
 
+function telegram_escape_html($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function send_telegram_message($text, $targetChatId = null) {
+    if (!TELEGRAM_ENABLED) {
+        return false;
+    }
+
+    $chatId = $targetChatId ?: TELEGRAM_ADMIN_CHAT_ID;
+    if (!$chatId) {
+        return false;
+    }
+
+    $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/sendMessage";
+    $payload = json_encode([
+        'chat_id' => $chatId,
+        'text' => $text,
+        'parse_mode' => 'HTML',
+        'disable_web_page_preview' => true
+    ]);
+
+    $attempt = 0;
+    $maxAttempts = 3; // initial + 2 retries
+    $delayMs = 200;
+
+    while ($attempt < $maxAttempts) {
+        $attempt++;
+
+        $response = false;
+        $httpCode = 0;
+        $curlError = '';
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 5,
+            ]);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => "Content-Type: application/json\r\n",
+                    'content' => $payload,
+                    'timeout' => 5,
+                    'ignore_errors' => true
+                ]
+            ]);
+            $response = @file_get_contents($url, false, $context);
+            $responseHeaders = function_exists('http_get_last_response_headers')
+                ? http_get_last_response_headers()
+                : ($GLOBALS['http_response_header'] ?? []);
+            if (!empty($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $m)) {
+                $httpCode = (int)$m[1];
+            }
+        }
+
+        if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+            return true;
+        }
+
+        if ($attempt >= $maxAttempts) {
+            error_log("SPLARO_TELEGRAM_FAILURE: HTTP {$httpCode}; CURL {$curlError}; RESPONSE {$response}");
+            return false;
+        }
+
+        usleep($delayMs * 1000);
+        $delayMs *= 2;
+    }
+
+    return false;
+}
+
+function telegram_order_summary($order) {
+    $id = telegram_escape_html($order['id'] ?? 'N/A');
+    $name = telegram_escape_html($order['customer_name'] ?? 'N/A');
+    $phone = telegram_escape_html($order['phone'] ?? 'N/A');
+    $status = telegram_escape_html($order['status'] ?? 'UNKNOWN');
+    $total = telegram_escape_html($order['total'] ?? 0);
+    $created = telegram_escape_html($order['created_at'] ?? '');
+    return "<b>Order:</b> {$id}\n<b>Name:</b> {$name}\n<b>Phone:</b> {$phone}\n<b>Status:</b> {$status}\n<b>Total:</b> ৳{$total}\n<b>Time:</b> {$created}";
+}
+
+function is_telegram_admin_chat($chatId) {
+    return (string)$chatId === (string)TELEGRAM_ADMIN_CHAT_ID;
+}
+
+function telegram_admin_help_text() {
+    return "<b>SPLARO Admin Bot Commands</b>\n"
+        . "/health - API status\n"
+        . "/orders [limit] - latest orders\n"
+        . "/order {id} - single order details\n"
+        . "/setstatus {id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}\n"
+        . "/users [limit] - latest users\n"
+        . "/maintenance {on|off} - site maintenance mode";
+}
+
+function is_rate_limited($bucket, $maxRequests = 20, $windowSeconds = 60) {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $key = md5($bucket . '|' . $ip);
+    $file = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_rate_" . $key . ".json";
+    $now = time();
+
+    $state = ['start' => $now, 'count' => 0];
+    if (file_exists($file)) {
+        $raw = @file_get_contents($file);
+        $parsed = json_decode($raw, true);
+        if (is_array($parsed) && isset($parsed['start']) && isset($parsed['count'])) {
+            $state = $parsed;
+        }
+    }
+
+    if (($now - (int)$state['start']) >= $windowSeconds) {
+        $state = ['start' => $now, 'count' => 0];
+    }
+
+    $state['count'] = (int)$state['count'] + 1;
+    @file_put_contents($file, json_encode($state), LOCK_EX);
+
+    return $state['count'] > $maxRequests;
+}
+
+if ($method === 'GET' && $action === 'health') {
+    echo json_encode([
+        "status" => "success",
+        "service" => "SPLARO_API",
+        "time" => date('c'),
+        "telegram_enabled" => TELEGRAM_ENABLED
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'telegram_webhook') {
+    if (!TELEGRAM_ENABLED) {
+        echo json_encode(["ok" => false, "message" => "TELEGRAM_DISABLED"]);
+        exit;
+    }
+
+    if (TELEGRAM_WEBHOOK_SECRET !== '') {
+        $headerSecret = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
+        if (!hash_equals(TELEGRAM_WEBHOOK_SECRET, $headerSecret)) {
+            http_response_code(403);
+            echo json_encode(["ok" => false, "message" => "WEBHOOK_FORBIDDEN"]);
+            exit;
+        }
+    }
+
+    $update = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($update)) {
+        echo json_encode(["ok" => true]);
+        exit;
+    }
+
+    $message = $update['message'] ?? $update['edited_message'] ?? null;
+    $chatId = $message['chat']['id'] ?? null;
+    $text = trim($message['text'] ?? '');
+
+    if (!$chatId || $text === '') {
+        echo json_encode(["ok" => true]);
+        exit;
+    }
+
+    if (!is_telegram_admin_chat($chatId)) {
+        send_telegram_message("<b>Unauthorized access blocked.</b>", $chatId);
+        echo json_encode(["ok" => true]);
+        exit;
+    }
+
+    $parts = preg_split('/\s+/', $text);
+    $command = strtolower($parts[0] ?? '');
+    $reply = '';
+
+    if ($command === '/start' || $command === '/help') {
+        $reply = telegram_admin_help_text();
+    } elseif ($command === '/health') {
+        $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+        $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $reply = "<b>SPLARO Health</b>\n"
+            . "Orders: {$orderCount}\n"
+            . "Users: {$userCount}\n"
+            . "Server Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
+    } elseif ($command === '/orders') {
+        $limit = isset($parts[1]) ? (int)$parts[1] : 5;
+        if ($limit < 1) $limit = 5;
+        if ($limit > 20) $limit = 20;
+        $rows = $db->query("SELECT id, customer_name, phone, total, status, created_at FROM orders ORDER BY created_at DESC LIMIT {$limit}")->fetchAll();
+        if (!$rows) {
+            $reply = "<b>No orders found.</b>";
+        } else {
+            $lines = ["<b>Latest {$limit} Orders</b>"];
+            foreach ($rows as $row) {
+                $lines[] = "• <b>" . telegram_escape_html($row['id']) . "</b> | "
+                    . telegram_escape_html($row['status']) . " | ৳"
+                    . telegram_escape_html($row['total']) . " | "
+                    . telegram_escape_html($row['customer_name']);
+            }
+            $reply = implode("\n", $lines);
+        }
+    } elseif ($command === '/order') {
+        $orderId = $parts[1] ?? '';
+        if ($orderId === '') {
+            $reply = "<b>Usage:</b> /order {order_id}";
+        } else {
+            $stmt = $db->prepare("SELECT * FROM orders WHERE id = ? LIMIT 1");
+            $stmt->execute([$orderId]);
+            $order = $stmt->fetch();
+            if (!$order) {
+                $reply = "<b>Order not found:</b> " . telegram_escape_html($orderId);
+            } else {
+                $reply = "<b>Order Details</b>\n" . telegram_order_summary($order)
+                    . "\n<b>Address:</b> " . telegram_escape_html($order['address'] ?? 'N/A')
+                    . "\n<b>District/Thana:</b> " . telegram_escape_html(($order['district'] ?? '') . " / " . ($order['thana'] ?? ''));
+            }
+        }
+    } elseif ($command === '/setstatus') {
+        $orderId = $parts[1] ?? '';
+        $statusKey = strtoupper($parts[2] ?? '');
+        $allowedStatuses = [
+            'PENDING' => 'Pending',
+            'PROCESSING' => 'Processing',
+            'SHIPPED' => 'Shipped',
+            'DELIVERED' => 'Delivered',
+            'CANCELLED' => 'Cancelled'
+        ];
+
+        if ($orderId === '' || !isset($allowedStatuses[$statusKey])) {
+            $reply = "<b>Usage:</b> /setstatus {order_id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}";
+        } else {
+            $newStatus = $allowedStatuses[$statusKey];
+            $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
+            $stmt->execute([$newStatus, $orderId]);
+            if ($stmt->rowCount() > 0) {
+                sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $newStatus]);
+                $ip = $_SERVER['REMOTE_ADDR'] ?? 'TELEGRAM_WEBHOOK';
+                $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+                    ->execute(['TELEGRAM_ADMIN_STATUS_UPDATE', "Order {$orderId} status updated to {$newStatus} via Telegram bot.", $ip]);
+                $reply = "<b>Order status updated.</b>\nOrder: " . telegram_escape_html($orderId) . "\nStatus: " . telegram_escape_html($newStatus);
+            } else {
+                $reply = "<b>Order not found:</b> " . telegram_escape_html($orderId);
+            }
+        }
+    } elseif ($command === '/users') {
+        $limit = isset($parts[1]) ? (int)$parts[1] : 5;
+        if ($limit < 1) $limit = 5;
+        if ($limit > 20) $limit = 20;
+        $rows = $db->query("SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT {$limit}")->fetchAll();
+        if (!$rows) {
+            $reply = "<b>No users found.</b>";
+        } else {
+            $lines = ["<b>Latest {$limit} Users</b>"];
+            foreach ($rows as $row) {
+                $lines[] = "• <b>" . telegram_escape_html($row['name']) . "</b> | "
+                    . telegram_escape_html($row['role']) . " | "
+                    . telegram_escape_html($row['email']);
+            }
+            $reply = implode("\n", $lines);
+        }
+    } elseif ($command === '/maintenance') {
+        $mode = strtolower($parts[1] ?? '');
+        if ($mode !== 'on' && $mode !== 'off') {
+            $reply = "<b>Usage:</b> /maintenance {on|off}";
+        } else {
+            $maintenance = $mode === 'on' ? 1 : 0;
+            $stmt = $db->prepare("UPDATE site_settings SET maintenance_mode = ? WHERE id = 1");
+            $stmt->execute([$maintenance]);
+            $reply = "<b>Maintenance mode updated:</b> " . telegram_escape_html(strtoupper($mode));
+        }
+    } else {
+        $reply = "<b>Unknown command.</b>\nUse /help to view available commands.";
+    }
+
+    send_telegram_message($reply, $chatId);
+    echo json_encode(["ok" => true]);
+    exit;
+}
+
 
 // 1. DATA RETRIEVAL PROTOCOL
 if ($method === 'GET' && $action === 'sync') {
@@ -292,10 +610,20 @@ if ($method === 'GET' && $action === 'sync') {
 
 // 2. ORDER DEPLOYMENT PROTOCOL
 if ($method === 'POST' && $action === 'create_order') {
+    if (is_rate_limited('create_order', 10, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!$input) {
         echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    if (!empty(trim($input['website'] ?? ''))) {
+        echo json_encode(["status" => "error", "message" => "SPAM_BLOCKED"]);
         exit;
     }
 
@@ -317,6 +645,36 @@ if ($method === 'POST' && $action === 'create_order') {
 
     // SYNC TO GOOGLE SHEETS
     sync_to_sheets('ORDER', $input);
+
+    $siteBase = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
+    $firstItem = $input['items'][0] ?? [];
+    $totalQuantity = 0;
+    foreach (($input['items'] ?? []) as $lineItem) {
+        $totalQuantity += (int)($lineItem['quantity'] ?? 0);
+    }
+    $productName = $firstItem['name'] ?? 'N/A';
+    $productUrlRaw = $firstItem['productUrl'] ?? ($firstItem['url'] ?? '');
+    if ($productUrlRaw && strpos($productUrlRaw, 'http') !== 0 && strpos($productUrlRaw, '/') === 0) {
+        $productUrlRaw = $siteBase . $productUrlRaw;
+    }
+    $imageUrl = $firstItem['image'] ?? ($firstItem['imageUrl'] ?? 'N/A');
+    $notes = $input['customerComment'] ?? ($input['notes'] ?? 'N/A');
+
+    $telegramOrderMessage = "<b>🛒 New Order</b>\n"
+        . "<b>Order ID:</b> " . telegram_escape_html($input['id']) . "\n"
+        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
+        . "<b>Name:</b> " . telegram_escape_html($input['customerName']) . "\n"
+        . "<b>Phone:</b> " . telegram_escape_html($input['phone']) . "\n"
+        . "<b>Email:</b> " . telegram_escape_html($input['customerEmail']) . "\n"
+        . "<b>District/Thana:</b> " . telegram_escape_html(($input['district'] ?? '') . " / " . ($input['thana'] ?? '')) . "\n"
+        . "<b>Address:</b> " . telegram_escape_html($input['address']) . "\n"
+        . "<b>Product:</b> " . telegram_escape_html($productName) . "\n"
+        . "<b>Product URL:</b> " . telegram_escape_html($productUrlRaw ?: 'N/A') . "\n"
+        . "<b>Image URL:</b> " . telegram_escape_html($imageUrl) . "\n"
+        . "<b>Quantity:</b> " . telegram_escape_html($totalQuantity) . "\n"
+        . "<b>Notes:</b> " . telegram_escape_html($notes) . "\n"
+        . "<b>Status:</b> PENDING";
+    send_telegram_message($telegramOrderMessage);
 
     // CONSTRUCT LUXURY HTML INVOICE
     $items_html = '';
@@ -432,6 +790,12 @@ if ($method === 'POST' && $action === 'update_order_status') {
     $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
        ->execute(['LOGISTICS_UPDATE', "Order " . $input['id'] . " status updated to " . $input['status'], $ip]);
 
+    $telegramStatusMessage = "<b>📦 Order Status Updated</b>\n"
+        . "<b>Order ID:</b> " . telegram_escape_html($input['id']) . "\n"
+        . "<b>New Status:</b> " . telegram_escape_html($input['status']) . "\n"
+        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s'));
+    send_telegram_message($telegramStatusMessage);
+
     echo json_encode(["status" => "success", "message" => "STATUS_SYNCHRONIZED"]);
     exit;
 }
@@ -504,7 +868,16 @@ if ($method === 'POST' && $action === 'sync_products') {
 
 // 4. IDENTITY AUTHENTICATION (SIGNUP / SOCIAL SYNC)
 if ($method === 'POST' && $action === 'signup') {
+    if (is_rate_limited('signup', 8, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
+    if (!empty(trim($input['website'] ?? ''))) {
+        echo json_encode(["status" => "error", "message" => "SPAM_BLOCKED"]);
+        exit;
+    }
     
     $check = $db->prepare("SELECT * FROM users WHERE email = ?");
     $check->execute([$input['email']]);
@@ -538,8 +911,74 @@ Email: " . $input['email'];
     $smtpConfig = load_smtp_settings($db);
     $adminRecipient = $smtpConfig['user'] ?? SMTP_USER;
     $signupMail = smtp_send_mail($db, $adminRecipient, $subject, nl2br($message), true);
+    $telegramSignupMessage = "<b>✅ New Signup</b>\n"
+        . "<b>User ID:</b> " . telegram_escape_html($input['id']) . "\n"
+        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
+        . "<b>Name:</b> " . telegram_escape_html($input['name']) . "\n"
+        . "<b>Email:</b> " . telegram_escape_html($input['email']) . "\n"
+        . "<b>Phone:</b> " . telegram_escape_html($input['phone'] ?? 'N/A');
+    send_telegram_message($telegramSignupMessage);
 
     echo json_encode(["status" => "success", "user" => $input, "email" => ["admin" => $signupMail]]);
+    exit;
+}
+
+// 4.1 NEWSLETTER SUBSCRIPTION PROTOCOL
+if ($method === 'POST' && $action === 'subscribe') {
+    if (is_rate_limited('subscribe', 10, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $email = strtolower(trim($input['email'] ?? ''));
+    $source = strtolower(trim($input['source'] ?? 'footer'));
+    $consent = !empty($input['consent']) ? 1 : 0;
+    $honeypot = trim($input['website'] ?? '');
+
+    if ($honeypot !== '') {
+        echo json_encode(["status" => "error", "message" => "SPAM_BLOCKED"]);
+        exit;
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
+        exit;
+    }
+
+    if (!in_array($source, ['footer', 'popup'], true)) {
+        $source = 'footer';
+    }
+
+    $existing = $db->prepare("SELECT id FROM subscriptions WHERE email = ? LIMIT 1");
+    $existing->execute([$email]);
+    $existingSub = $existing->fetch();
+    if ($existingSub) {
+        echo json_encode(["status" => "success", "message" => "ALREADY_SUBSCRIBED", "sub_id" => $existingSub['id']]);
+        exit;
+    }
+
+    $subId = uniqid('sub_', true);
+    $stmt = $db->prepare("INSERT INTO subscriptions (id, email, consent, source) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$subId, $email, $consent, $source]);
+
+    sync_to_sheets('SUBSCRIPTION', [
+        'sub_id' => $subId,
+        'created_at' => date('c'),
+        'email' => $email,
+        'consent' => (bool)$consent,
+        'source' => $source
+    ]);
+
+    $telegramSubscriptionMessage = "<b>📩 New Subscriber</b>\n"
+        . "<b>Sub ID:</b> " . telegram_escape_html($subId) . "\n"
+        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
+        . "<b>Email:</b> " . telegram_escape_html($email) . "\n"
+        . "<b>Consent:</b> " . telegram_escape_html($consent ? 'true' : 'false') . "\n"
+        . "<b>Source:</b> " . telegram_escape_html($source);
+    send_telegram_message($telegramSubscriptionMessage);
+
+    echo json_encode(["status" => "success", "sub_id" => $subId]);
     exit;
 }
 
@@ -612,6 +1051,11 @@ if ($method === 'GET' && $action === 'test_email') {
 
 // 5. IDENTITY VALIDATION (LOGIN)
 if ($method === 'POST' && $action === 'login') {
+    if (is_rate_limited('login', 12, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
     $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND password = ?");
     $stmt->execute([$input['identifier'], $input['password']]);
