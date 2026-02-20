@@ -31,3 +31,25 @@ Prerequisite: Node.js
 - New route handlers are under `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/admin/`
 - Shared performance modules are under `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/`
 - Read `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/admin-performance-backend.md` before wiring into your Next.js App Router project.
+
+## Added Next.js Transaction Backend (Hostinger MySQL + SMTP)
+- New API routes:
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/signup/route.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/order/route.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/subscribe/route.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/health/route.ts`
+- New backend modules:
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/prisma.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/mailer.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/telegram.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/password.ts`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/apiValidators.ts`
+- Prisma now targets MySQL for Hostinger:
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/schema.prisma`
+  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/migrations/20260220_init_mysql/migration.sql`
+
+### Prisma Commands
+1. `npm install`
+2. `npm run prisma:generate`
+3. `npm run prisma:migrate`
+4. `npm run prisma:seed`
