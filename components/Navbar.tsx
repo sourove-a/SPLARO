@@ -11,13 +11,35 @@ import { View } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 export const SplaroLogo = ({ className = "h-8 md:h-12" }: { className?: string }) => (
-  <div
-    className={`relative flex items-center ${className}`}
-  >
-    {/* Identity Manifest Text Only */}
-    <span className="text-2xl md:text-4xl font-black italic tracking-tighter text-white uppercase flex items-center">
-      SPL<span className="text-cyan-500">A</span>RO
-    </span>
+  <div className={`relative flex items-center gap-4 group ${className}`}>
+    {/* Identity Manifest: Premium SVG Mark (Matches Reference Image Exactly) */}
+    <div className="relative w-10 md:w-14 aspect-square">
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+        {/* Top 3 Parallel Bars */}
+        <g className="transition-transform duration-700 group-hover:-translate-y-1">
+          <path d="M35 15L60 15L35 45L10 45Q10 45 35 15Z" fill="white" className="transition-all duration-700" />
+          <path d="M55 15L80 15L55 45L30 45Q30 45 55 15Z" fill="white" className="transition-all duration-700" />
+          <path d="M75 15L100 15L75 45L50 45Q50 45 75 15Z" fill="white" className="transition-all duration-700" />
+        </g>
+
+        {/* Bottom 3 Parallel Bars (Shifted Pattern) */}
+        <g className="transition-transform duration-700 group-hover:translate-y-1">
+          <path d="M15 55L40 55L15 85L-10 85Q-10 85 15 55Z" fill="white" className="transition-all duration-700" />
+          <path d="M35 55L60 55L35 85L10 85Q10 85 35 55Z" fill="white" className="transition-all duration-700" />
+          <path d="M55 55L80 55L55 85L30 85Q30 85 55 55Z" fill="white" className="transition-all duration-700" />
+        </g>
+      </svg>
+    </div>
+
+    {/* Identity Manifest Text: High-Precision Typography */}
+    <div className="flex flex-col justify-center">
+      <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none">
+        SPL<span className="text-cyan-500 group-hover:text-cyan-400 transition-colors">A</span>RO
+      </span>
+    </div>
+
+    {/* Shine Effect Overlay */}
+    <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
   </div>
 );
 
