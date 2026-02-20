@@ -22,6 +22,7 @@ export const LoginForm: React.FC = () => {
     email: '',
     identifier: '',
     password: '',
+    confirmPassword: '',
     otp: '',
     signupName: '',
     signupPhone: ''
@@ -74,13 +75,17 @@ export const LoginForm: React.FC = () => {
       if (!isEmail(formData.email)) newErrors.email = "Email Identity Mandatory *";
       if (!formData.signupName.trim()) newErrors.signupName = "Name Required *";
       if (!isPhone(formData.signupPhone.trim())) newErrors.signupPhone = "Valid Number Required (01XXXXXXXXX)";
+      if (formData.password.length < 6) newErrors.password = "Minimum 6 Characters";
+      if (formData.confirmPassword.length < 6) newErrors.confirmPassword = "Confirm your password";
+      if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = "Password mismatch";
+      }
     } else {
 
       if (!isEmail(formData.identifier)) newErrors.identifier = "Scientific Email ID Required";
     }
 
-
-    if (authMode !== 'forgot') {
+    if (authMode !== 'forgot' && authMode !== 'signup') {
       if (formData.password.length < 6) newErrors.password = "Minimum 6 Characters";
     }
 
@@ -472,20 +477,48 @@ export const LoginForm: React.FC = () => {
 
             {authMode !== 'forgot' && (
               <div className="relative">
-                <LuxuryFloatingInput
-                  label={authMode === 'signup' ? "Password *" : "Password"}
-                  type={showPass ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={v => setFormData({ ...formData, password: v })}
-                  icon={<Lock className="w-5 h-5" />}
-                  error={errors.password}
-                  placeholder="••••••••"
-                  suffix={
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
-                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  }
-                />
+                {authMode === 'signup' ? (
+                  <div className="space-y-4">
+                    <LuxuryFloatingInput
+                      label="Password *"
+                      type={showPass ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={v => setFormData({ ...formData, password: v })}
+                      icon={<Lock className="w-5 h-5" />}
+                      error={errors.password}
+                      placeholder="••••••••"
+                      suffix={
+                        <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      }
+                    />
+                    <LuxuryFloatingInput
+                      label="Confirm Password *"
+                      type={showPass ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={v => setFormData({ ...formData, confirmPassword: v })}
+                      icon={<Lock className="w-5 h-5" />}
+                      error={errors.confirmPassword}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                ) : (
+                  <LuxuryFloatingInput
+                    label="Password"
+                    type={showPass ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={v => setFormData({ ...formData, password: v })}
+                    icon={<Lock className="w-5 h-5" />}
+                    error={errors.password}
+                    placeholder="••••••••"
+                    suffix={
+                      <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                        {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
+                  />
+                )}
 
                 {authMode === 'login' && (
                   <div className="flex justify-end mt-[-1rem]">
