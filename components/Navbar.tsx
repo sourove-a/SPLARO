@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, User, Menu, X, Search, ArrowRight, Instagram, Facebook, Globe,
@@ -8,9 +8,9 @@ import {
 } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-export const SplaroLogo = ({ className = "h-8 md:h-12" }: { className?: string }) => {
+export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string }) => {
   const { siteSettings } = useApp();
 
   return (
@@ -39,7 +39,7 @@ export const SplaroLogo = ({ className = "h-8 md:h-12" }: { className?: string }
       </div>
 
       <div className="flex flex-col justify-center">
-        <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
+        <span className="text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
           SPL<span className="text-cyan-500 group-hover:text-cyan-400 transition-colors">A</span>RO
         </span>
       </div>
@@ -94,7 +94,24 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
 export const Navbar: React.FC = () => {
   const { setView, cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const currentRouteLabel = useMemo(() => {
+    const path = location.pathname;
+    if (path === '/') return 'HOME';
+    if (path === '/shop') return 'SHOP';
+    if (path === '/detail' || path.startsWith('/product/')) return 'PRODUCT DETAIL';
+    if (path === '/cart') return 'CART';
+    if (path === '/checkout') return 'CHECKOUT';
+    if (path === '/login' || path === '/signup' || path === '/sourove-admin') return 'IDENTITY';
+    if (path === '/user_dashboard') return 'USER DASHBOARD';
+    if (path === '/admin_dashboard') return 'ADMIN DASHBOARD';
+    if (path === '/order_success') return 'ORDER SUCCESS';
+    if (path === '/story') return 'STORY';
+    if (path === '/support') return 'SUPPORT';
+    return 'SPLARO';
+  }, [location.pathname]);
 
   const handleNav = (label: string, targetView: View, category: string | null = null) => {
     setSearchQuery('');
@@ -212,12 +229,15 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex justify-center items-center cursor-pointer pointer-events-auto" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
-          <SplaroLogo className="h-8 md:h-12" />
+          <SplaroLogo className="h-10 md:h-16" />
+          <span className="mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
+            {currentRouteLabel}
+          </span>
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
@@ -347,7 +367,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             <div className="px-8 py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
-              <SplaroLogo className="h-7 md:h-10" />
+              <SplaroLogo className="h-8 md:h-12" />
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
