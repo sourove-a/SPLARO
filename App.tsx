@@ -401,7 +401,7 @@ const Footer = () => {
               </p>
               <div className="flex gap-4">
                 {[
-                  { icon: Instagram, color: 'hover:text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(0,212,255,0.4)]', link: siteSettings.instagramLink || 'https://instagram.com/splaro.co' },
+                  { icon: Instagram, color: 'hover:text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(0,212,255,0.4)]', link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
                   { icon: Facebook, color: 'hover:text-blue-500', glow: 'hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]', link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
                   { icon: Globe, color: 'hover:text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]', link: 'https://splaro.co' }
                 ].map((social, idx) => (

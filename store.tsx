@@ -348,7 +348,7 @@ const createDefaultSiteSettings = (): SiteSettings => ({
   supportPhone: '+880 1905 010 205',
   supportEmail: 'info@splaro.co',
   facebookLink: 'https://facebook.com/splaro.co',
-  instagramLink: 'https://instagram.com/splaro.co',
+  instagramLink: 'https://www.instagram.com/splaro.bd',
   whatsappNumber: '+8801905010205',
   maintenanceMode: false,
   logoUrl: '',
@@ -378,6 +378,9 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
   const input = raw && typeof raw === 'object' ? raw : {};
   const incomingPages = parseJsonObject(input.cmsPages || input.contentPages || input.content_pages) || {};
   const incomingStories = parseJsonObject(input.storyPosts || input.story_posts) || [];
+  const rawInstagram = String(input.instagramLink || '').trim();
+  const shouldUseDefaultInstagram =
+    rawInstagram === '' || rawInstagram.toLowerCase().includes('instagram.com/splaro.co');
 
   const cmsPages: SiteSettings['cmsPages'] = {
     manifest: {
@@ -419,6 +422,13 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
   return {
     ...base,
     ...input,
+    siteName: String(input.siteName || base.siteName),
+    supportPhone: String(input.supportPhone || base.supportPhone),
+    supportEmail: String(input.supportEmail || base.supportEmail),
+    facebookLink: String(input.facebookLink || base.facebookLink),
+    instagramLink: shouldUseDefaultInstagram ? base.instagramLink : rawInstagram,
+    whatsappNumber: String(input.whatsappNumber || base.whatsappNumber),
+    maintenanceMode: Boolean(input.maintenanceMode),
     logoUrl: String(input.logoUrl || input.logo_url || base.logoUrl),
     cmsPages,
     storyPosts

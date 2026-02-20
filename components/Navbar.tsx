@@ -422,7 +422,7 @@ export const Navbar: React.FC = () => {
 
               <div className="flex gap-10">
                 {[
-                  { icon: Instagram, link: siteSettings.instagramLink || 'https://instagram.com/splaro.co' },
+                  { icon: Instagram, link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
                   { icon: Facebook, link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
                   { icon: Globe, link: '/' },
                   { icon: MessageSquare, link: `https://wa.me/${(siteSettings.whatsappNumber || '+8801905010205').replace(/[^\d+]/g, '')}` }
