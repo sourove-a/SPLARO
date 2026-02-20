@@ -61,11 +61,56 @@ function env_or_default($key, $default = '') {
     return $value;
 }
 
+function env_first(array $keys, $default = '') {
+    foreach ($keys as $key) {
+        $value = getenv($key);
+        if ($value !== false && $value !== null && $value !== '') {
+            return $value;
+        }
+    }
+    return $default;
+}
+
+function parse_database_url() {
+    $databaseUrl = env_first(['DATABASE_URL', 'MYSQL_URL', 'DB_URL'], '');
+    if ($databaseUrl === '') {
+        return [
+            'host' => '',
+            'name' => '',
+            'user' => '',
+            'pass' => '',
+            'port' => '',
+        ];
+    }
+
+    $parts = parse_url($databaseUrl);
+    if (!is_array($parts)) {
+        return [
+            'host' => '',
+            'name' => '',
+            'user' => '',
+            'pass' => '',
+            'port' => '',
+        ];
+    }
+
+    return [
+        'host' => $parts['host'] ?? '',
+        'name' => isset($parts['path']) ? ltrim($parts['path'], '/') : '',
+        'user' => $parts['user'] ?? '',
+        'pass' => $parts['pass'] ?? '',
+        'port' => isset($parts['port']) ? (string)$parts['port'] : '',
+    ];
+}
+
+$dbUrl = parse_database_url();
+
 // 1. DATABASE COORDINATES
-define('DB_HOST', env_or_default('DB_HOST', 'localhost')); // Hostinger usually uses 'localhost'
-define('DB_NAME', env_or_default('DB_NAME', ''));
-define('DB_USER', env_or_default('DB_USER', ''));
-define('DB_PASS', env_or_default('DB_PASS', ''));
+define('DB_HOST', env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : 'localhost')); // Hostinger usually uses 'localhost'
+define('DB_NAME', env_first(['DB_NAME', 'MYSQL_DATABASE', 'DB_DATABASE'], $dbUrl['name']));
+define('DB_USER', env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNAME', 'DB_USERNAME'], $dbUrl['user']));
+define('DB_PASS', env_first(['DB_PASS', 'MYSQL_PASSWORD', 'DB_PASSWORD'], $dbUrl['pass']));
+define('DB_PORT', (int)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306'));
 
 // 2. SMTP COMMAND CENTER
 define('SMTP_HOST', env_or_default('SMTP_HOST', 'smtp.hostinger.com'));
@@ -97,7 +142,7 @@ function get_db_connection() {
     }
 
     try {
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
