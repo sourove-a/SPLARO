@@ -124,7 +124,13 @@ export const Navbar: React.FC = () => {
       return `/${v.toLowerCase()}`;
     };
 
-    const path = getPath(targetView);
+    let path = getPath(targetView);
+    if (targetView === View.SHOP && category) {
+      const categoryParam = category.toLowerCase() === 'bags' ? 'bags' : 'shoes';
+      path = `/shop?category=${categoryParam}`;
+    } else if (targetView === View.SHOP) {
+      path = '/shop';
+    }
     navigate(path);
     setIsSearchOpen(false);
     setMenuOpen(false);

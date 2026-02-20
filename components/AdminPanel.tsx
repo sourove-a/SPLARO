@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Package, Settings, LogOut, Plus,
   TrendingUp, Users, DollarSign, ArrowUpRight, Search, Filter,
@@ -20,6 +20,11 @@ import { useApp } from '../store';
 import { View, OrderStatus, Product, DiscountCode, Order } from '../types';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
+
+const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'SYNC', 'SETTINGS', 'TRAFFIC', 'CAMPAIGNS'] as const;
+type AdminTab = typeof ADMIN_TABS[number];
+
+const isAdminTab = (tab: string): tab is AdminTab => ADMIN_TABS.includes(tab as AdminTab);
 
 const SidebarItem: React.FC<{
   icon: any,
@@ -492,11 +497,15 @@ export const AdminPanel = () => {
     lastSeenOrderTime, setLastSeenOrderTime
   } = useApp();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
 
 
 
-  const [activeTab, setActiveTab] = useState('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    const tabParam = (searchParams.get('tab') || '').toUpperCase();
+    return isAdminTab(tabParam) ? tabParam : 'DASHBOARD';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -568,6 +577,21 @@ export const AdminPanel = () => {
     updateSettings({ slides: reordered });
   };
 
+  const switchTab = (tab: AdminTab) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab.toLowerCase());
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    const tabParam = (searchParams.get('tab') || '').toUpperCase();
+    const resolved: AdminTab = isAdminTab(tabParam) ? tabParam : 'DASHBOARD';
+    if (resolved !== activeTab) {
+      setActiveTab(resolved);
+    }
+  }, [searchParams, activeTab]);
+
 
 
   return (
@@ -576,18 +600,18 @@ export const AdminPanel = () => {
       <aside className="w-full lg:w-80 shrink-0 flex flex-col gap-8">
         <div className="h-10" />
         <GlassCard className="p-8 space-y-3">
-          <SidebarItem icon={LayoutDashboard} label="Command Center" active={activeTab === 'DASHBOARD'} onClick={() => setActiveTab('DASHBOARD')} />
-          <SidebarItem icon={BarChart3} label="Strategic Analytics" active={activeTab === 'ANALYTICS'} onClick={() => setActiveTab('ANALYTICS')} />
-          <SidebarItem icon={ShoppingBag} label="Vault Inventory" active={activeTab === 'PRODUCTS'} onClick={() => setActiveTab('PRODUCTS')} />
-          <SidebarItem icon={Package} label="Shipments" active={activeTab === 'ORDERS'} badge={newOrdersCount} onClick={() => { setActiveTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }} />
-          <SidebarItem icon={ImageIcon} label="Slider Command" active={activeTab === 'SLIDER'} onClick={() => setActiveTab('SLIDER')} />
-          <SidebarItem icon={Tag} label="Discounts" active={activeTab === 'DISCOUNTS'} onClick={() => setActiveTab('DISCOUNTS')} />
-          <SidebarItem icon={Users} label="Client Base" active={activeTab === 'USERS'} onClick={() => setActiveTab('USERS')} />
-          <SidebarItem icon={DollarSign} label="Financials" active={activeTab === 'FINANCE'} onClick={() => setActiveTab('FINANCE')} />
-          <SidebarItem icon={Database} label="Registry Sync" active={activeTab === 'SYNC'} onClick={() => setActiveTab('SYNC')} />
-          <SidebarItem icon={Settings} label="Protocols" active={activeTab === 'SETTINGS'} onClick={() => setActiveTab('SETTINGS')} />
-          <SidebarItem icon={Globe} label="Live Traffic" active={activeTab === 'TRAFFIC'} onClick={() => setActiveTab('TRAFFIC')} />
-          <SidebarItem icon={Zap} label="Campaigns" active={activeTab === 'CAMPAIGNS'} onClick={() => setActiveTab('CAMPAIGNS')} />
+          <SidebarItem icon={LayoutDashboard} label="Command Center" active={activeTab === 'DASHBOARD'} onClick={() => switchTab('DASHBOARD')} />
+          <SidebarItem icon={BarChart3} label="Strategic Analytics" active={activeTab === 'ANALYTICS'} onClick={() => switchTab('ANALYTICS')} />
+          <SidebarItem icon={ShoppingBag} label="Vault Inventory" active={activeTab === 'PRODUCTS'} onClick={() => switchTab('PRODUCTS')} />
+          <SidebarItem icon={Package} label="Shipments" active={activeTab === 'ORDERS'} badge={newOrdersCount} onClick={() => { switchTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }} />
+          <SidebarItem icon={ImageIcon} label="Slider Command" active={activeTab === 'SLIDER'} onClick={() => switchTab('SLIDER')} />
+          <SidebarItem icon={Tag} label="Discounts" active={activeTab === 'DISCOUNTS'} onClick={() => switchTab('DISCOUNTS')} />
+          <SidebarItem icon={Users} label="Client Base" active={activeTab === 'USERS'} onClick={() => switchTab('USERS')} />
+          <SidebarItem icon={DollarSign} label="Financials" active={activeTab === 'FINANCE'} onClick={() => switchTab('FINANCE')} />
+          <SidebarItem icon={Database} label="Registry Sync" active={activeTab === 'SYNC'} onClick={() => switchTab('SYNC')} />
+          <SidebarItem icon={Settings} label="Protocols" active={activeTab === 'SETTINGS'} onClick={() => switchTab('SETTINGS')} />
+          <SidebarItem icon={Globe} label="Live Traffic" active={activeTab === 'TRAFFIC'} onClick={() => switchTab('TRAFFIC')} />
+          <SidebarItem icon={Zap} label="Campaigns" active={activeTab === 'CAMPAIGNS'} onClick={() => switchTab('CAMPAIGNS')} />
 
 
         </GlassCard>
@@ -644,7 +668,7 @@ export const AdminPanel = () => {
             </div>
             <div className="flex gap-4">
               <button
-                onClick={() => { setActiveTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }}
+                onClick={() => { switchTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }}
                 className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group"
               >
                 <Bell className="w-7 h-7 text-zinc-500 group-hover:text-white transition-all" />
@@ -655,7 +679,7 @@ export const AdminPanel = () => {
                 )}
               </button>
               <button
-                onClick={() => setActiveTab('SYNC')}
+                onClick={() => switchTab('SYNC')}
                 className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group"
               >
                 <Database className="w-7 h-7 text-zinc-500 group-hover:text-emerald-500 transition-all" />
@@ -717,7 +741,7 @@ export const AdminPanel = () => {
                 <h3 className="text-xl font-black mb-10 uppercase italic tracking-tight">Recent Deployments</h3>
                 <div className="space-y-8">
                   {orders.slice(0, 5).map(order => (
-                    <div key={order.id} className="flex items-center justify-between group cursor-pointer" onClick={() => setActiveTab('ORDERS')}>
+                    <div key={order.id} className="flex items-center justify-between group cursor-pointer" onClick={() => switchTab('ORDERS')}>
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl liquid-glass flex items-center justify-center border border-white/5 group-hover:border-blue-500/50 group-hover:bg-blue-500/5 transition-all duration-500">
                           <Package className="w-5 h-5 text-zinc-500 group-hover:text-blue-500" />
