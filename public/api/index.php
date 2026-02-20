@@ -61,6 +61,147 @@ $action = $_GET['action'] ?? '';
 
 $db = get_db_connection();
 
+function ensure_table($db, $table, $createSql) {
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $stmt->execute([$table]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            $db->exec($createSql);
+        }
+    } catch (Exception $e) {
+        // continue with best effort
+    }
+}
+
+function ensure_column($db, $table, $column, $definition) {
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->execute([$table, $column]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            $db->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+        }
+    } catch (Exception $e) {
+        // continue with best effort
+    }
+}
+
+function ensure_core_schema($db) {
+    ensure_table($db, 'site_settings', "CREATE TABLE IF NOT EXISTS `site_settings` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `site_name` varchar(255) DEFAULT 'SPLARO',
+        `maintenance_mode` tinyint(1) DEFAULT 0,
+        `support_email` varchar(255) DEFAULT 'support@splaro.co',
+        `support_phone` varchar(50) DEFAULT NULL,
+        `whatsapp_number` varchar(50) DEFAULT NULL,
+        `facebook_link` varchar(255) DEFAULT NULL,
+        `instagram_link` varchar(255) DEFAULT NULL,
+        `logo_url` text DEFAULT NULL,
+        `smtp_settings` text DEFAULT NULL,
+        `logistics_config` text DEFAULT NULL,
+        `hero_slides` longtext DEFAULT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'products', "CREATE TABLE IF NOT EXISTS `products` (
+      `id` varchar(50) NOT NULL,
+      `name` varchar(255) NOT NULL,
+      `brand` varchar(100) NOT NULL,
+      `price` int(11) NOT NULL,
+      `image` text NOT NULL,
+      `category` varchar(100) NOT NULL,
+      `type` varchar(50) NOT NULL,
+      `description` longtext DEFAULT NULL,
+      `sizes` longtext DEFAULT NULL,
+      `colors` longtext DEFAULT NULL,
+      `materials` longtext DEFAULT NULL,
+      `tags` longtext DEFAULT NULL,
+      `featured` tinyint(1) DEFAULT 0,
+      `sku` varchar(100) DEFAULT NULL,
+      `stock` int(11) DEFAULT 50,
+      `weight` varchar(50) DEFAULT NULL,
+      `dimensions` longtext DEFAULT NULL,
+      `variations` longtext DEFAULT NULL,
+      `additional_images` longtext DEFAULT NULL,
+      `size_chart_image` text DEFAULT NULL,
+      `discount_percentage` int(11) DEFAULT NULL,
+      `sub_category` varchar(100) DEFAULT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'orders', "CREATE TABLE IF NOT EXISTS `orders` (
+      `id` varchar(50) NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `customer_name` varchar(255) NOT NULL,
+      `customer_email` varchar(255) NOT NULL,
+      `phone` varchar(50) NOT NULL,
+      `district` varchar(100) DEFAULT NULL,
+      `thana` varchar(100) DEFAULT NULL,
+      `address` text NOT NULL,
+      `items` longtext NOT NULL,
+      `total` int(11) NOT NULL,
+      `status` varchar(50) NOT NULL,
+      `tracking_number` varchar(100) DEFAULT NULL,
+      `admin_notes` text DEFAULT NULL,
+      `customer_comment` text DEFAULT NULL,
+      `shipping_fee` int(11) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_column($db, 'site_settings', 'smtp_settings', 'text DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'logistics_config', 'text DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'hero_slides', 'longtext DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'logo_url', 'text DEFAULT NULL');
+
+    ensure_column($db, 'products', 'description', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'sizes', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'colors', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'materials', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'tags', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'featured', 'tinyint(1) DEFAULT 0');
+    ensure_column($db, 'products', 'sku', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'products', 'stock', 'int(11) DEFAULT 50');
+    ensure_column($db, 'products', 'weight', 'varchar(50) DEFAULT NULL');
+    ensure_column($db, 'products', 'dimensions', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'variations', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'additional_images', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'size_chart_image', 'text DEFAULT NULL');
+    ensure_column($db, 'products', 'discount_percentage', 'int(11) DEFAULT NULL');
+    ensure_column($db, 'products', 'sub_category', 'varchar(100) DEFAULT NULL');
+
+    ensure_column($db, 'orders', 'district', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'orders', 'thana', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'orders', 'tracking_number', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'orders', 'admin_notes', 'text DEFAULT NULL');
+    ensure_column($db, 'orders', 'customer_comment', 'text DEFAULT NULL');
+    ensure_column($db, 'orders', 'shipping_fee', 'int(11) DEFAULT NULL');
+
+    ensure_table($db, 'users', "CREATE TABLE IF NOT EXISTS `users` (
+      `id` varchar(50) NOT NULL,
+      `name` varchar(255) NOT NULL,
+      `email` varchar(255) NOT NULL,
+      `phone` varchar(50) DEFAULT NULL,
+      `password` varchar(255) NOT NULL,
+      `role` varchar(20) DEFAULT 'USER',
+      `reset_code` varchar(10) DEFAULT NULL,
+      `reset_expiry` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `email` (`email`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_column($db, 'users', 'reset_code', 'varchar(10) DEFAULT NULL');
+    ensure_column($db, 'users', 'reset_expiry', 'datetime DEFAULT NULL');
+
+    try {
+        $db->exec("INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co')");
+    } catch (Exception $e) {
+        // ignore
+    }
+}
+
+ensure_core_schema($db);
+
 // Handle Preflight Options
 if ($method === 'OPTIONS') {
     exit;
@@ -384,41 +525,49 @@ if ($method === 'POST' && $action === 'delete_order') {
 
 // 3. PRODUCT SYCHRONIZATION
 if ($method === 'POST' && $action === 'sync_products') {
-    $products = json_decode(file_get_contents('php://input'), true);
-    
-    $db->prepare("DELETE FROM products")->execute(); // Flush for fresh sync
-    
-    foreach ($products as $p) {
-        $stmt = $db->prepare("INSERT INTO products 
-            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $p['id'], 
-            $p['name'], 
-            $p['brand'], 
-            $p['price'], 
-            $p['image'], 
-            $p['category'], 
-            $p['type'],
-            json_encode($p['description'] ?? []),
-            json_encode($p['sizes'] ?? []),
-            json_encode($p['colors'] ?? []),
-            json_encode($p['materials'] ?? []),
-            json_encode($p['tags'] ?? []),
-            ($p['featured'] ?? false) ? 1 : 0,
-            $p['sku'] ?? null,
-            $p['stock'] ?? 50,
-            $p['weight'] ?? null,
-            json_encode($p['dimensions'] ?? []),
-            json_encode($p['variations'] ?? []),
-            json_encode($p['additionalImages'] ?? []),
-            $p['sizeChartImage'] ?? null,
-            $p['discountPercentage'] ?? null,
-            $p['subCategory'] ?? null
-        ]);
-    }
+    try {
+        $products = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($products)) {
+            echo json_encode(["status" => "error", "message" => "INVALID_PRODUCT_PAYLOAD"]);
+            exit;
+        }
 
-    echo json_encode(["status" => "success", "message" => "PRODUCT_MANIFEST_UPDATED"]);
+        $db->prepare("DELETE FROM products")->execute(); // Flush for fresh sync
+
+        foreach ($products as $p) {
+            $stmt = $db->prepare("INSERT INTO products 
+                (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $p['id'], 
+                $p['name'], 
+                $p['brand'], 
+                $p['price'], 
+                $p['image'], 
+                $p['category'], 
+                $p['type'],
+                json_encode($p['description'] ?? []),
+                json_encode($p['sizes'] ?? []),
+                json_encode($p['colors'] ?? []),
+                json_encode($p['materials'] ?? []),
+                json_encode($p['tags'] ?? []),
+                ($p['featured'] ?? false) ? 1 : 0,
+                $p['sku'] ?? null,
+                $p['stock'] ?? 50,
+                $p['weight'] ?? null,
+                json_encode($p['dimensions'] ?? []),
+                json_encode($p['variations'] ?? []),
+                json_encode($p['additionalImages'] ?? []),
+                $p['sizeChartImage'] ?? null,
+                $p['discountPercentage'] ?? null,
+                $p['subCategory'] ?? null
+            ]);
+        }
+
+        echo json_encode(["status" => "success", "message" => "PRODUCT_MANIFEST_UPDATED"]);
+    } catch (PDOException $e) {
+        echo json_encode(["status" => "error", "message" => "PROTOCOL_ERROR: " . $e->getMessage()]);
+    }
     exit;
 }
 
