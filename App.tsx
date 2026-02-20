@@ -138,10 +138,10 @@ const HomeView = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
           <div className="max-w-3xl">
             <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
-              BOUTIQUE<br /><span className="text-cyan-500">ARCHIVE.</span>
+              LUXURY<br /><span className="text-cyan-500">IN MOTION.</span>
             </h2>
             <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium capitalize">
-              Elite curation of international imported grade heritage. Every piece is a testament to the future of high-fashion logistics.
+              Premium footwear and bags with clean lines, strong character, and elevated finish.
             </p>
           </div>
           <button
