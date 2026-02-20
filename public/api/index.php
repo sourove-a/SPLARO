@@ -74,6 +74,9 @@ if (!$db) {
             "service" => "SPLARO_API",
             "time" => date('c'),
             "mode" => "DEGRADED",
+            "storage" => "fallback",
+            "dbHost" => DB_HOST,
+            "dbName" => DB_NAME,
             "db" => $bootstrapError
         ]);
         exit;
@@ -83,6 +86,7 @@ if (!$db) {
         echo json_encode([
             "status" => "success",
             "mode" => "DEGRADED",
+            "storage" => "fallback",
             "data" => [
                 "products" => [],
                 "orders" => [],
@@ -99,8 +103,10 @@ if (!$db) {
     http_response_code(503);
     echo json_encode([
         "status" => "error",
+        "storage" => "fallback",
         "message" => $bootstrapError['message'] ?? 'DATABASE_CONNECTION_FAILED',
-        "missing" => $bootstrapError['missing'] ?? []
+        "missing" => $bootstrapError['missing'] ?? [],
+        "db" => $bootstrapError
     ]);
     exit;
 }
@@ -131,6 +137,18 @@ function ensure_column($db, $table, $column, $definition) {
         }
     } catch (Exception $e) {
         error_log("SPLARO_SCHEMA_WARNING: ensure_column failed for {$table}.{$column} -> " . $e->getMessage());
+    }
+}
+
+function ensure_index($db, $table, $indexName, $indexSql) {
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?");
+        $stmt->execute([$table, $indexName]);
+        if ((int)$stmt->fetchColumn() === 0) {
+            $db->exec($indexSql);
+        }
+    } catch (Exception $e) {
+        error_log("SPLARO_SCHEMA_WARNING: ensure_index failed for {$table}.{$indexName} -> " . $e->getMessage());
     }
 }
 
@@ -249,6 +267,8 @@ function ensure_core_schema($db) {
     ensure_column($db, 'site_settings', 'hero_slides', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'content_pages', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'story_posts', 'longtext DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'campaigns_data', 'longtext DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'settings_json', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'logo_url', 'text DEFAULT NULL');
 
     ensure_column($db, 'products', 'description', 'longtext DEFAULT NULL');
@@ -266,6 +286,7 @@ function ensure_core_schema($db) {
     ensure_column($db, 'products', 'size_chart_image', 'text DEFAULT NULL');
     ensure_column($db, 'products', 'discount_percentage', 'int(11) DEFAULT NULL');
     ensure_column($db, 'products', 'sub_category', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'products', 'created_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP');
 
     ensure_column($db, 'orders', 'district', 'varchar(100) DEFAULT NULL');
     ensure_column($db, 'orders', 'thana', 'varchar(100) DEFAULT NULL');
@@ -296,6 +317,18 @@ function ensure_core_schema($db) {
     ensure_column($db, 'users', 'reset_expiry', 'datetime DEFAULT NULL');
     ensure_column($db, 'users', 'address', 'text DEFAULT NULL');
     ensure_column($db, 'users', 'profile_image', 'text DEFAULT NULL');
+
+    ensure_index($db, 'users', 'idx_users_email', 'CREATE INDEX idx_users_email ON users(email)');
+    ensure_index($db, 'users', 'idx_users_phone', 'CREATE INDEX idx_users_phone ON users(phone)');
+    ensure_index($db, 'users', 'idx_users_created_at', 'CREATE INDEX idx_users_created_at ON users(created_at)');
+    ensure_index($db, 'orders', 'idx_orders_email', 'CREATE INDEX idx_orders_email ON orders(customer_email)');
+    ensure_index($db, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
+    ensure_index($db, 'orders', 'idx_orders_created_at', 'CREATE INDEX idx_orders_created_at ON orders(created_at)');
+    ensure_index($db, 'subscriptions', 'idx_subscriptions_email', 'CREATE INDEX idx_subscriptions_email ON subscriptions(email)');
+    ensure_index($db, 'subscriptions', 'idx_subscriptions_created_at', 'CREATE INDEX idx_subscriptions_created_at ON subscriptions(created_at)');
+    ensure_index($db, 'products', 'idx_products_created_at', 'CREATE INDEX idx_products_created_at ON products(created_at)');
+    ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
+    ensure_index($db, 'traffic_metrics', 'idx_traffic_metrics_created_at', 'CREATE INDEX idx_traffic_metrics_created_at ON traffic_metrics(last_active)');
 
     try {
         $db->exec("INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co')");
@@ -645,7 +678,10 @@ if ($method === 'GET' && $action === 'health') {
         "status" => "success",
         "service" => "SPLARO_API",
         "time" => date('c'),
-        "telegram_enabled" => TELEGRAM_ENABLED
+        "telegram_enabled" => TELEGRAM_ENABLED,
+        "storage" => "mysql",
+        "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
+        "dbName" => DB_NAME
     ]);
     exit;
 }
@@ -925,7 +961,13 @@ if ($method === 'GET' && $action === 'sync') {
         'traffic'  => $traffic,
         'meta'     => $meta,
     ];
-    echo json_encode(["status" => "success", "data" => $data]);
+    echo json_encode([
+        "status" => "success",
+        "storage" => "mysql",
+        "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
+        "dbName" => DB_NAME,
+        "data" => $data
+    ]);
     exit;
 }
 

@@ -18,6 +18,13 @@ import { CartPage } from './components/CartPage';
 import { CheckoutPage } from './components/CheckoutPage';
 import { ProductCard } from './components/ProductCard';
 import { PrimaryButton, GlassCard } from './components/LiquidGlass';
+import {
+  AdminCampaignsPage,
+  AdminCampaignDetailPage,
+  AdminCampaignLogsPage,
+  AdminCampaignNewPage,
+  AdminSearchPage
+} from './components/AdminCampaignPages';
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
@@ -523,8 +530,10 @@ const AppContent = () => {
 
     if (view !== targetView) setView(targetView);
 
+    const isAdminRoute = p === 'admin_dashboard' || p.startsWith('admin/');
+
     // IDENTITY SEPARATION PROTOCOL: Enforcement Guard
-    if (!user && p === 'admin_dashboard') {
+    if (!user && isAdminRoute) {
       navigate('/sourove-admin');
       return;
     }
@@ -532,11 +541,11 @@ const AppContent = () => {
     if (user) {
       if (user.role === 'ADMIN' && p === 'user_dashboard') {
         navigate('/admin_dashboard');
-      } else if (user.role === 'USER' && (p === 'admin_dashboard' || p === 'sourove-admin')) {
+      } else if (user.role === 'USER' && (isAdminRoute || p === 'sourove-admin')) {
         navigate('/user_dashboard');
       }
     }
-  }, [location.pathname, user]);
+  }, [location.pathname, user, navigate]);
 
   useEffect(() => {
     document.body.classList.toggle('dark', isDark);
@@ -589,6 +598,11 @@ const AppContent = () => {
             <Route path="/signup" element={<SignupForm />} />
             <Route path="/user_dashboard" element={<UserDashboard />} />
             <Route path="/admin_dashboard" element={<AdminPanel />} />
+            <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
+            <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
+            <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
+            <Route path="/admin/campaigns/:id/logs" element={<AdminCampaignLogsPage />} />
+            <Route path="/admin/search" element={<AdminSearchPage />} />
             <Route path="/order_success" element={<OrderSuccessView />} />
             <Route path="/story" element={<StoryPage />} />
             <Route path="/support" element={<SupportPage />} />

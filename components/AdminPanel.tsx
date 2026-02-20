@@ -468,7 +468,11 @@ const ProductModal: React.FC<{
           <PrimaryButton
             onClick={() => {
               if (!formData.name || !formData.price) {
-                alert("CRITICAL ERROR: Mandatory Identity Fields Required (Name, Value)");
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('splaro-toast', {
+                    detail: { tone: 'error', message: 'Name and price are required.' }
+                  }));
+                }
                 return;
               }
               onSave(formData as Product);
@@ -514,6 +518,12 @@ export const AdminPanel = () => {
   const [orderFilter, setOrderFilter] = useState('All Orders');
   const [brandFilter, setBrandFilter] = useState('All Brands');
   const [analyticsWindow, setAnalyticsWindow] = useState<'LIVE' | '7D' | '30D'>('LIVE');
+  const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, tone });
+    window.setTimeout(() => setToast(null), 2600);
+  };
 
   const cmsPageSections = [
     { key: 'manifest', label: 'Manifest Page' },
@@ -672,6 +682,17 @@ export const AdminPanel = () => {
     }
   }, [location.search, activeTab]);
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const custom = event as CustomEvent<{ message?: string; tone?: 'success' | 'error' | 'info' }>;
+      const detail = custom.detail || {};
+      if (!detail.message) return;
+      showToast(detail.message, detail.tone || 'info');
+    };
+    window.addEventListener('splaro-toast', handler as EventListener);
+    return () => window.removeEventListener('splaro-toast', handler as EventListener);
+  }, []);
+
 
 
   return (
@@ -702,12 +723,14 @@ export const AdminPanel = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col gap-1">
               <h4 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest text-white">System Health</h4>
-              <p className={`text-[8px] font-black uppercase tracking-widest ${dbStatus === 'CONNECTED' ? 'text-emerald-500' : 'text-amber-500'}`}>Registry: {dbStatus}</p>
+              <p className={`text-[8px] font-black uppercase tracking-widest ${dbStatus === 'MYSQL' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                Storage: {dbStatus === 'MYSQL' ? 'MySQL' : 'Fallback'}
+              </p>
             </div>
             <div className="flex gap-1">
-              <div className={`w-1 h-3 rounded-full animate-pulse ${dbStatus === 'CONNECTED' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              <div className={`w-1 h-5 rounded-full animate-pulse delay-75 ${dbStatus === 'CONNECTED' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'CONNECTED' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <div className={`w-1 h-3 rounded-full animate-pulse ${dbStatus === 'MYSQL' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <div className={`w-1 h-5 rounded-full animate-pulse delay-75 ${dbStatus === 'MYSQL' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'MYSQL' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
             </div>
           </div>
           <button
@@ -742,7 +765,7 @@ export const AdminPanel = () => {
               <Search className="w-6 h-6 text-zinc-600 group-focus-within:text-blue-500 transition-colors" />
               <input
                 type="text"
-                placeholder="GLOBAL SEARCH ARCHIVE..."
+                placeholder="Search products, orders, users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-[0.3em] text-white placeholder:text-zinc-700 w-64 focus:w-80 transition-all duration-700"
@@ -1766,7 +1789,7 @@ export const AdminPanel = () => {
                       </div>
                     )) : (
                       <div className="p-10 border border-dashed border-white/5 rounded-[28px] text-center italic opacity-50">
-                        <p className="text-[10px] font-black uppercase text-zinc-600">No active collectors discovered</p>
+                        <p className="text-[10px] font-black uppercase text-zinc-600">No active users found</p>
                       </div>
                     )}
                   </div>
@@ -1778,8 +1801,10 @@ export const AdminPanel = () => {
           {activeTab === 'CAMPAIGNS' && (
             <motion.div key="campaigns" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="flex justify-between items-center">
-                <h3 className="text-3xl font-black uppercase italic">Automated Archive Notifications</h3>
-                <PrimaryButton className="px-10 py-5 text-[10px]"><Plus className="w-4 h-4 mr-2" /> NEW CAMPAIGN</PrimaryButton>
+                <h3 className="text-3xl font-black uppercase italic">Campaigns</h3>
+                <PrimaryButton className="px-10 py-5 text-[10px]" onClick={() => navigate('/admin/campaigns/new')}>
+                  <Plus className="w-4 h-4 mr-2" /> CREATE CAMPAIGN
+                </PrimaryButton>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1788,28 +1813,28 @@ export const AdminPanel = () => {
                     <div className="w-16 h-16 rounded-[24px] bg-blue-600 flex items-center justify-center text-white shadow-xl">
                       <Zap className="w-8 h-8" />
                     </div>
-                    <span className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase">Active protocol</span>
+                    <span className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase">Live</span>
                   </div>
-                  <h4 className="text-2xl font-black uppercase italic mb-4">Summer Archive Drop</h4>
-                  <p className="text-[11px] text-zinc-500 font-medium leading-relaxed uppercase mb-10">Notification protocol targeting all registered collectors for the upcoming heritage release.</p>
+                  <h4 className="text-2xl font-black uppercase italic mb-4">Campaign flow</h4>
+                  <p className="text-[11px] text-zinc-500 font-medium leading-relaxed uppercase mb-10">Build, schedule, and send notifications with clear audience targeting.</p>
                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    <span>Target: 842 Clients</span>
-                    <span>Pulse: 92%</span>
+                    <span>Audience targeting</span>
+                    <button onClick={() => navigate('/admin/campaigns')} className="text-cyan-400 hover:text-cyan-300 transition-colors">OPEN</button>
                   </div>
                 </GlassCard>
 
                 <GlassCard className="p-10 opacity-60">
                   <div className="flex justify-between items-start mb-10">
                     <div className="w-16 h-16 rounded-[24px] bg-zinc-800 flex items-center justify-center text-zinc-500">
-                      <Box className="w-8 h-8" />
+                      <Search className="w-8 h-8" />
                     </div>
-                    <span className="px-4 py-2 bg-zinc-800 text-zinc-600 rounded-full text-[9px] font-black uppercase">Draft manifest</span>
+                    <span className="px-4 py-2 bg-zinc-800 text-zinc-600 rounded-full text-[9px] font-black uppercase">Ready</span>
                   </div>
-                  <h4 className="text-2xl font-black uppercase italic mb-4">Flash Discovery Event</h4>
-                  <p className="text-[11px] text-zinc-500 font-medium leading-relaxed uppercase mb-10">Proposed discount protocol for inactive collectors within the 30-day window.</p>
+                  <h4 className="text-2xl font-black uppercase italic mb-4">Search everything</h4>
+                  <p className="text-[11px] text-zinc-500 font-medium leading-relaxed uppercase mb-10">Find users, orders, and campaigns from one screen.</p>
                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    <span>Target: 156 Clients</span>
-                    <button className="text-blue-500">INITIALIZE</button>
+                    <span>Fast lookup</span>
+                    <button onClick={() => navigate('/admin/search')} className="text-blue-400 hover:text-blue-300 transition-colors">OPEN</button>
                   </div>
                 </GlassCard>
               </div>
@@ -2019,7 +2044,7 @@ export const AdminPanel = () => {
                         const id = selectedOrder.id;
                         updateOrderStatus(id, 'Shipped');
                         setSelectedOrder(null);
-                        alert(`LOGISTICS ALERT: Asset ${id} deployed to regional terminal.`);
+                        showToast(`Order ${id} moved to shipped.`, 'success');
                       }}
                       className="flex-1 h-20 bg-blue-600 hover:bg-blue-500 text-white rounded-[32px] text-[11px] font-black uppercase tracking-[0.4em] transition-all shadow-[0_20px_40px_rgba(37,99,235,0.2)]"
                     >
@@ -2038,6 +2063,19 @@ export const AdminPanel = () => {
           )}
         </AnimatePresence>
       </main>
+      {toast && (
+        <div
+          className={`fixed bottom-8 left-1/2 z-[320] -translate-x-1/2 rounded-2xl border px-6 py-4 text-sm font-bold ${
+            toast.tone === 'success'
+              ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
+              : toast.tone === 'error'
+                ? 'border-rose-500/40 bg-rose-500/15 text-rose-200'
+                : 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div >
   );
 };

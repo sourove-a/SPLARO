@@ -482,7 +482,7 @@ interface AppContextType {
   siteSettings: SiteSettings;
   setSiteSettings: (s: SiteSettings) => void;
   updateSettings: (data: Partial<SiteSettings> & { smtpSettings?: any, logisticsConfig?: any }) => Promise<void>;
-  dbStatus: 'CONNECTED' | 'LOCAL' | 'OFFLINE';
+  dbStatus: 'MYSQL' | 'FALLBACK' | 'OFFLINE';
   logs: any[];
   trafficData: any[];
   lastSeenOrderTime: string;
@@ -541,7 +541,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     normalizeSiteSettings(loadFromStorage('splaro-site-settings', createDefaultSiteSettings()))
   );
 
-  const [dbStatus, setDbStatus] = useState<'CONNECTED' | 'LOCAL' | 'OFFLINE'>('LOCAL');
+  const [dbStatus, setDbStatus] = useState<'MYSQL' | 'FALLBACK' | 'OFFLINE'>('FALLBACK');
 
 
 
@@ -642,6 +642,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return headers;
   };
 
+  const emitToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { message, tone } }));
+  };
+
   const syncRegistry = async () => {
     try {
       const query = new URLSearchParams({
@@ -656,7 +661,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const result = await res.json();
       if (result.status === 'success') {
-        setDbStatus('CONNECTED');
+        const storage = String(result.storage || '').toLowerCase();
+        const isMysql = storage === 'mysql' || storage === 'connected';
+        setDbStatus(isMysql ? 'MYSQL' : 'FALLBACK');
+
+        if (!isMysql) {
+          return;
+        }
+
         if (result.data.products?.length > 0) setProducts(result.data.products);
         if (result.data.logs?.length > 0) setLogs(result.data.logs);
         if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
@@ -725,10 +737,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(result.data.logs)) setLogs(result.data.logs);
         if (Array.isArray(result.data.traffic)) setTrafficData(result.data.traffic);
       } else {
-        setDbStatus('LOCAL');
+        setDbStatus('FALLBACK');
       }
     } catch (e) {
-      setDbStatus('LOCAL');
+      setDbStatus('FALLBACK');
       console.warn('ARCHIVAL_SYNC_BYPASS: Operative terminal logic initialized locally.');
     }
   };
@@ -739,7 +751,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const interval = setInterval(syncRegistry, 60000); // Background Sync Protocol: 60s Pulse
       return () => clearInterval(interval);
     } else {
-      setDbStatus('LOCAL');
+      setDbStatus('FALLBACK');
     }
   }, [IS_PROD]);
 
@@ -816,7 +828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const result = await res.json().catch(() => ({}));
         if (!res.ok || result.status !== 'success') {
           if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
-            setDbStatus('LOCAL');
+            setDbStatus('FALLBACK');
             setOrders(prev => [o, ...prev]);
             setCart([]);
             return { ok: true, message: 'ORDER_STORED_LOCAL_FALLBACK' };
@@ -961,16 +973,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           headers: getAuthHeaders(true),
           body: JSON.stringify(payload)
         });
-        const result = await res.json();
+        const result = await res.json().catch(() => ({}));
 
         if (result.status === 'success') {
-          alert('CONFIGURATION_ARCHIVED: Institutional manifest successfully synchronized.');
+          const storage = String(result.storage || '').toLowerCase();
+          setDbStatus(storage === 'mysql' ? 'MYSQL' : 'FALLBACK');
+          emitToast(storage === 'mysql' ? 'Settings saved to MySQL.' : 'Settings saved in fallback storage.', 'success');
         } else {
-          alert(`PROTOCOL_FAILURE: ${result.message || 'Unknown archival error.'}`);
+          setDbStatus('FALLBACK');
+          emitToast('Storage is in fallback mode. Changes saved locally.', 'info');
           console.error('SETTING_SYNC_ERROR:', result);
         }
       } catch (e) {
-        alert('TERMINAL_CONNECTION_FAILURE: Could not reach the production sync node.');
+        setDbStatus('FALLBACK');
+        emitToast('Could not reach database. Running in fallback mode.', 'error');
         console.error('SETTING_SYNC_FAILURE:', e);
       }
     }
@@ -984,11 +1000,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: getAuthHeaders(true)
       });
       if (!res.ok) {
+        emitToast('Initialization failed.', 'error');
         return;
       }
       const result = await res.json();
       if (result.status === 'success') {
-        alert('REGISTRY_SYNC: Institutional Columns initialized on Google Sheets.');
+        emitToast('Initialization completed.', 'success');
       }
     }
   };

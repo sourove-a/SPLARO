@@ -205,10 +205,11 @@ function parse_database_url() {
 $dbUrl = parse_database_url();
 
 // 1. DATABASE COORDINATES
-define('DB_HOST', env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : 'localhost')); // Hostinger usually uses 'localhost'
+define('DB_HOST', env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : '127.0.0.1'));
 define('DB_NAME', env_first(['DB_NAME', 'MYSQL_DATABASE', 'DB_DATABASE'], $dbUrl['name']));
 define('DB_USER', env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNAME', 'DB_USERNAME'], $dbUrl['user']));
-define('DB_PASS', env_first(['DB_PASS', 'MYSQL_PASSWORD', 'DB_PASSWORD'], $dbUrl['pass']));
+define('DB_PASSWORD', env_first(['DB_PASSWORD', 'DB_PASS', 'MYSQL_PASSWORD'], $dbUrl['pass']));
+define('DB_PASS', DB_PASSWORD);
 define('DB_PORT', (int)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306'));
 
 // 2. SMTP COMMAND CENTER
@@ -238,11 +239,11 @@ function get_db_connection() {
         return $GLOBALS['SPLARO_DB_CONNECTION'];
     }
 
-    if (DB_NAME === '' || DB_USER === '' || DB_PASS === '') {
+    if (DB_NAME === '' || DB_USER === '' || DB_PASSWORD === '') {
         $missing = [];
         if (DB_NAME === '') $missing[] = 'DB_NAME';
         if (DB_USER === '') $missing[] = 'DB_USER';
-        if (DB_PASS === '') $missing[] = 'DB_PASS';
+        if (DB_PASSWORD === '') $missing[] = 'DB_PASSWORD';
         $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] = [
             "message" => "DATABASE_ENV_NOT_CONFIGURED",
             "missing" => $missing
@@ -251,21 +252,36 @@ function get_db_connection() {
         return null;
     }
 
-    try {
-        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ];
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-        $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
-        return $pdo;
-    } catch (\PDOException $e) {
-        error_log("SPLARO_DB_CONNECTION_ERROR: " . $e->getMessage());
-        $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] = [
-            "message" => "DATABASE_CONNECTION_FAILED"
-        ];
-        return null;
+    $hostCandidates = [DB_HOST];
+    if (DB_HOST === '127.0.0.1') {
+        $hostCandidates[] = 'localhost';
+    } elseif (DB_HOST === 'localhost') {
+        $hostCandidates[] = '127.0.0.1';
     }
+    $hostCandidates = array_values(array_unique(array_filter($hostCandidates)));
+
+    $lastError = '';
+    foreach ($hostCandidates as $host) {
+        try {
+            $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+                PDO::ATTR_TIMEOUT            => 5,
+            ];
+            $pdo = new PDO($dsn, DB_USER, DB_PASSWORD, $options);
+            $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
+            $GLOBALS['SPLARO_DB_CONNECTED_HOST'] = $host;
+            return $pdo;
+        } catch (\PDOException $e) {
+            $lastError = $e->getMessage();
+            error_log("SPLARO_DB_CONNECTION_ERROR[{$host}]: " . $lastError);
+        }
+    }
+
+    $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] = [
+        "message" => "DATABASE_CONNECTION_FAILED"
+    ];
+    return null;
 }

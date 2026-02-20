@@ -107,6 +107,11 @@ export const Navbar: React.FC = () => {
     if (path === '/login' || path === '/signup' || path === '/sourove-admin') return 'IDENTITY';
     if (path === '/user_dashboard') return 'USER DASHBOARD';
     if (path === '/admin_dashboard') return 'ADMIN DASHBOARD';
+    if (path === '/admin/campaigns') return 'CAMPAIGNS';
+    if (path === '/admin/campaigns/new') return 'NEW CAMPAIGN';
+    if (path.startsWith('/admin/campaigns/') && path.endsWith('/logs')) return 'CAMPAIGN LOGS';
+    if (path.startsWith('/admin/campaigns/')) return 'CAMPAIGN DETAILS';
+    if (path === '/admin/search') return 'ADMIN SEARCH';
     if (path === '/order_success') return 'ORDER SUCCESS';
     if (path === '/story') return 'STORY';
     if (path === '/support') return 'SUPPORT';
