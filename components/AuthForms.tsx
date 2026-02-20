@@ -10,13 +10,21 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { useEffect } from 'react';
 
-export const LoginForm: React.FC = () => {
+type AuthMode = 'login' | 'signup' | 'forgot';
+
+type AuthFormProps = {
+  forcedMode?: 'login' | 'signup';
+};
+
+export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   const { setUser, registerUser, syncRegistry } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignupPath = location.pathname.includes('signup');
+  const isLoginPath = location.pathname.includes('login') || location.pathname === '/sourove-admin';
+  const initialMode: AuthMode = forcedMode ?? (isSignupPath ? 'signup' : 'login');
 
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>(isSignupPath ? 'signup' : 'login');
+  const [authMode, setAuthMode] = useState<AuthMode>(initialMode);
   const [recoveryStep, setRecoveryStep] = useState<'email' | 'reset'>('email');
   const [formData, setFormData] = useState({
     email: '',
@@ -45,15 +53,23 @@ export const LoginForm: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isSignupPath && authMode !== 'signup') setAuthMode('signup');
-    if (!isSignupPath && location.pathname.includes('login') && authMode !== 'login') setAuthMode('login');
+    if (forcedMode && authMode !== forcedMode) {
+      setErrors({});
+      setAuthMode(forcedMode);
+      return;
+    }
+
+    if (!forcedMode) {
+      if (isSignupPath && authMode !== 'signup') setAuthMode('signup');
+      if (isLoginPath && authMode !== 'login') setAuthMode('login');
+    }
 
     // Hidden Admin Entry Protocol
     if (location.pathname === '/sourove-admin') {
       setAuthMode('login');
       setFormData(prev => ({ ...prev, identifier: 'admin@splaro.co' }));
     }
-  }, [location.pathname, isSignupPath]);
+  }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode]);
 
 
   const [showPass, setShowPass] = useState(false);
@@ -591,4 +607,4 @@ export const LoginForm: React.FC = () => {
   );
 };
 
-export const SignupForm: React.FC = () => <LoginForm />;
+export const SignupForm: React.FC = () => <LoginForm forcedMode="signup" />;
