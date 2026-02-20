@@ -14,6 +14,7 @@ Current branch contains the existing storefront app and a full enterprise migrat
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/migration-and-seed-plan.md`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/environment-variables.md`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/implementation-roadmap.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/hostinger-google-sheets-runbook.md`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/schema.prisma`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/seed.ts`
 

@@ -49,17 +49,19 @@
 - CDN for images/static assets
 - Next image optimization with remote patterns
 
-## 4. Deployment Plan (Vercel + Managed DB)
+## 4. Deployment Plan (Hostinger Only, No VPS/AWS)
 - Environments: local, staging, production
 - Migration workflow:
-  1. deploy app with read-only mode if needed
-  2. run `prisma migrate deploy`
-  3. run seed only for non-prod or controlled prod bootstrap
+  1. Build app with `npm run build`
+  2. Start with `npm run start` on Hostinger Node.js app
+  3. Configure environment variables in hPanel only
+  4. If using Google Sheets mode, skip DB migrations and use service account credentials
+  5. If using Prisma mode, run `prisma migrate deploy` from CI before production switch
 - Rollback:
-  - app rollback from previous deployment
-  - guarded DB rollback (manual SQL plan per migration)
+  - redeploy previous Git commit from Hostinger Git integration
+  - guarded DB rollback (manual SQL plan per migration, only when DB mode is enabled)
 - Backups:
-  - daily DB backup + PITR
+  - daily Hostinger backup policy + Google Sheet version history
   - restore drill schedule
 
 ## 5. CI Gates
@@ -68,4 +70,3 @@
 - unit/integration tests
 - Prisma migrate diff safety check
 - forbidden env secret scan
-

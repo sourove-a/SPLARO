@@ -43,11 +43,8 @@
 - `QUEUE_PREFIX`
 
 ## Storage and CDN
-- `S3_BUCKET`
-- `S3_REGION`
-- `S3_ACCESS_KEY_ID`
-- `S3_SECRET_ACCESS_KEY`
 - `CDN_BASE_URL`
+- `UPLOAD_BASE_URL` (optional)
 
 ## Observability
 - `SENTRY_DSN`
@@ -59,4 +56,3 @@
 - `SEED_ADMIN_PHONE`
 - `SEED_ADMIN_NAME`
 - `SEED_ADMIN_PASSWORD_HASH`
-

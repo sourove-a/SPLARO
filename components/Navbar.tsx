@@ -40,7 +40,7 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
 
       <div className="flex flex-col justify-center">
         <span className="text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
-          SPL<span className="text-cyan-500 group-hover:text-cyan-400 transition-colors">A</span>RO
+          SPLARO
         </span>
       </div>
 

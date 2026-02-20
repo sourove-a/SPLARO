@@ -7,8 +7,8 @@
 - Auth: Auth.js (NextAuth v5) with credentials + OTP workflows
 - ORM: Prisma
 - DB: PostgreSQL
-- Cache/Queue: Redis (Upstash/ElastiCache) + BullMQ or serverless queue
-- File storage: S3/Cloudflare R2
+- Cache/Queue: Redis (Upstash/Redis service) + BullMQ or serverless queue
+- File storage: Cloudflare R2 or Hostinger-compatible object/file storage
 - Payments: SSLCommerz (primary), bKash/Nagad (gateway), Stripe (optional)
 
 ## 2. Monorepo-Style Folder Structure
@@ -136,7 +136,6 @@ src/
 - Review allowed only for verified buyers (delivered/completed orders)
 
 ## 5. Environments
-- `development`: local Postgres + optional Redis
-- `staging`: full mirror of production contracts
-- `production`: managed Postgres, Redis, object storage, alerting
-
+- `development`: local + Sheet sandbox
+- `staging`: Hostinger staging domain + test Google Sheet
+- `production`: Hostinger Node runtime + production Google Sheet/DB contracts
