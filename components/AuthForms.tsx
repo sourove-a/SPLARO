@@ -51,6 +51,10 @@ export const LoginForm: React.FC = () => {
   const [showPass, setShowPass] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const persistAuthToken = (token?: string) => {
+    if (!token) return;
+    localStorage.setItem('splaro-auth-token', token);
+  };
 
   const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   const handleAuth = async (e: React.FormEvent) => {
@@ -88,13 +92,20 @@ export const LoginForm: React.FC = () => {
         if (IS_PROD) {
           const res = await fetch(`${API_NODE}?action=login`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: formData.identifier, password: formData.password })
           });
           const result = await res.json();
           if (result.status === 'success') {
-            setUser(result.user);
+            const normalizedUser = {
+              ...result.user,
+              profileImage: result.user?.profile_image || result.user?.profileImage || '',
+              createdAt: result.user?.created_at || result.user?.createdAt || new Date().toISOString()
+            };
+            persistAuthToken(result.token);
+            setUser(normalizedUser);
             setStatus('success');
-            setTimeout(() => navigate(result.user.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
+            setTimeout(() => navigate(normalizedUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
             return;
           }
         } else {
@@ -137,9 +148,11 @@ export const LoginForm: React.FC = () => {
           });
           const result = await res.json();
           if (result.status !== 'success') throw new Error(result.message);
+          persistAuthToken(result.token);
           if (result.user) {
             userToStore = {
               ...result.user,
+              profileImage: result.user.profile_image || result.user.profileImage || '',
               createdAt: result.user.created_at || result.user.createdAt || new Date().toISOString()
             };
           }
@@ -162,6 +175,7 @@ export const LoginForm: React.FC = () => {
         try {
           const res = await fetch(`${API_NODE}?action=forgot_password`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: formData.identifier })
           });
           const result = await res.json();
@@ -181,6 +195,7 @@ export const LoginForm: React.FC = () => {
         try {
           const res = await fetch(`${API_NODE}?action=reset_password`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               email: formData.identifier,
               otp: formData.otp,
@@ -232,6 +247,7 @@ export const LoginForm: React.FC = () => {
         email: normalizedEmail,
         phone: 'N/A',
         password: 'social_auth_sync',
+        google_sub: String(payload.sub),
         role: 'USER',
         createdAt: new Date().toISOString()
       };
@@ -246,9 +262,11 @@ export const LoginForm: React.FC = () => {
         });
         const result = await res.json();
         if (result.status !== 'success') throw new Error(result.message || 'GOOGLE_SIGNUP_FAILED');
+        persistAuthToken(result.token);
         if (result.user) {
           userToStore = {
             ...result.user,
+            profileImage: result.user.profile_image || result.user.profileImage || '',
             createdAt: result.user.created_at || result.user.createdAt || new Date().toISOString()
           };
         }

@@ -29,6 +29,7 @@ export const UserDashboard: React.FC = () => {
   });
 
   const handleLogout = () => {
+    localStorage.removeItem('splaro-auth-token');
     setUser(null);
     navigate('/');
   };

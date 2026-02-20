@@ -81,7 +81,18 @@ function ensure_column($db, $table, $column, $definition) {
             $db->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
         }
     } catch (Exception $e) {
-        // continue with best effort
+        error_log("SPLARO_SCHEMA_WARNING: ensure_column failed for {$table}.{$column} -> " . $e->getMessage());
+    }
+}
+
+function column_exists($db, $table, $column) {
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
+        $stmt->execute([$table, $column]);
+        return ((int)$stmt->fetchColumn()) > 0;
+    } catch (Exception $e) {
+        error_log("SPLARO_SCHEMA_WARNING: column_exists failed for {$table}.{$column} -> " . $e->getMessage());
+        return false;
     }
 }
 
@@ -144,6 +155,8 @@ function ensure_core_schema($db) {
       `admin_notes` text DEFAULT NULL,
       `customer_comment` text DEFAULT NULL,
       `shipping_fee` int(11) DEFAULT NULL,
+      `discount_amount` int(11) DEFAULT 0,
+      `discount_code` varchar(100) DEFAULT NULL,
       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -207,12 +220,16 @@ function ensure_core_schema($db) {
     ensure_column($db, 'orders', 'admin_notes', 'text DEFAULT NULL');
     ensure_column($db, 'orders', 'customer_comment', 'text DEFAULT NULL');
     ensure_column($db, 'orders', 'shipping_fee', 'int(11) DEFAULT NULL');
+    ensure_column($db, 'orders', 'discount_amount', 'int(11) DEFAULT 0');
+    ensure_column($db, 'orders', 'discount_code', 'varchar(100) DEFAULT NULL');
 
     ensure_table($db, 'users', "CREATE TABLE IF NOT EXISTS `users` (
       `id` varchar(50) NOT NULL,
       `name` varchar(255) NOT NULL,
       `email` varchar(255) NOT NULL,
       `phone` varchar(50) DEFAULT NULL,
+      `address` text DEFAULT NULL,
+      `profile_image` text DEFAULT NULL,
       `password` varchar(255) NOT NULL,
       `role` varchar(20) DEFAULT 'USER',
       `reset_code` varchar(10) DEFAULT NULL,
@@ -224,6 +241,8 @@ function ensure_core_schema($db) {
 
     ensure_column($db, 'users', 'reset_code', 'varchar(10) DEFAULT NULL');
     ensure_column($db, 'users', 'reset_expiry', 'datetime DEFAULT NULL');
+    ensure_column($db, 'users', 'address', 'text DEFAULT NULL');
+    ensure_column($db, 'users', 'profile_image', 'text DEFAULT NULL');
 
     try {
         $db->exec("INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co')");
@@ -429,6 +448,129 @@ function build_display_name_from_email($email) {
     return $displayName !== '' ? $displayName : 'SPLARO Customer';
 }
 
+function base64url_encode($data) {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function base64url_decode($data) {
+    $remainder = strlen($data) % 4;
+    if ($remainder) {
+        $data .= str_repeat('=', 4 - $remainder);
+    }
+    return base64_decode(strtr($data, '-_', '+/'));
+}
+
+function get_header_value($key) {
+    $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', $key));
+    if (isset($_SERVER[$serverKey])) {
+        return $_SERVER[$serverKey];
+    }
+
+    if (function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        if (is_array($headers)) {
+            foreach ($headers as $headerKey => $headerValue) {
+                if (strtolower($headerKey) === strtolower($key)) {
+                    return $headerValue;
+                }
+            }
+        }
+    }
+
+    return '';
+}
+
+function issue_auth_token($user) {
+    if (APP_AUTH_SECRET === '') {
+        return '';
+    }
+
+    $payload = [
+        'uid' => (string)($user['id'] ?? ''),
+        'email' => (string)($user['email'] ?? ''),
+        'role' => strtoupper((string)($user['role'] ?? 'USER')),
+        'exp' => time() + (12 * 60 * 60)
+    ];
+
+    $payloadEncoded = base64url_encode(json_encode($payload));
+    $signature = base64url_encode(hash_hmac('sha256', $payloadEncoded, APP_AUTH_SECRET, true));
+    return $payloadEncoded . '.' . $signature;
+}
+
+function get_authenticated_user_from_request() {
+    if (APP_AUTH_SECRET === '') {
+        return null;
+    }
+
+    $authHeader = get_header_value('Authorization');
+    if (!is_string($authHeader) || stripos($authHeader, 'Bearer ') !== 0) {
+        return null;
+    }
+
+    $token = trim(substr($authHeader, 7));
+    if ($token === '' || strpos($token, '.') === false) {
+        return null;
+    }
+
+    [$payloadEncoded, $signature] = explode('.', $token, 2);
+    $expectedSignature = base64url_encode(hash_hmac('sha256', $payloadEncoded, APP_AUTH_SECRET, true));
+    if (!hash_equals($expectedSignature, $signature)) {
+        return null;
+    }
+
+    $payloadJson = base64url_decode($payloadEncoded);
+    $payload = json_decode($payloadJson, true);
+    if (!is_array($payload)) {
+        return null;
+    }
+
+    if (empty($payload['exp']) || (int)$payload['exp'] < time()) {
+        return null;
+    }
+
+    return [
+        'id' => (string)($payload['uid'] ?? ''),
+        'email' => strtolower((string)($payload['email'] ?? '')),
+        'role' => strtoupper((string)($payload['role'] ?? 'USER'))
+    ];
+}
+
+function is_admin_authenticated($authUser) {
+    if (is_array($authUser) && strtoupper((string)($authUser['role'] ?? '')) === 'ADMIN') {
+        return true;
+    }
+
+    $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
+    if ($adminKeyHeader !== '' && ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $adminKeyHeader)) {
+        return true;
+    }
+
+    return false;
+}
+
+function require_admin_access($authUser) {
+    if (!is_admin_authenticated($authUser)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "ADMIN_ACCESS_REQUIRED"]);
+        exit;
+    }
+}
+
+function sanitize_user_payload($user) {
+    return [
+        'id' => $user['id'] ?? '',
+        'name' => $user['name'] ?? '',
+        'email' => $user['email'] ?? '',
+        'phone' => $user['phone'] ?? '',
+        'address' => $user['address'] ?? '',
+        'profile_image' => $user['profile_image'] ?? '',
+        'role' => $user['role'] ?? 'USER',
+        'created_at' => $user['created_at'] ?? date('c')
+    ];
+}
+
+$requestAuthUser = get_authenticated_user_from_request();
+
 if ($method === 'GET' && $action === 'health') {
     echo json_encode([
         "status" => "success",
@@ -586,11 +728,17 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
 
 // 1. DATA RETRIEVAL PROTOCOL
 if ($method === 'GET' && $action === 'sync') {
+    $isAdmin = is_admin_authenticated($requestAuthUser);
+    $isUser = is_array($requestAuthUser) && strtoupper((string)($requestAuthUser['role'] ?? '')) === 'USER';
+
     $settings = $db->query("SELECT * FROM site_settings LIMIT 1")->fetch();
     if ($settings) {
-        $settings['smtp_settings'] = json_decode($settings['smtp_settings'], true);
-        $settings['logistics_config'] = json_decode($settings['logistics_config'], true);
-        $settings['hero_slides'] = json_decode($settings['hero_slides'], true);
+        $settings['smtp_settings'] = json_decode($settings['smtp_settings'] ?? '[]', true);
+        $settings['logistics_config'] = json_decode($settings['logistics_config'] ?? '[]', true);
+        $settings['hero_slides'] = json_decode($settings['hero_slides'] ?? '[]', true);
+        if (!$isAdmin) {
+            unset($settings['smtp_settings']);
+        }
     }
 
     $products = $db->query("SELECT * FROM products")->fetchAll();
@@ -614,13 +762,29 @@ if ($method === 'GET' && $action === 'sync') {
         $p['price'] = (int)$cleanPrice;
     }
 
+    $orders = [];
+    $users = [];
+    $logs = [];
+    $traffic = [];
+
+    if ($isAdmin) {
+        $orders = $db->query("SELECT * FROM orders ORDER BY created_at DESC")->fetchAll();
+        $users = $db->query("SELECT id, name, email, phone, address, profile_image, role, created_at FROM users ORDER BY created_at DESC")->fetchAll();
+        $logs = $db->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll();
+        $traffic = $db->query("SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC")->fetchAll();
+    } elseif ($isUser && !empty($requestAuthUser['email'])) {
+        $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC");
+        $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
+        $orders = $stmtOrders->fetchAll();
+    }
+
     $data = [
         'products' => $products,
-        'orders'   => $db->query("SELECT * FROM orders ORDER BY created_at DESC")->fetchAll(),
-        'users'    => $db->query("SELECT * FROM users")->fetchAll(),
+        'orders'   => $orders,
+        'users'    => $users,
         'settings' => $settings,
-        'logs'     => $db->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll(),
-        'traffic'  => $db->query("SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC")->fetchAll(),
+        'logs'     => $logs,
+        'traffic'  => $traffic,
     ];
     echo json_encode(["status" => "success", "data" => $data]);
     exit;
@@ -645,10 +809,18 @@ if ($method === 'POST' && $action === 'create_order') {
         exit;
     }
 
-    $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $resolvedUserId = $input['userId'] ?? null;
+    if (is_array($requestAuthUser) && !empty($requestAuthUser['id'])) {
+        $resolvedUserId = $requestAuthUser['id'];
+        if (empty($input['customerEmail'])) {
+            $input['customerEmail'] = $requestAuthUser['email'];
+        }
+    }
+
+    $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $input['id'],
-        $input['userId'] ?? null,
+        $resolvedUserId,
         $input['customerName'],
         $input['customerEmail'],
         $input['phone'],
@@ -657,8 +829,11 @@ if ($method === 'POST' && $action === 'create_order') {
         $input['address'],
         json_encode($input['items']),
         $input['total'],
-        $input['status'],
-        $input['customerComment'] ?? null
+        $input['status'] ?? 'Pending',
+        $input['customerComment'] ?? null,
+        isset($input['shippingFee']) ? (int)$input['shippingFee'] : null,
+        isset($input['discountAmount']) ? (int)$input['discountAmount'] : 0,
+        $input['discountCode'] ?? null
     ]);
 
     // SYNC TO GOOGLE SHEETS
@@ -666,16 +841,20 @@ if ($method === 'POST' && $action === 'create_order') {
 
     $siteBase = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
     $firstItem = $input['items'][0] ?? [];
+    $firstProduct = $firstItem['product'] ?? [];
     $totalQuantity = 0;
     foreach (($input['items'] ?? []) as $lineItem) {
         $totalQuantity += (int)($lineItem['quantity'] ?? 0);
     }
-    $productName = $firstItem['name'] ?? 'N/A';
+    $productName = $firstProduct['name'] ?? ($firstItem['name'] ?? 'N/A');
     $productUrlRaw = $firstItem['productUrl'] ?? ($firstItem['url'] ?? '');
+    if ($productUrlRaw === '' && !empty($firstProduct['id'])) {
+        $productUrlRaw = '/product/' . rawurlencode((string)$firstProduct['id']);
+    }
     if ($productUrlRaw && strpos($productUrlRaw, 'http') !== 0 && strpos($productUrlRaw, '/') === 0) {
         $productUrlRaw = $siteBase . $productUrlRaw;
     }
-    $imageUrl = $firstItem['image'] ?? ($firstItem['imageUrl'] ?? 'N/A');
+    $imageUrl = $firstProduct['image'] ?? ($firstItem['image'] ?? ($firstItem['imageUrl'] ?? 'N/A'));
     $notes = $input['customerComment'] ?? ($input['notes'] ?? 'N/A');
 
     $telegramOrderMessage = "<b>🛒 New Order</b>\n"
@@ -696,12 +875,16 @@ if ($method === 'POST' && $action === 'create_order') {
 
     // CONSTRUCT LUXURY HTML INVOICE
     $items_html = '';
-    foreach ($input['items'] as $item) {
+    foreach (($input['items'] ?? []) as $item) {
+        $itemProduct = $item['product'] ?? [];
+        $itemName = $itemProduct['name'] ?? ($item['name'] ?? 'N/A');
+        $itemQuantity = (int)($item['quantity'] ?? 1);
+        $itemPrice = (int)($itemProduct['price'] ?? ($item['price'] ?? 0));
         $items_html .= "
         <tr>
-            <td style='padding: 12px; border-bottom: 1px solid #222; color: #ccc;'>{$item['name']}</td>
-            <td style='padding: 12px; border-bottom: 1px solid #222; color: #ccc; text-align: center;'>{$item['quantity']}</td>
-            <td style='padding: 12px; border-bottom: 1px solid #222; color: #fff; text-align: right;'>৳" . number_format($item['price']) . "</td>
+            <td style='padding: 12px; border-bottom: 1px solid #222; color: #ccc;'>{$itemName}</td>
+            <td style='padding: 12px; border-bottom: 1px solid #222; color: #ccc; text-align: center;'>{$itemQuantity}</td>
+            <td style='padding: 12px; border-bottom: 1px solid #222; color: #fff; text-align: right;'>৳" . number_format($itemPrice) . "</td>
         </tr>";
     }
 
@@ -790,6 +973,7 @@ if ($method === 'POST' && $action === 'create_order') {
 
 // 2.1 LOGISTICS UPDATE PROTOCOL
 if ($method === 'POST' && $action === 'update_order_status') {
+    require_admin_access($requestAuthUser);
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (!isset($input['id']) || !isset($input['status'])) {
@@ -820,6 +1004,7 @@ if ($method === 'POST' && $action === 'update_order_status') {
 
 // 2.2 REGISTRY ERASURE PROTOCOL
 if ($method === 'POST' && $action === 'delete_order') {
+    require_admin_access($requestAuthUser);
     $input = json_decode(file_get_contents('php://input'), true);
     if (isset($input['id'])) {
         $stmt = $db->prepare("DELETE FROM orders WHERE id = ?");
@@ -838,6 +1023,7 @@ if ($method === 'POST' && $action === 'delete_order') {
 
 // 3. PRODUCT SYCHRONIZATION
 if ($method === 'POST' && $action === 'sync_products') {
+    require_admin_access($requestAuthUser);
     try {
         $products = json_decode(file_get_contents('php://input'), true);
         if (!is_array($products)) {
@@ -917,10 +1103,25 @@ if ($method === 'POST' && $action === 'signup') {
     if ($phone === '') {
         $phone = 'N/A';
     }
+    $address = trim((string)($input['address'] ?? ''));
+    $profileImage = trim((string)($input['profileImage'] ?? ($input['profile_image'] ?? '')));
 
     $password = (string)($input['password'] ?? '');
-    if ($password === '') {
+    if ($password === '' && isset($input['google_sub'])) {
         $password = 'social_auth_sync';
+    }
+    if ($password === '' && !isset($input['google_sub'])) {
+        echo json_encode(["status" => "error", "message" => "PASSWORD_REQUIRED"]);
+        exit;
+    }
+    if ($password !== 'social_auth_sync' && strlen($password) < 6) {
+        echo json_encode(["status" => "error", "message" => "WEAK_PASSWORD"]);
+        exit;
+    }
+    if ($password === 'social_auth_sync') {
+        $password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+    } else {
+        $password = password_hash($password, PASSWORD_DEFAULT);
     }
 
     $role = strtoupper(trim((string)($input['role'] ?? 'USER')));
@@ -938,34 +1139,50 @@ if ($method === 'POST' && $action === 'signup') {
     $existing = $check->fetch();
 
     if ($existing) {
-        $update = $db->prepare("UPDATE users SET name = ?, phone = ?, role = ? WHERE id = ?");
-        $update->execute([$name, $phone, $existing['role'] ?? $role, $existing['id']]);
+        $update = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ?, role = ? WHERE id = ?");
+        $update->execute([
+            $name,
+            $phone,
+            $address !== '' ? $address : ($existing['address'] ?? null),
+            $profileImage !== '' ? $profileImage : ($existing['profile_image'] ?? null),
+            $existing['role'] ?? $role,
+            $existing['id']
+        ]);
         $refetch = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
         $refetch->execute([$existing['id']]);
         $existing = $refetch->fetch();
-        unset($existing['password']);
-        echo json_encode(["status" => "success", "user" => $existing]);
+        $safeExisting = sanitize_user_payload($existing);
+        $token = issue_auth_token($safeExisting);
+        echo json_encode(["status" => "success", "user" => $safeExisting, "token" => $token]);
         exit;
     }
 
-    $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, password, role) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $id,
         $name,
         $email,
         $phone,
+        $address !== '' ? $address : null,
+        $profileImage !== '' ? $profileImage : null,
         $password,
         $role
     ]);
 
-    $userPayload = [
+    $fetchCreated = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $fetchCreated->execute([$id]);
+    $createdUser = $fetchCreated->fetch();
+    $userPayload = sanitize_user_payload($createdUser ?: [
         'id' => $id,
         'name' => $name,
         'email' => $email,
         'phone' => $phone,
+        'address' => $address,
+        'profile_image' => $profileImage,
         'role' => $role,
         'created_at' => date('c')
-    ];
+    ]);
+    $token = issue_auth_token($userPayload);
 
     // SYNC TO GOOGLE SHEETS
     sync_to_sheets('SIGNUP', $userPayload);
@@ -987,7 +1204,7 @@ Email: " . $email;
         . "<b>Phone:</b> " . telegram_escape_html($phone);
     send_telegram_message($telegramSignupMessage);
 
-    echo json_encode(["status" => "success", "user" => $userPayload, "email" => ["admin" => $signupMail]]);
+    echo json_encode(["status" => "success", "user" => $userPayload, "token" => $token, "email" => ["admin" => $signupMail]]);
     exit;
 }
 
@@ -1052,8 +1269,17 @@ if ($method === 'POST' && $action === 'subscribe') {
 
 // 5.1 PASSWORD RECOVERY PROTOCOL (GENERATE OTP)
 if ($method === 'POST' && $action === 'forgot_password') {
+    if (is_rate_limited('forgot_password', 8, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = $input['email'];
+    $email = strtolower(trim((string)($input['email'] ?? '')));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
+        exit;
+    }
     
     $stmt = $db->prepare("SELECT * FROM users WHERE email = ?");
     $stmt->execute([$email]);
@@ -1085,18 +1311,28 @@ This code expires in 15 minutes. If you did not request this, please ignore.";
 
 // 5.2 PASSWORD RESET EXECUTION (VERIFY OTP & UPDATE)
 if ($method === 'POST' && $action === 'reset_password') {
+    if (is_rate_limited('reset_password', 8, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = $input['email'];
-    $otp = $input['otp'];
-    $new_password = $input['password'];
+    $email = strtolower(trim((string)($input['email'] ?? '')));
+    $otp = trim((string)($input['otp'] ?? ''));
+    $new_password = (string)($input['password'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $otp === '' || strlen($new_password) < 6) {
+        echo json_encode(["status" => "error", "message" => "INVALID_RESET_REQUEST"]);
+        exit;
+    }
     
     $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND reset_code = ? AND reset_expiry > NOW()");
     $stmt->execute([$email, $otp]);
     $user = $stmt->fetch();
     
     if ($user) {
+        $newPasswordHash = password_hash($new_password, PASSWORD_DEFAULT);
         $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL WHERE email = ?");
-        $stmt->execute([$new_password, $email]);
+        $stmt->execute([$newPasswordHash, $email]);
         
         echo json_encode(["status" => "success", "message" => "PASSWORD_OVERRIDDEN"]);
     } else {
@@ -1107,6 +1343,7 @@ if ($method === 'POST' && $action === 'reset_password') {
 
 // 5.2 COMMUNICATION DIAGNOSTICS
 if ($method === 'GET' && $action === 'test_email') {
+    require_admin_access($requestAuthUser);
     $smtpConfig = load_smtp_settings($db);
     $to = $_GET['email'] ?? ($smtpConfig['user'] ?? SMTP_USER);
     $subject = "SIGNAL TEST: Institutional Handshake";
@@ -1125,34 +1362,126 @@ if ($method === 'POST' && $action === 'login') {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
-    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND password = ?");
-    $stmt->execute([$input['identifier'], $input['password']]);
+    $email = strtolower(trim((string)($input['identifier'] ?? '')));
+    $providedPassword = (string)($input['password'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $providedPassword === '') {
+        echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
+        exit;
+    }
+
+    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
+    $stmt->execute([$email]);
     $user = $stmt->fetch();
 
-    if ($user) {
+    $isAuthenticated = false;
+    if ($user && isset($user['password'])) {
+        $stored = (string)$user['password'];
+        if ($stored !== '' && password_verify($providedPassword, $stored)) {
+            $isAuthenticated = true;
+        } elseif ((password_get_info($stored)['algo'] ?? 0) === 0 && hash_equals($stored, $providedPassword)) {
+            // Legacy plaintext password; upgrade hash on successful legacy login.
+            $upgradedHash = password_hash($providedPassword, PASSWORD_DEFAULT);
+            $upgradeStmt = $db->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $upgradeStmt->execute([$upgradedHash, $user['id']]);
+            $user['password'] = $upgradedHash;
+            $isAuthenticated = true;
+        }
+    }
+
+    if ($user && $isAuthenticated) {
         $ip = $_SERVER['REMOTE_ADDR'];
         $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
            ->execute(['IDENTITY_VALIDATION', 'Login Successful for ' . $user['name'], $user['id'], $ip]);
 
-        unset($user['password']); // Safety Protocol
-        echo json_encode(["status" => "success", "user" => $user]);
+        $safeUser = sanitize_user_payload($user);
+        $token = issue_auth_token($safeUser);
+        echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token]);
     } else {
         $ip = $_SERVER['REMOTE_ADDR'];
         $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-           ->execute(['SECURITY_ALERT', 'Failed login attempt for ' . ($input['identifier'] ?? 'Unknown'), $ip]);
+           ->execute(['SECURITY_ALERT', 'Failed login attempt for ' . ($email ?: 'Unknown'), $ip]);
         
         echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
     }
     exit;
 }
 
+if ($method === 'POST' && $action === 'update_profile') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $targetUserId = $requestAuthUser['id'];
+    if (is_admin_authenticated($requestAuthUser) && !empty($input['id'])) {
+        $targetUserId = (string)$input['id'];
+    }
+
+    $currentUserStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $currentUserStmt->execute([$targetUserId]);
+    $currentUser = $currentUserStmt->fetch();
+    if (!$currentUser) {
+        echo json_encode(["status" => "error", "message" => "USER_NOT_FOUND"]);
+        exit;
+    }
+
+    $name = trim((string)($input['name'] ?? ($currentUser['name'] ?? '')));
+    if ($name === '') {
+        $name = $currentUser['name'] ?? 'SPLARO Customer';
+    }
+    $phone = trim((string)($input['phone'] ?? ($currentUser['phone'] ?? 'N/A')));
+    if ($phone === '') {
+        $phone = 'N/A';
+    }
+    $address = trim((string)($input['address'] ?? ($currentUser['address'] ?? '')));
+    $profileImage = trim((string)($input['profileImage'] ?? ($input['profile_image'] ?? ($currentUser['profile_image'] ?? ''))));
+
+    $updateStmt = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ? WHERE id = ?");
+    $updateStmt->execute([
+        $name,
+        $phone,
+        $address !== '' ? $address : null,
+        $profileImage !== '' ? $profileImage : null,
+        $targetUserId
+    ]);
+
+    $updatedStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $updatedStmt->execute([$targetUserId]);
+    $updatedUser = $updatedStmt->fetch();
+    $safeUser = sanitize_user_payload($updatedUser ?: []);
+    $token = issue_auth_token($safeUser);
+
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
+       ->execute(['PROFILE_UPDATE', 'Identity profile was updated.', $targetUserId, $ip]);
+
+    echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token]);
+    exit;
+}
+
 // 5.2 GLOBAL CONFIGURATION SYNC
 if ($method === 'POST' && $action === 'update_settings') {
+    require_admin_access($requestAuthUser);
     $input = json_decode(file_get_contents('php://input'), true);
     
     try {
-        // Update basic settings
-        $stmt = $db->prepare("UPDATE site_settings SET 
+        // Ensure hero_slides exists before including it in UPDATE.
+        if (!column_exists($db, 'site_settings', 'hero_slides')) {
+            try {
+                $db->exec("ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL");
+            } catch (Exception $e) {
+                error_log("SPLARO_SCHEMA_WARNING: failed to add hero_slides dynamically -> " . $e->getMessage());
+            }
+        }
+
+        $query = "UPDATE site_settings SET 
             site_name = ?, 
             support_email = ?, 
             support_phone = ?, 
@@ -1161,11 +1490,9 @@ if ($method === 'POST' && $action === 'update_settings') {
             instagram_link = ?, 
             maintenance_mode = ?,
             smtp_settings = ?,
-            logistics_config = ?,
-            hero_slides = ?
-            WHERE id = 1");
-            
-        $stmt->execute([
+            logistics_config = ?";
+
+        $params = [
             $input['siteName'] ?? 'SPLARO',
             $input['supportEmail'] ?? 'info@splaro.co',
             $input['supportPhone'] ?? '',
@@ -1174,9 +1501,17 @@ if ($method === 'POST' && $action === 'update_settings') {
             $input['instagramLink'] ?? '',
             isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : 0,
             json_encode($input['smtpSettings'] ?? []),
-            json_encode($input['logisticsConfig'] ?? []),
-            json_encode($input['slides'] ?? [])
-        ]);
+            json_encode($input['logisticsConfig'] ?? [])
+        ];
+
+        if (column_exists($db, 'site_settings', 'hero_slides')) {
+            $query .= ", hero_slides = ?";
+            $params[] = json_encode($input['slides'] ?? []);
+        }
+
+        $query .= " WHERE id = 1";
+        $stmt = $db->prepare($query);
+        $stmt->execute($params);
 
         // Security Protocol: Log the system update
         $ip = $_SERVER['REMOTE_ADDR'];
@@ -1192,6 +1527,7 @@ if ($method === 'POST' && $action === 'update_settings') {
 
 // 5.3 IDENTITY ERASURE PROTOCOL
 if ($method === 'POST' && $action === 'delete_user') {
+    require_admin_access($requestAuthUser);
     $input = json_decode(file_get_contents('php://input'), true);
     if (isset($input['id'])) {
         $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
@@ -1210,6 +1546,7 @@ if ($method === 'POST' && $action === 'delete_user') {
 
 // 6. REGISTRY INITIALIZATION (GOOGLE SHEETS HEADERS)
 if ($method === 'POST' && $action === 'initialize_sheets') {
+    require_admin_access($requestAuthUser);
     sync_to_sheets('INIT', ["message" => "INITIALIZING_RECORDS"]);
     
     // Log the initialization protocol
@@ -1223,6 +1560,7 @@ if ($method === 'POST' && $action === 'initialize_sheets') {
 
 // 7. COLLECTOR HEARTBEAT PROTOCOL
 if ($method === 'POST' && $action === 'update_order_metadata') {
+    require_admin_access($requestAuthUser);
     $input = json_decode(file_get_contents('php://input'), true);
     if (!isset($input['id'])) {
         echo json_encode(["status" => "error", "message" => "MISSING_ID"]);
@@ -1271,8 +1609,10 @@ if ($method === 'POST' && $action === 'heartbeat') {
  * INSTITUTIONAL GOOGLE SHEETS SYNC PROTOCOL
  */
 function sync_to_sheets($type, $data) {
-    // Updated Final Webhook URL
-    $webhook_url = "https://script.google.com/macros/s/AKfycbyZH_H_Sma1J4007WpX8sSrW19Q8UhYKZUd108OV62Y4DIOQ6OTakFEpIxKfQNI9YAS/exec"; 
+    $webhook_url = GOOGLE_SHEETS_WEBHOOK_URL;
+    if (!$webhook_url) {
+        return;
+    }
     
     $payload = [
         'type' => $type,
@@ -1290,7 +1630,10 @@ function sync_to_sheets($type, $data) {
     ];
 
     $context  = stream_context_create($options);
-    @file_get_contents($webhook_url, false, $context);
+    $response = @file_get_contents($webhook_url, false, $context);
+    if ($response === false) {
+        error_log("SPLARO_SHEETS_SYNC_WARNING: failed to deliver payload type {$type}");
+    }
 }
 
 http_response_code(404);

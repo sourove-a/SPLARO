@@ -470,17 +470,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // SYNC CORE: PRODUCTION HANDSHAKE
   const IS_PROD = window.location.hostname !== 'localhost';
   const API_NODE = '/api/index.php';
+  const getAuthToken = () => {
+    try {
+      return localStorage.getItem('splaro-auth-token') || '';
+    } catch {
+      return '';
+    }
+  };
+  const getAuthHeaders = (json = false) => {
+    const headers: Record<string, string> = {};
+    if (json) {
+      headers['Content-Type'] = 'application/json';
+    }
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
 
   const syncRegistry = async () => {
     try {
-      const res = await fetch(`${API_NODE}?action=sync`);
+      const res = await fetch(`${API_NODE}?action=sync`, {
+        headers: getAuthHeaders()
+      });
       const result = await res.json();
       if (result.status === 'success') {
         setDbStatus('CONNECTED');
         if (result.data.products?.length > 0) setProducts(result.data.products);
         if (result.data.logs?.length > 0) setLogs(result.data.logs);
         if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
-        if (result.data.orders) {
+        if (Array.isArray(result.data.orders)) {
           const mappedOrders = result.data.orders.map((o: any) => {
             let items = [];
             try {
@@ -498,16 +518,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               items: items,
               createdAt: o.created_at,
               shippingFee: Number(o.shipping_fee) || 120,
+              discountAmount: Number(o.discount_amount || 0),
+              discountCode: o.discount_code || undefined,
             };
           });
           setOrders(mappedOrders);
+        } else {
+          setOrders([]);
         }
-        if (result.data.users) {
+        if (Array.isArray(result.data.users)) {
           const mappedUsers = result.data.users.map((u: any) => ({
             ...u,
+            profileImage: u.profile_image || '',
             createdAt: u.created_at
           }));
           setUsers(mappedUsers);
+        } else if (user?.role !== 'ADMIN') {
+          setUsers([]);
         }
         if (result.data.settings) {
           const s = result.data.settings;
@@ -525,7 +552,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
           if (s.hero_slides && Array.isArray(s.hero_slides)) setSlides(s.hero_slides);
         }
-        if (result.data.logs) setLogs(result.data.logs);
+        if (Array.isArray(result.data.logs)) setLogs(result.data.logs);
+        if (Array.isArray(result.data.traffic)) setTrafficData(result.data.traffic);
       } else {
         setDbStatus('LOCAL');
       }
@@ -584,6 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (IS_PROD) {
         fetch(`${API_NODE}?action=sync_products`, {
           method: 'POST',
+          headers: getAuthHeaders(true),
           body: JSON.stringify(newProducts)
         });
       }
@@ -598,6 +627,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (IS_PROD) {
         fetch(`${API_NODE}?action=sync_products`, {
           method: 'POST',
+          headers: getAuthHeaders(true),
           body: JSON.stringify(newProducts)
         });
       }
@@ -612,6 +642,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (IS_PROD) {
       fetch(`${API_NODE}?action=create_order`, {
         method: 'POST',
+        headers: getAuthHeaders(true),
         body: JSON.stringify(o)
       });
     }
@@ -622,7 +653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (IS_PROD) {
       fetch(`${API_NODE}?action=delete_order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ id })
       });
     }
@@ -635,7 +666,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await fetch(`${API_NODE}?action=update_order_status`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ id: orderId, status })
       });
     } catch (error) {
@@ -650,7 +681,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         await fetch(`${API_NODE}?action=update_order_metadata`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({ id: orderId, ...data })
         });
       } catch (e) {
@@ -694,7 +725,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (IS_PROD) {
       fetch(`${API_NODE}?action=delete_user`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ id })
       });
     }
@@ -703,6 +734,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    if (IS_PROD) {
+      fetch(`${API_NODE}?action=update_profile`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(updatedUser)
+      }).then(async (res) => {
+        if (!res.ok) return;
+        const result = await res.json();
+        if (result.status === 'success' && result.user) {
+          const normalized = {
+            ...result.user,
+            profileImage: result.user.profile_image || result.user.profileImage || '',
+            createdAt: result.user.created_at || result.user.createdAt || new Date().toISOString()
+          };
+          if (result.token) {
+            localStorage.setItem('splaro-auth-token', result.token);
+          }
+          setUser(normalized);
+          setUsers(prev => prev.map(u => u.id === normalized.id ? normalized : u));
+        }
+      }).catch((e) => {
+        console.error('PROFILE_SYNC_FAILURE:', e);
+      });
+    }
   };
 
   const updateSettings = async (data: any) => {
@@ -718,7 +773,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const res = await fetch(`${API_NODE}?action=update_settings`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(true),
           body: JSON.stringify(payload)
         });
         const result = await res.json();
@@ -739,7 +794,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const initializeSheets = async () => {
     if (IS_PROD) {
-      const res = await fetch(`${API_NODE}?action=initialize_sheets`, { method: 'POST' });
+      const res = await fetch(`${API_NODE}?action=initialize_sheets`, {
+        method: 'POST',
+        headers: getAuthHeaders(true)
+      });
+      if (!res.ok) {
+        return;
+      }
       const result = await res.json();
       if (result.status === 'success') {
         alert('REGISTRY_SYNC: Institutional Columns initialized on Google Sheets.');
