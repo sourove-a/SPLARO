@@ -271,7 +271,7 @@ export const ShopPage: React.FC = () => {
     setSortOption('Newest');
   };
 
-  const hasMultiFilters = Object.values(selectedMultiFilters).some((values) => values.length > 0);
+  const hasMultiFilters = (Object.values(selectedMultiFilters) as string[][]).some((values) => values.length > 0);
   const hasCustomPrice = Boolean(
     priceFilter &&
     priceRange &&
@@ -453,7 +453,7 @@ export const ShopPage: React.FC = () => {
             <div className="mb-12 flex flex-wrap gap-3">
               {activeCategory && <ActiveFilterPill label={activeCategory.name} onRemove={() => setSelectedCategory(null)} />}
 
-              {Object.entries(selectedMultiFilters).map(([filterId, values]) =>
+              {(Object.entries(selectedMultiFilters) as Array<[string, string[]]>).map(([filterId, values]) =>
                 values.map((value) => (
                   <ActiveFilterPill
                     key={`${filterId}:${value}`}

@@ -1,107 +1,69 @@
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
-import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/password';
-import { validateSignupPayload } from '@/lib/apiValidators';
+import { appendRow, findRow } from '@/lib/sheets';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
-import { sendMail } from '@/lib/mailer';
-import { sendTelegramMessage } from '@/lib/telegram';
+import { signupCreateSchema } from '@/lib/validators';
 
 export const runtime = 'nodejs';
 
-function fallbackNameFromEmail(email: string): string {
-  const local = email.split('@')[0] || '';
-  const cleaned = local.replace(/[0-9]/g, ' ').replace(/[._-]+/g, ' ').trim();
-  if (!cleaned) return 'SPLARO Customer';
-  return cleaned
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0].toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ');
-}
-
 export async function POST(request: Request) {
   const ip = getClientIp(request.headers);
-  const limit = checkRateLimit({ key: `api_signup:${ip}`, limit: 15, windowMs: 60_000 });
+  const limit = checkRateLimit({ key: `signup:${ip}`, limit: 15, windowMs: 60_000 });
+
   if (!limit.allowed) {
     return NextResponse.json({ success: false, message: 'Too many requests' }, { status: 429 });
   }
 
   const body = await request.json().catch(() => null);
-  if (body?.website) {
+  const parsed = signupCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Invalid payload',
+        issues: parsed.error.flatten(),
+      },
+      { status: 400 },
+    );
+  }
+
+  if ((parsed.data.website || '').trim()) {
     return NextResponse.json({ success: false, message: 'Spam blocked' }, { status: 400 });
   }
 
-  const parsed = validateSignupPayload(body);
-  if (!parsed.ok || !parsed.data) {
-    return NextResponse.json({ success: false, message: parsed.message ?? 'Invalid request' }, { status: 400 });
-  }
-
-  const { email, phone, district, thana, address, provider } = parsed.data;
-  const name = parsed.data.name?.trim() || fallbackNameFromEmail(email);
-
-  const existing = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, email: true, name: true },
-  });
-
-  if (existing) {
-    return NextResponse.json({
-      success: true,
-      user_id: existing.id,
-      message: 'Already registered',
-    });
-  }
-
-  const passwordHash =
-    provider === 'LOCAL' && parsed.data.password ? hashPassword(parsed.data.password) : null;
-
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      phone: phone || null,
-      district: district || null,
-      thana: thana || null,
-      address: address || null,
-      provider: provider ?? 'LOCAL',
-      passwordHash,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      createdAt: true,
-    },
-  });
-
   try {
-    await sendMail({
-      to: email,
-      subject: 'Welcome to SPLARO',
-      html: `<h2>Welcome, ${name}</h2><p>Your SPLARO account is now active.</p>`,
-      text: `Welcome, ${name}. Your SPLARO account is now active.`,
-    });
+    const existing = await findRow('USERS', { email: parsed.data.email });
+    if (existing?.user_id) {
+      return NextResponse.json({
+        success: true,
+        user_id: existing.user_id,
+        message: 'Already registered',
+      });
+    }
+
+    const userId = `USR-${randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
+    await appendRow('USERS', [
+      userId,
+      new Date().toISOString(),
+      parsed.data.name,
+      parsed.data.email,
+      parsed.data.phone,
+      parsed.data.district,
+      parsed.data.thana,
+      parsed.data.address,
+      'web',
+      'false',
+    ]);
+
+    return NextResponse.json({ success: true, user_id: userId });
   } catch (error) {
-    console.error('mail_welcome_failed', {
-      userId: user.id,
-      message: error instanceof Error ? error.message : String(error),
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to save signup',
+      },
+      { status: 500 },
+    );
   }
-
-  await sendTelegramMessage(
-    [
-      '<b>✅ New Signup</b>',
-      `User ID: <b>${user.id}</b>`,
-      `Name: ${user.name}`,
-      `Email: ${user.email}`,
-      `Phone: ${phone || 'N/A'}`,
-    ].join('\n'),
-  );
-
-  return NextResponse.json({
-    success: true,
-    user_id: user.id,
-    request_id: randomUUID(),
-  });
 }
