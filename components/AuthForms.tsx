@@ -18,7 +18,7 @@ type AuthFormProps = {
 };
 
 export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
-  const { setUser, registerUser, syncRegistry, users } = useApp();
+  const { setUser, registerUser, syncRegistry, users, siteSettings } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignupPath = location.pathname.includes('signup');
@@ -82,7 +82,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   const [showPass, setShowPass] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || siteSettings.googleClientId || '').trim();
   const floatingAssets = useMemo(
     () =>
       Array.from({ length: 6 }, () => ({
@@ -668,8 +668,8 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             {googleClientId ? (
               <div id="googleSignInBtn" className="w-full max-w-sm"></div>
             ) : (
-              <div className="w-full max-w-sm h-12 rounded-full border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-[0.25em] text-white/40 flex items-center justify-center">
-                Google login unavailable
+              <div className="w-full max-w-sm h-12 rounded-full border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-[0.2em] text-white/40 flex items-center justify-center">
+                Google login সেট করতে Admin Settings এ Google Client ID দিন
               </div>
             )}
           </div>

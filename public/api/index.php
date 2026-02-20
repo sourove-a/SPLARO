@@ -300,6 +300,7 @@ function ensure_core_schema($db) {
     ensure_column($db, 'site_settings', 'campaigns_data', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'settings_json', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'logo_url', 'text DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'google_client_id', 'varchar(255) DEFAULT NULL');
 
     ensure_column($db, 'products', 'description', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'sizes', 'longtext DEFAULT NULL');
@@ -850,7 +851,75 @@ function is_admin_login_email($email, $db = null) {
     return false;
 }
 
+function get_primary_admin_secret() {
+    $candidates = [
+        trim((string)env_or_default('MASTER_PASSWORD', '')),
+        trim((string)env_or_default('DB_PASSWORD', '')),
+        trim((string)env_or_default('DB_PASS', '')),
+        trim((string)env_or_default('ADMIN_KEY', '')),
+        trim((string)env_or_default('APP_AUTH_SECRET', ''))
+    ];
+    foreach ($candidates as $candidate) {
+        if ($candidate !== '') {
+            return $candidate;
+        }
+    }
+    return '';
+}
+
+function ensure_admin_identity_account($db) {
+    $secret = get_primary_admin_secret();
+    if ($secret === '') {
+        return;
+    }
+
+    $adminHash = password_hash($secret, PASSWORD_DEFAULT);
+    $emails = resolve_admin_login_emails($db);
+
+    foreach ($emails as $email) {
+        try {
+            $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $existing = $stmt->fetch();
+
+            if ($existing) {
+                $stored = (string)($existing['password'] ?? '');
+                $needsUpdate = true;
+                if ($stored !== '' && password_verify($secret, $stored)) {
+                    $needsUpdate = false;
+                } elseif ((password_get_info($stored)['algo'] ?? 0) === 0 && hash_equals($stored, $secret)) {
+                    $needsUpdate = false;
+                }
+
+                if ($needsUpdate) {
+                    $update = $db->prepare("UPDATE users SET role = 'ADMIN', password = ? WHERE id = ?");
+                    $update->execute([$adminHash, $existing['id']]);
+                } else {
+                    $updateRole = $db->prepare("UPDATE users SET role = 'ADMIN' WHERE id = ?");
+                    $updateRole->execute([$existing['id']]);
+                }
+            } else {
+                $newId = 'admin_' . bin2hex(random_bytes(4));
+                $insert = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $insert->execute([
+                    $newId,
+                    'Splaro Admin',
+                    $email,
+                    '01700000000',
+                    null,
+                    null,
+                    $adminHash,
+                    'ADMIN'
+                ]);
+            }
+        } catch (Exception $e) {
+            error_log("SPLARO_ADMIN_AUTOSEED_FAILURE({$email}): " . $e->getMessage());
+        }
+    }
+}
+
 $requestAuthUser = get_authenticated_user_from_request();
+ensure_admin_identity_account($db);
 
 if ($method === 'GET' && $action === 'health') {
     echo json_encode([
@@ -1926,6 +1995,7 @@ if ($method === 'POST' && $action === 'login') {
     $user = $stmt->fetch();
     $adminIdentity = is_admin_login_email($email, $db);
     $adminSecrets = array_values(array_filter([
+        trim((string)env_or_default('MASTER_PASSWORD', '')),
         trim((string)ADMIN_KEY),
         trim((string)APP_AUTH_SECRET),
         trim((string)DB_PASSWORD),
@@ -2139,6 +2209,10 @@ if ($method === 'POST' && $action === 'update_settings') {
         if (column_exists($db, 'site_settings', 'story_posts')) {
             $query .= ", story_posts = ?";
             $params[] = json_encode($input['storyPosts'] ?? []);
+        }
+        if (column_exists($db, 'site_settings', 'google_client_id')) {
+            $query .= ", google_client_id = ?";
+            $params[] = ($input['googleClientId'] ?? ($input['google_client_id'] ?? null));
         }
 
         $query .= " WHERE id = 1";

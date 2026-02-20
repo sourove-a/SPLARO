@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   `facebook_link` varchar(255) DEFAULT NULL,
   `instagram_link` varchar(255) DEFAULT NULL,
   `logo_url` text DEFAULT NULL,
+  `google_client_id` varchar(255) DEFAULT NULL,
   `smtp_settings` text DEFAULT NULL,
   `logistics_config` text DEFAULT NULL,
   `hero_slides` longtext DEFAULT NULL,

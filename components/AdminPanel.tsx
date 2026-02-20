@@ -1627,6 +1627,12 @@ export const AdminPanel = () => {
                       onChange={v => setSiteSettings({ ...siteSettings, supportEmail: v })}
                       icon={<Mail className="w-5 h-5" />}
                     />
+                    <LuxuryFloatingInput
+                      label="Google OAuth Client ID"
+                      value={siteSettings.googleClientId || ''}
+                      onChange={v => setSiteSettings({ ...siteSettings, googleClientId: v })}
+                      icon={<Globe className="w-5 h-5" />}
+                    />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                       <LuxuryFloatingInput
                         label="Facebook Matrix Link"
@@ -1657,6 +1663,12 @@ export const AdminPanel = () => {
                       <LuxuryFloatingInput label="Encryption" value="SSL/TLS" onChange={() => { }} />
                     </div>
                     <LuxuryFloatingInput label="Archive Email Account" value={smtpSettings?.user || ''} onChange={v => setSmtpSettings({ ...smtpSettings, user: v })} />
+                    <LuxuryFloatingInput
+                      label="SMTP Password"
+                      type="password"
+                      value={smtpSettings?.pass || ''}
+                      onChange={v => setSmtpSettings({ ...smtpSettings, pass: v })}
+                    />
                   </div>
                   <PrimaryButton className="mt-10 w-full" onClick={() => updateSettings({ smtpSettings })}>Update Mail Server</PrimaryButton>
 

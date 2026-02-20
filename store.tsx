@@ -347,6 +347,7 @@ const createDefaultSiteSettings = (): SiteSettings => ({
   siteName: 'Splaro',
   supportPhone: '+880 1905 010 205',
   supportEmail: 'info@splaro.co',
+  googleClientId: '',
   facebookLink: 'https://facebook.com/splaro.co',
   instagramLink: 'https://www.instagram.com/splaro.bd',
   whatsappNumber: '+8801905010205',
@@ -425,6 +426,7 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
     siteName: String(input.siteName || base.siteName),
     supportPhone: String(input.supportPhone || base.supportPhone),
     supportEmail: String(input.supportEmail || base.supportEmail),
+    googleClientId: String(input.googleClientId || input.google_client_id || base.googleClientId || ''),
     facebookLink: String(input.facebookLink || base.facebookLink),
     instagramLink: shouldUseDefaultInstagram ? base.instagramLink : rawInstagram,
     whatsappNumber: String(input.whatsappNumber || base.whatsappNumber),
@@ -533,7 +535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [logs, setLogs] = useState<any[]>([]);
   const [trafficData, setTrafficData] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [smtpSettings, setSmtpSettings] = useState(loadFromStorage('splaro-smtp', { host: 'smtp.hostinger.com', port: '465', user: 'info@splaro.co' }));
+  const [smtpSettings, setSmtpSettings] = useState(loadFromStorage('splaro-smtp', { host: 'smtp.hostinger.com', port: '465', user: 'info@splaro.co', pass: '' }));
   const [logisticsConfig, setLogisticsConfig] = useState(loadFromStorage('splaro-logistics', { metro: 90, regional: 140 }));
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -723,6 +725,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             maintenanceMode: s.maintenance_mode === 1,
             supportEmail: s.support_email || '',
             supportPhone: s.support_phone || '',
+            googleClientId: s.google_client_id || '',
             whatsappNumber: s.whatsapp_number || '',
             facebookLink: s.facebook_link || '',
             instagramLink: s.instagram_link || '',

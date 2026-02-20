@@ -103,6 +103,7 @@ export interface SiteSettings {
   siteName: string;
   supportPhone: string;
   supportEmail: string;
+  googleClientId?: string;
   facebookLink: string;
   instagramLink: string;
   whatsappNumber: string;
