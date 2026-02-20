@@ -378,6 +378,25 @@ export const LoginForm: React.FC = () => {
             <p className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-500 opacity-60">
               {authMode === 'login' ? 'SECURE INITIALIZATION' : authMode === 'signup' ? 'ESTABLISH ARCHIVE' : 'PROTOCOL RESTORATION'}
             </p>
+
+            {authMode !== 'forgot' && (
+              <div className="mt-6 grid grid-cols-2 gap-2 w-full max-w-xs p-1 rounded-full border border-white/10 bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => { setErrors({}); navigate('/login'); }}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'login' ? 'bg-white text-black' : 'text-white/50 hover:text-white'}`}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setErrors({}); navigate('/signup'); }}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-cyan-500 text-black' : 'text-white/50 hover:text-white'}`}
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
           </header>
 
 

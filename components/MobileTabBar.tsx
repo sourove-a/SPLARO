@@ -30,7 +30,7 @@ export const MobileTabBar: React.FC = () => {
     { icon: Home, view: View.HOME, label: 'VAULT' },
     { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
     { icon: Search, view: View.SHOP, label: 'DISCOVER' },
-    { icon: User, view: View.LOGIN, label: 'IDENTITY' }
+    { icon: User, view: user ? View.USER_DASHBOARD : View.SIGNUP, label: user ? 'IDENTITY' : 'SIGNUP' }
   ];
 
   const getIsActive = (item: any) => {
@@ -48,7 +48,7 @@ export const MobileTabBar: React.FC = () => {
 
     if (item.view === View.CART) return view === View.CART || view === View.CHECKOUT;
 
-    if (item.view === View.USER_DASHBOARD || item.view === View.LOGIN) {
+    if (item.view === View.USER_DASHBOARD || item.view === View.LOGIN || item.view === View.SIGNUP) {
       return view === View.USER_DASHBOARD || view === View.LOGIN || view === View.SIGNUP;
     }
 
@@ -88,9 +88,16 @@ export const MobileTabBar: React.FC = () => {
                         setIsSearchOpen(true);
                         return;
                       }
-                      const path = (item.view === View.USER_DASHBOARD || item.view === View.LOGIN)
-                        ? (user ? '/user_dashboard' : '/login')
-                        : item.view === View.HOME ? '/' : `/${item.view.toLowerCase()}`;
+                      const path =
+                        item.view === View.USER_DASHBOARD
+                          ? '/user_dashboard'
+                          : item.view === View.SIGNUP
+                            ? '/signup'
+                            : item.view === View.LOGIN
+                              ? '/login'
+                              : item.view === View.HOME
+                                ? '/'
+                                : `/${item.view.toLowerCase()}`;
                       navigate(path);
                     }}
                     className="relative z-10 w-full h-full flex flex-col items-center justify-center group outline-none"

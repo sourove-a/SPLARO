@@ -148,7 +148,7 @@ export const Navbar: React.FC = () => {
 
     if (item.view === View.CART) return view === View.CART || view === View.CHECKOUT;
 
-    if (item.view === View.USER_DASHBOARD || item.view === View.LOGIN) {
+    if (item.view === View.USER_DASHBOARD || item.view === View.LOGIN || item.view === View.SIGNUP) {
       return view === View.USER_DASHBOARD || view === View.LOGIN || view === View.SIGNUP;
     }
 
@@ -164,7 +164,7 @@ export const Navbar: React.FC = () => {
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
-    { label: 'IDENTITY', view: user ? (user.role === 'ADMIN' ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, icon: UserIcon },
+    { label: user ? 'IDENTITY' : 'SIGNUP', view: user ? (user.role === 'ADMIN' ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
 
@@ -177,7 +177,12 @@ export const Navbar: React.FC = () => {
     { label: 'SUPPORT', view: View.SUPPORT, prefix: 'PROCEED TO' },
     ...(user?.role === 'ADMIN'
       ? [{ label: 'ADMIN DASHBOARD', view: View.ADMIN_DASHBOARD, prefix: 'ACCESS PORTAL' }]
-      : [{ label: 'IDENTITY VAULT', view: user ? View.USER_DASHBOARD : View.LOGIN, prefix: 'PROCEED TO' }]
+      : user
+        ? [{ label: 'IDENTITY VAULT', view: View.USER_DASHBOARD, prefix: 'PROCEED TO' }]
+        : [
+          { label: 'SIGN UP', view: View.SIGNUP, prefix: 'PROCEED TO' },
+          { label: 'LOG IN', view: View.LOGIN, prefix: 'PROCEED TO' }
+        ]
     )
   ];
 
