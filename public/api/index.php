@@ -60,6 +60,55 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
 $db = get_db_connection();
+if (!$db) {
+    $bootstrapError = $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] ?? ["message" => "DATABASE_CONNECTION_FAILED"];
+
+    if ($method === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+
+    if ($method === 'GET' && $action === 'health') {
+        echo json_encode([
+            "status" => "success",
+            "service" => "SPLARO_API",
+            "time" => date('c'),
+            "mode" => "DEGRADED",
+            "db" => $bootstrapError
+        ]);
+        exit;
+    }
+
+    if ($method === 'GET' && $action === 'sync') {
+        echo json_encode([
+            "status" => "success",
+            "mode" => "DEGRADED",
+            "data" => [
+                "products" => [],
+                "orders" => [],
+                "users" => [],
+                "settings" => null,
+                "logs" => [],
+                "traffic" => []
+            ],
+            "db" => $bootstrapError
+        ]);
+        exit;
+    }
+
+    http_response_code(503);
+    echo json_encode([
+        "status" => "error",
+        "message" => $bootstrapError['message'] ?? 'DATABASE_CONNECTION_FAILED',
+        "missing" => $bootstrapError['missing'] ?? []
+    ]);
+    exit;
+}
+
+if ($method === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 
 function ensure_table($db, $table, $createSql) {
     try {
@@ -251,12 +300,28 @@ function ensure_core_schema($db) {
     }
 }
 
-ensure_core_schema($db);
+function maybe_ensure_core_schema($db) {
+    $ttl = (int)env_or_default('SCHEMA_CHECK_TTL_SECONDS', 3600);
+    if ($ttl < 60) $ttl = 60;
+    if ($ttl > 86400) $ttl = 86400;
 
-// Handle Preflight Options
-if ($method === 'OPTIONS') {
-    exit;
+    $cacheKey = md5(DB_HOST . '|' . DB_NAME . '|' . DB_PORT);
+    $cacheFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_schema_check_{$cacheKey}.json";
+    $now = time();
+
+    if (is_file($cacheFile)) {
+        $payload = json_decode((string)@file_get_contents($cacheFile), true);
+        $checkedAt = (int)($payload['checked_at'] ?? 0);
+        if ($checkedAt > 0 && ($now - $checkedAt) < $ttl) {
+            return;
+        }
+    }
+
+    ensure_core_schema($db);
+    @file_put_contents($cacheFile, json_encode(['checked_at' => $now]), LOCK_EX);
 }
+
+maybe_ensure_core_schema($db);
 
 function load_smtp_settings($db) {
     $settings = [
@@ -766,12 +831,79 @@ if ($method === 'GET' && $action === 'sync') {
     $users = [];
     $logs = [];
     $traffic = [];
+    $meta = [];
 
     if ($isAdmin) {
-        $orders = $db->query("SELECT * FROM orders ORDER BY created_at DESC")->fetchAll();
-        $users = $db->query("SELECT id, name, email, phone, address, profile_image, role, created_at FROM users ORDER BY created_at DESC")->fetchAll();
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $pageSize = (int)($_GET['pageSize'] ?? 30);
+        if ($pageSize < 10) $pageSize = 10;
+        if ($pageSize > 100) $pageSize = 100;
+        $offset = ($page - 1) * $pageSize;
+
+        $orderQuery = trim((string)($_GET['q'] ?? ''));
+        $orderStatus = trim((string)($_GET['status'] ?? ''));
+
+        $orderWhere = [];
+        $orderParams = [];
+        if ($orderQuery !== '') {
+            $orderWhere[] = "(id LIKE ? OR customer_name LIKE ? OR customer_email LIKE ? OR phone LIKE ?)";
+            $wild = '%' . $orderQuery . '%';
+            $orderParams[] = $wild;
+            $orderParams[] = $wild;
+            $orderParams[] = $wild;
+            $orderParams[] = $wild;
+        }
+        if ($orderStatus !== '') {
+            $orderWhere[] = "status = ?";
+            $orderParams[] = $orderStatus;
+        }
+        $orderWhereSql = $orderWhere ? ('WHERE ' . implode(' AND ', $orderWhere)) : '';
+
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM orders {$orderWhereSql}");
+        $countStmt->execute($orderParams);
+        $orderCount = (int)$countStmt->fetchColumn();
+
+        $ordersStmt = $db->prepare("SELECT * FROM orders {$orderWhereSql} ORDER BY created_at DESC LIMIT {$pageSize} OFFSET {$offset}");
+        $ordersStmt->execute($orderParams);
+        $orders = $ordersStmt->fetchAll();
+
+        $usersPage = max(1, (int)($_GET['usersPage'] ?? $page));
+        $usersPageSize = (int)($_GET['usersPageSize'] ?? $pageSize);
+        if ($usersPageSize < 10) $usersPageSize = 10;
+        if ($usersPageSize > 100) $usersPageSize = 100;
+        $usersOffset = ($usersPage - 1) * $usersPageSize;
+        $userQuery = trim((string)($_GET['usersQ'] ?? $orderQuery));
+
+        $userWhereSql = '';
+        $userParams = [];
+        if ($userQuery !== '') {
+            $userWhereSql = "WHERE (name LIKE ? OR email LIKE ? OR phone LIKE ?)";
+            $userWild = '%' . $userQuery . '%';
+            $userParams = [$userWild, $userWild, $userWild];
+        }
+
+        $userCountStmt = $db->prepare("SELECT COUNT(*) FROM users {$userWhereSql}");
+        $userCountStmt->execute($userParams);
+        $userCount = (int)$userCountStmt->fetchColumn();
+
+        $usersStmt = $db->prepare("SELECT id, name, email, phone, address, profile_image, role, created_at FROM users {$userWhereSql} ORDER BY created_at DESC LIMIT {$usersPageSize} OFFSET {$usersOffset}");
+        $usersStmt->execute($userParams);
+        $users = $usersStmt->fetchAll();
+
         $logs = $db->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll();
         $traffic = $db->query("SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC")->fetchAll();
+        $meta = [
+            'orders' => [
+                'page' => $page,
+                'pageSize' => $pageSize,
+                'count' => $orderCount
+            ],
+            'users' => [
+                'page' => $usersPage,
+                'pageSize' => $usersPageSize,
+                'count' => $userCount
+            ]
+        ];
     } elseif ($isUser && !empty($requestAuthUser['email'])) {
         $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC");
         $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
@@ -785,6 +917,7 @@ if ($method === 'GET' && $action === 'sync') {
         'settings' => $settings,
         'logs'     => $logs,
         'traffic'  => $traffic,
+        'meta'     => $meta,
     ];
     echo json_encode(["status" => "success", "data" => $data]);
     exit;
@@ -823,24 +956,42 @@ if ($method === 'POST' && $action === 'create_order') {
         }
     }
 
-    $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $input['id'],
-        $resolvedUserId,
-        $input['customerName'],
-        $input['customerEmail'],
-        $input['phone'],
-        $input['district'] ?? '',
-        $input['thana'] ?? '',
-        $input['address'],
-        json_encode($input['items']),
-        $input['total'],
-        $input['status'] ?? 'Pending',
-        $input['customerComment'] ?? null,
-        isset($input['shippingFee']) ? (int)$input['shippingFee'] : null,
-        isset($input['discountAmount']) ? (int)$input['discountAmount'] : 0,
-        $input['discountCode'] ?? null
-    ]);
+    $orderId = trim((string)($input['id'] ?? ''));
+    if ($orderId === '') {
+        $orderId = 'SPL-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+    }
+    $input['id'] = $orderId;
+
+    try {
+        $db->beginTransaction();
+        $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $orderId,
+            $resolvedUserId,
+            $input['customerName'],
+            $input['customerEmail'],
+            $input['phone'],
+            $input['district'] ?? '',
+            $input['thana'] ?? '',
+            $input['address'],
+            json_encode($input['items']),
+            $input['total'],
+            $input['status'] ?? 'Pending',
+            $input['customerComment'] ?? null,
+            isset($input['shippingFee']) ? (int)$input['shippingFee'] : null,
+            isset($input['discountAmount']) ? (int)$input['discountAmount'] : 0,
+            $input['discountCode'] ?? null
+        ]);
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log("SPLARO_ORDER_CREATE_FAILURE: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "ORDER_CREATE_FAILED"]);
+        exit;
+    }
 
     // SYNC TO GOOGLE SHEETS
     sync_to_sheets('ORDER', $input);
@@ -1031,25 +1182,55 @@ if ($method === 'POST' && $action === 'delete_order') {
 if ($method === 'POST' && $action === 'sync_products') {
     require_admin_access($requestAuthUser);
     try {
-        $products = json_decode(file_get_contents('php://input'), true);
+        $payload = json_decode(file_get_contents('php://input'), true);
+        $products = $payload['products'] ?? $payload;
+        $purgeMissing = !empty($payload['purgeMissing']);
+
         if (!is_array($products)) {
             echo json_encode(["status" => "error", "message" => "INVALID_PRODUCT_PAYLOAD"]);
             exit;
         }
 
-        $db->prepare("DELETE FROM products")->execute(); // Flush for fresh sync
+        $upsert = $db->prepare("INSERT INTO products 
+            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                name = VALUES(name),
+                brand = VALUES(brand),
+                price = VALUES(price),
+                image = VALUES(image),
+                category = VALUES(category),
+                type = VALUES(type),
+                description = VALUES(description),
+                sizes = VALUES(sizes),
+                colors = VALUES(colors),
+                materials = VALUES(materials),
+                tags = VALUES(tags),
+                featured = VALUES(featured),
+                sku = VALUES(sku),
+                stock = VALUES(stock),
+                weight = VALUES(weight),
+                dimensions = VALUES(dimensions),
+                variations = VALUES(variations),
+                additional_images = VALUES(additional_images),
+                size_chart_image = VALUES(size_chart_image),
+                discount_percentage = VALUES(discount_percentage),
+                sub_category = VALUES(sub_category)");
 
+        $db->beginTransaction();
+        $incomingIds = [];
         foreach ($products as $p) {
-            $stmt = $db->prepare("INSERT INTO products 
-                (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $p['id'], 
-                $p['name'], 
-                $p['brand'], 
-                $p['price'], 
-                $p['image'], 
-                $p['category'], 
+            if (empty($p['id']) || empty($p['name']) || empty($p['brand']) || !isset($p['price']) || empty($p['image']) || empty($p['category']) || empty($p['type'])) {
+                throw new RuntimeException('PRODUCT_REQUIRED_FIELDS_MISSING');
+            }
+            $incomingIds[] = (string)$p['id'];
+            $upsert->execute([
+                $p['id'],
+                $p['name'],
+                $p['brand'],
+                $p['price'],
+                $p['image'],
+                $p['category'],
                 $p['type'],
                 json_encode($p['description'] ?? []),
                 json_encode($p['sizes'] ?? []),
@@ -1069,9 +1250,20 @@ if ($method === 'POST' && $action === 'sync_products') {
             ]);
         }
 
+        if ($purgeMissing && !empty($incomingIds)) {
+            $placeholders = implode(',', array_fill(0, count($incomingIds), '?'));
+            $deleteStmt = $db->prepare("DELETE FROM products WHERE id NOT IN ({$placeholders})");
+            $deleteStmt->execute($incomingIds);
+        }
+
+        $db->commit();
         echo json_encode(["status" => "success", "message" => "PRODUCT_MANIFEST_UPDATED"]);
-    } catch (PDOException $e) {
-        echo json_encode(["status" => "error", "message" => "PROTOCOL_ERROR: " . $e->getMessage()]);
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log("SPLARO_PRODUCT_SYNC_FAILURE: " . $e->getMessage());
+        echo json_encode(["status" => "error", "message" => "PRODUCT_SYNC_FAILED"]);
     }
     exit;
 }

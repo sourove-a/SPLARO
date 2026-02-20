@@ -513,6 +513,7 @@ export const AdminPanel = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderFilter, setOrderFilter] = useState('All Orders');
   const [brandFilter, setBrandFilter] = useState('All Brands');
+  const [analyticsWindow, setAnalyticsWindow] = useState<'LIVE' | '7D' | '30D'>('LIVE');
 
   const newOrdersCount = useMemo(() => {
     return orders.filter(o => new Date(o.createdAt) > new Date(lastSeenOrderTime)).length;
@@ -554,6 +555,16 @@ export const AdminPanel = () => {
     }
     return result;
   }, [products, brandFilter, searchQuery]);
+
+  const chartSeries = useMemo(() => {
+    if (analyticsWindow === '7D') {
+      return [52, 63, 71, 66, 74, 82, 78, 75, 69, 73, 77, 81];
+    }
+    if (analyticsWindow === '30D') {
+      return [45, 58, 62, 69, 73, 76, 84, 88, 92, 95, 101, 108];
+    }
+    return [40, 70, 45, 90, 65, 85, 55, 100, 80, 95, 75, 110];
+  }, [analyticsWindow]);
 
 
 
@@ -711,14 +722,23 @@ export const AdminPanel = () => {
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-2">Institutional Revenue Stream • 2026</p>
                   </div>
                   <div className="flex gap-3">
-                    {['Live', '7D', '30D'].map(t => (
-                      <button key={t} className="px-5 py-2 rounded-full liquid-glass border border-white/5 text-[9px] font-black uppercase hover:bg-blue-600 hover:text-white transition-all">{t}</button>
+                    {(['LIVE', '7D', '30D'] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setAnalyticsWindow(t)}
+                        className={`px-5 py-2 rounded-full liquid-glass border text-[9px] font-black uppercase transition-all ${analyticsWindow === t
+                          ? 'border-blue-500/40 bg-blue-600 text-white'
+                          : 'border-white/5 hover:bg-blue-600 hover:text-white'
+                          }`}
+                      >
+                        {t}
+                      </button>
                     ))}
                   </div>
                 </div>
                 {/* Simulated Chart */}
                 <div className="relative h-64 flex items-end gap-5 px-4">
-                  {[40, 70, 45, 90, 65, 85, 55, 100, 80, 95, 75, 110].map((h, i) => (
+                  {chartSeries.map((h, i) => (
                     <motion.div
                       key={i}
                       initial={{ height: 0 }}

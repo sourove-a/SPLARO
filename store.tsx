@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { View, Product, Order, Language, Theme, OrderStatus, DiscountCode, User, SiteSettings } from './types';
+import { shouldUsePhpApi } from './lib/runtime';
 
 
 const INITIAL_SLIDES = [
@@ -468,7 +469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [siteSettings]);
 
   // SYNC CORE: PRODUCTION HANDSHAKE
-  const IS_PROD = window.location.hostname !== 'localhost';
+  const IS_PROD = shouldUsePhpApi();
   const API_NODE = '/api/index.php';
   const getAuthToken = () => {
     try {
@@ -491,7 +492,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const syncRegistry = async () => {
     try {
-      const res = await fetch(`${API_NODE}?action=sync`, {
+      const query = new URLSearchParams({
+        action: 'sync',
+        page: '1',
+        pageSize: '40',
+        usersPage: '1',
+        usersPageSize: '40'
+      });
+      const res = await fetch(`${API_NODE}?${query.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json();
@@ -520,7 +528,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               trackingNumber: o.trackingNumber ?? o.tracking_number ?? '',
               adminNotes: o.adminNotes ?? o.admin_notes ?? '',
               customerComment: o.customerComment ?? o.customer_comment ?? '',
-              shippingFee: Number(o.shipping_fee) || 120,
+              shippingFee: (o.shipping_fee === null || o.shipping_fee === undefined || o.shipping_fee === '')
+                ? 120
+                : (() => {
+                  const parsed = Number(o.shipping_fee);
+                  return Number.isFinite(parsed) ? parsed : 120;
+                })(),
               discountAmount: Number(o.discount_amount || 0),
               discountCode: o.discount_code || undefined,
             };
@@ -648,6 +661,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok || result.status !== 'success') {
+          if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
+            setDbStatus('LOCAL');
+            setOrders(prev => [o, ...prev]);
+            setCart([]);
+            return { ok: true, message: 'ORDER_STORED_LOCAL_FALLBACK' };
+          }
           return { ok: false, message: result.message || 'ORDER_SYNC_FAILED' };
         }
       } catch (e) {

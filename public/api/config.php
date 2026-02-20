@@ -4,11 +4,6 @@
  * Target Environment: Hostinger Shared/Business
  */
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Key");
-header("Content-Type: application/json");
-
 function bootstrap_env_files() {
     $candidates = [
         __DIR__ . '/../.env.local',
@@ -80,6 +75,68 @@ function env_first(array $keys, $default = '') {
     }
     return $default;
 }
+
+function parse_origin_host($origin) {
+    $parts = parse_url((string)$origin);
+    return is_array($parts) ? strtolower((string)($parts['host'] ?? '')) : '';
+}
+
+function build_allowed_origins() {
+    $originsEnv = env_first(['CORS_ALLOWED_ORIGINS', 'APP_ALLOWED_ORIGINS'], '');
+    $origins = [];
+    if ($originsEnv !== '') {
+        $origins = array_values(array_filter(array_map('trim', explode(',', $originsEnv))));
+    }
+
+    $appOrigin = env_or_default('APP_ORIGIN', '');
+    if ($appOrigin !== '' && !in_array($appOrigin, $origins, true)) {
+        $origins[] = $appOrigin;
+    }
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host !== '') {
+        $sameOrigin = $scheme . '://' . $host;
+        if (!in_array($sameOrigin, $origins, true)) {
+            $origins[] = $sameOrigin;
+        }
+    }
+
+    return $origins;
+}
+
+function is_origin_allowed($origin, array $allowedOrigins) {
+    if ($origin === '') return true;
+
+    $originHost = parse_origin_host($origin);
+    if ($originHost === '') return false;
+
+    foreach ($allowedOrigins as $allowed) {
+        $allowedHost = parse_origin_host($allowed);
+        if ($allowedHost !== '' && hash_equals($allowedHost, $originHost)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function apply_cors_headers() {
+    $requestOrigin = trim((string)($_SERVER['HTTP_ORIGIN'] ?? ''));
+    $allowedOrigins = build_allowed_origins();
+
+    header('Vary: Origin');
+    header("Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Key, X-Requested-With");
+    header("Access-Control-Max-Age: 600");
+    header("Content-Type: application/json");
+
+    if ($requestOrigin !== '' && is_origin_allowed($requestOrigin, $allowedOrigins)) {
+        header("Access-Control-Allow-Origin: {$requestOrigin}");
+    }
+}
+
+apply_cors_headers();
 
 function parse_database_url() {
     $databaseUrl = env_first(['DATABASE_URL', 'MYSQL_URL', 'DB_URL'], '');
@@ -177,18 +234,21 @@ define('GOOGLE_SHEETS_WEBHOOK_URL', env_or_default('GOOGLE_SHEETS_WEBHOOK_URL', 
  * Establish Security Handshake with MySQL Database
  */
 function get_db_connection() {
+    if (isset($GLOBALS['SPLARO_DB_CONNECTION']) && $GLOBALS['SPLARO_DB_CONNECTION'] instanceof PDO) {
+        return $GLOBALS['SPLARO_DB_CONNECTION'];
+    }
+
     if (DB_NAME === '' || DB_USER === '' || DB_PASS === '') {
         $missing = [];
         if (DB_NAME === '') $missing[] = 'DB_NAME';
         if (DB_USER === '') $missing[] = 'DB_USER';
         if (DB_PASS === '') $missing[] = 'DB_PASS';
-        http_response_code(500);
-        echo json_encode([
-            "status" => "error",
+        $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] = [
             "message" => "DATABASE_ENV_NOT_CONFIGURED",
             "missing" => $missing
-        ]);
-        exit;
+        ];
+        error_log("SPLARO_DB_CONFIG_MISSING: " . implode(',', $missing));
+        return null;
     }
 
     try {
@@ -198,11 +258,14 @@ function get_db_connection() {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
         ];
-        return new PDO($dsn, DB_USER, DB_PASS, $options);
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
+        return $pdo;
     } catch (\PDOException $e) {
-        http_response_code(500);
         error_log("SPLARO_DB_CONNECTION_ERROR: " . $e->getMessage());
-        echo json_encode(["status" => "error", "message" => "DATABASE_CONNECTION_FAILED"]);
-        exit;
+        $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] = [
+            "message" => "DATABASE_CONNECTION_FAILED"
+        ];
+        return null;
     }
 }

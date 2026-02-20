@@ -107,4 +107,3 @@ CREATE TABLE IF NOT EXISTS `traffic_metrics` (
 
 -- INITIALIZE SETTINGS & ADMIN
 INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co');
-INSERT IGNORE INTO `users` (`id`, `name`, `email`, `phone`, `password`, `role`) VALUES ('admin_root', 'Chief Admin', 'admin@splaro.co', '01700000000', 'Sourove017@#%&*-+()', 'ADMIN');

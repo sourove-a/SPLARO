@@ -9,6 +9,7 @@ import { useApp } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { useEffect } from 'react';
+import { shouldUsePhpApi } from '../lib/runtime';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
@@ -17,7 +18,7 @@ type AuthFormProps = {
 };
 
 export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
-  const { setUser, registerUser, syncRegistry } = useApp();
+  const { setUser, registerUser, syncRegistry, users } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignupPath = location.pathname.includes('signup');
@@ -75,6 +76,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   const [showPass, setShowPass] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
   const floatingAssets = useMemo(
     () =>
       Array.from({ length: 6 }, () => ({
@@ -123,7 +125,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
     setStatus('loading');
 
-    const IS_PROD = window.location.hostname !== 'localhost';
+    const IS_PROD = shouldUsePhpApi();
     const API_NODE = '/api/index.php';
 
     if (authMode === 'login') {
@@ -147,14 +149,23 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             setTimeout(() => navigate(normalizedUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
             return;
           }
+          if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
+            const identifier = formData.identifier.trim().toLowerCase();
+            const localUser = users.find((u: any) => String(u.email || '').toLowerCase() === identifier);
+            if (localUser && String((localUser as any).password || '') === formData.password) {
+              setUser(localUser);
+              setStatus('success');
+              setTimeout(() => navigate(localUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
+              return;
+            }
+          }
         } else {
-          // Local Admin/Dev Bypass
-          const isAdmin = (formData.identifier === 'admin@splaro.co' && (formData.password === 'Sourove017@#%&*-+()'));
-          if (isAdmin) {
-            const adminUser = { id: 'admin', name: 'Chief Admin', email: 'admin@splaro.co', phone: '01700000000', role: 'ADMIN', createdAt: new Date().toISOString() };
-            setUser(adminUser);
+          const identifier = formData.identifier.trim().toLowerCase();
+          const localUser = users.find((u: any) => String(u.email || '').toLowerCase() === identifier);
+          if (localUser && String((localUser as any).password || '') === formData.password) {
+            setUser(localUser);
             setStatus('success');
-            setTimeout(() => navigate('/admin_dashboard'), 1000);
+            setTimeout(() => navigate(localUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
             return;
           }
         }
@@ -186,7 +197,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             body: JSON.stringify(newUser)
           });
           const result = await res.json();
-          if (result.status !== 'success') throw new Error(result.message);
+          if (result.status !== 'success') throw new Error(result.message || 'SIGNUP_FAILED');
           persistAuthToken(result.token);
           if (result.user) {
             userToStore = {
@@ -205,6 +216,29 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         setStatus('success');
         setTimeout(() => navigate('/'), 1000);
       } catch (e) {
+        const message = e instanceof Error ? e.message : '';
+        const canFallbackToLocal =
+          !IS_PROD ||
+          message === 'DATABASE_ENV_NOT_CONFIGURED' ||
+          message === 'DATABASE_CONNECTION_FAILED';
+
+        if (canFallbackToLocal) {
+          const fallbackUser = {
+            id: `usr_${Math.random().toString(36).substr(2, 9)}`,
+            name: formData.signupName.trim() || buildDisplayNameFromEmail(formData.email.trim().toLowerCase()),
+            email: formData.email.trim().toLowerCase(),
+            phone: formData.signupPhone.trim(),
+            password: formData.password,
+            role: 'USER',
+            createdAt: new Date().toISOString()
+          };
+          registerUser(fallbackUser as any);
+          setUser(fallbackUser as any);
+          setStatus('success');
+          setTimeout(() => navigate('/'), 1000);
+          return;
+        }
+
         setErrors({ email: 'Identity already archived or system error' });
         setStatus('error');
         setTimeout(() => setStatus('idle'), 3000);
@@ -292,7 +326,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       };
       let userToStore: any = googleUser;
 
-      const IS_PROD = window.location.hostname !== 'localhost';
+      const IS_PROD = shouldUsePhpApi();
       if (IS_PROD) {
         const res = await fetch('/api/index.php?action=signup', {
           method: 'POST',
@@ -327,10 +361,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
   useEffect(() => {
     // @ts-ignore
-    if (window.google) {
+    if (window.google && googleClientId) {
       // @ts-ignore
       google.accounts.id.initialize({
-        client_id: '779989369894-avivmlct6nk0luien08fo4rl1gpn74c5.apps.googleusercontent.com',
+        client_id: googleClientId,
         callback: handleGoogleSuccess,
         auto_select: false,
         cancel_on_tap_outside: true
@@ -343,7 +377,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" }
       );
     }
-  }, []);
+  }, [googleClientId]);
 
   const getIdentityIcon = () => {
     return <Mail className="w-5 h-5 text-cyan-400" />;
@@ -576,7 +610,13 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           </div>
 
           <div className="mt-8 flex justify-center">
-            <div id="googleSignInBtn" className="w-full max-w-sm"></div>
+            {googleClientId ? (
+              <div id="googleSignInBtn" className="w-full max-w-sm"></div>
+            ) : (
+              <div className="w-full max-w-sm h-12 rounded-full border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-[0.25em] text-white/40 flex items-center justify-center">
+                Google login unavailable
+              </div>
+            )}
           </div>
 
           <footer className="mt-10 text-center">

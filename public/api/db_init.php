@@ -6,8 +6,28 @@
 
 require_once 'config.php';
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    echo json_encode([
+        "status" => "error",
+        "message" => "DB_INIT_WEB_ACCESS_BLOCKED"
+    ]);
+    exit;
+}
+
+if (strtolower((string)env_or_default('ALLOW_DB_INIT', 'false')) !== 'true') {
+    echo json_encode([
+        "status" => "error",
+        "message" => "DB_INIT_DISABLED"
+    ]);
+    exit;
+}
+
 try {
     $db = get_db_connection();
+    if (!$db) {
+        throw new RuntimeException('DATABASE_CONNECTION_FAILED');
+    }
     $sql = file_get_contents('schema.sql');
 
     $success_count = 0;
@@ -59,19 +79,25 @@ try {
         }
     }
 
-    // 3. RUN IDENTITY ENFORCEMENT (FORCE ADMIN RESET)
-    // We check if the admin exists; if yes, we ensure the password matches the config.
-    $check_admin = $db->prepare("SELECT id FROM users WHERE email = 'admin@splaro.co'");
-    $check_admin->execute();
+    // 3. RUN IDENTITY ENFORCEMENT (SEED FROM ENV ONLY)
+    $adminEmail = strtolower(trim((string)env_or_default('SEED_ADMIN_EMAIL', '')));
+    $adminPassword = (string)env_or_default('SEED_ADMIN_PASSWORD', '');
+    if ($adminEmail === '' || $adminPassword === '') {
+        throw new RuntimeException('SEED_ADMIN_CREDENTIALS_NOT_SET');
+    }
+    $adminHash = password_hash($adminPassword, PASSWORD_DEFAULT);
+
+    $check_admin = $db->prepare("SELECT id FROM users WHERE email = ?");
+    $check_admin->execute([$adminEmail]);
     $existing_admin = $check_admin->fetch();
 
     if ($existing_admin) {
-        $db->prepare("UPDATE users SET password = ?, role = 'ADMIN', name = 'Sourove Admin' WHERE email = 'admin@splaro.co'")
-           ->execute(['Sourove017@#%&*-+()']);
+        $db->prepare("UPDATE users SET password = ?, role = 'ADMIN', name = ? WHERE email = ?")
+           ->execute([$adminHash, 'Splaro Admin', $adminEmail]);
         $success_count++;
     } else {
         $db->prepare("INSERT INTO users (id, name, email, phone, password, role) VALUES (?, ?, ?, ?, ?, ?)")
-           ->execute(['admin_chief', 'Sourove Admin', 'admin@splaro.co', '01700000000', 'Sourove017@#%&*-+()', 'ADMIN']);
+           ->execute(['admin_' . bin2hex(random_bytes(4)), 'Splaro Admin', $adminEmail, '01700000000', $adminHash, 'ADMIN']);
         $success_count++;
     }
 
@@ -80,7 +106,7 @@ try {
         "message" => "DATABASE_INITIALIZATION_COMPLETE",
         "executed_queries" => $success_count,
         "errors" => $error_count,
-        "instruction" => "PLEASE DELETE THIS FILE (db_init.php) FROM THE SERVER IMMEDIATELY FOR SECURITY."
+        "instruction" => "CLI only. Keep ALLOW_DB_INIT=false after setup."
     ]);
 
 } catch (Exception $e) {

@@ -92,7 +92,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
 );
 
 export const Navbar: React.FC = () => {
-  const { setView, cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen } = useApp();
+  const { setView, cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -416,14 +416,21 @@ export const Navbar: React.FC = () => {
               </div>
 
               <div className="flex gap-10">
-                {[Instagram, Facebook, Globe, MessageSquare].map((Icon, idx) => (
+                {[
+                  { icon: Instagram, link: siteSettings.instagramLink || 'https://instagram.com/splaro.co' },
+                  { icon: Facebook, link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
+                  { icon: Globe, link: '/' },
+                  { icon: MessageSquare, link: `https://wa.me/${(siteSettings.whatsappNumber || '+8801905010205').replace(/[^\d+]/g, '')}` }
+                ].map((social, idx) => (
                   <motion.a
                     key={idx}
                     whileHover={{ scale: 1.2, color: 'white' }}
-                    href="#"
+                    href={social.link}
+                    target={social.link.startsWith('http') ? '_blank' : undefined}
+                    rel={social.link.startsWith('http') ? 'noreferrer noopener' : undefined}
                     className="text-white/30 transition-all"
                   >
-                    <Icon className="w-5 h-5" />
+                    <social.icon className="w-5 h-5" />
                   </motion.a>
                 ))}
               </div>

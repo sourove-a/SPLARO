@@ -88,6 +88,36 @@ const SupportPage = () => (
   </div>
 );
 
+const PrivacyPolicyPage = () => (
+  <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
+    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">Privacy <span className="text-cyan-500">Policy.</span></h1>
+    <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
+      <p className="text-white/70 text-sm leading-relaxed">We only collect data required to process orders, support your account, and deliver service updates. Customer payment or identity data is never sold to third parties.</p>
+      <p className="text-white/60 text-xs uppercase tracking-[0.25em]">For removal requests, contact: info@splaro.co</p>
+    </GlassCard>
+  </div>
+);
+
+const TermsPage = () => (
+  <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
+    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">Terms <span className="text-cyan-500">Conditions.</span></h1>
+    <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
+      <p className="text-white/70 text-sm leading-relaxed">Orders are confirmed after successful verification. Delivery timeline depends on destination and logistics. Product returns must follow policy windows and condition requirements.</p>
+      <p className="text-white/60 text-xs uppercase tracking-[0.25em]">Using the site means you accept these terms.</p>
+    </GlassCard>
+  </div>
+);
+
+const RefundPolicyPage = () => (
+  <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
+    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">Refund <span className="text-cyan-500">Policy.</span></h1>
+    <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
+      <p className="text-white/70 text-sm leading-relaxed">Eligible refund requests are accepted for damaged or wrong products. Requests must be submitted within the policy window with order ID and proof details.</p>
+      <p className="text-white/60 text-xs uppercase tracking-[0.25em]">Support team updates each request status from review to resolution.</p>
+    </GlassCard>
+  </div>
+);
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -268,6 +298,7 @@ const BrandMarquee = () => {
 
 const Footer = () => {
   const navigate = useNavigate();
+  const { siteSettings, user } = useApp();
   return (
     <footer className="relative mt-60 pb-20 px-8 md:px-16 overflow-hidden">
       {/* Background Layer with Deep Royal Gradient */}
@@ -299,9 +330,9 @@ const Footer = () => {
               </p>
               <div className="flex gap-4">
                 {[
-                  { icon: Instagram, color: 'hover:text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(0,212,255,0.4)]', link: 'https://instagram.com/splaro.co' },
-                  { icon: Facebook, color: 'hover:text-blue-500', glow: 'hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]', link: 'https://facebook.com/splaro.co' },
-                  { icon: Globe, color: 'hover:text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]', link: '#' }
+                  { icon: Instagram, color: 'hover:text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(0,212,255,0.4)]', link: siteSettings.instagramLink || 'https://instagram.com/splaro.co' },
+                  { icon: Facebook, color: 'hover:text-blue-500', glow: 'hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]', link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
+                  { icon: Globe, color: 'hover:text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]', link: 'https://splaro.co' }
                 ].map((social, idx) => (
                   <motion.a
                     key={idx}
@@ -361,10 +392,10 @@ const Footer = () => {
             <div className="lg:col-span-2 space-y-10">
               <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">MANIFEST</h4>
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => alert('PRIVACY POLICY PROTOCOL: Institutional data protection manifest is currently being archived.')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => alert('TERMS & CONDITIONS: Official institutional terms of service coming soon.')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/user_dashboard')} className="cursor-pointer transition-all duration-300 text-cyan-500/80">ORDER TRACKING</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => alert('REFUND PROTOCOL: Deployment cancellations and refund manifests available via support.')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/privacy')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/terms')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate(user ? '/user_dashboard' : '/login')} className="cursor-pointer transition-all duration-300 text-cyan-500/80">ORDER TRACKING</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/refund-policy')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
               </div>
             </div>
 
@@ -436,7 +467,8 @@ const AppContent = () => {
   }, [location.pathname, user]);
 
   useEffect(() => {
-    document.body.className = isDark ? 'dark' : 'light';
+    document.body.classList.toggle('dark', isDark);
+    document.body.classList.toggle('light', !isDark);
     localStorage.setItem('splaro-theme', JSON.stringify(theme));
   }, [theme]);
 
@@ -488,6 +520,9 @@ const AppContent = () => {
             <Route path="/order_success" element={<OrderSuccessView />} />
             <Route path="/story" element={<StoryPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/refund-policy" element={<RefundPolicyPage />} />
           </Routes>
         </main>
       )}
