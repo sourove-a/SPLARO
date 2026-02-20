@@ -2,19 +2,23 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# SPLARO Codebase
 
-This contains everything you need to run your app locally.
+Current branch contains the existing storefront app and a full enterprise migration blueprint for Next.js App Router.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1JZozKTy5zbgniThbUocdepm9jq1ZxIxb
+## Enterprise Blueprint (New)
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/enterprise-architecture.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/route-map-and-api.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/critical-flows.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/security-scale-deploy.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/migration-and-seed-plan.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/environment-variables.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/implementation-roadmap.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/schema.prisma`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/seed.ts`
 
-## Run Locally
+## Current App (Vite) Run Locally
+Prerequisite: Node.js
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. `npm install`
+2. `npm run dev`
