@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export type StorageMode = 'mysql' | 'fallback';
 
@@ -24,6 +26,42 @@ export type RuntimeEnv = {
 function env(name: string): string {
   const value = process.env[name];
   return typeof value === 'string' ? value.trim() : '';
+}
+
+let didBootstrapEnv = false;
+
+function bootstrapEnvFiles(): void {
+  if (didBootstrapEnv) return;
+  didBootstrapEnv = true;
+
+  const cwd = process.cwd();
+  const candidates = [
+    path.join(cwd, '.env.local'),
+    path.join(cwd, '.env'),
+  ];
+
+  for (const filePath of candidates) {
+    if (!fs.existsSync(filePath)) continue;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const lines = raw.split(/\r?\n/);
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx < 0) continue;
+
+      const key = trimmed.slice(0, idx).trim();
+      let value = trimmed.slice(idx + 1).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+
+      if (key && !process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  }
 }
 
 function uniq(values: string[]): string[] {
@@ -53,6 +91,7 @@ function parseDatabaseUrl(raw: string): Partial<Pick<DbEnv, 'host' | 'port' | 'n
 }
 
 export function resolveDbEnv(): DbEnv {
+  bootstrapEnvFiles();
   const databaseUrl = env('DATABASE_URL');
   const parsed = parseDatabaseUrl(databaseUrl);
 
