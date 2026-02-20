@@ -39,7 +39,11 @@ if ($method === 'GET' && $action === 'sync') {
         $p['discountPercentage'] = $p['discount_percentage'];
         $p['featured'] = $p['featured'] == 1;
         $p['stock'] = (int)$p['stock'];
-        $p['price'] = (int)$p['price'];
+        
+        // FISCAL SANITIZATION: Clean numeric signals before archival storage
+        $rawPrice = (string)$p['price'];
+        $cleanPrice = preg_replace('/[^0-9]/', '', $rawPrice);
+        $p['price'] = (int)$cleanPrice;
     }
 
     $data = [

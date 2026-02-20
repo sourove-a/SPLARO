@@ -113,8 +113,8 @@ export const ProductDetailPage: React.FC = () => {
             <HelpCircle className="w-4 h-4" /> Ask a Question
           </button>
 
-          <h1 className="text-3xl md:text-5xl font-black tracking-tighter mb-4 leading-tight uppercase italic">{product.name}</h1>
-          <p className="text-2xl md:text-3xl font-black text-cyan-400 mb-8">Tk {product.price.toLocaleString()}.00</p>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tighter mb-4 leading-tight uppercase italic">{product.name || 'Spectral Asset'}</h1>
+          <p className="text-2xl md:text-3xl font-black text-cyan-400 mb-8">Tk {Number(product.price || 0).toLocaleString()}.00</p>
 
           <div className="space-y-10">
             <div>
@@ -141,7 +141,12 @@ export const ProductDetailPage: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={() => addToCart({ product: product, quantity, selectedSize, selectedColor: product.colors[0] })}
+                  onClick={() => addToCart({
+                    product: product,
+                    quantity,
+                    selectedSize: selectedSize || (product.sizes?.[0] || 'Free Size'),
+                    selectedColor: (product.colors?.[0] || 'Original')
+                  })}
                   className="flex-1 bg-zinc-900 hover:bg-black text-white py-5 rounded-xl font-black text-[10px] tracking-[0.2em] uppercase transition-all shadow-xl"
                 >
                   ADD TO ARCHIVE
@@ -150,7 +155,12 @@ export const ProductDetailPage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  addToCart({ product: product, quantity, selectedSize, selectedColor: product.colors[0] });
+                  addToCart({
+                    product: product,
+                    quantity,
+                    selectedSize: selectedSize || (product.sizes?.[0] || 'Free Size'),
+                    selectedColor: (product.colors?.[0] || 'Original')
+                  });
                   navigate('/checkout');
                 }}
                 className="w-full bg-white text-black h-16 rounded-xl font-black text-[11px] tracking-[0.3em] uppercase hover:bg-cyan-400 transition-all shadow-[0_20px_40px_rgba(0,0,0,0.3)]"
@@ -187,8 +197,7 @@ export const ProductDetailPage: React.FC = () => {
             {/* Accordions */}
             <div className="pt-2">
               <Accordion title="Description">
-                {product.description[language]}
-                Our products are imported from high-quality sources, ensuring maximum comfort and standard sizing.
+                {product.description?.[language] || 'No description manifest encountered for this asset.'}
               </Accordion>
               <Accordion title="Additional Information">
                 Imported Men's Sneakers. Remastered with premium leather and technical denim materials. Authentic grade.

@@ -54,7 +54,7 @@ export const CartPage: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col items-center sm:items-end gap-4">
-                    <p className="text-2xl font-black">৳{(item.product.price * item.quantity).toLocaleString()}</p>
+                    <p className="text-2xl font-black">৳{Number((item.product.price || 0) * item.quantity).toLocaleString()}</p>
                     <button
                       onClick={() => removeFromCart(item.cartId)}
                       className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-400 transition-colors flex items-center gap-2"
@@ -77,7 +77,7 @@ export const CartPage: React.FC = () => {
               <div className="space-y-4 mb-10">
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-zinc-500">
                   <span>Subtotal</span>
-                  <span className="text-white">৳{subtotal.toLocaleString()}</span>
+                  <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-zinc-500">
                   <span>Shipping Estimation</span>
@@ -87,7 +87,7 @@ export const CartPage: React.FC = () => {
 
               <div className="pt-8 border-t border-white/10 flex justify-between items-baseline mb-12">
                 <span className="text-lg font-bold">Estimated Total</span>
-                <span className="text-3xl font-black">৳{subtotal.toLocaleString()}</span>
+                <span className="text-3xl font-black">৳{Number(subtotal || 0).toLocaleString()}</span>
               </div>
 
               <PrimaryButton

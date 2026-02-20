@@ -433,23 +433,23 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-5 pt-8 border-t border-white/5">
                 <div className="flex justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
                   <span>Subtotal Value</span>
-                  <span className="text-white">৳{subtotal.toLocaleString()}</span>
+                  <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
                   <span>Logistics Protocol ({formData.district})</span>
-                  <span className="text-cyan-400">৳{shippingFee.toLocaleString()}</span>
+                  <span className="text-cyan-400">৳{Number(shippingFee || 0).toLocaleString()}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-[10px] font-black uppercase text-emerald-500 tracking-widest">
                     <span>Protocol Discount ({appliedDiscount?.code})</span>
-                    <span>-৳{discountAmount.toLocaleString()}</span>
+                    <span>-৳{Number(discountAmount || 0).toLocaleString()}</span>
                   </div>
                 )}
 
                 <div className="pt-8 border-t border-white/10 flex justify-between items-end">
                   <div>
                     <p className="text-[9px] font-black uppercase text-zinc-600 tracking-[0.5em] mb-1">TOTAL FISCAL VALUE</p>
-                    <p className="text-5xl font-black text-white tracking-tighter">৳{finalTotal.toLocaleString()}</p>
+                    <p className="text-5xl font-black text-white tracking-tighter">৳{Number(finalTotal || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>

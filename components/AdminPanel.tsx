@@ -85,7 +85,7 @@ const ProductModal: React.FC<{
   onSave: (p: Product) => void;
 }> = ({ product, onClose, onSave }) => {
   const [formData, setFormData] = useState<Partial<Product>>(product || {
-    id: Math.random().toString(36).substr(2, 9),
+    id: '',
     name: '',
     brand: 'Splaro',
     price: 0,
@@ -1460,7 +1460,12 @@ export const AdminPanel = () => {
               product={editingProduct}
               onClose={() => setIsProductModalOpen(false)}
               onSave={(p) => {
-                addOrUpdateProduct(p);
+                const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+                const finalProduct = { ...p };
+                if (!finalProduct.id || finalProduct.id.trim() === '') {
+                  finalProduct.id = slugify(finalProduct.name) || Math.random().toString(36).substr(2, 6);
+                }
+                addOrUpdateProduct(finalProduct);
                 setIsProductModalOpen(false);
               }}
             />
