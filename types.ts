@@ -20,6 +20,7 @@ export type Theme = 'DARK' | 'LIGHT';
 export interface Product {
   id: string;
   name: string;
+  productType?: 'shoe' | 'bag' | string;
   brand: 'Nike' | 'Adidas' | 'Jordan' | 'Splaro' | 'Luxury Imports' | 'New Balance' | 'Yeezy' | 'Balenciaga' | 'Gucci' | 'Prada' | 'Louis Vuitton' |
   'Anta' | 'Li-Ning' | '361 Degrees' | 'Xtep' | 'Peak' | 'Qiaodan' | 'Bmai' | 'ERKE' | 'Feiyue' | 'Warrior' | 'Belle' | 'Red Dragonfly' | 'Aokang' | 'Fuguiniao' | 'Staccato' | 'Teenmix' | 'Do-win' | 'Dynafish' |
   'Dior' | 'Versace' | 'Fendi' | 'Hermes' | 'Saint Laurent' | 'Burberry' | 'Chanel' | 'Valentino' | 'Givenchy' | 'Off-White' | 'Alexander McQueen' | string;
@@ -108,5 +109,4 @@ export interface SiteSettings {
   maintenanceMode: boolean;
   logoUrl?: string;
 }
-
 
