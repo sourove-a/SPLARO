@@ -268,10 +268,16 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (result.status === 'success') {
             setStatus('success');
             setRecoveryStep('reset');
+            const otpPreview = String(result.otp_preview || '').trim();
             const msg =
               result.message === 'RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM'
                 ? 'OTP sent to admin Telegram. Use that code to reset.'
-                : 'OTP sent. Check your email and enter the code.';
+                : result.message === 'RECOVERY_CODE_GENERATED_FALLBACK'
+                  ? (otpPreview ? `SMTP down. Use OTP now: ${otpPreview}` : 'SMTP down. OTP generated, contact admin.')
+                  : 'OTP sent. Check your email and enter the code.';
+            if (otpPreview) {
+              setFormData(prev => ({ ...prev, otp: otpPreview }));
+            }
             window.dispatchEvent(new CustomEvent('splaro-toast', {
               detail: { message: msg, tone: 'success' }
             }));

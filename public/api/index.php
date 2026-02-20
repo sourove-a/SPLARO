@@ -29,6 +29,8 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         $mail->SMTPAuth   = true;
         $mail->Username   = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
         $mail->Password   = !empty($db_settings['pass']) ? $db_settings['pass'] : SMTP_PASS;
+        $mail->Timeout    = 10;
+        $mail->CharSet    = 'UTF-8';
         
         $port = !empty($db_settings['port']) ? (int)$db_settings['port'] : SMTP_PORT;
         $mail->Port       = $port;
@@ -52,6 +54,34 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         return true;
     } catch (Exception $e) {
         error_log("SPLARO_MAIL_FAILURE: " . $mail->ErrorInfo . " | Exception: " . $e->getMessage());
+
+        // Last-resort fallback: native PHP mail() on shared hosting
+        if (function_exists('mail')) {
+            $fromAddress = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
+            if ($fromAddress === '') {
+                $fromAddress = 'info@splaro.co';
+            }
+
+            $headers = [
+                "From: SPLARO <{$fromAddress}>",
+                "Reply-To: {$fromAddress}",
+                "MIME-Version: 1.0"
+            ];
+
+            if ($isHtml) {
+                $headers[] = "Content-Type: text/html; charset=UTF-8";
+            } else {
+                $headers[] = "Content-Type: text/plain; charset=UTF-8";
+            }
+
+            $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
+            $fallbackSent = @mail($to, $subject, $mailBody, implode("\r\n", $headers));
+            if ($fallbackSent) {
+                error_log("SPLARO_MAIL_FALLBACK_SUCCESS: delivered via mail() to {$to}");
+                return true;
+            }
+        }
+
         return false;
     }
 }
@@ -1736,7 +1766,25 @@ This code expires in 15 minutes. If you did not request this, please ignore.";
                 "channel" => "TELEGRAM"
             ]);
         } else {
-            echo json_encode(["status" => "error", "message" => "RECOVERY_DELIVERY_FAILED"]);
+            // Controlled fallback so user is never stuck when mail gateway is down.
+            $allowOtpPreview = strtolower((string)env_or_default('ALLOW_OTP_PREVIEW', 'true')) === 'true';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+            $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+               ->execute([
+                   'RECOVERY_FALLBACK',
+                   "OTP generated but delivery failed for {$email}.",
+                   $ip
+               ]);
+
+            $response = [
+                "status" => "success",
+                "message" => "RECOVERY_CODE_GENERATED_FALLBACK",
+                "channel" => "FALLBACK"
+            ];
+            if ($allowOtpPreview) {
+                $response['otp_preview'] = (string)$otp;
+            }
+            echo json_encode($response);
         }
     } else {
         echo json_encode(["status" => "error", "message" => "IDENTITY_NOT_FOUND"]);
