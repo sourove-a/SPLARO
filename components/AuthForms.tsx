@@ -268,12 +268,28 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (result.status === 'success') {
             setStatus('success');
             setRecoveryStep('reset');
+            const msg =
+              result.message === 'RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM'
+                ? 'OTP sent to admin Telegram. Use that code to reset.'
+                : 'OTP sent. Check your email and enter the code.';
+            window.dispatchEvent(new CustomEvent('splaro-toast', {
+              detail: { message: msg, tone: 'success' }
+            }));
             setTimeout(() => setStatus('idle'), 2000);
           } else {
             throw new Error(result.message);
           }
         } catch (e) {
-          setErrors({ identifier: 'Identity not found in the archive' });
+          const message = e instanceof Error ? e.message : '';
+          if (message === 'IDENTITY_NOT_FOUND') {
+            setErrors({ identifier: 'No account found with this email' });
+          } else if (message === 'RATE_LIMIT_EXCEEDED') {
+            setErrors({ identifier: 'Too many attempts. Try again after 1 minute' });
+          } else if (message === 'RECOVERY_DELIVERY_FAILED') {
+            setErrors({ identifier: 'Could not send OTP now. Contact admin support' });
+          } else {
+            setErrors({ identifier: 'Reset request failed. Try again' });
+          }
           setStatus('error');
           setTimeout(() => setStatus('idle'), 3000);
         }
@@ -296,11 +312,17 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             }));
             setAuthMode('login');
             setRecoveryStep('email');
+            setFormData(prev => ({ ...prev, otp: '', password: '', confirmPassword: '' }));
           } else {
             throw new Error(result.message);
           }
         } catch (e) {
-          setErrors({ otp: 'Invalid or expired verification code' });
+          const message = e instanceof Error ? e.message : '';
+          if (message === 'INVALID_RESET_REQUEST') {
+            setErrors({ otp: 'Enter valid email, OTP and new password (min 6 chars)' });
+          } else {
+            setErrors({ otp: 'Invalid or expired verification code' });
+          }
           setStatus('error');
           setTimeout(() => setStatus('idle'), 3000);
         }
@@ -595,7 +617,16 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
                 {authMode === 'login' && (
                   <div className="flex justify-end mt-[-1rem]">
-                    <button type="button" onClick={() => { setAuthMode('forgot'); setRecoveryStep('email'); }} className="text-[9px] font-black uppercase text-cyan-500/60 hover:text-cyan-400 tracking-widest transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrors({});
+                        setStatus('idle');
+                        setRecoveryStep('email');
+                        setAuthMode('forgot');
+                      }}
+                      className="text-[9px] font-black uppercase text-cyan-500/60 hover:text-cyan-400 tracking-widest transition-colors"
+                    >
                       Forgot Password?
                     </button>
                   </div>
@@ -611,7 +642,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                 isLoading={status === 'loading'}
                 className="w-full h-16 text-[11px] uppercase tracking-[0.4em]"
               >
-                {authMode === 'login' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : recoveryStep === 'email' ? 'Send Reset Link' : 'Override Password'}
+                {authMode === 'login' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : recoveryStep === 'email' ? 'Send OTP Code' : 'Override Password'}
                 {!status.includes('loading') && <Sparkles className="w-4 h-4 ml-3" />}
               </PrimaryButton>
 

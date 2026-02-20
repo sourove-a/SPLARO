@@ -1717,11 +1717,26 @@ if ($method === 'POST' && $action === 'forgot_password') {
 
 This code expires in 15 minutes. If you did not request this, please ignore.";
         $success = smtp_send_mail($db, $email, $subject, nl2br($message), true);
+        $telegramOtpMessage = "<b>🔐 Password Reset OTP</b>\n"
+            . "<b>Email:</b> " . telegram_escape_html($email) . "\n"
+            . "<b>OTP:</b> " . telegram_escape_html((string)$otp) . "\n"
+            . "<b>Expires:</b> " . telegram_escape_html($expiry);
+        $telegramSent = send_telegram_message($telegramOtpMessage);
         
         if ($success) {
-            echo json_encode(["status" => "success", "message" => "RECOVERY_SIGNAL_DISPATCHED"]);
+            echo json_encode([
+                "status" => "success",
+                "message" => "RECOVERY_SIGNAL_DISPATCHED",
+                "channel" => "EMAIL"
+            ]);
+        } elseif ($telegramSent) {
+            echo json_encode([
+                "status" => "success",
+                "message" => "RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM",
+                "channel" => "TELEGRAM"
+            ]);
         } else {
-            echo json_encode(["status" => "error", "message" => "SIGNAL_DISPATCH_FAILURE"]);
+            echo json_encode(["status" => "error", "message" => "RECOVERY_DELIVERY_FAILED"]);
         }
     } else {
         echo json_encode(["status" => "error", "message" => "IDENTITY_NOT_FOUND"]);
