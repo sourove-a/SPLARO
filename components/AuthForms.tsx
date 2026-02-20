@@ -61,13 +61,16 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     }
 
     if (!forcedMode) {
-      if (isSignupPath && authMode !== 'signup') setAuthMode('signup');
-      if (isLoginPath && authMode !== 'login') setAuthMode('login');
+      // Keep forgot-password flow stable; only auto-switch between login/signup.
+      if (isSignupPath && authMode === 'login') setAuthMode('signup');
+      if (isLoginPath && authMode === 'signup') setAuthMode('login');
     }
 
-    // Hidden Admin Entry Protocol
-    if (location.pathname === '/sourove-admin') {
+    // Hidden Admin Entry Protocol (do not force-exit forgot mode)
+    if (location.pathname === '/sourove-admin' && authMode === 'signup') {
       setAuthMode('login');
+    }
+    if (location.pathname === '/sourove-admin') {
       setFormData(prev => ({
         ...prev,
         identifier: prev.identifier || 'info@splaro.co'
