@@ -94,6 +94,15 @@ const BentoCard: React.FC<{
   </GlassCard>
 );
 
+type FinanceExpense = {
+  id: string;
+  label: string;
+  amount: number;
+  category: string;
+  date: string;
+  createdAt: string;
+};
+
 const ProductModal: React.FC<{
   product?: Product | null;
   onClose: () => void;
@@ -518,12 +527,39 @@ export const AdminPanel = () => {
   const [orderFilter, setOrderFilter] = useState('All Orders');
   const [brandFilter, setBrandFilter] = useState('All Brands');
   const [analyticsWindow, setAnalyticsWindow] = useState<'LIVE' | '7D' | '30D'>('LIVE');
+  const [financeRange, setFinanceRange] = useState<'7D' | '30D' | 'ALL'>('30D');
+  const [expenseForm, setExpenseForm] = useState({ label: '', amount: '', category: 'Operations', date: new Date().toISOString().slice(0, 10) });
+  const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('splaro-finance-expenses');
+      if (!raw) {
+        return [
+          { id: `exp_${Math.random().toString(36).slice(2, 9)}`, label: 'Hostinger Hosting', amount: 5500, category: 'Infrastructure', date: '2026-02-18', createdAt: new Date().toISOString() },
+          { id: `exp_${Math.random().toString(36).slice(2, 9)}`, label: 'Social Ads', amount: 45000, category: 'Marketing', date: '2026-02-15', createdAt: new Date().toISOString() },
+          { id: `exp_${Math.random().toString(36).slice(2, 9)}`, label: 'Logistics Partner', amount: 12000, category: 'Operations', date: '2026-02-10', createdAt: new Date().toISOString() }
+        ];
+      }
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
     window.setTimeout(() => setToast(null), 2600);
   };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('splaro-finance-expenses', JSON.stringify(financeExpenses));
+    } catch {
+      // ignore local persistence issues
+    }
+  }, [financeExpenses]);
 
   const cmsPageSections = [
     { key: 'manifest', label: 'Manifest Page' },
@@ -644,6 +680,125 @@ export const AdminPanel = () => {
     }
     return [40, 70, 45, 90, 65, 85, 55, 100, 80, 95, 75, 110];
   }, [analyticsWindow]);
+
+  const toAmount = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const financeCutoff = useMemo(() => {
+    if (financeRange === 'ALL') return 0;
+    const days = financeRange === '7D' ? 7 : 30;
+    return Date.now() - days * 24 * 60 * 60 * 1000;
+  }, [financeRange]);
+
+  const financeOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const created = new Date(order.createdAt || (order as any).created_at || Date.now()).getTime();
+      if (!Number.isFinite(created)) return financeRange === 'ALL';
+      return financeRange === 'ALL' ? true : created >= financeCutoff;
+    });
+  }, [orders, financeRange, financeCutoff]);
+
+  const financeExpensesFiltered = useMemo(() => {
+    return financeExpenses.filter((expense) => {
+      const ts = new Date(expense.date || expense.createdAt).getTime();
+      if (!Number.isFinite(ts)) return financeRange === 'ALL';
+      return financeRange === 'ALL' ? true : ts >= financeCutoff;
+    });
+  }, [financeExpenses, financeRange, financeCutoff]);
+
+  const financeSummary = useMemo(() => {
+    const nonCancelled = financeOrders.filter((order) => order.status !== 'Cancelled');
+    const grossSales = nonCancelled.reduce((sum, order) => sum + toAmount(order.total), 0);
+    const shippingIncome = nonCancelled.reduce((sum, order) => sum + toAmount(order.shippingFee), 0);
+    const discounts = nonCancelled.reduce((sum, order) => sum + toAmount(order.discountAmount), 0);
+    const cancelledValue = financeOrders
+      .filter((order) => order.status === 'Cancelled')
+      .reduce((sum, order) => sum + toAmount(order.total), 0);
+    const expensesTotal = financeExpensesFiltered.reduce((sum, expense) => sum + toAmount(expense.amount), 0);
+    const netProfit = grossSales - expensesTotal;
+    const avgOrderValue = nonCancelled.length > 0 ? grossSales / nonCancelled.length : 0;
+    const statusStats = {
+      Pending: financeOrders.filter((order) => order.status === 'Pending').length,
+      Processing: financeOrders.filter((order) => order.status === 'Processing').length,
+      Shipped: financeOrders.filter((order) => order.status === 'Shipped').length,
+      Delivered: financeOrders.filter((order) => order.status === 'Delivered').length,
+      Cancelled: financeOrders.filter((order) => order.status === 'Cancelled').length,
+    };
+
+    return {
+      grossSales,
+      shippingIncome,
+      discounts,
+      cancelledValue,
+      expensesTotal,
+      netProfit,
+      avgOrderValue,
+      statusStats,
+      totalOrders: financeOrders.length,
+    };
+  }, [financeOrders, financeExpensesFiltered]);
+
+  const addFinanceExpense = () => {
+    const label = expenseForm.label.trim();
+    const amount = Number(expenseForm.amount);
+    if (!label || !Number.isFinite(amount) || amount <= 0) {
+      showToast('Expense name and valid amount লাগবে।', 'error');
+      return;
+    }
+
+    const date = expenseForm.date || new Date().toISOString().slice(0, 10);
+    const next: FinanceExpense = {
+      id: `exp_${Math.random().toString(36).slice(2, 10)}`,
+      label,
+      amount,
+      category: expenseForm.category.trim() || 'Operations',
+      date,
+      createdAt: new Date().toISOString(),
+    };
+
+    setFinanceExpenses((prev) => [next, ...prev]);
+    setExpenseForm({ label: '', amount: '', category: expenseForm.category, date: new Date().toISOString().slice(0, 10) });
+    showToast('Expense added.', 'success');
+  };
+
+  const removeFinanceExpense = (id: string) => {
+    setFinanceExpenses((prev) => prev.filter((item) => item.id !== id));
+    showToast('Expense removed.', 'info');
+  };
+
+  const exportFinanceReport = () => {
+    const lines: string[] = [];
+    lines.push('metric,value');
+    lines.push(`range,${financeRange}`);
+    lines.push(`gross_sales,${financeSummary.grossSales}`);
+    lines.push(`shipping_income,${financeSummary.shippingIncome}`);
+    lines.push(`discount_total,${financeSummary.discounts}`);
+    lines.push(`cancelled_value,${financeSummary.cancelledValue}`);
+    lines.push(`expenses_total,${financeSummary.expensesTotal}`);
+    lines.push(`net_profit,${financeSummary.netProfit}`);
+    lines.push(`avg_order_value,${financeSummary.avgOrderValue}`);
+    lines.push('');
+    lines.push('expenses');
+    lines.push('date,category,label,amount');
+    financeExpensesFiltered.forEach((expense) => {
+      const safeLabel = `"${expense.label.replace(/"/g, '""')}"`;
+      lines.push(`${expense.date},${expense.category},${safeLabel},${expense.amount}`);
+    });
+
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `splaro-financials-${financeRange.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Financial report exported.', 'success');
+  };
 
 
 
@@ -1266,30 +1421,131 @@ export const AdminPanel = () => {
           {activeTab === 'FINANCE' && (
 
             <motion.div key="finance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <BentoCard title="Gross Sales" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+12%" icon={DollarSign} color="bg-emerald-600" />
-                <BentoCard title="Business Expenses" value="৳145,000" trend="-2%" icon={LogOut} color="bg-rose-600" />
-                <BentoCard title="Net Profit archive" value="৳845,000" trend="+18%" icon={TrendingUp} color="bg-cyan-600" />
-              </div>
-
-              <GlassCard className="p-10">
-                <h3 className="text-xl font-black uppercase italic mb-8 text-white">Expense Registry</h3>
-                <div className="space-y-4">
-                  {[
-                    { label: 'Server Maintenance (Hostinger)', value: '৳5,500', date: '2026-02-18' },
-                    { label: 'Facebook/Instagram Ad Spend', value: '৳45,000', date: '2026-02-15' },
-                    { label: 'Logistics Partnership Fee', value: '৳12,000', date: '2026-02-10' }
-                  ].map((exp, i) => (
-                    <div key={i} className="flex justify-between items-center p-6 bg-white/5 rounded-2xl border border-white/5">
-                      <div>
-                        <p className="text-xs font-black text-white uppercase">{exp.label}</p>
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">{exp.date}</p>
-                      </div>
-                      <p className="text-lg font-black text-rose-500">{exp.value}</p>
-                    </div>
+              <GlassCard className="p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div>
+                  <h3 className="text-2xl font-black uppercase italic text-white">Financial Overview</h3>
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mt-2">Live order and expense ledger</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {(['7D', '30D', 'ALL'] as const).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => setFinanceRange(range)}
+                      className={`px-5 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
+                        financeRange === range
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'
+                      }`}
+                    >
+                      {range}
+                    </button>
                   ))}
+                  <button
+                    onClick={exportFinanceReport}
+                    className="px-5 py-2 rounded-full border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/10 transition-all"
+                  >
+                    Export CSV
+                  </button>
                 </div>
               </GlassCard>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <BentoCard title="Gross Sales" value={`৳${financeSummary.grossSales.toLocaleString()}`} trend={`${financeSummary.totalOrders} orders`} icon={DollarSign} color="bg-emerald-600" />
+                <BentoCard title="Total Expenses" value={`৳${financeSummary.expensesTotal.toLocaleString()}`} trend={`${financeExpensesFiltered.length} entries`} icon={LogOut} color="bg-rose-600" />
+                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-cyan-600" />
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <GlassCard className="p-8 xl:col-span-2">
+                  <h3 className="text-xl font-black uppercase italic mb-6 text-white">Expense Ledger</h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <LuxuryFloatingInput
+                      label="Expense Name"
+                      value={expenseForm.label}
+                      onChange={(v) => setExpenseForm((prev) => ({ ...prev, label: v }))}
+                      icon={<FileText className="w-5 h-5" />}
+                    />
+                    <LuxuryFloatingInput
+                      label="Amount (BDT)"
+                      value={expenseForm.amount}
+                      onChange={(v) => setExpenseForm((prev) => ({ ...prev, amount: v.replace(/[^\d.]/g, '') }))}
+                      icon={<DollarSign className="w-5 h-5" />}
+                    />
+                    <LuxuryFloatingInput
+                      label="Category"
+                      value={expenseForm.category}
+                      onChange={(v) => setExpenseForm((prev) => ({ ...prev, category: v }))}
+                      icon={<Tag className="w-5 h-5" />}
+                    />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 pl-4">Date</label>
+                      <input
+                        type="date"
+                        value={expenseForm.date}
+                        onChange={(e) => setExpenseForm((prev) => ({ ...prev, date: e.target.value }))}
+                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-4 text-sm text-white outline-none focus:border-cyan-500/60"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mb-8">
+                    <PrimaryButton className="px-8 py-4 text-[10px]" onClick={addFinanceExpense}>
+                      <Plus className="w-4 h-4" /> Add Expense
+                    </PrimaryButton>
+                    <button
+                      onClick={() => setExpenseForm({ label: '', amount: '', category: 'Operations', date: new Date().toISOString().slice(0, 10) })}
+                      className="px-6 py-4 rounded-2xl border border-white/10 text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-white hover:border-white/30 transition-all"
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
+                    {financeExpensesFiltered.length === 0 && (
+                      <div className="p-8 rounded-2xl border border-dashed border-white/10 text-zinc-500 text-[11px] font-bold">
+                        No expense data for this range.
+                      </div>
+                    )}
+                    {financeExpensesFiltered.map((expense) => (
+                      <div key={expense.id} className="flex justify-between items-center p-5 bg-white/5 rounded-2xl border border-white/5">
+                        <div>
+                          <p className="text-xs font-black text-white uppercase">{expense.label}</p>
+                          <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">
+                            {expense.date} • {expense.category}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <p className="text-lg font-black text-rose-500">৳{expense.amount.toLocaleString()}</p>
+                          <button
+                            onClick={() => removeFinanceExpense(expense.id)}
+                            className="p-2 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/15 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+
+                <GlassCard className="p-8 space-y-6">
+                  <h3 className="text-xl font-black uppercase italic text-white">Order Breakdown</h3>
+                  <div className="space-y-3 text-[11px] font-bold uppercase tracking-[0.12em]">
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Pending</span><span className="text-amber-400">{financeSummary.statusStats.Pending}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Processing</span><span className="text-blue-400">{financeSummary.statusStats.Processing}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Shipped</span><span className="text-purple-400">{financeSummary.statusStats.Shipped}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Delivered</span><span className="text-emerald-400">{financeSummary.statusStats.Delivered}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Cancelled</span><span className="text-rose-400">{financeSummary.statusStats.Cancelled}</span></div>
+                  </div>
+                  <div className="h-px bg-white/10" />
+                  <div className="space-y-3 text-[11px] font-bold uppercase tracking-[0.12em]">
+                    <div className="flex justify-between"><span className="text-zinc-500">Shipping Income</span><span className="text-cyan-300">৳{financeSummary.shippingIncome.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-500">Discount Given</span><span className="text-rose-400">৳{financeSummary.discounts.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-500">Cancelled Value</span><span className="text-rose-400">৳{financeSummary.cancelledValue.toLocaleString()}</span></div>
+                  </div>
+                </GlassCard>
+              </div>
             </motion.div>
           )}
 
