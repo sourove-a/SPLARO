@@ -78,27 +78,70 @@ export const ShopPage: React.FC = () => {
   const [sortOption, setSortOption] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC'>('NEWEST');
   const [showFilters, setShowFilters] = useState(false);
 
+  const normalizeCategory = (product: Partial<Product> & { name?: string; category?: string; subCategory?: string }) => {
+    const category = (product.category || '').toLowerCase();
+    const subCategory = (product.subCategory || '').toLowerCase();
+    const name = (product.name || '').toLowerCase();
+    const signal = `${category} ${subCategory} ${name}`;
+
+    const bagSignals = ['bag', 'handbag', 'backpack', 'tote', 'wallet', 'clutch', 'sling', 'crossbody'];
+    if (bagSignals.some((token) => signal.includes(token))) return 'Bags';
+
+    const shoeSignals = ['shoe', 'sneaker', 'running', 'formal', 'loafer', 'boot', 'sandal', 'slide'];
+    if (shoeSignals.some((token) => signal.includes(token))) return 'Shoes';
+
+    if (category === 'bags' || category === 'shoes') {
+      return category.charAt(0).toUpperCase() + category.slice(1);
+    }
+
+    return product.category || 'Shoes';
+  };
+
+  const normalizedSelectedCategory = useMemo(
+    () => (selectedCategory ? normalizeCategory({ category: selectedCategory }) : null),
+    [selectedCategory]
+  );
+
+  const categoryScopedProducts = useMemo(() => {
+    if (!normalizedSelectedCategory) return products;
+    return products.filter((p) => normalizeCategory(p) === normalizedSelectedCategory);
+  }, [products, normalizedSelectedCategory]);
+
   const brands = useMemo(() => {
     const counts: Record<string, number> = {};
-    products.forEach(p => counts[p.brand] = (counts[p.brand] || 0) + 1);
+    categoryScopedProducts.forEach(p => counts[p.brand] = (counts[p.brand] || 0) + 1);
     return Object.keys(counts).sort().map(b => ({ name: b, count: counts[b] }));
-  }, [products]);
+  }, [categoryScopedProducts]);
 
   const categories = useMemo(() => {
-    const counts: Record<string, number> = {};
-    products.forEach(p => counts[p.category] = (counts[p.category] || 0) + 1);
-    return Object.keys(counts).sort().map(c => ({ name: c, count: counts[c] }));
-  }, [products]);
+    const counts: Record<'Shoes' | 'Bags', number> = { Shoes: 0, Bags: 0 };
+    products.forEach((p) => {
+      const normalized = normalizeCategory(p);
+      if (normalized === 'Shoes' || normalized === 'Bags') {
+        counts[normalized] += 1;
+      }
+    });
 
-  const colors = useMemo(() => Array.from(new Set(products.flatMap(p => p.colors))).sort((a: string, b: string) => a.localeCompare(b)), [products]);
-  const sizes = useMemo(() => Array.from(new Set(products.flatMap(p => p.sizes))).sort((a: string, b: string) => parseInt(a) - parseInt(b)), [products]);
+    return (['Shoes', 'Bags'] as const)
+      .map((name) => ({ name, count: counts[name] }))
+      .filter((entry) => entry.count > 0 || entry.name === normalizedSelectedCategory);
+  }, [products, normalizedSelectedCategory]);
+
+  const colors = useMemo(
+    () => Array.from(new Set(categoryScopedProducts.flatMap(p => p.colors))).sort((a: string, b: string) => a.localeCompare(b)),
+    [categoryScopedProducts]
+  );
+  const sizes = useMemo(
+    () => Array.from(new Set(categoryScopedProducts.flatMap(p => p.sizes))).sort((a: string, b: string) => parseInt(a) - parseInt(b)),
+    [categoryScopedProducts]
+  );
 
 
   const isFiltering = selectedBrands.length > 0 || selectedColors.length > 0 || selectedSizes.length > 0;
 
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => {
-      const categoryMatch = !selectedCategory || p.category === selectedCategory;
+      const categoryMatch = !normalizedSelectedCategory || normalizeCategory(p) === normalizedSelectedCategory;
       const brandMatch = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
       const colorMatch = selectedColors.length === 0 || p.colors.some(c => selectedColors.includes(c));
       const sizeMatch = selectedSizes.length === 0 || p.sizes.some(s => selectedSizes.includes(s));
@@ -112,7 +155,7 @@ export const ShopPage: React.FC = () => {
     else if (sortOption === 'PRICE_DESC') result.sort((a, b) => b.price - a.price);
     else if (sortOption === 'NEWEST') result = [...result].reverse();
     return result;
-  }, [products, selectedBrands, selectedColors, selectedSizes, sortOption, selectedCategory, searchQuery]);
+  }, [products, selectedBrands, selectedColors, selectedSizes, sortOption, normalizedSelectedCategory, searchQuery]);
 
   const clearAll = () => { setSelectedBrands([]); setSelectedColors([]); setSelectedSizes([]); setSelectedCategory(null); };
 
@@ -138,7 +181,7 @@ export const ShopPage: React.FC = () => {
             <h1 className="text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.8] mb-8 uppercase italic">
               {selectedCategory ? (
                 <>
-                  {selectedCategory === 'Shoes' ? 'FOOTWEAR' : selectedCategory.toUpperCase()}
+                  {normalizedSelectedCategory === 'Shoes' ? 'FOOTWEAR' : (normalizedSelectedCategory || selectedCategory).toUpperCase()}
                   <br />
                   <span className="text-cyan-500">ARCHIVE.</span>
                 </>
@@ -232,7 +275,7 @@ export const ShopPage: React.FC = () => {
         <div className="flex-1">
           {isFiltering && (
             <div className="mb-12 flex flex-wrap gap-3">
-              {selectedCategory && <ActiveFilterPill label={selectedCategory} onRemove={() => setSelectedCategory(null)} />}
+              {selectedCategory && <ActiveFilterPill label={normalizedSelectedCategory || selectedCategory} onRemove={() => setSelectedCategory(null)} />}
               {selectedBrands.map(b => <ActiveFilterPill key={b} label={b} onRemove={() => toggleFilter(selectedBrands, setSelectedBrands, b)} />)}
               {selectedSizes.map(s => <ActiveFilterPill key={s} label={`Size ${s}`} onRemove={() => toggleFilter(selectedSizes, setSelectedSizes, s)} />)}
             </div>
