@@ -15,7 +15,7 @@ require 'PHPMailer/Exception.php';
 require 'PHPMailer/PHPMailer.php';
 require 'PHPMailer/SMTP.php';
 
-function send_institutional_email($to, $subject, $body, $altBody = '') {
+function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true) {
     global $db;
     
     // Fetch dynamic SMTP settings from database
@@ -43,7 +43,7 @@ function send_institutional_email($to, $subject, $body, $altBody = '') {
         $mail->setFrom($from_user, 'SPLARO HQ');
         $mail->addAddress($to);
 
-        $mail->isHTML(true);
+        $mail->isHTML($isHtml);
         $mail->Subject = $subject;
         $mail->Body    = $body;
         $mail->AltBody = $altBody ?: strip_tags($body);
@@ -238,82 +238,13 @@ function load_smtp_settings($db) {
 }
 
 function smtp_send_mail($db, $to, $subject, $body, $isHtml = true) {
-    $smtp = load_smtp_settings($db);
-    $host = $smtp['host'];
-    $port = (int)$smtp['port'];
-    $user = $smtp['user'];
-    $pass = $smtp['pass'];
-    $from = $smtp['from'] ?: $user;
-    $secure = $smtp['secure'] ?? ($port === 465 ? 'ssl' : 'tls');
-
-    if (!$host || !$port || !$user || !$pass || !$to) {
-        return false;
-    }
-
-    $remote = ($secure === 'ssl' || $port === 465) ? "ssl://{$host}:{$port}" : "{$host}:{$port}";
-    $socket = @stream_socket_client($remote, $errno, $errstr, 20, STREAM_CLIENT_CONNECT);
-    if (!$socket) {
-        return false;
-    }
-
-    stream_set_timeout($socket, 20);
-
-    $expect = function($codes) use ($socket) {
-        $response = '';
-        while (($line = fgets($socket, 515)) !== false) {
-            $response .= $line;
-            if (strlen($line) >= 4 && $line[3] === ' ') {
-                break;
-            }
-        }
-        $code = (int)substr($response, 0, 3);
-        return in_array($code, (array)$codes, true);
-    };
-
-    $command = function($cmd, $codes) use ($socket, $expect) {
-        fwrite($socket, $cmd . "
-");
-        return $expect($codes);
-    };
-
-    if (!$expect([220])) { fclose($socket); return false; }
-    if (!$command('EHLO splaro.local', [250])) { fclose($socket); return false; }
-
-    if ($secure === 'tls' && $port !== 465) {
-        if (!$command('STARTTLS', [220])) { fclose($socket); return false; }
-        if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) { fclose($socket); return false; }
-        if (!$command('EHLO splaro.local', [250])) { fclose($socket); return false; }
-    }
-
-    if (!$command('AUTH LOGIN', [334])) { fclose($socket); return false; }
-    if (!$command(base64_encode($user), [334])) { fclose($socket); return false; }
-    if (!$command(base64_encode($pass), [235])) { fclose($socket); return false; }
-
-    if (!$command('MAIL FROM:<' . $from . '>', [250])) { fclose($socket); return false; }
-    if (!$command('RCPT TO:<' . $to . '>', [250, 251])) { fclose($socket); return false; }
-    if (!$command('DATA', [354])) { fclose($socket); return false; }
-
-    $contentType = $isHtml ? 'text/html; charset=UTF-8' : 'text/plain; charset=UTF-8';
-    $headers = [
-        'From: SPLARO HQ <' . $from . '>',
-        'Reply-To: ' . $from,
-        'MIME-Version: 1.0',
-        'Content-Type: ' . $contentType,
-    ];
-
-    $message = 'Subject: ' . $subject . "
-" . implode("
-", $headers) . "
-
-" . $body . "
-.";
-    fwrite($socket, $message . "
-");
-
-    if (!$expect([250])) { fclose($socket); return false; }
-    $command('QUIT', [221]);
-    fclose($socket);
-    return true;
+    return send_institutional_email(
+        $to,
+        $subject,
+        $body,
+        $isHtml ? strip_tags($body) : $body,
+        $isHtml
+    );
 }
 
 

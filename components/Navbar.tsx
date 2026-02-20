@@ -11,11 +11,40 @@ import { View } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 export const SplaroLogo = ({ className = "h-8 md:h-12" }: { className?: string }) => {
+  const { siteSettings } = useApp();
+
   return (
-    <div className={`flex items-center ${className}`}>
-      <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase leading-none select-none">
-        SPLARO
-      </span>
+    <div className={`relative flex items-center gap-4 group ${className}`}>
+      <div className="relative h-full aspect-[1.3/1] flex items-center justify-center">
+        {siteSettings.logoUrl ? (
+          <img
+            src={siteSettings.logoUrl}
+            alt={siteSettings.siteName}
+            className="h-full w-auto object-contain"
+          />
+        ) : (
+          <svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[90%] w-auto filter drop-shadow-[0_0_18px_rgba(255,255,255,0.2)]">
+            <g className="transition-all duration-700 group-hover:scale-105" stroke="white" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
+              <g className="transition-transform duration-500 group-hover:-translate-y-0.5">
+                <path d="M24 44 L56 12" />
+                <path d="M50 50 L82 18" />
+              </g>
+              <g className="transition-transform duration-500 group-hover:translate-y-0.5">
+                <path d="M24 100 L62 62" />
+                <path d="M56 106 L82 80" />
+              </g>
+            </g>
+          </svg>
+        )}
+      </div>
+
+      <div className="flex flex-col justify-center">
+        <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
+          SPL<span className="text-cyan-500 group-hover:text-cyan-400 transition-colors">A</span>RO
+        </span>
+      </div>
+
+      <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
     </div>
   );
 };
