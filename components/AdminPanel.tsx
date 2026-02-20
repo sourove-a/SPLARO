@@ -24,8 +24,9 @@ const SidebarItem: React.FC<{
   icon: any,
   label: string,
   active: boolean,
+  badge?: number,
   onClick: () => void
-}> = ({ icon: Icon, label, active, onClick }) => (
+}> = ({ icon: Icon, label, active, badge, onClick }) => (
   <motion.button
     whileHover={{ scale: 1.02, x: 5 }}
     whileTap={{ scale: 0.98 }}
@@ -41,7 +42,15 @@ const SidebarItem: React.FC<{
     )}
     <Icon className={`w-5 h-5 ${active ? 'scale-110' : ''}`} />
     <span className="text-[10px] font-black uppercase tracking-[0.2em]">{label}</span>
-    {active && (
+    {badge ? (
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="ml-auto min-w-[24px] h-6 rounded-full bg-rose-500 flex items-center justify-center px-1.5 shadow-[0_0_20px_rgba(244,63,94,0.4)]"
+      >
+        <span className="text-[10px] font-black text-white">{badge}</span>
+      </motion.div>
+    ) : active && (
       <motion.div
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
@@ -90,7 +99,8 @@ const ProductModal: React.FC<{
     brand: 'Splaro',
     price: 0,
     image: '',
-    category: 'Sneakers',
+    category: 'Shoes',
+    subCategory: '',
     type: 'Men',
     description: { EN: '', BN: '' },
     sizes: [],
@@ -107,8 +117,18 @@ const ProductModal: React.FC<{
 
   const availableSizes = ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
   const availableBrands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Splaro', 'Luxury Imports'];
-  const availableCategories = ['Shoes', 'Bags', 'Sneakers', 'Running', 'Casual', 'Basketball', 'Sandals', 'Boots', 'Formal'];
+  const availableCategories = ['Shoes', 'Bags'];
   const availableMaterials = ['Leather', 'Synthetic', 'Mesh', 'Canvas', 'Knit', 'Suede'];
+
+  const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+
+  const handleNameChange = (name: string) => {
+    if (!product) {
+      setFormData({ ...formData, name, id: slugify(name) });
+    } else {
+      setFormData({ ...formData, name });
+    }
+  };
 
   const toggleSize = (size: string) => {
     const current = formData.sizes || [];
@@ -153,7 +173,8 @@ const ProductModal: React.FC<{
             <div className="space-y-10">
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Identity & Category</h3>
-                <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={v => setFormData({ ...formData, name: v })} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
+                <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={handleNameChange} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
+                <LuxuryFloatingInput label="Asset Identifier (Slug)" value={formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v) })} placeholder="nike-air-max" icon={<Globe className="w-5 h-5" />} />
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3 relative group">
@@ -195,6 +216,8 @@ const ProductModal: React.FC<{
                     </button>
                   ))}
                 </div>
+
+                <LuxuryFloatingInput label="Sub-Category Archive" value={formData.subCategory || ''} onChange={v => setFormData({ ...formData, subCategory: v })} placeholder="e.g. Sneakers, Formal, Running" icon={<Layers className="w-5 h-5" />} />
               </div>
 
               <div className="space-y-6">
@@ -389,7 +412,8 @@ export const AdminPanel = () => {
     addDiscount, toggleDiscount, deleteDiscount,
     slides, setSlides, smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
     siteSettings, setSiteSettings, updateSettings,
-    updateOrderMetadata, dbStatus, initializeSheets, logs, trafficData
+    updateOrderMetadata, dbStatus, initializeSheets, logs, trafficData,
+    lastSeenOrderTime, setLastSeenOrderTime
   } = useApp();
 
 
@@ -403,6 +427,10 @@ export const AdminPanel = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderFilter, setOrderFilter] = useState('All Orders');
   const [brandFilter, setBrandFilter] = useState('All Brands');
+
+  const newOrdersCount = useMemo(() => {
+    return orders.filter(o => new Date(o.createdAt) > new Date(lastSeenOrderTime)).length;
+  }, [orders, lastSeenOrderTime]);
 
   const formatTimestamp = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-US', {
@@ -465,7 +493,7 @@ export const AdminPanel = () => {
           <SidebarItem icon={LayoutDashboard} label="Command Center" active={activeTab === 'DASHBOARD'} onClick={() => setActiveTab('DASHBOARD')} />
           <SidebarItem icon={BarChart3} label="Strategic Analytics" active={activeTab === 'ANALYTICS'} onClick={() => setActiveTab('ANALYTICS')} />
           <SidebarItem icon={ShoppingBag} label="Vault Inventory" active={activeTab === 'PRODUCTS'} onClick={() => setActiveTab('PRODUCTS')} />
-          <SidebarItem icon={Package} label="Shipments" active={activeTab === 'ORDERS'} onClick={() => setActiveTab('ORDERS')} />
+          <SidebarItem icon={Package} label="Shipments" active={activeTab === 'ORDERS'} badge={newOrdersCount} onClick={() => { setActiveTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }} />
           <SidebarItem icon={ImageIcon} label="Slider Command" active={activeTab === 'SLIDER'} onClick={() => setActiveTab('SLIDER')} />
           <SidebarItem icon={Tag} label="Discounts" active={activeTab === 'DISCOUNTS'} onClick={() => setActiveTab('DISCOUNTS')} />
           <SidebarItem icon={Users} label="Client Base" active={activeTab === 'USERS'} onClick={() => setActiveTab('USERS')} />
@@ -523,11 +551,15 @@ export const AdminPanel = () => {
             </div>
             <div className="flex gap-4">
               <button
-                onClick={() => setActiveTab('LOGS')}
+                onClick={() => { setActiveTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }}
                 className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group"
               >
                 <Bell className="w-7 h-7 text-zinc-500 group-hover:text-white transition-all" />
-                <div className="absolute top-5 right-5 w-3 h-3 bg-rose-500 rounded-full border-4 border-[#0A0C12]" />
+                {newOrdersCount > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-7 h-7 rounded-full flex items-center justify-center border-4 border-[#0A0C12] shadow-[0_0_15px_rgba(244,63,94,0.5)]">
+                    {newOrdersCount}
+                  </div>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab('SYNC')}

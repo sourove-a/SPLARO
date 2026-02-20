@@ -330,6 +330,8 @@ interface AppContextType {
   dbStatus: 'CONNECTED' | 'LOCAL' | 'OFFLINE';
   logs: any[];
   trafficData: any[];
+  lastSeenOrderTime: string;
+  setLastSeenOrderTime: (t: string) => void;
   initializeSheets: () => Promise<void>;
 }
 
@@ -370,6 +372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [discounts, setDiscounts] = useState<DiscountCode[]>(loadFromStorage('splaro-discounts', INITIAL_DISCOUNTS));
   const [users, setUsers] = useState<User[]>(loadFromStorage('splaro-registered-users', []));
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [lastSeenOrderTime, setLastSeenOrderTime] = useState<string>(loadFromStorage('splaro-last-seen-order', new Date().toISOString()));
   const [slides, setSlides] = useState<any[]>(loadFromStorage('splaro-slides', INITIAL_SLIDES));
   const [logs, setLogs] = useState<any[]>([]);
   const [trafficData, setTrafficData] = useState<any[]>([]);
@@ -433,6 +436,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('splaro-logistics', JSON.stringify(logisticsConfig));
   }, [logisticsConfig]);
+
+  useEffect(() => {
+    localStorage.setItem('splaro-last-seen-order', JSON.stringify(lastSeenOrderTime));
+  }, [lastSeenOrderTime]);
 
   useEffect(() => {
     localStorage.setItem('splaro-site-settings', JSON.stringify(siteSettings));
@@ -721,8 +728,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isSearchOpen, setIsSearchOpen,
     siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata,
-    dbStatus, initializeSheets, logs, trafficData
-  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData]);
+    dbStatus, initializeSheets, logs, trafficData,
+    lastSeenOrderTime, setLastSeenOrderTime
+  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime]);
 
 
 
