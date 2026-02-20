@@ -122,9 +122,11 @@ export const ShopPage: React.FC = () => {
       }
     });
 
-    return (['Shoes', 'Bags'] as const)
-      .map((name) => ({ name, count: counts[name] }))
-      .filter((entry) => entry.count > 0 || entry.name === normalizedSelectedCategory);
+    if (normalizedSelectedCategory) {
+      return [{ name: normalizedSelectedCategory, count: counts[normalizedSelectedCategory] }];
+    }
+
+    return (['Shoes', 'Bags'] as const).map((name) => ({ name, count: counts[name] }));
   }, [products, normalizedSelectedCategory]);
 
   const colors = useMemo(
