@@ -419,6 +419,11 @@ const AppContent = () => {
     if (view !== targetView) setView(targetView);
 
     // IDENTITY SEPARATION PROTOCOL: Enforcement Guard
+    if (!user && p === 'admin_dashboard') {
+      navigate('/sourove-admin');
+      return;
+    }
+
     if (user) {
       if (user.role === 'ADMIN' && p === 'user_dashboard') {
         navigate('/admin_dashboard');

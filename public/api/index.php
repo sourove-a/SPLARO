@@ -16,6 +16,116 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+function load_smtp_settings($db) {
+    $settings = [
+        'host' => SMTP_HOST,
+        'port' => SMTP_PORT,
+        'user' => SMTP_USER,
+        'pass' => SMTP_PASS,
+        'from' => SMTP_USER,
+        'secure' => ((int)SMTP_PORT === 465 ? 'ssl' : 'tls'),
+    ];
+
+    try {
+        $row = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+        if (!empty($row['smtp_settings'])) {
+            $custom = json_decode($row['smtp_settings'], true);
+            if (is_array($custom)) {
+                $settings['host'] = $custom['host'] ?? $settings['host'];
+                $settings['port'] = isset($custom['port']) ? (int)$custom['port'] : (int)$settings['port'];
+                $settings['user'] = $custom['user'] ?? $settings['user'];
+                $settings['pass'] = $custom['pass'] ?? $settings['pass'];
+                $settings['from'] = $custom['from'] ?? $settings['user'];
+                $settings['secure'] = strtolower($custom['secure'] ?? $settings['secure']);
+            }
+        }
+    } catch (Exception $e) {
+        // fall back to constants
+    }
+
+    return $settings;
+}
+
+function smtp_send_mail($db, $to, $subject, $body, $isHtml = true) {
+    $smtp = load_smtp_settings($db);
+    $host = $smtp['host'];
+    $port = (int)$smtp['port'];
+    $user = $smtp['user'];
+    $pass = $smtp['pass'];
+    $from = $smtp['from'] ?: $user;
+    $secure = $smtp['secure'] ?? ($port === 465 ? 'ssl' : 'tls');
+
+    if (!$host || !$port || !$user || !$pass || !$to) {
+        return false;
+    }
+
+    $remote = ($secure === 'ssl' || $port === 465) ? "ssl://{$host}:{$port}" : "{$host}:{$port}";
+    $socket = @stream_socket_client($remote, $errno, $errstr, 20, STREAM_CLIENT_CONNECT);
+    if (!$socket) {
+        return false;
+    }
+
+    stream_set_timeout($socket, 20);
+
+    $expect = function($codes) use ($socket) {
+        $response = '';
+        while (($line = fgets($socket, 515)) !== false) {
+            $response .= $line;
+            if (strlen($line) >= 4 && $line[3] === ' ') {
+                break;
+            }
+        }
+        $code = (int)substr($response, 0, 3);
+        return in_array($code, (array)$codes, true);
+    };
+
+    $command = function($cmd, $codes) use ($socket, $expect) {
+        fwrite($socket, $cmd . "
+");
+        return $expect($codes);
+    };
+
+    if (!$expect([220])) { fclose($socket); return false; }
+    if (!$command('EHLO splaro.local', [250])) { fclose($socket); return false; }
+
+    if ($secure === 'tls' && $port !== 465) {
+        if (!$command('STARTTLS', [220])) { fclose($socket); return false; }
+        if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) { fclose($socket); return false; }
+        if (!$command('EHLO splaro.local', [250])) { fclose($socket); return false; }
+    }
+
+    if (!$command('AUTH LOGIN', [334])) { fclose($socket); return false; }
+    if (!$command(base64_encode($user), [334])) { fclose($socket); return false; }
+    if (!$command(base64_encode($pass), [235])) { fclose($socket); return false; }
+
+    if (!$command('MAIL FROM:<' . $from . '>', [250])) { fclose($socket); return false; }
+    if (!$command('RCPT TO:<' . $to . '>', [250, 251])) { fclose($socket); return false; }
+    if (!$command('DATA', [354])) { fclose($socket); return false; }
+
+    $contentType = $isHtml ? 'text/html; charset=UTF-8' : 'text/plain; charset=UTF-8';
+    $headers = [
+        'From: SPLARO HQ <' . $from . '>',
+        'Reply-To: ' . $from,
+        'MIME-Version: 1.0',
+        'Content-Type: ' . $contentType,
+    ];
+
+    $message = 'Subject: ' . $subject . "
+" . implode("
+", $headers) . "
+
+" . $body . "
+.";
+    fwrite($socket, $message . "
+");
+
+    if (!$expect([250])) { fclose($socket); return false; }
+    $command('QUIT', [221]);
+    fclose($socket);
+    return true;
+}
+
+
 // 1. DATA RETRIEVAL PROTOCOL
 if ($method === 'GET' && $action === 'sync') {
     $settings = $db->query("SELECT * FROM site_settings LIMIT 1")->fetch();
@@ -167,19 +277,16 @@ if ($method === 'POST' && $action === 'create_order') {
     </div>";
 
     // TRIGGER EMAIL NOTIFICATION (ORDER)
-    $to = SMTP_USER;
-    $subject = "NEW ACQUISITION: " . $input['id'];
-    $headers = "From: SPLARO HQ <" . SMTP_USER . ">\r\n";
-    $headers .= "Reply-To: " . SMTP_USER . "\r\n";
-    $headers .= "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    
-    // Send to Admin
-    @mail($to, "ADMIN NOTIFY: NEW ORDER " . $input['id'], $invoice_body, $headers);
-    // Send to Customer
-    @mail($input['customerEmail'], "INVOICE: Your Splaro Order #" . $input['id'], $invoice_body, $headers);
+    $smtpConfig = load_smtp_settings($db);
+    $adminRecipient = $smtpConfig['user'] ?? SMTP_USER;
+    $adminMail = smtp_send_mail($db, $adminRecipient, "ADMIN NOTIFY: NEW ORDER " . $input['id'], $invoice_body, true);
+    $customerMail = smtp_send_mail($db, $input['customerEmail'], "INVOICE: Your Splaro Order #" . $input['id'], $invoice_body, true);
 
-    echo json_encode(["status" => "success", "message" => "INVOICE_DISPATCHED"]);
+    echo json_encode([
+        "status" => "success",
+        "message" => ($adminMail && $customerMail) ? "INVOICE_DISPATCHED" : "ORDER_PLACED_EMAIL_PENDING",
+        "email" => ["admin" => $adminMail, "customer" => $customerMail]
+    ]);
     exit;
 }
 
@@ -293,14 +400,16 @@ if ($method === 'POST' && $action === 'signup') {
     sync_to_sheets('SIGNUP', $input);
 
     // TRIGGER EMAIL NOTIFICATION (SIGNUP)
-    $to = SMTP_USER;
     $subject = "NEW IDENTITY ARCHIVED: " . $input['name'];
-    $message = "A new client has joined the Splaro Archive.\n\nName: " . $input['name'] . "\nEmail: " . $input['email'];
-    $headers = "From: SPLARO HQ <" . SMTP_USER . ">\r\n";
-    
-    @mail($to, $subject, $message, $headers);
+    $message = "A new client has joined the Splaro Archive.
 
-    echo json_encode(["status" => "success", "user" => $input]);
+Name: " . $input['name'] . "
+Email: " . $input['email'];
+    $smtpConfig = load_smtp_settings($db);
+    $adminRecipient = $smtpConfig['user'] ?? SMTP_USER;
+    $signupMail = smtp_send_mail($db, $adminRecipient, $subject, nl2br($message), true);
+
+    echo json_encode(["status" => "success", "user" => $input, "email" => ["admin" => $signupMail]]);
     exit;
 }
 
@@ -321,11 +430,10 @@ if ($method === 'POST' && $action === 'forgot_password') {
         $stmt->execute([$otp, $expiry, $email]);
         
         $subject = "IDENTITY RECOVERY: Verification Code";
-        $message = "Your Splaro Identity Verification Code is: " . $otp . "\n\nThis code expires in 15 minutes. If you did not request this, please ignore.";
-        $from = "SPLARO SECURITY <" . SMTP_USER . ">";
-        $headers = "From: " . $from . "\r\n";
-        
-        $success = @mail($email, $subject, $message, $headers);
+        $message = "Your Splaro Identity Verification Code is: " . $otp . "
+
+This code expires in 15 minutes. If you did not request this, please ignore.";
+        $success = smtp_send_mail($db, $email, $subject, nl2br($message), true);
         
         if ($success) {
             echo json_encode(["status" => "success", "message" => "RECOVERY_SIGNAL_DISPATCHED"]);
@@ -362,13 +470,12 @@ if ($method === 'POST' && $action === 'reset_password') {
 
 // 5.2 COMMUNICATION DIAGNOSTICS
 if ($method === 'GET' && $action === 'test_email') {
-    $to = $_GET['email'] ?? SMTP_USER;
+    $smtpConfig = load_smtp_settings($db);
+    $to = $_GET['email'] ?? ($smtpConfig['user'] ?? SMTP_USER);
     $subject = "SIGNAL TEST: Institutional Handshake";
     $message = "Universal Splaro diagnostic signal confirmed. Handshake successful.";
-    $from = "SPLARO HQ <" . SMTP_USER . ">";
-    $headers = "From: " . $from . "\r\n";
-    
-    $success = @mail($to, $subject, $message, $headers);
+
+    $success = smtp_send_mail($db, $to, $subject, $message, false);
     echo json_encode(["status" => $success ? "success" : "error", "message" => $success ? "SIGNAL_SENT" : "SIGNAL_FAILED"]);
     exit;
 }

@@ -1,10 +1,9 @@
-<svg viewBox="0 0 130 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g>
-    <path d="M55 45 L85 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
-    <path d="M78 45 L108 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
-    <path d="M101 45 L131 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
-    <path d="M5 95 L35 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
-    <path d="M28 95 L58 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
-    <path d="M51 95 L81 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
+<svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="120" rx="20" fill="black" />
+  <g stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 44 L56 12" />
+    <path d="M50 50 L82 18" />
+    <path d="M24 100 L62 62" />
+    <path d="M56 106 L82 80" />
   </g>
 </svg>
