@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertAdminAccess } from '../../../../lib/adminAuth';
 import { listCampaigns } from '../../../../lib/adminPersistence';
-import { getMysqlPool } from '../../../../lib/mysql';
+import { getDbPool } from '../../../../lib/db';
 
 export async function GET(request: NextRequest) {
   const auth = assertAdminAccess(request.headers);
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, q: '', results: { users: [], orders: [], campaigns: [] } });
   }
 
-  const pool = await getMysqlPool();
+  const pool = await getDbPool();
   const term = `%${q}%`;
 
   let users: any[] = [];

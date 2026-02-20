@@ -50,3 +50,82 @@ export type OrderStatusPatchInput = z.infer<typeof orderStatusPatchSchema>;
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 export type SignupCreateInput = z.infer<typeof signupCreateSchema>;
 export type SubscriptionCreateInput = z.infer<typeof subscriptionCreateSchema>;
+
+export const authSignupSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().min(6).max(50),
+  district: z.string().trim().max(120).optional().default(''),
+  thana: z.string().trim().max(120).optional().default(''),
+  address: z.string().trim().max(500).optional().default(''),
+  password: z.string().min(6).max(120).optional(),
+});
+
+export const authLoginSchema = z.object({
+  email: z.string().trim().email().max(255),
+  password: z.string().min(1).max(120),
+});
+
+export const productQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  q: z.string().trim().max(120).optional().default(''),
+  category: z.string().trim().max(120).optional().default(''),
+  type: z.string().trim().max(20).optional().default(''),
+  sort: z.enum(['newest', 'price_asc', 'price_desc']).optional().default('newest'),
+});
+
+export const productCreateSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  slug: z.string().trim().min(1).max(255),
+  category_id: z.string().trim().max(64).optional().default(''),
+  product_type: z.enum(['shoe', 'bag']),
+  image_url: z.string().trim().max(1000).optional().default(''),
+  product_url: z.string().trim().max(1000).optional().default(''),
+  price: z.coerce.number().min(0),
+  active: z.coerce.boolean().optional().default(true),
+});
+
+export const productUpdateSchema = productCreateSchema.partial();
+
+export const orderItemSchema = z.object({
+  product_id: z.string().trim().max(64).optional(),
+  product_name: z.string().trim().min(1).max(255),
+  product_url: z.string().trim().max(1000).optional().default(''),
+  image_url: z.string().trim().max(1000).optional().default(''),
+  quantity: z.coerce.number().int().min(1).max(999),
+  unit_price: z.coerce.number().min(0),
+});
+
+export const orderCreatePayloadSchema = z.object({
+  user_id: z.string().trim().max(64).optional(),
+  name: z.string().trim().min(2).max(255),
+  email: z.string().trim().email().max(255),
+  phone: z.string().trim().min(6).max(50),
+  address: z.string().trim().min(5).max(1000),
+  district: z.string().trim().max(120).optional().default(''),
+  thana: z.string().trim().max(120).optional().default(''),
+  status: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional().default('PENDING'),
+  shipping: z.coerce.number().min(0).optional().default(0),
+  discount: z.coerce.number().min(0).optional().default(0),
+  items: z.array(orderItemSchema).min(1),
+});
+
+export const orderStatusSchema = z.object({
+  status: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']),
+  actor_id: z.string().trim().max(64).optional(),
+});
+
+export const userBlockSchema = z.object({
+  is_blocked: z.coerce.boolean(),
+  actor_id: z.string().trim().max(64).optional(),
+});
+
+export type AuthSignupInput = z.infer<typeof authSignupSchema>;
+export type AuthLoginInput = z.infer<typeof authLoginSchema>;
+export type ProductQueryInput = z.infer<typeof productQuerySchema>;
+export type ProductCreateInput = z.infer<typeof productCreateSchema>;
+export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;
+export type OrderCreatePayloadInput = z.infer<typeof orderCreatePayloadSchema>;
+export type OrderStatusInput = z.infer<typeof orderStatusSchema>;
+export type UserBlockInput = z.infer<typeof userBlockSchema>;
