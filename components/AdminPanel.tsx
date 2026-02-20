@@ -1652,6 +1652,12 @@ export const AdminPanel = () => {
                         <div className="w-4 h-[1px] bg-zinc-800" /> Tactical Meta-Data
                       </h4>
                       <div className="space-y-6">
+                        <div className="p-6 bg-white/5 border border-white/5 rounded-2xl">
+                          <p className="text-[9px] font-black uppercase text-zinc-500 mb-3">Collector Narrative</p>
+                          <p className="text-sm font-semibold text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">
+                            {selectedOrder.customerComment?.trim() || 'No customer note provided.'}
+                          </p>
+                        </div>
                         <LuxuryFloatingInput
                           label="Tracking ID Manifest"
                           value={selectedOrder.trackingNumber || ''}
