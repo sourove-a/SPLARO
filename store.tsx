@@ -632,6 +632,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return '';
     }
   };
+  const getAdminKey = () => {
+    try {
+      return localStorage.getItem('splaro-admin-key') || '';
+    } catch {
+      return '';
+    }
+  };
   const getAuthHeaders = (json = false) => {
     const headers: Record<string, string> = {};
     if (json) {
@@ -640,6 +647,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const token = getAuthToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+    const adminKey = getAdminKey();
+    if (adminKey) {
+      headers['X-Admin-Key'] = adminKey;
     }
     return headers;
   };

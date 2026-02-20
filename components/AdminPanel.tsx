@@ -891,6 +891,7 @@ export const AdminPanel = () => {
           <button
             onClick={() => {
               localStorage.removeItem('splaro-auth-token');
+              localStorage.removeItem('splaro-admin-key');
               setUser(null);
               setView(View.HOME);
               navigate('/');
