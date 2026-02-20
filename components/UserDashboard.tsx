@@ -19,6 +19,13 @@ export const UserDashboard: React.FC = () => {
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'success'>('idle');
 
   const userEmail = (user?.email || '').toLowerCase().trim();
   const userOrders = orders.filter((o) => {
@@ -58,6 +65,62 @@ export const UserDashboard: React.FC = () => {
       setSaveStatus('idle');
       setIsEditing(false);
     }, 1500);
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError('সব field পূরণ করুন');
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('নতুন password কমপক্ষে 6 character দিন');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('নতুন password আর confirm password মিলছে না');
+      return;
+    }
+
+    setPasswordStatus('saving');
+    try {
+      const token = localStorage.getItem('splaro-auth-token') || '';
+      const res = await fetch('/api/index.php?action=change_password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(passwordForm)
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result.status !== 'success') {
+        const msg = String(result.message || '');
+        if (msg === 'CURRENT_PASSWORD_INVALID') {
+          throw new Error('Current password ভুল');
+        }
+        if (msg === 'AUTH_REQUIRED') {
+          throw new Error('আবার login করুন');
+        }
+        if (msg === 'WEAK_PASSWORD') {
+          throw new Error('নতুন password কমপক্ষে 6 character দিন');
+        }
+        if (msg === 'PASSWORD_MISMATCH') {
+          throw new Error('Password mismatch');
+        }
+        throw new Error('Password change failed');
+      }
+
+      setPasswordStatus('success');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      window.dispatchEvent(new CustomEvent('splaro-toast', {
+        detail: { message: 'Password updated successfully', tone: 'success' }
+      }));
+      setTimeout(() => setPasswordStatus('idle'), 1200);
+    } catch (error) {
+      setPasswordStatus('idle');
+      setPasswordError(error instanceof Error ? error.message : 'Password change failed');
+    }
   };
 
   return (
@@ -219,6 +282,43 @@ export const UserDashboard: React.FC = () => {
                 </div>
               </div>
             )}
+          </GlassCard>
+
+          <GlassCard className="p-10 !rounded-[48px] border-white/10 bg-white/[0.03]">
+            <div className="flex items-center gap-4 mb-8">
+              <Smartphone className="w-6 h-6 text-cyan-500" />
+              <h3 className="text-2xl font-black tracking-tighter text-white uppercase italic">Password Security</h3>
+            </div>
+            <div className="space-y-5">
+              <LuxuryFloatingInput
+                label="Current Password"
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={v => setPasswordForm(prev => ({ ...prev, currentPassword: v }))}
+              />
+              <LuxuryFloatingInput
+                label="New Password"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={v => setPasswordForm(prev => ({ ...prev, newPassword: v }))}
+              />
+              <LuxuryFloatingInput
+                label="Confirm New Password"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={v => setPasswordForm(prev => ({ ...prev, confirmPassword: v }))}
+              />
+              {passwordError ? (
+                <p className="text-rose-400 text-[10px] font-black uppercase tracking-widest">{passwordError}</p>
+              ) : null}
+              <PrimaryButton
+                onClick={handleChangePassword}
+                isLoading={passwordStatus === 'saving'}
+                className="w-full h-14 !rounded-2xl text-[10px] tracking-[0.25em]"
+              >
+                {passwordStatus === 'success' ? 'PASSWORD UPDATED' : 'CHANGE PASSWORD'}
+              </PrimaryButton>
+            </div>
           </GlassCard>
 
           <GlassCard className="p-10 !rounded-[48px] border-white/10 bg-white/[0.03]">

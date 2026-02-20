@@ -1824,6 +1824,75 @@ if ($method === 'POST' && $action === 'reset_password') {
     exit;
 }
 
+// 5.4 PASSWORD CHANGE (AUTHENTICATED USER)
+if ($method === 'POST' && $action === 'change_password') {
+    if (is_rate_limited('change_password', 8, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $currentPassword = (string)($input['currentPassword'] ?? '');
+    $newPassword = (string)($input['newPassword'] ?? '');
+    $confirmPassword = (string)($input['confirmPassword'] ?? '');
+
+    if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+        echo json_encode(["status" => "error", "message" => "MISSING_FIELDS"]);
+        exit;
+    }
+    if (strlen($newPassword) < 6) {
+        echo json_encode(["status" => "error", "message" => "WEAK_PASSWORD"]);
+        exit;
+    }
+    if (!hash_equals($newPassword, $confirmPassword)) {
+        echo json_encode(["status" => "error", "message" => "PASSWORD_MISMATCH"]);
+        exit;
+    }
+
+    $stmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$requestAuthUser['id']]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        echo json_encode(["status" => "error", "message" => "USER_NOT_FOUND"]);
+        exit;
+    }
+
+    $stored = (string)($user['password'] ?? '');
+    $verified = false;
+    if ($stored !== '' && password_verify($currentPassword, $stored)) {
+        $verified = true;
+    } elseif ((password_get_info($stored)['algo'] ?? 0) === 0 && hash_equals($stored, $currentPassword)) {
+        $verified = true;
+    }
+
+    if (!$verified) {
+        echo json_encode(["status" => "error", "message" => "CURRENT_PASSWORD_INVALID"]);
+        exit;
+    }
+
+    $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+    $update = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL WHERE id = ?");
+    $update->execute([$newPasswordHash, $user['id']]);
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
+       ->execute(['PASSWORD_CHANGED', "Password changed for " . ($user['email'] ?? $user['id']), $user['id'], $ip]);
+
+    echo json_encode(["status" => "success", "message" => "PASSWORD_UPDATED"]);
+    exit;
+}
+
 // 5.2 COMMUNICATION DIAGNOSTICS
 if ($method === 'GET' && $action === 'test_email') {
     require_admin_access($requestAuthUser);
