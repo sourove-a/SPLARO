@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Package, User as UserIcon, LogOut, Heart, MapPin, Mail, Smartphone, Edit3, Camera, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Package, User as UserIcon, LogOut, MapPin, Mail, Smartphone, Edit3, Camera, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../store';
-import { View, User } from '../types';
+import { User } from '../types';
 import { GlassCard, LuxuryFloatingInput, PrimaryButton } from './LiquidGlass';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,8 +18,15 @@ export const UserDashboard: React.FC = () => {
     profileImage: user?.profileImage || ''
   });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-  const userOrders = orders.filter(o => o.userId === user?.id);
+  const userEmail = (user?.email || '').toLowerCase().trim();
+  const userOrders = orders.filter((o) => {
+    const orderEmail = (o.customerEmail || '').toLowerCase().trim();
+    if (user?.id && o.userId === user.id) return true;
+    if (userEmail && orderEmail && orderEmail === userEmail) return true;
+    return false;
+  });
 
   const handleLogout = () => {
     setUser(null);
@@ -220,39 +227,101 @@ export const UserDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {userOrders.length > 0 ? userOrders.map((order) => (
-                <div key={order.id} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-white/[0.05] transition-all group">
-                  <div>
-                    <p className="text-[8px] text-white/20 font-black uppercase tracking-[0.3em]">SECURE ID: {order.id}</p>
-                    <p className="text-xl font-black text-white mt-1 uppercase italic tracking-tighter">৳{order.total.toLocaleString()}</p>
-                    <div className="flex flex-wrap items-center gap-3 mt-2">
-                      <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{order.items.length} Items</span>
-                      <div className="w-1 h-1 rounded-full bg-white/5" />
-                      <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{new Date(order.createdAt).toLocaleDateString()}</span>
-                      {order.trackingNumber && (
-                        <>
+              {userOrders.length > 0 ? userOrders.map((order) => {
+                const isExpanded = expandedOrderId === order.id;
+                const safeItems = Array.isArray(order.items) ? order.items : [];
+
+                return (
+                  <div key={order.id} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all group">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                      <div>
+                        <p className="text-[8px] text-white/20 font-black uppercase tracking-[0.3em]">SECURE ID: {order.id}</p>
+                        <p className="text-xl font-black text-white mt-1 uppercase italic tracking-tighter">৳{order.total.toLocaleString()}</p>
+                        <div className="flex flex-wrap items-center gap-3 mt-2">
+                          <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{safeItems.length} Items</span>
                           <div className="w-1 h-1 rounded-full bg-white/5" />
-                          <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest">Tracking: {order.trackingNumber}</span>
-                        </>
-                      )}
+                          <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{new Date(order.createdAt).toLocaleDateString()}</span>
+                          {order.trackingNumber && (
+                            <>
+                              <div className="w-1 h-1 rounded-full bg-white/5" />
+                              <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest">Tracking: {order.trackingNumber}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 w-full md:w-auto">
+                        <span className={`px-6 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border ${order.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                          order.status === 'Shipped' ? 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' :
+                            'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          }`}>
+                          <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'Delivered' ? 'bg-emerald-500' :
+                            order.status === 'Shipped' ? 'bg-cyan-500' : 'bg-amber-500'
+                            }`} />
+                          {order.status}
+                        </span>
+                        <button
+                          onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                          className="px-4 py-3 rounded-2xl bg-white/5 text-white/60 hover:bg-cyan-500 hover:text-black transition-all ml-auto md:ml-0 text-[9px] font-black uppercase tracking-widest flex items-center gap-2"
+                        >
+                          {isExpanded ? 'Hide Details' : 'View Details'}
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
+
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="mt-6 pt-6 border-t border-white/10 space-y-4">
+                            {safeItems.map((item: any, index: number) => {
+                              const unitPrice = Number(item?.product?.price ?? item?.price ?? 0);
+                              const quantity = Number(item?.quantity ?? 1);
+                              const itemTotal = unitPrice * quantity;
+                              const itemName = item?.product?.name || item?.name || `Product ${index + 1}`;
+                              const itemImage = item?.product?.image || item?.image || '';
+
+                              return (
+                                <div key={`${order.id}-${index}`} className="p-4 rounded-2xl bg-black/30 border border-white/5 flex items-center gap-4">
+                                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center shrink-0">
+                                    {itemImage ? (
+                                      <img src={itemImage} alt={itemName} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <Package className="w-5 h-5 text-white/30" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-black text-white truncate">{itemName}</p>
+                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1">
+                                      Size: {item?.selectedSize || 'N/A'} • Color: {item?.selectedColor || 'N/A'} • Qty: {quantity}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm font-black text-cyan-400">৳{itemTotal.toLocaleString()}</p>
+                                </div>
+                              );
+                            })}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                                <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Delivery Address</p>
+                                <p className="text-xs font-bold text-white mt-1">{order.address}</p>
+                              </div>
+                              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                                <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">Total Amount</p>
+                                <p className="text-lg font-black text-cyan-400 mt-1">৳{order.total.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className="flex items-center gap-6 w-full md:w-auto">
-                    <span className={`px-6 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border ${order.status === 'Delivered' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                      order.status === 'Shipped' ? 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' :
-                        'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                      }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'Delivered' ? 'bg-emerald-500' :
-                        order.status === 'Shipped' ? 'bg-cyan-500' : 'bg-amber-500'
-                        }`} />
-                      {order.status}
-                    </span>
-                    <button className="p-4 rounded-2xl bg-white/5 text-white/30 group-hover:bg-cyan-500 group-hover:text-black transition-all ml-auto">
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )) : (
+                );
+              }) : (
                 <div className="text-center py-20 bg-white/[0.01] rounded-[32px] border border-white/5 border-dashed">
                   <p className="text-white/20 font-bold italic uppercase tracking-widest text-[10px]">No acquisition records found in archive.</p>
                   <button onClick={() => navigate('/shop')} className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-cyan-400 font-black uppercase tracking-widest text-[9px] mt-6 hover:bg-white hover:text-black transition-all">Start Collection</button>
@@ -265,10 +334,3 @@ export const UserDashboard: React.FC = () => {
     </div>
   );
 };
-
-const ArrowRight = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="9 5l7 7-7 7" />
-  </svg>
-);
-

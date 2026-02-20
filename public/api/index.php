@@ -411,6 +411,24 @@ function is_rate_limited($bucket, $maxRequests = 20, $windowSeconds = 60) {
     return $state['count'] > $maxRequests;
 }
 
+function build_display_name_from_email($email) {
+    $base = explode('@', (string)$email)[0] ?? '';
+    $clean = preg_replace('/\d+/', ' ', $base);
+    $clean = preg_replace('/[._-]+/', ' ', $clean);
+    $clean = trim(preg_replace('/\s+/', ' ', $clean));
+
+    if ($clean === '') {
+        return 'SPLARO Customer';
+    }
+
+    $parts = preg_split('/\s+/', strtolower($clean));
+    $parts = array_filter($parts, fn($part) => $part !== '');
+    $parts = array_map(fn($part) => ucfirst($part), $parts);
+    $displayName = trim(implode(' ', $parts));
+
+    return $displayName !== '' ? $displayName : 'SPLARO Customer';
+}
+
 if ($method === 'GET' && $action === 'health') {
     echo json_encode([
         "status" => "success",
@@ -874,16 +892,57 @@ if ($method === 'POST' && $action === 'signup') {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
     if (!empty(trim($input['website'] ?? ''))) {
         echo json_encode(["status" => "error", "message" => "SPAM_BLOCKED"]);
         exit;
     }
-    
+
+    $email = strtolower(trim($input['email'] ?? ''));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
+        exit;
+    }
+
+    $name = trim((string)($input['name'] ?? ''));
+    if ($name === '') {
+        $name = build_display_name_from_email($email);
+    }
+
+    $phone = trim((string)($input['phone'] ?? ''));
+    if ($phone === '') {
+        $phone = 'N/A';
+    }
+
+    $password = (string)($input['password'] ?? '');
+    if ($password === '') {
+        $password = 'social_auth_sync';
+    }
+
+    $role = strtoupper(trim((string)($input['role'] ?? 'USER')));
+    if (!in_array($role, ['USER', 'ADMIN'], true)) {
+        $role = 'USER';
+    }
+
+    $id = trim((string)($input['id'] ?? ''));
+    if ($id === '') {
+        $id = uniqid('usr_', true);
+    }
+
     $check = $db->prepare("SELECT * FROM users WHERE email = ?");
-    $check->execute([$input['email']]);
+    $check->execute([$email]);
     $existing = $check->fetch();
-    
+
     if ($existing) {
+        $update = $db->prepare("UPDATE users SET name = ?, phone = ?, role = ? WHERE id = ?");
+        $update->execute([$name, $phone, $existing['role'] ?? $role, $existing['id']]);
+        $refetch = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+        $refetch->execute([$existing['id']]);
+        $existing = $refetch->fetch();
         unset($existing['password']);
         echo json_encode(["status" => "success", "user" => $existing]);
         exit;
@@ -891,35 +950,44 @@ if ($method === 'POST' && $action === 'signup') {
 
     $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, password, role) VALUES (?, ?, ?, ?, ?, ?)");
     $stmt->execute([
-        $input['id'],
-        $input['name'],
-        $input['email'],
-        $input['phone'],
-        $input['password'] ?? 'social_auth_sync',
-        $input['role']
+        $id,
+        $name,
+        $email,
+        $phone,
+        $password,
+        $role
     ]);
 
+    $userPayload = [
+        'id' => $id,
+        'name' => $name,
+        'email' => $email,
+        'phone' => $phone,
+        'role' => $role,
+        'created_at' => date('c')
+    ];
+
     // SYNC TO GOOGLE SHEETS
-    sync_to_sheets('SIGNUP', $input);
+    sync_to_sheets('SIGNUP', $userPayload);
 
     // TRIGGER EMAIL NOTIFICATION (SIGNUP)
-    $subject = "NEW IDENTITY ARCHIVED: " . $input['name'];
+    $subject = "NEW IDENTITY ARCHIVED: " . $name;
     $message = "A new client has joined the Splaro Archive.
 
-Name: " . $input['name'] . "
-Email: " . $input['email'];
+Name: " . $name . "
+Email: " . $email;
     $smtpConfig = load_smtp_settings($db);
     $adminRecipient = $smtpConfig['user'] ?? SMTP_USER;
     $signupMail = smtp_send_mail($db, $adminRecipient, $subject, nl2br($message), true);
     $telegramSignupMessage = "<b>✅ New Signup</b>\n"
-        . "<b>User ID:</b> " . telegram_escape_html($input['id']) . "\n"
+        . "<b>User ID:</b> " . telegram_escape_html($id) . "\n"
         . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
-        . "<b>Name:</b> " . telegram_escape_html($input['name']) . "\n"
-        . "<b>Email:</b> " . telegram_escape_html($input['email']) . "\n"
-        . "<b>Phone:</b> " . telegram_escape_html($input['phone'] ?? 'N/A');
+        . "<b>Name:</b> " . telegram_escape_html($name) . "\n"
+        . "<b>Email:</b> " . telegram_escape_html($email) . "\n"
+        . "<b>Phone:</b> " . telegram_escape_html($phone);
     send_telegram_message($telegramSignupMessage);
 
-    echo json_encode(["status" => "success", "user" => $input, "email" => ["admin" => $signupMail]]);
+    echo json_encode(["status" => "success", "user" => $userPayload, "email" => ["admin" => $signupMail]]);
     exit;
 }
 
