@@ -109,7 +109,7 @@ export const ProductDetailPage: React.FC = () => {
 
         {/* Right: Product Info */}
         <div className="lg:w-2/5 flex flex-col">
-          <button className="flex items-center gap-2 text-[10px] font-black text-zinc-500 hover:text-cyan-400 uppercase tracking-widest mb-4">
+          <button className="flex items-center gap-2 text-[10px] font-black text-white/40 hover:text-cyan-400 uppercase tracking-widest mb-4">
             <HelpCircle className="w-4 h-4" /> Ask a Question
           </button>
 
@@ -118,13 +118,13 @@ export const ProductDetailPage: React.FC = () => {
 
           <div className="space-y-10">
             <div>
-              <h3 className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-6">SELECT ARCHIVAL SIZE: {selectedSize}</h3>
+              <h3 className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-6">SELECT ARCHIVAL SIZE: {selectedSize}</h3>
               <div className="flex flex-wrap gap-3">
                 {(product.sizes || []).map(s => (
                   <button
                     key={s}
                     onClick={() => setSelectedSize(s)}
-                    className={`min-w-[3.5rem] h-14 rounded-2xl border flex items-center justify-center px-4 text-sm font-black transition-all ${selectedSize === s ? 'bg-white border-white text-black scale-105 shadow-[0_15px_30px_rgba(255,255,255,0.2)]' : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/30'}`}
+                    className={`min-w-[3.5rem] h-14 rounded-2xl border flex items-center justify-center px-4 text-sm font-black transition-all ${selectedSize === s ? 'bg-white border-white text-black scale-105 shadow-[0_15px_30px_rgba(255,255,255,0.2)]' : 'bg-white/5 border-white/10 text-white/30 hover:border-white/30'}`}
                   >
                     {s}
                   </button>
@@ -135,9 +135,9 @@ export const ProductDetailPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="h-16 flex items-center bg-zinc-900/50 rounded-xl border border-white/5 px-6">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="text-zinc-500 p-2 hover:text-white"><Minus className="w-4 h-4" /></button>
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="text-white/40 p-2 hover:text-white"><Minus className="w-4 h-4" /></button>
                   <span className="w-12 text-center font-black text-lg">{quantity}</span>
-                  <button onClick={() => setQuantity(quantity + 1)} className="text-zinc-500 p-2 hover:text-white"><Plus className="w-4 h-4" /></button>
+                  <button onClick={() => setQuantity(quantity + 1)} className="text-white/40 p-2 hover:text-white"><Plus className="w-4 h-4" /></button>
                 </div>
 
                 <button

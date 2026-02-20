@@ -67,7 +67,7 @@ if ($method === 'POST' && $action === 'create_order') {
         exit;
     }
 
-    $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $input['id'],
         $input['userId'] ?? null,
@@ -79,7 +79,8 @@ if ($method === 'POST' && $action === 'create_order') {
         $input['address'],
         json_encode($input['items']),
         $input['total'],
-        $input['status']
+        $input['status'],
+        $input['customerComment'] ?? null
     ]);
 
     // SYNC TO GOOGLE SHEETS
@@ -232,8 +233,8 @@ if ($method === 'POST' && $action === 'sync_products') {
     
     foreach ($products as $p) {
         $stmt = $db->prepare("INSERT INTO products 
-            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $p['id'], 
             $p['name'], 
@@ -255,7 +256,8 @@ if ($method === 'POST' && $action === 'sync_products') {
             json_encode($p['variations'] ?? []),
             json_encode($p['additionalImages'] ?? []),
             $p['sizeChartImage'] ?? null,
-            $p['discountPercentage'] ?? null
+            $p['discountPercentage'] ?? null,
+            $p['subCategory'] ?? null
         ]);
     }
 

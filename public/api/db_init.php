@@ -44,7 +44,9 @@ try {
         "ALTER TABLE `products` ADD COLUMN `additional_images` longtext DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `size_chart_image` text DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `discount_percentage` int(11) DEFAULT NULL",
-        "ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL"
+        "ALTER TABLE `products` ADD COLUMN `sub_category` varchar(100) DEFAULT NULL",
+        "ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL",
+        "ALTER TABLE `orders` ADD COLUMN `customer_comment` text DEFAULT NULL"
     ];
 
     foreach ($migrations as $m) {

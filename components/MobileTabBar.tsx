@@ -99,7 +99,7 @@ export const MobileTabBar: React.FC = () => {
                       <item.icon
                         className={`w-9 h-9 transition-all duration-700 ${isActive
                           ? 'text-cyan-400 scale-110 drop-shadow-[0_0_10px_rgba(0,212,255,0.6)]'
-                          : 'text-zinc-500 scale-100 opacity-60'
+                          : 'text-white/40 scale-100 opacity-60'
                           }`}
                         strokeWidth={isActive ? 2.5 : 2}
                       />
@@ -108,7 +108,7 @@ export const MobileTabBar: React.FC = () => {
                         <motion.span
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="absolute -top-1 -right-1 bg-cyan-500 text-black text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-zinc-900"
+                          className="absolute -top-1 -right-1 bg-cyan-500 text-black text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-black"
                         >
                           {(item as any).badge}
                         </motion.span>

@@ -414,7 +414,7 @@ export const LoginForm: React.FC = () => {
                   error={errors.password}
                   placeholder="••••••••"
                   suffix={
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-zinc-600 hover:text-white p-2">
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   }
@@ -433,7 +433,7 @@ export const LoginForm: React.FC = () => {
                   error={errors.password}
                   placeholder="••••••••"
                   suffix={
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-zinc-600 hover:text-white p-2">
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   }
@@ -477,9 +477,9 @@ export const LoginForm: React.FC = () => {
             </div>
           </form>
 
-          <div className="mt-8 flex items-center gap-4 text-zinc-800">
+          <div className="mt-8 flex items-center gap-4 text-white/5">
             <div className="h-[1px] flex-1 bg-white/5" />
-            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-600">OR</span>
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">OR</span>
             <div className="h-[1px] flex-1 bg-white/5" />
           </div>
 
@@ -488,7 +488,7 @@ export const LoginForm: React.FC = () => {
           </div>
 
           <footer className="mt-10 text-center">
-            <p className="text-xs text-zinc-500 font-medium">
+            <p className="text-xs text-white/40 font-medium">
               {authMode === 'login' ? "Don't have an account?" : "Ready to sign in?"}{' '}
               <button
                 onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setErrors({}); }}

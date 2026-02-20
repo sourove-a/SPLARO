@@ -17,7 +17,7 @@ export const CartPage: React.FC = () => {
           <ShoppingBag className="w-10 h-10 text-zinc-700" />
         </div>
         <h2 className="text-5xl font-black tracking-tighter mb-4 uppercase italic">YOUR ARCHIVE IS EMPTY</h2>
-        <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest mb-10">Discover elite boutique footwear & bags</p>
+        <p className="text-white/40 text-sm font-bold uppercase tracking-widest mb-10">Discover elite boutique footwear & bags</p>
         <PrimaryButton onClick={() => navigate('/shop')} className="px-12 py-6 text-[10px]">
           OPEN DISCOVERY VAULT
         </PrimaryButton>
@@ -32,7 +32,7 @@ export const CartPage: React.FC = () => {
         <div className="lg:col-span-8">
           <header className="mb-14">
             <h1 className="text-5xl md:text-8xl font-black tracking-tighter uppercase italic leading-[0.8] mb-6">ARCHIVAL<br /><span className="text-cyan-500">SELECTION.</span></h1>
-            <p className="text-zinc-600 font-bold uppercase tracking-[0.6em] text-[9px]">{cart.length} EXCLUSIVE UNITS ENCOUNTERED</p>
+            <p className="text-white/20 font-bold uppercase tracking-[0.6em] text-[9px]">{cart.length} EXCLUSIVE UNITS ENCOUNTERED</p>
           </header>
 
           <div className="space-y-8">
@@ -46,7 +46,7 @@ export const CartPage: React.FC = () => {
                   <div className="flex-1 text-center sm:text-left">
                     <span className="text-cyan-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
                     <h3 className="text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-[10px] font-black uppercase tracking-widest text-white/40">
                       <span>Size: {item.selectedSize}</span>
                       <span>Color: {item.selectedColor}</span>
                       <span className="text-white">Quantity: {item.quantity}</span>
@@ -75,11 +75,11 @@ export const CartPage: React.FC = () => {
               <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-8">Summary</h3>
 
               <div className="space-y-4 mb-10">
-                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-zinc-500">
+                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-white/40">
                   <span>Subtotal</span>
                   <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-zinc-500">
+                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-white/40">
                   <span>Shipping Estimation</span>
                   <span className="text-zinc-400 italic">Calculated at Billing</span>
                 </div>
@@ -98,10 +98,10 @@ export const CartPage: React.FC = () => {
               </PrimaryButton>
 
               <div className="mt-10 flex flex-col gap-4">
-                <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
                   <ShieldCheck className="w-4 h-4 text-cyan-500" /> Secure Checkout Protocol
                 </div>
-                <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
                   <HelpCircle className="w-4 h-4 text-cyan-500" /> Elite Customer Support
                 </div>
               </div>

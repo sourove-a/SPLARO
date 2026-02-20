@@ -79,7 +79,7 @@ const SupportPage = () => (
             <div className="space-y-6">
               <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white italic">{item.label}</h3>
               <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-cyan-500/50 transition-all duration-700" />
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">{item.desc}</p>
+              <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest leading-relaxed">{item.desc}</p>
             </div>
           </GlassCard>
         ))}
@@ -110,7 +110,7 @@ const HomeView = () => {
             <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
               BOUTIQUE<br /><span className="text-cyan-500">ARCHIVE.</span>
             </h2>
-            <p className="text-zinc-500 text-base md:text-xl max-w-xl leading-relaxed font-medium capitalize">
+            <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium capitalize">
               Elite curation of international imported grade heritage. Every piece is a testament to the future of high-fashion logistics.
             </p>
           </div>
@@ -336,11 +336,11 @@ const Footer = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-4 group cursor-pointer">
                   <Mail className="w-4 h-4 text-cyan-500/50 group-hover:text-cyan-400" />
-                  <a href="mailto:info@splaro.co" className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 group-hover:text-zinc-200 transition-colors">info@splaro.co</a>
+                  <a href="mailto:info@splaro.co" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-zinc-200 transition-colors">info@splaro.co</a>
                 </div>
                 <div className="flex items-center gap-4 group cursor-pointer">
                   <Phone className="w-4 h-4 text-blue-500/50 group-hover:text-white" />
-                  <a href="tel:+8801905010205" className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 group-hover:text-zinc-200 transition-colors whitespace-nowrap">+880 1905 010 205</a>
+                  <a href="tel:+8801905010205" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-zinc-200 transition-colors whitespace-nowrap">+880 1905 010 205</a>
                 </div>
               </div>
             </div>

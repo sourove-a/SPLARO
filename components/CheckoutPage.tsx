@@ -4,7 +4,7 @@ import {
   ShoppingBag, Phone, User, MapPin, Mail,
   ShieldCheck, Sparkles, CheckCircle2, AlertCircle,
   Truck, RotateCcw, Package, Wallet, CreditCard,
-  Heart, ArrowRight, ChevronDown, Tag, Command
+  Heart, ArrowRight, ChevronDown, Tag, Command, MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
@@ -59,7 +59,7 @@ const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any
   <div className="relative mb-6 w-full">
     <div className={`relative flex items-center h-20 md:h-22 border rounded-[28px] transition-all duration-500 overflow-hidden ${error ? 'border-rose-500/40 bg-rose-500/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}>
       <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
-      <div className="pl-8 text-zinc-600">
+      <div className="pl-8 text-white/20">
         <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 relative h-full">
@@ -76,7 +76,7 @@ const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any
             <option key={opt} value={opt} className="bg-zinc-900">{opt}</option>
           ))}
         </select>
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-white/20">
           <ChevronDown className="w-4 h-4" />
         </div>
       </div>
@@ -109,7 +109,8 @@ export const CheckoutPage: React.FC = () => {
     district: '',
     thana: '',
     address: '',
-    paymentMethod: 'COD'
+    paymentMethod: 'COD',
+    customerComment: ''
   });
 
   // Identity Synchronization Protocol: Projecting archived identity markers to logistics form
@@ -211,6 +212,7 @@ export const CheckoutPage: React.FC = () => {
       district: formData.district,
       thana: formData.thana,
       address: formData.address,
+      customerComment: formData.customerComment,
       status: 'Pending',
       createdAt: new Date().toISOString()
     });
@@ -225,7 +227,7 @@ export const CheckoutPage: React.FC = () => {
     return (
       <div className="min-h-screen pt-48 flex flex-col items-center justify-center p-8 bg-[#050505]">
         <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-center">
-          <ShoppingBag className="w-16 h-16 text-zinc-800 mx-auto mb-10" />
+          <ShoppingBag className="w-16 h-16 text-white/5 mx-auto mb-10" />
           <h2 className="text-4xl font-black italic uppercase tracking-tighter text-white mb-6">Archive Empty</h2>
           <PrimaryButton onClick={() => navigate('/shop')} className="px-12 py-6 text-[10px]">RE-ENTER VAULT</PrimaryButton>
         </motion.div>
@@ -325,10 +327,10 @@ export const CheckoutPage: React.FC = () => {
                   className={`p-8 rounded-[32px] border transition-all duration-500 flex items-center justify-between overflow-hidden relative ${formData.paymentMethod === 'COD' ? 'bg-cyan-500/10 border-cyan-500/50 shadow-[0_0_40px_rgba(0,212,255,0.1)]' : 'bg-white/5 border-white/5'}`}
                 >
                   <div className="flex items-center gap-5">
-                    <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-cyan-400' : 'text-zinc-600'}`} />
+                    <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-cyan-400' : 'text-white/20'}`} />
                     <div className="text-left">
                       <p className="text-sm font-black uppercase text-white">Cash on Delivery</p>
-                      <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Pay at Threshold</p>
+                      <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Pay at Threshold</p>
                     </div>
                   </div>
                   {formData.paymentMethod === 'COD' && <CheckCircle2 className="w-6 h-6 text-cyan-500" />}
@@ -340,13 +342,32 @@ export const CheckoutPage: React.FC = () => {
                   className="p-8 rounded-[32px] border border-white/5 bg-white/[0.02] flex items-center justify-between opacity-40 cursor-not-allowed"
                 >
                   <div className="flex items-center gap-5">
-                    <CreditCard className="w-7 h-7 text-zinc-700" />
+                    <CreditCard className="w-7 h-7 text-white/10" />
                     <div className="text-left">
-                      <p className="text-sm font-black uppercase text-zinc-500">Digital Gateway</p>
-                      <p className="text-[9px] text-zinc-700 font-bold uppercase tracking-widest">Unavailable</p>
+                      <p className="text-sm font-black uppercase text-white/20">Digital Gateway</p>
+                      <p className="text-[9px] text-white/10 font-bold uppercase tracking-widest">Unavailable</p>
                     </div>
                   </div>
                 </button>
+              </div>
+
+              {/* Collector Narrative Archive */}
+              <div className="md:col-span-2">
+                <div className="relative group">
+                  <div className="liquid-glass border border-white/10 rounded-[32px] p-8 focus-within:border-cyan-500/50 transition-all duration-500">
+                    <div className="flex items-center gap-4 mb-4 text-cyan-500/60 font-black text-[10px] uppercase tracking-[0.4em]">
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Collector Narrative (Optional)</span>
+                    </div>
+                    <textarea
+                      placeholder="e.g. Please deliver after 4 PM or call before arrival..."
+                      value={formData.customerComment}
+                      onChange={(e) => setFormData({ ...formData, customerComment: e.target.value })}
+                      className="w-full bg-transparent outline-none text-white font-bold text-base placeholder:text-white/10 resize-none h-32 custom-scrollbar"
+                    />
+                  </div>
+                  <p className="mt-3 px-6 text-[9px] font-black uppercase text-white/20 tracking-widest">Strategic archival notes for the logistics terminal.</p>
+                </div>
               </div>
             </div>
 
@@ -378,7 +399,7 @@ export const CheckoutPage: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="text-[10px] font-black uppercase tracking-tight leading-tight">{item.product.name}</h4>
-                        <p className="text-[8px] text-zinc-600 font-black uppercase mt-1 tracking-widest">Size {item.selectedSize} • Qty {item.quantity}</p>
+                        <p className="text-[8px] text-white/20 font-black uppercase mt-1 tracking-widest">Size {item.selectedSize} • Qty {item.quantity}</p>
                       </div>
                     </div>
                     <span className="text-xs font-black text-cyan-500">৳{(item.product.price * item.quantity).toLocaleString()}</span>
@@ -395,13 +416,13 @@ export const CheckoutPage: React.FC = () => {
 
                 <div className="flex gap-4 p-2 liquid-glass border border-white/10 rounded-[28px] group-focus-within:border-cyan-500/50 transition-all duration-700">
                   <div className="flex-1 relative flex items-center">
-                    <Command className="w-5 h-5 ml-6 text-zinc-600 group-focus-within:text-cyan-500 transition-colors" />
+                    <Command className="w-5 h-5 ml-6 text-white/20 group-focus-within:text-cyan-500 transition-colors" />
                     <input
                       type="text"
                       placeholder="ENTER ARCHIVAL CODE (e.g. SPLARO2026)"
                       value={discountInput}
                       onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
-                      className="w-full bg-transparent h-16 px-6 text-[11px] font-black uppercase tracking-widest placeholder:text-zinc-800 outline-none text-white"
+                      className="w-full bg-transparent h-16 px-6 text-[11px] font-black uppercase tracking-widest placeholder:text-white/10 outline-none text-white"
                     />
                   </div>
                   <button
@@ -431,11 +452,11 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               <div className="space-y-5 pt-8 border-t border-white/5">
-                <div className="flex justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
+                <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
                   <span>Subtotal Value</span>
                   <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-[10px] font-black uppercase text-zinc-500 tracking-widest">
+                <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
                   <span>Logistics Protocol ({formData.district})</span>
                   <span className="text-cyan-400">৳{Number(shippingFee || 0).toLocaleString()}</span>
                 </div>
@@ -448,7 +469,7 @@ export const CheckoutPage: React.FC = () => {
 
                 <div className="pt-8 border-t border-white/10 flex justify-between items-end">
                   <div>
-                    <p className="text-[9px] font-black uppercase text-zinc-600 tracking-[0.5em] mb-1">TOTAL FISCAL VALUE</p>
+                    <p className="text-[9px] font-black uppercase text-white/20 tracking-[0.5em] mb-1">TOTAL FISCAL VALUE</p>
                     <p className="text-5xl font-black text-white tracking-tighter">৳{Number(finalTotal || 0).toLocaleString()}</p>
                   </div>
                 </div>
@@ -457,12 +478,12 @@ export const CheckoutPage: React.FC = () => {
 
               <div className="mt-10 grid grid-cols-2 gap-4">
                 <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-                  <Truck className="w-4 h-4 text-zinc-600" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Fast Deploy</span>
+                  <Truck className="w-4 h-4 text-white/20" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Fast Deploy</span>
                 </div>
                 <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-                  <RotateCcw className="w-4 h-4 text-zinc-600" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Returns</span>
+                  <RotateCcw className="w-4 h-4 text-white/20" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Returns</span>
                 </div>
               </div>
 

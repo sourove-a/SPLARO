@@ -20,14 +20,14 @@ const FilterPill: React.FC<{
     onClick={onClick}
     className={`relative px-5 py-3 rounded-2xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group ${isSelected
       ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400 shadow-[0_0_30px_rgba(0,212,255,0.15)]'
-      : 'bg-white/[0.03] backdrop-blur-md border-white/5 text-zinc-500 hover:border-white/20 hover:text-zinc-300'
+      : 'bg-white/[0.03] backdrop-blur-md border-white/5 text-white/40 hover:border-white/20 hover:text-white'
       }`}
   >
     {isSelected && <motion.div layoutId={`pill-glow-${label}`} className="absolute inset-0 bg-cyan-500/5 blur-xl pointer-events-none" />}
     {colorHex ? (
       <div className="w-4 h-4 rounded-full border border-white/20 shadow-inner" style={{ backgroundColor: colorHex }} />
     ) : (
-      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-cyan-500 scale-125' : 'bg-zinc-700'}`} />
+      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-cyan-500 scale-125' : 'bg-white/10'}`} />
     )}
     <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
     {count !== undefined && <span className="text-[9px] font-bold opacity-30 group-hover:opacity-60">[{count}]</span>}
@@ -48,7 +48,7 @@ const SizeBox: React.FC<{
       ? 'opacity-10 cursor-not-allowed border-white/5'
       : isSelected
         ? 'bg-white text-black border-white shadow-[0_15px_40px_rgba(255,255,255,0.3)]'
-        : 'bg-white/[0.03] backdrop-blur-xl border-white/10 text-zinc-500 hover:border-cyan-500/40 hover:text-white'
+        : 'bg-white/[0.03] backdrop-blur-xl border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-white'
       }`}
   >
     <span className="text-sm font-black relative z-10">{size}</span>
@@ -162,7 +162,7 @@ export const ShopPage: React.FC = () => {
                 <button
                   key={opt.id}
                   onClick={() => setSortOption(opt.id as any)}
-                  className={`px-8 py-5 rounded-full transition-all text-[10px] font-black tracking-widest ${sortOption === opt.id ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}
+                  className={`px-8 py-5 rounded-full transition-all text-[10px] font-black tracking-widest ${sortOption === opt.id ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
                 >
                   {opt.label}
                 </button>

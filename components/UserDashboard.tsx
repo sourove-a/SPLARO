@@ -53,11 +53,11 @@ export const UserDashboard: React.FC = () => {
       <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div>
           <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Identity <span className="text-cyan-500">Vault</span></h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.6em] text-zinc-500 mt-4">Authorized Access Only — Secure Archive</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.6em] text-white/30 mt-4">Authorized Access Only — Secure Archive</p>
         </div>
         <button
           onClick={() => window.location.reload()}
-          className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-cyan-500 hover:border-cyan-500/30 transition-all flex items-center gap-3"
+          className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-cyan-500 hover:border-cyan-500/30 transition-all flex items-center gap-3"
         >
           <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
           Synchronize Registry
@@ -76,7 +76,7 @@ export const UserDashboard: React.FC = () => {
                   {user?.profileImage || formData.profileImage ? (
                     <img src={formData.profileImage || user?.profileImage} className="w-full h-full object-cover rounded-full" alt="Profile" />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-zinc-800 flex items-center justify-center text-4xl font-black text-zinc-600">
+                    <div className="w-full h-full rounded-full bg-black/60 flex items-center justify-center text-4xl font-black text-white/40">
                       {user?.name?.[0]}
                     </div>
                   )}
@@ -99,14 +99,14 @@ export const UserDashboard: React.FC = () => {
                 <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-4">
                   <Mail className="w-4 h-4 text-cyan-500" />
                   <div>
-                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Permanent Identification</p>
+                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Permanent Identification</p>
                     <p className="text-xs font-bold text-white">{user?.email}</p>
                   </div>
                 </div>
                 <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-4">
                   <Smartphone className="w-4 h-4 text-blue-500" />
                   <div>
-                    <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Tactical Contact</p>
+                    <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Tactical Contact</p>
                     <p className="text-xs font-bold text-white">{user?.phone}</p>
                   </div>
                 </div>
@@ -180,7 +180,7 @@ export const UserDashboard: React.FC = () => {
                   </PrimaryButton>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="px-10 h-16 rounded-2xl bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                    className="px-10 h-16 rounded-2xl bg-black border border-white/5 text-[10px] font-black uppercase tracking-widest"
                   >
                     Cancel
                   </button>
@@ -190,12 +190,12 @@ export const UserDashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <div className="space-y-6">
                   <div>
-                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-2">Full Identity</p>
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-2">Full Identity</p>
                     <p className="text-lg font-bold text-white uppercase tracking-tight">{user?.name}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-2">Mission Coordinates</p>
-                    <p className="text-sm font-medium text-zinc-400 italic">
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-2">Mission Coordinates</p>
+                    <p className="text-sm font-medium text-white/40 italic">
                       {user?.address || 'No primary deployment coordinate registered.'}
                     </p>
                   </div>
@@ -219,15 +219,15 @@ export const UserDashboard: React.FC = () => {
               {userOrders.length > 0 ? userOrders.map((order) => (
                 <div key={order.id} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:bg-white/[0.05] transition-all group">
                   <div>
-                    <p className="text-[8px] text-zinc-600 font-black uppercase tracking-[0.3em]">SECURE ID: {order.id}</p>
+                    <p className="text-[8px] text-white/20 font-black uppercase tracking-[0.3em]">SECURE ID: {order.id}</p>
                     <p className="text-xl font-black text-white mt-1 uppercase italic tracking-tighter">৳{order.total.toLocaleString()}</p>
                     <div className="flex flex-wrap items-center gap-3 mt-2">
-                      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{order.items.length} Items</span>
-                      <div className="w-1 h-1 rounded-full bg-zinc-800" />
-                      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{new Date(order.createdAt).toLocaleDateString()}</span>
+                      <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{order.items.length} Items</span>
+                      <div className="w-1 h-1 rounded-full bg-white/5" />
+                      <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{new Date(order.createdAt).toLocaleDateString()}</span>
                       {order.trackingNumber && (
                         <>
-                          <div className="w-1 h-1 rounded-full bg-zinc-800" />
+                          <div className="w-1 h-1 rounded-full bg-white/5" />
                           <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest">Tracking: {order.trackingNumber}</span>
                         </>
                       )}
@@ -243,14 +243,14 @@ export const UserDashboard: React.FC = () => {
                         }`} />
                       {order.status}
                     </span>
-                    <button className="p-4 rounded-2xl bg-white/5 text-zinc-400 group-hover:bg-cyan-500 group-hover:text-black transition-all ml-auto">
+                    <button className="p-4 rounded-2xl bg-white/5 text-white/30 group-hover:bg-cyan-500 group-hover:text-black transition-all ml-auto">
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               )) : (
                 <div className="text-center py-20 bg-white/[0.01] rounded-[32px] border border-white/5 border-dashed">
-                  <p className="text-zinc-600 font-bold italic uppercase tracking-widest text-[10px]">No acquisition records found in archive.</p>
+                  <p className="text-white/20 font-bold italic uppercase tracking-widest text-[10px]">No acquisition records found in archive.</p>
                   <button onClick={() => navigate('/shop')} className="px-8 py-4 bg-white/5 border border-white/10 rounded-xl text-cyan-400 font-black uppercase tracking-widest text-[9px] mt-6 hover:bg-white hover:text-black transition-all">Start Collection</button>
                 </div>
               )}

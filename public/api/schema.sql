@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `additional_images` longtext DEFAULT NULL,
   `size_chart_image` text DEFAULT NULL,
   `discount_percentage` int(11) DEFAULT NULL,
+  `sub_category` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `status` varchar(50) NOT NULL,
   `tracking_number` varchar(100) DEFAULT NULL,
   `admin_notes` text DEFAULT NULL,
+  `customer_comment` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

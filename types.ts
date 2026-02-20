@@ -92,6 +92,7 @@ export interface Order {
   status: OrderStatus;
   trackingNumber?: string;
   adminNotes?: string;
+  customerComment?: string;
   createdAt: string;
 }
 
