@@ -16,6 +16,7 @@ Current branch contains the existing storefront app and a full enterprise migrat
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/implementation-roadmap.md`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/hostinger-google-sheets-runbook.md`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/telegram-admin-bot.md`
+- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/admin-performance-backend.md`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/schema.prisma`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/seed.ts`
 - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/.env.example`
@@ -25,3 +26,8 @@ Prerequisite: Node.js
 
 1. `npm install`
 2. `npm run dev`
+
+## Added Next.js Admin Backend Layer
+- New route handlers are under `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/admin/`
+- Shared performance modules are under `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/`
+- Read `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/admin-performance-backend.md` before wiring into your Next.js App Router project.
