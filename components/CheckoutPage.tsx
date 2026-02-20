@@ -97,6 +97,7 @@ export const CheckoutPage: React.FC = () => {
   const { cart, addOrder, user, discounts } = useApp();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+  const [submitError, setSubmitError] = useState('');
   const [discountInput, setDiscountInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [discountError, setDiscountError] = useState('');
@@ -179,7 +180,14 @@ export const CheckoutPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     const newErrors: Record<string, string> = {};
+
+    if (!user) {
+      setSubmitError('Order করতে আগে signup/login করুন।');
+      navigate('/signup');
+      return;
+    }
 
     if (!formData.fullName.trim()) newErrors.fullName = "Name required";
     if (!formData.email.trim() || !formData.email.includes('@')) newErrors.email = "Valid email required";
@@ -198,7 +206,7 @@ export const CheckoutPage: React.FC = () => {
     setStatus('processing');
     await new Promise(r => setTimeout(r, 2200));
 
-    addOrder({
+    const result = await addOrder({
       id: `SPL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       userId: user?.id,
       customerName: formData.fullName,
@@ -217,11 +225,29 @@ export const CheckoutPage: React.FC = () => {
       createdAt: new Date().toISOString()
     });
 
+    if (!result.ok) {
+      setStatus('idle');
+      setSubmitError(result.message || 'Order submit failed');
+      return;
+    }
 
 
     setStatus('success');
     setTimeout(() => navigate('/order_success'), 2000);
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen pt-48 flex flex-col items-center justify-center p-8 bg-[#050505] text-white text-center">
+        <h2 className="text-4xl font-black italic uppercase tracking-tighter mb-6">SIGNUP REQUIRED</h2>
+        <p className="text-white/50 text-sm uppercase tracking-widest mb-10">Order করতে আগে account create/login করুন</p>
+        <div className="flex gap-4">
+          <PrimaryButton onClick={() => navigate('/signup')} className="px-10 py-5 text-[10px]">SIGN UP</PrimaryButton>
+          <button onClick={() => navigate('/login')} className="px-10 py-5 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-400 transition-all">LOG IN</button>
+        </div>
+      </div>
+    );
+  }
 
   if (cart.length === 0 && status !== 'success') {
     return (
@@ -381,6 +407,9 @@ export const CheckoutPage: React.FC = () => {
             >
               PLACE ORDER <Sparkles className="w-5 h-5 ml-4" />
             </PrimaryButton>
+            {submitError && (
+              <p className="text-center text-[10px] font-black uppercase tracking-widest text-rose-500">{submitError}</p>
+            )}
           </form>
         </div>
 

@@ -809,6 +809,12 @@ if ($method === 'POST' && $action === 'create_order') {
         exit;
     }
 
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "SIGNUP_REQUIRED"]);
+        exit;
+    }
+
     $resolvedUserId = $input['userId'] ?? null;
     if (is_array($requestAuthUser) && !empty($requestAuthUser['id'])) {
         $resolvedUserId = $requestAuthUser['id'];

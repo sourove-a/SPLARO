@@ -315,7 +315,7 @@ interface AppContextType {
   addToCart: (item: any) => void;
   removeFromCart: (cartId: string) => void;
   orders: Order[];
-  addOrder: (o: Order) => void;
+  addOrder: (o: Order) => Promise<{ ok: boolean; message?: string }>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updateOrderMetadata: (orderId: string, data: { trackingNumber?: string; adminNotes?: string }) => void;
   deleteOrder: (id: string) => void;
@@ -638,17 +638,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const addOrder = (o: Order) => {
+  const addOrder = async (o: Order): Promise<{ ok: boolean; message?: string }> => {
+    if (IS_PROD) {
+      try {
+        const res = await fetch(`${API_NODE}?action=create_order`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify(o)
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || result.status !== 'success') {
+          return { ok: false, message: result.message || 'ORDER_SYNC_FAILED' };
+        }
+      } catch (e) {
+        return { ok: false, message: 'ORDER_SYNC_FAILED' };
+      }
+    }
+
     setOrders(prev => [o, ...prev]);
     setCart([]);
-
-    if (IS_PROD) {
-      fetch(`${API_NODE}?action=create_order`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify(o)
-      });
-    }
+    return { ok: true };
   };
 
   const deleteOrder = (id: string) => {

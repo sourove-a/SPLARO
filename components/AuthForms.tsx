@@ -18,7 +18,14 @@ export const LoginForm: React.FC = () => {
 
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>(isSignupPath ? 'signup' : 'login');
   const [recoveryStep, setRecoveryStep] = useState<'email' | 'reset'>('email');
-  const [formData, setFormData] = useState({ email: '', identifier: '', password: '', otp: '' });
+  const [formData, setFormData] = useState({
+    email: '',
+    identifier: '',
+    password: '',
+    otp: '',
+    signupName: '',
+    signupPhone: ''
+  });
   const buildDisplayNameFromEmail = (email: string) => {
     const base = email.split('@')[0] || '';
     const cleaned = base
@@ -57,6 +64,7 @@ export const LoginForm: React.FC = () => {
   };
 
   const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const isPhone = (val: string) => /^(01)[3-9]\d{8}$/.test(val);
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -64,6 +72,8 @@ export const LoginForm: React.FC = () => {
 
     if (authMode === 'signup') {
       if (!isEmail(formData.email)) newErrors.email = "Email Identity Mandatory *";
+      if (!formData.signupName.trim()) newErrors.signupName = "Name Required *";
+      if (!isPhone(formData.signupPhone.trim())) newErrors.signupPhone = "Valid Number Required (01XXXXXXXXX)";
     } else {
 
       if (!isEmail(formData.identifier)) newErrors.identifier = "Scientific Email ID Required";
@@ -131,9 +141,9 @@ export const LoginForm: React.FC = () => {
         const normalizedEmail = formData.email.trim().toLowerCase();
         const newUser: any = {
           id: `usr_${Math.random().toString(36).substr(2, 9)}`,
-          name: buildDisplayNameFromEmail(normalizedEmail),
+          name: formData.signupName.trim() || buildDisplayNameFromEmail(normalizedEmail),
           email: normalizedEmail,
-          phone: 'N/A',
+          phone: formData.signupPhone.trim(),
           password: formData.password,
           role: 'USER',
           createdAt: new Date().toISOString()
@@ -377,12 +387,28 @@ export const LoginForm: React.FC = () => {
             {authMode === 'signup' ? (
               <>
                 <LuxuryFloatingInput
+                  label="Full Name *"
+                  value={formData.signupName}
+                  onChange={v => setFormData({ ...formData, signupName: v })}
+                  icon={<Sparkles className="w-5 h-5" />}
+                  error={errors.signupName}
+                  placeholder="Your name"
+                />
+                <LuxuryFloatingInput
                   label="Email Address *"
                   value={formData.email}
                   onChange={v => setFormData({ ...formData, email: v })}
                   icon={<Mail className="w-5 h-5" />}
                   error={errors.email}
                   placeholder="name@email.com"
+                />
+                <LuxuryFloatingInput
+                  label="Phone Number *"
+                  value={formData.signupPhone}
+                  onChange={v => setFormData({ ...formData, signupPhone: v.replace(/[^\d]/g, '').slice(0, 11) })}
+                  icon={<KeyRound className="w-5 h-5" />}
+                  error={errors.signupPhone}
+                  placeholder="01XXXXXXXXX"
                 />
               </>
             ) : (
@@ -481,7 +507,11 @@ export const LoginForm: React.FC = () => {
             <p className="text-xs text-white/40 font-medium">
               {authMode === 'login' ? "Don't have an account?" : "Ready to sign in?"}{' '}
               <button
-                onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setErrors({}); }}
+                type="button"
+                onClick={() => {
+                  setErrors({});
+                  navigate(authMode === 'login' ? '/signup' : '/login');
+                }}
                 className="text-cyan-500 font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
               >
                 {authMode === 'login' ? 'Sign Up' : 'Log In'}

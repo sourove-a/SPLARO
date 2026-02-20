@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, GlassCard } from './LiquidGlass';
 
 export const CartPage: React.FC = () => {
-  const { cart, removeFromCart } = useApp();
+  const { cart, removeFromCart, user } = useApp();
   const navigate = useNavigate();
 
   const subtotal = useMemo(() => cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0), [cart]);
@@ -91,7 +91,14 @@ export const CartPage: React.FC = () => {
               </div>
 
               <PrimaryButton
-                onClick={() => navigate('/checkout')}
+                onClick={() => {
+                  if (!user) {
+                    alert('Order করতে আগে signup/login করতে হবে।');
+                    navigate('/signup');
+                    return;
+                  }
+                  navigate('/checkout');
+                }}
                 className="w-full h-20 text-[10px] shadow-[0_0_50px_rgba(0,212,255,0.3)] hover:shadow-[0_0_80px_rgba(0,212,255,0.6)]"
               >
                 PROCEED TO BILLING <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
