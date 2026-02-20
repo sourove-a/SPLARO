@@ -1,9 +1,10 @@
-<svg width="500" height="500" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M35 15L60 15L35 45L10 45Q10 45 35 15Z" fill="black" />
-  <path d="M55 15L80 15L55 45L30 45Q30 45 55 15Z" fill="black" />
-  <path d="M75 15L100 15L75 45L50 45Q50 45 75 15Z" fill="black" />
-  
-  <path d="M15 55L40 55L15 85L-10 85Q-10 85 15 55Z" fill="black" />
-  <path d="M35 55L60 55L35 85L10 85Q30 85 35 55Z" fill="black" />
-  <path d="M55 55L80 55L55 85L30 85Q50 85 55 55Z" fill="black" />
+<svg viewBox="0 0 130 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <path d="M55 45 L85 5" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+    <path d="M78 45 L108 5" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+    <path d="M101 45 L131 5" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+    <path d="M5 95 L35 55" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+    <path d="M28 95 L58 55" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+    <path d="M51 95 L81 55" stroke="currentColor" strokeWidth="18" strokeLinecap="round" />
+  </g>
 </svg>

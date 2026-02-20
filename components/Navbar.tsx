@@ -10,38 +10,51 @@ import { useApp } from '../store';
 import { View } from '../types';
 import { useNavigate } from 'react-router-dom';
 
-export const SplaroLogo = ({ className = "h-8 md:h-12" }: { className?: string }) => (
-  <div className={`relative flex items-center gap-4 group ${className}`}>
-    {/* Identity Manifest: Premium SVG Mark (Matches Reference Image Exactly) */}
-    <div className="relative w-10 md:w-14 aspect-square">
-      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
-        {/* Top 3 Parallel Bars */}
-        <g className="transition-transform duration-700 group-hover:-translate-y-1">
-          <path d="M35 15L60 15L35 45L10 45Q10 45 35 15Z" fill="white" className="transition-all duration-700" />
-          <path d="M55 15L80 15L55 45L30 45Q30 45 55 15Z" fill="white" className="transition-all duration-700" />
-          <path d="M75 15L100 15L75 45L50 45Q50 45 75 15Z" fill="white" className="transition-all duration-700" />
-        </g>
+export const SplaroLogo = ({ className = "h-8 md:h-12", forceWhite = false }: { className?: string, forceWhite?: boolean }) => {
+  const { siteSettings } = useApp();
 
-        {/* Bottom 3 Parallel Bars (Shifted Pattern) */}
-        <g className="transition-transform duration-700 group-hover:translate-y-1">
-          <path d="M15 55L40 55L15 85L-10 85Q-10 85 15 55Z" fill="white" className="transition-all duration-700" />
-          <path d="M35 55L60 55L35 85L10 85Q10 85 35 55Z" fill="white" className="transition-all duration-700" />
-          <path d="M55 55L80 55L55 85L30 85Q30 85 55 55Z" fill="white" className="transition-all duration-700" />
-        </g>
-      </svg>
+  return (
+    <div className={`relative flex items-center gap-4 group ${className}`}>
+      {/* Identity Manifest: High-Fidelity SVG Mark or Custom Asset */}
+      <div className="relative h-full aspect-[1.3/1] flex items-center justify-center">
+        {siteSettings.logoUrl ? (
+          <img
+            src={siteSettings.logoUrl}
+            alt={siteSettings.siteName}
+            className="h-full w-auto object-contain"
+          />
+        ) : (
+          <svg viewBox="0 0 130 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[90%] w-auto filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+            <g className="transition-all duration-700 group-hover:scale-105">
+              {/* Top 3 High-Precision Bars */}
+              <g className="transition-transform duration-500 group-hover:-translate-y-1">
+                <path d="M55 45 L85 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                <path d="M78 45 L108 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                <path d="M101 45 L131 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
+              </g>
+              {/* Bottom 3 High-Precision Bars */}
+              <g className="transition-transform duration-500 group-hover:translate-y-1">
+                <path d="M5 95 L35 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                <path d="M28 95 L58 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
+                <path d="M51 95 L81 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
+              </g>
+            </g>
+          </svg>
+        )}
+      </div>
+
+      {/* Identity Manifest Text: Premium Typography */}
+      <div className="flex flex-col justify-center">
+        <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
+          SPL<span className="text-cyan-500 group-hover:text-cyan-400 transition-colors">A</span>RO
+        </span>
+      </div>
+
+      {/* Gloss Effect Overlay */}
+      <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
     </div>
-
-    {/* Identity Manifest Text: High-Precision Typography */}
-    <div className="flex flex-col justify-center">
-      <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none">
-        SPL<span className="text-cyan-500 group-hover:text-cyan-400 transition-colors">A</span>RO
-      </span>
-    </div>
-
-    {/* Shine Effect Overlay */}
-    <div className="absolute inset-x-0 -bottom-2 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
-  </div>
-);
+  );
+};
 
 interface NavItemProps {
   label: string;
