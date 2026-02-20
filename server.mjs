@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import process from 'node:process';
+import { spawnSync } from 'node:child_process';
 import { URL } from 'node:url';
 
 const cwd = process.cwd();
@@ -49,8 +50,13 @@ const AUTH_SECRET = String(
   process.env.APP_AUTH_SECRET ||
     process.env.AUTH_SECRET ||
     process.env.ADMIN_KEY ||
-    'splaro-local-auth-secret'
+    `splaro-ephemeral-${crypto.randomBytes(24).toString('hex')}`
 );
+const CORS_ALLOWED_ORIGINS = String(process.env.CORS_ALLOWED_ORIGINS || process.env.APP_ORIGIN || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+const CORS_DEFAULT_ORIGIN = CORS_ALLOWED_ORIGINS[0] || 'null';
 
 const dbState = {
   pool: null,
@@ -66,6 +72,8 @@ const dbState = {
 
 let schemaEnsurePromise = null;
 let mysqlModulePromise = null;
+let bcryptModulePromise = null;
+let nodemailerModulePromise = null;
 const rateLimitStore = new Map();
 
 const fallbackStore = loadFallbackStore();
@@ -227,7 +235,33 @@ function hashPassword(password) {
   return `scrypt:${salt}:${derived}`;
 }
 
-function verifyPassword(password, stored) {
+async function getBcryptModule() {
+  if (!bcryptModulePromise) {
+    bcryptModulePromise = import('bcryptjs')
+      .then((mod) => mod.default || mod)
+      .catch(() => null);
+  }
+  return bcryptModulePromise;
+}
+
+function verifyBcryptWithPhp(password, hash) {
+  try {
+    const script = 'echo password_verify($argv[1], $argv[2]) ? "1" : "0";';
+    const result = spawnSync('php', ['-r', script, String(password || ''), String(hash || '')], {
+      encoding: 'utf8',
+      timeout: 1500,
+      windowsHide: true,
+    });
+    if (result.status === 0) {
+      const value = String(result.stdout || '').trim();
+      if (value === '1') return true;
+      if (value === '0') return false;
+    }
+  } catch {}
+  return null;
+}
+
+async function verifyPassword(password, stored) {
   const plain = String(password || '');
   const encoded = String(stored || '');
 
@@ -242,7 +276,16 @@ function verifyPassword(password, stored) {
   }
 
   if (encoded.startsWith('$2y$') || encoded.startsWith('$2a$') || encoded.startsWith('$2b$')) {
-    return { ok: false, needsUpgrade: false };
+    const bcrypt = await getBcryptModule();
+    if (bcrypt) {
+      const ok = await bcrypt.compare(plain, encoded);
+      return { ok, needsUpgrade: ok };
+    }
+    const phpVerified = verifyBcryptWithPhp(plain, encoded);
+    if (phpVerified !== null) {
+      return { ok: phpVerified, needsUpgrade: phpVerified };
+    }
+    return { ok: false, needsUpgrade: false, message: 'BCRYPT_UNSUPPORTED' };
   }
 
   return { ok: timingSafeEqual(encoded, plain), needsUpgrade: true };
@@ -795,9 +838,10 @@ function json(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': CORS_DEFAULT_ORIGIN,
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key',
+    Vary: 'Origin',
   });
   res.end(body);
 }
@@ -922,6 +966,72 @@ async function logSystemEvent(storage, eventType, description, ipAddress = null,
   fallbackStore.logs.unshift(row);
   if (fallbackStore.logs.length > 300) fallbackStore.logs = fallbackStore.logs.slice(0, 300);
   persistFallbackStore();
+}
+
+async function getNodemailerModule() {
+  if (!nodemailerModulePromise) {
+    nodemailerModulePromise = import('nodemailer')
+      .then((mod) => mod.default || mod)
+      .catch(() => null);
+  }
+  return nodemailerModulePromise;
+}
+
+async function sendMail({ to, subject, text, html }) {
+  const host = String(process.env.SMTP_HOST || '').trim();
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = String(process.env.SMTP_PASS || '').trim();
+  const from = String(process.env.SMTP_FROM || user || '').trim();
+  const port = toNumber(process.env.SMTP_PORT, 465);
+  const secure = String(process.env.SMTP_SECURE || 'true').trim().toLowerCase() === 'true';
+
+  if (!host || !user || !pass || !from || !to || !subject) {
+    return { ok: false, message: 'SMTP_NOT_CONFIGURED' };
+  }
+
+  const nodemailer = await getNodemailerModule();
+  if (!nodemailer) {
+    return { ok: false, message: 'NODEMAILER_NOT_INSTALLED' };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 10_000,
+  });
+
+  const mail = {
+    from,
+    to,
+    subject,
+    text: text || '',
+    html: html || undefined,
+  };
+
+  let attempt = 0;
+  const maxAttempts = 2;
+  while (attempt < maxAttempts) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    try {
+      await transporter.sendMail({ ...mail, signal: controller.signal });
+      clearTimeout(timeout);
+      return { ok: true };
+    } catch (error) {
+      clearTimeout(timeout);
+      attempt += 1;
+      if (attempt >= maxAttempts) {
+        return { ok: false, message: error instanceof Error ? error.message : 'SMTP_SEND_FAILED' };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+    }
+  }
+
+  return { ok: false, message: 'SMTP_SEND_FAILED' };
 }
 
 async function sendTelegramMessage(text) {
@@ -1241,7 +1351,7 @@ function validateSignupInput(input) {
   return { ok: true };
 }
 
-async function handleSignup(req, res, storage) {
+async function handleSignup(req, res, storage, authUser) {
   const ip = getClientIp(req);
   const limitKey = `signup:${ip}`;
   if (checkRateLimit(limitKey, 8, 60_000)) {
@@ -1276,7 +1386,8 @@ async function handleSignup(req, res, storage) {
   const thana = String(input.thana || '').trim();
   const profileImage = String(input.profileImage || input.profile_image || '').trim();
   const incomingRole = String(input.role || 'USER').trim().toUpperCase();
-  const role = incomingRole === 'ADMIN' ? 'ADMIN' : 'USER';
+  const canAssignAdminRole = incomingRole === 'ADMIN' && isAdminAuthenticated(req, authUser);
+  const role = canAssignAdminRole ? 'ADMIN' : 'USER';
   const passwordRaw = String(input.password || '') || (input.google_sub ? crypto.randomBytes(8).toString('hex') : '');
   const password = hashPassword(passwordRaw);
 
@@ -1286,20 +1397,8 @@ async function handleSignup(req, res, storage) {
     if (storage.mode === 'mysql' && storage.pool) {
       const existing = await getUserByEmail(storage, email);
       if (existing) {
-        await mysqlQuery(
-          storage.pool,
-          `UPDATE users SET name = ?, phone = ?, district = ?, thana = ?, address = ?, profile_image = ?, updated_at = NOW() WHERE id = ?`,
-          [
-            name,
-            phone,
-            district || existing.district || null,
-            thana || existing.thana || null,
-            address || existing.address || null,
-            profileImage || existing.profile_image || null,
-            existing.id,
-          ]
-        );
-        userRow = await getUserById(storage, existing.id);
+        handleError(res, 409, 'EMAIL_ALREADY_REGISTERED');
+        return;
       } else {
         const userId = String(input.id || '').trim() || generateId('usr');
         await mysqlQuery(
@@ -1313,17 +1412,8 @@ async function handleSignup(req, res, storage) {
     } else {
       const existingIndex = fallbackStore.users.findIndex((user) => normalizeEmail(user.email) === email);
       if (existingIndex >= 0) {
-        fallbackStore.users[existingIndex] = {
-          ...fallbackStore.users[existingIndex],
-          name,
-          phone,
-          district: district || fallbackStore.users[existingIndex].district || '',
-          thana: thana || fallbackStore.users[existingIndex].thana || '',
-          address: address || fallbackStore.users[existingIndex].address || '',
-          profile_image: profileImage || fallbackStore.users[existingIndex].profile_image || '',
-          updated_at: new Date().toISOString(),
-        };
-        userRow = fallbackStore.users[existingIndex];
+        handleError(res, 409, 'EMAIL_ALREADY_REGISTERED');
+        return;
       } else {
         userRow = {
           id: String(input.id || '').trim() || generateId('usr'),
@@ -1391,7 +1481,7 @@ async function handleLogin(req, res, storage) {
     const user = await getUserByEmail(storage, identifier);
 
     if (user) {
-      const verified = verifyPassword(password, user.password);
+      const verified = await verifyPassword(password, user.password);
       if (verified.ok) {
         if (verified.needsUpgrade && storage.mode === 'mysql' && storage.pool) {
           const upgraded = hashPassword(password);
@@ -1410,55 +1500,10 @@ async function handleLogin(req, res, storage) {
         });
         return;
       }
-    }
-
-    const adminKey = String(process.env.ADMIN_KEY || '').trim();
-    if (identifier === 'admin@splaro.co' && adminKey && timingSafeEqual(password, adminKey)) {
-      let adminUser = user;
-
-      if (!adminUser) {
-        if (storage.mode === 'mysql' && storage.pool) {
-          const adminId = generateId('usr_admin');
-          const hashed = hashPassword(adminKey);
-          await mysqlQuery(
-            storage.pool,
-            'INSERT INTO users (id, name, email, phone, password, role) VALUES (?, ?, ?, ?, ?, ?)',
-            [adminId, 'Splaro Admin', 'admin@splaro.co', 'N/A', hashed, 'ADMIN']
-          );
-          adminUser = await getUserById(storage, adminId);
-        } else {
-          adminUser = {
-            id: generateId('usr_admin'),
-            name: 'Splaro Admin',
-            email: 'admin@splaro.co',
-            phone: 'N/A',
-            district: '',
-            thana: '',
-            address: '',
-            profile_image: '',
-            password: hashPassword(adminKey),
-            role: 'ADMIN',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          fallbackStore.users.unshift(adminUser);
-          persistFallbackStore();
-        }
+      if (verified.message === 'BCRYPT_UNSUPPORTED') {
+        handleError(res, 400, 'PASSWORD_RESET_REQUIRED');
+        return;
       }
-
-      const safeUser = sanitizeUser(adminUser);
-      safeUser.role = 'ADMIN';
-      const token = issueAuthToken(safeUser);
-
-      await logSystemEvent(storage, 'ADMIN_LOGIN', 'Admin login completed through ADMIN_KEY fallback', ip, safeUser.id);
-
-      json(res, 200, {
-        status: 'success',
-        storage: storage.mode,
-        user: safeUser,
-        token,
-      });
-      return;
     }
 
     await logSystemEvent(storage, 'SECURITY_ALERT', `Failed login attempt for ${identifier}`, ip, null);
@@ -2280,6 +2325,24 @@ async function handleForgotPassword(req, res, storage) {
       }
     }
 
+    const mailResult = await sendMail({
+      to: email,
+      subject: 'SPLARO password reset code',
+      text: `Your SPLARO verification code is ${otp}. This code expires in 15 minutes.`,
+      html: `<p>Your SPLARO verification code is <b>${otp}</b>.</p><p>This code expires in 15 minutes.</p>`,
+    });
+    if (!mailResult.ok) {
+      await logSystemEvent(
+        storage,
+        'PASSWORD_RECOVERY_MAIL_FAILED',
+        `Password reset code delivery failed for ${email}: ${mailResult.message || 'unknown'}`,
+        ip,
+        user.id
+      );
+      handleError(res, 500, 'SIGNAL_DISPATCH_FAILURE');
+      return;
+    }
+
     await logSystemEvent(storage, 'PASSWORD_RECOVERY', `Password reset code generated for ${email}`, ip, user.id);
 
     json(res, 200, {
@@ -2406,7 +2469,7 @@ async function handleIndexAction(req, res, url) {
   }
 
   if (req.method === 'POST' && action === 'signup') {
-    await handleSignup(req, res, storage);
+    await handleSignup(req, res, storage, authUser);
     return;
   }
 
@@ -2492,9 +2555,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': CORS_DEFAULT_ORIGIN,
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key',
+      Vary: 'Origin',
     });
     res.end();
     return;

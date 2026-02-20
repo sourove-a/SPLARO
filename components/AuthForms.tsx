@@ -159,6 +159,12 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               return;
             }
           }
+          if (result.message === 'PASSWORD_RESET_REQUIRED') {
+            setErrors({ identifier: 'Password hash upgrade required. Use Forgot Password.' });
+            setStatus('error');
+            setTimeout(() => setStatus('idle'), 3500);
+            return;
+          }
         } else {
           const identifier = formData.identifier.trim().toLowerCase();
           const localUser = users.find((u: any) => String(u.email || '').toLowerCase() === identifier);
@@ -239,7 +245,11 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           return;
         }
 
-        setErrors({ email: 'Identity already archived or system error' });
+        if (message === 'EMAIL_ALREADY_REGISTERED') {
+          setErrors({ email: 'Email already registered. Please log in.' });
+        } else {
+          setErrors({ email: 'Identity already archived or system error' });
+        }
         setStatus('error');
         setTimeout(() => setStatus('idle'), 3000);
       }
@@ -278,7 +288,9 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           const result = await res.json();
           if (result.status === 'success') {
             setStatus('success');
-            alert('PASSWORD_OVERRIDDEN: Identity access restored. Please sign in.');
+            window.dispatchEvent(new CustomEvent('splaro-toast', {
+              detail: { message: 'Password updated. Please sign in.', tone: 'success' }
+            }));
             setAuthMode('login');
             setRecoveryStep('email');
           } else {

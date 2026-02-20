@@ -93,7 +93,9 @@ export const CartPage: React.FC = () => {
               <PrimaryButton
                 onClick={() => {
                   if (!user) {
-                    alert('Order করতে আগে signup/login করতে হবে।');
+                    window.dispatchEvent(new CustomEvent('splaro-toast', {
+                      detail: { message: 'Order করতে আগে signup/login করুন।', tone: 'info' }
+                    }));
                     navigate('/signup');
                     return;
                   }
