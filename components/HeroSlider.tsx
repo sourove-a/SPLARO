@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 import { View } from '../types';
@@ -74,6 +74,14 @@ export const HeroSlider = () => {
     mouseY.set(clientY - window.innerHeight / 2);
   };
 
+  const showPrevSlide = () => {
+    setIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length);
+  };
+
+  const showNextSlide = () => {
+    setIndex((prev) => (prev + 1) % SLIDES.length);
+  };
+
   return (
     <div className="relative h-screen w-full overflow-hidden bg-black" onMouseMove={handleMouseMove}>
       <AnimatePresence mode="wait">
@@ -128,6 +136,23 @@ export const HeroSlider = () => {
           <span className="text-white font-black text-[10px] tracking-[0.5em] uppercase group-hover:text-black">Discover Collections</span>
           <ArrowRight className="w-5 h-5 text-white group-hover:text-black group-hover:translate-x-2 transition-transform" />
         </motion.button>
+      </div>
+
+      <div className="absolute bottom-8 right-8 z-30 flex items-center gap-3 pointer-events-auto">
+        <button
+          onClick={showPrevSlide}
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all flex items-center justify-center"
+          aria-label="Previous slide"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <button
+          onClick={showNextSlide}
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all flex items-center justify-center"
+          aria-label="Next slide"
+        >
+          <ArrowRight className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );

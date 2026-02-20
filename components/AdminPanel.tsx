@@ -556,6 +556,18 @@ export const AdminPanel = () => {
     Cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
   };
 
+  const moveSlide = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= slides.length) return;
+
+    const reordered = [...slides];
+    const [movedSlide] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, movedSlide);
+
+    setSlides(reordered);
+    updateSettings({ slides: reordered });
+  };
+
 
 
   return (
@@ -1345,6 +1357,22 @@ export const AdminPanel = () => {
                         newSlides[idx].tags = [v];
                         setSlides(newSlides);
                       }} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          onClick={() => moveSlide(idx, 'up')}
+                          disabled={idx === 0}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
+                        >
+                          Move Up
+                        </button>
+                        <button
+                          onClick={() => moveSlide(idx, 'down')}
+                          disabled={idx === slides.length - 1}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
+                        >
+                          Move Down
+                        </button>
+                      </div>
                       <div className="flex gap-4 pt-4">
                         <button
                           onClick={() => {

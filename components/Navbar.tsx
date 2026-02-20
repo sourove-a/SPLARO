@@ -217,9 +217,7 @@ export const Navbar: React.FC = () => {
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
-          <span className="text-2xl md:text-5xl font-black italic tracking-tighter text-white uppercase select-none">
-            SPLARO
-          </span>
+          <SplaroLogo className="h-8 md:h-12" />
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
@@ -349,9 +347,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             <div className="px-8 py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
-              <span className="text-xl md:text-3xl font-black italic tracking-tighter text-white uppercase select-none">
-                SPLARO
-              </span>
+              <SplaroLogo className="h-7 md:h-10" />
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
