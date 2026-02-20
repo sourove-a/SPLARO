@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { View } from '../types';
 
 const SLIDES = [
   {
@@ -32,11 +31,11 @@ const SLIDES = [
 const KineticLetter = ({ letter, index, active, ...props }: { letter: string; index: number; active: boolean;[key: string]: any }) => (
   <motion.span
     {...props}
-    initial={{ y: 100, opacity: 0, filter: 'blur(10px)' }}
-    animate={active ? { y: 0, opacity: 1, filter: 'blur(0px)' } : {}}
+    initial={{ y: 60, opacity: 0 }}
+    animate={active ? { y: 0, opacity: 1 } : {}}
     transition={{
-      duration: 1,
-      delay: index * 0.03,
+      duration: 0.7,
+      delay: index * 0.02,
       ease: [0.16, 1, 0.3, 1]
     }}
     className="inline-block"
@@ -52,11 +51,6 @@ export const HeroSlider = () => {
   // If not, this line might cause an error. Keeping it as per original.
   const { slides: SLIDES, setSelectedCategory, setSearchQuery } = useApp();
   const navigate = useNavigate();
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  const rotateX = useSpring(useTransform(mouseY, [-500, 500], [3, -3]), { stiffness: 100, damping: 30 });
-  const rotateY = useSpring(useTransform(mouseX, [-500, 500], [-3, 3]), { stiffness: 100, damping: 30 });
 
   useEffect(() => {
     if (!SLIDES || SLIDES.length === 0) return;
@@ -68,12 +62,6 @@ export const HeroSlider = () => {
 
   if (!SLIDES || SLIDES.length === 0) return null;
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const { clientX, clientY } = e;
-    mouseX.set(clientX - window.innerWidth / 2);
-    mouseY.set(clientY - window.innerHeight / 2);
-  };
-
   const showPrevSlide = () => {
     setIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length);
   };
@@ -83,7 +71,7 @@ export const HeroSlider = () => {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-black" onMouseMove={handleMouseMove}>
+    <div className="relative h-screen w-full overflow-hidden bg-black">
       <AnimatePresence mode="wait">
         <motion.div
           key={index}

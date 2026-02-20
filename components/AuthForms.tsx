@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, Mail, Eye, EyeOff,
@@ -75,6 +75,14 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   const [showPass, setShowPass] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const floatingAssets = useMemo(
+    () =>
+      Array.from({ length: 6 }, () => ({
+        top: `${Math.random() * 88 + 6}%`,
+        left: `${Math.random() * 88 + 6}%`
+      })),
+    []
+  );
   const persistAuthToken = (token?: string) => {
     if (!token) return;
     localStorage.setItem('splaro-auth-token', token);
@@ -349,24 +357,24 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-blue-900/10 via-transparent to-cyan-500/10 opacity-30" />
 
         {/* Floating Peripheral Assets */}
-        {[...Array(6)].map((_, i) => (
+        {floatingAssets.map((asset, i) => (
           <motion.div
             key={i}
             animate={{
-              y: [0, -40, 0],
-              x: [0, 20, 0],
-              rotate: [0, 180, 360],
+              y: [0, -28, 0],
+              x: [0, 14, 0],
+              rotate: [0, 120, 240],
               opacity: [0.1, 0.2, 0.1]
             }}
             transition={{
-              duration: 10 + i * 2,
+              duration: 12 + i * 1.8,
               repeat: Infinity,
               ease: "linear"
             }}
-            className="absolute w-[200px] h-[200px] border border-cyan-500/10 rounded-full blur-sm"
+            className="absolute w-[160px] h-[160px] border border-cyan-500/10 rounded-full blur-sm"
             style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
+              top: asset.top,
+              left: asset.left,
             }}
           />
         ))}

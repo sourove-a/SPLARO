@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import { motion, useScroll, useMotionValueEvent, AnimatePresence } from 'framer-motion';
-import { Home, Search, ShoppingBag, User, Footprints, Briefcase } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, useMotionValueEvent, useScroll, AnimatePresence } from 'framer-motion';
+import { Home, Search, ShoppingBag, User } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
 
@@ -12,19 +12,34 @@ export const MobileTabBar: React.FC = () => {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(true);
   const { scrollY } = useScroll();
-
-  let scrollTimeout: any;
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastYRef = useRef(0);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
-    // Hide immediately when scrolling starts
-    if (isVisible) setIsVisible(false);
+    const delta = latest - lastYRef.current;
 
-    // Reset timer to show after scrolling stops
-    clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
+    // Ignore tiny scroll noise to avoid jittering tab bar visibility.
+    if (Math.abs(delta) < 5) return;
+
+    if (delta > 0 && latest > 90) {
+      setIsVisible(false);
+    } else if (delta < 0) {
       setIsVisible(true);
-    }, 800); // Wait 800ms after scrolling stops to show
+    }
+
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsVisible(true);
+    }, 240);
+
+    lastYRef.current = latest;
   });
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, []);
 
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },

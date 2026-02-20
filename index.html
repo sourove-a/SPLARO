@@ -44,7 +44,7 @@
             margin: 0;
             background-color: var(--bg-main);
             color: var(--text-main);
-            transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease;
+            transition: background-color 0.35s ease, color 0.25s ease;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
             letter-spacing: -0.01em;
@@ -52,17 +52,19 @@
             font-style: normal !important;
             user-select: auto;
             -webkit-user-select: auto;
+            overscroll-behavior-y: contain;
         }
 
         * {
             font-style: normal !important;
             -webkit-user-drag: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .liquid-glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(50px) saturate(200%);
-            -webkit-backdrop-filter: blur(50px) saturate(200%);
+            backdrop-filter: blur(28px) saturate(160%);
+            -webkit-backdrop-filter: blur(28px) saturate(160%);
             border: 1px solid var(--glass-border);
         }
 
@@ -97,12 +99,49 @@
             width: 60%;
             height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            animation: shine-sweep 6s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            animation: shine-sweep 8s infinite cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
+            will-change: transform, opacity;
         }
 
         ::-webkit-scrollbar {
             width: 0px;
+        }
+
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 2px solid rgba(34, 211, 238, 0.8);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 1024px) {
+            .liquid-glass {
+                backdrop-filter: blur(16px) saturate(140%);
+                -webkit-backdrop-filter: blur(16px) saturate(140%);
+            }
+
+            .shine-sweep {
+                animation-duration: 10s;
+                opacity: 0.12;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001ms !important;
+                scroll-behavior: auto !important;
+            }
         }
     </style>
     <script type="importmap">

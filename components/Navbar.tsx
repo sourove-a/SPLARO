@@ -59,12 +59,12 @@ interface NavItemProps {
 const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
 
   <motion.div
-    initial={{ x: -40, opacity: 0, filter: 'blur(10px)' }}
-    animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-    exit={{ x: 20, opacity: 0, filter: 'blur(5px)' }}
+    initial={{ x: -24, opacity: 0 }}
+    animate={{ x: 0, opacity: 1 }}
+    exit={{ x: 12, opacity: 0 }}
     transition={{
       delay: index * 0.04,
-      duration: 0.6,
+      duration: 0.45,
       ease: [0.16, 1, 0.3, 1]
     }}
     className="w-full"

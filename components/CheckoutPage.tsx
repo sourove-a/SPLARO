@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, Phone, User, MapPin, Mail,
@@ -13,47 +13,60 @@ import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 
 import { BANGLADESH_DATA } from '../bangladeshData';
 
-const CheckoutSuccessBurst = () => (
-  <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden">
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: [0, 1.5, 2], opacity: [0, 0.7, 0] }}
-      transition={{ duration: 1.5, ease: "easeOut" }}
-      className="absolute w-[800px] h-[800px] bg-cyan-500/20 rounded-full blur-[120px]"
-    />
-    {[...Array(16)].map((_, i) => (
+const CheckoutSuccessBurst: React.FC = () => {
+  const particles = useMemo(
+    () =>
+      Array.from({ length: 16 }, (_, i) => ({
+        id: i,
+        x: (Math.random() - 0.5) * 560,
+        y: (Math.random() - 0.5) * 560,
+        rotate: Math.random() * 280
+      })),
+    []
+  );
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden">
       <motion.div
-        key={i}
-        initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
-        animate={{
-          scale: [0, 1.4, 0],
-          x: (Math.random() - 0.5) * 600,
-          y: (Math.random() - 0.5) * 600,
-          opacity: 0,
-          rotate: Math.random() * 360
-        }}
-        transition={{ duration: 1.5, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: [0, 1.4, 1.9], opacity: [0, 0.65, 0] }}
+        transition={{ duration: 1.4, ease: "easeOut" }}
+        className="absolute w-[760px] h-[760px] bg-cyan-500/20 rounded-full blur-[110px]"
+      />
+      {particles.map((particle) => (
+        <motion.div
+          key={particle.id}
+          initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+          animate={{
+            scale: [0, 1.2, 0],
+            x: particle.x,
+            y: particle.y,
+            opacity: 0,
+            rotate: particle.rotate
+          }}
+          transition={{ duration: 1.35, delay: particle.id * 0.035, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute"
+        >
+          {particle.id % 2 === 0 ? (
+            <Heart className="text-rose-500 w-8 h-8 fill-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)]" />
+          ) : (
+            <ShoppingBag className="text-cyan-400 w-8 h-8 shadow-[0_0_20px_rgba(0,212,255,0.5)]" />
+          )}
+        </motion.div>
+      ))}
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="text-center z-10"
       >
-        {i % 2 === 0 ? (
-          <Heart className="text-rose-500 w-8 h-8 fill-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)]" />
-        ) : (
-          <ShoppingBag className="text-cyan-400 w-8 h-8 shadow-[0_0_20px_rgba(0,212,255,0.5)]" />
-        )}
+        <h2 className="text-5xl md:text-7xl font-black italic uppercase text-white tracking-tighter leading-none mb-4">
+          ORDER<br /><span className="text-cyan-500">SECURED</span>
+        </h2>
+        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-cyan-500/60">Deployment Protocol Initialized</p>
       </motion.div>
-    ))}
-    <motion.div
-      initial={{ scale: 0.8, opacity: 0, y: 20 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      className="text-center z-10"
-    >
-      <h2 className="text-5xl md:text-7xl font-black italic uppercase text-white tracking-tighter leading-none mb-4">
-        ORDER<br /><span className="text-cyan-500">SECURED</span>
-      </h2>
-      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-cyan-500/60">Deployment Protocol Initialized</p>
-    </motion.div>
-  </div>
-);
+    </div>
+  );
+};
 
 const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any) => (
   <div className="relative mb-6 w-full">
