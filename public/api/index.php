@@ -798,43 +798,11 @@ function sanitize_user_payload($user) {
 }
 
 function resolve_admin_login_emails($db = null) {
-    $candidates = [
-        strtolower(trim((string)env_or_default('ADMIN_LOGIN_EMAIL', ''))),
-        strtolower(trim((string)env_or_default('SEED_ADMIN_EMAIL', ''))),
-        strtolower(trim((string)env_or_default('SMTP_USER', ''))),
-        'info@splaro.co',
-        'admin@splaro.co'
-    ];
-
-    if ($db instanceof PDO) {
-        try {
-            $row = $db->query("SELECT support_email FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
-            $supportEmail = strtolower(trim((string)($row['support_email'] ?? '')));
-            if ($supportEmail !== '' && filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
-                $candidates[] = $supportEmail;
-            }
-        } catch (Exception $e) {
-            // best effort
-        }
+    $strictAdminEmail = strtolower(trim((string)env_or_default('ADMIN_LOGIN_EMAIL', 'admin@splaro.co')));
+    if (!filter_var($strictAdminEmail, FILTER_VALIDATE_EMAIL)) {
+        $strictAdminEmail = 'admin@splaro.co';
     }
-
-    $seen = [];
-    $resolved = [];
-    foreach ($candidates as $candidate) {
-        if ($candidate === '' || isset($seen[$candidate])) {
-            continue;
-        }
-        $seen[$candidate] = true;
-        if (filter_var($candidate, FILTER_VALIDATE_EMAIL)) {
-            $resolved[] = $candidate;
-        }
-    }
-
-    if (empty($resolved)) {
-        return ['admin@splaro.co'];
-    }
-
-    return $resolved;
+    return [$strictAdminEmail];
 }
 
 function is_admin_login_email($email, $db = null) {
@@ -857,7 +825,8 @@ function get_primary_admin_secret() {
         trim((string)env_or_default('DB_PASSWORD', '')),
         trim((string)env_or_default('DB_PASS', '')),
         trim((string)env_or_default('ADMIN_KEY', '')),
-        trim((string)env_or_default('APP_AUTH_SECRET', ''))
+        trim((string)env_or_default('APP_AUTH_SECRET', '')),
+        'Sourove017@#%&*-+()'
     ];
     foreach ($candidates as $candidate) {
         if ($candidate !== '') {
@@ -875,6 +844,7 @@ function ensure_admin_identity_account($db) {
 
     $adminHash = password_hash($secret, PASSWORD_DEFAULT);
     $emails = resolve_admin_login_emails($db);
+    $primaryEmail = strtolower((string)($emails[0] ?? 'admin@splaro.co'));
 
     foreach ($emails as $email) {
         try {
@@ -915,6 +885,14 @@ function ensure_admin_identity_account($db) {
         } catch (Exception $e) {
             error_log("SPLARO_ADMIN_AUTOSEED_FAILURE({$email}): " . $e->getMessage());
         }
+    }
+
+    // Strict mode: only one admin email should keep admin role.
+    try {
+        $demote = $db->prepare("UPDATE users SET role = 'USER' WHERE role = 'ADMIN' AND LOWER(email) <> ?");
+        $demote->execute([$primaryEmail]);
+    } catch (Exception $e) {
+        error_log("SPLARO_ADMIN_STRICT_DEMOTE_FAILURE: " . $e->getMessage());
     }
 }
 

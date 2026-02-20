@@ -73,7 +73,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     if (location.pathname === '/sourove-admin') {
       setFormData(prev => ({
         ...prev,
-        identifier: prev.identifier || 'info@splaro.co'
+        identifier: prev.identifier || 'admin@splaro.co'
       }));
     }
   }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode]);
