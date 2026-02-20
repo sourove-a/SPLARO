@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   `smtp_settings` text DEFAULT NULL,
   `logistics_config` text DEFAULT NULL,
   `hero_slides` longtext DEFAULT NULL,
+  `content_pages` longtext DEFAULT NULL,
+  `story_posts` longtext DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

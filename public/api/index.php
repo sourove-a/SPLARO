@@ -159,6 +159,8 @@ function ensure_core_schema($db) {
         `smtp_settings` text DEFAULT NULL,
         `logistics_config` text DEFAULT NULL,
         `hero_slides` longtext DEFAULT NULL,
+        `content_pages` longtext DEFAULT NULL,
+        `story_posts` longtext DEFAULT NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
@@ -245,6 +247,8 @@ function ensure_core_schema($db) {
     ensure_column($db, 'site_settings', 'smtp_settings', 'text DEFAULT NULL');
     ensure_column($db, 'site_settings', 'logistics_config', 'text DEFAULT NULL');
     ensure_column($db, 'site_settings', 'hero_slides', 'longtext DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'content_pages', 'longtext DEFAULT NULL');
+    ensure_column($db, 'site_settings', 'story_posts', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'logo_url', 'text DEFAULT NULL');
 
     ensure_column($db, 'products', 'description', 'longtext DEFAULT NULL');
@@ -801,6 +805,8 @@ if ($method === 'GET' && $action === 'sync') {
         $settings['smtp_settings'] = json_decode($settings['smtp_settings'] ?? '[]', true);
         $settings['logistics_config'] = json_decode($settings['logistics_config'] ?? '[]', true);
         $settings['hero_slides'] = json_decode($settings['hero_slides'] ?? '[]', true);
+        $settings['content_pages'] = json_decode($settings['content_pages'] ?? '{}', true);
+        $settings['story_posts'] = json_decode($settings['story_posts'] ?? '[]', true);
         if (!$isAdmin) {
             unset($settings['smtp_settings']);
         }
@@ -1678,6 +1684,20 @@ if ($method === 'POST' && $action === 'update_settings') {
                 error_log("SPLARO_SCHEMA_WARNING: failed to add hero_slides dynamically -> " . $e->getMessage());
             }
         }
+        if (!column_exists($db, 'site_settings', 'content_pages')) {
+            try {
+                $db->exec("ALTER TABLE `site_settings` ADD COLUMN `content_pages` longtext DEFAULT NULL");
+            } catch (Exception $e) {
+                error_log("SPLARO_SCHEMA_WARNING: failed to add content_pages dynamically -> " . $e->getMessage());
+            }
+        }
+        if (!column_exists($db, 'site_settings', 'story_posts')) {
+            try {
+                $db->exec("ALTER TABLE `site_settings` ADD COLUMN `story_posts` longtext DEFAULT NULL");
+            } catch (Exception $e) {
+                error_log("SPLARO_SCHEMA_WARNING: failed to add story_posts dynamically -> " . $e->getMessage());
+            }
+        }
 
         $query = "UPDATE site_settings SET 
             site_name = ?, 
@@ -1705,6 +1725,14 @@ if ($method === 'POST' && $action === 'update_settings') {
         if (column_exists($db, 'site_settings', 'hero_slides')) {
             $query .= ", hero_slides = ?";
             $params[] = json_encode($input['slides'] ?? []);
+        }
+        if (column_exists($db, 'site_settings', 'content_pages')) {
+            $query .= ", content_pages = ?";
+            $params[] = json_encode($input['cmsPages'] ?? ($input['contentPages'] ?? new stdClass()));
+        }
+        if (column_exists($db, 'site_settings', 'story_posts')) {
+            $query .= ", story_posts = ?";
+            $params[] = json_encode($input['storyPosts'] ?? []);
         }
 
         $query .= " WHERE id = 1";

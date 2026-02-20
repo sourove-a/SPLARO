@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // Added ArrowRight to imports to fix line 103 error
 import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone } from 'lucide-react';
@@ -29,38 +29,79 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   </motion.div>
 );
 
-const StoryPage = () => (
-  <div className="min-h-screen pt-40 px-6 max-w-7xl mx-auto">
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">THE<br /><span className="text-cyan-500">LEGACY.</span></h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-        <GlassCard className="p-12 space-y-8 !bg-white/[0.02]">
-          <div className="flex items-center gap-4 text-cyan-500 mb-4">
-            <div className="w-12 h-[1px] bg-cyan-500" />
-            <span className="text-[10px] font-black uppercase tracking-[0.5em]">Institutional Heritage</span>
-          </div>
-          <p className="text-zinc-400 leading-relaxed text-lg md:text-2xl uppercase font-bold tracking-tight italic">
-            Splaro establishes the pinnacle of high-velocity luxury logistics. We are the architects of discovery, manifest within a curated archive of international imported grade heritage.
+const CmsContentPage = ({ pageKey }: { pageKey: 'manifest' | 'privacyPolicy' | 'termsConditions' | 'refundPolicy' }) => {
+  const { siteSettings } = useApp();
+  const page = siteSettings.cmsPages[pageKey];
+  const paragraphs = (page.body || '').split('\n').map(line => line.trim()).filter(Boolean);
+
+  return (
+    <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
+      <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">
+        {page.heading}
+      </h1>
+      <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
+        <p className="text-white/70 text-sm leading-relaxed">{page.subheading}</p>
+        {paragraphs.map((line, idx) => (
+          <p key={`${pageKey}-line-${idx}`} className="text-white/60 text-sm leading-relaxed">
+            {line}
           </p>
-          <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em] leading-loose">
-            Established 2026. The mission remains absolute: to curate every heritage asset into a high-precision discovery mission for the elite selector.
-          </p>
-        </GlassCard>
-        <div className="space-y-12">
-          <div className="w-full aspect-video rounded-3xl bg-white/5 border border-white/10 overflow-hidden relative group">
-            <div className="absolute inset-0 bg-gradient-to-t from-cyan-950/40 to-transparent" />
-            <div className="shine-sweep" />
-            <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 20, repeat: Infinity }} className="w-full h-full bg-[url('https://images.unsplash.com/photo-1552346154-21d32810aba3?q=80&w=1600')] bg-cover bg-center opacity-30 group-hover:opacity-50 transition-opacity" />
+        ))}
+      </GlassCard>
+    </div>
+  );
+};
+
+const StoryPage = () => {
+  const { siteSettings } = useApp();
+  const publishedStories = useMemo(() => {
+    const now = Date.now();
+    return (siteSettings.storyPosts || [])
+      .filter((post) => {
+        if (post.published) return true;
+        if (!post.publishAt) return false;
+        const publishTime = new Date(post.publishAt).getTime();
+        return Number.isFinite(publishTime) && publishTime <= now;
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.publishAt || a.createdAt).getTime();
+        const bTime = new Date(b.publishAt || b.createdAt).getTime();
+        return bTime - aTime;
+      });
+  }, [siteSettings.storyPosts]);
+
+  return (
+    <div className="min-h-screen pt-40 px-6 max-w-7xl mx-auto">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
+        <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">
+          BRAND<br /><span className="text-cyan-500">STORY.</span>
+        </h1>
+        {publishedStories.length === 0 ? (
+          <GlassCard className="p-12 !bg-white/[0.02]">
+            <p className="text-zinc-400 text-sm uppercase tracking-[0.2em]">No published stories yet.</p>
+          </GlassCard>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {publishedStories.map((post) => (
+              <GlassCard key={post.id} className="p-10 space-y-6 !bg-white/[0.02]">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-500">
+                  {new Date(post.publishAt || post.createdAt).toLocaleDateString('en-GB')}
+                </p>
+                <h2 className="text-3xl font-black uppercase tracking-tight italic text-white">{post.title}</h2>
+                <p className="text-zinc-400 text-sm leading-relaxed">{post.excerpt}</p>
+                {post.imageUrl && (
+                  <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10">
+                    <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-line">{post.body}</p>
+              </GlassCard>
+            ))}
           </div>
-          <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-[0.5em] text-zinc-700 pb-4 border-b border-white/5">
-            <span>Strategic Observation Matrix 001</span>
-            <span className="text-cyan-500">Verified Discovery</span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  </div>
-);
+        )}
+      </motion.div>
+    </div>
+  );
+};
 
 const SupportPage = () => (
   <div className="min-h-screen pt-40 px-6 max-w-7xl mx-auto">
@@ -88,35 +129,65 @@ const SupportPage = () => (
   </div>
 );
 
-const PrivacyPolicyPage = () => (
-  <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
-    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">Privacy <span className="text-cyan-500">Policy.</span></h1>
-    <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
-      <p className="text-white/70 text-sm leading-relaxed">We only collect data required to process orders, support your account, and deliver service updates. Customer payment or identity data is never sold to third parties.</p>
-      <p className="text-white/60 text-xs uppercase tracking-[0.25em]">For removal requests, contact: info@splaro.co</p>
-    </GlassCard>
-  </div>
-);
+const ManifestPage = () => <CmsContentPage pageKey="manifest" />;
+const PrivacyPolicyPage = () => <CmsContentPage pageKey="privacyPolicy" />;
+const TermsPage = () => <CmsContentPage pageKey="termsConditions" />;
+const RefundPolicyPage = () => <CmsContentPage pageKey="refundPolicy" />;
 
-const TermsPage = () => (
-  <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
-    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">Terms <span className="text-cyan-500">Conditions.</span></h1>
-    <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
-      <p className="text-white/70 text-sm leading-relaxed">Orders are confirmed after successful verification. Delivery timeline depends on destination and logistics. Product returns must follow policy windows and condition requirements.</p>
-      <p className="text-white/60 text-xs uppercase tracking-[0.25em]">Using the site means you accept these terms.</p>
-    </GlassCard>
-  </div>
-);
+const OrderTrackingPage = () => {
+  const { user, orders, siteSettings } = useApp();
+  const navigate = useNavigate();
 
-const RefundPolicyPage = () => (
-  <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
-    <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">Refund <span className="text-cyan-500">Policy.</span></h1>
-    <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
-      <p className="text-white/70 text-sm leading-relaxed">Eligible refund requests are accepted for damaged or wrong products. Requests must be submitted within the policy window with order ID and proof details.</p>
-      <p className="text-white/60 text-xs uppercase tracking-[0.25em]">Support team updates each request status from review to resolution.</p>
-    </GlassCard>
-  </div>
-);
+  const userOrders = useMemo(() => {
+    if (!user) return [];
+    return orders
+      .filter((order) => order.userId === user.id || order.customerEmail.toLowerCase() === user.email.toLowerCase())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders, user]);
+
+  const page = siteSettings.cmsPages.orderTracking;
+
+  return (
+    <div className="min-h-screen pt-40 px-6 max-w-5xl mx-auto">
+      <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">
+        {page.heading}
+      </h1>
+      <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
+        <p className="text-white/70 text-sm leading-relaxed">{page.subheading}</p>
+        <p className="text-white/60 text-sm leading-relaxed">{page.body}</p>
+        {!user ? (
+          <div className="pt-4 flex flex-wrap gap-4">
+            <PrimaryButton onClick={() => navigate('/login')} className="px-8 py-4 text-[10px]">
+              LOG IN TO TRACK
+            </PrimaryButton>
+            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-400 transition-all">
+              CREATE ACCOUNT
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 pt-2">
+            {userOrders.length === 0 ? (
+              <p className="text-white/50 text-sm">No orders found for your account yet.</p>
+            ) : (
+              userOrders.map((order) => (
+                <div key={order.id} className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-white">{order.id}</p>
+                    <p className="text-[11px] text-zinc-400 mt-2">{new Date(order.createdAt).toLocaleString('en-GB')}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-cyan-400 uppercase">{order.status}</p>
+                    <p className="text-[11px] text-zinc-300 mt-1">Total: ৳{order.total.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </GlassCard>
+    </div>
+  );
+};
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -298,7 +369,7 @@ const BrandMarquee = () => {
 
 const Footer = () => {
   const navigate = useNavigate();
-  const { siteSettings, user } = useApp();
+  const { siteSettings } = useApp();
   return (
     <footer className="relative mt-60 pb-20 px-8 md:px-16 overflow-hidden">
       {/* Background Layer with Deep Royal Gradient */}
@@ -384,7 +455,7 @@ const Footer = () => {
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/shop')} className="cursor-pointer transition-all duration-300">COLLECTION</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">ARCHIVE</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">LOGISTICS</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300">LOGISTICS</motion.span>
               </div>
             </div>
 
@@ -392,9 +463,10 @@ const Footer = () => {
             <div className="lg:col-span-2 space-y-10">
               <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">MANIFEST</h4>
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/manifest')} className="cursor-pointer transition-all duration-300">MANIFEST</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/privacy')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/terms')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate(user ? '/user_dashboard' : '/login')} className="cursor-pointer transition-all duration-300 text-cyan-500/80">ORDER TRACKING</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300 text-cyan-500/80">ORDER TRACKING</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/refund-policy')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
               </div>
             </div>
@@ -520,8 +592,10 @@ const AppContent = () => {
             <Route path="/order_success" element={<OrderSuccessView />} />
             <Route path="/story" element={<StoryPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/manifest" element={<ManifestPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            <Route path="/order-tracking" element={<OrderTrackingPage />} />
             <Route path="/refund-policy" element={<RefundPolicyPage />} />
           </Routes>
         </main>

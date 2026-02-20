@@ -110,6 +110,11 @@ export const Navbar: React.FC = () => {
     if (path === '/order_success') return 'ORDER SUCCESS';
     if (path === '/story') return 'STORY';
     if (path === '/support') return 'SUPPORT';
+    if (path === '/manifest') return 'MANIFEST';
+    if (path === '/privacy') return 'PRIVACY POLICY';
+    if (path === '/terms') return 'TERMS & CONDITIONS';
+    if (path === '/order-tracking') return 'ORDER TRACKING';
+    if (path === '/refund-policy') return 'REFUND POLICY';
     return 'SPLARO';
   }, [location.pathname]);
 

@@ -302,6 +302,129 @@ const INITIAL_DISCOUNTS: DiscountCode[] = [
   { id: 'd2', code: 'WELCOME500', type: 'FIXED', value: 500, active: true }
 ];
 
+const DEFAULT_CMS_PAGES: SiteSettings['cmsPages'] = {
+  manifest: {
+    heading: 'Manifest',
+    subheading: 'Core policies and service terms',
+    body: 'Read our platform policy documents and customer service terms in one place.'
+  },
+  privacyPolicy: {
+    heading: 'Privacy Policy',
+    subheading: 'How we collect and use data',
+    body: 'We collect only essential customer data for account access, order processing, and service communication.'
+  },
+  termsConditions: {
+    heading: 'Terms & Conditions',
+    subheading: 'Usage terms for SPLARO',
+    body: 'By using this website, you agree to our purchase, delivery, and account usage terms.'
+  },
+  orderTracking: {
+    heading: 'Order Tracking',
+    subheading: 'Track your latest order updates',
+    body: 'Sign in to view shipment progress, order status, and delivery notes for your account.'
+  },
+  refundPolicy: {
+    heading: 'Refund Policy',
+    subheading: 'Return and refund eligibility',
+    body: 'Refund requests are accepted for eligible orders within the allowed return window and policy conditions.'
+  }
+};
+
+const DEFAULT_STORY_POSTS: SiteSettings['storyPosts'] = [
+  {
+    id: `story_${Math.random().toString(36).slice(2, 10)}`,
+    title: 'Inside SPLARO',
+    excerpt: 'Design direction, release cadence, and brand updates from our editorial desk.',
+    body: 'Publish announcements, product drops, and brand stories from the admin panel.',
+    imageUrl: '',
+    published: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const createDefaultSiteSettings = (): SiteSettings => ({
+  siteName: 'Splaro',
+  supportPhone: '+880 1905 010 205',
+  supportEmail: 'info@splaro.co',
+  facebookLink: 'https://facebook.com/splaro.co',
+  instagramLink: 'https://instagram.com/splaro.co',
+  whatsappNumber: '+8801905010205',
+  maintenanceMode: false,
+  logoUrl: '',
+  cmsPages: {
+    manifest: { ...DEFAULT_CMS_PAGES.manifest },
+    privacyPolicy: { ...DEFAULT_CMS_PAGES.privacyPolicy },
+    termsConditions: { ...DEFAULT_CMS_PAGES.termsConditions },
+    orderTracking: { ...DEFAULT_CMS_PAGES.orderTracking },
+    refundPolicy: { ...DEFAULT_CMS_PAGES.refundPolicy }
+  },
+  storyPosts: DEFAULT_STORY_POSTS.map((post) => ({ ...post }))
+});
+
+const parseJsonObject = (value: unknown): any => {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeSiteSettings = (raw: any): SiteSettings => {
+  const base = createDefaultSiteSettings();
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const incomingPages = parseJsonObject(input.cmsPages || input.contentPages || input.content_pages) || {};
+  const incomingStories = parseJsonObject(input.storyPosts || input.story_posts) || [];
+
+  const cmsPages: SiteSettings['cmsPages'] = {
+    manifest: {
+      ...base.cmsPages.manifest,
+      ...(incomingPages.manifest || {})
+    },
+    privacyPolicy: {
+      ...base.cmsPages.privacyPolicy,
+      ...(incomingPages.privacyPolicy || {})
+    },
+    termsConditions: {
+      ...base.cmsPages.termsConditions,
+      ...(incomingPages.termsConditions || {})
+    },
+    orderTracking: {
+      ...base.cmsPages.orderTracking,
+      ...(incomingPages.orderTracking || {})
+    },
+    refundPolicy: {
+      ...base.cmsPages.refundPolicy,
+      ...(incomingPages.refundPolicy || {})
+    }
+  };
+
+  const storyPosts: SiteSettings['storyPosts'] = Array.isArray(incomingStories)
+    ? incomingStories.map((post: any, index: number) => ({
+      id: String(post?.id || `story_${index}_${Math.random().toString(36).slice(2, 8)}`),
+      title: String(post?.title || 'Untitled Story'),
+      excerpt: String(post?.excerpt || ''),
+      body: String(post?.body || ''),
+      imageUrl: String(post?.imageUrl || ''),
+      published: Boolean(post?.published),
+      publishAt: post?.publishAt ? String(post.publishAt) : undefined,
+      createdAt: String(post?.createdAt || new Date().toISOString()),
+      updatedAt: String(post?.updatedAt || new Date().toISOString())
+    }))
+    : base.storyPosts;
+
+  return {
+    ...base,
+    ...input,
+    logoUrl: String(input.logoUrl || input.logo_url || base.logoUrl),
+    cmsPages,
+    storyPosts
+  };
+};
+
 interface AppContextType {
   view: View;
   setView: (v: View) => void;
@@ -404,15 +527,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [logisticsConfig, setLogisticsConfig] = useState(loadFromStorage('splaro-logistics', { metro: 90, regional: 140 }));
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [siteSettings, setSiteSettings] = useState<SiteSettings>(loadFromStorage('splaro-site-settings', {
-    siteName: 'Splaro',
-    supportPhone: '+880 1905 010 205',
-    supportEmail: 'info@splaro.co',
-    facebookLink: 'https://facebook.com/splaro.co',
-    instagramLink: 'https://instagram.com/splaro.co',
-    whatsappNumber: '+8801905010205',
-    maintenanceMode: false
-  }));
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(
+    normalizeSiteSettings(loadFromStorage('splaro-site-settings', createDefaultSiteSettings()))
+  );
 
   const [dbStatus, setDbStatus] = useState<'CONNECTED' | 'LOCAL' | 'OFFLINE'>('LOCAL');
 
@@ -467,6 +584,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('splaro-site-settings', JSON.stringify(siteSettings));
   }, [siteSettings]);
+
+  useEffect(() => {
+    const autoPublishStories = () => {
+      setSiteSettings((prev) => {
+        const now = Date.now();
+        let changed = false;
+        const nextPosts = prev.storyPosts.map((post) => {
+          if (post.published || !post.publishAt) return post;
+          const publishTime = new Date(post.publishAt).getTime();
+          if (Number.isNaN(publishTime) || publishTime > now) return post;
+          changed = true;
+          return {
+            ...post,
+            published: true,
+            updatedAt: new Date().toISOString()
+          };
+        });
+        return changed ? { ...prev, storyPosts: nextPosts } : prev;
+      });
+    };
+
+    autoPublishStories();
+    const timer = setInterval(autoPublishStories, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // SYNC CORE: PRODUCTION HANDSHAKE
   const IS_PROD = shouldUsePhpApi();
@@ -554,7 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (result.data.settings) {
           const s = result.data.settings;
-          setSiteSettings({
+          setSiteSettings(normalizeSiteSettings({
             siteName: s.site_name || 'SPLARO',
             maintenanceMode: s.maintenance_mode === 1,
             supportEmail: s.support_email || '',
@@ -562,8 +704,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             whatsappNumber: s.whatsapp_number || '',
             facebookLink: s.facebook_link || '',
             instagramLink: s.instagram_link || '',
-            logoUrl: s.logo_url || ''
-          });
+            logoUrl: s.logo_url || '',
+            contentPages: s.content_pages || s.contentPages || {},
+            storyPosts: s.story_posts || s.storyPosts || []
+          }));
           if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
           if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
           if (s.hero_slides && Array.isArray(s.hero_slides)) setSlides(s.hero_slides);

@@ -66,7 +66,9 @@ try {
         "ALTER TABLE `products` ADD COLUMN `discount_percentage` int(11) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `sub_category` varchar(100) DEFAULT NULL",
         "ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL",
-        "ALTER TABLE `orders` ADD COLUMN `customer_comment` text DEFAULT NULL"
+        "ALTER TABLE `orders` ADD COLUMN `customer_comment` text DEFAULT NULL",
+        "ALTER TABLE `site_settings` ADD COLUMN `content_pages` longtext DEFAULT NULL",
+        "ALTER TABLE `site_settings` ADD COLUMN `story_posts` longtext DEFAULT NULL"
     ];
 
     foreach ($migrations as $m) {

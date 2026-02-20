@@ -108,5 +108,42 @@ export interface SiteSettings {
   whatsappNumber: string;
   maintenanceMode: boolean;
   logoUrl?: string;
+  cmsPages: {
+    manifest: {
+      heading: string;
+      subheading: string;
+      body: string;
+    };
+    privacyPolicy: {
+      heading: string;
+      subheading: string;
+      body: string;
+    };
+    termsConditions: {
+      heading: string;
+      subheading: string;
+      body: string;
+    };
+    orderTracking: {
+      heading: string;
+      subheading: string;
+      body: string;
+    };
+    refundPolicy: {
+      heading: string;
+      subheading: string;
+      body: string;
+    };
+  };
+  storyPosts: {
+    id: string;
+    title: string;
+    excerpt: string;
+    body: string;
+    imageUrl?: string;
+    published: boolean;
+    publishAt?: string;
+    createdAt: string;
+    updatedAt?: string;
+  }[];
 }
-

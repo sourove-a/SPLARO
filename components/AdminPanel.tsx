@@ -10,7 +10,7 @@ import {
   ChevronDown, Eye, User as UserIcon, MapPin, Phone, Database, RefreshCcw,
   Zap, Shield, BarChart3, HelpCircle, Palette, Layers, Box, Maximize,
   Thermometer, Info, Sparkles, AlertTriangle, FileText, Share2, Download,
-  CloudLightning, Activity, Target, PieChart, TrendingUp as TrendUpIcon,
+  CloudLightning, Activity, Target, PieChart, TrendingUp as TrendUpIcon, BookOpen,
   CreditCard, Briefcase, Settings2, Smartphone
 } from 'lucide-react';
 
@@ -21,7 +21,7 @@ import { View, OrderStatus, Product, DiscountCode, Order } from '../types';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
-const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'SYNC', 'SETTINGS', 'TRAFFIC', 'CAMPAIGNS'] as const;
+const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'SYNC', 'SETTINGS', 'PAGES', 'STORY', 'TRAFFIC', 'CAMPAIGNS'] as const;
 type AdminTab = typeof ADMIN_TABS[number];
 
 const isAdminTab = (tab: string): tab is AdminTab => ADMIN_TABS.includes(tab as AdminTab);
@@ -515,6 +515,75 @@ export const AdminPanel = () => {
   const [brandFilter, setBrandFilter] = useState('All Brands');
   const [analyticsWindow, setAnalyticsWindow] = useState<'LIVE' | '7D' | '30D'>('LIVE');
 
+  const cmsPageSections = [
+    { key: 'manifest', label: 'Manifest Page' },
+    { key: 'privacyPolicy', label: 'Privacy Policy' },
+    { key: 'termsConditions', label: 'Terms & Conditions' },
+    { key: 'orderTracking', label: 'Order Tracking' },
+    { key: 'refundPolicy', label: 'Refund Policy' }
+  ] as const;
+
+  const createStoryPost = () => {
+    const now = new Date().toISOString();
+    return {
+      id: `story_${Math.random().toString(36).slice(2, 10)}`,
+      title: '',
+      excerpt: '',
+      body: '',
+      imageUrl: '',
+      published: false,
+      publishAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+  };
+
+  const updateCmsField = (
+    pageKey: typeof cmsPageSections[number]['key'],
+    field: 'heading' | 'subheading' | 'body',
+    value: string
+  ) => {
+    setSiteSettings({
+      ...siteSettings,
+      cmsPages: {
+        ...siteSettings.cmsPages,
+        [pageKey]: {
+          ...siteSettings.cmsPages[pageKey],
+          [field]: value
+        }
+      }
+    });
+  };
+
+  const upsertStoryPost = (storyId: string, field: 'title' | 'excerpt' | 'body' | 'imageUrl' | 'published' | 'publishAt', value: string | boolean) => {
+    const nextPosts = siteSettings.storyPosts.map((story) => {
+      if (story.id !== storyId) return story;
+      return {
+        ...story,
+        [field]: value,
+        updatedAt: new Date().toISOString()
+      };
+    });
+    setSiteSettings({
+      ...siteSettings,
+      storyPosts: nextPosts
+    });
+  };
+
+  const addStoryPost = () => {
+    setSiteSettings({
+      ...siteSettings,
+      storyPosts: [createStoryPost(), ...(siteSettings.storyPosts || [])]
+    });
+  };
+
+  const deleteStoryPost = (storyId: string) => {
+    setSiteSettings({
+      ...siteSettings,
+      storyPosts: siteSettings.storyPosts.filter((story) => story.id !== storyId)
+    });
+  };
+
   const newOrdersCount = useMemo(() => {
     return orders.filter(o => new Date(o.createdAt) > new Date(lastSeenOrderTime)).length;
   }, [orders, lastSeenOrderTime]);
@@ -621,6 +690,8 @@ export const AdminPanel = () => {
           <SidebarItem icon={DollarSign} label="Financials" active={activeTab === 'FINANCE'} onClick={() => switchTab('FINANCE')} />
           <SidebarItem icon={Database} label="Registry Sync" active={activeTab === 'SYNC'} onClick={() => switchTab('SYNC')} />
           <SidebarItem icon={Settings} label="Protocols" active={activeTab === 'SETTINGS'} onClick={() => switchTab('SETTINGS')} />
+          <SidebarItem icon={FileText} label="Pages CMS" active={activeTab === 'PAGES'} onClick={() => switchTab('PAGES')} />
+          <SidebarItem icon={BookOpen} label="Story Posts" active={activeTab === 'STORY'} onClick={() => switchTab('STORY')} />
           <SidebarItem icon={Globe} label="Live Traffic" active={activeTab === 'TRAFFIC'} onClick={() => switchTab('TRAFFIC')} />
           <SidebarItem icon={Zap} label="Campaigns" active={activeTab === 'CAMPAIGNS'} onClick={() => switchTab('CAMPAIGNS')} />
 
@@ -1356,6 +1427,150 @@ export const AdminPanel = () => {
                   <PrimaryButton className="mt-12 w-full py-6" onClick={() => updateSettings({ logisticsConfig })}>COMMIT OVERRIDE</PrimaryButton>
                 </GlassCard>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'PAGES' && (
+            <motion.div key="pages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+              <GlassCard className="p-12">
+                <div className="flex items-center gap-4 mb-10">
+                  <FileText className="w-8 h-8 text-cyan-500" />
+                  <div>
+                    <h3 className="text-3xl font-black uppercase italic tracking-tighter">Pages CMS</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Footer link pages are editable here</p>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  {cmsPageSections.map((section) => (
+                    <div key={section.key} className="p-8 rounded-[28px] border border-white/10 bg-white/[0.02] space-y-5">
+                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-cyan-400">{section.label}</h4>
+                      <LuxuryFloatingInput
+                        label="Page Heading"
+                        value={siteSettings.cmsPages[section.key].heading}
+                        onChange={(v) => updateCmsField(section.key, 'heading', v)}
+                        icon={<Sparkles className="w-5 h-5" />}
+                      />
+                      <LuxuryFloatingInput
+                        label="Page Subheading"
+                        value={siteSettings.cmsPages[section.key].subheading}
+                        onChange={(v) => updateCmsField(section.key, 'subheading', v)}
+                        icon={<Info className="w-5 h-5" />}
+                      />
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 pl-2">Page Body</label>
+                        <textarea
+                          value={siteSettings.cmsPages[section.key].body}
+                          onChange={(e) => updateCmsField(section.key, 'body', e.target.value)}
+                          rows={4}
+                          className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-cyan-500/50"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <PrimaryButton className="mt-10 w-full h-16 text-[10px]" onClick={() => updateSettings(siteSettings)}>
+                  SAVE ALL PAGE CONTENT
+                </PrimaryButton>
+              </GlassCard>
+            </motion.div>
+          )}
+
+          {activeTab === 'STORY' && (
+            <motion.div key="story" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-black uppercase italic tracking-tight">Story Posts Manager</h3>
+                <PrimaryButton onClick={addStoryPost} className="px-10 py-5 text-[10px]">
+                  <Plus className="w-4 h-4" /> ADD STORY
+                </PrimaryButton>
+              </div>
+
+              <div className="space-y-8">
+                {(siteSettings.storyPosts || []).map((story) => (
+                  <GlassCard key={story.id} className="p-10 space-y-6 border-white/10">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-cyan-500">
+                        Story ID: {story.id}
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => upsertStoryPost(story.id, 'published', !story.published)}
+                          className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${story.published
+                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                            : 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                            }`}
+                        >
+                          {story.published ? 'Published' : 'Draft'}
+                        </button>
+                        <button
+                          onClick={() => deleteStoryPost(story.id)}
+                          className="px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <LuxuryFloatingInput
+                        label="Story Title"
+                        value={story.title}
+                        onChange={(v) => upsertStoryPost(story.id, 'title', v)}
+                        icon={<BookOpen className="w-5 h-5" />}
+                      />
+                      <LuxuryFloatingInput
+                        label="Cover Image URL"
+                        value={story.imageUrl || ''}
+                        onChange={(v) => upsertStoryPost(story.id, 'imageUrl', v)}
+                        icon={<ImageIcon className="w-5 h-5" />}
+                      />
+                    </div>
+
+                    <LuxuryFloatingInput
+                      label="Story Excerpt"
+                      value={story.excerpt}
+                      onChange={(v) => upsertStoryPost(story.id, 'excerpt', v)}
+                      icon={<Info className="w-5 h-5" />}
+                    />
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 pl-2">Story Body</label>
+                      <textarea
+                        value={story.body}
+                        onChange={(e) => upsertStoryPost(story.id, 'body', e.target.value)}
+                        rows={6}
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-cyan-500/50"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 pl-2">Auto Publish Time</label>
+                        <input
+                          type="datetime-local"
+                          value={story.publishAt ? new Date(story.publishAt).toISOString().slice(0, 16) : ''}
+                          onChange={(e) => upsertStoryPost(story.id, 'publishAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-cyan-500/50"
+                        />
+                      </div>
+                      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-cyan-400 flex items-center">
+                        Auto mode: draft stories publish automatically after schedule time.
+                      </div>
+                    </div>
+                  </GlassCard>
+                ))}
+
+                {(!siteSettings.storyPosts || siteSettings.storyPosts.length === 0) && (
+                  <GlassCard className="p-12 border-white/10">
+                    <p className="text-zinc-500 text-sm">No story posts yet. Add your first post.</p>
+                  </GlassCard>
+                )}
+              </div>
+
+              <PrimaryButton className="w-full h-16 text-[10px]" onClick={() => updateSettings(siteSettings)}>
+                SAVE STORY POSTS
+              </PrimaryButton>
             </motion.div>
           )}
 
