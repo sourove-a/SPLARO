@@ -404,7 +404,64 @@ function telegram_escape_html($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-function send_telegram_message($text, $targetChatId = null) {
+function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
+    $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/" . ltrim((string)$endpoint, '/');
+    $jsonPayload = json_encode($payload);
+
+    if ($jsonPayload === false) {
+        return [false, 0, 'JSON_ENCODE_FAILED'];
+    }
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => $jsonPayload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => $timeoutSeconds,
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+        ]);
+
+        $responseBody = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($responseBody === false) {
+            return [false, $httpCode, $curlError ?: 'CURL_REQUEST_FAILED'];
+        }
+
+        return [$responseBody, $httpCode, ''];
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => "Content-Type: application/json\r\n",
+            'content' => $jsonPayload,
+            'timeout' => $timeoutSeconds,
+            'ignore_errors' => true
+        ]
+    ]);
+
+    $responseBody = @file_get_contents($url, false, $context);
+    $responseHeaders = function_exists('http_get_last_response_headers')
+        ? http_get_last_response_headers()
+        : ($GLOBALS['http_response_header'] ?? []);
+    $httpCode = 0;
+    if (!empty($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $m)) {
+        $httpCode = (int)$m[1];
+    }
+
+    if ($responseBody === false) {
+        return [false, $httpCode, 'STREAM_REQUEST_FAILED'];
+    }
+
+    return [$responseBody, $httpCode, ''];
+}
+
+function send_telegram_message($text, $targetChatId = null, $options = []) {
     if (!TELEGRAM_ENABLED) {
         return false;
     }
@@ -414,13 +471,21 @@ function send_telegram_message($text, $targetChatId = null) {
         return false;
     }
 
-    $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/sendMessage";
-    $payload = json_encode([
+    $payload = [
         'chat_id' => $chatId,
         'text' => $text,
         'parse_mode' => 'HTML',
         'disable_web_page_preview' => true
-    ]);
+    ];
+
+    if (is_array($options)) {
+        foreach ($options as $key => $value) {
+            if ($key === 'chat_id' || $key === 'text') {
+                continue;
+            }
+            $payload[$key] = $value;
+        }
+    }
 
     $attempt = 0;
     $maxAttempts = 3; // initial + 2 retries
@@ -429,50 +494,14 @@ function send_telegram_message($text, $targetChatId = null) {
     while ($attempt < $maxAttempts) {
         $attempt++;
 
-        $response = false;
-        $httpCode = 0;
-        $curlError = '';
-
-        if (function_exists('curl_init')) {
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                CURLOPT_POSTFIELDS => $payload,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CONNECTTIMEOUT => 5,
-                CURLOPT_TIMEOUT => 5,
-            ]);
-
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
-        } else {
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'POST',
-                    'header' => "Content-Type: application/json\r\n",
-                    'content' => $payload,
-                    'timeout' => 5,
-                    'ignore_errors' => true
-                ]
-            ]);
-            $response = @file_get_contents($url, false, $context);
-            $responseHeaders = function_exists('http_get_last_response_headers')
-                ? http_get_last_response_headers()
-                : ($GLOBALS['http_response_header'] ?? []);
-            if (!empty($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $m)) {
-                $httpCode = (int)$m[1];
-            }
-        }
+        [$response, $httpCode, $requestError] = telegram_api_request('sendMessage', $payload, 5);
 
         if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
             return true;
         }
 
         if ($attempt >= $maxAttempts) {
-            error_log("SPLARO_TELEGRAM_FAILURE: HTTP {$httpCode}; CURL {$curlError}; RESPONSE {$response}");
+            error_log("SPLARO_TELEGRAM_FAILURE: HTTP {$httpCode}; ERROR {$requestError}; RESPONSE {$response}");
             return false;
         }
 
@@ -497,14 +526,80 @@ function is_telegram_admin_chat($chatId) {
     return (string)$chatId === (string)TELEGRAM_ADMIN_CHAT_ID;
 }
 
+function telegram_admin_command_definitions() {
+    return [
+        ['command' => 'start', 'description' => 'Show command menu'],
+        ['command' => 'help', 'description' => 'Show command usage'],
+        ['command' => 'commands', 'description' => 'Show all commands'],
+        ['command' => 'health', 'description' => 'Check API and DB status'],
+        ['command' => 'orders', 'description' => 'List latest orders: /orders 10'],
+        ['command' => 'order', 'description' => 'Get order details: /order {id}'],
+        ['command' => 'setstatus', 'description' => 'Update order status'],
+        ['command' => 'users', 'description' => 'List latest users: /users 10'],
+        ['command' => 'maintenance', 'description' => 'Set maintenance on/off'],
+    ];
+}
+
+function telegram_quick_keyboard() {
+    return [
+        'keyboard' => [
+            ['/health', '/orders 5'],
+            ['/users 5', '/maintenance off'],
+            ['/help'],
+        ],
+        'resize_keyboard' => true,
+        'one_time_keyboard' => false,
+    ];
+}
+
+function telegram_register_bot_commands_once() {
+    if (!TELEGRAM_ENABLED) {
+        return false;
+    }
+
+    $cacheFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        . 'splaro_telegram_commands_' . md5((string)TELEGRAM_BOT_TOKEN) . '.json';
+    $now = time();
+    $ttl = 6 * 60 * 60;
+
+    if (file_exists($cacheFile)) {
+        $raw = @file_get_contents($cacheFile);
+        $state = json_decode($raw, true);
+        if (is_array($state) && !empty($state['synced_at']) && ($now - (int)$state['synced_at']) < $ttl) {
+            return true;
+        }
+    }
+
+    $payload = [
+        'commands' => telegram_admin_command_definitions(),
+        'scope' => ['type' => 'default'],
+        'language_code' => 'en'
+    ];
+
+    [$response, $httpCode, $requestError] = telegram_api_request('setMyCommands', $payload, 5);
+    if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+        error_log("SPLARO_TELEGRAM_COMMAND_SYNC_FAILURE: HTTP {$httpCode}; ERROR {$requestError}; RESPONSE {$response}");
+        return false;
+    }
+
+    @file_put_contents($cacheFile, json_encode(['synced_at' => $now]), LOCK_EX);
+    return true;
+}
+
 function telegram_admin_help_text() {
-    return "<b>SPLARO Admin Bot Commands</b>\n"
-        . "/health - API status\n"
-        . "/orders [limit] - latest orders\n"
-        . "/order {id} - single order details\n"
-        . "/setstatus {id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}\n"
-        . "/users [limit] - latest users\n"
-        . "/maintenance {on|off} - site maintenance mode";
+    return "<b>SPLARO Admin Bot</b>\n"
+        . "Use these commands:\n\n"
+        . "• <b>/health</b> - API and DB status\n"
+        . "• <b>/orders [limit]</b> - latest orders\n"
+        . "• <b>/order {id}</b> - order details\n"
+        . "• <b>/setstatus {id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}</b>\n"
+        . "• <b>/users [limit]</b> - latest users\n"
+        . "• <b>/maintenance {on|off}</b> - toggle maintenance\n"
+        . "• <b>/commands</b> - show this menu\n\n"
+        . "<b>Examples</b>\n"
+        . "/orders 10\n"
+        . "/order SPL-000123\n"
+        . "/setstatus SPL-000123 SHIPPED";
 }
 
 function is_rate_limited($bucket, $maxRequests = 20, $windowSeconds = 60) {
@@ -716,6 +811,8 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
         exit;
     }
 
+    telegram_register_bot_commands_once();
+
     if (!is_telegram_admin_chat($chatId)) {
         send_telegram_message("<b>Unauthorized access blocked.</b>", $chatId);
         echo json_encode(["ok" => true]);
@@ -725,9 +822,11 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
     $parts = preg_split('/\s+/', $text);
     $command = strtolower($parts[0] ?? '');
     $reply = '';
+    $replyOptions = [];
 
-    if ($command === '/start' || $command === '/help') {
+    if ($command === '/start' || $command === '/help' || $command === '/commands') {
         $reply = telegram_admin_help_text();
+        $replyOptions['reply_markup'] = telegram_quick_keyboard();
     } elseif ($command === '/health') {
         $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
         $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
@@ -825,7 +924,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
         $reply = "<b>Unknown command.</b>\nUse /help to view available commands.";
     }
 
-    send_telegram_message($reply, $chatId);
+    send_telegram_message($reply, $chatId, $replyOptions);
     echo json_encode(["ok" => true]);
     exit;
 }
