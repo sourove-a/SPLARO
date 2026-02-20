@@ -6,7 +6,7 @@ import { useApp } from '../store';
 import { ProductCard } from './ProductCard';
 import { GlassCard } from './LiquidGlass';
 import { Product } from '../types';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const FilterPill: React.FC<{
   label: string;
@@ -72,7 +72,8 @@ const ActiveFilterPill: React.FC<{ label: string; onRemove: () => void }> = ({ l
 
 export const ShopPage: React.FC = () => {
   const { products, language, selectedCategory, setSelectedCategory, searchQuery } = useApp();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
@@ -81,11 +82,11 @@ export const ShopPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const categoryFromQuery = useMemo(() => {
-    const raw = (searchParams.get('category') || '').trim().toLowerCase();
+    const raw = (new URLSearchParams(location.search).get('category') || '').trim().toLowerCase();
     if (raw === 'shoes' || raw === 'shoe' || raw === 'footwear') return 'Shoes';
     if (raw === 'bags' || raw === 'bag') return 'Bags';
     return null;
-  }, [searchParams]);
+  }, [location.search]);
 
   const normalizeCategory = (product: Partial<Product> & { name?: string; category?: string; subCategory?: string }) => {
     const category = (product.category || '').toLowerCase();
@@ -118,15 +119,16 @@ export const ShopPage: React.FC = () => {
   }, [categoryFromQuery, selectedCategory, setSelectedCategory]);
 
   useEffect(() => {
-    const currentParam = (searchParams.get('category') || '').toLowerCase();
+    const currentParam = (new URLSearchParams(location.search).get('category') || '').toLowerCase();
     const expectedParam = normalizedSelectedCategory ? normalizedSelectedCategory.toLowerCase() : '';
     if (currentParam === expectedParam) return;
 
-    const next = new URLSearchParams(searchParams);
-    if (expectedParam) next.set('category', expectedParam);
-    else next.delete('category');
-    setSearchParams(next, { replace: true });
-  }, [normalizedSelectedCategory, searchParams, setSearchParams]);
+    if (expectedParam) {
+      navigate(`/shop?category=${expectedParam}`, { replace: true });
+    } else {
+      navigate('/shop', { replace: true });
+    }
+  }, [normalizedSelectedCategory, location.search, navigate]);
 
   const categoryScopedProducts = useMemo(() => {
     if (!normalizedSelectedCategory) return products;

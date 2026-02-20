@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Package, Settings, LogOut, Plus,
   TrendingUp, Users, DollarSign, ArrowUpRight, Search, Filter,
@@ -497,13 +497,13 @@ export const AdminPanel = () => {
     lastSeenOrderTime, setLastSeenOrderTime
   } = useApp();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
 
 
 
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
-    const tabParam = (searchParams.get('tab') || '').toUpperCase();
+    const tabParam = (new URLSearchParams(location.search).get('tab') || '').toUpperCase();
     return isAdminTab(tabParam) ? tabParam : 'DASHBOARD';
   });
   const [searchQuery, setSearchQuery] = useState('');
@@ -579,18 +579,18 @@ export const AdminPanel = () => {
 
   const switchTab = (tab: AdminTab) => {
     setActiveTab(tab);
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(location.search);
     next.set('tab', tab.toLowerCase());
-    setSearchParams(next, { replace: true });
+    navigate(`/admin_dashboard?${next.toString()}`, { replace: true });
   };
 
   useEffect(() => {
-    const tabParam = (searchParams.get('tab') || '').toUpperCase();
+    const tabParam = (new URLSearchParams(location.search).get('tab') || '').toUpperCase();
     const resolved: AdminTab = isAdminTab(tabParam) ? tabParam : 'DASHBOARD';
     if (resolved !== activeTab) {
       setActiveTab(resolved);
     }
-  }, [searchParams, activeTab]);
+  }, [location.search, activeTab]);
 
 
 
