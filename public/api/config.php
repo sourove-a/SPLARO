@@ -11,11 +11,21 @@ header("Content-Type: application/json");
 
 function bootstrap_env_files() {
     $candidates = [
+        __DIR__ . '/../.env.local',
+        __DIR__ . '/../.env',
         __DIR__ . '/../../.env.local',
         __DIR__ . '/../../.env',
         __DIR__ . '/.env.local',
         __DIR__ . '/.env',
     ];
+
+    $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+    if ($docRoot !== '') {
+        $candidates[] = rtrim($docRoot, '/\\') . '/.env.local';
+        $candidates[] = rtrim($docRoot, '/\\') . '/.env';
+        $candidates[] = dirname(rtrim($docRoot, '/\\')) . '/.env.local';
+        $candidates[] = dirname(rtrim($docRoot, '/\\')) . '/.env';
+    }
 
     foreach ($candidates as $file) {
         if (!is_file($file) || !is_readable($file)) {
@@ -168,8 +178,16 @@ define('GOOGLE_SHEETS_WEBHOOK_URL', env_or_default('GOOGLE_SHEETS_WEBHOOK_URL', 
  */
 function get_db_connection() {
     if (DB_NAME === '' || DB_USER === '' || DB_PASS === '') {
+        $missing = [];
+        if (DB_NAME === '') $missing[] = 'DB_NAME';
+        if (DB_USER === '') $missing[] = 'DB_USER';
+        if (DB_PASS === '') $missing[] = 'DB_PASS';
         http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "DATABASE_ENV_NOT_CONFIGURED"]);
+        echo json_encode([
+            "status" => "error",
+            "message" => "DATABASE_ENV_NOT_CONFIGURED",
+            "missing" => $missing
+        ]);
         exit;
     }
 
