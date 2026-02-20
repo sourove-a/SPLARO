@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, Package, Settings, LogOut, Plus,
   TrendingUp, Users, DollarSign, ArrowUpRight, Search, Filter,
@@ -427,8 +428,10 @@ export const AdminPanel = () => {
     slides, setSlides, smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
     siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata, dbStatus, initializeSheets, logs, trafficData,
+    setUser,
     lastSeenOrderTime, setLastSeenOrderTime
   } = useApp();
+  const navigate = useNavigate();
 
 
 
@@ -533,7 +536,14 @@ export const AdminPanel = () => {
               <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'CONNECTED' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
             </div>
           </div>
-          <button onClick={() => setView(View.HOME)} className="w-full flex items-center justify-center gap-3 p-5 rounded-[24px] bg-rose-500/10 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all">
+          <button
+            onClick={() => {
+              setUser(null);
+              setView(View.HOME);
+              navigate('/');
+            }}
+            className="w-full flex items-center justify-center gap-3 p-5 rounded-[24px] bg-rose-500/10 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+          >
             <LogOut className="w-4 h-4" /> DISCONNECT
           </button>
         </GlassCard>
@@ -915,12 +925,14 @@ export const AdminPanel = () => {
                       </tr>
                     </thead>
                     <tbody className="text-sm">
-                      {users.map(u => (
-                        <tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      {users.map(u => {
+                        const joinedAt = u.createdAt ? new Date(u.createdAt) : null;
+                        const avatarLetter = (u.name || 'U').charAt(0).toUpperCase();
+                        return (<tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-8">
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center font-black text-blue-500">{u.name[0]}</div>
-                              <span className="font-black text-white">{u.name}</span>
+                              <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center font-black text-blue-500">{avatarLetter}</div>
+                              <span className="font-black text-white">{u.name || 'Unknown User'}</span>
                             </div>
                           </td>
                           <td className="p-8">
@@ -937,7 +949,7 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-8">
                             <div className="space-y-1">
-                              <p className="text-white font-black text-[11px]">{new Date(u.createdAt).toLocaleDateString()}</p>
+                              <p className="text-white font-black text-[11px]">{joinedAt && !Number.isNaN(joinedAt.getTime()) ? joinedAt.toLocaleDateString() : 'N/A'}</p>
                               <p className="text-zinc-600 text-[8px] font-black uppercase">Initial Sync</p>
                             </div>
                           </td>
@@ -948,7 +960,8 @@ export const AdminPanel = () => {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      );
+                      })}
                     </tbody>
                   </table>
                   {users.length === 0 && <div className="p-20 text-center text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] italic opacity-50">Empty Identity Database</div>}

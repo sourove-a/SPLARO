@@ -478,11 +478,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   items: items,
                   createdAt: o.created_at,
                   shippingFee: Number(o.shipping_fee) || 120,
+                  trackingNumber: o.tracking_number || o.trackingNumber,
+                  adminNotes: o.admin_notes || o.adminNotes,
+                  customerComment: o.customer_comment || o.customerComment,
                 };
               });
               setOrders(mappedOrders);
             }
-            if (result.data.users) setUsers(result.data.users);
+            if (result.data.users) {
+              const mappedUsers = result.data.users.map((u: any) => ({
+                ...u,
+                name: u.name || 'Unknown User',
+                email: u.email || '',
+                phone: u.phone || '',
+                role: (u.role === 'ADMIN' ? 'ADMIN' : 'USER'),
+                createdAt: u.created_at || u.createdAt || new Date().toISOString(),
+              }));
+              setUsers(mappedUsers);
+            }
             if (result.data.settings) {
               const s = result.data.settings;
               setSiteSettings({

@@ -24,19 +24,15 @@ export const SplaroLogo = ({ className = "h-8 md:h-12", forceWhite = false }: { 
             className="h-full w-auto object-contain"
           />
         ) : (
-          <svg viewBox="0 0 130 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[90%] w-auto filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-            <g className="transition-all duration-700 group-hover:scale-105">
-              {/* Top 3 High-Precision Bars */}
-              <g className="transition-transform duration-500 group-hover:-translate-y-1">
-                <path d="M55 45 L85 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
-                <path d="M78 45 L108 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
-                <path d="M101 45 L131 5" stroke="white" strokeWidth="18" strokeLinecap="round" />
+          <svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[90%] w-auto filter drop-shadow-[0_0_18px_rgba(255,255,255,0.2)]">
+            <g className="transition-all duration-700 group-hover:scale-105" stroke="white" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round">
+              <g className="transition-transform duration-500 group-hover:-translate-y-0.5">
+                <path d="M24 44 L56 12" />
+                <path d="M50 50 L82 18" />
               </g>
-              {/* Bottom 3 High-Precision Bars */}
-              <g className="transition-transform duration-500 group-hover:translate-y-1">
-                <path d="M5 95 L35 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
-                <path d="M28 95 L58 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
-                <path d="M51 95 L81 55" stroke="white" strokeWidth="18" strokeLinecap="round" />
+              <g className="transition-transform duration-500 group-hover:translate-y-0.5">
+                <path d="M24 100 L62 62" />
+                <path d="M56 106 L82 80" />
               </g>
             </g>
           </svg>
