@@ -262,29 +262,32 @@ export const CheckoutPage: React.FC = () => {
             <GlassCard className="p-10 md:p-12 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <LuxuryFloatingInput
-                  label="Recipient Identity"
+                  label="Full Name"
                   value={formData.fullName}
                   onChange={v => setFormData({ ...formData, fullName: v })}
                   icon={<User className="w-5 h-5" />}
                   error={errors.fullName}
-                  placeholder="Full Legal Name"
+                  placeholder="Enter your full name"
+                  autoComplete="name"
                 />
                 <LuxuryFloatingInput
-                  label="Email Correspondence"
+                  label="Email Address"
                   value={formData.email}
                   onChange={v => setFormData({ ...formData, email: v })}
                   icon={<Mail className="w-5 h-5" />}
                   error={errors.email}
-                  placeholder="name@email.com"
+                  placeholder="email@example.com"
+                  autoComplete="email"
                 />
                 <LuxuryFloatingInput
-                  label="Contact Coordinates"
+                  label="Phone Number"
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   icon={<Phone className="w-5 h-5" />}
-                  placeholder="01XXXXXXXXX"
+                  placeholder="017XXXXXXXX"
                   error={errors.phone}
-                  isValid={formData.phone.length === 11 && !validatePhone(formData.phone)}
+                  isValid={formData.phone.length === 11}
+                  autoComplete="tel"
                 />
               </div>
 

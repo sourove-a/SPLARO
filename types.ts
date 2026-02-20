@@ -42,6 +42,8 @@ export interface Product {
   discountPercentage?: number;
   sizeChartImage?: string;
   additionalImages?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
   variations?: {
     color: string;
     sizes: string[];

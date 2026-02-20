@@ -23,7 +23,7 @@ const GoogleIcon = () => (
 );
 
 export const LoginForm: React.FC = () => {
-  const { setUser, setView } = useApp();
+  const { setUser, setView, registerUser } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const isSignupPath = location.pathname.includes('signup');
@@ -120,7 +120,7 @@ export const LoginForm: React.FC = () => {
       }
     } else if (authMode === 'signup') {
       try {
-        const newUser = {
+        const newUser: any = {
           id: Math.random().toString(36).substr(2, 9),
           name: formData.name,
           email: formData.email,
@@ -138,10 +138,7 @@ export const LoginForm: React.FC = () => {
           const result = await res.json();
           if (result.status !== 'success') throw new Error(result.message);
         } else {
-          const savedUsers = JSON.parse(localStorage.getItem('splaro-registered-users') || '[]');
-
-          // Identity Synchronization: Archive all precision markers (including Phone)
-          localStorage.setItem('splaro-registered-users', JSON.stringify([...savedUsers, newUser]));
+          registerUser(newUser);
         }
 
         setUser(newUser);
@@ -319,13 +316,7 @@ export const LoginForm: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-blue-500/10 opacity-50 pointer-events-none" />
 
           <header className="flex flex-col items-center text-center mb-12 relative z-10 pt-4">
-            <motion.div
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className="mb-8"
-            >
-              <SplaroLogo className="h-14 md:h-18" />
-            </motion.div>
+            <div className="h-10 md:h-14" />
 
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white mb-3 italic">
               {authMode === 'login' ? 'IDENTITY' : authMode === 'signup' ? 'ARCHIVING' : 'RECOVERY'}

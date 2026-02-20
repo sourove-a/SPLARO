@@ -99,7 +99,7 @@ const ScrollToTop = () => {
 const HomeView = () => {
   const { products, setSelectedCategory, setSearchQuery } = useApp();
   const navigate = useNavigate();
-  const featuredProducts = products.filter(p => p.featured);
+  const displayProducts = products;
 
   return (
     <div className="relative">
@@ -126,7 +126,7 @@ const HomeView = () => {
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-20 md:gap-24">
-          {featuredProducts.map((p, i) => (
+          {displayProducts.map((p, i) => (
             <ProductCard key={p.id} product={p} index={i} />
           ))}
         </div>
@@ -243,7 +243,7 @@ const OrderSuccessView = () => {
 
 
 const BrandMarquee = () => {
-  const brands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Splaro', 'Luxury Imports'];
+  const brands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Luxury Imports'];
 
   return (
     <div className="relative w-full overflow-hidden py-12 border-y border-white/5 bg-[#0A0C12]/30 backdrop-blur-3xl mb-24">
@@ -290,7 +290,9 @@ const Footer = () => {
             {/* Brand Essence Column */}
             <div className="lg:col-span-3 space-y-10">
               <div className="cursor-pointer inline-block" onClick={() => navigate('/')}>
-                <SplaroLogo className="h-10 md:h-12 -ml-2" />
+                <span className="text-2xl md:text-3xl font-black italic tracking-tighter text-white uppercase select-none">
+                  SPLARO
+                </span>
               </div>
               <p className="text-zinc-500 text-[10px] font-bold leading-relaxed uppercase tracking-[0.25em] max-w-sm">
                 Directly imported from Guangzhou & Shanghai. Curating global imported grade heritage with precision logistics.

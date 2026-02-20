@@ -52,7 +52,8 @@ export const LuxuryFloatingInput: React.FC<{
   isValid?: boolean;
   suffix?: React.ReactNode;
   placeholder?: string;
-}> = ({ label, value, onChange, icon, type = "text", error, isValid, suffix, placeholder }) => {
+  autoComplete?: string;
+}> = ({ label, value, onChange, icon, type = "text", error, isValid, suffix, placeholder, autoComplete = "off" }) => {
   const [focused, setFocused] = useState(false);
   const isFilled = value.length > 0;
 
@@ -62,14 +63,14 @@ export const LuxuryFloatingInput: React.FC<{
         animate={{
           borderColor: focused ? 'rgba(0, 212, 255, 0.6)' : error ? 'rgba(244, 63, 94, 0.5)' : isValid ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.15)',
           backgroundColor: focused ? 'rgba(255, 255, 255, 0.1)' : error ? 'rgba(244, 63, 94, 0.08)' : 'rgba(255, 255, 255, 0.06)',
-          shadow: focused ? '0 0 40px rgba(0, 212, 255, 0.15)' : 'none'
+          boxShadow: focused ? '0 0 40px rgba(0, 212, 255, 0.15)' : 'none'
         }}
-        className={`relative flex items-center h-20 md:h-22 border rounded-[28px] transition-all duration-500 overflow-hidden backdrop-blur-3xl shadow-2xl`}
+        className={`relative flex items-center h-22 md:h-24 border rounded-[32px] transition-all duration-500 overflow-hidden backdrop-blur-3xl shadow-2xl`}
       >
 
         <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
 
-        <div className={`pl-8 transition-all duration-500 ${focused ? 'text-cyan-400 scale-110 drop-shadow-[0_0_8px_rgba(0,212,255,0.4)]' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-400'}`}>
+        <div className={`pl-10 transition-all duration-500 ${focused ? 'text-cyan-400 scale-110 drop-shadow-[0_0_8px_rgba(0,212,255,0.4)]' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-400'}`}>
           {icon}
         </div>
 
@@ -77,13 +78,13 @@ export const LuxuryFloatingInput: React.FC<{
           <motion.label
             initial={false}
             animate={{
-              y: (focused || isFilled) ? -22 : 0,
-              scale: (focused || isFilled) ? 0.6 : 1,
-              x: (focused || isFilled) ? -18 : 0,
-              color: focused ? '#00D4FF' : error ? '#f43f5e' : isValid ? '#10b981' : '#71717A'
+              y: (focused || isFilled) ? -24 : 0,
+              scale: (focused || isFilled) ? 0.55 : 1,
+              x: (focused || isFilled) ? -20 : 0,
+              color: (focused || isFilled) ? '#00D4FF' : error ? '#f43f5e' : isValid ? '#10b981' : '#71717A'
             }}
-            transition={{ type: "spring", stiffness: 250, damping: 30 }}
-            className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-[12px] font-black uppercase tracking-[0.3em] origin-left z-20"
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-[12px] font-black uppercase tracking-[0.4em] origin-left z-20 whitespace-nowrap"
           >
             {label}
           </motion.label>
@@ -91,15 +92,32 @@ export const LuxuryFloatingInput: React.FC<{
           <input
             type={type}
             value={value}
+            autoComplete={autoComplete}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={focused ? placeholder : ""}
-            className="w-full h-full bg-transparent px-6 pt-7 outline-none text-white font-bold text-base tracking-wide placeholder:text-zinc-700 transition-all font-mono relative z-30 pointer-events-auto"
+            placeholder={focused && !isFilled ? placeholder : ""}
+            className="w-full h-full bg-transparent px-6 pt-7 outline-none text-white font-bold text-base tracking-widest placeholder:text-zinc-700 transition-all relative z-10 pointer-events-auto"
           />
         </div>
 
-        {suffix && <div className="pr-8 flex items-center">{suffix}</div>}
+        {suffix && <div className="pr-8 flex items-center shrink-0">{suffix}</div>}
+
+        <AnimatePresence>
+          {isValid && !error && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mr-10 w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)] shrink-0"
+            >
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2 }}>
+                <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Animated Bloom Effect */}
         <AnimatePresence>
@@ -124,19 +142,6 @@ export const LuxuryFloatingInput: React.FC<{
           >
             <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" />
             <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">{error}</span>
-          </motion.div>
-        )}
-        {isValid && !error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute top-1/2 -translate-y-1/2 -right-4 w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-          >
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2 }}>
-              <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

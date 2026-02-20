@@ -6,6 +6,56 @@
 
 require_once 'config.php';
 
+// PHPMailer Integration
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\SMTP;
+
+require 'PHPMailer/Exception.php';
+require 'PHPMailer/PHPMailer.php';
+require 'PHPMailer/SMTP.php';
+
+function send_institutional_email($to, $subject, $body, $altBody = '') {
+    global $db;
+    
+    // Fetch dynamic SMTP settings from database
+    $settings_raw = $db->query("SELECT smtp_settings FROM site_settings LIMIT 1")->fetchColumn();
+    $db_settings = json_decode($settings_raw, true) ?? [];
+
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = !empty($db_settings['host']) ? $db_settings['host'] : SMTP_HOST;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
+        $mail->Password   = !empty($db_settings['pass']) ? $db_settings['pass'] : SMTP_PASS;
+        
+        $port = !empty($db_settings['port']) ? (int)$db_settings['port'] : SMTP_PORT;
+        $mail->Port       = $port;
+        
+        if ($port === 465) {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+        $from_user = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
+        $mail->setFrom($from_user, 'SPLARO HQ');
+        $mail->addAddress($to);
+
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+        $mail->AltBody = $altBody ?: strip_tags($body);
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("SPLARO_MAIL_FAILURE: " . $mail->ErrorInfo . " | Exception: " . $e->getMessage());
+        return false;
+    }
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 

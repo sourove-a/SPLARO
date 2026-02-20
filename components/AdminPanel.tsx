@@ -11,7 +11,7 @@ import {
   Zap, Shield, BarChart3, HelpCircle, Palette, Layers, Box, Maximize,
   Thermometer, Info, Sparkles, AlertTriangle, FileText, Share2, Download,
   CloudLightning, Activity, Target, PieChart, TrendingUp as TrendUpIcon,
-  CreditCard, Briefcase, Settings2, Command, Smartphone
+  CreditCard, Briefcase, Settings2, Smartphone
 } from 'lucide-react';
 
 
@@ -116,9 +116,12 @@ const ProductModal: React.FC<{
     variations: []
   });
 
+  const [colorInput, setColorInput] = useState('');
+
   const availableSizes = ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
   const availableBrands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Splaro', 'Luxury Imports'];
   const availableCategories = ['Shoes', 'Bags'];
+  const availableSubCategories = ['Sneakers', 'Running', 'Formal', 'Casual', 'Basketball', 'Sandals', 'Boots', 'Handbags', 'Backpacks', 'Totes'];
   const availableMaterials = ['Leather', 'Synthetic', 'Mesh', 'Canvas', 'Knit', 'Suede'];
 
   const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
@@ -153,7 +156,7 @@ const ProductModal: React.FC<{
         <div className="p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/40">
-              <Command className="w-8 h-8 text-white" />
+              <LayoutDashboard className="w-8 h-8 text-white" />
             </div>
             <div>
               <h2 className="text-3xl font-black uppercase italic tracking-tighter">
@@ -221,7 +224,26 @@ const ProductModal: React.FC<{
                   ))}
                 </div>
 
-                <LuxuryFloatingInput label="Sub-Category Archive" value={formData.subCategory || ''} onChange={v => setFormData({ ...formData, subCategory: v })} placeholder="e.g. Sneakers, Formal, Running" icon={<Layers className="w-5 h-5" />} />
+                <div className="space-y-4">
+                  <LuxuryFloatingInput
+                    label="Sub-Category Archive"
+                    value={formData.subCategory || ''}
+                    onChange={v => setFormData({ ...formData, subCategory: v })}
+                    placeholder="e.g. Sneakers, Formal, Running"
+                    icon={<Layers className="w-5 h-5" />}
+                  />
+                  <div className="flex flex-wrap gap-2 px-6">
+                    {availableSubCategories.map(sc => (
+                      <button
+                        key={sc}
+                        onClick={() => setFormData({ ...formData, subCategory: sc })}
+                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-cyan-500 border-cyan-500 text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
+                      >
+                        {sc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="pt-6 border-t border-white/5 space-y-4">
                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4">Discovery Protocol</h4>
@@ -367,11 +389,19 @@ const ProductModal: React.FC<{
               </div>
               <div className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Discovery Optimization (SEO)</h3>
-                <LuxuryFloatingInput label="Meta Title Manifest" value={formData.name || ''} placeholder="Elite Luxury Footwear..." icon={<Globe className="w-5 h-5" />} />
+                <LuxuryFloatingInput
+                  label="Meta Title Manifest"
+                  value={formData.seoTitle || formData.name || ''}
+                  onChange={v => setFormData({ ...formData, seoTitle: v })}
+                  placeholder="Elite Luxury Footwear..."
+                  icon={<Globe className="w-5 h-5" />}
+                />
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
                   <textarea
                     placeholder="META DESCRIPTION PROTOCOL..."
+                    value={formData.seoDescription || ''}
+                    onChange={e => setFormData({ ...formData, seoDescription: e.target.value })}
                     className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-[10px] outline-none resize-none focus:border-blue-500/50 transition-all placeholder:text-zinc-800 uppercase bg-[#0A0C12]/50 text-white"
                   />
                 </div>
@@ -384,12 +414,42 @@ const ProductModal: React.FC<{
                     <input
                       type="text"
                       placeholder="COLOR IDENTITY (e.g. Midnight Black)"
+                      value={colorInput}
+                      onChange={e => setColorInput(e.target.value)}
+                      onKeyPress={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (colorInput.trim()) {
+                            setFormData({ ...formData, colors: [...(formData.colors || []), colorInput.trim()] });
+                            setColorInput('');
+                          }
+                        }
+                      }}
                       className="flex-1 bg-[#0A0C12]/50 border border-white/10 rounded-[20px] px-6 py-4 text-[11px] font-black tracking-widest outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-700 text-white uppercase"
                     />
-                    <button className="px-8 rounded-[20px] bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20">Add</button>
+                    <button
+                      onClick={() => {
+                        if (colorInput.trim()) {
+                          setFormData({ ...formData, colors: [...(formData.colors || []), colorInput.trim()] });
+                          setColorInput('');
+                        }
+                      }}
+                      className="px-8 rounded-[20px] bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
+                    >
+                      Add
+                    </button>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {formData.colors?.map(c => <span key={c} className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[8px] font-black uppercase">{c}</span>)}
+                    {formData.colors?.map(c => (
+                      <span
+                        key={c}
+                        onClick={() => setFormData({ ...formData, colors: formData.colors?.filter(x => x !== c) })}
+                        className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[8px] font-black uppercase cursor-pointer hover:bg-rose-500/20 hover:border-rose-500/50 hover:text-rose-500 transition-all flex items-center gap-2 group"
+                      >
+                        {c}
+                        <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -502,10 +562,7 @@ export const AdminPanel = () => {
     <div className="min-h-screen pt-32 pb-20 px-6 max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-12 text-white">
       {/* Sidebar Navigation */}
       <aside className="w-full lg:w-80 shrink-0 flex flex-col gap-8">
-        <div className="px-8 flex flex-col gap-2">
-          <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.6em] italic">Institutional Portal</p>
-          <p className="text-2xl font-black italic uppercase tracking-tighter text-white">Command.Center</p>
-        </div>
+        <div className="h-10" />
         <GlassCard className="p-8 space-y-3">
           <SidebarItem icon={LayoutDashboard} label="Command Center" active={activeTab === 'DASHBOARD'} onClick={() => setActiveTab('DASHBOARD')} />
           <SidebarItem icon={BarChart3} label="Strategic Analytics" active={activeTab === 'ANALYTICS'} onClick={() => setActiveTab('ANALYTICS')} />
@@ -517,7 +574,6 @@ export const AdminPanel = () => {
           <SidebarItem icon={DollarSign} label="Financials" active={activeTab === 'FINANCE'} onClick={() => setActiveTab('FINANCE')} />
           <SidebarItem icon={Database} label="Registry Sync" active={activeTab === 'SYNC'} onClick={() => setActiveTab('SYNC')} />
           <SidebarItem icon={Settings} label="Protocols" active={activeTab === 'SETTINGS'} onClick={() => setActiveTab('SETTINGS')} />
-          <SidebarItem icon={Activity} label="System Logs" active={activeTab === 'LOGS'} onClick={() => setActiveTab('LOGS')} />
           <SidebarItem icon={Globe} label="Live Traffic" active={activeTab === 'TRAFFIC'} onClick={() => setActiveTab('TRAFFIC')} />
           <SidebarItem icon={Zap} label="Campaigns" active={activeTab === 'CAMPAIGNS'} onClick={() => setActiveTab('CAMPAIGNS')} />
 
@@ -1361,57 +1417,6 @@ export const AdminPanel = () => {
                   </div>
                 </div>
               </GlassCard>
-            </motion.div>
-          )}
-
-          {activeTab === 'LOGS' && (
-            <motion.div key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2 space-y-6">
-                  <h3 className="text-2xl font-black uppercase italic">Real-Time Event Stream</h3>
-                  <div className="space-y-4">
-                    {logs.length > 0 ? logs.map((log, i) => (
-                      <div key={i} className="flex justify-between items-center p-6 liquid-glass border border-white/5 rounded-2xl group hover:border-blue-500/30 transition-all">
-                        <div className="flex items-center gap-6">
-                          <div className={`w-2 h-2 rounded-full ${log.event_type === 'IDENTITY_VALIDATION' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
-                          <div>
-                            <p className="text-xs font-black text-white">{log.event_type}</p>
-                            <p className="text-[10px] text-zinc-600 font-bold uppercase">{log.event_description}</p>
-                            <p className="text-[9px] text-blue-500/50 font-mono">IP: {log.ip_address}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-black text-blue-500">PROCESSED</p>
-                          <p className="text-[10px] text-zinc-700 font-mono">{new Date(log.created_at).toLocaleTimeString()}</p>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="text-center p-10 border border-dashed border-white/5 rounded-2xl">
-                        <p className="text-xs text-zinc-600 font-bold uppercase">No archival events detected.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-8">
-                  <h3 className="text-2xl font-black uppercase italic">Security Status</h3>
-                  <GlassCard className="p-8 space-y-6 border-emerald-500/20">
-                    <div className="flex items-center gap-4 text-emerald-500">
-                      <Shield className="w-6 h-6" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Firewall Protocol: ACTIVE</span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-[9px] font-black uppercase text-zinc-500">
-                        <span>Integrity Level</span>
-                        <span className="text-emerald-500">99.8%</span>
-                      </div>
-                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 w-[99.8%]" />
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-zinc-600 leading-relaxed font-medium">All cryptographic certificates are manifest. No unauthorized discovery attempts detected.</p>
-                  </GlassCard>
-                </div>
-              </div>
             </motion.div>
           )}
 

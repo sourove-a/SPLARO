@@ -20,7 +20,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Imported high-performance cushioning with Air Flow technology.', BN: 'এয়ার ফ্লো টেকনোলজি সহ উন্নত কুশনিং যুক্ত ইম্পোর্টেড জুতা।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Volt Green', 'Black'],
-    featured: true
+    featured: true,
+    subCategory: 'Running'
   },
   {
     id: 'ad1',
@@ -33,7 +34,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Legendary energy return and superior comfort.', BN: 'অসাধারণ এনার্জি রিটার্ন এবং আরামদায়ক অ্যাডডাস স্নিকার।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Cloud White', 'Black'],
-    featured: true
+    featured: true,
+    subCategory: 'Running'
   },
   {
     id: 'j1',
@@ -46,7 +48,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'The basketball legacy, remastered with premium materials.', BN: 'প্রিমিয়াম ম্যাটেরিয়াল দিয়ে তৈরি করা বাস্কেটবল লেজেন্ড।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Chicago Red', 'Obsidian'],
-    featured: true
+    featured: true,
+    subCategory: 'Basketball'
   },
   {
     id: 'gc1',
@@ -59,7 +62,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Italian craftsmanship with iconic web stripe detail.', BN: 'আইকনিক ওয়েব স্ট্রাইপ সহ ইতালিয়ান ক্রাফটসম্যানশিপ।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['White/Green/Red'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'lv1',
@@ -72,7 +76,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Luxury fashion combined with vintage aesthetic.', BN: 'ভিনটেজ নান্দনিকতার সাথে লাক্সারি ফ্যাশন।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Damier Azure', 'Black/Gold'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'b1',
@@ -85,7 +90,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'High-fashion chunky sneaker with layered construction.', BN: 'লেয়ার্ড কনস্ট্রাকশন সহ হাই-ফ্যাশন স্নিকার।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['White/Orange', 'Full Black'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'pr1',
@@ -98,7 +104,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Futuristic design with sculptural 3D sole.', BN: 'থ্রিডি সোল সহ ফিউচারিস্টিক প্রাদা স্নিকার।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Matte Black', 'Silver'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'dr1',
@@ -111,7 +118,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Oblique canvas with transparent paneling.', BN: 'ট্রান্সপারেন্ট প্যানেলিং সহ ডিওর অবলিক ক্যানভাস।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Dior Oblique'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'vr1',
@@ -124,7 +132,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Bold chain-link sole with Medusa details.', BN: 'মেডুসা ডিটেইল সহ বোল্ড চেইন-লিঙ্ক সোল।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Multi-Color'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'fn1',
@@ -137,7 +146,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Sleek design with side zipper and FF motif.', BN: 'এফএফ মোটিফ সহ আধুনিক স্লিড ডিজাইন।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Yellow/Black'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'hm1',
@@ -150,7 +160,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Pinnacle of luxury materials and craftsmanship.', BN: 'লাক্সারি ম্যাটেরিয়াল এবং ক্রাফটসম্যানশিপের শীর্ষে।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Cognac', 'White'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'ysl1',
@@ -163,7 +174,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Minimalist leather sneaker with hand-written logo.', BN: 'হ্যান্ড-রাইটিং লোগো সহ মিনিমালিস্ট লেদার স্নিকার।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Optical White'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'bb1',
@@ -176,7 +188,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Classic check pattern on premium canvas.', BN: 'প্রিমিয়াম ক্যানভাসে ক্লাসিক চেক প্যাটার্ন।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Archive Beige'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'ch1',
@@ -189,7 +202,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'The ultimate fashion statement with CC logo.', BN: 'সিসি লোগো সহ ফ্যাশন স্টেটমেন্ট।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Black/White Velvet'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'v1',
@@ -202,7 +216,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Signature studs on premium leather sneaker.', BN: 'প্রিমিয়াম লেদার স্নিকারে সিগনেচার স্টাডস।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Burgundy', 'Navy'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'gv1',
@@ -215,7 +230,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Modern urban sneaker with 4G metal hardware.', BN: 'ফোর-জি মেটাল হার্ডওয়্যার সহ মডার্ন স্নিকার।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Silver Chrome'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'ow1',
@@ -228,7 +244,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Virgil Ablohs industrial design language.', BN: 'ভার্জিল আবলো এর ইন্ডাস্ট্রিয়াল ডিজাইন ল্যাঙ্গুয়েজ।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Gradient Orange'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'y1',
@@ -241,7 +258,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Kanye West design, pinnacle of comfort and style.', BN: 'আরাম এবং স্টাইলের শীর্ষে থাকা কানিয়ি ওয়েস্ট ডিজাইন।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Carbon', 'Zebra'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'nb1',
@@ -254,7 +272,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Modern chunky silhouette with futuristic cushioning.', BN: 'ফিউচারিস্টিক কুশনিং সহ মডার্ন চাঙ্কি স্নিকার।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Sea Salt', 'Grey'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   },
   {
     id: 'amq1',
@@ -267,7 +286,8 @@ const INITIAL_PRODUCTS: Product[] = [
     description: { EN: 'Iconic oversized sole with luxury leather upper.', BN: 'লাক্সারি লেদার সহ আইকনিক ওভারসাইজড সোল।' },
     sizes: ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
     colors: ['Black Suede'],
-    featured: true
+    featured: true,
+    subCategory: 'Sneakers'
   }
 ];
 
@@ -304,6 +324,7 @@ interface AppContextType {
   users: User[];
   deleteUser: (id: string) => void;
   updateUser: (u: User) => void;
+  registerUser: (u: User) => void;
 
   selectedProduct: Product | null;
   setSelectedProduct: (p: Product | null) => void;
@@ -333,6 +354,7 @@ interface AppContextType {
   lastSeenOrderTime: string;
   setLastSeenOrderTime: (t: string) => void;
   initializeSheets: () => Promise<void>;
+  syncRegistry: () => Promise<void>;
 }
 
 
@@ -449,79 +471,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const IS_PROD = window.location.hostname !== 'localhost';
   const API_NODE = '/api/index.php';
 
+  const syncRegistry = async () => {
+    try {
+      const res = await fetch(`${API_NODE}?action=sync`);
+      const result = await res.json();
+      if (result.status === 'success') {
+        setDbStatus('CONNECTED');
+        if (result.data.products?.length > 0) setProducts(result.data.products);
+        if (result.data.logs?.length > 0) setLogs(result.data.logs);
+        if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
+        if (result.data.orders) {
+          const mappedOrders = result.data.orders.map((o: any) => {
+            let items = [];
+            try {
+              items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+            } catch (e) {
+              console.error('ASSET_DECODE_FAILURE:', o.id);
+            }
+            return {
+              ...o,
+              userId: o.user_id,
+              customerName: o.customer_name,
+              customerEmail: o.customer_email,
+              district: o.district,
+              thana: o.thana,
+              items: items,
+              createdAt: o.created_at,
+              shippingFee: Number(o.shipping_fee) || 120,
+            };
+          });
+          setOrders(mappedOrders);
+        }
+        if (result.data.users) {
+          const mappedUsers = result.data.users.map((u: any) => ({
+            ...u,
+            createdAt: u.created_at
+          }));
+          setUsers(mappedUsers);
+        }
+        if (result.data.settings) {
+          const s = result.data.settings;
+          setSiteSettings({
+            siteName: s.site_name || 'SPLARO',
+            maintenanceMode: s.maintenance_mode === 1,
+            supportEmail: s.support_email || '',
+            supportPhone: s.support_phone || '',
+            whatsappNumber: s.whatsapp_number || '',
+            facebookLink: s.facebook_link || '',
+            instagramLink: s.instagram_link || '',
+            logoUrl: s.logo_url || ''
+          });
+          if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
+          if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
+          if (s.hero_slides && Array.isArray(s.hero_slides)) setSlides(s.hero_slides);
+        }
+        if (result.data.logs) setLogs(result.data.logs);
+      } else {
+        setDbStatus('LOCAL');
+      }
+    } catch (e) {
+      setDbStatus('LOCAL');
+      console.warn('ARCHIVAL_SYNC_BYPASS: Operative terminal logic initialized locally.');
+    }
+  };
+
   useEffect(() => {
     if (IS_PROD) {
-      const syncRegistry = async () => {
-        try {
-          const res = await fetch(`${API_NODE}?action=sync`);
-          const result = await res.json();
-          if (result.status === 'success') {
-            setDbStatus('CONNECTED');
-            if (result.data.products?.length > 0) setProducts(result.data.products);
-            if (result.data.logs?.length > 0) setLogs(result.data.logs);
-            if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
-            if (result.data.orders) {
-              const mappedOrders = result.data.orders.map((o: any) => {
-                let items = [];
-                try {
-                  items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-                } catch (e) {
-                  console.error('ASSET_DECODE_FAILURE:', o.id);
-                }
-                return {
-                  ...o,
-                  userId: o.user_id,
-                  customerName: o.customer_name,
-                  customerEmail: o.customer_email,
-                  district: o.district,
-                  thana: o.thana,
-                  items: items,
-                  createdAt: o.created_at,
-                  shippingFee: Number(o.shipping_fee) || 120,
-                  trackingNumber: o.tracking_number || o.trackingNumber,
-                  adminNotes: o.admin_notes || o.adminNotes,
-                  customerComment: o.customer_comment || o.customerComment,
-                };
-              });
-              setOrders(mappedOrders);
-            }
-            if (result.data.users) {
-              const mappedUsers = result.data.users.map((u: any) => ({
-                ...u,
-                name: u.name || 'Unknown User',
-                email: u.email || '',
-                phone: u.phone || '',
-                role: (u.role === 'ADMIN' ? 'ADMIN' : 'USER'),
-                createdAt: u.created_at || u.createdAt || new Date().toISOString(),
-              }));
-              setUsers(mappedUsers);
-            }
-            if (result.data.settings) {
-              const s = result.data.settings;
-              setSiteSettings({
-                siteName: s.site_name || 'SPLARO',
-                maintenanceMode: s.maintenance_mode === 1,
-                supportEmail: s.support_email || '',
-                supportPhone: s.support_phone || '',
-                whatsappNumber: s.whatsapp_number || '',
-                facebookLink: s.facebook_link || '',
-                instagramLink: s.instagram_link || '',
-                logoUrl: s.logo_url || ''
-              });
-              if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
-              if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
-              if (s.hero_slides && Array.isArray(s.hero_slides)) setSlides(s.hero_slides);
-            }
-            if (result.data.logs) setLogs(result.data.logs);
-          } else {
-            setDbStatus('LOCAL');
-          }
-        } catch (e) {
-          setDbStatus('LOCAL');
-          console.warn('ARCHIVAL_SYNC_BYPASS: Operative terminal logic initialized locally.');
-        }
-      };
       syncRegistry();
+      const interval = setInterval(syncRegistry, 60000); // Background Sync Protocol: 60s Pulse
+      return () => clearInterval(interval);
     } else {
       setDbStatus('LOCAL');
     }
@@ -734,6 +752,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     view, setView, products, addOrUpdateProduct, deleteProduct, language, setLanguage, theme, setTheme,
     cart, addToCart, removeFromCart, orders, addOrder, updateOrderStatus, deleteOrder, user, setUser,
     users, deleteUser, updateUser,
+    registerUser: (u: User) => setUsers(prev => [u, ...prev]),
     selectedProduct, setSelectedProduct, discounts, addDiscount, toggleDiscount, deleteDiscount,
     slides, setSlides, selectedCategory, setSelectedCategory,
     smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
@@ -741,9 +760,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isSearchOpen, setIsSearchOpen,
     siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata,
-    dbStatus, initializeSheets, logs, trafficData,
+    dbStatus, initializeSheets, syncRegistry, logs, trafficData,
     lastSeenOrderTime, setLastSeenOrderTime
-  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime]);
+  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime, syncRegistry]);
 
 
 
@@ -755,4 +774,3 @@ export const useApp = () => {
   if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 };
-

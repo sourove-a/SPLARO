@@ -8,7 +8,7 @@ import { GlassCard, LuxuryFloatingInput, PrimaryButton } from './LiquidGlass';
 import { useNavigate } from 'react-router-dom';
 
 export const UserDashboard: React.FC = () => {
-  const { user, updateUser, setUser, orders } = useApp();
+  const { user, updateUser, setUser, orders, syncRegistry } = useApp();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<User>>({
@@ -41,6 +41,10 @@ export const UserDashboard: React.FC = () => {
     };
 
     updateUser(updatedUser);
+    setSaveStatus('saving'); // Keep showing saving briefly
+    if (localStorage.getItem('splaro-session-id')) {
+      await syncRegistry();
+    }
     setSaveStatus('success');
     setTimeout(() => {
       setSaveStatus('idle');
@@ -56,7 +60,7 @@ export const UserDashboard: React.FC = () => {
           <p className="text-[10px] font-black uppercase tracking-[0.6em] text-white/30 mt-4">Authorized Access Only — Secure Archive</p>
         </div>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => syncRegistry()}
           className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-cyan-500 hover:border-cyan-500/30 transition-all flex items-center gap-3"
         >
           <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
