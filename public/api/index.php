@@ -766,6 +766,49 @@ function sanitize_user_payload($user) {
     ];
 }
 
+function resolve_admin_login_email($db = null) {
+    $candidates = [
+        strtolower(trim((string)env_or_default('ADMIN_LOGIN_EMAIL', ''))),
+        strtolower(trim((string)env_or_default('SEED_ADMIN_EMAIL', ''))),
+        strtolower(trim((string)env_or_default('SMTP_USER', ''))),
+        'info@splaro.co',
+        'admin@splaro.co'
+    ];
+
+    if ($db instanceof PDO) {
+        try {
+            $row = $db->query("SELECT support_email FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+            $supportEmail = strtolower(trim((string)($row['support_email'] ?? '')));
+            if ($supportEmail !== '') {
+                $candidates[] = $supportEmail;
+            }
+        } catch (Exception $e) {
+            // best effort
+        }
+    }
+
+    $seen = [];
+    foreach ($candidates as $candidate) {
+        if ($candidate === '' || isset($seen[$candidate])) {
+            continue;
+        }
+        $seen[$candidate] = true;
+        if (filter_var($candidate, FILTER_VALIDATE_EMAIL)) {
+            return $candidate;
+        }
+    }
+
+    return 'admin@splaro.co';
+}
+
+function is_admin_login_email($email, $db = null) {
+    $normalized = strtolower(trim((string)$email));
+    if ($normalized === '') {
+        return false;
+    }
+    return hash_equals(resolve_admin_login_email($db), $normalized);
+}
+
 $requestAuthUser = get_authenticated_user_from_request();
 
 if ($method === 'GET' && $action === 'health') {
@@ -1473,6 +1516,17 @@ if ($method === 'POST' && $action === 'signup') {
     if (!in_array($role, ['USER', 'ADMIN'], true)) {
         $role = 'USER';
     }
+    if ($role === 'ADMIN') {
+        $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
+        if (ADMIN_KEY === '' || !hash_equals(ADMIN_KEY, $adminKeyHeader)) {
+            $role = 'USER';
+        }
+    }
+
+    $isAdminIdentity = is_admin_login_email($email, $db);
+    if ($isAdminIdentity) {
+        $role = 'ADMIN';
+    }
 
     $id = trim((string)($input['id'] ?? ''));
     if ($id === '') {
@@ -1484,13 +1538,23 @@ if ($method === 'POST' && $action === 'signup') {
     $existing = $check->fetch();
 
     if ($existing) {
+        $existingRole = strtoupper((string)($existing['role'] ?? 'USER'));
+        $persistRole = $existingRole;
+        if ($isAdminIdentity || $existingRole === 'ADMIN') {
+            $persistRole = 'ADMIN';
+        } elseif ($role === 'ADMIN') {
+            $persistRole = 'ADMIN';
+        } elseif (in_array($existingRole, ['USER'], true)) {
+            $persistRole = 'USER';
+        }
+
         $update = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ?, role = ? WHERE id = ?");
         $update->execute([
             $name,
             $phone,
             $address !== '' ? $address : ($existing['address'] ?? null),
             $profileImage !== '' ? $profileImage : ($existing['profile_image'] ?? null),
-            $existing['role'] ?? $role,
+            $persistRole,
             $existing['id']
         ]);
         $refetch = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
@@ -1717,6 +1781,7 @@ if ($method === 'POST' && $action === 'login') {
     $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
+    $adminIdentity = is_admin_login_email($email, $db);
 
     $isAuthenticated = false;
     if ($user && isset($user['password'])) {
@@ -1730,6 +1795,38 @@ if ($method === 'POST' && $action === 'login') {
             $upgradeStmt->execute([$upgradedHash, $user['id']]);
             $user['password'] = $upgradedHash;
             $isAuthenticated = true;
+        }
+    }
+
+    if (!$isAuthenticated && $adminIdentity && ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $providedPassword)) {
+        try {
+            $adminHash = password_hash($providedPassword, PASSWORD_DEFAULT);
+            if ($user) {
+                $promoteStmt = $db->prepare("UPDATE users SET role = 'ADMIN', password = ? WHERE id = ?");
+                $promoteStmt->execute([$adminHash, $user['id']]);
+                $reload = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $reload->execute([$user['id']]);
+                $user = $reload->fetch();
+            } else {
+                $adminId = 'admin_' . bin2hex(random_bytes(4));
+                $createAdmin = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $createAdmin->execute([
+                    $adminId,
+                    'Splaro Admin',
+                    $email,
+                    '01700000000',
+                    null,
+                    null,
+                    $adminHash,
+                    'ADMIN'
+                ]);
+                $reload = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $reload->execute([$adminId]);
+                $user = $reload->fetch();
+            }
+            $isAuthenticated = is_array($user);
+        } catch (Exception $e) {
+            error_log("SPLARO_ADMIN_BOOTSTRAP_FAILURE: " . $e->getMessage());
         }
     }
 

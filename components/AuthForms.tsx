@@ -68,7 +68,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     // Hidden Admin Entry Protocol
     if (location.pathname === '/sourove-admin') {
       setAuthMode('login');
-      setFormData(prev => ({ ...prev, identifier: 'admin@splaro.co' }));
+      setFormData(prev => ({
+        ...prev,
+        identifier: prev.identifier || 'info@splaro.co'
+      }));
     }
   }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode]);
 
