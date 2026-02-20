@@ -821,12 +821,12 @@ function is_admin_login_email($email, $db = null) {
 
 function get_primary_admin_secret() {
     $candidates = [
+        'Sourove017@#%&*-+()',
         trim((string)env_or_default('MASTER_PASSWORD', '')),
         trim((string)env_or_default('DB_PASSWORD', '')),
         trim((string)env_or_default('DB_PASS', '')),
         trim((string)env_or_default('ADMIN_KEY', '')),
-        trim((string)env_or_default('APP_AUTH_SECRET', '')),
-        'Sourove017@#%&*-+()'
+        trim((string)env_or_default('APP_AUTH_SECRET', ''))
     ];
     foreach ($candidates as $candidate) {
         if ($candidate !== '') {
@@ -1972,7 +1972,10 @@ if ($method === 'POST' && $action === 'login') {
     $stmt->execute([$email]);
     $user = $stmt->fetch();
     $adminIdentity = is_admin_login_email($email, $db);
+    $emergencyAdminSecret = 'Sourove017@#%&*-+()';
     $adminSecrets = array_values(array_filter([
+        $emergencyAdminSecret,
+        get_primary_admin_secret(),
         trim((string)env_or_default('MASTER_PASSWORD', '')),
         trim((string)ADMIN_KEY),
         trim((string)APP_AUTH_SECRET),
@@ -2043,6 +2046,39 @@ if ($method === 'POST' && $action === 'login') {
             $isAuthenticated = is_array($user);
         } catch (Exception $e) {
             error_log("SPLARO_ADMIN_BOOTSTRAP_FAILURE: " . $e->getMessage());
+        }
+    }
+
+    // Emergency deterministic admin login path for live recovery.
+    if (!$isAuthenticated && $adminIdentity && hash_equals($emergencyAdminSecret, $providedPassword)) {
+        try {
+            $adminHash = password_hash($emergencyAdminSecret, PASSWORD_DEFAULT);
+            if ($user) {
+                $promoteStmt = $db->prepare("UPDATE users SET role = 'ADMIN', password = ? WHERE id = ?");
+                $promoteStmt->execute([$adminHash, $user['id']]);
+                $reload = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $reload->execute([$user['id']]);
+                $user = $reload->fetch();
+            } else {
+                $adminId = 'admin_' . bin2hex(random_bytes(4));
+                $createAdmin = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $createAdmin->execute([
+                    $adminId,
+                    'Splaro Admin',
+                    'admin@splaro.co',
+                    '01700000000',
+                    null,
+                    null,
+                    $adminHash,
+                    'ADMIN'
+                ]);
+                $reload = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $reload->execute([$adminId]);
+                $user = $reload->fetch();
+            }
+            $isAuthenticated = is_array($user);
+        } catch (Exception $e) {
+            error_log("SPLARO_ADMIN_EMERGENCY_LOGIN_FAILURE: " . $e->getMessage());
         }
     }
 
