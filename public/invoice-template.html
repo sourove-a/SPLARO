@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPLARO Invoice</title>
+  <style>
+    :root {
+      --bg-0: #070809;
+      --bg-1: #0f1216;
+      --glass: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --text: #f6f7f8;
+      --muted: #a7afb8;
+      --gold: #d3a652;
+      --gold-soft: rgba(211, 166, 82, 0.25);
+      --line: rgba(255, 255, 255, 0.12);
+      --success: #3ed598;
+      --pending: #f2b84b;
+      --radius-xl: 24px;
+      --radius-lg: 18px;
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", "SF Pro Text", Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 5% -10%, #1c2230 0%, transparent 55%),
+                  radial-gradient(1000px 700px at 100% 0%, #1a1e14 0%, transparent 60%),
+                  linear-gradient(155deg, var(--bg-0), var(--bg-1));
+      min-height: 100vh;
+      padding: 28px;
+      overflow-x: hidden;
+    }
+
+    .liquid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(40px);
+      opacity: 0.28;
+      mix-blend-mode: screen;
+      animation: drift 14s ease-in-out infinite;
+    }
+
+    .blob.one {
+      width: 380px;
+      height: 380px;
+      left: -80px;
+      top: -110px;
+      background: radial-gradient(circle at 35% 35%, #9cb3ff, transparent 65%);
+    }
+
+    .blob.two {
+      width: 320px;
+      height: 320px;
+      right: -70px;
+      top: 120px;
+      background: radial-gradient(circle at 40% 40%, #f2ca7f, transparent 65%);
+      animation-delay: -3s;
+    }
+
+    .blob.three {
+      width: 420px;
+      height: 420px;
+      left: 40%;
+      bottom: -180px;
+      background: radial-gradient(circle at 50% 50%, #8adfd5, transparent 66%);
+      animation-delay: -6s;
+    }
+
+    @keyframes drift {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      50% { transform: translate3d(0, -20px, 0) scale(1.07); }
+    }
+
+    .invoice-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .card {
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .top-glow {
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+
+    .content {
+      padding: 28px;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: start;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 52px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--line);
+    }
+
+    .brand-logo svg {
+      width: 28px;
+      height: 34px;
+    }
+
+    .brand-name {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+    }
+
+    .tagline {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .meta-grid {
+      display: grid;
+      gap: 12px;
+      min-width: 260px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      align-items: center;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .meta-value {
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .invoice-id {
+      font-size: 16px;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      font-weight: 800;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+    }
+
+    .status[data-status="PAID"] {
+      color: #0f2219;
+      background: var(--success);
+      border-color: rgba(62, 213, 152, 0.35);
+    }
+
+    .status[data-status="PENDING"] {
+      color: #312105;
+      background: var(--pending);
+      border-color: rgba(242, 184, 75, 0.35);
+    }
+
+    .status[data-status="FAILED"],
+    .status[data-status="CANCELLED"] {
+      color: #ffe6e6;
+      background: #8e3a3a;
+      border-color: rgba(255, 120, 120, 0.4);
+    }
+
+    .section {
+      margin-top: 24px;
+      padding: 18px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--line);
+      background: var(--glass);
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .customer-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-height: 62px;
+    }
+
+    .field-label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .field-value {
+      font-size: 14px;
+      font-weight: 500;
+      word-break: break-word;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      background: rgba(0,0,0,0.14);
+    }
+
+    thead th {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      text-align: left;
+      font-weight: 700;
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      font-size: 14px;
+      padding: 14px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.15);
+      display: block;
+      background: #111;
+    }
+
+    .url-link {
+      color: #d7e6ff;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(215, 230, 255, 0.4);
+      word-break: break-all;
+    }
+
+    .url-link:hover {
+      color: #fff;
+      border-bottom-color: #fff;
+    }
+
+    .amounts {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: 1fr minmax(260px, 340px);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .note-box {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      padding: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .summary {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      padding: 14px;
+    }
+
+    .sum-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 2px;
+      font-size: 14px;
+      color: var(--text);
+      border-bottom: 1px dashed rgba(255,255,255,0.12);
+    }
+
+    .sum-row:last-child {
+      border-bottom: none;
+    }
+
+    .sum-row .label {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 12px;
+    }
+
+    .grand-total {
+      margin-top: 10px;
+      border: 1px solid var(--gold-soft);
+      background: linear-gradient(130deg, rgba(211,166,82,0.1), rgba(211,166,82,0.03));
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: inset 0 0 0 1px rgba(211,166,82,0.08);
+    }
+
+    .grand-title {
+      color: #f4dfba;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 11px;
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .grand-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+
+    .currency {
+      font-size: 13px;
+      margin-left: 6px;
+      color: #f2d39a;
+      vertical-align: 6px;
+      font-weight: 600;
+    }
+
+    .footer {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .thanks {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .contact {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .social-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .social-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--line);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      font-size: 13px;
+    }
+
+    .social-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .social-link:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .icon {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+    }
+
+    @media (max-width: 900px) {
+      body { padding: 14px; }
+      .content { padding: 16px; }
+      .header { grid-template-columns: 1fr; }
+      .meta-grid { min-width: 0; }
+      .customer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .amounts { grid-template-columns: 1fr; }
+      .footer { grid-template-columns: 1fr; }
+      .social-wrap { justify-content: flex-start; }
+      .grand-value { font-size: 24px; }
+    }
+
+    @media (max-width: 560px) {
+      .customer-grid { grid-template-columns: 1fr; }
+      .brand-name { font-size: 22px; }
+      .tagline { font-size: 11px; }
+    }
+
+    @media print {
+      :root {
+        --text: #111;
+        --muted: #555;
+        --line: #d8d8d8;
+      }
+
+      body {
+        background: #fff;
+        color: #111;
+        padding: 0;
+      }
+
+      .liquid {
+        display: none !important;
+      }
+
+      .card {
+        box-shadow: none;
+        border: 1px solid #d0d0d0;
+        background: #fff;
+        backdrop-filter: none;
+      }
+
+      .section,
+      .summary,
+      .note-box,
+      .field {
+        background: #fff;
+        border-color: #d8d8d8;
+      }
+
+      .top-glow {
+        background: #d3a652;
+      }
+
+      .url-link {
+        color: #111;
+        border-bottom-color: #999;
+      }
+
+      .status[data-status="PAID"] {
+        color: #0d3d2a;
+        background: #c8f3df;
+      }
+
+      .status[data-status="PENDING"] {
+        color: #5a410e;
+        background: #ffe7bc;
+      }
+
+      .grand-total {
+        border-color: #d3a652;
+        background: #fff8ea;
+      }
+
+      .social-link {
+        color: #111;
+        border-color: #cfcfcf;
+        background: #fff;
+      }
+
+      a[href]::after {
+        content: "";
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="liquid" aria-hidden="true">
+    <div class="blob one"></div>
+    <div class="blob two"></div>
+    <div class="blob three"></div>
+  </div>
+
+  <main class="invoice-wrap">
+    <section class="card">
+      <div class="top-glow"></div>
+      <div class="content">
+        <header class="header">
+          <div class="brand">
+            <div class="brand-logo" aria-label="SPLARO Logo">
+              <svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M24 44 L56 12" />
+                  <path d="M50 50 L82 18" />
+                  <path d="M24 100 L62 62" />
+                  <path d="M56 106 L82 80" />
+                </g>
+              </svg>
+            </div>
+            <div>
+              <h1 class="brand-name">SPLARO</h1>
+              <p class="tagline">Luxury Footwear &amp; Bags</p>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-row">
+              <span class="meta-label">Invoice No</span>
+              <span class="meta-value invoice-id">SPL-{{number}}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Invoice Date</span>
+              <span class="meta-value">{{date}}</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-label">Status</span>
+              <span class="status" data-status="{{payment_status}}">{{payment_status}}</span>
+            </div>
+          </div>
+        </header>
+
+        <section class="section">
+          <h2 class="section-title">Customer Information</h2>
+          <div class="customer-grid">
+            <div class="field">
+              <span class="field-label">Customer Name</span>
+              <div class="field-value">{{customer_name}}</div>
+            </div>
+            <div class="field">
+              <span class="field-label">Phone</span>
+              <div class="field-value">{{phone}}</div>
+            </div>
+            <div class="field">
+              <span class="field-label">Email</span>
+              <div class="field-value">{{email}}</div>
+            </div>
+            <div class="field">
+              <span class="field-label">Address</span>
+              <div class="field-value">{{address}}</div>
+            </div>
+            <div class="field">
+              <span class="field-label">District</span>
+              <div class="field-value">{{district}}</div>
+            </div>
+            <div class="field">
+              <span class="field-label">Thana</span>
+              <div class="field-value">{{thana}}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2 class="section-title">Order Details</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product Name</th>
+                  <th>Product URL</th>
+                  <th>Image</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{#items}}
+                <tr>
+                  <td>{{product_name}}</td>
+                  <td>
+                    <a class="url-link" href="{{product_url}}" target="_blank" rel="noopener noreferrer">{{product_url}}</a>
+                  </td>
+                  <td>
+                    <img class="thumb" src="{{image_url}}" alt="{{product_name}}" />
+                  </td>
+                  <td>{{quantity}}</td>
+                  <td>৳ {{unit_price}}</td>
+                  <td>৳ {{line_subtotal}}</td>
+                </tr>
+                {{/items}}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="amounts">
+            <div class="note-box">
+              <strong>Order Note:</strong><br />
+              {{notes}}
+            </div>
+
+            <div class="summary">
+              <div class="sum-row">
+                <span class="label">Subtotal</span>
+                <strong>৳ {{subtotal}}</strong>
+              </div>
+              <div class="sum-row">
+                <span class="label">Shipping</span>
+                <strong>৳ {{shipping}}</strong>
+              </div>
+              <div class="sum-row">
+                <span class="label">Discount</span>
+                <strong>- ৳ {{discount}}</strong>
+              </div>
+
+              <div class="grand-total">
+                <div class="grand-title">Grand Total</div>
+                <div class="grand-value">৳ {{grand_total}} <span class="currency">BDT</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <div>
+            <p class="thanks">Thank you for choosing SPLARO.</p>
+            <div class="contact">
+              Email: <a class="url-link" href="mailto:{{business_email}}">{{business_email}}</a><br />
+              Phone: <a class="url-link" href="tel:{{business_phone}}">{{business_phone}}</a>
+            </div>
+          </div>
+
+          <div class="social-wrap">
+            <span class="social-logo">SP</span>
+
+            <a class="social-link" href="{{facebook_url}}" target="_blank" rel="noopener noreferrer">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 8.5V6.7c0-.84.55-1.04.93-1.04H16V2.5h-2.2C10.85 2.5 10 4.63 10 6.37V8.5H8v3h2V21h3.5v-9.5H16l.5-3h-3z"/></svg>
+              Facebook
+            </a>
+
+            <a class="social-link" href="{{instagram_url}}" target="_blank" rel="noopener noreferrer">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm10 2H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3zm-5 3.5A5.5 5.5 0 1 1 6.5 13 5.5 5.5 0 0 1 12 7.5zm0 2A3.5 3.5 0 1 0 15.5 13 3.5 3.5 0 0 0 12 9.5zm5.75-2.25a1.25 1.25 0 1 1-1.25 1.25 1.25 1.25 0 0 1 1.25-1.25z"/></svg>
+              Instagram
+            </a>
+
+            <a class="social-link" href="{{whatsapp_url}}" target="_blank" rel="noopener noreferrer">
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.52 3.48A11.83 11.83 0 0 0 12.06 0C5.57 0 .27 5.3.27 11.8c0 2.08.54 4.11 1.58 5.89L0 24l6.5-1.7a11.76 11.76 0 0 0 5.56 1.42h.01c6.49 0 11.79-5.3 11.79-11.8a11.7 11.7 0 0 0-3.34-8.44zM12.07 21.7h-.01a9.78 9.78 0 0 1-4.98-1.37l-.36-.21-3.86 1.01 1.03-3.76-.24-.39a9.78 9.78 0 0 1-1.5-5.19c0-5.41 4.41-9.82 9.83-9.82 2.62 0 5.09 1.02 6.95 2.88a9.75 9.75 0 0 1 2.88 6.94c0 5.41-4.42 9.82-9.84 9.82zm5.38-7.34c-.29-.14-1.71-.84-1.97-.93-.27-.1-.46-.14-.66.14-.19.29-.75.93-.92 1.12-.17.19-.34.22-.63.07-.29-.14-1.23-.45-2.34-1.43-.87-.77-1.45-1.72-1.62-2.01-.17-.29-.02-.45.12-.59.13-.13.29-.34.44-.51.15-.17.2-.29.3-.49.1-.19.05-.36-.02-.5-.08-.14-.67-1.62-.92-2.23-.24-.57-.49-.49-.66-.5h-.56c-.19 0-.5.07-.76.36-.26.29-1 1-1 2.43s1.03 2.81 1.17 3.01c.14.19 2.02 3.08 4.89 4.31.68.29 1.21.46 1.63.59.68.22 1.3.19 1.79.12.55-.08 1.71-.7 1.95-1.38.24-.68.24-1.26.17-1.38-.06-.12-.25-.19-.54-.34z"/></svg>
+              WhatsApp
+            </a>
+          </div>
+        </footer>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
