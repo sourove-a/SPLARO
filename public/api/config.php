@@ -54,19 +54,19 @@ function bootstrap_env_files() {
 bootstrap_env_files();
 
 function env_or_default($key, $default = '') {
-    $value = getenv($key);
-    if ($value === false || $value === null || $value === '') {
-        return $default;
+    $candidates = [getenv($key), $_ENV[$key] ?? null, $_SERVER[$key] ?? null];
+    foreach ($candidates as $value) {
+        if ($value !== false && $value !== null && $value !== '') {
+            return $value;
+        }
     }
-    return $value;
+    return $default;
 }
 
 function env_first(array $keys, $default = '') {
     foreach ($keys as $key) {
-        $value = getenv($key);
-        if ($value !== false && $value !== null && $value !== '') {
-            return $value;
-        }
+        $value = env_or_default($key, '');
+        if ($value !== '') return $value;
     }
     return $default;
 }
@@ -84,7 +84,20 @@ function parse_database_url() {
     }
 
     $parts = parse_url($databaseUrl);
-    if (!is_array($parts)) {
+    if (is_array($parts)) {
+        return [
+            'host' => $parts['host'] ?? '',
+            'name' => isset($parts['path']) ? ltrim($parts['path'], '/') : '',
+            'user' => $parts['user'] ?? '',
+            'pass' => $parts['pass'] ?? '',
+            'port' => isset($parts['port']) ? (string)$parts['port'] : '',
+        ];
+    }
+
+    // Fallback parser for unescaped special characters in password (@, #, etc.)
+    $url = preg_replace('/^mysql:\/\//i', '', $databaseUrl);
+    $atPos = strrpos($url, '@');
+    if ($atPos === false) {
         return [
             'host' => '',
             'name' => '',
@@ -94,12 +107,31 @@ function parse_database_url() {
         ];
     }
 
+    $authPart = substr($url, 0, $atPos);
+    $hostPart = substr($url, $atPos + 1);
+
+    $colonPos = strpos($authPart, ':');
+    $user = $colonPos === false ? $authPart : substr($authPart, 0, $colonPos);
+    $pass = $colonPos === false ? '' : substr($authPart, $colonPos + 1);
+
+    $slashPos = strpos($hostPart, '/');
+    $hostPort = $slashPos === false ? $hostPart : substr($hostPart, 0, $slashPos);
+    $dbName = $slashPos === false ? '' : substr($hostPart, $slashPos + 1);
+
+    $host = $hostPort;
+    $port = '';
+    $hostColonPos = strrpos($hostPort, ':');
+    if ($hostColonPos !== false) {
+        $host = substr($hostPort, 0, $hostColonPos);
+        $port = substr($hostPort, $hostColonPos + 1);
+    }
+
     return [
-        'host' => $parts['host'] ?? '',
-        'name' => isset($parts['path']) ? ltrim($parts['path'], '/') : '',
-        'user' => $parts['user'] ?? '',
-        'pass' => $parts['pass'] ?? '',
-        'port' => isset($parts['port']) ? (string)$parts['port'] : '',
+        'host' => trim($host),
+        'name' => trim($dbName),
+        'user' => trim($user),
+        'pass' => $pass,
+        'port' => trim($port),
     ];
 }
 
