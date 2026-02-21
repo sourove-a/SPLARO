@@ -62,7 +62,7 @@ const CheckoutSuccessBurst: React.FC = () => {
         <h2 className="text-5xl md:text-7xl font-black italic uppercase text-white tracking-tighter leading-none mb-4">
           ORDER<br /><span className="text-cyan-500">SECURED</span>
         </h2>
-        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-cyan-500/60">Deployment Protocol Initialized</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.45em] text-cyan-500/60">Order Confirmation In Progress</p>
       </motion.div>
     </div>
   );
@@ -152,7 +152,7 @@ export const CheckoutPage: React.FC = () => {
     setDiscountError('');
     const discount = discounts.find(d => d.code === discountInput && d.active);
     if (!discount) {
-      setDiscountError('Invalid or expired protocol code');
+      setDiscountError('Invalid or expired coupon code');
       setAppliedDiscount(null);
       return;
     }
@@ -275,7 +275,7 @@ export const CheckoutPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen pt-40 pb-48 px-6 max-w-[1400px] mx-auto bg-[#050505] text-white">
+    <div className="min-h-screen pt-28 sm:pt-36 pb-10 sm:pb-16 px-4 sm:px-6 max-w-screen-xl mx-auto bg-[#050505] text-white">
       <AnimatePresence>
         {status === 'success' && (
           <motion.div key="success-burst" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[500] bg-black/60 backdrop-blur-3xl flex items-center justify-center">
@@ -284,22 +284,22 @@ export const CheckoutPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 lg:gap-16">
         {/* Left: Shipping Portal */}
         <div className="lg:col-span-7">
-          <header className="mb-14">
+          <header className="mb-8 sm:mb-12">
             <div className="flex items-center gap-3 text-cyan-500 mb-6">
               <ShieldCheck className="w-4 h-4" />
-              <span className="text-[11px] font-black uppercase tracking-[0.6em]">SECURE LOGISTICS TERMINAL</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.45em]">Secure Checkout</span>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic text-white leading-none">
-              DEPLOYMENT<br /><span className="text-cyan-500">PROTOCOL</span>
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic text-white leading-none">
+              CHECKOUT
             </h1>
           </header>
 
-          <form onSubmit={handleSubmit} className="space-y-10">
-            <GlassCard className="p-10 md:p-12 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <GlassCard className="p-5 sm:p-8 md:p-10 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <LuxuryFloatingInput
                   label="Full Name"
                   value={formData.fullName}
@@ -331,9 +331,9 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <SelectInput
-                  label="Target District"
+                  label="District"
                   value={formData.district}
                   options={districts}
                   onChange={(v: string) => setFormData({ ...formData, district: v, thana: '' })}
@@ -341,7 +341,7 @@ export const CheckoutPage: React.FC = () => {
                   error={errors.district}
                 />
                 <SelectInput
-                  label="Regional Sector"
+                  label="Thana"
                   value={formData.thana}
                   options={thanas}
                   onChange={(v: string) => setFormData({ ...formData, thana: v })}
@@ -351,7 +351,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               <LuxuryFloatingInput
-                label="Detailed Street Coordinates"
+                label="Shipping Address"
                 value={formData.address}
                 onChange={v => setFormData({ ...formData, address: v })}
                 icon={<MapPin className="w-5 h-5" />}
@@ -393,13 +393,13 @@ export const CheckoutPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Collector Narrative Archive */}
+              {/* Optional Order Note */}
               <div className="md:col-span-2">
                 <div className="relative group">
-                  <div className="liquid-glass border border-white/10 rounded-[32px] p-8 focus-within:border-cyan-500/50 transition-all duration-500">
+                  <div className="liquid-glass border border-white/10 rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 focus-within:border-cyan-500/50 transition-all duration-500">
                     <div className="flex items-center gap-4 mb-4 text-cyan-500/60 font-black text-[10px] uppercase tracking-[0.4em]">
                       <MessageSquare className="w-4 h-4" />
-                      <span>Collector Narrative (Optional)</span>
+                      <span>Delivery Note (Optional)</span>
                     </div>
                     <textarea
                       placeholder="e.g. Please deliver after 4 PM or call before arrival..."
@@ -408,7 +408,7 @@ export const CheckoutPage: React.FC = () => {
                       className="w-full bg-transparent outline-none text-white font-bold text-base placeholder:text-white/10 resize-none h-32 custom-scrollbar"
                     />
                   </div>
-                  <p className="mt-3 px-6 text-[9px] font-black uppercase text-white/20 tracking-widest">Strategic archival notes for the logistics terminal.</p>
+                  <p className="mt-3 px-2 sm:px-6 text-[9px] font-black uppercase text-white/20 tracking-widest">Add delivery instruction for rider.</p>
                 </div>
               </div>
             </div>
@@ -416,7 +416,7 @@ export const CheckoutPage: React.FC = () => {
             <PrimaryButton
               type="submit"
               isLoading={status === 'processing'}
-              className="w-full h-24 text-[13px] uppercase tracking-[0.6em] shadow-[0_40px_80px_rgba(0,212,255,0.25)]"
+              className="w-full min-h-14 h-14 sm:h-16 text-[11px] sm:text-[13px] uppercase tracking-[0.35em] sm:tracking-[0.55em] shadow-[0_25px_50px_rgba(0,212,255,0.25)]"
             >
               PLACE ORDER <Sparkles className="w-5 h-5 ml-4" />
             </PrimaryButton>
@@ -428,11 +428,11 @@ export const CheckoutPage: React.FC = () => {
 
         {/* Right: Order Summary */}
         <div className="lg:col-span-5">
-          <div className="sticky top-40">
-            <GlassCard className="p-10 !rounded-[48px]">
+          <div className="lg:sticky lg:top-36">
+            <GlassCard className="p-5 sm:p-8 md:p-10 !rounded-[24px] sm:!rounded-[36px] md:!rounded-[48px]">
               <div className="flex items-center gap-4 mb-10">
                 <Package className="w-6 h-6 text-cyan-500" />
-                <h2 className="text-3xl font-black tracking-tighter uppercase italic">PORTFOLIO</h2>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic">Order Summary</h2>
               </div>
 
               <div className="space-y-6 mb-10 max-h-[400px] overflow-y-auto pr-3">
@@ -456,7 +456,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="mb-14 relative group">
                 <div className="flex items-center gap-3 mb-6">
                   <Tag className="w-4 h-4 text-cyan-500" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white">Institutional Protocol Code</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Coupon Code</span>
                 </div>
 
                 <div className="flex gap-4 p-2 liquid-glass border border-white/10 rounded-[28px] group-focus-within:border-cyan-500/50 transition-all duration-700">
@@ -464,17 +464,17 @@ export const CheckoutPage: React.FC = () => {
                     <Command className="w-5 h-5 ml-6 text-white/20 group-focus-within:text-cyan-500 transition-colors" />
                     <input
                       type="text"
-                      placeholder="ENTER ARCHIVAL CODE (e.g. SPLARO2026)"
+                      placeholder="Enter coupon code"
                       value={discountInput}
                       onChange={(e) => setDiscountInput(e.target.value.toUpperCase())}
-                      className="w-full bg-transparent h-16 px-6 text-[11px] font-black uppercase tracking-widest placeholder:text-white/10 outline-none text-white"
+                      className="w-full bg-transparent h-14 sm:h-16 px-4 sm:px-6 text-[11px] font-black uppercase tracking-widest placeholder:text-white/20 outline-none text-white"
                     />
                   </div>
                   <button
                     onClick={handleApplyDiscount}
-                    className="px-10 bg-white text-black rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-400 transition-all shadow-xl active:scale-95 whitespace-nowrap"
+                    className="px-6 sm:px-10 min-h-12 bg-white text-black rounded-[16px] sm:rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-400 transition-all shadow-xl active:scale-95 whitespace-nowrap"
                   >
-                    DEPLOY CODE
+                    Apply
                   </button>
                 </div>
 
@@ -488,8 +488,8 @@ export const CheckoutPage: React.FC = () => {
                     <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-4 mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
                       <CheckCircle2 className="w-4 h-4 animate-pulse" />
                       <div className="flex-1">
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em]">Protocol Accepted: {appliedDiscount.code}</p>
-                        <p className="text-[8px] font-bold opacity-70 mt-1 uppercase tracking-widest">Fiscal Value Terminated: -৳{discountAmount.toLocaleString()}</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em]">Coupon Applied: {appliedDiscount.code}</p>
+                        <p className="text-[8px] font-bold opacity-70 mt-1 uppercase tracking-widest">Discount: -৳{discountAmount.toLocaleString()}</p>
                       </div>
                     </motion.div>
                   )}
@@ -498,24 +498,24 @@ export const CheckoutPage: React.FC = () => {
 
               <div className="space-y-5 pt-8 border-t border-white/5">
                 <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
-                  <span>Subtotal Value</span>
+                  <span>Subtotal</span>
                   <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
-                  <span>Logistics Protocol ({formData.district})</span>
+                  <span>Shipping {formData.district ? `(${formData.district})` : ''}</span>
                   <span className="text-cyan-400">৳{Number(shippingFee || 0).toLocaleString()}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-[10px] font-black uppercase text-emerald-500 tracking-widest">
-                    <span>Protocol Discount ({appliedDiscount?.code})</span>
+                    <span>Discount ({appliedDiscount?.code})</span>
                     <span>-৳{Number(discountAmount || 0).toLocaleString()}</span>
                   </div>
                 )}
 
                 <div className="pt-8 border-t border-white/10 flex justify-between items-end">
                   <div>
-                    <p className="text-[9px] font-black uppercase text-white/20 tracking-[0.5em] mb-1">TOTAL FISCAL VALUE</p>
-                    <p className="text-5xl font-black text-white tracking-tighter">৳{Number(finalTotal || 0).toLocaleString()}</p>
+                    <p className="text-[9px] font-black uppercase text-white/40 tracking-[0.35em] mb-1">Total</p>
+                    <p className="text-4xl sm:text-5xl font-black text-white tracking-tighter">৳{Number(finalTotal || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -524,7 +524,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="mt-10 grid grid-cols-2 gap-4">
                 <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
                   <Truck className="w-4 h-4 text-white/20" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Fast Deploy</span>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Fast Shipping</span>
                 </div>
                 <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
                   <RotateCcw className="w-4 h-4 text-white/20" />
@@ -535,7 +535,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="mt-8 p-6 rounded-[28px] bg-cyan-500/5 border border-cyan-500/10 flex items-start gap-4">
                 <AlertCircle className="w-4 h-4 text-cyan-700 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-cyan-800/60 font-bold leading-relaxed uppercase tracking-wider">
-                  Archive deployment requires verified contact coordinates. Protocols are monitored.
+                  Please verify contact details before placing order.
                 </p>
               </div>
             </GlassCard>

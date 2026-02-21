@@ -280,15 +280,15 @@ export const ShopPage: React.FC = () => {
   const isFiltering = hasMultiFilters || hasCustomPrice || Boolean(searchQuery.trim());
 
   return (
-    <div className="pt-40 px-6 pb-48 max-w-[1600px] mx-auto min-h-screen">
-      <div className="mb-20">
+    <div className="pt-28 sm:pt-36 px-4 sm:px-6 pb-10 sm:pb-16 max-w-screen-xl mx-auto min-h-screen overflow-x-hidden">
+      <div className="mb-10 sm:mb-16">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-10">
           <div className="max-w-xl">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 text-cyan-500 mb-6">
               <Sparkles className="w-5 h-5" />
               <span className="text-[10px] font-black uppercase tracking-[0.5em]">2026 Boutique archive</span>
             </motion.div>
-            <h1 className="text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.8] mb-8 uppercase italic">
+            <h1 className="text-5xl sm:text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.85] sm:leading-[0.8] mb-6 sm:mb-8 uppercase italic break-words">
               {activeCategory ? (
                 <>
                   {activeCategory.name === 'Shoes' ? 'FOOTWEAR' : activeCategory.name.toUpperCase()}
@@ -307,12 +307,12 @@ export const ShopPage: React.FC = () => {
 
           {!!activeFilterSet?.filters.find((filter) => filter.id === 'sort') && (
             <div className="flex flex-wrap gap-4 w-full md:w-auto">
-              <div className="flex liquid-glass rounded-full border border-white/10 p-1">
+              <div className="flex liquid-glass rounded-full border border-white/10 p-1 max-w-full overflow-x-auto">
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option}
                     onClick={() => setSortOption(option)}
-                    className={`px-8 py-5 rounded-full transition-all text-[10px] font-black tracking-widest ${sortOption === option ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
+                    className={`px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-black tracking-widest whitespace-nowrap ${sortOption === option ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
                   >
                     {sortButtonLabel[option]}
                   </button>

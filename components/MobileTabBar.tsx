@@ -78,10 +78,11 @@ export const MobileTabBar: React.FC = () => {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 150, opacity: 0 }}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="fixed bottom-10 left-0 w-full z-[120] px-6 lg:hidden pointer-events-none"
+          className="fixed bottom-0 left-0 right-0 z-[120] px-4 lg:hidden pointer-events-none"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
         >
-          <div className="max-w-md mx-auto relative h-24">
-            <div className="absolute inset-0 liquid-glass rounded-[40px] px-4 flex justify-around items-center shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden pointer-events-auto">
+          <div className="max-w-screen-sm mx-auto relative h-[70px]">
+            <div className="absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden pointer-events-auto">
               <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
               <div className="shine-sweep !opacity-20" />
 
@@ -115,11 +116,11 @@ export const MobileTabBar: React.FC = () => {
                                 : `/${item.view.toLowerCase()}`;
                       navigate(path);
                     }}
-                    className="relative z-10 w-full h-full flex flex-col items-center justify-center group outline-none"
+                    className="relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none"
                   >
-                    <div className="relative p-2">
+                    <div className="relative p-1.5">
                       <item.icon
-                        className={`w-9 h-9 transition-all duration-700 ${isActive
+                        className={`w-7 h-7 transition-all duration-700 ${isActive
                           ? 'text-cyan-400 scale-110 drop-shadow-[0_0_10px_rgba(0,212,255,0.6)]'
                           : 'text-white/40 scale-100 opacity-60'
                           }`}
@@ -140,7 +141,7 @@ export const MobileTabBar: React.FC = () => {
                     {isActive && (
                       <motion.div
                         layoutId="dock-active-indicator"
-                        className="absolute bottom-2 w-10 h-1 rounded-full bg-cyan-500 active-glow"
+                        className="absolute bottom-1.5 w-8 h-1 rounded-full bg-cyan-500 active-glow"
                         transition={{ type: "spring", bounce: 0.3, duration: 0.8 }}
                       />
                     )}
@@ -148,7 +149,7 @@ export const MobileTabBar: React.FC = () => {
                 );
               })}
             </div>
-            <div className="absolute inset-x-10 bottom-0 h-4 bg-cyan-500/10 blur-2xl rounded-full -z-10" />
+            <div className="absolute inset-x-10 bottom-0 h-3 bg-cyan-500/10 blur-xl rounded-full -z-10" />
           </div>
         </motion.div>
       )}

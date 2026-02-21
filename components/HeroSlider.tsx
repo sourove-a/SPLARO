@@ -71,7 +71,7 @@ export const HeroSlider = () => {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-black">
+    <div className="relative min-h-screen w-full overflow-hidden bg-black">
       <AnimatePresence mode="wait">
         <motion.div
           key={index}

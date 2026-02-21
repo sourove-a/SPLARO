@@ -208,12 +208,15 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full z-[100] px-3 py-3 sm:px-4 sm:py-4 md:px-16 md:py-10 flex items-center justify-between pointer-events-none">
+      <nav
+        className="fixed inset-x-0 top-0 w-full z-[100] px-4 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-none overflow-x-clip"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
+      >
         {/* Left Side: Navigation Links + Menu Trigger */}
         <div className="flex-1 flex items-center gap-8 pointer-events-none">
           <button
             onClick={() => setMenuOpen(true)}
-            className="p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
+            className="min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
           >
             <div className="flex flex-col gap-1.5 items-start">
               <div className="w-8 sm:w-9 md:w-10 h-[2.5px] bg-white transition-all group-hover:w-6" />
@@ -258,12 +261,12 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[52vw] sm:max-w-none" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[46vw] sm:max-w-[52vw] md:max-w-none" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
-          <SplaroLogo className="h-8 sm:h-9 md:h-16" />
+          <SplaroLogo className="h-7 sm:h-9 md:h-16" />
           <span className="hidden sm:block mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
             {currentRouteLabel}
           </span>
@@ -322,7 +325,7 @@ export const Navbar: React.FC = () => {
 
           <button
             onClick={() => navigate('/cart')}
-            className="relative lg:hidden p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto"
+            className="relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto"
           >
             <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             {cart.length > 0 && (
@@ -347,37 +350,37 @@ export const Navbar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSearchOpen(false)}
-            className="fixed inset-0 z-[600] bg-black/95 flex items-center justify-center p-6 backdrop-blur-xl"
+            className="fixed inset-0 z-[600] bg-black/95 flex items-center justify-center p-4 sm:p-6 backdrop-blur-xl"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-4xl"
+              className="w-full max-w-3xl"
             >
-              <div className="flex items-center gap-6 p-8 liquid-glass border border-white/10 rounded-[40px] shadow-[0_40px_100px_rgba(0,0,0,0.5)]">
-                <Search className="w-10 h-10 text-cyan-500" />
+              <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 liquid-glass border border-white/10 rounded-[24px] sm:rounded-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-500 shrink-0" />
                 <input
                   autoFocus
                   type="text"
-                  placeholder="WHAT ARE YOU LOOKING FOR?"
+                  placeholder="Search products, brands, categories"
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     if (view !== View.SHOP) navigate('/shop');
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && setIsSearchOpen(false)}
-                  className="flex-1 bg-transparent border-none outline-none text-3xl font-black uppercase tracking-tighter text-white placeholder:text-zinc-800 italic"
+                  className="min-w-0 flex-1 bg-transparent border-none outline-none text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-white placeholder:text-zinc-500 placeholder:font-semibold"
                 />
                 <button
                   onClick={() => setIsSearchOpen(false)}
-                  className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all"
+                  className="min-h-12 min-w-12 w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all"
                 >
-                  <X className="w-8 h-8 text-white" />
+                  <X className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                 </button>
               </div>
-              <p className="text-center mt-8 text-[10px] font-black text-zinc-500 uppercase tracking-[0.5em]">Press Enter to Execute Archive Discovery</p>
+              <p className="text-center mt-5 text-[10px] font-black text-zinc-500 uppercase tracking-[0.35em]">Press Enter to Search</p>
             </motion.div>
           </motion.div>
         )}

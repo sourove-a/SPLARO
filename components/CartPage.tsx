@@ -26,8 +26,8 @@ export const CartPage: React.FC = () => {
   }
 
   return (
-    <div className="pt-32 pb-40 min-h-screen bg-[#050505] text-white">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-16">
+    <div className="pt-28 sm:pt-32 pb-10 sm:pb-16 min-h-screen bg-[#050505] text-white">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-10 sm:gap-16">
         {/* Left: Cart Items List */}
         <div className="lg:col-span-8">
           <header className="mb-14">
@@ -101,7 +101,7 @@ export const CartPage: React.FC = () => {
                   }
                   navigate('/checkout');
                 }}
-                className="w-full h-20 text-[10px] shadow-[0_0_50px_rgba(0,212,255,0.3)] hover:shadow-[0_0_80px_rgba(0,212,255,0.6)]"
+                className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(0,212,255,0.25)] hover:shadow-[0_0_60px_rgba(0,212,255,0.45)]"
               >
                 PROCEED TO BILLING <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
               </PrimaryButton>
