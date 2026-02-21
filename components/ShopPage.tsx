@@ -284,20 +284,20 @@ export const ShopPage: React.FC = () => {
           <div className="max-w-xl">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 text-cyan-500 mb-6">
               <Sparkles className="w-5 h-5" />
-              <span className="text-[10px] font-black uppercase tracking-[0.5em]">2026 Boutique archive</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.5em]">SPLARO Premium Selection</span>
             </motion.div>
             <h1 className="text-5xl sm:text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.85] sm:leading-[0.8] mb-6 sm:mb-8 uppercase italic break-words">
               {activeCategory ? (
                 <>
                   {activeCategory.name === 'Shoes' ? 'FOOTWEAR' : activeCategory.name.toUpperCase()}
                   <br />
-                  <span className="text-cyan-500">ARCHIVE.</span>
+                  <span className="text-cyan-500">COLLECTION.</span>
                 </>
               ) : (
                 <>
-                  CURATED
+                  PREMIUM
                   <br />
-                  <span className="text-cyan-500">VAULT.</span>
+                  <span className="text-cyan-500">COLLECTION.</span>
                 </>
               )}
             </h1>
