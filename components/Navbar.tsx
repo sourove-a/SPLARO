@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, User, Menu, X, Search, ArrowRight, Instagram, Facebook, Globe,
@@ -96,6 +96,41 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    // Route পরিবর্তন হলেই overlay close করে stuck state prevent করা
+    setMenuOpen(false);
+    setIsSearchOpen(false);
+  }, [location.pathname, setIsSearchOpen]);
+
+  useEffect(() => {
+    if (menuOpen) {
+      setIsSearchOpen(false);
+    }
+  }, [menuOpen, setIsSearchOpen]);
+
+  useEffect(() => {
+    const shouldLockScroll = menuOpen || isSearchOpen;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+
+    document.documentElement.style.overflow = shouldLockScroll ? 'hidden' : 'auto';
+    document.body.style.overflow = shouldLockScroll ? 'hidden' : 'auto';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow || 'auto';
+      document.body.style.overflow = previousBodyOverflow || 'auto';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen, isSearchOpen, setIsSearchOpen]);
 
   const currentRouteLabel = useMemo(() => {
     const path = location.pathname;
@@ -209,12 +244,14 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className="fixed inset-x-0 top-0 w-full z-[100] px-4 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-auto overflow-x-clip"
+        className="fixed inset-x-0 top-0 w-full z-[100] px-4 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-none overflow-x-clip"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
       >
         {/* Left Side: Navigation Links + Menu Trigger */}
-        <div className="flex-1 flex items-center gap-8">
+        <div className="flex-1 flex items-center gap-8 pointer-events-none">
           <button
+            type="button"
+            aria-label="Open menu"
             onClick={() => setMenuOpen(true)}
             className="min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
           >
@@ -273,7 +310,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
-        <div className="flex-1 flex justify-end items-center gap-8">
+        <div className="flex-1 flex justify-end items-center gap-8 pointer-events-none">
           {/* Desktop Right Links */}
           <div className="hidden lg:flex items-center gap-6 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[24px] border border-white/5 shadow-xl pointer-events-auto">
             {rightItems.map((item) => {
@@ -324,6 +361,8 @@ export const Navbar: React.FC = () => {
           </div>
 
           <button
+            type="button"
+            aria-label="Open cart"
             onClick={() => navigate('/cart')}
             className="relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto"
           >
@@ -391,16 +430,19 @@ export const Navbar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="fixed inset-0 z-[500] bg-[#050505] overflow-hidden flex flex-col"
+            onClick={() => setMenuOpen(false)}
+            className="fixed inset-0 z-[500] bg-[#050505] overflow-y-auto overscroll-contain flex flex-col"
           >
             <div className="absolute inset-0 pointer-events-none opacity-20">
               <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#00D4FF11,transparent_50%)]" />
               <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_70%,#00D4FF11,transparent_50%)]" />
             </div>
 
-            <div className="px-8 py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
+            <div onClick={(e) => e.stopPropagation()} className="px-8 py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
               <SplaroLogo className="h-8 md:h-12" />
               <motion.button
+                type="button"
+                aria-label="Close menu"
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setMenuOpen(false)}
@@ -410,7 +452,7 @@ export const Navbar: React.FC = () => {
               </motion.button>
             </div>
 
-            <div className="flex-1 px-8 md:px-16 flex flex-col justify-center max-w-4xl relative z-10">
+            <div onClick={(e) => e.stopPropagation()} className="flex-1 px-8 md:px-16 flex flex-col justify-center max-w-4xl relative z-10">
               <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em] mb-12">Archive Navigation</p>
               <div className="space-y-2">
                 {menuItems.map((item, i) => (
@@ -430,7 +472,7 @@ export const Navbar: React.FC = () => {
               </div>
             </div>
 
-            <div className="px-8 py-10 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-8 relative z-10 border-t border-white/5">
+            <div onClick={(e) => e.stopPropagation()} className="px-8 py-10 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-8 relative z-10 border-t border-white/5">
               <div className="flex items-center gap-4">
                 <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
                 <p className="text-[10px] font-black tracking-widest text-white/50 uppercase">Session Secure</p>
@@ -457,7 +499,7 @@ export const Navbar: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-auto pt-10 border-t border-white/5">
+            <div onClick={(e) => e.stopPropagation()} className="mt-auto pt-10 border-t border-white/5">
               <div className="flex items-center gap-4 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">Session Secure</span>
