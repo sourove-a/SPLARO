@@ -42,6 +42,7 @@
             scroll-behavior: smooth;
             overflow-x: hidden;
             width: 100%;
+            scroll-padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 12px);
         }
 
         body {
@@ -64,6 +65,7 @@
             overscroll-behavior-y: contain;
             width: 100%;
             min-height: 100%;
+            scroll-padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 12px);
         }
 
         * {
@@ -88,6 +90,10 @@
 
         .mobile-content-safe {
             padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 12px);
+        }
+
+        .whatsapp-fab-wrapper {
+            bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 20px);
         }
 
         .liquid-glass {
@@ -218,6 +224,12 @@
 
             .shine-sweep {
                 display: none;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .whatsapp-fab-wrapper {
+                bottom: 2.5rem;
             }
         }
 

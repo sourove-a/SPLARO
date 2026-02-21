@@ -81,7 +81,7 @@ export const MobileTabBar: React.FC = () => {
           className="fixed bottom-0 left-0 right-0 z-[120] px-4 lg:hidden pointer-events-none"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
         >
-          <div className="max-w-screen-sm mx-auto relative h-[70px]">
+          <div className="max-w-screen-sm mx-auto relative" style={{ height: 'var(--mobile-nav-height)' }}>
             <div className="absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden pointer-events-auto">
               <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
               <div className="shine-sweep !opacity-20" />
@@ -91,6 +91,16 @@ export const MobileTabBar: React.FC = () => {
                 return (
                   <button
                     key={item.label}
+                    type="button"
+                    aria-label={
+                      item.label === 'VAULT'
+                        ? 'Open home'
+                        : item.label === 'SHOP'
+                          ? 'Open shop and bags'
+                          : item.label === 'DISCOVER'
+                            ? 'Open search'
+                            : 'Open profile'
+                    }
                     onClick={() => {
                       setSearchQuery('');
                       if ((item as any).category) {

@@ -18,6 +18,7 @@ import { CartPage } from './components/CartPage';
 import { CheckoutPage } from './components/CheckoutPage';
 import { ProductCard } from './components/ProductCard';
 import { PrimaryButton, GlassCard } from './components/LiquidGlass';
+import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
 import {
   AdminCampaignsPage,
   AdminCampaignDetailPage,
@@ -140,6 +141,51 @@ const ManifestPage = () => <CmsContentPage pageKey="manifest" />;
 const PrivacyPolicyPage = () => <CmsContentPage pageKey="privacyPolicy" />;
 const TermsPage = () => <CmsContentPage pageKey="termsConditions" />;
 const RefundPolicyPage = () => <CmsContentPage pageKey="refundPolicy" />;
+
+const MobileDebugPage = () => {
+  const { products, setSelectedProduct } = useApp();
+
+  useEffect(() => {
+    if (!products.length) return;
+    setSelectedProduct(products[0]);
+  }, [products, setSelectedProduct]);
+
+  return (
+    <div className="min-h-screen pt-24 sm:pt-32 px-4 sm:px-6 max-w-screen-xl mx-auto space-y-12">
+      {/* Mobile Layout Regression Checklist
+          1. No horizontal scroll on iOS Safari / Android Chrome.
+          2. Bottom nav never overlaps CTA/totals on Cart/Checkout/Product pages.
+          3. WhatsApp FAB stays above bottom nav and below modal layers.
+          4. Search input, filters, and headers remain fully visible on small screens.
+          5. Keyboard open on input fields does not cut off form fields or action buttons.
+      */}
+      <section className="rounded-2xl border border-white/10 p-4 bg-white/[0.02]">
+        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-cyan-400">Mobile QA Debug Surface</h1>
+        <p className="mt-2 text-xs text-zinc-400">Internal route: verify mobile overflow, spacing, sticky/fixed layers, and safe-area behavior.</p>
+      </section>
+
+      <section className="rounded-2xl overflow-hidden border border-white/10">
+        <HeroSlider />
+      </section>
+
+      <section className="rounded-2xl border border-white/10 overflow-hidden">
+        <ShopPage />
+      </section>
+
+      <section className="rounded-2xl border border-white/10 overflow-hidden">
+        <ProductDetailPage />
+      </section>
+
+      <section className="rounded-2xl border border-white/10 overflow-hidden">
+        <CartPage />
+      </section>
+
+      <section className="rounded-2xl border border-white/10 overflow-hidden">
+        <CheckoutPage />
+      </section>
+    </div>
+  );
+};
 
 const OrderTrackingPage = () => {
   const { user, orders, siteSettings } = useApp();
@@ -515,6 +561,10 @@ const AppContent = () => {
   }, []);
 
   useEffect(() => {
+    document.documentElement.style.setProperty('--mobile-nav-height', `${MOBILE_NAV_HEIGHT_PX}px`);
+  }, []);
+
+  useEffect(() => {
     // Sync URL manifest to institutional state (ONE-WAY SYNC to prevent loops)
     const p = location.pathname.substring(1).toLowerCase();
     let targetView: View = View.HOME;
@@ -553,6 +603,46 @@ const AppContent = () => {
     localStorage.setItem('splaro-theme', JSON.stringify(theme));
   }, [theme]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+
+    let rafId = 0;
+    const checkHorizontalOverflow = () => {
+      cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => {
+        const viewportWidth = document.documentElement.clientWidth;
+        const offenders: { tag: string; className: string; width: number; left: number; right: number }[] = [];
+
+        document.querySelectorAll<HTMLElement>('body *').forEach((el) => {
+          if (!el.offsetParent || el.closest('[data-allow-overflow="true"]')) return;
+          const rect = el.getBoundingClientRect();
+          if (rect.width > viewportWidth + 1 || rect.left < -1 || rect.right > viewportWidth + 1) {
+            offenders.push({
+              tag: el.tagName.toLowerCase(),
+              className: el.className || '(no-class)',
+              width: Number(rect.width.toFixed(2)),
+              left: Number(rect.left.toFixed(2)),
+              right: Number(rect.right.toFixed(2))
+            });
+          }
+        });
+
+        if (offenders.length > 0) {
+          console.warn('[SPLARO][DEV][MOBILE_OVERFLOW]', offenders.slice(0, 8));
+        }
+      });
+    };
+
+    checkHorizontalOverflow();
+    window.addEventListener('resize', checkHorizontalOverflow, { passive: true });
+    window.addEventListener('orientationchange', checkHorizontalOverflow);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', checkHorizontalOverflow);
+      window.removeEventListener('orientationchange', checkHorizontalOverflow);
+    };
+  }, [location.pathname]);
+
   const featuredProducts = products.filter(p => p.featured);
 
   const showNav = view !== View.ORDER_SUCCESS && view !== View.LOGIN && view !== View.SIGNUP;
@@ -585,7 +675,7 @@ const AppContent = () => {
           </button>
         </div>
       ) : (
-        <main className={showMobileBar ? "mobile-content-safe lg:pb-0" : "pb-8 lg:pb-0"}>
+        <main className={MOBILE_CONTENT_SAFE_CLASS}>
           <Routes location={location}>
             <Route path="/" element={<HomeView />} />
             <Route path="/shop" element={<ShopPage />} />
@@ -619,6 +709,7 @@ const AppContent = () => {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/order-tracking" element={<OrderTrackingPage />} />
             <Route path="/refund-policy" element={<RefundPolicyPage />} />
+            <Route path="/debug/mobile" element={<MobileDebugPage />} />
           </Routes>
         </main>
       )}
@@ -626,8 +717,7 @@ const AppContent = () => {
       {/* Global Controls & Redesigned WhatsApp Orb */}
       {view !== View.ORDER_SUCCESS && (
         <div
-          className="fixed right-4 sm:right-6 lg:right-12 lg:bottom-10 z-[105] flex flex-col gap-4 items-end"
-          style={{ bottom: 'calc(90px + env(safe-area-inset-bottom))' }}
+          className="fixed right-4 sm:right-6 lg:right-12 whatsapp-fab-wrapper z-[105] flex flex-col gap-4 items-end"
         >
           <motion.a
             whileHover={{ scale: 1.1, y: -8 }}
@@ -642,6 +732,8 @@ const AppContent = () => {
             }}
             href="https://wa.me/+8801905010205"
             target="_blank"
+            rel="noreferrer noopener"
+            aria-label="Chat on WhatsApp"
             className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] rounded-[22px] sm:rounded-[30px] shadow-2xl flex items-center justify-center transition-all group overflow-hidden relative border-2 border-white/20"
           >
             <div className="ribbed-texture absolute inset-0 opacity-20 pointer-events-none" />

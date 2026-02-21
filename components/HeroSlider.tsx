@@ -82,7 +82,14 @@ export const HeroSlider = () => {
           className="absolute inset-0"
         >
           <div className="w-full h-full relative">
-            <img src={SLIDES[index]?.img || ''} className="w-full h-full object-cover opacity-50 grayscale contrast-125" />
+            <img
+              src={SLIDES[index]?.img || ''}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+              sizes="100vw"
+              className="w-full h-full object-cover opacity-50 grayscale contrast-125"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/60" />
             <div className="absolute inset-0 bg-blue-900/10 mix-blend-overlay" />
           </div>
