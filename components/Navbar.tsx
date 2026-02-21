@@ -70,6 +70,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
     className="w-full"
   >
     <button
+      type="button"
       onClick={onClick}
       className="w-full text-left py-7 border-b border-white/5 flex items-center justify-between group transition-all duration-500"
     >
@@ -92,7 +93,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
 );
 
 export const Navbar: React.FC = () => {
-  const { setView, cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings } = useApp();
+  const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -252,7 +253,10 @@ export const Navbar: React.FC = () => {
           <button
             type="button"
             aria-label="Open menu"
-            onClick={() => setMenuOpen(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((prev) => !prev);
+            }}
             className="min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
           >
             <div className="flex flex-col gap-1.5 items-start">
@@ -268,6 +272,7 @@ export const Navbar: React.FC = () => {
               return (
                 <button
                   key={item.label}
+                  type="button"
                   onClick={() => handleNav(item.label, item.view, (item as any).category)}
                   className={`relative group p-2 transition-all duration-500`}
                 >
@@ -282,6 +287,7 @@ export const Navbar: React.FC = () => {
             })}
 
             <button
+              type="button"
               onClick={() => setIsSearchOpen(true)}
               className="relative group p-2 mx-2"
             >
@@ -318,6 +324,7 @@ export const Navbar: React.FC = () => {
               return item.label === 'IDENTITY' ? (
                 <button
                   key={item.label}
+                  type="button"
                   onClick={() => {
                     if (user) {
                       navigate(user.role === 'ADMIN' ? '/admin_dashboard' : '/user_dashboard');
@@ -343,6 +350,7 @@ export const Navbar: React.FC = () => {
               ) : (
                 <button
                   key={item.label}
+                  type="button"
                   onClick={() => handleNav(item.label, item.view)}
                   className="relative group p-2"
                 >
@@ -413,6 +421,7 @@ export const Navbar: React.FC = () => {
                   className="min-w-0 flex-1 bg-transparent border-none outline-none text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-white placeholder:text-zinc-500 placeholder:font-semibold"
                 />
                 <button
+                  type="button"
                   onClick={() => setIsSearchOpen(false)}
                   className="min-h-12 min-w-12 w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all"
                 >
