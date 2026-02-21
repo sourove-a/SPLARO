@@ -8,7 +8,7 @@ import { View } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 export const MobileTabBar: React.FC = () => {
-  const { view, cart, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory } = useApp();
+  const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory } = useApp();
   const navigate = useNavigate();
 
   const navItems = [

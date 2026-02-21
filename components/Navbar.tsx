@@ -102,7 +102,7 @@ export const Navbar: React.FC = () => {
     // Route পরিবর্তন হলেই overlay close করে stuck state prevent করা
     setMenuOpen(false);
     setIsSearchOpen(false);
-  }, [location.pathname, setIsSearchOpen]);
+  }, [location.pathname, location.search, location.hash, setIsSearchOpen]);
 
   useEffect(() => {
     if (menuOpen) {
@@ -111,13 +111,6 @@ export const Navbar: React.FC = () => {
   }, [menuOpen, setIsSearchOpen]);
 
   useEffect(() => {
-    const shouldLockScroll = menuOpen || isSearchOpen;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-
-    document.documentElement.style.overflow = shouldLockScroll ? 'hidden' : 'auto';
-    document.body.style.overflow = shouldLockScroll ? 'hidden' : 'auto';
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenuOpen(false);
@@ -125,13 +118,8 @@ export const Navbar: React.FC = () => {
       }
     };
     window.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.documentElement.style.overflow = previousHtmlOverflow || 'auto';
-      document.body.style.overflow = previousBodyOverflow || 'auto';
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [menuOpen, isSearchOpen, setIsSearchOpen]);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [setIsSearchOpen]);
 
   const currentRouteLabel = useMemo(() => {
     const path = location.pathname;
@@ -194,9 +182,11 @@ export const Navbar: React.FC = () => {
     } else if (targetView === View.SHOP) {
       path = '/shop';
     }
-    navigate(path);
-    setIsSearchOpen(false);
     setMenuOpen(false);
+    setIsSearchOpen(false);
+    if (`${location.pathname}${location.search}` !== path) {
+      navigate(path);
+    }
   };
 
   const getIsActive = (item: any) => {
