@@ -17,32 +17,54 @@ require 'PHPMailer/SMTP.php';
 
 function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true) {
     global $db;
-    
-    // Fetch dynamic SMTP settings from database
-    $settings_raw = $db->query("SELECT smtp_settings FROM site_settings LIMIT 1")->fetchColumn();
-    $db_settings = json_decode($settings_raw, true) ?? [];
+
+    $smtpSettings = [
+        'host' => SMTP_HOST,
+        'port' => SMTP_PORT,
+        'user' => SMTP_USER,
+        'pass' => SMTP_PASS,
+        'from' => SMTP_USER,
+    ];
+
+    try {
+        if (isset($db) && $db && function_exists('load_smtp_settings')) {
+            $resolved = load_smtp_settings($db);
+            if (is_array($resolved)) {
+                $smtpSettings = array_merge($smtpSettings, $resolved);
+            }
+        }
+    } catch (Exception $e) {
+        // keep static fallback settings
+    }
+
+    $smtpHost = trim((string)($smtpSettings['host'] ?? ''));
+    $smtpPort = (int)($smtpSettings['port'] ?? SMTP_PORT);
+    $smtpUser = trim((string)($smtpSettings['user'] ?? ''));
+    $smtpPass = (string)($smtpSettings['pass'] ?? '');
+    $fromAddress = trim((string)($smtpSettings['from'] ?? $smtpUser));
+
+    if ($fromAddress === '') {
+        $fromAddress = $smtpUser !== '' ? $smtpUser : 'info@splaro.co';
+    }
 
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
-        $mail->Host       = !empty($db_settings['host']) ? $db_settings['host'] : SMTP_HOST;
+        $mail->Host       = $smtpHost !== '' ? $smtpHost : SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
-        $mail->Password   = !empty($db_settings['pass']) ? $db_settings['pass'] : SMTP_PASS;
+        $mail->Username   = $smtpUser;
+        $mail->Password   = $smtpPass;
         $mail->Timeout    = 10;
         $mail->CharSet    = 'UTF-8';
-        
-        $port = !empty($db_settings['port']) ? (int)$db_settings['port'] : SMTP_PORT;
-        $mail->Port       = $port;
-        
-        if ($port === 465) {
+        $mail->Port       = $smtpPort > 0 ? $smtpPort : (int)SMTP_PORT;
+
+        if ($mail->Port === 465) {
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         } else {
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         }
 
-        $from_user = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
-        $mail->setFrom($from_user, 'SPLARO HQ');
+        $mail->setFrom($fromAddress, 'SPLARO');
         $mail->addAddress($to);
 
         $mail->isHTML($isHtml);
@@ -57,11 +79,6 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
 
         // Last-resort fallback: native PHP mail() on shared hosting
         if (function_exists('mail')) {
-            $fromAddress = !empty($db_settings['user']) ? $db_settings['user'] : SMTP_USER;
-            if ($fromAddress === '') {
-                $fromAddress = 'info@splaro.co';
-            }
-
             $headers = [
                 "From: SPLARO <{$fromAddress}>",
                 "Reply-To: {$fromAddress}",
@@ -406,12 +423,19 @@ function load_smtp_settings($db) {
         if (!empty($row['smtp_settings'])) {
             $custom = json_decode($row['smtp_settings'], true);
             if (is_array($custom)) {
-                $settings['host'] = $custom['host'] ?? $settings['host'];
-                $settings['port'] = isset($custom['port']) ? (int)$custom['port'] : (int)$settings['port'];
-                $settings['user'] = $custom['user'] ?? $settings['user'];
-                $settings['pass'] = $custom['pass'] ?? $settings['pass'];
-                $settings['from'] = $custom['from'] ?? $settings['user'];
-                $settings['secure'] = strtolower($custom['secure'] ?? $settings['secure']);
+                $host = trim((string)($custom['host'] ?? ''));
+                $user = trim((string)($custom['user'] ?? ''));
+                $pass = (string)($custom['pass'] ?? '');
+                $from = trim((string)($custom['from'] ?? ''));
+                $secure = strtolower(trim((string)($custom['secure'] ?? '')));
+                $port = isset($custom['port']) ? (int)$custom['port'] : 0;
+
+                if ($host !== '') $settings['host'] = $host;
+                if ($port > 0) $settings['port'] = $port;
+                if ($user !== '') $settings['user'] = $user;
+                if ($pass !== '') $settings['pass'] = $pass;
+                if ($from !== '') $settings['from'] = $from;
+                if ($secure !== '') $settings['secure'] = $secure;
             }
         }
     } catch (Exception $e) {
@@ -1685,14 +1709,30 @@ if ($method === 'POST' && $action === 'signup') {
     sync_to_sheets('SIGNUP', $userPayload);
 
     // TRIGGER EMAIL NOTIFICATION (SIGNUP)
-    $subject = "NEW IDENTITY ARCHIVED: " . $name;
-    $message = "A new client has joined the Splaro Archive.
+    $subject = "New Signup: " . $name;
+    $message = "A new account has been created on SPLARO.
 
 Name: " . $name . "
-Email: " . $email;
+Email: " . $email . "
+Phone: " . $phone;
     $smtpConfig = load_smtp_settings($db);
-    $adminRecipient = $smtpConfig['user'] ?? SMTP_USER;
-    $signupMail = smtp_send_mail($db, $adminRecipient, $subject, nl2br($message), true);
+    $adminRecipient = trim((string)($smtpConfig['user'] ?? SMTP_USER));
+    $adminMail = false;
+    if ($adminRecipient !== '' && filter_var($adminRecipient, FILTER_VALIDATE_EMAIL)) {
+        $adminMail = smtp_send_mail($db, $adminRecipient, $subject, nl2br($message), true);
+    }
+
+    $welcomeSubject = "Congratulations! Welcome to SPLARO";
+    $welcomeBody = "
+    <div style='font-family: Inter, Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 28px; color: #101828;'>
+      <h2 style='margin: 0 0 14px; font-size: 26px; letter-spacing: -0.3px;'>Congratulations, {$name}!</h2>
+      <p style='margin: 0 0 14px; font-size: 15px; line-height: 1.7;'>Your SPLARO account is now active.</p>
+      <p style='margin: 0 0 16px; font-size: 14px; line-height: 1.7;'>You can now sign in and place your orders using this email: <strong>{$email}</strong>.</p>
+      <div style='margin-top: 24px; padding: 14px 16px; border-radius: 10px; background: #f2f7ff; border: 1px solid #dbe8ff;'>
+        <p style='margin: 0; font-size: 13px; color: #344054;'>Thank you for joining SPLARO.</p>
+      </div>
+    </div>";
+    $welcomeMail = smtp_send_mail($db, $email, $welcomeSubject, $welcomeBody, true);
     $telegramSignupMessage = "<b>✅ New Signup</b>\n"
         . "<b>User ID:</b> " . telegram_escape_html($id) . "\n"
         . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
@@ -1701,7 +1741,12 @@ Email: " . $email;
         . "<b>Phone:</b> " . telegram_escape_html($phone);
     send_telegram_message($telegramSignupMessage);
 
-    echo json_encode(["status" => "success", "user" => $userPayload, "token" => $token, "email" => ["admin" => $signupMail]]);
+    echo json_encode([
+        "status" => "success",
+        "user" => $userPayload,
+        "token" => $token,
+        "email" => ["admin" => $adminMail, "welcome" => $welcomeMail]
+    ]);
     exit;
 }
 
