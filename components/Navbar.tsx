@@ -186,6 +186,12 @@ export const Navbar: React.FC = () => {
     setIsSearchOpen(false);
     if (`${location.pathname}${location.search}` !== path) {
       navigate(path);
+      window.setTimeout(() => {
+        const current = `${window.location.pathname}${window.location.search}`;
+        if (current !== path) {
+          window.location.assign(path);
+        }
+      }, 120);
     }
   };
 

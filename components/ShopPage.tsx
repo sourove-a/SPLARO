@@ -131,18 +131,14 @@ export const ShopPage: React.FC = () => {
     }
   }, [queryCategory, selectedCategory, setSelectedCategory]);
 
-  useEffect(() => {
-    const normalized = normalizeCategoryName(selectedCategory);
-    const current = getQueryCategory(location.search);
-    if (normalized === current) return;
-
-    if (normalized) {
-      navigate(`/shop?category=${normalized.toLowerCase()}`, { replace: true });
-      return;
+  const handleCategorySelect = (category: string | null) => {
+    const normalized = normalizeCategoryName(category);
+    setSelectedCategory(normalized);
+    const path = normalized ? `/shop?category=${normalized.toLowerCase()}` : '/shop';
+    if (`${location.pathname}${location.search}` !== path) {
+      navigate(path);
     }
-
-    navigate('/shop', { replace: true });
-  }, [selectedCategory, location.search, navigate]);
+  };
 
   const activeCategory = useMemo(() => getCategoryConfig(selectedCategory), [selectedCategory]);
   const activeFilterSet = useMemo(() => getFilterSetForCategory(activeCategory?.name || null), [activeCategory]);
@@ -337,14 +333,14 @@ export const ShopPage: React.FC = () => {
                 <Layers className="w-4 h-4 text-cyan-500" /> Category Registry
               </h4>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-                <FilterPill label="All Assets" isSelected={!activeCategory} onClick={() => setSelectedCategory(null)} />
+                <FilterPill label="All Assets" isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
                 {categoryCounts.map((category) => (
                   <FilterPill
                     key={category.name}
                     label={category.name}
                     count={category.count}
                     isSelected={activeCategory?.name === category.name}
-                    onClick={() => setSelectedCategory(category.name)}
+                    onClick={() => handleCategorySelect(category.name)}
                   />
                 ))}
               </div>
