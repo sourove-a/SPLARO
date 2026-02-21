@@ -209,11 +209,11 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className="fixed inset-x-0 top-0 w-full z-[100] px-4 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-none overflow-x-clip"
+        className="fixed inset-x-0 top-0 w-full z-[100] px-4 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-auto overflow-x-clip"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
       >
         {/* Left Side: Navigation Links + Menu Trigger */}
-        <div className="flex-1 flex items-center gap-8 pointer-events-none">
+        <div className="flex-1 flex items-center gap-8">
           <button
             onClick={() => setMenuOpen(true)}
             className="min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
@@ -273,7 +273,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
-        <div className="flex-1 flex justify-end items-center gap-8 pointer-events-none">
+        <div className="flex-1 flex justify-end items-center gap-8">
           {/* Desktop Right Links */}
           <div className="hidden lg:flex items-center gap-6 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[24px] border border-white/5 shadow-xl pointer-events-auto">
             {rightItems.map((item) => {

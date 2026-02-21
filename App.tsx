@@ -607,6 +607,8 @@ const AppContent = () => {
     // Guardrail: always release accidental global scroll lock.
     document.documentElement.style.overflowY = 'auto';
     document.body.style.overflowY = 'auto';
+    document.documentElement.style.overflowX = 'hidden';
+    document.body.style.overflowX = 'hidden';
   }, [location.pathname]);
 
   useEffect(() => {

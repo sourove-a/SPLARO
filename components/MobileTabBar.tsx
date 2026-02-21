@@ -78,11 +78,11 @@ export const MobileTabBar: React.FC = () => {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 150, opacity: 0 }}
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="fixed bottom-0 left-0 right-0 z-[120] px-4 lg:hidden pointer-events-none"
+          className="fixed bottom-0 left-0 right-0 z-[120] px-4 lg:hidden pointer-events-auto"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
         >
           <div className="max-w-screen-sm mx-auto relative" style={{ height: 'var(--mobile-nav-height)' }}>
-            <div className="absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden pointer-events-auto">
+            <div className="absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden">
               <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
               <div className="shine-sweep !opacity-20" />
 
