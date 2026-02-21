@@ -191,3 +191,12 @@ export async function getCacheStore(): Promise<CacheStore> {
   }
   return cacheSingleton;
 }
+
+export async function clearCacheKeys(keys: string[]): Promise<void> {
+  const cache = await getCacheStore();
+  await Promise.all(keys.map((key) => cache.del(key)));
+}
+
+export async function resetCacheStore(): Promise<void> {
+  cacheSingleton = null;
+}

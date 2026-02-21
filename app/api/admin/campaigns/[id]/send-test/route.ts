@@ -1,16 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { assertAdminAccess } from '../../../../../../lib/adminAuth';
-import { sendCampaign } from '../../../../../../lib/adminStore';
+import { NextRequest } from 'next/server';
+import { POST as sendCampaign } from '../send/route';
 
 export async function POST(request: NextRequest, context: { params: { id: string } }) {
-  const auth = assertAdminAccess(request.headers);
-  if (!auth.ok) return auth.response as NextResponse;
-
-  const { id } = context.params;
-  const result = sendCampaign(id, 'TEST');
-  if (!result) {
-    return NextResponse.json({ success: false, message: 'Campaign not found' }, { status: 404 });
-  }
-
-  return NextResponse.json({ success: true, ...result });
+  const payload = await request.json().catch(() => ({}));
+  const mergedBody = { ...payload, mode: 'test' };
+  const proxyReq = new NextRequest(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify(mergedBody),
+  });
+  return sendCampaign(proxyReq, context);
 }

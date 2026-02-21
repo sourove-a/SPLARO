@@ -7,6 +7,16 @@ import { fallbackStore } from '../../../../lib/fallbackStore';
 import { writeAuditLog, writeSystemLog } from '../../../../lib/log';
 import { productCreateSchema } from '../../../../lib/validators';
 
+function slugify(input: string): string {
+  return String(input || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-\s]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
@@ -16,6 +26,7 @@ export async function GET(request: NextRequest) {
     const q = String(req.nextUrl.searchParams.get('q') || '').trim();
     const category = String(req.nextUrl.searchParams.get('category') || '').trim();
     const type = String(req.nextUrl.searchParams.get('type') || '').trim();
+    const sort = String(req.nextUrl.searchParams.get('sort') || 'newest').trim().toLowerCase();
 
     const db = await getDbPool();
     if (!db) {
@@ -70,9 +81,10 @@ export async function GET(request: NextRequest) {
     const safeOffset = (safePage - 1) * pageSize;
     const [rows] = await db.execute(
       `SELECT id, name, slug, category_id, product_type, image_url, product_url, price, active, created_at, updated_at
+       , discount_price, stock_quantity, variants_json, seo_title, seo_description, meta_keywords
        FROM products
        ${whereSql}
-       ORDER BY created_at DESC
+       ORDER BY ${sort === 'price_asc' ? 'price ASC' : sort === 'price_desc' ? 'price DESC' : 'created_at DESC'}
        LIMIT ? OFFSET ?`,
       [...params, pageSize, safeOffset],
     );
@@ -103,23 +115,31 @@ export async function POST(request: NextRequest) {
 
     const payload = parsed.data;
     const id = randomUUID();
+    const slug = payload.slug || slugify(payload.name);
+    if (!slug) return jsonError('INVALID_SLUG', 'Product slug is required.', 400);
     const db = await getDbPool();
 
     if (!db) {
       const mem = fallbackStore();
-      const exists = mem.products.some((item) => item.slug === payload.slug);
+      const exists = mem.products.some((item) => item.slug === slug);
       if (exists) return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
 
       const now = new Date().toISOString();
       const next = {
         id,
         name: payload.name,
-        slug: payload.slug,
+        slug,
         category_id: payload.category_id,
         product_type: payload.product_type,
         image_url: payload.image_url,
         product_url: payload.product_url,
         price: payload.price,
+        discount_price: payload.discount_price ?? null,
+        stock_quantity: payload.stock_quantity ?? 0,
+        variants_json: payload.variants_json || '',
+        seo_title: payload.seo_title || '',
+        seo_description: payload.seo_description || '',
+        meta_keywords: payload.meta_keywords || '',
         active: payload.active,
         created_at: now,
         updated_at: now,
@@ -127,25 +147,41 @@ export async function POST(request: NextRequest) {
       mem.products.unshift(next);
 
       await writeAuditLog({ actorId: null, action: 'PRODUCT_CREATED', entityType: 'product', entityId: id, after: next, ipAddress: ip });
-      await writeSystemLog({ eventType: 'PRODUCT_CREATED_FALLBACK', description: `Product created: ${payload.slug}`, ipAddress: ip });
+      await writeSystemLog({ eventType: 'PRODUCT_CREATED_FALLBACK', description: `Product created: ${slug}`, ipAddress: ip });
 
       return jsonSuccess({ storage: 'fallback', item: next }, 201);
     }
 
-    const [existingRows] = await db.execute('SELECT id FROM products WHERE slug = ? LIMIT 1', [payload.slug]);
+    const [existingRows] = await db.execute('SELECT id FROM products WHERE slug = ? LIMIT 1', [slug]);
     if (Array.isArray(existingRows) && existingRows.length > 0) {
       return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
     }
 
     await db.execute(
       `INSERT INTO products
-       (id, name, slug, category_id, product_type, image_url, product_url, price, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, payload.name, payload.slug, payload.category_id, payload.product_type, payload.image_url, payload.product_url, payload.price, payload.active ? 1 : 0],
+       (id, name, slug, category_id, product_type, image_url, product_url, price, discount_price, stock_quantity, variants_json, seo_title, seo_description, meta_keywords, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        payload.name,
+        slug,
+        payload.category_id,
+        payload.product_type,
+        payload.image_url,
+        payload.product_url,
+        payload.price,
+        payload.discount_price ?? null,
+        payload.stock_quantity ?? 0,
+        payload.variants_json || null,
+        payload.seo_title || null,
+        payload.seo_description || null,
+        payload.meta_keywords || null,
+        payload.active ? 1 : 0,
+      ],
     );
 
     await writeAuditLog({ actorId: null, action: 'PRODUCT_CREATED', entityType: 'product', entityId: id, after: payload, ipAddress: ip });
-    await writeSystemLog({ eventType: 'PRODUCT_CREATED', description: `Product created: ${payload.slug}`, ipAddress: ip });
+    await writeSystemLog({ eventType: 'PRODUCT_CREATED', description: `Product created: ${slug}`, ipAddress: ip });
 
     const [rows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
     const item = Array.isArray(rows) && rows[0] ? rows[0] : null;

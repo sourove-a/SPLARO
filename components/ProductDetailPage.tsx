@@ -42,9 +42,10 @@ export const ProductDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const product = products.find(p => p.id === id) || initialSelected;
+  const sizeOptions = product?.sizes && product.sizes.length > 0 ? product.sizes : ['Free Size'];
 
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState(product?.sizes[0] || '');
+  const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || 'Free Size');
   const [activeImg, setActiveImg] = useState(product?.image || '');
 
   useEffect(() => {
@@ -53,7 +54,7 @@ export const ProductDetailPage: React.FC = () => {
     }
     if (product) {
       setActiveImg(product.image);
-      setSelectedSize(product.sizes[0]);
+      setSelectedSize(product.sizes?.[0] || 'Free Size');
     }
   }, [product, initialSelected, setSelectedProduct]);
 
@@ -117,56 +118,79 @@ export const ProductDetailPage: React.FC = () => {
           <p className="text-2xl md:text-3xl font-black text-cyan-400 mb-8">Tk {Number(product.price || 0).toLocaleString()}.00</p>
 
           <div className="space-y-10">
-            <div>
-              <h3 className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-6">SELECT ARCHIVAL SIZE: {selectedSize}</h3>
-              <div className="flex flex-wrap gap-3">
-                {(product.sizes || []).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setSelectedSize(s)}
-                    className={`min-w-[3.5rem] h-14 rounded-2xl border flex items-center justify-center px-4 text-sm font-black transition-all ${selectedSize === s ? 'bg-white border-white text-black scale-105 shadow-[0_15px_30px_rgba(255,255,255,0.2)]' : 'bg-white/5 border-white/10 text-white/30 hover:border-white/30'}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="h-16 flex items-center bg-zinc-900/50 rounded-xl border border-white/5 px-6">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="text-white/40 p-2 hover:text-white"><Minus className="w-4 h-4" /></button>
-                  <span className="w-12 text-center font-black text-lg">{quantity}</span>
-                  <button onClick={() => setQuantity(quantity + 1)} className="text-white/40 p-2 hover:text-white"><Plus className="w-4 h-4" /></button>
+            <div className="rounded-[28px] border border-white/10 bg-[#0b111c]/80 backdrop-blur-2xl p-5 sm:p-6 space-y-5 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Select Size</h3>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{selectedSize}</span>
                 </div>
+                <div className="grid grid-cols-4 gap-2.5">
+                  {sizeOptions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSize(s)}
+                      className={`h-11 rounded-xl border text-[11px] font-black uppercase tracking-[0.16em] transition-all ${
+                        selectedSize === s
+                          ? 'bg-cyan-400 text-black border-cyan-300 shadow-[0_0_20px_rgba(65,220,255,0.4)]'
+                          : 'bg-white/[0.03] border-white/15 text-white/80 hover:border-cyan-400/40 hover:text-white'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Quantity</h3>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{quantity} PCS</span>
+                </div>
+                <div className="h-14 rounded-2xl border border-white/15 bg-black/25 px-2 flex items-center">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-11 h-11 rounded-xl border border-white/10 text-white/85 hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="flex-1 text-center font-black text-xl tracking-wide text-white">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-11 h-11 rounded-xl border border-white/10 text-white/85 hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-1">
                 <button
                   onClick={() => addToCart({
                     product: product,
                     quantity,
-                    selectedSize: selectedSize || (product.sizes?.[0] || 'Free Size'),
+                    selectedSize: selectedSize || sizeOptions[0],
                     selectedColor: (product.colors?.[0] || 'Original')
                   })}
-                  className="flex-1 bg-zinc-900 hover:bg-black text-white py-5 rounded-xl font-black text-[10px] tracking-[0.2em] uppercase transition-all shadow-xl"
+                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-400 text-black font-black text-[11px] tracking-[0.22em] uppercase transition-all hover:brightness-110 shadow-[0_12px_30px_rgba(56,189,248,0.35)]"
                 >
-                  ADD TO ARCHIVE
+                  Add To Cart
+                </button>
+
+                <button
+                  onClick={() => {
+                    addToCart({
+                      product: product,
+                      quantity,
+                      selectedSize: selectedSize || sizeOptions[0],
+                      selectedColor: (product.colors?.[0] || 'Original')
+                    });
+                    navigate('/checkout');
+                  }}
+                  className="w-full h-14 rounded-2xl bg-white text-black font-black text-[11px] tracking-[0.3em] uppercase hover:bg-cyan-100 transition-all shadow-[0_18px_36px_rgba(0,0,0,0.28)]"
+                >
+                  Buy It Now
                 </button>
               </div>
-
-              <button
-                onClick={() => {
-                  addToCart({
-                    product: product,
-                    quantity,
-                    selectedSize: selectedSize || (product.sizes?.[0] || 'Free Size'),
-                    selectedColor: (product.colors?.[0] || 'Original')
-                  });
-                  navigate('/checkout');
-                }}
-                className="w-full bg-white text-black h-16 rounded-xl font-black text-[11px] tracking-[0.3em] uppercase hover:bg-cyan-400 transition-all shadow-[0_20px_40px_rgba(0,0,0,0.3)]"
-              >
-                BUY IT NOW
-              </button>
             </div>
 
 

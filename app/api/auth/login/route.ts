@@ -48,6 +48,16 @@ export async function POST(request: NextRequest) {
     if (Number(user.is_blocked) === 1) return jsonError('USER_BLOCKED', 'Account is blocked.', 403);
 
     const token = `mysql-${randomUUID()}`;
+    await db.execute(
+      `INSERT INTO login_history (user_id, email, ip_address, user_agent)
+       VALUES (?, ?, ?, ?)`,
+      [
+        user.id,
+        email,
+        ip,
+        req.headers.get('user-agent') || null,
+      ],
+    );
     await writeSystemLog({ eventType: 'AUTH_LOGIN', description: `User login: ${email}`, userId: user.id, ipAddress: ip });
 
     return jsonSuccess({

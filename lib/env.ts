@@ -157,6 +157,7 @@ export function jsonSuccess<T extends Record<string, unknown>>(payload: T, statu
   return NextResponse.json(
     {
       success: true,
+      data: payload,
       ...payload,
     },
     { status },

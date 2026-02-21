@@ -14,7 +14,7 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
   const { siteSettings } = useApp();
 
   return (
-    <div className={`relative flex items-center gap-4 group ${className}`}>
+    <div className={`relative flex items-center gap-2 sm:gap-3 md:gap-4 group ${className}`}>
       <div className="relative h-full aspect-[1.3/1] flex items-center justify-center">
         {siteSettings.logoUrl ? (
           <img
@@ -39,7 +39,7 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
       </div>
 
       <div className="flex flex-col justify-center">
-        <span className="text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
+        <span className="text-2xl sm:text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
           SPLARO
         </span>
       </div>
@@ -112,6 +112,14 @@ export const Navbar: React.FC = () => {
     if (path.startsWith('/admin/campaigns/') && path.endsWith('/logs')) return 'CAMPAIGN LOGS';
     if (path.startsWith('/admin/campaigns/')) return 'CAMPAIGN DETAILS';
     if (path === '/admin/search') return 'ADMIN SEARCH';
+    if (path === '/admin') return 'ADMIN';
+    if (path === '/admin/users') return 'USERS';
+    if (path === '/admin/products') return 'PRODUCTS';
+    if (path === '/admin/orders') return 'ORDERS';
+    if (path === '/admin/coupons') return 'COUPONS';
+    if (path === '/admin/reports') return 'REPORTS';
+    if (path === '/admin/settings') return 'SETTINGS';
+    if (path === '/admin/system') return 'SYSTEM';
     if (path === '/order_success') return 'ORDER SUCCESS';
     if (path === '/story') return 'STORY';
     if (path === '/support') return 'SUPPORT';
@@ -200,16 +208,16 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full z-[100] px-6 py-6 md:px-16 md:py-10 flex items-center justify-between pointer-events-none">
+      <nav className="fixed top-0 left-0 w-full z-[100] px-3 py-3 sm:px-4 sm:py-4 md:px-16 md:py-10 flex items-center justify-between pointer-events-none">
         {/* Left Side: Navigation Links + Menu Trigger */}
         <div className="flex-1 flex items-center gap-8 pointer-events-none">
           <button
             onClick={() => setMenuOpen(true)}
-            className="p-5 bg-white/5 backdrop-blur-xl rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
+            className="p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto"
           >
             <div className="flex flex-col gap-1.5 items-start">
-              <div className="w-10 h-[2.5px] bg-white transition-all group-hover:w-6" />
-              <div className="w-6 h-[2.5px] bg-white transition-all group-hover:w-10" />
+              <div className="w-8 sm:w-9 md:w-10 h-[2.5px] bg-white transition-all group-hover:w-6" />
+              <div className="w-5 sm:w-6 h-[2.5px] bg-white transition-all group-hover:w-10" />
             </div>
           </button>
 
@@ -250,13 +258,13 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[52vw] sm:max-w-none" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
-          <SplaroLogo className="h-10 md:h-16" />
-          <span className="mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
+          <SplaroLogo className="h-8 sm:h-9 md:h-16" />
+          <span className="hidden sm:block mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
             {currentRouteLabel}
           </span>
         </div>
@@ -314,9 +322,9 @@ export const Navbar: React.FC = () => {
 
           <button
             onClick={() => navigate('/cart')}
-            className="relative lg:hidden p-5 bg-white/5 backdrop-blur-3xl rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto"
+            className="relative lg:hidden p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto"
           >
-            <ShoppingBag className="w-6 h-6 text-white" />
+            <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             {cart.length > 0 && (
               <motion.span
                 initial={{ scale: 0 }}

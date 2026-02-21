@@ -83,10 +83,21 @@ export const productCreateSchema = z.object({
   image_url: z.string().trim().max(1000).optional().default(''),
   product_url: z.string().trim().max(1000).optional().default(''),
   price: z.coerce.number().min(0),
+  discount_price: z.coerce.number().min(0).optional().nullable(),
+  stock_quantity: z.coerce.number().int().min(0).optional().default(0),
+  variants_json: z.string().trim().optional().default(''),
+  seo_title: z.string().trim().max(255).optional().default(''),
+  seo_description: z.string().trim().max(1000).optional().default(''),
+  meta_keywords: z.string().trim().max(255).optional().default(''),
   active: z.coerce.boolean().optional().default(true),
 });
 
 export const productUpdateSchema = productCreateSchema.partial();
+
+export const productBulkImportSchema = z.object({
+  rows: z.array(productCreateSchema).min(1),
+  mode: z.enum(['UPSERT', 'INSERT_ONLY']).optional().default('UPSERT'),
+});
 
 export const orderItemSchema = z.object({
   product_id: z.string().trim().max(64).optional(),
@@ -113,6 +124,13 @@ export const orderCreatePayloadSchema = z.object({
 
 export const orderStatusSchema = z.object({
   status: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']),
+  refund_requested: z.coerce.boolean().optional(),
+  refunded: z.coerce.boolean().optional(),
+  actor_id: z.string().trim().max(64).optional(),
+});
+
+export const orderNoteSchema = z.object({
+  note: z.string().trim().min(1).max(2000),
   actor_id: z.string().trim().max(64).optional(),
 });
 
@@ -121,11 +139,52 @@ export const userBlockSchema = z.object({
   actor_id: z.string().trim().max(64).optional(),
 });
 
+export const userRoleSchema = z.object({
+  role: z.enum(['admin', 'staff', 'user']),
+  actor_id: z.string().trim().max(64).optional(),
+});
+
+export const couponCreateSchema = z.object({
+  code: z.string().trim().min(3).max(64),
+  discount_type: z.enum(['PERCENT', 'FIXED']),
+  discount_value: z.coerce.number().min(0),
+  expiry_at: z.string().trim().optional().nullable(),
+  usage_limit: z.coerce.number().int().min(0).optional().default(0),
+  is_active: z.coerce.boolean().optional().default(true),
+});
+
+export const couponUpdateSchema = couponCreateSchema.partial();
+
+export const campaignCreateSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  status: z.enum(['Draft', 'Active', 'Paused', 'Completed']).optional().default('Draft'),
+  audience_segment: z.enum(['ALL_USERS', 'NEW_SIGNUPS_7D', 'INACTIVE_30D']).optional().default('ALL_USERS'),
+  target_count: z.coerce.number().int().min(0).optional().default(0),
+  pulse_percent: z.coerce.number().int().min(0).max(100).optional().default(0),
+  schedule_time: z.string().trim().optional(),
+  content: z.string().trim().optional().default(''),
+});
+
+export const campaignUpdateSchema = campaignCreateSchema.partial();
+
+export const campaignSendSchema = z.object({
+  mode: z.enum(['test', 'now']).default('now'),
+  actor_id: z.string().trim().max(64).optional(),
+});
+
 export type AuthSignupInput = z.infer<typeof authSignupSchema>;
 export type AuthLoginInput = z.infer<typeof authLoginSchema>;
 export type ProductQueryInput = z.infer<typeof productQuerySchema>;
 export type ProductCreateInput = z.infer<typeof productCreateSchema>;
 export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;
+export type ProductBulkImportInput = z.infer<typeof productBulkImportSchema>;
 export type OrderCreatePayloadInput = z.infer<typeof orderCreatePayloadSchema>;
 export type OrderStatusInput = z.infer<typeof orderStatusSchema>;
+export type OrderNoteInput = z.infer<typeof orderNoteSchema>;
 export type UserBlockInput = z.infer<typeof userBlockSchema>;
+export type UserRoleInput = z.infer<typeof userRoleSchema>;
+export type CouponCreateInput = z.infer<typeof couponCreateSchema>;
+export type CouponUpdateInput = z.infer<typeof couponUpdateSchema>;
+export type CampaignCreateInput = z.infer<typeof campaignCreateSchema>;
+export type CampaignUpdateInput = z.infer<typeof campaignUpdateSchema>;
+export type CampaignSendInput = z.infer<typeof campaignSendSchema>;

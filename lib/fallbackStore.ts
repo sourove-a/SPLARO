@@ -7,7 +7,7 @@ export type FallbackUser = {
   thana?: string;
   address?: string;
   password_hash?: string | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'staff' | 'admin';
   is_blocked: boolean;
   created_at: string;
   updated_at: string;
@@ -22,6 +22,12 @@ export type FallbackProduct = {
   image_url: string;
   product_url: string;
   price: number;
+  discount_price?: number;
+  stock_quantity?: number;
+  variants_json?: string;
+  seo_title?: string;
+  seo_description?: string;
+  meta_keywords?: string;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -54,6 +60,9 @@ export type FallbackOrder = {
   shipping: number;
   discount: number;
   total: number;
+  admin_note?: string;
+  is_refund_requested?: boolean;
+  is_refunded?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -87,12 +96,51 @@ export type FallbackAuditLog = {
   created_at: string;
 };
 
+export type FallbackCampaign = {
+  id: string;
+  name: string;
+  status: 'Draft' | 'Active' | 'Paused' | 'Completed';
+  audience_segment: 'ALL_USERS' | 'NEW_SIGNUPS_7D' | 'INACTIVE_30D';
+  target_count: number;
+  pulse_percent: number;
+  schedule_time: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+};
+
+export type FallbackCoupon = {
+  id: string;
+  code: string;
+  discount_type: 'PERCENT' | 'FIXED';
+  discount_value: number;
+  expiry_at?: string | null;
+  usage_limit: number;
+  used_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 const data = {
   users: [] as FallbackUser[],
   products: [] as FallbackProduct[],
   orders: [] as FallbackOrder[],
   orderItems: [] as FallbackOrderItem[],
   subscriptions: [] as FallbackSubscription[],
+  campaigns: [] as FallbackCampaign[],
+  coupons: [] as FallbackCoupon[],
+  siteSettings: {
+    store_name: 'SPLARO',
+    shipping_fee: 120,
+    tax_rate: 0,
+    currency: 'BDT',
+    maintenance_mode: false,
+    smtp: {},
+    telegram: {},
+    sheets_sync_enabled: false,
+  } as Record<string, unknown>,
   systemLogs: [] as FallbackSystemLog[],
   auditLogs: [] as FallbackAuditLog[],
   cartByKey: new Map<string, any[]>(),
@@ -100,6 +148,8 @@ const data = {
   nextItemId: 1,
   nextLogId: 1,
   nextAuditId: 1,
+  nextCampaignSeq: 1,
+  nextCouponSeq: 1,
 };
 
 export function fallbackStore() {
@@ -127,5 +177,17 @@ export function nextFallbackLogId(): number {
 export function nextFallbackAuditId(): number {
   const id = data.nextAuditId;
   data.nextAuditId += 1;
+  return id;
+}
+
+export function nextFallbackCampaignId(): string {
+  const id = `cmp_${String(data.nextCampaignSeq).padStart(5, '0')}`;
+  data.nextCampaignSeq += 1;
+  return id;
+}
+
+export function nextFallbackCouponId(): string {
+  const id = `cpn_${String(data.nextCouponSeq).padStart(5, '0')}`;
+  data.nextCouponSeq += 1;
   return id;
 }

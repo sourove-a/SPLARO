@@ -1,8 +1,9 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withApiHandler } from '../../../../lib/apiRoute';
 import { getDbPool } from '../../../../lib/db';
 import { jsonSuccess, parsePagination, requireAdmin } from '../../../../lib/env';
 import { fallbackStore } from '../../../../lib/fallbackStore';
+import { toCsv } from '../../../../lib/csv';
 
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
@@ -11,6 +12,8 @@ export async function GET(request: NextRequest) {
 
     const { page, pageSize } = parsePagination(req.nextUrl.searchParams);
     const q = String(req.nextUrl.searchParams.get('q') || '').trim();
+    const includeHistory = String(req.nextUrl.searchParams.get('includeHistory') || '') === '1';
+    const format = String(req.nextUrl.searchParams.get('format') || '').trim().toLowerCase();
 
     const db = await getDbPool();
     if (!db) {
@@ -28,7 +31,41 @@ export async function GET(request: NextRequest) {
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
       const safePage = Math.min(page, totalPages);
       const start = (safePage - 1) * pageSize;
-      return jsonSuccess({ storage: 'fallback', items: rows.slice(start, start + pageSize), total, page: safePage, pageSize, totalPages });
+
+      const paged = rows.slice(start, start + pageSize).map((user) => {
+        const history = mem.orders.filter((order) => order.user_id === user.id || order.email === user.email);
+        return {
+          ...user,
+          order_count: history.length,
+          total_spend: history.reduce((sum, order) => sum + Number(order.total || 0), 0),
+          order_history: includeHistory ? history.slice(0, 20) : undefined,
+        };
+      });
+
+      if (format === 'csv') {
+        const csv = toCsv(
+          paged.map((item) => ({
+            id: item.id,
+            name: item.name,
+            email: item.email,
+            phone: item.phone,
+            role: item.role,
+            is_blocked: item.is_blocked ? 1 : 0,
+            order_count: item.order_count,
+            total_spend: item.total_spend,
+            created_at: item.created_at,
+          })),
+        );
+        return new NextResponse(csv, {
+          status: 200,
+          headers: {
+            'content-type': 'text/csv; charset=utf-8',
+            'content-disposition': `attachment; filename=\"splaro-users-page-${safePage}.csv\"`,
+          },
+        });
+      }
+
+      return jsonSuccess({ storage: 'fallback', items: paged, total, page: safePage, pageSize, totalPages });
     }
 
     const where = q ? 'WHERE (name LIKE ? OR email LIKE ? OR phone LIKE ?)' : '';
@@ -49,6 +86,59 @@ export async function GET(request: NextRequest) {
       [...params, pageSize, safeOffset],
     );
 
-    return jsonSuccess({ storage: 'mysql', items: Array.isArray(rows) ? rows : [], total, page: safePage, pageSize, totalPages });
+    const items = Array.isArray(rows) ? (rows as any[]) : [];
+    const enriched = [];
+    for (const user of items) {
+      const [historyCountRows] = await db.execute(
+        `SELECT COUNT(*) AS order_count, COALESCE(SUM(total),0) AS total_spend
+         FROM orders
+         WHERE user_id = ? OR email = ?`,
+        [user.id, user.email],
+      );
+      const agg = Array.isArray(historyCountRows) && historyCountRows[0] ? (historyCountRows[0] as any) : { order_count: 0, total_spend: 0 };
+      let history: any[] | undefined;
+      if (includeHistory) {
+        const [historyRows] = await db.execute(
+          `SELECT order_no, status, total, created_at
+           FROM orders
+           WHERE user_id = ? OR email = ?
+           ORDER BY created_at DESC
+           LIMIT 20`,
+          [user.id, user.email],
+        );
+        history = Array.isArray(historyRows) ? historyRows as any[] : [];
+      }
+      enriched.push({
+        ...user,
+        order_count: Number(agg.order_count || 0),
+        total_spend: Number(agg.total_spend || 0),
+        order_history: history,
+      });
+    }
+
+    if (format === 'csv') {
+      const csv = toCsv(
+        enriched.map((item) => ({
+          id: item.id,
+          name: item.name,
+          email: item.email,
+          phone: item.phone,
+          role: item.role,
+          is_blocked: item.is_blocked ? 1 : 0,
+          order_count: item.order_count,
+          total_spend: item.total_spend,
+          created_at: item.created_at,
+        })),
+      );
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          'content-type': 'text/csv; charset=utf-8',
+          'content-disposition': `attachment; filename=\"splaro-users-page-${safePage}.csv\"`,
+        },
+      });
+    }
+
+    return jsonSuccess({ storage: 'mysql', items: enriched, total, page: safePage, pageSize, totalPages });
   });
 }

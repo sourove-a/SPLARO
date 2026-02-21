@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
           row.order_no.toLowerCase().includes(term) ||
           row.name.toLowerCase().includes(term) ||
           row.email.toLowerCase().includes(term) ||
-          row.phone.toLowerCase().includes(term),
+          row.phone.toLowerCase().includes(term) ||
+          String((row as any).admin_note || '').toLowerCase().includes(term),
         );
       }
 
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
     const safeOffset = (safePage - 1) * pageSize;
     const [rows] = await db.execute(
       `SELECT id, order_no, user_id, name, email, phone, address, district, thana, status, subtotal, shipping, discount, total, created_at, updated_at
+       , admin_note, is_refund_requested, is_refunded
        FROM orders
        ${whereSql}
        ORDER BY created_at DESC

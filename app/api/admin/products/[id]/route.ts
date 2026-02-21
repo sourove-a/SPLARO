@@ -6,6 +6,16 @@ import { fallbackStore } from '../../../../../lib/fallbackStore';
 import { writeAuditLog, writeSystemLog } from '../../../../../lib/log';
 import { productUpdateSchema } from '../../../../../lib/validators';
 
+function slugify(input: string): string {
+  return String(input || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9-\s]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
     const admin = requireAdmin(req.headers);
@@ -22,7 +32,10 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       });
     }
 
-    const payload = parsed.data;
+    const payload: Record<string, unknown> = { ...parsed.data };
+    if (typeof payload.name === 'string' && !payload.slug) {
+      payload.slug = slugify(payload.name);
+    }
     const db = await getDbPool();
 
     if (!db) {
@@ -30,6 +43,11 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       const idx = mem.products.findIndex((item) => item.id === id);
       if (idx < 0) return jsonError('NOT_FOUND', 'Product not found.', 404);
       const before = { ...mem.products[idx] };
+      if (payload.slug) {
+        const slugExists = mem.products.some((item) => item.id !== id && item.slug === payload.slug);
+        if (slugExists) return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
+      }
+
       mem.products[idx] = {
         ...mem.products[idx],
         ...payload,
@@ -46,9 +64,17 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
     const existing = Array.isArray(existingRows) && existingRows[0] ? (existingRows[0] as any) : null;
     if (!existing) return jsonError('NOT_FOUND', 'Product not found.', 404);
 
+    if (typeof payload.slug === 'string' && payload.slug.trim()) {
+      const [slugRows] = await db.execute('SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1', [payload.slug, id]);
+      if (Array.isArray(slugRows) && slugRows.length > 0) {
+        return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
+      }
+    }
+
     const fields: string[] = [];
     const params: unknown[] = [];
     for (const [key, value] of Object.entries(payload)) {
+      if (typeof value === 'undefined') continue;
       fields.push(`${key} = ?`);
       params.push(key === 'active' ? (value ? 1 : 0) : value);
     }
