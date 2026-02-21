@@ -449,8 +449,8 @@ const Footer = () => {
                   SPLARO
                 </span>
               </div>
-              <p className="text-zinc-500 text-[10px] font-bold leading-relaxed uppercase tracking-[0.25em] max-w-sm">
-                Directly imported from Guangzhou & Shanghai. Curating global imported grade heritage with precision logistics.
+              <p className="text-zinc-300 text-[10px] font-black leading-relaxed uppercase tracking-[0.25em] max-w-sm">
+                Directly imported from China to Bangladesh. Premium-grade quality with precision logistics.
               </p>
               <div className="flex gap-4">
                 {[
@@ -531,8 +531,8 @@ const Footer = () => {
               <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-zinc-600">
                 <Globe className="w-4 h-4" />
               </div>
-              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-600">
-                Directly imported from <span className="text-zinc-400">Guangzhou & Shanghai</span> – Premium Grade.
+              <p className="text-[9px] font-black uppercase tracking-[0.35em] text-zinc-300">
+                <span className="text-white font-extrabold">Directly Imported from China to Bangladesh</span> – Premium Grade.
               </p>
             </div>
             <div className="flex items-center gap-6 text-zinc-800">
