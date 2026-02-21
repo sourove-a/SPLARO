@@ -92,7 +92,7 @@ export const MobileTabBar: React.FC = () => {
                             : `/${item.view.toLowerCase()}`;
                   navigate(path);
                 }}
-                className="relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none"
+                className="relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none touch-manipulation"
               >
                 <div className="relative p-1.5">
                   <item.icon
