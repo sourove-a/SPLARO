@@ -71,7 +71,7 @@ export const HeroSlider = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-black">
+    <div className="relative min-h-screen w-full overflow-hidden bg-black touch-pan-y" style={{ touchAction: 'pan-y' }}>
       <AnimatePresence mode="wait">
         <motion.div
           key={index}

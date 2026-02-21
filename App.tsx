@@ -604,6 +604,12 @@ const AppContent = () => {
   }, [theme]);
 
   useEffect(() => {
+    // Guardrail: always release accidental global scroll lock.
+    document.documentElement.style.overflowY = 'auto';
+    document.body.style.overflowY = 'auto';
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (!import.meta.env.DEV || typeof window === 'undefined') return;
 
     let rafId = 0;
