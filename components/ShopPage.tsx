@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, X, Sparkles, Tag, SortAsc, Clock, Box, Trash2, Layers } from 'lucide-react';
+import { Filter, X, Sparkles, Tag, SortAsc, Clock, Box, Trash2, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 import { ProductCard } from './ProductCard';
@@ -122,6 +122,7 @@ export const ShopPage: React.FC = () => {
   const [sortOption, setSortOption] = useState<SortOption>('Newest');
   const [showFilters, setShowFilters] = useState(false);
   const [priceRange, setPriceRange] = useState<{ min: number; max: number } | null>(null);
+  const [openMultiFilterId, setOpenMultiFilterId] = useState<string | null>(null);
 
   const queryCategory = useMemo(() => getQueryCategory(location.search), [location.search]);
 
@@ -174,6 +175,7 @@ export const ShopPage: React.FC = () => {
   useEffect(() => {
     setSelectedMultiFilters({});
     setSortOption('Newest');
+    setOpenMultiFilterId(null);
 
     if (priceFilter && typeof priceFilter.min === 'number' && typeof priceFilter.max === 'number') {
       setPriceRange({ min: priceFilter.min, max: priceFilter.max });
@@ -371,17 +373,59 @@ export const ShopPage: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-                        {options.map((option) => (
-                          <FilterPill
-                            key={option}
-                            label={option}
-                            isSelected={selectedValues.includes(option)}
-                            colorHex={filter.id === 'color' ? colorMap[option] : undefined}
-                            onClick={() => toggleMultiFilter(filter.id, option)}
-                          />
-                        ))}
-                      </div>
+                      filter.id === 'brand' ? (
+                        <div className="space-y-3">
+                          <button
+                            type="button"
+                            onClick={() => setOpenMultiFilterId((prev) => (prev === filter.id ? null : filter.id))}
+                            className="w-full min-h-12 px-4 rounded-2xl border border-white/10 bg-white/[0.03] text-white/80 hover:border-cyan-500/40 transition-all flex items-center justify-between"
+                          >
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+                              {selectedValues.length > 0 ? `${selectedValues.length} Selected` : 'Select Brand'}
+                            </span>
+                            {openMultiFilterId === filter.id ? (
+                              <ChevronUp className="w-4 h-4 text-cyan-400" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-cyan-400" />
+                            )}
+                          </button>
+
+                          {openMultiFilterId === filter.id && (
+                            <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                              {options.map((option) => {
+                                const isChecked = selectedValues.includes(option);
+                                return (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => toggleMultiFilter(filter.id, option)}
+                                    className={`w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between ${
+                                      isChecked
+                                        ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300'
+                                        : 'border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20'
+                                    }`}
+                                  >
+                                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-left">{option}</span>
+                                    <span className={`w-2.5 h-2.5 rounded-full ${isChecked ? 'bg-cyan-400' : 'bg-white/20'}`} />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+                          {options.map((option) => (
+                            <FilterPill
+                              key={option}
+                              label={option}
+                              isSelected={selectedValues.includes(option)}
+                              colorHex={filter.id === 'color' ? colorMap[option] : undefined}
+                              onClick={() => toggleMultiFilter(filter.id, option)}
+                            />
+                          ))}
+                        </div>
+                      )
                     )}
                   </div>
                 );
