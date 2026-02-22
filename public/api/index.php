@@ -822,8 +822,17 @@ function is_admin_authenticated($authUser) {
     }
 
     $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
-    if ($adminKeyHeader !== '' && ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $adminKeyHeader)) {
-        return true;
+    if ($adminKeyHeader !== '') {
+        if (ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $adminKeyHeader)) {
+            return true;
+        }
+
+        // Legacy compatibility: allow admin login secret in x-admin-key so
+        // emergency admin sessions can still access admin sync endpoints.
+        $adminSecret = trim((string)get_primary_admin_secret());
+        if ($adminSecret !== '' && hash_equals($adminSecret, $adminKeyHeader)) {
+            return true;
+        }
     }
 
     return false;
@@ -2483,26 +2492,100 @@ function sync_to_sheets($type, $data) {
     if (!$webhook_url) {
         return;
     }
-    
-    $payload = [
+
+    $timestamp = date('Y-m-d H:i:s');
+    $basePayload = [
         'type' => $type,
-        'timestamp' => date('Y-m-d H:i:s'),
-        'data' => $data
+        'action' => $type,
+        'timestamp' => $timestamp,
+        'data' => is_array($data) ? $data : ['value' => $data],
     ];
 
-    $options = [
-        'http' => [
-            'header'  => "Content-type: application/json\r\n",
-            'method'  => 'POST',
-            'content' => json_encode($payload),
-            'timeout' => 5
-        ],
-    ];
+    // Compatibility layer for different Apps Script payload handlers:
+    // keep nested `data`, but also mirror scalar fields to top-level.
+    if (is_array($data)) {
+        foreach ($data as $k => $v) {
+            if (!is_string($k)) continue;
+            if (!array_key_exists($k, $basePayload) && (is_scalar($v) || $v === null)) {
+                $basePayload[$k] = $v;
+            }
+        }
+    }
 
-    $context  = stream_context_create($options);
-    $response = @file_get_contents($webhook_url, false, $context);
-    if ($response === false) {
-        error_log("SPLARO_SHEETS_SYNC_WARNING: failed to deliver payload type {$type}");
+    $jsonBody = json_encode($basePayload);
+    if (!is_string($jsonBody) || $jsonBody === '') {
+        error_log("SPLARO_SHEETS_SYNC_WARNING: invalid payload for type {$type}");
+        return;
+    }
+
+    $maxAttempts = 3;
+    $delayMs = 200;
+    $lastError = '';
+    $lastHttp = 0;
+
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $headers = "Content-type: application/json\r\nAccept: application/json\r\n";
+        if (defined('TELEGRAM_WEBHOOK_SECRET') && TELEGRAM_WEBHOOK_SECRET !== '') {
+            $headers .= "X-Webhook-Secret: " . TELEGRAM_WEBHOOK_SECRET . "\r\n";
+        }
+
+        $options = [
+            'http' => [
+                'header'  => $headers,
+                'method'  => 'POST',
+                'content' => $jsonBody,
+                'timeout' => 5,
+                'ignore_errors' => true
+            ],
+        ];
+
+        $context = stream_context_create($options);
+        $response = @file_get_contents($webhook_url, false, $context);
+        $httpCode = 0;
+        $responseHeaders = [];
+        if (function_exists('http_get_last_response_headers')) {
+            $fetchedHeaders = @http_get_last_response_headers();
+            if (is_array($fetchedHeaders)) {
+                $responseHeaders = $fetchedHeaders;
+            }
+        }
+
+        if (!empty($responseHeaders)) {
+            foreach ($responseHeaders as $line) {
+                if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                    $httpCode = (int)$m[1];
+                    break;
+                }
+            }
+        }
+
+        if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+            return;
+        }
+
+        $lastHttp = $httpCode;
+        $lastError = ($response === false) ? 'NETWORK_OR_TIMEOUT' : ('HTTP_' . $httpCode);
+
+        if ($attempt < $maxAttempts) {
+            usleep($delayMs * 1000);
+            $delayMs *= 2;
+        }
+    }
+
+    error_log("SPLARO_SHEETS_SYNC_WARNING: type={$type}; http={$lastHttp}; error={$lastError}");
+
+    try {
+        global $db;
+        if (isset($db) && $db) {
+            $stmt = $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)");
+            $stmt->execute([
+                'SHEETS_SYNC_FAILED',
+                "Failed to sync {$type} to Google Sheets ({$lastError})",
+                $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+            ]);
+        }
+    } catch (Exception $e) {
+        // no-op
     }
 }
 
