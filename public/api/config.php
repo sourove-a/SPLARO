@@ -47,7 +47,9 @@ function bootstrap_env_files() {
             $value = trim($parts[1]);
             $value = trim($value, "\"'");
 
-            if ($key !== '' && getenv($key) === false) {
+            if ($key !== '') {
+                // Force override with file values so public_html/.env.local is the
+                // single source of truth for PHP runtime on shared hosting.
                 putenv($key . '=' . $value);
                 $_ENV[$key] = $value;
                 $_SERVER[$key] = $value;
