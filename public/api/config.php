@@ -5,22 +5,25 @@
  */
 
 function bootstrap_env_files() {
-    $candidates = [
+    $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+
+    $candidates = [];
+    if ($docRoot !== '') {
+        $cleanDocRoot = rtrim($docRoot, '/\\');
+        $candidates[] = $cleanDocRoot . '/.env.local';
+        $candidates[] = $cleanDocRoot . '/.env';
+        $candidates[] = $cleanDocRoot . '/api/.env.local';
+        $candidates[] = $cleanDocRoot . '/api/.env';
+    }
+
+    $candidates = array_merge($candidates, [
         __DIR__ . '/../.env.local',
         __DIR__ . '/../.env',
-        __DIR__ . '/../../.env.local',
-        __DIR__ . '/../../.env',
         __DIR__ . '/.env.local',
         __DIR__ . '/.env',
-    ];
-
-    $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
-    if ($docRoot !== '') {
-        $candidates[] = rtrim($docRoot, '/\\') . '/.env.local';
-        $candidates[] = rtrim($docRoot, '/\\') . '/.env';
-        $candidates[] = dirname(rtrim($docRoot, '/\\')) . '/.env.local';
-        $candidates[] = dirname(rtrim($docRoot, '/\\')) . '/.env';
-    }
+        __DIR__ . '/../../.env.local',
+        __DIR__ . '/../../.env',
+    ]);
 
     foreach ($candidates as $file) {
         if (!is_file($file) || !is_readable($file)) {
@@ -36,6 +39,10 @@ function bootstrap_env_files() {
             $line = trim($line);
             if ($line === '' || $line[0] === '#') {
                 continue;
+            }
+
+            if (stripos($line, 'export ') === 0) {
+                $line = trim(substr($line, 7));
             }
 
             $parts = explode('=', $line, 2);
@@ -55,7 +62,12 @@ function bootstrap_env_files() {
                 $_SERVER[$key] = $value;
             }
         }
+
+        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $file;
+        return;
     }
+
+    $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = '';
 }
 
 bootstrap_env_files();

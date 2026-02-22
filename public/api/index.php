@@ -133,6 +133,7 @@ if (!$db) {
             "storage" => "fallback",
             "dbHost" => DB_HOST,
             "dbName" => DB_NAME,
+            "envSource" => basename((string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? '')),
             "db" => $bootstrapError
         ]);
         exit;
@@ -989,7 +990,8 @@ if ($method === 'GET' && $action === 'health') {
         "telegram_enabled" => TELEGRAM_ENABLED,
         "storage" => "mysql",
         "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
-        "dbName" => DB_NAME
+        "dbName" => DB_NAME,
+        "envSource" => basename((string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? ''))
     ]);
     exit;
 }
