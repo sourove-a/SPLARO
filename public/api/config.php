@@ -261,7 +261,10 @@ function get_db_connection() {
     $hostCandidates = array_values(array_unique(array_filter($hostCandidates)));
 
     $lastError = '';
+    $lastSqlState = '';
+    $attemptedHosts = [];
     foreach ($hostCandidates as $host) {
+        $attemptedHosts[] = $host;
         try {
             $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
             $options = [
@@ -276,12 +279,16 @@ function get_db_connection() {
             return $pdo;
         } catch (\PDOException $e) {
             $lastError = $e->getMessage();
+            $lastSqlState = (string)$e->getCode();
             error_log("SPLARO_DB_CONNECTION_ERROR[{$host}]: " . $lastError);
         }
     }
 
     $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] = [
-        "message" => "DATABASE_CONNECTION_FAILED"
+        "message" => "DATABASE_CONNECTION_FAILED",
+        "code" => $lastSqlState,
+        "reason" => $lastError,
+        "hostsTried" => $attemptedHosts
     ];
     return null;
 }
