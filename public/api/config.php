@@ -58,14 +58,32 @@ function bootstrap_env_files() {
 
 bootstrap_env_files();
 
+function normalize_env_value($value) {
+    if (!is_string($value)) {
+        return $value;
+    }
+
+    $normalized = trim($value);
+    $length = strlen($normalized);
+    if ($length >= 2) {
+        $first = $normalized[0];
+        $last = $normalized[$length - 1];
+        if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+            $normalized = substr($normalized, 1, -1);
+        }
+    }
+
+    return trim($normalized);
+}
+
 function env_or_default($key, $default = '') {
     $candidates = [getenv($key), $_ENV[$key] ?? null, $_SERVER[$key] ?? null];
     foreach ($candidates as $value) {
         if ($value !== false && $value !== null && $value !== '') {
-            return $value;
+            return normalize_env_value($value);
         }
     }
-    return $default;
+    return normalize_env_value($default);
 }
 
 function env_first(array $keys, $default = '') {
@@ -205,12 +223,12 @@ function parse_database_url() {
 $dbUrl = parse_database_url();
 
 // 1. DATABASE COORDINATES
-define('DB_HOST', env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : '127.0.0.1'));
-define('DB_NAME', env_first(['DB_NAME', 'MYSQL_DATABASE', 'DB_DATABASE'], $dbUrl['name']));
-define('DB_USER', env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNAME', 'DB_USERNAME'], $dbUrl['user']));
-define('DB_PASSWORD', env_first(['DB_PASSWORD', 'DB_PASS', 'MYSQL_PASSWORD'], $dbUrl['pass']));
+define('DB_HOST', trim((string)env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : '127.0.0.1')));
+define('DB_NAME', trim((string)env_first(['DB_NAME', 'MYSQL_DATABASE', 'DB_DATABASE'], $dbUrl['name'])));
+define('DB_USER', trim((string)env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNAME', 'DB_USERNAME'], $dbUrl['user'])));
+define('DB_PASSWORD', (string)env_first(['DB_PASSWORD', 'DB_PASS', 'MYSQL_PASSWORD'], $dbUrl['pass']));
 define('DB_PASS', DB_PASSWORD);
-define('DB_PORT', (int)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306'));
+define('DB_PORT', (int)trim((string)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306')));
 
 // 2. SMTP COMMAND CENTER
 define('SMTP_HOST', env_or_default('SMTP_HOST', 'smtp.hostinger.com'));
