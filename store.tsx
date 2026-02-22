@@ -725,9 +725,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             profileImage: u.profile_image || '',
             createdAt: u.created_at
           }));
-          setUsers(mappedUsers);
-        } else if (user?.role !== 'ADMIN') {
-          setUsers([]);
+          if (mappedUsers.length > 0 || user?.role === 'ADMIN') {
+            setUsers(mappedUsers);
+          } else if (user) {
+            // Keep the active identity in local state for non-admin sync responses
+            // that intentionally omit full user lists.
+            setUsers((prev) => {
+              const alreadyPresent = prev.some((u) => String(u.id) === String(user.id) || String(u.email).toLowerCase() === String(user.email).toLowerCase());
+              return alreadyPresent ? prev : [user, ...prev];
+            });
+          }
         }
         if (result.data.settings) {
           const s = result.data.settings;

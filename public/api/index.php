@@ -52,8 +52,8 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         $mail->isSMTP();
         $mail->Host       = $smtpHost !== '' ? $smtpHost : SMTP_HOST;
         $mail->SMTPAuth   = true;
-        $mail->Username   = $smtpUser;
-        $mail->Password   = $smtpPass;
+        $mail->Username   = $smtpUser !== '' ? $smtpUser : SMTP_USER;
+        $mail->Password   = $smtpPass !== '' ? $smtpPass : SMTP_PASS;
         $mail->Timeout    = 10;
         $mail->CharSet    = 'UTF-8';
         $mail->Port       = $smtpPort > 0 ? $smtpPort : (int)SMTP_PORT;
@@ -63,6 +63,15 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         } else {
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         }
+
+        // SSL Security Handshake Bypass (Essential for Hostinger/Shared Environments)
+        $mail->SMTPOptions = [
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            ]
+        ];
 
         $mail->setFrom($fromAddress, 'SPLARO');
         $mail->addAddress($to);
@@ -440,6 +449,26 @@ function load_smtp_settings($db) {
         }
     } catch (Exception $e) {
         // fall back to constants
+    }
+
+    // Environment variables must win over DB values when provided,
+    // so stale DB SMTP credentials never break delivery.
+    $envHost = trim((string)SMTP_HOST);
+    $envPort = (int)SMTP_PORT;
+    $envUser = trim((string)SMTP_USER);
+    $envPass = (string)SMTP_PASS;
+    $envSecure = strtolower(trim((string)env_or_default('SMTP_SECURE', '')));
+
+    if ($envHost !== '') $settings['host'] = $envHost;
+    if ($envPort > 0) $settings['port'] = $envPort;
+    if ($envUser !== '') $settings['user'] = $envUser;
+    if ($envPass !== '') $settings['pass'] = $envPass;
+    if (in_array($envSecure, ['ssl', 'tls'], true)) {
+        $settings['secure'] = $envSecure;
+    }
+
+    if (trim((string)($settings['from'] ?? '')) === '') {
+        $settings['from'] = (string)($settings['user'] ?? '');
     }
 
     return $settings;
@@ -866,9 +895,9 @@ function ensure_admin_identity_account($db) {
         return;
     }
 
-    $adminHash = password_hash($secret, PASSWORD_DEFAULT);
     $emails = resolve_admin_login_emails($db);
     $primaryEmail = strtolower((string)($emails[0] ?? 'admin@splaro.co'));
+    $adminHash = null; // Only compute if we actually need to insert/update
 
     foreach ($emails as $email) {
         try {
@@ -886,6 +915,7 @@ function ensure_admin_identity_account($db) {
                 }
 
                 if ($needsUpdate) {
+                    if ($adminHash === null) $adminHash = password_hash($secret, PASSWORD_DEFAULT);
                     $update = $db->prepare("UPDATE users SET role = 'ADMIN', password = ? WHERE id = ?");
                     $update->execute([$adminHash, $existing['id']]);
                 } else {
@@ -893,6 +923,7 @@ function ensure_admin_identity_account($db) {
                     $updateRole->execute([$existing['id']]);
                 }
             } else {
+                if ($adminHash === null) $adminHash = password_hash($secret, PASSWORD_DEFAULT);
                 $newId = 'admin_' . bin2hex(random_bytes(4));
                 $insert = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $insert->execute([
@@ -920,8 +951,26 @@ function ensure_admin_identity_account($db) {
     }
 }
 
+function maybe_ensure_admin_account($db) {
+    if (!$db) return;
+    $cacheKey = md5(DB_HOST . '|' . DB_NAME . '|admin_seed');
+    $cacheFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_admin_check_{$cacheKey}.json";
+    $now = time();
+    $ttl = 3600; // 1 hour
+
+    if (is_file($cacheFile)) {
+        $payload = json_decode((string)@file_get_contents($cacheFile), true);
+        if (isset($payload['checked_at']) && ($now - (int)$payload['checked_at']) < $ttl) {
+            return;
+        }
+    }
+
+    ensure_admin_identity_account($db);
+    @file_put_contents($cacheFile, json_encode(['checked_at' => $now]), LOCK_EX);
+}
+
 $requestAuthUser = get_authenticated_user_from_request();
-ensure_admin_identity_account($db);
+maybe_ensure_admin_account($db);
 
 if ($method === 'GET' && $action === 'health') {
     echo json_encode([
@@ -1102,25 +1151,33 @@ if ($method === 'GET' && $action === 'sync') {
         }
     }
 
-    $products = $db->query("SELECT * FROM products")->fetchAll();
+    $products = [];
+    if (!$isAdmin && $method === 'GET' && $action === 'sync') {
+        // Light sync for regular users: just active products with essential fields
+        $products = $db->query("SELECT id, name, brand, price, image, category, type, featured, stock, discount_percentage FROM products LIMIT 100")->fetchAll();
+    } else {
+        $products = $db->query("SELECT * FROM products")->fetchAll();
+    }
+
     foreach ($products as &$p) {
-        $p['description'] = json_decode($p['description'], true) ?? ['EN' => '', 'BN' => ''];
-        $p['sizes'] = json_decode($p['sizes'], true) ?? [];
-        $p['colors'] = json_decode($p['colors'], true) ?? [];
-        $p['materials'] = json_decode($p['materials'], true) ?? [];
-        $p['tags'] = json_decode($p['tags'], true) ?? [];
-        $p['dimensions'] = json_decode($p['dimensions'], true) ?? ['l'=>'', 'w'=>'', 'h'=>''];
-        $p['variations'] = json_decode($p['variations'], true) ?? [];
-        $p['additionalImages'] = json_decode($p['additional_images'], true) ?? [];
-        $p['sizeChartImage'] = $p['size_chart_image'];
-        $p['discountPercentage'] = $p['discount_percentage'];
-        $p['featured'] = $p['featured'] == 1;
-        $p['stock'] = (int)$p['stock'];
+        if (isset($p['description'])) $p['description'] = json_decode($p['description'], true) ?? ['EN' => '', 'BN' => ''];
+        if (isset($p['sizes'])) $p['sizes'] = json_decode($p['sizes'], true) ?? [];
+        if (isset($p['colors'])) $p['colors'] = json_decode($p['colors'], true) ?? [];
+        if (isset($p['materials'])) $p['materials'] = json_decode($p['materials'], true) ?? [];
+        if (isset($p['tags'])) $p['tags'] = json_decode($p['tags'], true) ?? [];
+        if (isset($p['dimensions'])) $p['dimensions'] = json_decode($p['dimensions'], true) ?? ['l'=>'', 'w'=>'', 'h'=>''];
+        if (isset($p['variations'])) $p['variations'] = json_decode($p['variations'], true) ?? [];
+        if (isset($p['additional_images'])) $p['additionalImages'] = json_decode($p['additional_images'], true) ?? [];
+        if (isset($p['size_chart_image'])) $p['sizeChartImage'] = $p['size_chart_image'];
+        if (isset($p['discount_percentage'])) $p['discountPercentage'] = $p['discount_percentage'];
+        if (isset($p['featured'])) $p['featured'] = $p['featured'] == 1;
+        if (isset($p['stock'])) $p['stock'] = (int)$p['stock'];
         
-        // FISCAL SANITIZATION: Clean numeric signals before archival storage
-        $rawPrice = (string)$p['price'];
-        $cleanPrice = preg_replace('/[^0-9]/', '', $rawPrice);
-        $p['price'] = (int)$cleanPrice;
+        if (isset($p['price'])) {
+            $rawPrice = (string)$p['price'];
+            $cleanPrice = preg_replace('/[^0-9]/', '', $rawPrice);
+            $p['price'] = (int)$cleanPrice;
+        }
     }
 
     $orders = [];
@@ -1204,6 +1261,14 @@ if ($method === 'GET' && $action === 'sync') {
         $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC");
         $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
         $orders = $stmtOrders->fetchAll();
+
+        // Return the current authenticated identity so frontend sync never wipes user state.
+        $selfStmt = $db->prepare("SELECT id, name, email, phone, address, profile_image, role, created_at FROM users WHERE id = ? OR email = ? ORDER BY created_at DESC LIMIT 1");
+        $selfStmt->execute([$requestAuthUser['id'] ?? '', $requestAuthUser['email']]);
+        $self = $selfStmt->fetch();
+        if ($self) {
+            $users = [$self];
+        }
     }
 
     $data = [
@@ -1650,6 +1715,17 @@ if ($method === 'POST' && $action === 'signup') {
     $existing = $check->fetch();
 
     if ($existing) {
+        // If it's a social auth sync or the user is already authenticated as this email, allow update.
+        // Otherwise, prevent overwriting existing accounts via signup.
+        $isAuthenticated = false;
+        if (is_array($requestAuthUser) && strtolower((string)($requestAuthUser['email'] ?? '')) === $email) {
+            $isAuthenticated = true;
+        }
+
+        if (!$isAuthenticated && !isset($input['google_sub'])) {
+            echo json_encode(["status" => "error", "message" => "IDENTITY_ALREADY_EXISTS"]);
+            exit;
+        }
         $existingRole = strtoupper((string)($existing['role'] ?? 'USER'));
         $persistRole = $existingRole;
         if ($isAdminIdentity || $existingRole === 'ADMIN') {
@@ -2245,6 +2321,35 @@ if ($method === 'POST' && $action === 'update_settings') {
             smtp_settings = ?,
             logistics_config = ?";
 
+        $incomingSmtpSettings = $input['smtpSettings'] ?? [];
+        if (!is_array($incomingSmtpSettings)) {
+            $incomingSmtpSettings = [];
+        }
+
+        $existingSmtpSettings = [];
+        $existingSettingsRow = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+        if (!empty($existingSettingsRow['smtp_settings'])) {
+            $decodedSmtp = json_decode((string)$existingSettingsRow['smtp_settings'], true);
+            if (is_array($decodedSmtp)) {
+                $existingSmtpSettings = $decodedSmtp;
+            }
+        }
+
+        $incomingPass = (string)($incomingSmtpSettings['pass'] ?? '');
+        $incomingPassTrimmed = trim($incomingPass);
+        if ($incomingPassTrimmed === '' || preg_match('/^[*xX•·●]+$/u', $incomingPassTrimmed)) {
+            unset($incomingSmtpSettings['pass']);
+        }
+
+        if (!isset($incomingSmtpSettings['pass']) && !empty($existingSmtpSettings['pass'])) {
+            $incomingSmtpSettings['pass'] = (string)$existingSmtpSettings['pass'];
+        }
+
+        $mergedSmtpSettings = array_merge($existingSmtpSettings, $incomingSmtpSettings);
+        if (trim((string)($mergedSmtpSettings['from'] ?? '')) === '') {
+            $mergedSmtpSettings['from'] = (string)($mergedSmtpSettings['user'] ?? '');
+        }
+
         $params = [
             $input['siteName'] ?? 'SPLARO',
             $input['supportEmail'] ?? 'info@splaro.co',
@@ -2253,7 +2358,7 @@ if ($method === 'POST' && $action === 'update_settings') {
             $input['facebookLink'] ?? '',
             $input['instagramLink'] ?? '',
             isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : 0,
-            json_encode($input['smtpSettings'] ?? []),
+            json_encode($mergedSmtpSettings),
             json_encode($input['logisticsConfig'] ?? [])
         ];
 
