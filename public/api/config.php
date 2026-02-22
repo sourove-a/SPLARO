@@ -184,11 +184,13 @@ function parse_database_url() {
 
     $parts = parse_url($databaseUrl);
     if (is_array($parts)) {
+        $parsedUser = (string)($parts['user'] ?? '');
+        $parsedPass = (string)($parts['pass'] ?? '');
         return [
             'host' => $parts['host'] ?? '',
             'name' => isset($parts['path']) ? ltrim($parts['path'], '/') : '',
-            'user' => $parts['user'] ?? '',
-            'pass' => $parts['pass'] ?? '',
+            'user' => rawurldecode($parsedUser),
+            'pass' => rawurldecode($parsedPass),
             'port' => isset($parts['port']) ? (string)$parts['port'] : '',
         ];
     }
@@ -228,10 +230,39 @@ function parse_database_url() {
     return [
         'host' => trim($host),
         'name' => trim($dbName),
-        'user' => trim($user),
-        'pass' => $pass,
+        'user' => trim(rawurldecode((string)$user)),
+        'pass' => rawurldecode((string)$pass),
         'port' => trim($port),
     ];
+}
+
+function resolve_db_password($fallbackFromDbUrl = '') {
+    $b64 = trim((string)env_or_default('DB_PASSWORD_B64', ''));
+    if ($b64 !== '') {
+        $decoded = base64_decode($b64, true);
+        if (is_string($decoded) && $decoded !== '') {
+            $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'DB_PASSWORD_B64';
+            return $decoded;
+        }
+    }
+
+    $urlEncoded = trim((string)env_or_default('DB_PASSWORD_URLENC', ''));
+    if ($urlEncoded !== '') {
+        $decoded = rawurldecode($urlEncoded);
+        if ($decoded !== '') {
+            $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'DB_PASSWORD_URLENC';
+            return $decoded;
+        }
+    }
+
+    $plain = env_first(['DB_PASSWORD', 'DB_PASS', 'MYSQL_PASSWORD'], $fallbackFromDbUrl);
+    if ((string)$plain !== '') {
+        $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'DB_PASSWORD_OR_DB_PASS';
+        return (string)$plain;
+    }
+
+    $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'EMPTY';
+    return '';
 }
 
 $dbUrl = parse_database_url();
@@ -240,7 +271,7 @@ $dbUrl = parse_database_url();
 define('DB_HOST', trim((string)env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : '127.0.0.1')));
 define('DB_NAME', trim((string)env_first(['DB_NAME', 'MYSQL_DATABASE', 'DB_DATABASE'], $dbUrl['name'])));
 define('DB_USER', trim((string)env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNAME', 'DB_USERNAME'], $dbUrl['user'])));
-define('DB_PASSWORD', (string)env_first(['DB_PASSWORD', 'DB_PASS', 'MYSQL_PASSWORD'], $dbUrl['pass']));
+define('DB_PASSWORD', resolve_db_password((string)($dbUrl['pass'] ?? '')));
 define('DB_PASS', DB_PASSWORD);
 define('DB_PORT', (int)trim((string)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306')));
 
