@@ -18,12 +18,12 @@
             --mobile-nav-height: 70px;
             --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
             --mobile-safe-top: env(safe-area-inset-top, 0px);
-            --ui-focus-outline: rgba(90, 224, 255, 0.88);
-            --ui-focus-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18);
-            --splaro-primary: #0A0C12;
-            --splaro-accent: #41DCFF;
-            --splaro-bg: #050505;
-            --splaro-surface: rgba(20, 26, 40, 0.86);
+            --ui-focus-outline: rgba(132, 228, 255, 0.94);
+            --ui-focus-shadow: 0 0 0 4px rgba(90, 200, 250, 0.22);
+            --splaro-primary: #101a33;
+            --splaro-accent: #84e4ff;
+            --splaro-bg: #040917;
+            --splaro-surface: rgba(24, 36, 66, 0.76);
             --splaro-text: #FFFFFF;
             --splaro-radius: 24px;
             --splaro-shadow-strength: 60;
@@ -33,15 +33,14 @@
             --splaro-container-max: 1280px;
             --splaro-spacing-scale: 1;
 
-            /* Strict monochrome theme */
+            /* Liquid glass tokens */
             --bg-main: var(--splaro-bg);
             --text-main: var(--splaro-text);
             --text-dim: rgba(255, 255, 255, 0.72);
             --glass-bg: var(--splaro-surface);
-            --glass-border: rgba(95, 217, 255, 0.34);
+            --glass-border: rgba(132, 228, 255, 0.5);
             --ribbed-opacity: 0.035;
-            --glow-strength: 0px;
-            /* Removed colored glow */
+            --glow-strength: 1;
         }
 
         :root[data-splaro-focus="bright"] {
@@ -79,9 +78,9 @@
             margin: 0;
             background-color: var(--bg-main);
             background-image:
-                radial-gradient(circle at 12% 16%, rgba(0, 212, 255, 0.18), transparent 34%),
-                radial-gradient(circle at 88% 86%, rgba(56, 189, 248, 0.15), transparent 32%),
-                linear-gradient(180deg, #060a14 0%, #02050d 100%);
+                radial-gradient(circle at 12% 16%, rgba(90, 200, 250, 0.28), transparent 36%),
+                radial-gradient(circle at 88% 86%, rgba(10, 132, 255, 0.22), transparent 34%),
+                linear-gradient(180deg, #081022 0%, #030814 100%);
             color: var(--text-main);
             transition: background-color 0.35s ease, color 0.25s ease;
             -webkit-font-smoothing: antialiased;
@@ -162,12 +161,18 @@
         }
 
         .liquid-glass {
-            background: var(--glass-bg);
-            backdrop-filter: blur(28px) saturate(160%);
-            -webkit-backdrop-filter: blur(28px) saturate(160%);
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 38%, rgba(132, 228, 255, 0.12) 100%),
+                var(--glass-bg);
+            backdrop-filter: blur(34px) saturate(180%);
+            -webkit-backdrop-filter: blur(34px) saturate(180%);
             border: 1px solid var(--glass-border);
             border-radius: var(--splaro-radius, 24px);
-            box-shadow: 0 0 0 1px rgba(140, 230, 255, 0.08), 0 24px calc(20px + (var(--splaro-shadow-strength, 60) * 0.8px)) rgba(0, 0, 0, 0.55);
+            box-shadow:
+                0 0 0 1px rgba(150, 235, 255, 0.16),
+                inset 0 1px 0 rgba(255, 255, 255, 0.24),
+                0 22px calc(18px + (var(--splaro-shadow-strength, 60) * 0.75px)) rgba(5, 8, 18, 0.56),
+                0 0 calc(10px + (var(--splaro-shadow-strength, 60) * 0.45px)) rgba(90, 200, 250, 0.2);
         }
 
         .ribbed-texture {
@@ -200,7 +205,7 @@
             left: -34%;
             width: 40%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+            background: linear-gradient(90deg, transparent, rgba(184, 241, 255, 0.22), transparent);
             animation: shine-sweep 9s infinite cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
             will-change: transform, opacity;
@@ -318,9 +323,12 @@
 
         @media (max-width: 1024px) {
             .liquid-glass {
-                backdrop-filter: blur(12px) saturate(130%);
-                -webkit-backdrop-filter: blur(12px) saturate(130%);
-                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+                backdrop-filter: blur(14px) saturate(140%);
+                -webkit-backdrop-filter: blur(14px) saturate(140%);
+                box-shadow:
+                    0 0 0 1px rgba(150, 235, 255, 0.12),
+                    0 10px 28px rgba(0, 0, 0, 0.36),
+                    0 0 20px rgba(90, 200, 250, 0.12);
             }
 
             .shine-sweep {
@@ -332,15 +340,18 @@
         @media (max-width: 768px) {
             body {
                 background-image:
-                    radial-gradient(circle at 15% 14%, rgba(0, 212, 255, 0.14), transparent 34%),
-                    radial-gradient(circle at 85% 84%, rgba(56, 189, 248, 0.1), transparent 32%),
-                    linear-gradient(180deg, #060a14 0%, #02050d 100%);
+                    radial-gradient(circle at 15% 14%, rgba(90, 200, 250, 0.2), transparent 36%),
+                    radial-gradient(circle at 85% 84%, rgba(10, 132, 255, 0.16), transparent 34%),
+                    linear-gradient(180deg, #091329 0%, #040b18 100%);
             }
 
             .liquid-glass {
-                backdrop-filter: blur(10px) saturate(120%);
-                -webkit-backdrop-filter: blur(10px) saturate(120%);
-                box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(12px) saturate(130%);
+                -webkit-backdrop-filter: blur(12px) saturate(130%);
+                box-shadow:
+                    0 0 0 1px rgba(150, 235, 255, 0.1),
+                    0 8px 22px rgba(0, 0, 0, 0.32),
+                    0 0 14px rgba(90, 200, 250, 0.1);
             }
 
             .shine-sweep {

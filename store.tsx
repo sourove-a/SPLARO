@@ -320,10 +320,10 @@ const INITIAL_DISCOUNTS: DiscountCode[] = [
 
 const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   colors: {
-    primary: '#0A0C12',
-    accent: '#41DCFF',
-    background: '#050505',
-    surface: 'rgba(20, 26, 40, 0.86)',
+    primary: '#101A33',
+    accent: '#84E4FF',
+    background: '#040917',
+    surface: 'rgba(24, 36, 66, 0.76)',
     text: '#FFFFFF'
   },
   typography: {

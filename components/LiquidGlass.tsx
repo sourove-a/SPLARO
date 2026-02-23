@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 export const GlassCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`card liquid-glass rounded-[32px] border border-white/10 relative overflow-hidden bg-white/[0.03] shadow-[0_0_38px_rgba(0,0,0,0.42)] ${className}`}>
+  <div className={`card liquid-glass rounded-[32px] border border-[#9be9ff]/30 relative overflow-hidden bg-white/[0.06] shadow-[0_10px_42px_rgba(9,18,40,0.48),0_0_24px_rgba(90,200,250,0.16)] ${className}`}>
     <div className="ribbed-texture absolute inset-0 pointer-events-none opacity-[0.03]" />
     <div className="relative z-10 h-full">
       {children}
@@ -171,7 +171,7 @@ export const PrimaryButton: React.FC<{
     } : {}}
     onClick={onClick}
     disabled={disabled || isLoading}
-    className={`interactive-control relative bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 rounded-[32px] font-black text-white overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group shadow-[0_0_26px_rgba(0,212,255,0.24)] hover:shadow-[0_0_36px_rgba(0,212,255,0.35)] border border-white/20 ${className}`}
+    className={`interactive-control relative bg-gradient-to-r from-[#0A84FF] via-[#5AC8FA] to-[#7DD3FC] rounded-[32px] font-black text-white overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group shadow-[0_0_26px_rgba(90,200,250,0.28)] hover:shadow-[0_0_40px_rgba(90,200,250,0.38)] border border-white/30 ${className}`}
   >
     <div className="ribbed-texture absolute inset-0 opacity-[0.1] pointer-events-none" />
     <div className="absolute inset-0 bg-white/16 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -202,7 +202,7 @@ export const SocialButton: React.FC<{
     whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.3)', y: -2 }}
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
-    className="interactive-control w-full h-18 bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-white/10 flex items-center justify-center gap-4 transition-all group shadow-[0_8px_20px_rgba(0,0,0,0.25)]"
+    className="interactive-control w-full h-18 bg-white/[0.08] backdrop-blur-xl rounded-2xl border border-[#9be9ff]/28 flex items-center justify-center gap-4 transition-all group shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
   >
     <div className="shrink-0 transition-transform duration-500 group-hover:scale-110">{icon}</div>
     <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-200 group-hover:text-white transition-colors">{label}</span>
