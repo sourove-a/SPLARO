@@ -20,16 +20,38 @@
             --mobile-safe-top: env(safe-area-inset-top, 0px);
             --ui-focus-outline: rgba(90, 224, 255, 0.88);
             --ui-focus-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18);
+            --splaro-primary: #0A0C12;
+            --splaro-accent: #41DCFF;
+            --splaro-bg: #050505;
+            --splaro-surface: rgba(20, 26, 40, 0.86);
+            --splaro-text: #FFFFFF;
+            --splaro-radius: 24px;
+            --splaro-shadow-strength: 60;
+            --splaro-font-base-size: 16px;
+            --splaro-heading-scale: 1;
+            --splaro-font-family: 'Inter', sans-serif;
+            --splaro-container-max: 1280px;
+            --splaro-spacing-scale: 1;
 
             /* Strict monochrome theme */
-            --bg-main: var(--obsidian);
-            --text-main: #FFFFFF;
+            --bg-main: var(--splaro-bg);
+            --text-main: var(--splaro-text);
             --text-dim: rgba(255, 255, 255, 0.72);
-            --glass-bg: rgba(20, 26, 40, 0.86);
+            --glass-bg: var(--splaro-surface);
             --glass-border: rgba(95, 217, 255, 0.34);
             --ribbed-opacity: 0.035;
             --glow-strength: 0px;
             /* Removed colored glow */
+        }
+
+        :root[data-splaro-focus="bright"] {
+            --ui-focus-outline: rgba(65, 220, 255, 1);
+            --ui-focus-shadow: 0 0 0 4px rgba(65, 220, 255, 0.22);
+        }
+
+        :root[data-splaro-glow="reduced"] {
+            --glow-strength: 0px;
+            --ribbed-opacity: 0.02;
         }
 
         .light {
@@ -52,7 +74,8 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: var(--splaro-font-family, 'Inter', sans-serif);
+            font-size: var(--splaro-font-base-size, 16px);
             margin: 0;
             background-color: var(--bg-main);
             background-image:
@@ -101,6 +124,39 @@
             padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 12px);
         }
 
+        .splaro-shell {
+            width: min(100%, var(--splaro-container-max, 1280px));
+            margin-inline: auto;
+        }
+
+        .hero-headline {
+            font-size: clamp(2.25rem, calc(7vw * var(--splaro-heading-scale, 1)), 8rem);
+            line-height: 0.86;
+            letter-spacing: -0.02em;
+            max-width: min(12ch, 100%);
+            text-wrap: balance;
+            overflow-wrap: normal;
+            word-break: normal;
+            hyphens: none;
+        }
+
+        .hero-headline[data-align="center"] {
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+        }
+
+        .hero-subtitle {
+            max-width: min(56ch, 100%);
+            line-height: 1.45;
+        }
+
+        @supports not (text-wrap: balance) {
+            .hero-headline {
+                white-space: normal;
+            }
+        }
+
         .whatsapp-fab-wrapper {
             bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 20px);
         }
@@ -110,7 +166,8 @@
             backdrop-filter: blur(28px) saturate(160%);
             -webkit-backdrop-filter: blur(28px) saturate(160%);
             border: 1px solid var(--glass-border);
-            box-shadow: 0 0 0 1px rgba(140, 230, 255, 0.08), 0 24px 80px rgba(0, 0, 0, 0.55);
+            border-radius: var(--splaro-radius, 24px);
+            box-shadow: 0 0 0 1px rgba(140, 230, 255, 0.08), 0 24px calc(20px + (var(--splaro-shadow-strength, 60) * 0.8px)) rgba(0, 0, 0, 0.55);
         }
 
         .ribbed-texture {
@@ -219,7 +276,7 @@
 
         .text-cyan-400,
         .text-cyan-500 {
-            color: #41dcff !important;
+            color: var(--splaro-accent, #41dcff) !important;
         }
 
         .border-white\/10 {

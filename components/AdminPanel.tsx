@@ -23,6 +23,7 @@ import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
 const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'SYNC', 'SETTINGS', 'PAGES', 'STORY', 'TRAFFIC', 'CAMPAIGNS'] as const;
 type AdminTab = typeof ADMIN_TABS[number];
+type CmsCategoryTab = 'all' | 'shoes' | 'bags';
 
 const isAdminTab = (tab: string): tab is AdminTab => ADMIN_TABS.includes(tab as AdminTab);
 
@@ -506,7 +507,7 @@ export const AdminPanel = () => {
     slides, setSlides, smtpSettings, setSmtpSettings, logisticsConfig, setLogisticsConfig,
     siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata, dbStatus, initializeSheets, logs, trafficData,
-    setUser,
+    setUser, user,
     lastSeenOrderTime, setLastSeenOrderTime
   } = useApp();
   const navigate = useNavigate();
@@ -547,10 +548,131 @@ export const AdminPanel = () => {
     }
   });
   const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [cmsCategoryTab, setCmsCategoryTab] = useState<CmsCategoryTab>('all');
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
     window.setTimeout(() => setToast(null), 2600);
+  };
+
+  const adminRole = String(user?.role || 'ADMIN').toUpperCase();
+  const canManageCms = ['ADMIN', 'SUPER_ADMIN', 'EDITOR'].includes(adminRole);
+  const canManageProtocols = ['ADMIN', 'SUPER_ADMIN'].includes(adminRole);
+
+  const updateThemeSettingsField = (path: string, value: any) => {
+    const next = JSON.parse(JSON.stringify(siteSettings.cmsDraft));
+    const segments = path.split('.');
+    let pointer: any = next.themeSettings;
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      pointer = pointer[segments[i]];
+    }
+    pointer[segments[segments.length - 1]] = value;
+    setSiteSettings({ ...siteSettings, cmsDraft: next });
+  };
+
+  const updateHeroField = (key: string, value: any) => {
+    setSiteSettings({
+      ...siteSettings,
+      cmsDraft: {
+        ...siteSettings.cmsDraft,
+        heroSettings: {
+          ...siteSettings.cmsDraft.heroSettings,
+          [key]: value
+        }
+      }
+    });
+  };
+
+  const updateCategoryOverrideField = (key: string, value: any) => {
+    setSiteSettings({
+      ...siteSettings,
+      cmsDraft: {
+        ...siteSettings.cmsDraft,
+        categoryHeroOverrides: {
+          ...siteSettings.cmsDraft.categoryHeroOverrides,
+          [cmsCategoryTab]: {
+            ...siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab],
+            [key]: value
+          }
+        }
+      }
+    });
+  };
+
+  const validateCmsDraft = () => {
+    const hero = siteSettings.cmsDraft.heroSettings;
+    if ((hero.heroTitle || '').trim().length > 120) {
+      showToast('Hero title max length is 120 characters.', 'error');
+      return false;
+    }
+    if ((hero.heroSubtitle || '').trim().length > 220) {
+      showToast('Hero subtitle max length is 220 characters.', 'error');
+      return false;
+    }
+    const isValidUrl = (value: string) => value === '' || value.startsWith('/') || /^https?:\/\/.+/i.test(value);
+    if (!isValidUrl(hero.heroCtaUrl || '')) {
+      showToast('Hero CTA URL must start with / or http(s).', 'error');
+      return false;
+    }
+    const overrideUrls = Object.values(siteSettings.cmsDraft.categoryHeroOverrides || {}).map((o: any) => String(o?.heroCtaUrl || ''));
+    if (overrideUrls.some((url) => !isValidUrl(url))) {
+      showToast('Category CTA URL must start with / or http(s).', 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const persistCmsDraft = async () => {
+    if (!canManageCms) {
+      showToast('Viewer role cannot edit CMS.', 'error');
+      return;
+    }
+    if (!validateCmsDraft()) return;
+    await updateSettings({
+      cmsDraft: siteSettings.cmsDraft,
+      cmsMode: 'DRAFT',
+      cmsAction: 'SAVE_DRAFT'
+    } as any);
+    const nextRevision = {
+      id: `rev_${Math.random().toString(36).slice(2, 10)}`,
+      mode: 'DRAFT' as const,
+      timestamp: new Date().toISOString(),
+      adminUser: user?.email || 'admin@splaro.co',
+      payload: siteSettings.cmsDraft
+    };
+    setSiteSettings({
+      ...siteSettings,
+      cmsActiveVersion: 'DRAFT',
+      cmsRevisions: [nextRevision, ...(siteSettings.cmsRevisions || [])].slice(0, 10)
+    });
+    showToast('Draft saved.', 'success');
+  };
+
+  const publishCmsDraft = async () => {
+    if (!canManageCms) {
+      showToast('Viewer role cannot publish CMS.', 'error');
+      return;
+    }
+    if (!validateCmsDraft()) return;
+    await updateSettings({
+      cmsDraft: siteSettings.cmsDraft,
+      cmsMode: 'PUBLISH',
+      cmsAction: 'PUBLISH'
+    } as any);
+    const nextRevision = {
+      id: `rev_${Math.random().toString(36).slice(2, 10)}`,
+      mode: 'PUBLISHED' as const,
+      timestamp: new Date().toISOString(),
+      adminUser: user?.email || 'admin@splaro.co',
+      payload: siteSettings.cmsDraft
+    };
+    setSiteSettings({
+      ...siteSettings,
+      cmsPublished: siteSettings.cmsDraft,
+      cmsActiveVersion: 'PUBLISHED',
+      cmsRevisions: [nextRevision, ...(siteSettings.cmsRevisions || [])].slice(0, 10)
+    });
+    showToast('CMS published.', 'success');
   };
 
   useEffect(() => {
@@ -1647,7 +1769,18 @@ export const AdminPanel = () => {
                       />
                     </div>
                   </div>
-                  <PrimaryButton className="mt-10 w-full rounded-2xl h-16 text-[10px]" onClick={() => updateSettings(siteSettings)}>SAVE INSTITUTIONAL PROFILE</PrimaryButton>
+                  <PrimaryButton
+                    className="mt-10 w-full rounded-2xl h-16 text-[10px]"
+                    onClick={() => {
+                      if (!canManageProtocols) {
+                        showToast('Editor role cannot change protocol settings.', 'error');
+                        return;
+                      }
+                      updateSettings(siteSettings);
+                    }}
+                  >
+                    SAVE INSTITUTIONAL PROFILE
+                  </PrimaryButton>
                 </GlassCard>
               </div>
 
@@ -1671,7 +1804,18 @@ export const AdminPanel = () => {
                       onChange={v => setSmtpSettings({ ...smtpSettings, pass: v })}
                     />
                   </div>
-                  <PrimaryButton className="mt-10 w-full" onClick={() => updateSettings({ smtpSettings })}>Update Mail Server</PrimaryButton>
+                  <PrimaryButton
+                    className="mt-10 w-full"
+                    onClick={() => {
+                      if (!canManageProtocols) {
+                        showToast('Editor role cannot change SMTP settings.', 'error');
+                        return;
+                      }
+                      updateSettings({ smtpSettings });
+                    }}
+                  >
+                    Update Mail Server
+                  </PrimaryButton>
 
                   <div className="mt-8 p-6 bg-blue-600/5 rounded-2xl border border-blue-500/10">
                     <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -1716,7 +1860,388 @@ export const AdminPanel = () => {
                       </div>
                     </div>
                   </div>
-                  <PrimaryButton className="mt-12 w-full py-6" onClick={() => updateSettings({ logisticsConfig })}>COMMIT OVERRIDE</PrimaryButton>
+                  <PrimaryButton
+                    className="mt-12 w-full py-6"
+                    onClick={() => {
+                      if (!canManageProtocols) {
+                        showToast('Editor role cannot change logistics protocol.', 'error');
+                        return;
+                      }
+                      updateSettings({ logisticsConfig });
+                    }}
+                  >
+                    COMMIT OVERRIDE
+                  </PrimaryButton>
+                </GlassCard>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                <GlassCard className="p-12 space-y-8">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-3xl font-black uppercase italic tracking-tight">Theme Settings</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
+                    </div>
+                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">
+                      Role: {adminRole}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[
+                      { key: 'colors.primary', label: 'Primary', value: siteSettings.cmsDraft.themeSettings.colors.primary },
+                      { key: 'colors.accent', label: 'Accent', value: siteSettings.cmsDraft.themeSettings.colors.accent },
+                      { key: 'colors.background', label: 'Background', value: siteSettings.cmsDraft.themeSettings.colors.background },
+                      { key: 'colors.surface', label: 'Surface', value: siteSettings.cmsDraft.themeSettings.colors.surface },
+                      { key: 'colors.text', label: 'Text', value: siteSettings.cmsDraft.themeSettings.colors.text }
+                    ].map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{field.label}</label>
+                        <input
+                          type="text"
+                          value={field.value}
+                          onChange={(e) => updateThemeSettingsField(field.key, e.target.value)}
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Font Family</label>
+                      <select
+                        value={siteSettings.cmsDraft.themeSettings.typography.fontFamily}
+                        onChange={(e) => updateThemeSettingsField('typography.fontFamily', e.target.value)}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        {['Inter', 'Manrope', 'Plus Jakarta Sans', 'Urbanist', 'Poppins'].map((font) => (
+                          <option key={font} value={font}>{font}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Container Width</label>
+                      <select
+                        value={siteSettings.cmsDraft.themeSettings.containerWidth}
+                        onChange={(e) => updateThemeSettingsField('containerWidth', e.target.value)}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        {['LG', 'XL', '2XL', 'FULL'].map((width) => (
+                          <option key={width} value={width}>{width}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Base Size</label>
+                      <input
+                        type="number"
+                        min={12}
+                        max={20}
+                        value={siteSettings.cmsDraft.themeSettings.typography.baseSize}
+                        onChange={(e) => updateThemeSettingsField('typography.baseSize', Number(e.target.value))}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Heading Scale</label>
+                      <input
+                        type="number"
+                        min={0.8}
+                        max={1.6}
+                        step={0.05}
+                        value={siteSettings.cmsDraft.themeSettings.typography.headingScale}
+                        onChange={(e) => updateThemeSettingsField('typography.headingScale', Number(e.target.value))}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Radius</label>
+                      <input
+                        type="number"
+                        min={8}
+                        max={40}
+                        value={siteSettings.cmsDraft.themeSettings.borderRadius}
+                        onChange={(e) => updateThemeSettingsField('borderRadius', Number(e.target.value))}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Shadow</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={siteSettings.cmsDraft.themeSettings.shadowIntensity}
+                        onChange={(e) => updateThemeSettingsField('shadowIntensity', Number(e.target.value))}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="flex items-center gap-3 text-xs text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(siteSettings.cmsDraft.themeSettings.reduceGlow)}
+                        onChange={(e) => updateThemeSettingsField('reduceGlow', e.target.checked)}
+                      />
+                      Reduce glow
+                    </label>
+                    <label className="flex items-center gap-3 text-xs text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(siteSettings.cmsDraft.themeSettings.premiumMinimalMode)}
+                        onChange={(e) => updateThemeSettingsField('premiumMinimalMode', e.target.checked)}
+                      />
+                      Premium minimal mode
+                    </label>
+                  </div>
+                </GlassCard>
+
+                <GlassCard className="p-12 space-y-8">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-3xl font-black uppercase italic tracking-tight">Hero & Pages CMS</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Draft / publish with revision history</p>
+                    </div>
+                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
+                      LIVE: {siteSettings.cmsActiveVersion}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['all', 'shoes', 'bags'] as CmsCategoryTab[]).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setCmsCategoryTab(tab)}
+                        className={`h-11 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
+                          cmsCategoryTab === tab
+                            ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300'
+                            : 'border-white/10 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+
+                  <LuxuryFloatingInput
+                    label="Hero Title"
+                    value={siteSettings.cmsDraft.heroSettings.heroTitle}
+                    onChange={(v) => updateHeroField('heroTitle', v)}
+                    icon={<Sparkles className="w-4 h-4" />}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Title Mode</label>
+                      <select
+                        value={siteSettings.cmsDraft.heroSettings.heroTitleMode}
+                        onChange={(e) => updateHeroField('heroTitleMode', e.target.value)}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        <option value="AUTO">AUTO</option>
+                        <option value="MANUAL">MANUAL</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Hero Alignment</label>
+                      <select
+                        value={siteSettings.cmsDraft.heroSettings.heroAlignment}
+                        onChange={(e) => updateHeroField('heroAlignment', e.target.value)}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        <option value="LEFT">LEFT</option>
+                        <option value="CENTER">CENTER</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Manual Line Breaks (\n or &lt;br&gt;)</label>
+                    <textarea
+                      value={siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks}
+                      onChange={(e) => updateHeroField('heroTitleManualBreaks', e.target.value)}
+                      rows={3}
+                      className="w-full rounded-xl border border-white/10 bg-[#0A0C12] px-4 py-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <label className="flex items-center gap-3 text-xs text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(siteSettings.cmsDraft.heroSettings.autoBalance)}
+                        onChange={(e) => updateHeroField('autoBalance', e.target.checked)}
+                      />
+                      Auto-balance title
+                    </label>
+                    <label className="flex items-center gap-3 text-xs text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(siteSettings.cmsDraft.heroSettings.heroEnabled)}
+                        onChange={(e) => updateHeroField('heroEnabled', e.target.checked)}
+                      />
+                      Hero enabled
+                    </label>
+                  </div>
+
+                  <LuxuryFloatingInput
+                    label="Hero Subtitle"
+                    value={siteSettings.cmsDraft.heroSettings.heroSubtitle}
+                    onChange={(v) => updateHeroField('heroSubtitle', v)}
+                    icon={<Info className="w-4 h-4" />}
+                  />
+                  <LuxuryFloatingInput
+                    label="Hero Badge"
+                    value={siteSettings.cmsDraft.heroSettings.heroBadge}
+                    onChange={(v) => updateHeroField('heroBadge', v)}
+                    icon={<Tag className="w-4 h-4" />}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <LuxuryFloatingInput
+                      label="CTA Label"
+                      value={siteSettings.cmsDraft.heroSettings.heroCtaLabel}
+                      onChange={(v) => updateHeroField('heroCtaLabel', v)}
+                      icon={<ArrowUpRight className="w-4 h-4" />}
+                    />
+                    <LuxuryFloatingInput
+                      label="CTA URL"
+                      value={siteSettings.cmsDraft.heroSettings.heroCtaUrl}
+                      onChange={(v) => updateHeroField('heroCtaUrl', v)}
+                      icon={<Globe className="w-4 h-4" />}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Background Type</label>
+                      <select
+                        value={siteSettings.cmsDraft.heroSettings.heroBgType}
+                        onChange={(e) => updateHeroField('heroBgType', e.target.value)}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        <option value="GRADIENT">GRADIENT</option>
+                        <option value="IMAGE">IMAGE</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Max Lines</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={4}
+                        value={siteSettings.cmsDraft.heroSettings.heroMaxLines}
+                        onChange={(e) => updateHeroField('heroMaxLines', Number(e.target.value))}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                  </div>
+
+                  <LuxuryFloatingInput
+                    label={`Background ${siteSettings.cmsDraft.heroSettings.heroBgType === 'IMAGE' ? 'Image URL' : 'Gradient CSS'}`}
+                    value={siteSettings.cmsDraft.heroSettings.heroBgValue}
+                    onChange={(v) => updateHeroField('heroBgValue', v)}
+                    icon={<ImageIcon className="w-4 h-4" />}
+                  />
+
+                  <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">Category Override: {cmsCategoryTab.toUpperCase()}</p>
+                    <LuxuryFloatingInput
+                      label="Override Title"
+                      value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroTitle || ''}
+                      onChange={(v) => updateCategoryOverrideField('heroTitle', v)}
+                    />
+                    <LuxuryFloatingInput
+                      label="Override Subtitle"
+                      value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroSubtitle || ''}
+                      onChange={(v) => updateCategoryOverrideField('heroSubtitle', v)}
+                    />
+                    <LuxuryFloatingInput
+                      label="Override Badge"
+                      value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroBadge || ''}
+                      onChange={(v) => updateCategoryOverrideField('heroBadge', v)}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <LuxuryFloatingInput
+                        label="Override CTA Label"
+                        value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroCtaLabel || ''}
+                        onChange={(v) => updateCategoryOverrideField('heroCtaLabel', v)}
+                      />
+                      <LuxuryFloatingInput
+                        label="Override CTA URL"
+                        value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroCtaUrl || ''}
+                        onChange={(v) => updateCategoryOverrideField('heroCtaUrl', v)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Override Background Type</label>
+                        <select
+                          value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroBgType || 'GRADIENT'}
+                          onChange={(e) => updateCategoryOverrideField('heroBgType', e.target.value)}
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        >
+                          <option value="GRADIENT">GRADIENT</option>
+                          <option value="IMAGE">IMAGE</option>
+                        </select>
+                      </div>
+                      <LuxuryFloatingInput
+                        label="Override Background Value"
+                        value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroBgValue || ''}
+                        onChange={(v) => updateCategoryOverrideField('heroBgValue', v)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Default Sort</label>
+                      <select
+                        value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.sortDefault || 'Newest'}
+                        onChange={(e) => updateCategoryOverrideField('sortDefault', e.target.value)}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        <option value="Newest">Newest</option>
+                        <option value="PriceLowToHigh">PriceLowToHigh</option>
+                        <option value="PriceHighToLow">PriceHighToLow</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Live Hero Preview</p>
+                    <p className="text-2xl font-black leading-tight text-white whitespace-pre-line">
+                      {siteSettings.cmsDraft.heroSettings.heroTitleMode === 'MANUAL'
+                        ? siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks.replace(/<br\s*\/?>/gi, '\n').replace(/\\n/g, '\n')
+                        : siteSettings.cmsDraft.heroSettings.heroTitle}
+                    </p>
+                    <p className="text-xs text-white/70">{siteSettings.cmsDraft.heroSettings.heroSubtitle}</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <PrimaryButton className="w-full h-14 text-[10px]" onClick={persistCmsDraft}>
+                      SAVE DRAFT
+                    </PrimaryButton>
+                    <PrimaryButton className="w-full h-14 text-[10px]" onClick={publishCmsDraft}>
+                      PUBLISH
+                    </PrimaryButton>
+                  </div>
+
+                  <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Latest Revisions</p>
+                    {(siteSettings.cmsRevisions || []).slice(0, 10).map((revision) => (
+                      <div key={revision.id} className="p-3 rounded-xl border border-white/10 bg-white/[0.02]">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white">{revision.mode}</p>
+                        <p className="text-[10px] text-zinc-400 mt-1">{revision.adminUser}</p>
+                        <p className="text-[10px] text-zinc-500">{new Date(revision.timestamp).toLocaleString()}</p>
+                      </div>
+                    ))}
+                    {(siteSettings.cmsRevisions || []).length === 0 && (
+                      <p className="text-[10px] text-zinc-500">No revision history yet.</p>
+                    )}
+                  </div>
                 </GlassCard>
               </div>
             </motion.div>

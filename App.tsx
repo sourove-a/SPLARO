@@ -554,6 +554,14 @@ const AppContent = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isDark = theme === 'DARK';
+  const activeCmsBundle = useMemo(() => {
+    const published = siteSettings.cmsPublished || siteSettings.cmsDraft;
+    const isAdminPreviewRole = user?.role && ['ADMIN', 'SUPER_ADMIN', 'EDITOR'].includes(String(user.role).toUpperCase());
+    if (siteSettings.cmsActiveVersion === 'DRAFT' && isAdminPreviewRole) {
+      return siteSettings.cmsDraft || published;
+    }
+    return published || siteSettings.cmsDraft;
+  }, [siteSettings.cmsPublished, siteSettings.cmsDraft, siteSettings.cmsActiveVersion, user?.role]);
 
   useEffect(() => {
     // Velocity Protocol: Ensure the browser environment is primed for high-speed discovery
@@ -563,6 +571,43 @@ const AppContent = () => {
   useEffect(() => {
     document.documentElement.style.setProperty('--mobile-nav-height', `${MOBILE_NAV_HEIGHT_PX}px`);
   }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const root = document.documentElement;
+    const themeSettings = activeCmsBundle?.themeSettings;
+    if (!themeSettings) return;
+
+    const containerWidthMap: Record<string, string> = {
+      LG: '1024px',
+      XL: '1280px',
+      '2XL': '1536px',
+      FULL: '100%'
+    };
+    const spacingScaleMap: Record<string, string> = {
+      COMPACT: '0.9',
+      COMFORTABLE: '1',
+      RELAXED: '1.1'
+    };
+
+    root.style.setProperty('--splaro-primary', String(themeSettings.colors?.primary || '#0A0C12'));
+    root.style.setProperty('--splaro-accent', String(themeSettings.colors?.accent || '#41DCFF'));
+    root.style.setProperty('--splaro-bg', String(themeSettings.colors?.background || '#050505'));
+    root.style.setProperty('--splaro-surface', String(themeSettings.colors?.surface || 'rgba(20, 26, 40, 0.86)'));
+    root.style.setProperty('--splaro-text', String(themeSettings.colors?.text || '#FFFFFF'));
+    root.style.setProperty('--splaro-radius', `${Number(themeSettings.borderRadius || 24)}px`);
+    root.style.setProperty('--splaro-shadow-strength', String(Number(themeSettings.shadowIntensity || 60)));
+    root.style.setProperty('--splaro-font-base-size', `${Number(themeSettings.typography?.baseSize || 16)}px`);
+    root.style.setProperty('--splaro-heading-scale', String(Number(themeSettings.typography?.headingScale || 1)));
+    root.style.setProperty('--splaro-container-max', containerWidthMap[String(themeSettings.containerWidth || 'XL')] || '1280px');
+    root.style.setProperty('--splaro-spacing-scale', spacingScaleMap[String(themeSettings.spacingScale || 'COMFORTABLE')] || '1');
+    root.style.setProperty('--splaro-font-family', `'${String(themeSettings.typography?.fontFamily || 'Inter')}', sans-serif`);
+    root.dataset.splaroButton = String(themeSettings.buttonStyle || 'PILL').toLowerCase();
+    root.dataset.splaroFocus = String(themeSettings.focusStyle || 'SUBTLE').toLowerCase();
+    root.dataset.splaroGlow = themeSettings.reduceGlow ? 'reduced' : 'default';
+    root.dataset.splaroMinimal = themeSettings.premiumMinimalMode ? 'on' : 'off';
+  }, [activeCmsBundle]);
 
   useEffect(() => {
     // Sync URL manifest to institutional state (ONE-WAY SYNC to prevent loops)

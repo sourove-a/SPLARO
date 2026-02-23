@@ -64,3 +64,19 @@ Prerequisite: Node.js
   - Hardened actions with CSRF and rate limits: `change_password`, `update_profile`.
   - Added audit/system logs for password/security/profile/preference/session/ticket events.
   - Added `last_password_change_at` + `force_relogin` handling in password flows.
+
+## Storefront CMS + Theme Controls
+- Hero typography hardened in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/components/ShopPage.tsx`
+  - Balanced responsive headline wrapping.
+  - Manual line-break support using `\n` or `<br>` in CMS.
+  - Category-specific hero overrides (all/shoes/bags).
+- Theme settings and Hero CMS editor added in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/components/AdminPanel.tsx`
+  - Draft and Publish actions with revision list.
+  - Role-aware guard (Viewer blocked; Editor can edit CMS, not protocol settings).
+- Settings model extended in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/types.ts` and `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/store.tsx`
+  - `cmsDraft`, `cmsPublished`, `cmsActiveVersion`, `cmsRevisions`.
+  - `themeSettings`, `heroSettings`, `categoryHeroOverrides`.
+- Backend persistence upgraded in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/public/api/index.php`
+  - Added DB tables: `page_sections`, `settings_revisions`.
+  - `update_settings` now stores CMS draft/publish bundles + revision history.
+  - `sync` returns normalized CMS bundle for storefront rendering.

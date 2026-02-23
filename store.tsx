@@ -1,5 +1,20 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import { View, Product, Order, Language, Theme, OrderStatus, DiscountCode, User, SiteSettings } from './types';
+import {
+  View,
+  Product,
+  Order,
+  Language,
+  Theme,
+  OrderStatus,
+  DiscountCode,
+  User,
+  SiteSettings,
+  CmsBundle,
+  ThemeSettings,
+  HeroSettings,
+  CategoryHeroOverride,
+  CmsRevision
+} from './types';
 import { shouldUsePhpApi } from './lib/runtime';
 
 
@@ -302,6 +317,72 @@ const INITIAL_DISCOUNTS: DiscountCode[] = [
   { id: 'd2', code: 'WELCOME500', type: 'FIXED', value: 500, active: true }
 ];
 
+const DEFAULT_THEME_SETTINGS: ThemeSettings = {
+  colors: {
+    primary: '#0A0C12',
+    accent: '#41DCFF',
+    background: '#050505',
+    surface: 'rgba(20, 26, 40, 0.86)',
+    text: '#FFFFFF'
+  },
+  typography: {
+    fontFamily: 'Inter',
+    baseSize: 16,
+    headingScale: 1
+  },
+  borderRadius: 24,
+  shadowIntensity: 60,
+  buttonStyle: 'PILL',
+  focusStyle: 'SUBTLE',
+  containerWidth: 'XL',
+  spacingScale: 'COMFORTABLE',
+  reduceGlow: false,
+  premiumMinimalMode: false
+};
+
+const DEFAULT_HERO_SETTINGS: HeroSettings = {
+  heroTitle: 'Premium Collection',
+  heroTitleMode: 'AUTO',
+  heroTitleManualBreaks: 'Premium\nCollection',
+  heroSubtitle: 'Imported premium footwear and bags, curated for modern city style.',
+  heroBadge: 'SPLARO Premium Selection',
+  heroCtaLabel: 'Explore Collection',
+  heroCtaUrl: '/shop',
+  heroBgType: 'GRADIENT',
+  heroBgValue: 'linear-gradient(135deg, rgba(10,12,18,0.45), rgba(8,145,178,0.16))',
+  heroAlignment: 'LEFT',
+  heroMaxLines: 2,
+  heroEnabled: true,
+  autoBalance: true
+};
+
+const DEFAULT_CATEGORY_HERO_OVERRIDES: CmsBundle['categoryHeroOverrides'] = {
+  all: {
+    heroTitle: 'Premium Collection',
+    heroSubtitle: 'Imported premium footwear and bags, curated for modern city style.',
+    heroBadge: 'SPLARO Premium Selection',
+    heroCtaLabel: 'Explore Collection',
+    heroCtaUrl: '/shop',
+    sortDefault: 'Newest'
+  },
+  shoes: {
+    heroTitle: 'Footwear Collection',
+    heroSubtitle: 'Imported footwear with clean construction and everyday comfort.',
+    heroBadge: 'Footwear Focus',
+    heroCtaLabel: 'Shop Shoes',
+    heroCtaUrl: '/shop?category=shoes',
+    sortDefault: 'Newest'
+  },
+  bags: {
+    heroTitle: 'Bags Collection',
+    heroSubtitle: 'Premium imported bags with refined finish and utility-first form.',
+    heroBadge: 'Bags Focus',
+    heroCtaLabel: 'Shop Bags',
+    heroCtaUrl: '/shop?category=bags',
+    sortDefault: 'Newest'
+  }
+};
+
 const DEFAULT_CMS_PAGES: SiteSettings['cmsPages'] = {
   manifest: {
     heading: 'Manifest',
@@ -343,6 +424,20 @@ const DEFAULT_STORY_POSTS: SiteSettings['storyPosts'] = [
   }
 ];
 
+const createDefaultCmsBundle = (): CmsBundle => ({
+  themeSettings: {
+    ...DEFAULT_THEME_SETTINGS,
+    colors: { ...DEFAULT_THEME_SETTINGS.colors },
+    typography: { ...DEFAULT_THEME_SETTINGS.typography }
+  },
+  heroSettings: { ...DEFAULT_HERO_SETTINGS },
+  categoryHeroOverrides: {
+    all: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.all },
+    shoes: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.shoes },
+    bags: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.bags }
+  }
+});
+
 const createDefaultSiteSettings = (): SiteSettings => ({
   siteName: 'Splaro',
   supportPhone: '+880 1905 010 205',
@@ -360,7 +455,11 @@ const createDefaultSiteSettings = (): SiteSettings => ({
     orderTracking: { ...DEFAULT_CMS_PAGES.orderTracking },
     refundPolicy: { ...DEFAULT_CMS_PAGES.refundPolicy }
   },
-  storyPosts: DEFAULT_STORY_POSTS.map((post) => ({ ...post }))
+  storyPosts: DEFAULT_STORY_POSTS.map((post) => ({ ...post })),
+  cmsDraft: createDefaultCmsBundle(),
+  cmsPublished: createDefaultCmsBundle(),
+  cmsActiveVersion: 'PUBLISHED',
+  cmsRevisions: []
 });
 
 const parseJsonObject = (value: unknown): any => {
@@ -374,11 +473,136 @@ const parseJsonObject = (value: unknown): any => {
   }
 };
 
+const normalizeThemeSettings = (raw: any): ThemeSettings => {
+  const base = {
+    ...DEFAULT_THEME_SETTINGS,
+    colors: { ...DEFAULT_THEME_SETTINGS.colors },
+    typography: { ...DEFAULT_THEME_SETTINGS.typography }
+  };
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const colors = input.colors && typeof input.colors === 'object' ? input.colors : {};
+  const typography = input.typography && typeof input.typography === 'object' ? input.typography : {};
+  const parsedBaseSize = Number(typography.baseSize ?? base.typography.baseSize);
+  const parsedHeadingScale = Number(typography.headingScale ?? base.typography.headingScale);
+  const parsedBorderRadius = Number(input.borderRadius ?? base.borderRadius);
+  const parsedShadowIntensity = Number(input.shadowIntensity ?? base.shadowIntensity);
+
+  return {
+    ...base,
+    ...input,
+    colors: {
+      primary: String(colors.primary || base.colors.primary),
+      accent: String(colors.accent || base.colors.accent),
+      background: String(colors.background || base.colors.background),
+      surface: String(colors.surface || base.colors.surface),
+      text: String(colors.text || base.colors.text)
+    },
+    typography: {
+      fontFamily: ['Inter', 'Manrope', 'Plus Jakarta Sans', 'Urbanist', 'Poppins'].includes(String(typography.fontFamily || ''))
+        ? typography.fontFamily
+        : base.typography.fontFamily,
+      baseSize: Number.isFinite(parsedBaseSize) ? Math.min(20, Math.max(12, parsedBaseSize)) : base.typography.baseSize,
+      headingScale: Number.isFinite(parsedHeadingScale) ? Math.min(1.6, Math.max(0.8, parsedHeadingScale)) : base.typography.headingScale
+    },
+    borderRadius: Number.isFinite(parsedBorderRadius) ? Math.min(40, Math.max(8, parsedBorderRadius)) : base.borderRadius,
+    shadowIntensity: Number.isFinite(parsedShadowIntensity) ? Math.min(100, Math.max(0, parsedShadowIntensity)) : base.shadowIntensity,
+    buttonStyle: input.buttonStyle === 'ROUNDED' ? 'ROUNDED' : 'PILL',
+    focusStyle: input.focusStyle === 'BRIGHT' ? 'BRIGHT' : 'SUBTLE',
+    containerWidth: ['LG', 'XL', '2XL', 'FULL'].includes(String(input.containerWidth || ''))
+      ? input.containerWidth
+      : base.containerWidth,
+    spacingScale: ['COMPACT', 'COMFORTABLE', 'RELAXED'].includes(String(input.spacingScale || ''))
+      ? input.spacingScale
+      : base.spacingScale,
+    reduceGlow: Boolean(input.reduceGlow),
+    premiumMinimalMode: Boolean(input.premiumMinimalMode)
+  };
+};
+
+const normalizeHeroSettings = (raw: any): HeroSettings => {
+  const base = { ...DEFAULT_HERO_SETTINGS };
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const maxLinesRaw = Number(input.heroMaxLines ?? base.heroMaxLines);
+  const maxLines = Number.isFinite(maxLinesRaw) ? Math.min(4, Math.max(1, Math.round(maxLinesRaw))) : base.heroMaxLines;
+
+  return {
+    heroTitle: String(input.heroTitle || base.heroTitle),
+    heroTitleMode: input.heroTitleMode === 'MANUAL' ? 'MANUAL' : 'AUTO',
+    heroTitleManualBreaks: String(input.heroTitleManualBreaks || base.heroTitleManualBreaks),
+    heroSubtitle: String(input.heroSubtitle || base.heroSubtitle),
+    heroBadge: String(input.heroBadge || base.heroBadge),
+    heroCtaLabel: String(input.heroCtaLabel || base.heroCtaLabel),
+    heroCtaUrl: String(input.heroCtaUrl || base.heroCtaUrl),
+    heroBgType: input.heroBgType === 'IMAGE' ? 'IMAGE' : 'GRADIENT',
+    heroBgValue: String(input.heroBgValue || base.heroBgValue),
+    heroAlignment: input.heroAlignment === 'CENTER' ? 'CENTER' : 'LEFT',
+    heroMaxLines: maxLines,
+    heroEnabled: input.heroEnabled !== undefined ? Boolean(input.heroEnabled) : base.heroEnabled,
+    autoBalance: input.autoBalance !== undefined ? Boolean(input.autoBalance) : base.autoBalance
+  };
+};
+
+const normalizeCategoryOverride = (raw: any, fallback: CategoryHeroOverride): CategoryHeroOverride => {
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const merged: CategoryHeroOverride = {
+    ...fallback,
+    ...input
+  };
+
+  if (merged.heroTitleMode && merged.heroTitleMode !== 'AUTO' && merged.heroTitleMode !== 'MANUAL') {
+    merged.heroTitleMode = fallback.heroTitleMode || 'AUTO';
+  }
+  if (merged.heroBgType && merged.heroBgType !== 'GRADIENT' && merged.heroBgType !== 'IMAGE') {
+    merged.heroBgType = fallback.heroBgType || 'GRADIENT';
+  }
+  if (merged.heroAlignment && merged.heroAlignment !== 'LEFT' && merged.heroAlignment !== 'CENTER') {
+    merged.heroAlignment = fallback.heroAlignment || 'LEFT';
+  }
+  if (merged.sortDefault && !['Newest', 'PriceLowToHigh', 'PriceHighToLow'].includes(merged.sortDefault)) {
+    merged.sortDefault = fallback.sortDefault || 'Newest';
+  }
+
+  return merged;
+};
+
+const normalizeCmsBundle = (raw: any): CmsBundle => {
+  const base = createDefaultCmsBundle();
+  const input = raw && typeof raw === 'object' ? raw : {};
+
+  return {
+    themeSettings: normalizeThemeSettings(input.themeSettings || input.theme_settings),
+    heroSettings: normalizeHeroSettings(input.heroSettings || input.hero_settings),
+    categoryHeroOverrides: {
+      all: normalizeCategoryOverride(input.categoryHeroOverrides?.all || input.category_hero_overrides?.all, base.categoryHeroOverrides.all),
+      shoes: normalizeCategoryOverride(input.categoryHeroOverrides?.shoes || input.category_hero_overrides?.shoes, base.categoryHeroOverrides.shoes),
+      bags: normalizeCategoryOverride(input.categoryHeroOverrides?.bags || input.category_hero_overrides?.bags, base.categoryHeroOverrides.bags)
+    }
+  };
+};
+
+const normalizeCmsRevisions = (raw: any): CmsRevision[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((revision: any, index: number) => ({
+      id: String(revision?.id || `rev_${index}_${Math.random().toString(36).slice(2, 8)}`),
+      mode: revision?.mode === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+      timestamp: String(revision?.timestamp || new Date().toISOString()),
+      adminUser: String(revision?.adminUser || 'admin@splaro.co'),
+      payload: normalizeCmsBundle(revision?.payload || {})
+    }))
+    .slice(0, 10);
+};
+
 const normalizeSiteSettings = (raw: any): SiteSettings => {
   const base = createDefaultSiteSettings();
   const input = raw && typeof raw === 'object' ? raw : {};
   const incomingPages = parseJsonObject(input.cmsPages || input.contentPages || input.content_pages) || {};
   const incomingStories = parseJsonObject(input.storyPosts || input.story_posts) || [];
+  const parsedSettingsJson = parseJsonObject(input.settingsJson || input.settings_json) || {};
+  const incomingCmsDraftRaw = input.cmsDraft || input.cms_draft || parsedSettingsJson.cmsDraft || parsedSettingsJson.cms_draft;
+  const incomingCmsPublishedRaw = input.cmsPublished || input.cms_published || parsedSettingsJson.cmsPublished || parsedSettingsJson.cms_published;
+  const incomingCmsRevisionsRaw = input.cmsRevisions || input.cms_revisions || parsedSettingsJson.cmsRevisions || parsedSettingsJson.cms_revisions;
+  const incomingCmsActiveVersionRaw = String(input.cmsActiveVersion || input.cms_active_version || parsedSettingsJson.cmsActiveVersion || parsedSettingsJson.cms_active_version || base.cmsActiveVersion).toUpperCase();
   const rawInstagram = String(input.instagramLink || '').trim();
   const shouldUseDefaultInstagram =
     rawInstagram === '' || rawInstagram.toLowerCase().includes('instagram.com/splaro.co');
@@ -420,6 +644,12 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
     }))
     : base.storyPosts;
 
+  const fallbackCmsBundle = normalizeCmsBundle(input.cmsBundle || input.cms_bundle || {});
+  const cmsDraft = normalizeCmsBundle(incomingCmsDraftRaw || fallbackCmsBundle || base.cmsDraft);
+  const cmsPublished = normalizeCmsBundle(incomingCmsPublishedRaw || fallbackCmsBundle || base.cmsPublished);
+  const cmsRevisions = normalizeCmsRevisions(incomingCmsRevisionsRaw);
+  const cmsActiveVersion = incomingCmsActiveVersionRaw === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+
   return {
     ...base,
     ...input,
@@ -433,7 +663,11 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
     maintenanceMode: Boolean(input.maintenanceMode),
     logoUrl: String(input.logoUrl || input.logo_url || base.logoUrl),
     cmsPages,
-    storyPosts
+    storyPosts,
+    cmsDraft,
+    cmsPublished,
+    cmsActiveVersion,
+    cmsRevisions
   };
 };
 
@@ -775,7 +1009,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             instagramLink: s.instagram_link || '',
             logoUrl: s.logo_url || '',
             contentPages: s.content_pages || s.contentPages || {},
-            storyPosts: s.story_posts || s.storyPosts || []
+            storyPosts: s.story_posts || s.storyPosts || [],
+            settings_json: s.settings_json || {},
+            cms_bundle: s.cms_bundle || {},
+            cmsDraft: s.cms_draft || undefined,
+            cmsPublished: s.cms_published || undefined,
+            cmsRevisions: s.cms_revisions || undefined,
+            cmsActiveVersion: s.cms_active_version || undefined
           }));
           if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
           if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
@@ -1002,13 +1242,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateSettings = async (data: any) => {
     if (IS_PROD) {
-      const payload = {
-        ...siteSettings,
-        smtpSettings,
-        logisticsConfig,
-        slides,
-        ...data
-      };
+      const cmsKeys = ['cmsDraft', 'cmsPublished', 'cmsMode', 'cmsAction', 'themeSettings', 'heroSettings', 'categoryHeroOverrides'];
+      const isCmsIntent = cmsKeys.some((key) => Object.prototype.hasOwnProperty.call(data || {}, key));
+      const payload = isCmsIntent
+        ? {
+          cmsDraft: data?.cmsDraft ?? siteSettings.cmsDraft,
+          cmsPublished: data?.cmsPublished,
+          cmsMode: data?.cmsMode,
+          cmsAction: data?.cmsAction,
+          themeSettings: data?.themeSettings,
+          heroSettings: data?.heroSettings,
+          categoryHeroOverrides: data?.categoryHeroOverrides
+        }
+        : {
+          ...siteSettings,
+          smtpSettings,
+          logisticsConfig,
+          slides,
+          ...data
+        };
 
       try {
         const res = await fetch(`${API_NODE}?action=update_settings`, {

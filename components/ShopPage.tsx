@@ -113,8 +113,49 @@ const getQueryCategory = (search: string): string | null => {
 
 const isSizeFilter = (filter: CatalogFilter) => filter.id.includes('size');
 
+const normalizeSortOption = (value: unknown): SortOption => {
+  const candidate = String(value || '');
+  return SORT_OPTIONS.includes(candidate as SortOption) ? (candidate as SortOption) : 'Newest';
+};
+
+const decodeManualBreaks = (value: string) => {
+  return value
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\r\n/g, '\n');
+};
+
+const balanceHeadlineLines = (title: string, maxLines: number): string[] => {
+  const clean = title.trim().replace(/\s+/g, ' ');
+  if (!clean) return [];
+
+  const words = clean.split(' ');
+  if (words.length <= 2 || maxLines <= 1) return [clean];
+  if (maxLines === 2) {
+    let splitAt = 1;
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (let i = 1; i < words.length; i += 1) {
+      const left = words.slice(0, i).join(' ');
+      const right = words.slice(i).join(' ');
+      const diff = Math.abs(left.length - right.length);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        splitAt = i;
+      }
+    }
+    return [words.slice(0, splitAt).join(' '), words.slice(splitAt).join(' ')];
+  }
+
+  const lines: string[] = [];
+  const targetWordsPerLine = Math.ceil(words.length / maxLines);
+  for (let i = 0; i < words.length; i += targetWordsPerLine) {
+    lines.push(words.slice(i, i + targetWordsPerLine).join(' '));
+  }
+  return lines.slice(0, maxLines);
+};
+
 export const ShopPage: React.FC = () => {
-  const { products, language, selectedCategory, setSelectedCategory, searchQuery } = useApp();
+  const { products, language, selectedCategory, setSelectedCategory, searchQuery, siteSettings } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -143,6 +184,72 @@ export const ShopPage: React.FC = () => {
 
   const activeCategory = useMemo(() => getCategoryConfig(selectedCategory), [selectedCategory]);
   const activeFilterSet = useMemo(() => getFilterSetForCategory(activeCategory?.name || null), [activeCategory]);
+  const categoryKey = useMemo<'all' | 'shoes' | 'bags'>(() => {
+    if (activeCategory?.name === 'Shoes') return 'shoes';
+    if (activeCategory?.name === 'Bags') return 'bags';
+    return 'all';
+  }, [activeCategory?.name]);
+
+  const publishedCms = useMemo(() => siteSettings.cmsPublished || siteSettings.cmsDraft, [siteSettings.cmsPublished, siteSettings.cmsDraft]);
+  const cmsGlobalOverride = publishedCms?.categoryHeroOverrides?.all || {};
+  const cmsCategoryOverride = publishedCms?.categoryHeroOverrides?.[categoryKey] || {};
+  const resolvedHero = useMemo(() => {
+    const defaultTitle = activeCategory
+      ? (activeCategory.name === 'Shoes' ? 'Footwear Collection' : `${activeCategory.name} Collection`)
+      : 'Premium Collection';
+    const merged = {
+      ...(publishedCms?.heroSettings || {}),
+      ...cmsGlobalOverride,
+      ...cmsCategoryOverride
+    } as any;
+    const heroTitle = String(merged.heroTitle || defaultTitle).trim() || defaultTitle;
+    const heroTitleMode = merged.heroTitleMode === 'MANUAL' ? 'MANUAL' : 'AUTO';
+    const heroMaxLines = Math.min(4, Math.max(1, Number(merged.heroMaxLines || 2)));
+    const manualLinesRaw = decodeManualBreaks(String(merged.heroTitleManualBreaks || heroTitle));
+    const manualLines = manualLinesRaw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, heroMaxLines);
+    const autoLines = balanceHeadlineLines(heroTitle, heroMaxLines);
+    const titleLines = heroTitleMode === 'MANUAL' && manualLines.length > 0 ? manualLines : autoLines;
+
+    return {
+      ...merged,
+      heroTitle,
+      heroTitleMode,
+      heroMaxLines,
+      titleLines,
+      heroSubtitle: String(merged.heroSubtitle || ''),
+      heroBadge: String(merged.heroBadge || 'SPLARO Premium Selection'),
+      heroCtaLabel: String(merged.heroCtaLabel || ''),
+      heroCtaUrl: String(merged.heroCtaUrl || '/shop'),
+      heroBgType: merged.heroBgType === 'IMAGE' ? 'IMAGE' : 'GRADIENT',
+      heroBgValue: String(merged.heroBgValue || ''),
+      heroAlignment: merged.heroAlignment === 'CENTER' ? 'CENTER' : 'LEFT',
+      heroEnabled: merged.heroEnabled === undefined ? true : Boolean(merged.heroEnabled),
+      autoBalance: merged.autoBalance === undefined ? true : Boolean(merged.autoBalance)
+    };
+  }, [activeCategory, publishedCms?.heroSettings, cmsGlobalOverride, cmsCategoryOverride]);
+
+  const heroSortDefault = useMemo<SortOption>(() => {
+    return normalizeSortOption(cmsCategoryOverride.sortDefault || cmsGlobalOverride.sortDefault || 'Newest');
+  }, [cmsCategoryOverride.sortDefault, cmsGlobalOverride.sortDefault]);
+
+  const heroBackgroundStyle = useMemo<React.CSSProperties>(() => {
+    if (!resolvedHero.heroEnabled) return {};
+    if (resolvedHero.heroBgType === 'IMAGE' && resolvedHero.heroBgValue) {
+      return {
+        backgroundImage: `linear-gradient(115deg, rgba(4, 8, 18, 0.82), rgba(8, 32, 56, 0.44)), url(${resolvedHero.heroBgValue})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      };
+    }
+    if (resolvedHero.heroBgValue) {
+      return { background: resolvedHero.heroBgValue };
+    }
+    return {};
+  }, [resolvedHero.heroBgType, resolvedHero.heroBgValue, resolvedHero.heroEnabled]);
 
   const categoryCounts = useMemo(() => {
     return catalogConfig.categories.map((category) => ({
@@ -174,7 +281,7 @@ export const ShopPage: React.FC = () => {
 
   useEffect(() => {
     setSelectedMultiFilters({});
-    setSortOption('Newest');
+    setSortOption(heroSortDefault);
     setOpenMultiFilterId(null);
 
     if (priceFilter && typeof priceFilter.min === 'number' && typeof priceFilter.max === 'number') {
@@ -183,7 +290,7 @@ export const ShopPage: React.FC = () => {
     }
 
     setPriceRange(null);
-  }, [activeFilterSet?.id, priceFilter?.min, priceFilter?.max]);
+  }, [activeFilterSet?.id, priceFilter?.min, priceFilter?.max, heroSortDefault]);
 
   const filterLabelMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -278,29 +385,50 @@ export const ShopPage: React.FC = () => {
   const isFiltering = hasMultiFilters || hasCustomPrice || Boolean(searchQuery.trim());
 
   return (
-    <div className="pt-28 sm:pt-36 px-4 sm:px-6 pb-10 sm:pb-16 max-w-screen-xl mx-auto min-h-screen overflow-x-hidden">
+    <div className="pt-28 sm:pt-36 px-4 sm:px-6 pb-10 sm:pb-16 splaro-shell min-h-screen overflow-x-hidden">
       <div className="mb-10 sm:mb-16">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-10">
+        <div
+          className="rounded-[28px] sm:rounded-[36px] border border-white/10 px-5 sm:px-8 lg:px-12 py-8 sm:py-10 liquid-glass"
+          style={heroBackgroundStyle}
+        >
+          <div className={`flex flex-col md:flex-row justify-between ${resolvedHero.heroAlignment === 'CENTER' ? 'items-center text-center md:text-center' : 'items-start md:items-end text-left'} gap-10`}>
           <div className="max-w-xl">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 text-cyan-500 mb-6">
               <Sparkles className="w-5 h-5" />
-              <span className="text-[10px] font-black uppercase tracking-[0.5em]">SPLARO Premium Selection</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.4em]">{resolvedHero.heroBadge}</span>
             </motion.div>
-            <h1 className="text-5xl sm:text-7xl md:text-[8rem] font-black tracking-tighter leading-[0.85] sm:leading-[0.8] mb-6 sm:mb-8 uppercase italic break-words">
-              {activeCategory ? (
-                <>
-                  {activeCategory.name === 'Shoes' ? 'FOOTWEAR' : activeCategory.name.toUpperCase()}
-                  <br />
-                  <span className="text-cyan-500">COLLECTION.</span>
-                </>
-              ) : (
-                <>
-                  PREMIUM
-                  <br />
-                  <span className="text-cyan-500">COLLECTION.</span>
-                </>
-              )}
+            <h1
+              className={`hero-headline font-black uppercase italic mb-4 sm:mb-6 ${resolvedHero.autoBalance ? '' : 'text-wrap-pretty'}`}
+              style={{ textWrap: resolvedHero.autoBalance ? 'balance' : 'pretty' } as React.CSSProperties}
+              data-align={resolvedHero.heroAlignment.toLowerCase()}
+            >
+              {resolvedHero.titleLines.map((line: string, index: number) => (
+                <React.Fragment key={`hero-line-${index}`}>
+                  <span className={index === resolvedHero.titleLines.length - 1 ? 'text-cyan-400' : ''}>{line}</span>
+                  {index < resolvedHero.titleLines.length - 1 ? <br /> : null}
+                </React.Fragment>
+              ))}
             </h1>
+            {!!resolvedHero.heroSubtitle && (
+              <p className={`hero-subtitle text-sm sm:text-base font-semibold text-white/80 ${resolvedHero.heroAlignment === 'CENTER' ? 'mx-auto' : ''}`}>
+                {resolvedHero.heroSubtitle}
+              </p>
+            )}
+            {!!resolvedHero.heroCtaLabel && (
+              <button
+                onClick={() => {
+                  if (!resolvedHero.heroCtaUrl) return;
+                  if (resolvedHero.heroCtaUrl.startsWith('http')) {
+                    window.open(resolvedHero.heroCtaUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    navigate(resolvedHero.heroCtaUrl);
+                  }
+                }}
+                className="mt-6 min-h-12 px-6 rounded-full border border-cyan-400/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+              >
+                {resolvedHero.heroCtaLabel}
+              </button>
+            )}
           </div>
 
           {!!activeFilterSet?.filters.find((filter) => filter.id === 'sort') && (
@@ -325,6 +453,7 @@ export const ShopPage: React.FC = () => {
             </div>
           )}
         </div>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-16">
@@ -332,10 +461,10 @@ export const ShopPage: React.FC = () => {
           <div className="space-y-10 sticky top-48">
             <div className="space-y-6">
               <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                <Layers className="w-4 h-4 text-cyan-500" /> Category Registry
+                <Layers className="w-4 h-4 text-cyan-500" /> Category
               </h4>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-                <FilterPill label="All Assets" isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
+                <FilterPill label="All Products" isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
                 {categoryCounts.map((category) => (
                   <FilterPill
                     key={category.name}
@@ -526,8 +655,8 @@ export const ShopPage: React.FC = () => {
             <div className="h-96 flex flex-col items-center justify-center text-center space-y-6 liquid-glass rounded-[48px] border border-white/5">
               <Box className="w-16 h-16 text-zinc-800" />
               <div>
-                <p className="text-xl font-black uppercase tracking-widest text-zinc-600">No Archive Manifested</p>
-                <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em] mt-2">Try adjusting your refinement filters</p>
+                <p className="text-xl font-black uppercase tracking-widest text-zinc-600">No Products Found</p>
+                <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em] mt-2">Try adjusting your filters</p>
               </div>
             </div>
           )}

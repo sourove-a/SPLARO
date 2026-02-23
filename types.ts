@@ -74,7 +74,7 @@ export interface User {
   phone: string;
   address?: string;
   profileImage?: string;
-  role: 'USER' | 'ADMIN';
+  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'EDITOR' | 'VIEWER';
   defaultShippingAddress?: string;
   notificationEmail?: boolean;
   notificationSms?: boolean;
@@ -104,6 +104,71 @@ export interface Order {
   adminNotes?: string;
   customerComment?: string;
   createdAt: string;
+}
+
+export type HeroTitleMode = 'AUTO' | 'MANUAL';
+export type HeroBackgroundType = 'GRADIENT' | 'IMAGE';
+export type HeroAlignment = 'LEFT' | 'CENTER';
+
+export interface ThemeSettings {
+  colors: {
+    primary: string;
+    accent: string;
+    background: string;
+    surface: string;
+    text: string;
+  };
+  typography: {
+    fontFamily: 'Inter' | 'Manrope' | 'Plus Jakarta Sans' | 'Urbanist' | 'Poppins';
+    baseSize: number;
+    headingScale: number;
+  };
+  borderRadius: number;
+  shadowIntensity: number;
+  buttonStyle: 'PILL' | 'ROUNDED';
+  focusStyle: 'SUBTLE' | 'BRIGHT';
+  containerWidth: 'LG' | 'XL' | '2XL' | 'FULL';
+  spacingScale: 'COMPACT' | 'COMFORTABLE' | 'RELAXED';
+  reduceGlow: boolean;
+  premiumMinimalMode: boolean;
+}
+
+export interface HeroSettings {
+  heroTitle: string;
+  heroTitleMode: HeroTitleMode;
+  heroTitleManualBreaks: string;
+  heroSubtitle: string;
+  heroBadge: string;
+  heroCtaLabel: string;
+  heroCtaUrl: string;
+  heroBgType: HeroBackgroundType;
+  heroBgValue: string;
+  heroAlignment: HeroAlignment;
+  heroMaxLines: number;
+  heroEnabled: boolean;
+  autoBalance: boolean;
+}
+
+export interface CategoryHeroOverride extends Partial<HeroSettings> {
+  sortDefault?: 'Newest' | 'PriceLowToHigh' | 'PriceHighToLow';
+}
+
+export interface CmsBundle {
+  themeSettings: ThemeSettings;
+  heroSettings: HeroSettings;
+  categoryHeroOverrides: {
+    all: CategoryHeroOverride;
+    shoes: CategoryHeroOverride;
+    bags: CategoryHeroOverride;
+  };
+}
+
+export interface CmsRevision {
+  id: string;
+  mode: 'DRAFT' | 'PUBLISHED';
+  timestamp: string;
+  adminUser: string;
+  payload: CmsBundle;
 }
 
 export interface SiteSettings {
@@ -154,4 +219,8 @@ export interface SiteSettings {
     createdAt: string;
     updatedAt?: string;
   }[];
+  cmsDraft: CmsBundle;
+  cmsPublished: CmsBundle;
+  cmsActiveVersion: 'DRAFT' | 'PUBLISHED';
+  cmsRevisions: CmsRevision[];
 }

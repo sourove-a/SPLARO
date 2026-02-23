@@ -332,6 +332,29 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'page_sections', "CREATE TABLE IF NOT EXISTS `page_sections` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `section_key` varchar(120) NOT NULL,
+      `draft_json` longtext DEFAULT NULL,
+      `published_json` longtext DEFAULT NULL,
+      `status` varchar(20) NOT NULL DEFAULT 'DRAFT',
+      `updated_by` varchar(80) DEFAULT NULL,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      `published_at` datetime DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_section_key` (`section_key`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'settings_revisions', "CREATE TABLE IF NOT EXISTS `settings_revisions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `section_key` varchar(120) NOT NULL,
+      `mode` varchar(20) NOT NULL DEFAULT 'DRAFT',
+      `payload_json` longtext NOT NULL,
+      `actor_id` varchar(80) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_table($db, 'sync_queue', "CREATE TABLE IF NOT EXISTS `sync_queue` (
       `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
       `sync_type` varchar(50) NOT NULL,
@@ -440,6 +463,8 @@ function ensure_core_schema($db) {
     ensure_index($db, 'audit_logs', 'idx_audit_logs_entity', 'CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id)');
     ensure_index($db, 'support_tickets', 'idx_support_tickets_created_at', 'CREATE INDEX idx_support_tickets_created_at ON support_tickets(created_at)');
     ensure_index($db, 'support_tickets', 'idx_support_tickets_user', 'CREATE INDEX idx_support_tickets_user ON support_tickets(user_id)');
+    ensure_index($db, 'page_sections', 'idx_page_sections_updated_at', 'CREATE INDEX idx_page_sections_updated_at ON page_sections(updated_at)');
+    ensure_index($db, 'settings_revisions', 'idx_settings_revisions_section_created', 'CREATE INDEX idx_settings_revisions_section_created ON settings_revisions(section_key, created_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
     ensure_index($db, 'traffic_metrics', 'idx_traffic_metrics_created_at', 'CREATE INDEX idx_traffic_metrics_created_at ON traffic_metrics(last_active)');
@@ -492,6 +517,29 @@ ensure_table($db, 'sync_queue', "CREATE TABLE IF NOT EXISTS `sync_queue` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
 ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
+ensure_table($db, 'page_sections', "CREATE TABLE IF NOT EXISTS `page_sections` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `section_key` varchar(120) NOT NULL,
+  `draft_json` longtext DEFAULT NULL,
+  `published_json` longtext DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `updated_by` varchar(80) DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `published_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_section_key` (`section_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'settings_revisions', "CREATE TABLE IF NOT EXISTS `settings_revisions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `section_key` varchar(120) NOT NULL,
+  `mode` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `payload_json` longtext NOT NULL,
+  `actor_id` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_index($db, 'page_sections', 'idx_page_sections_updated_at', 'CREATE INDEX idx_page_sections_updated_at ON page_sections(updated_at)');
+ensure_index($db, 'settings_revisions', 'idx_settings_revisions_section_created', 'CREATE INDEX idx_settings_revisions_section_created ON settings_revisions(section_key, created_at)');
 
 function load_smtp_settings($db) {
     $settings = [
@@ -965,6 +1013,298 @@ function log_audit_event($db, $actorId, $action, $entityType, $entityId = null, 
     }
 }
 
+function safe_json_decode_assoc($raw, $default = []) {
+    if (is_array($raw)) {
+        return $raw;
+    }
+    if (!is_string($raw) || trim($raw) === '') {
+        return is_array($default) ? $default : [];
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : (is_array($default) ? $default : []);
+}
+
+function cms_default_theme_settings() {
+    return [
+        'colors' => [
+            'primary' => '#0A0C12',
+            'accent' => '#41DCFF',
+            'background' => '#050505',
+            'surface' => 'rgba(20, 26, 40, 0.86)',
+            'text' => '#FFFFFF'
+        ],
+        'typography' => [
+            'fontFamily' => 'Inter',
+            'baseSize' => 16,
+            'headingScale' => 1
+        ],
+        'borderRadius' => 24,
+        'shadowIntensity' => 60,
+        'buttonStyle' => 'PILL',
+        'focusStyle' => 'SUBTLE',
+        'containerWidth' => 'XL',
+        'spacingScale' => 'COMFORTABLE',
+        'reduceGlow' => false,
+        'premiumMinimalMode' => false
+    ];
+}
+
+function cms_default_hero_settings() {
+    return [
+        'heroTitle' => 'Premium Collection',
+        'heroTitleMode' => 'AUTO',
+        'heroTitleManualBreaks' => "Premium\nCollection",
+        'heroSubtitle' => 'Imported premium footwear and bags, curated for modern city style.',
+        'heroBadge' => 'SPLARO Premium Selection',
+        'heroCtaLabel' => 'Explore Collection',
+        'heroCtaUrl' => '/shop',
+        'heroBgType' => 'GRADIENT',
+        'heroBgValue' => 'linear-gradient(135deg, rgba(10,12,18,0.45), rgba(8,145,178,0.16))',
+        'heroAlignment' => 'LEFT',
+        'heroMaxLines' => 2,
+        'heroEnabled' => true,
+        'autoBalance' => true
+    ];
+}
+
+function cms_default_category_overrides() {
+    return [
+        'all' => [
+            'heroTitle' => 'Premium Collection',
+            'heroSubtitle' => 'Imported premium footwear and bags, curated for modern city style.',
+            'heroBadge' => 'SPLARO Premium Selection',
+            'heroCtaLabel' => 'Explore Collection',
+            'heroCtaUrl' => '/shop',
+            'sortDefault' => 'Newest'
+        ],
+        'shoes' => [
+            'heroTitle' => 'Footwear Collection',
+            'heroSubtitle' => 'Imported footwear with clean construction and everyday comfort.',
+            'heroBadge' => 'Footwear Focus',
+            'heroCtaLabel' => 'Shop Shoes',
+            'heroCtaUrl' => '/shop?category=shoes',
+            'sortDefault' => 'Newest'
+        ],
+        'bags' => [
+            'heroTitle' => 'Bags Collection',
+            'heroSubtitle' => 'Premium imported bags with refined finish and utility-first form.',
+            'heroBadge' => 'Bags Focus',
+            'heroCtaLabel' => 'Shop Bags',
+            'heroCtaUrl' => '/shop?category=bags',
+            'sortDefault' => 'Newest'
+        ]
+    ];
+}
+
+function cms_default_bundle() {
+    return [
+        'themeSettings' => cms_default_theme_settings(),
+        'heroSettings' => cms_default_hero_settings(),
+        'categoryHeroOverrides' => cms_default_category_overrides()
+    ];
+}
+
+function cms_normalize_theme_settings($raw) {
+    $base = cms_default_theme_settings();
+    $input = is_array($raw) ? $raw : [];
+    $colors = is_array($input['colors'] ?? null) ? $input['colors'] : [];
+    $typography = is_array($input['typography'] ?? null) ? $input['typography'] : [];
+    $allowedFonts = ['Inter', 'Manrope', 'Plus Jakarta Sans', 'Urbanist', 'Poppins'];
+    $allowedContainer = ['LG', 'XL', '2XL', 'FULL'];
+    $allowedSpacing = ['COMPACT', 'COMFORTABLE', 'RELAXED'];
+
+    return [
+        'colors' => [
+            'primary' => trim((string)($colors['primary'] ?? $base['colors']['primary'])),
+            'accent' => trim((string)($colors['accent'] ?? $base['colors']['accent'])),
+            'background' => trim((string)($colors['background'] ?? $base['colors']['background'])),
+            'surface' => trim((string)($colors['surface'] ?? $base['colors']['surface'])),
+            'text' => trim((string)($colors['text'] ?? $base['colors']['text']))
+        ],
+        'typography' => [
+            'fontFamily' => in_array((string)($typography['fontFamily'] ?? ''), $allowedFonts, true)
+                ? (string)$typography['fontFamily']
+                : $base['typography']['fontFamily'],
+            'baseSize' => max(12, min(20, (int)($typography['baseSize'] ?? $base['typography']['baseSize']))),
+            'headingScale' => max(0.8, min(1.6, (float)($typography['headingScale'] ?? $base['typography']['headingScale'])))
+        ],
+        'borderRadius' => max(8, min(40, (int)($input['borderRadius'] ?? $base['borderRadius']))),
+        'shadowIntensity' => max(0, min(100, (int)($input['shadowIntensity'] ?? $base['shadowIntensity']))),
+        'buttonStyle' => strtoupper((string)($input['buttonStyle'] ?? '')) === 'ROUNDED' ? 'ROUNDED' : 'PILL',
+        'focusStyle' => strtoupper((string)($input['focusStyle'] ?? '')) === 'BRIGHT' ? 'BRIGHT' : 'SUBTLE',
+        'containerWidth' => in_array((string)($input['containerWidth'] ?? ''), $allowedContainer, true)
+            ? (string)$input['containerWidth']
+            : $base['containerWidth'],
+        'spacingScale' => in_array((string)($input['spacingScale'] ?? ''), $allowedSpacing, true)
+            ? (string)$input['spacingScale']
+            : $base['spacingScale'],
+        'reduceGlow' => (bool)($input['reduceGlow'] ?? false),
+        'premiumMinimalMode' => (bool)($input['premiumMinimalMode'] ?? false)
+    ];
+}
+
+function cms_normalize_hero_settings($raw) {
+    $base = cms_default_hero_settings();
+    $input = is_array($raw) ? $raw : [];
+    $maxLines = (int)($input['heroMaxLines'] ?? $base['heroMaxLines']);
+    if ($maxLines < 1) $maxLines = 1;
+    if ($maxLines > 4) $maxLines = 4;
+    return [
+        'heroTitle' => trim((string)($input['heroTitle'] ?? $base['heroTitle'])),
+        'heroTitleMode' => strtoupper((string)($input['heroTitleMode'] ?? '')) === 'MANUAL' ? 'MANUAL' : 'AUTO',
+        'heroTitleManualBreaks' => (string)($input['heroTitleManualBreaks'] ?? $base['heroTitleManualBreaks']),
+        'heroSubtitle' => trim((string)($input['heroSubtitle'] ?? $base['heroSubtitle'])),
+        'heroBadge' => trim((string)($input['heroBadge'] ?? $base['heroBadge'])),
+        'heroCtaLabel' => trim((string)($input['heroCtaLabel'] ?? $base['heroCtaLabel'])),
+        'heroCtaUrl' => trim((string)($input['heroCtaUrl'] ?? $base['heroCtaUrl'])),
+        'heroBgType' => strtoupper((string)($input['heroBgType'] ?? '')) === 'IMAGE' ? 'IMAGE' : 'GRADIENT',
+        'heroBgValue' => trim((string)($input['heroBgValue'] ?? $base['heroBgValue'])),
+        'heroAlignment' => strtoupper((string)($input['heroAlignment'] ?? '')) === 'CENTER' ? 'CENTER' : 'LEFT',
+        'heroMaxLines' => $maxLines,
+        'heroEnabled' => isset($input['heroEnabled']) ? (bool)$input['heroEnabled'] : true,
+        'autoBalance' => isset($input['autoBalance']) ? (bool)$input['autoBalance'] : true
+    ];
+}
+
+function cms_normalize_category_override($raw, $fallback) {
+    $input = is_array($raw) ? $raw : [];
+    $merged = array_merge(is_array($fallback) ? $fallback : [], $input);
+    if (isset($merged['heroTitleMode']) && strtoupper((string)$merged['heroTitleMode']) !== 'MANUAL') {
+        $merged['heroTitleMode'] = 'AUTO';
+    }
+    if (isset($merged['heroBgType']) && strtoupper((string)$merged['heroBgType']) !== 'IMAGE') {
+        $merged['heroBgType'] = 'GRADIENT';
+    }
+    if (isset($merged['heroAlignment']) && strtoupper((string)$merged['heroAlignment']) !== 'CENTER') {
+        $merged['heroAlignment'] = 'LEFT';
+    }
+    if (isset($merged['sortDefault']) && !in_array((string)$merged['sortDefault'], ['Newest', 'PriceLowToHigh', 'PriceHighToLow'], true)) {
+        $merged['sortDefault'] = 'Newest';
+    }
+    return $merged;
+}
+
+function cms_normalize_bundle($raw) {
+    $base = cms_default_bundle();
+    $input = is_array($raw) ? $raw : [];
+    $overrides = is_array($input['categoryHeroOverrides'] ?? null) ? $input['categoryHeroOverrides'] : [];
+    return [
+        'themeSettings' => cms_normalize_theme_settings($input['themeSettings'] ?? []),
+        'heroSettings' => cms_normalize_hero_settings($input['heroSettings'] ?? []),
+        'categoryHeroOverrides' => [
+            'all' => cms_normalize_category_override($overrides['all'] ?? [], $base['categoryHeroOverrides']['all']),
+            'shoes' => cms_normalize_category_override($overrides['shoes'] ?? [], $base['categoryHeroOverrides']['shoes']),
+            'bags' => cms_normalize_category_override($overrides['bags'] ?? [], $base['categoryHeroOverrides']['bags'])
+        ]
+    ];
+}
+
+function cms_normalize_revisions($raw) {
+    $items = is_array($raw) ? $raw : [];
+    $normalized = [];
+    foreach ($items as $index => $revision) {
+        $row = is_array($revision) ? $revision : [];
+        $normalized[] = [
+            'id' => (string)($row['id'] ?? ('rev_' . $index . '_' . substr(md5((string)microtime(true)), 0, 6))),
+            'mode' => strtoupper((string)($row['mode'] ?? 'DRAFT')) === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+            'timestamp' => (string)($row['timestamp'] ?? date('c')),
+            'adminUser' => (string)($row['adminUser'] ?? 'admin@splaro.co'),
+            'payload' => cms_normalize_bundle($row['payload'] ?? [])
+        ];
+        if (count($normalized) >= 10) {
+            break;
+        }
+    }
+    return $normalized;
+}
+
+function cms_upsert_page_section($db, $sectionKey, $draftJson, $publishedJson, $status, $updatedBy, $publishedAt = null) {
+    try {
+        $sql = "INSERT INTO page_sections (section_key, draft_json, published_json, status, updated_by, published_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                  draft_json = VALUES(draft_json),
+                  published_json = VALUES(published_json),
+                  status = VALUES(status),
+                  updated_by = VALUES(updated_by),
+                  published_at = VALUES(published_at)";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([
+            (string)$sectionKey,
+            json_encode($draftJson),
+            json_encode($publishedJson),
+            (string)$status,
+            (string)$updatedBy,
+            $publishedAt
+        ]);
+    } catch (Exception $e) {
+        error_log('SPLARO_CMS_SECTION_UPSERT_FAILED: ' . $e->getMessage());
+    }
+}
+
+function cms_record_revision($db, $sectionKey, $mode, $payload, $actorId) {
+    try {
+        $stmt = $db->prepare("INSERT INTO settings_revisions (section_key, mode, payload_json, actor_id) VALUES (?, ?, ?, ?)");
+        $stmt->execute([
+            (string)$sectionKey,
+            strtoupper((string)$mode) === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+            json_encode($payload),
+            (string)$actorId
+        ]);
+    } catch (Exception $e) {
+        error_log('SPLARO_CMS_REVISION_WRITE_FAILED: ' . $e->getMessage());
+    }
+}
+
+function cms_cache_file_path() {
+    $cacheKey = md5((string)DB_HOST . '|' . (string)DB_NAME . '|' . (string)DB_PORT);
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_cms_bundle_{$cacheKey}.json";
+}
+
+function cms_cache_read($ttlSeconds = 3600) {
+    $file = cms_cache_file_path();
+    if (!is_file($file)) {
+        return null;
+    }
+    $raw = @file_get_contents($file);
+    $decoded = json_decode((string)$raw, true);
+    if (!is_array($decoded) || !isset($decoded['cached_at'])) {
+        return null;
+    }
+    $age = time() - (int)$decoded['cached_at'];
+    if ($age > (int)$ttlSeconds) {
+        return null;
+    }
+    return is_array($decoded['payload'] ?? null) ? $decoded['payload'] : null;
+}
+
+function cms_cache_write($payload) {
+    if (!is_array($payload)) {
+        return;
+    }
+    $file = cms_cache_file_path();
+    @file_put_contents($file, json_encode([
+        'cached_at' => time(),
+        'payload' => $payload
+    ]), LOCK_EX);
+}
+
+function get_admin_role($authUser) {
+    $role = strtoupper((string)($authUser['role'] ?? ''));
+    if ($role === '') {
+        return 'ADMIN';
+    }
+    if ($role === 'ADMIN') return 'ADMIN';
+    if ($role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
+    if ($role === 'EDITOR') return 'EDITOR';
+    if ($role === 'VIEWER') return 'VIEWER';
+    return $role;
+}
+
+function can_edit_cms_role($role) {
+    return in_array(strtoupper((string)$role), ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true);
+}
+
 function is_strong_password($password) {
     $value = (string)$password;
     if (strlen($value) < 8) return false;
@@ -1098,7 +1438,7 @@ function get_authenticated_user_from_request() {
 }
 
 function is_admin_authenticated($authUser) {
-    if (is_array($authUser) && strtoupper((string)($authUser['role'] ?? '')) === 'ADMIN') {
+    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         return true;
     }
 
@@ -1500,8 +1840,65 @@ if ($method === 'GET' && $action === 'sync') {
         $settings['hero_slides'] = json_decode($settings['hero_slides'] ?? '[]', true);
         $settings['content_pages'] = json_decode($settings['content_pages'] ?? '{}', true);
         $settings['story_posts'] = json_decode($settings['story_posts'] ?? '[]', true);
+
+        $settingsJson = safe_json_decode_assoc($settings['settings_json'] ?? '{}', []);
+        $cmsDraft = cms_normalize_bundle($settingsJson['cmsDraft'] ?? $settingsJson['cms_draft'] ?? []);
+        $cmsPublished = cms_normalize_bundle($settingsJson['cmsPublished'] ?? $settingsJson['cms_published'] ?? []);
+        $cmsRevisions = cms_normalize_revisions($settingsJson['cmsRevisions'] ?? $settingsJson['cms_revisions'] ?? []);
+        $cmsActiveVersion = strtoupper((string)($settingsJson['cmsActiveVersion'] ?? $settingsJson['cms_active_version'] ?? 'PUBLISHED'));
+        if ($cmsActiveVersion !== 'DRAFT') {
+            $cmsActiveVersion = 'PUBLISHED';
+        }
+
+        $cachedCms = !$isAdmin ? cms_cache_read(3600) : null;
+        if (is_array($cachedCms)) {
+            $cmsDraft = cms_normalize_bundle($cachedCms['cms_draft'] ?? $cmsDraft);
+            $cmsPublished = cms_normalize_bundle($cachedCms['cms_published'] ?? $cmsPublished);
+            $cmsRevisions = cms_normalize_revisions($cachedCms['cms_revisions'] ?? $cmsRevisions);
+            $cachedActiveVersion = strtoupper((string)($cachedCms['cms_active_version'] ?? 'PUBLISHED'));
+            $cmsActiveVersion = $cachedActiveVersion === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+        } else {
+            try {
+                $sectionStmt = $db->prepare("SELECT section_key, draft_json, published_json, status, updated_by, updated_at, published_at FROM page_sections WHERE section_key = ? LIMIT 1");
+                $sectionStmt->execute(['storefront_cms']);
+                $section = $sectionStmt->fetch();
+                if ($section) {
+                    $sectionDraft = cms_normalize_bundle(safe_json_decode_assoc($section['draft_json'] ?? '{}', []));
+                    $sectionPublished = cms_normalize_bundle(safe_json_decode_assoc($section['published_json'] ?? '{}', []));
+                    if (!empty($sectionDraft)) {
+                        $cmsDraft = $sectionDraft;
+                    }
+                    if (!empty($sectionPublished)) {
+                        $cmsPublished = $sectionPublished;
+                    }
+                    $sectionStatus = strtoupper((string)($section['status'] ?? 'PUBLISHED'));
+                    if (in_array($sectionStatus, ['DRAFT', 'PUBLISHED'], true)) {
+                        $cmsActiveVersion = $sectionStatus;
+                    }
+                }
+            } catch (Exception $e) {
+                error_log('SPLARO_CMS_SECTION_READ_FAILED: ' . $e->getMessage());
+            }
+            cms_cache_write([
+                'cms_draft' => $cmsDraft,
+                'cms_published' => $cmsPublished,
+                'cms_revisions' => $cmsRevisions,
+                'cms_active_version' => $cmsActiveVersion
+            ]);
+        }
+
+        $settings['cms_draft'] = $cmsDraft;
+        $settings['cms_published'] = $cmsPublished;
+        $settings['cms_revisions'] = $cmsRevisions;
+        $settings['cms_active_version'] = $cmsActiveVersion;
+        $settings['cms_bundle'] = $cmsActiveVersion === 'DRAFT' ? $cmsDraft : $cmsPublished;
+        $settings['settings_json'] = $settingsJson;
+
         if (!$isAdmin) {
             unset($settings['smtp_settings']);
+            unset($settings['cms_draft']);
+            unset($settings['cms_revisions']);
+            unset($settings['settings_json']);
         }
     }
 
@@ -2049,10 +2446,10 @@ if ($method === 'POST' && $action === 'signup') {
     }
 
     $role = strtoupper(trim((string)($input['role'] ?? 'USER')));
-    if (!in_array($role, ['USER', 'ADMIN'], true)) {
+    if (!in_array($role, ['USER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $role = 'USER';
     }
-    if ($role === 'ADMIN') {
+    if (in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
         if (ADMIN_KEY === '' || !hash_equals(ADMIN_KEY, $adminKeyHeader)) {
             $role = 'USER';
@@ -2061,7 +2458,9 @@ if ($method === 'POST' && $action === 'signup') {
 
     $isAdminIdentity = is_admin_login_email($email, $db);
     if ($isAdminIdentity) {
-        $role = 'ADMIN';
+        if (!in_array($role, ['SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            $role = 'ADMIN';
+        }
     }
 
     $id = trim((string)($input['id'] ?? ''));
@@ -2087,10 +2486,13 @@ if ($method === 'POST' && $action === 'signup') {
         }
         $existingRole = strtoupper((string)($existing['role'] ?? 'USER'));
         $persistRole = $existingRole;
-        if ($isAdminIdentity || $existingRole === 'ADMIN') {
-            $persistRole = 'ADMIN';
-        } elseif ($role === 'ADMIN') {
-            $persistRole = 'ADMIN';
+        if ($isAdminIdentity || in_array($existingRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            $persistRole = in_array($role, ['SUPER_ADMIN', 'EDITOR', 'VIEWER'], true) ? $role : $existingRole;
+            if (!in_array($persistRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+                $persistRole = 'ADMIN';
+            }
+        } elseif (in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            $persistRole = $role;
         } elseif (in_array($existingRole, ['USER'], true)) {
             $persistRole = 'USER';
         }
@@ -2574,7 +2976,7 @@ if ($method === 'POST' && $action === 'login') {
         }
     }
 
-    if ($user && $isAuthenticated && $adminIdentity && strtoupper((string)($user['role'] ?? 'USER')) !== 'ADMIN') {
+    if ($user && $isAuthenticated && $adminIdentity && !in_array(strtoupper((string)($user['role'] ?? 'USER')), ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         try {
             $promoteStmt = $db->prepare("UPDATE users SET role = 'ADMIN' WHERE id = ?");
             $promoteStmt->execute([$user['id']]);
@@ -3110,7 +3512,57 @@ if ($method === 'POST' && $action === 'create_support_ticket') {
 if ($method === 'POST' && $action === 'update_settings') {
     require_admin_access($requestAuthUser);
     $input = json_decode(file_get_contents('php://input'), true);
-    
+    $input = is_array($input) ? $input : [];
+
+    $adminRole = get_admin_role($requestAuthUser);
+    $hasCmsPayload = array_key_exists('cmsDraft', $input)
+        || array_key_exists('cmsPublished', $input)
+        || array_key_exists('cmsMode', $input)
+        || array_key_exists('cmsAction', $input)
+        || array_key_exists('themeSettings', $input)
+        || array_key_exists('heroSettings', $input)
+        || array_key_exists('categoryHeroOverrides', $input);
+
+    $sensitiveKeys = [
+        'siteName',
+        'supportEmail',
+        'supportPhone',
+        'whatsappNumber',
+        'facebookLink',
+        'instagramLink',
+        'maintenanceMode',
+        'smtpSettings',
+        'logisticsConfig',
+        'slides',
+        'googleClientId',
+        'google_client_id'
+    ];
+    $hasSensitivePayload = false;
+    foreach ($sensitiveKeys as $sensitiveKey) {
+        if (array_key_exists($sensitiveKey, $input)) {
+            $hasSensitivePayload = true;
+            break;
+        }
+    }
+
+    if ($adminRole === 'VIEWER') {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "ROLE_FORBIDDEN_VIEWER"]);
+        exit;
+    }
+
+    if ($adminRole === 'EDITOR' && $hasSensitivePayload) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "ROLE_FORBIDDEN_EDITOR_PROTOCOL"]);
+        exit;
+    }
+
+    if ($hasCmsPayload && !can_edit_cms_role($adminRole)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "CMS_ROLE_FORBIDDEN"]);
+        exit;
+    }
+
     try {
         // Ensure hero_slides exists before including it in UPDATE.
         if (!column_exists($db, 'site_settings', 'hero_slides')) {
@@ -3134,6 +3586,13 @@ if ($method === 'POST' && $action === 'update_settings') {
                 error_log("SPLARO_SCHEMA_WARNING: failed to add story_posts dynamically -> " . $e->getMessage());
             }
         }
+        if (!column_exists($db, 'site_settings', 'settings_json')) {
+            try {
+                $db->exec("ALTER TABLE `site_settings` ADD COLUMN `settings_json` longtext DEFAULT NULL");
+            } catch (Exception $e) {
+                error_log("SPLARO_SCHEMA_WARNING: failed to add settings_json dynamically -> " . $e->getMessage());
+            }
+        }
 
         $query = "UPDATE site_settings SET 
             site_name = ?, 
@@ -3152,12 +3611,21 @@ if ($method === 'POST' && $action === 'update_settings') {
         }
 
         $existingSmtpSettings = [];
-        $existingSettingsRow = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+        $existingSettingsRow = $db->query("SELECT * FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
         if (!empty($existingSettingsRow['smtp_settings'])) {
             $decodedSmtp = json_decode((string)$existingSettingsRow['smtp_settings'], true);
             if (is_array($decodedSmtp)) {
                 $existingSmtpSettings = $decodedSmtp;
             }
+        }
+
+        $existingSettingsJson = safe_json_decode_assoc($existingSettingsRow['settings_json'] ?? '{}', []);
+        $currentCmsDraft = cms_normalize_bundle($existingSettingsJson['cmsDraft'] ?? $existingSettingsJson['cms_draft'] ?? []);
+        $currentCmsPublished = cms_normalize_bundle($existingSettingsJson['cmsPublished'] ?? $existingSettingsJson['cms_published'] ?? []);
+        $currentCmsRevisions = cms_normalize_revisions($existingSettingsJson['cmsRevisions'] ?? $existingSettingsJson['cms_revisions'] ?? []);
+        $currentCmsActiveVersion = strtoupper((string)($existingSettingsJson['cmsActiveVersion'] ?? $existingSettingsJson['cms_active_version'] ?? 'PUBLISHED'));
+        if ($currentCmsActiveVersion !== 'DRAFT') {
+            $currentCmsActiveVersion = 'PUBLISHED';
         }
 
         $incomingPass = (string)($incomingSmtpSettings['pass'] ?? '');
@@ -3175,45 +3643,151 @@ if ($method === 'POST' && $action === 'update_settings') {
             $mergedSmtpSettings['from'] = (string)($mergedSmtpSettings['user'] ?? '');
         }
 
+        $incomingCmsDraft = $input['cmsDraft'] ?? null;
+        if (!is_array($incomingCmsDraft) && isset($input['themeSettings'])) {
+            $incomingCmsDraft = [
+                'themeSettings' => $input['themeSettings'] ?? [],
+                'heroSettings' => $input['heroSettings'] ?? [],
+                'categoryHeroOverrides' => $input['categoryHeroOverrides'] ?? []
+            ];
+        }
+        $incomingCmsPublished = $input['cmsPublished'] ?? null;
+        $cmsMode = strtoupper((string)($input['cmsMode'] ?? $input['cms_mode'] ?? 'DRAFT'));
+        $cmsAction = strtoupper((string)($input['cmsAction'] ?? $input['cms_action'] ?? 'SAVE_DRAFT'));
+        $publishRequested = in_array($cmsMode, ['PUBLISH', 'PUBLISHED'], true) || $cmsAction === 'PUBLISH';
+
+        $nextCmsDraft = $currentCmsDraft;
+        $nextCmsPublished = $currentCmsPublished;
+        $nextCmsActiveVersion = $currentCmsActiveVersion;
+        $nextCmsRevisions = $currentCmsRevisions;
+
+        if ($hasCmsPayload) {
+            if (is_array($incomingCmsDraft)) {
+                $nextCmsDraft = cms_normalize_bundle($incomingCmsDraft);
+            }
+            if (is_array($incomingCmsPublished)) {
+                $nextCmsPublished = cms_normalize_bundle($incomingCmsPublished);
+            }
+
+            $revisionMode = 'DRAFT';
+            if ($publishRequested) {
+                if (!is_array($incomingCmsPublished)) {
+                    $nextCmsPublished = $nextCmsDraft;
+                }
+                $nextCmsActiveVersion = 'PUBLISHED';
+                $revisionMode = 'PUBLISHED';
+            } else {
+                $nextCmsActiveVersion = 'DRAFT';
+            }
+
+            $actorEmail = strtolower(trim((string)($requestAuthUser['email'] ?? 'admin@splaro.co')));
+            $revisionPayload = $revisionMode === 'PUBLISHED' ? $nextCmsPublished : $nextCmsDraft;
+            array_unshift($nextCmsRevisions, [
+                'id' => 'rev_' . substr(md5((string)microtime(true) . '-' . $actorEmail), 0, 10),
+                'mode' => $revisionMode,
+                'timestamp' => date('c'),
+                'adminUser' => $actorEmail !== '' ? $actorEmail : 'admin@splaro.co',
+                'payload' => $revisionPayload
+            ]);
+            if (count($nextCmsRevisions) > 10) {
+                $nextCmsRevisions = array_slice($nextCmsRevisions, 0, 10);
+            }
+
+            cms_upsert_page_section(
+                $db,
+                'storefront_cms',
+                $nextCmsDraft,
+                $nextCmsPublished,
+                $nextCmsActiveVersion,
+                $actorEmail,
+                $revisionMode === 'PUBLISHED' ? date('Y-m-d H:i:s') : null
+            );
+            cms_record_revision(
+                $db,
+                'storefront_cms',
+                $revisionMode,
+                $revisionPayload,
+                (string)($requestAuthUser['id'] ?? $actorEmail)
+            );
+        }
+
+        $nextSettingsJson = $existingSettingsJson;
+        $nextSettingsJson['cmsDraft'] = $nextCmsDraft;
+        $nextSettingsJson['cmsPublished'] = $nextCmsPublished;
+        $nextSettingsJson['cmsActiveVersion'] = $nextCmsActiveVersion;
+        $nextSettingsJson['cmsRevisions'] = $nextCmsRevisions;
+
         $params = [
-            $input['siteName'] ?? 'SPLARO',
-            $input['supportEmail'] ?? 'info@splaro.co',
-            $input['supportPhone'] ?? '',
-            $input['whatsappNumber'] ?? '',
-            $input['facebookLink'] ?? '',
-            $input['instagramLink'] ?? '',
-            isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : 0,
+            $input['siteName'] ?? ($existingSettingsRow['site_name'] ?? 'SPLARO'),
+            $input['supportEmail'] ?? ($existingSettingsRow['support_email'] ?? 'info@splaro.co'),
+            $input['supportPhone'] ?? ($existingSettingsRow['support_phone'] ?? ''),
+            $input['whatsappNumber'] ?? ($existingSettingsRow['whatsapp_number'] ?? ''),
+            $input['facebookLink'] ?? ($existingSettingsRow['facebook_link'] ?? ''),
+            $input['instagramLink'] ?? ($existingSettingsRow['instagram_link'] ?? ''),
+            isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : (isset($existingSettingsRow['maintenance_mode']) ? ((int)$existingSettingsRow['maintenance_mode']) : 0),
             json_encode($mergedSmtpSettings),
-            json_encode($input['logisticsConfig'] ?? [])
+            json_encode($input['logisticsConfig'] ?? safe_json_decode_assoc($existingSettingsRow['logistics_config'] ?? '{}', []))
         ];
 
         if (column_exists($db, 'site_settings', 'hero_slides')) {
             $query .= ", hero_slides = ?";
-            $params[] = json_encode($input['slides'] ?? []);
+            $params[] = json_encode($input['slides'] ?? safe_json_decode_assoc($existingSettingsRow['hero_slides'] ?? '[]', []));
         }
         if (column_exists($db, 'site_settings', 'content_pages')) {
             $query .= ", content_pages = ?";
-            $params[] = json_encode($input['cmsPages'] ?? ($input['contentPages'] ?? new stdClass()));
+            $params[] = json_encode($input['cmsPages'] ?? ($input['contentPages'] ?? safe_json_decode_assoc($existingSettingsRow['content_pages'] ?? '{}', [])));
         }
         if (column_exists($db, 'site_settings', 'story_posts')) {
             $query .= ", story_posts = ?";
-            $params[] = json_encode($input['storyPosts'] ?? []);
+            $params[] = json_encode($input['storyPosts'] ?? safe_json_decode_assoc($existingSettingsRow['story_posts'] ?? '[]', []));
         }
         if (column_exists($db, 'site_settings', 'google_client_id')) {
             $query .= ", google_client_id = ?";
-            $params[] = ($input['googleClientId'] ?? ($input['google_client_id'] ?? null));
+            $params[] = ($input['googleClientId'] ?? ($input['google_client_id'] ?? ($existingSettingsRow['google_client_id'] ?? null)));
+        }
+        if (column_exists($db, 'site_settings', 'settings_json')) {
+            $query .= ", settings_json = ?";
+            $params[] = json_encode($nextSettingsJson);
         }
 
         $query .= " WHERE id = 1";
         $stmt = $db->prepare($query);
         $stmt->execute($params);
 
+        cms_cache_write([
+            'cms_draft' => $nextCmsDraft,
+            'cms_published' => $nextCmsPublished,
+            'cms_revisions' => $nextCmsRevisions,
+            'cms_active_version' => $nextCmsActiveVersion
+        ]);
+
         // Security Protocol: Log the system update
         $ip = $_SERVER['REMOTE_ADDR'];
         $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
            ->execute(['SYSTEM_OVERRIDE', "Institutional configuration manifest was modified by the Chief Archivist.", $ip]);
+        if ($hasCmsPayload) {
+            log_audit_event(
+                $db,
+                (string)($requestAuthUser['id'] ?? 'system'),
+                $publishRequested ? 'CMS_THEME_PUBLISHED' : 'CMS_THEME_DRAFT_SAVED',
+                'SITE_SETTINGS',
+                'storefront_cms',
+                null,
+                [
+                    'mode' => $publishRequested ? 'PUBLISHED' : 'DRAFT',
+                    'role' => $adminRole
+                ],
+                $ip
+            );
+        }
 
-        echo json_encode(["status" => "success", "message" => "CONFIGURATION_ARCHIVED"]);
+        echo json_encode([
+            "status" => "success",
+            "message" => "CONFIGURATION_ARCHIVED",
+            "storage" => "mysql",
+            "cms_active_version" => $nextCmsActiveVersion,
+            "cms_revisions" => $nextCmsRevisions
+        ]);
     } catch (PDOException $e) {
         echo json_encode(["status" => "error", "message" => "PROTOCOL_ERROR: " . $e->getMessage()]);
     }
