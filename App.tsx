@@ -593,11 +593,11 @@ const AppContent = () => {
       RELAXED: '1.1'
     };
 
-    root.style.setProperty('--splaro-primary', String(themeSettings.colors?.primary || '#101A33'));
-    root.style.setProperty('--splaro-accent', String(themeSettings.colors?.accent || '#84E4FF'));
-    root.style.setProperty('--splaro-bg', String(themeSettings.colors?.background || '#040917'));
-    root.style.setProperty('--splaro-surface', String(themeSettings.colors?.surface || 'rgba(24, 36, 66, 0.76)'));
-    root.style.setProperty('--splaro-text', String(themeSettings.colors?.text || '#FFFFFF'));
+    root.style.setProperty('--splaro-primary', String(themeSettings.colors?.primary || '#16355F'));
+    root.style.setProperty('--splaro-accent', String(themeSettings.colors?.accent || '#6FE0FF'));
+    root.style.setProperty('--splaro-bg', String(themeSettings.colors?.background || '#060E1D'));
+    root.style.setProperty('--splaro-surface', String(themeSettings.colors?.surface || 'rgba(18, 33, 58, 0.74)'));
+    root.style.setProperty('--splaro-text', String(themeSettings.colors?.text || '#F3F8FF'));
     root.style.setProperty('--splaro-radius', `${Number(themeSettings.borderRadius || 24)}px`);
     root.style.setProperty('--splaro-shadow-strength', String(Number(themeSettings.shadowIntensity || 60)));
     root.style.setProperty('--splaro-font-base-size', `${Number(themeSettings.typography?.baseSize || 16)}px`);

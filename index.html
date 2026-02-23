@@ -20,11 +20,11 @@
             --mobile-safe-top: env(safe-area-inset-top, 0px);
             --ui-focus-outline: rgba(132, 228, 255, 0.94);
             --ui-focus-shadow: 0 0 0 4px rgba(90, 200, 250, 0.22);
-            --splaro-primary: #101a33;
-            --splaro-accent: #84e4ff;
-            --splaro-bg: #040917;
-            --splaro-surface: rgba(24, 36, 66, 0.76);
-            --splaro-text: #FFFFFF;
+            --splaro-primary: #16355f;
+            --splaro-accent: #6fe0ff;
+            --splaro-bg: #060e1d;
+            --splaro-surface: rgba(18, 33, 58, 0.74);
+            --splaro-text: #F3F8FF;
             --splaro-radius: 24px;
             --splaro-shadow-strength: 60;
             --splaro-font-base-size: 16px;
@@ -36,7 +36,7 @@
             /* Liquid glass tokens */
             --bg-main: var(--splaro-bg);
             --text-main: var(--splaro-text);
-            --text-dim: rgba(255, 255, 255, 0.72);
+            --text-dim: rgba(227, 236, 250, 0.74);
             --glass-bg: var(--splaro-surface);
             --glass-border: rgba(132, 228, 255, 0.5);
             --ribbed-opacity: 0.035;
@@ -78,9 +78,9 @@
             margin: 0;
             background-color: var(--bg-main);
             background-image:
-                radial-gradient(circle at 12% 16%, rgba(90, 200, 250, 0.28), transparent 36%),
-                radial-gradient(circle at 88% 86%, rgba(10, 132, 255, 0.22), transparent 34%),
-                linear-gradient(180deg, #081022 0%, #030814 100%);
+                radial-gradient(circle at 14% 16%, rgba(83, 175, 255, 0.2), transparent 38%),
+                radial-gradient(circle at 86% 82%, rgba(111, 224, 255, 0.16), transparent 34%),
+                linear-gradient(180deg, #081228 0%, #050b18 52%, #040912 100%);
             color: var(--text-main);
             transition: background-color 0.35s ease, color 0.25s ease;
             -webkit-font-smoothing: antialiased;
@@ -272,48 +272,48 @@
 
         /* Global brightness lift for frequently used low-contrast utility classes */
         .text-white\/40 {
-            color: rgba(255, 255, 255, 0.76) !important;
+            color: rgba(243, 248, 255, 0.62) !important;
         }
 
         .text-white\/50 {
-            color: rgba(255, 255, 255, 0.82) !important;
+            color: rgba(243, 248, 255, 0.72) !important;
         }
 
         .text-white\/60 {
-            color: rgba(255, 255, 255, 0.88) !important;
+            color: rgba(243, 248, 255, 0.8) !important;
         }
 
         .text-white\/70 {
-            color: rgba(255, 255, 255, 0.93) !important;
+            color: rgba(243, 248, 255, 0.9) !important;
         }
 
         .text-zinc-300 {
-            color: #e2e8f0 !important;
+            color: #d8e4f5 !important;
         }
 
         .text-zinc-400 {
-            color: #d2d9e6 !important;
+            color: #c2d1e8 !important;
         }
 
         .text-zinc-500 {
-            color: #bfc9da !important;
+            color: #a8bbd6 !important;
         }
 
         .text-zinc-600 {
-            color: #aebcd4 !important;
+            color: #91a7c6 !important;
         }
 
         .text-zinc-700 {
-            color: #d9e7fb !important;
+            color: #7b93b4 !important;
         }
 
         .text-zinc-800 {
-            color: #e6f0ff !important;
+            color: #667fa2 !important;
         }
 
         .text-zinc-900,
         .text-black {
-            color: #f5fbff !important;
+            color: #546c90 !important;
         }
 
         .border-black {
@@ -323,23 +323,23 @@
         .placeholder\:text-zinc-700::placeholder,
         .placeholder\:text-zinc-800::placeholder,
         .placeholder\:text-zinc-900::placeholder {
-            color: rgba(220, 234, 255, 0.72) !important;
+            color: rgba(191, 206, 226, 0.74) !important;
         }
 
         .hover\:text-black:hover,
         .group:hover .group-hover\:text-black {
-            color: #ffffff !important;
+            color: #eaf4ff !important;
         }
 
         .hover\:bg-white:hover,
         .group:hover .group-hover\:bg-white {
-            background-color: rgba(132, 228, 255, 0.2) !important;
+            background-color: rgba(111, 224, 255, 0.16) !important;
         }
 
         .bg-white.text-black,
         .text-black.bg-white {
-            background-color: rgba(132, 228, 255, 0.16) !important;
-            border-color: rgba(132, 228, 255, 0.35) !important;
+            background-color: rgba(111, 224, 255, 0.18) !important;
+            border-color: rgba(111, 224, 255, 0.34) !important;
         }
 
         .text-cyan-400,
@@ -348,7 +348,40 @@
         }
 
         .border-white\/10 {
-            border-color: rgba(126, 219, 255, 0.3) !important;
+            border-color: rgba(141, 209, 255, 0.24) !important;
+        }
+
+        .bg-\[\#050505\],
+        .bg-black,
+        .bg-zinc-950 {
+            background-color: #070f1f !important;
+        }
+
+        .bg-\[\#0A0C12\],
+        .bg-\[\#0a0c12\],
+        .bg-black\/25,
+        .bg-black\/30,
+        .bg-black\/40,
+        .bg-black\/50 {
+            background-color: rgba(11, 21, 38, 0.72) !important;
+        }
+
+        .from-\[\#050505\] {
+            --tw-gradient-from: #070f1f var(--tw-gradient-from-position) !important;
+        }
+
+        .to-\[\#050505\] {
+            --tw-gradient-to: #070f1f var(--tw-gradient-to-position) !important;
+        }
+
+        .from-\[\#0a0c12\],
+        .from-\[\#0A0C12\] {
+            --tw-gradient-from: rgba(11, 21, 38, 0.86) var(--tw-gradient-from-position) !important;
+        }
+
+        .to-\[\#0a0c12\],
+        .to-\[\#0A0C12\] {
+            --tw-gradient-to: rgba(11, 21, 38, 0.86) var(--tw-gradient-to-position) !important;
         }
 
         ::-webkit-scrollbar {
@@ -379,9 +412,9 @@
         @media (max-width: 768px) {
             body {
                 background-image:
-                    radial-gradient(circle at 15% 14%, rgba(90, 200, 250, 0.2), transparent 36%),
-                    radial-gradient(circle at 85% 84%, rgba(10, 132, 255, 0.16), transparent 34%),
-                    linear-gradient(180deg, #091329 0%, #040b18 100%);
+                    radial-gradient(circle at 15% 14%, rgba(83, 175, 255, 0.18), transparent 36%),
+                    radial-gradient(circle at 85% 84%, rgba(111, 224, 255, 0.14), transparent 34%),
+                    linear-gradient(180deg, #09152b 0%, #050d1b 100%);
             }
 
             .liquid-glass {
