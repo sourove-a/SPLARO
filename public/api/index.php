@@ -8,7 +8,7 @@ require_once 'config.php';
 
 // PHPMailer Integration
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\Exception as MailerException;
 use PHPMailer\PHPMailer\SMTP;
 
 $__splaroRequestAction = $_GET['action'] ?? '';
@@ -25,13 +25,23 @@ register_shutdown_function(function () use ($__splaroRequestAction) {
         return;
     }
 
+    error_log("SPLARO_FATAL_SHUTDOWN: action={$__splaroRequestAction}; type=" . (string)($lastError['type'] ?? '') . "; message=" . (string)($lastError['message'] ?? '') . "; file=" . (string)($lastError['file'] ?? '') . "; line=" . (string)($lastError['line'] ?? ''));
     http_response_code(500);
     header('Content-Type: application/json');
-    echo json_encode([
+    $payload = [
         "status" => "error",
         "message" => "INTERNAL_SERVER_ERROR",
         "action" => (string)$__splaroRequestAction
-    ]);
+    ];
+    if ((string)$__splaroRequestAction === 'health') {
+        $payload['fatal'] = [
+            'type' => (int)($lastError['type'] ?? 0),
+            'message' => (string)($lastError['message'] ?? ''),
+            'line' => (int)($lastError['line'] ?? 0),
+            'file' => basename((string)($lastError['file'] ?? ''))
+        ];
+    }
+    echo json_encode($payload);
 });
 
 $mailerBase = __DIR__ . '/PHPMailer/';
