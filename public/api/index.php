@@ -2198,11 +2198,8 @@ function can_edit_cms_role($role) {
 
 function is_strong_password($password) {
     $value = (string)$password;
-    if (strlen($value) < 8) return false;
-    if (!preg_match('/[a-z]/', $value)) return false;
-    if (!preg_match('/[A-Z]/', $value)) return false;
-    if (!preg_match('/\d/', $value)) return false;
-    if (!preg_match('/[^a-zA-Z0-9]/', $value)) return false;
+    if (strlen($value) < 6) return false;
+    if (preg_match('/\s/', $value)) return false;
     return true;
 }
 
@@ -3732,6 +3729,14 @@ if ($method === 'POST' && $action === 'signup') {
         $id = uniqid('usr_', true);
     }
 
+    $usersHasDefaultShipping = column_exists($db, 'users', 'default_shipping_address');
+    $usersHasNotificationEmail = column_exists($db, 'users', 'notification_email');
+    $usersHasNotificationSms = column_exists($db, 'users', 'notification_sms');
+    $usersHasPreferredLanguage = column_exists($db, 'users', 'preferred_language');
+    $usersHasTwoFactorEnabled = column_exists($db, 'users', 'two_factor_enabled');
+    $usersHasForceRelogin = column_exists($db, 'users', 'force_relogin');
+    $usersHasLastPasswordChange = column_exists($db, 'users', 'last_password_change_at');
+
     $check = $db->prepare("SELECT * FROM users WHERE email = ?");
     $check->execute([$email]);
     $existing = $check->fetch();
@@ -3769,19 +3774,41 @@ if ($method === 'POST' && $action === 'signup') {
         $notificationSms = array_key_exists('notificationSms', $input) ? (!empty($input['notificationSms']) ? 1 : 0) : (int)($existing['notification_sms'] ?? 0);
         $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? ($existing['default_shipping_address'] ?? '')));
 
-        $update = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ?, role = ?, default_shipping_address = ?, notification_email = ?, notification_sms = ?, preferred_language = ? WHERE id = ?");
-        $update->execute([
+        $updateParts = [
+            "name = ?",
+            "phone = ?",
+            "address = ?",
+            "profile_image = ?",
+            "role = ?"
+        ];
+        $updateValues = [
             $name,
             $phone,
             $address !== '' ? $address : ($existing['address'] ?? null),
             $profileImage !== '' ? $profileImage : ($existing['profile_image'] ?? null),
-            $persistRole,
-            $defaultShippingAddress !== '' ? $defaultShippingAddress : ($existing['default_shipping_address'] ?? null),
-            $notificationEmail,
-            $notificationSms,
-            $preferredLanguage,
-            $existing['id']
-        ]);
+            $persistRole
+        ];
+
+        if ($usersHasDefaultShipping) {
+            $updateParts[] = "default_shipping_address = ?";
+            $updateValues[] = $defaultShippingAddress !== '' ? $defaultShippingAddress : ($existing['default_shipping_address'] ?? null);
+        }
+        if ($usersHasNotificationEmail) {
+            $updateParts[] = "notification_email = ?";
+            $updateValues[] = $notificationEmail;
+        }
+        if ($usersHasNotificationSms) {
+            $updateParts[] = "notification_sms = ?";
+            $updateValues[] = $notificationSms;
+        }
+        if ($usersHasPreferredLanguage) {
+            $updateParts[] = "preferred_language = ?";
+            $updateValues[] = $preferredLanguage;
+        }
+
+        $updateValues[] = $existing['id'];
+        $update = $db->prepare("UPDATE users SET " . implode(', ', $updateParts) . " WHERE id = ?");
+        $update->execute($updateValues);
         $refetch = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
         $refetch->execute([$existing['id']]);
         $existing = $refetch->fetch();
@@ -3804,8 +3831,8 @@ if ($method === 'POST' && $action === 'signup') {
     $notificationSms = array_key_exists('notificationSms', $input) ? (!empty($input['notificationSms']) ? 1 : 0) : 0;
     $nowIso = date('Y-m-d H:i:s');
 
-    $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role, default_shipping_address, notification_email, notification_sms, preferred_language, two_factor_enabled, force_relogin, last_password_change_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
+    $insertColumns = ['id', 'name', 'email', 'phone', 'address', 'profile_image', 'password', 'role'];
+    $insertValues = [
         $id,
         $name,
         $email,
@@ -3813,15 +3840,41 @@ if ($method === 'POST' && $action === 'signup') {
         $address !== '' ? $address : null,
         $profileImage !== '' ? $profileImage : null,
         $password,
-        $role,
-        $defaultShippingAddress !== '' ? $defaultShippingAddress : null,
-        $notificationEmail,
-        $notificationSms,
-        $preferredLanguage,
-        0,
-        0,
-        $nowIso
-    ]);
+        $role
+    ];
+
+    if ($usersHasDefaultShipping) {
+        $insertColumns[] = 'default_shipping_address';
+        $insertValues[] = $defaultShippingAddress !== '' ? $defaultShippingAddress : null;
+    }
+    if ($usersHasNotificationEmail) {
+        $insertColumns[] = 'notification_email';
+        $insertValues[] = $notificationEmail;
+    }
+    if ($usersHasNotificationSms) {
+        $insertColumns[] = 'notification_sms';
+        $insertValues[] = $notificationSms;
+    }
+    if ($usersHasPreferredLanguage) {
+        $insertColumns[] = 'preferred_language';
+        $insertValues[] = $preferredLanguage;
+    }
+    if ($usersHasTwoFactorEnabled) {
+        $insertColumns[] = 'two_factor_enabled';
+        $insertValues[] = 0;
+    }
+    if ($usersHasForceRelogin) {
+        $insertColumns[] = 'force_relogin';
+        $insertValues[] = 0;
+    }
+    if ($usersHasLastPasswordChange) {
+        $insertColumns[] = 'last_password_change_at';
+        $insertValues[] = $nowIso;
+    }
+
+    $insertPlaceholders = implode(', ', array_fill(0, count($insertColumns), '?'));
+    $stmt = $db->prepare("INSERT INTO users (" . implode(', ', $insertColumns) . ") VALUES (" . $insertPlaceholders . ")");
+    $stmt->execute($insertValues);
 
     $fetchCreated = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
     $fetchCreated->execute([$id]);

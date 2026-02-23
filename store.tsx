@@ -509,6 +509,14 @@ const parseJsonObject = (value: unknown): any => {
   }
 };
 
+const parseOptionalNonNegativeInt = (value: unknown): number | undefined => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.max(0, Math.floor(parsed));
+};
+
 const normalizeThemeSettings = (raw: any): ThemeSettings => {
   const base = {
     ...DEFAULT_THEME_SETTINGS,
@@ -1043,12 +1051,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (result.data.products?.length > 0) {
           const mappedProducts = result.data.products.map((p: any) => {
-            const rawStock = Number(p?.stock);
-            const rawLowStockThreshold = Number(p?.lowStockThreshold ?? p?.low_stock_threshold);
+            const safeStock = parseOptionalNonNegativeInt(p?.stock);
+            const safeLowStockThreshold = parseOptionalNonNegativeInt(p?.lowStockThreshold ?? p?.low_stock_threshold);
             return {
               ...p,
-              stock: Number.isFinite(rawStock) ? Math.max(0, Math.floor(rawStock)) : undefined,
-              lowStockThreshold: Number.isFinite(rawLowStockThreshold) ? Math.max(0, Math.floor(rawLowStockThreshold)) : undefined
+              stock: safeStock,
+              lowStockThreshold: safeLowStockThreshold
             };
           });
           setProducts(mappedProducts);

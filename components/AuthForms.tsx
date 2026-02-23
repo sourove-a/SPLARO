@@ -129,7 +129,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   });
 
   const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-  const isPhone = (val: string) => /^(01)[3-9]\d{8}$/.test(val);
+  const isPhone = (val: string) => /^(?:\+?88)?01[3-9]\d{8}$/.test(val.trim());
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -138,7 +138,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     if (authMode === 'signup') {
       if (!isEmail(formData.email)) newErrors.email = "Email Identity Mandatory *";
       if (!formData.signupName.trim()) newErrors.signupName = "Name Required *";
-      if (!isPhone(formData.signupPhone.trim())) newErrors.signupPhone = "Valid Number Required (01XXXXXXXXX)";
+      if (!isPhone(formData.signupPhone.trim())) newErrors.signupPhone = "Valid Number Required (01XXXXXXXXX or +8801XXXXXXXXX)";
       if (formData.password.length < 6) newErrors.password = "Minimum 6 Characters";
       if (formData.confirmPassword.length < 6) newErrors.confirmPassword = "Confirm your password";
       if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
@@ -297,10 +297,20 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           return;
         }
 
-        if (message === 'EMAIL_ALREADY_REGISTERED') {
+        if (message === 'EMAIL_ALREADY_REGISTERED' || message === 'IDENTITY_ALREADY_EXISTS') {
           setErrors({ email: 'Email already registered. Please log in.' });
+        } else if (message === 'INVALID_EMAIL') {
+          setErrors({ email: 'Enter a valid email address.' });
+        } else if (message === 'PASSWORD_REQUIRED') {
+          setErrors({ password: 'Password is required.' });
+        } else if (message === 'WEAK_PASSWORD') {
+          setErrors({ password: 'Password must be at least 6 characters and cannot include spaces.' });
+        } else if (message === 'RATE_LIMIT_EXCEEDED') {
+          setErrors({ email: 'Too many attempts. Please wait 1 minute and try again.' });
+        } else if (message === 'SPAM_BLOCKED') {
+          setErrors({ email: 'Request blocked. Please retry.' });
         } else {
-          setErrors({ email: 'Identity already archived or system error' });
+          setErrors({ email: 'Signup failed. Please try again.' });
         }
         setStatus('error');
         setTimeout(() => setStatus('idle'), 3000);
@@ -615,10 +625,16 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                 <LuxuryFloatingInput
                   label="Phone Number *"
                   value={formData.signupPhone}
-                  onChange={v => setFormData({ ...formData, signupPhone: v.replace(/[^\d]/g, '').slice(0, 11) })}
+                  onChange={v => {
+                    const cleaned = v.replace(/[^\d+]/g, '');
+                    const normalized = cleaned.startsWith('+')
+                      ? `+${cleaned.slice(1).replace(/\+/g, '').slice(0, 13)}`
+                      : cleaned.replace(/\+/g, '').slice(0, 11);
+                    setFormData({ ...formData, signupPhone: normalized });
+                  }}
                   icon={<KeyRound className="w-5 h-5" />}
                   error={errors.signupPhone}
-                  placeholder="01XXXXXXXXX"
+                  placeholder="01XXXXXXXXX or +8801XXXXXXXXX"
                 />
               </>
             ) : (
