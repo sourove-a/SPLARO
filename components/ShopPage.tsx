@@ -737,7 +737,7 @@ export const ShopPage: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-12 md:gap-14">
+          <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 md:gap-10 xl:gap-14">
             {filteredProducts.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} language={language} />
             ))}

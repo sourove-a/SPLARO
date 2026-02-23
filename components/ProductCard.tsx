@@ -45,7 +45,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       className="group relative cursor-pointer"
     >
       {/* Image Container with Parallax */}
-      <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[32px] md:rounded-[48px] mb-8 shadow-2xl transition-all duration-700">
+      <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[24px] sm:rounded-[32px] md:rounded-[48px] mb-4 sm:mb-8 shadow-2xl transition-all duration-700">
         <motion.div
           style={{ y: smoothY }}
           className="absolute inset-0 w-full h-[120%] -top-[10%]"
@@ -156,7 +156,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             >
               {product.brand}
             </button>
-            <h3 className="text-xl md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">
+            <h3 className="text-sm sm:text-lg md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">
               {product.name}
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -209,7 +209,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             )}
           </div>
           <div className="text-right">
-            <p className="text-xl font-black text-white group-hover:text-cyan-400 transition-colors">৳{product.price.toLocaleString()}</p>
+            <p className="text-sm sm:text-lg md:text-xl font-black text-white group-hover:text-cyan-400 transition-colors">৳{product.price.toLocaleString()}</p>
           </div>
         </div>
 

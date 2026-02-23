@@ -279,7 +279,7 @@ const HomeView = () => {
             Enter the Shop <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-20 md:gap-24">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">
           {displayProducts.map((p, i) => (
             <ProductCard key={p.id} product={p} index={i} />
           ))}
