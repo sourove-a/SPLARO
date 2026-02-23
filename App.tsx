@@ -259,31 +259,7 @@ const HomeView = () => {
     <div className="relative">
       <HeroSlider />
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40 relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
-          <motion.img
-            src="/ornaments/liquid-orb.svg"
-            alt=""
-            animate={{ y: [0, -10, 0], rotate: [-2, 3, -2] }}
-            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute top-4 right-4 sm:top-2 sm:right-[6%] w-14 sm:w-20 lg:w-28 opacity-55 sm:opacity-42 drop-shadow-[0_0_24px_rgba(132,228,255,0.25)]"
-          />
-          <motion.img
-            src="/ornaments/liquid-star.svg"
-            alt=""
-            animate={{ y: [0, 12, 0], rotate: [0, -6, 0] }}
-            transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-            className="hidden md:block absolute top-[24%] left-[1.5%] w-14 lg:w-24 opacity-30 drop-shadow-[0_0_18px_rgba(132,228,255,0.22)]"
-          />
-          <motion.img
-            src="/ornaments/liquid-infinity.svg"
-            alt=""
-            animate={{ y: [0, -8, 0], rotate: [1, -2, 1] }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-            className="hidden lg:block absolute bottom-[12%] right-[2%] w-36 xl:w-44 opacity-24 drop-shadow-[0_0_22px_rgba(132,228,255,0.22)]"
-          />
-        </div>
-
-        <div className="relative z-10">
+        <div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
             <div className="max-w-3xl">
               <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
