@@ -472,7 +472,7 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                   <button
                     onClick={handleApplyDiscount}
-                    className="px-6 sm:px-10 min-h-12 bg-white text-black rounded-[16px] sm:rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-400 transition-all shadow-xl active:scale-95 whitespace-nowrap"
+                    className="px-6 sm:px-10 min-h-12 bg-white/12 border border-white/30 text-white rounded-[16px] sm:rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-400/25 transition-all shadow-xl active:scale-95 whitespace-nowrap"
                   >
                     Apply
                   </button>

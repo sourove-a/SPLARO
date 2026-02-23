@@ -602,14 +602,14 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                 <button
                   type="button"
                   onClick={() => { setErrors({}); navigate('/login'); }}
-                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'login' ? 'bg-white text-black' : 'text-white/50 hover:text-white'}`}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'login' ? 'bg-white/15 border border-white/30 text-white' : 'text-white/50 hover:text-white'}`}
                 >
                   Log In
                 </button>
                 <button
                   type="button"
                   onClick={() => { setErrors({}); navigate('/signup'); }}
-                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-cyan-500 text-black' : 'text-white/50 hover:text-white'}`}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-cyan-500/70 border border-cyan-300/50 text-white' : 'text-white/50 hover:text-white'}`}
                 >
                   Sign Up
                 </button>

@@ -267,7 +267,7 @@ export const ProductDetailPage: React.FC = () => {
                   className={`w-full h-14 rounded-2xl font-black text-[11px] tracking-[0.22em] uppercase transition-all ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed border border-white/10'
-                      : 'bg-gradient-to-r from-cyan-500 to-sky-400 text-black hover:brightness-110 shadow-[0_12px_30px_rgba(56,189,248,0.35)]'
+                      : 'bg-gradient-to-r from-cyan-500 to-sky-400 text-white hover:brightness-110 shadow-[0_12px_30px_rgba(56,189,248,0.35)]'
                   }`}
                 >
                   {urgency.outOfStock ? 'Out Of Stock' : 'Add To Cart'}
@@ -288,7 +288,7 @@ export const ProductDetailPage: React.FC = () => {
                   className={`w-full h-14 rounded-2xl font-black text-[11px] tracking-[0.3em] uppercase transition-all ${
                     urgency.outOfStock
                       ? 'bg-zinc-900 text-zinc-500 border border-white/10 cursor-not-allowed'
-                      : 'bg-white text-black hover:bg-cyan-100 shadow-[0_18px_36px_rgba(0,0,0,0.28)]'
+                      : 'bg-white/12 border border-white/30 text-white hover:bg-cyan-100/25 shadow-[0_18px_36px_rgba(0,0,0,0.28)]'
                   }`}
                 >
                   Buy It Now
@@ -331,7 +331,7 @@ export const ProductDetailPage: React.FC = () => {
               <img src="https://img.icons8.com/color/48/000000/visa.png" className="h-6 object-contain" />
               <img src="https://img.icons8.com/color/48/000000/mastercard.png" className="h-8 object-contain" />
               <div className="h-6 w-20 bg-zinc-800 rounded flex items-center justify-center text-[8px] font-black text-white">SSLCOMMERZ</div>
-              <div className="h-6 w-12 bg-white rounded flex items-center justify-center text-[8px] font-black text-black">BKASH</div>
+              <div className="h-6 w-12 bg-white/12 border border-white/25 rounded flex items-center justify-center text-[8px] font-black text-white">BKASH</div>
               <div className="h-6 w-12 bg-zinc-800 rounded flex items-center justify-center text-[8px] font-black text-white">NAGAD</div>
             </div>
 

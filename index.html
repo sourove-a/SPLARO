@@ -303,6 +303,45 @@
             color: #aebcd4 !important;
         }
 
+        .text-zinc-700 {
+            color: #d9e7fb !important;
+        }
+
+        .text-zinc-800 {
+            color: #e6f0ff !important;
+        }
+
+        .text-zinc-900,
+        .text-black {
+            color: #f5fbff !important;
+        }
+
+        .border-black {
+            border-color: rgba(255, 255, 255, 0.35) !important;
+        }
+
+        .placeholder\:text-zinc-700::placeholder,
+        .placeholder\:text-zinc-800::placeholder,
+        .placeholder\:text-zinc-900::placeholder {
+            color: rgba(220, 234, 255, 0.72) !important;
+        }
+
+        .hover\:text-black:hover,
+        .group:hover .group-hover\:text-black {
+            color: #ffffff !important;
+        }
+
+        .hover\:bg-white:hover,
+        .group:hover .group-hover\:bg-white {
+            background-color: rgba(132, 228, 255, 0.2) !important;
+        }
+
+        .bg-white.text-black,
+        .text-black.bg-white {
+            background-color: rgba(132, 228, 255, 0.16) !important;
+            border-color: rgba(132, 228, 255, 0.35) !important;
+        }
+
         .text-cyan-400,
         .text-cyan-500 {
             color: var(--splaro-accent, #41dcff) !important;

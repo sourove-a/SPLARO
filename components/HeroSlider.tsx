@@ -119,7 +119,7 @@ export const HeroSlider = () => {
         </AnimatePresence>
 
         <motion.button
-          whileHover={{ scale: 1.05, backgroundColor: 'white', color: 'black' }}
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(132, 228, 255, 0.18)', color: 'white' }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
             setSelectedCategory(null);
@@ -128,22 +128,22 @@ export const HeroSlider = () => {
           }}
           className="pointer-events-auto group relative px-16 py-7 mt-12 bg-transparent rounded-full border border-white/20 flex items-center gap-6 transition-all"
         >
-          <span className="text-white font-black text-[10px] tracking-[0.5em] uppercase group-hover:text-black">Discover Collections</span>
-          <ArrowRight className="w-5 h-5 text-white group-hover:text-black group-hover:translate-x-2 transition-transform" />
+          <span className="text-white font-black text-[10px] tracking-[0.5em] uppercase group-hover:text-white">Discover Collections</span>
+          <ArrowRight className="w-5 h-5 text-white group-hover:text-white group-hover:translate-x-2 transition-transform" />
         </motion.button>
       </div>
 
       <div className="absolute bottom-8 right-8 z-30 flex items-center gap-3 pointer-events-auto">
         <button
           onClick={showPrevSlide}
-          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all flex items-center justify-center"
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-cyan-400/20 hover:text-white transition-all flex items-center justify-center"
           aria-label="Previous slide"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <button
           onClick={showNextSlide}
-          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all flex items-center justify-center"
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-cyan-400/20 hover:text-white transition-all flex items-center justify-center"
           aria-label="Next slide"
         >
           <ArrowRight className="w-5 h-5" />

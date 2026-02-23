@@ -56,7 +56,7 @@ const SizeBox: React.FC<{
     className={`relative w-16 h-16 flex items-center justify-center rounded-2xl border transition-all duration-700 overflow-hidden ${!isAvailable
       ? 'opacity-10 cursor-not-allowed border-white/5'
       : isSelected
-        ? 'bg-white text-black border-white shadow-[0_15px_40px_rgba(255,255,255,0.3)]'
+        ? 'bg-white/15 text-white border-white/35 shadow-[0_15px_40px_rgba(132,228,255,0.22)]'
         : 'bg-white/[0.03] backdrop-blur-xl border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-white'
       }`}
   >
@@ -530,7 +530,7 @@ export const ShopPage: React.FC = () => {
                   <button
                     key={option}
                     onClick={() => setSortOption(option)}
-                    className={`px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-black tracking-widest whitespace-nowrap ${sortOption === option ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
+                    className={`px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-black tracking-widest whitespace-nowrap ${sortOption === option ? 'bg-white/15 text-white border border-white/35' : 'text-white/40 hover:text-white'}`}
                   >
                     {sortButtonLabel[option]}
                   </button>

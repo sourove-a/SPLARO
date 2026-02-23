@@ -86,7 +86,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 initial={{ opacity: 0, y: 30, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className="w-full h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white hover:text-black transition-all duration-500"
+                className="w-full h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-cyan-400/20 hover:text-white transition-all duration-500"
               >
                 <Eye className="w-4 h-4" /> Quick Insight
               </motion.button>
@@ -127,7 +127,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
-                      : 'bg-white text-black shadow-xl hover:bg-cyan-400'
+                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-cyan-400/25'
                   }`}
                 >
                   Buy Now

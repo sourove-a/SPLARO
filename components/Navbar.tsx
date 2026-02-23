@@ -362,7 +362,7 @@ export const Navbar: React.FC = () => {
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 ${isActive ? 'text-cyan-400 border-cyan-500/50 bg-cyan-500/5 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
                     {item.label === 'CART' && cart.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-cyan-500 text-black text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black">{cart.length}</span>
+                      <span className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black border border-white/30">{cart.length}</span>
                     )}
                   </div>
                   <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-cyan-500 whitespace-nowrap pointer-events-none">
@@ -384,7 +384,7 @@ export const Navbar: React.FC = () => {
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-cyan-500 text-black text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-black"
+                className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
               >
                 {cart.length}
               </motion.span>

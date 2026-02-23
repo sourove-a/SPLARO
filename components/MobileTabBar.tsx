@@ -107,7 +107,7 @@ export const MobileTabBar: React.FC = () => {
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 bg-cyan-500 text-black text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-black"
+                      className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
                     >
                       {(item as any).badge}
                     </motion.span>
