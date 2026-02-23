@@ -49,9 +49,9 @@ export const MobileTabBar: React.FC = () => {
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
     >
       <div className="max-w-screen-sm mx-auto relative" style={{ height: 'var(--mobile-nav-height)' }}>
-        <div className="absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden">
+        <div className="group absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden">
           <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
-          <div className="shine-sweep !opacity-20" />
+          <div className="shine-sweep opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
           {navItems.map((item) => {
             const isActive = getIsActive(item);
@@ -92,7 +92,7 @@ export const MobileTabBar: React.FC = () => {
                             : `/${item.view.toLowerCase()}`;
                   navigate(path);
                 }}
-                className="relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none touch-manipulation"
+                className="nav-item interactive-control relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none touch-manipulation"
               >
                 <div className="relative p-1.5">
                   <item.icon

@@ -72,7 +72,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left py-7 border-b border-white/5 flex items-center justify-between group transition-all duration-500"
+      className="nav-item interactive-control w-full text-left py-7 border-b border-white/5 flex items-center justify-between group transition-all duration-500"
     >
       <div className="flex flex-col">
         <span className="text-[10px] font-black text-cyan-500/40 uppercase tracking-[0.5em] mb-3 opacity-0 group-hover:opacity-100 transition-all duration-700 transform translate-y-3 group-hover:translate-y-0 italic">
@@ -262,7 +262,7 @@ export const Navbar: React.FC = () => {
               e.stopPropagation();
               setMenuOpen(true);
             }}
-            className="min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto touch-manipulation"
+            className="nav-item interactive-control min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto touch-manipulation"
           >
             <div className="flex flex-col gap-1.5 items-start">
               <div className="w-8 sm:w-9 md:w-10 h-[2.5px] bg-white transition-all group-hover:w-6" />
@@ -279,7 +279,7 @@ export const Navbar: React.FC = () => {
                   key={item.label}
                   type="button"
                   onClick={() => handleNav(item.label, item.view, (item as any).category)}
-                  className={`relative group p-2 transition-all duration-500`}
+                  className={`nav-item interactive-control relative group p-2 transition-all duration-500`}
                 >
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 ${isActive ? 'text-cyan-400 border-cyan-500/50 bg-cyan-500/5 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
@@ -294,7 +294,7 @@ export const Navbar: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsSearchOpen(true)}
-              className="relative group p-2 mx-2"
+              className="nav-item interactive-control relative group p-2 mx-2"
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 text-white/40 group-hover:text-white">
                 <Search className="w-5 h-5" />
@@ -339,7 +339,7 @@ export const Navbar: React.FC = () => {
                     setIsSearchOpen(false);
                     setMenuOpen(false);
                   }}
-                  className="relative group p-2"
+                  className="nav-item interactive-control relative group p-2"
                 >
                   <div className={`w-10 h-10 rounded-full border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-cyan-500/50 group-hover:shadow-[0_0_15px_#00D4FF] flex items-center justify-center bg-white/5 ${isActive ? 'border-cyan-500 border-2 shadow-[0_0_15px_#00D4FF]' : ''}`}>
                     {user?.profileImage ? (
@@ -357,7 +357,7 @@ export const Navbar: React.FC = () => {
                   key={item.label}
                   type="button"
                   onClick={() => handleNav(item.label, item.view)}
-                  className="relative group p-2"
+                  className="nav-item interactive-control relative group p-2"
                 >
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 ${isActive ? 'text-cyan-400 border-cyan-500/50 bg-cyan-500/5 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
@@ -377,7 +377,7 @@ export const Navbar: React.FC = () => {
             type="button"
             aria-label="Open cart"
             onClick={() => navigate('/cart')}
-            className="relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto touch-manipulation"
+            className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto touch-manipulation"
           >
             <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             {cart.length > 0 && (
@@ -423,12 +423,12 @@ export const Navbar: React.FC = () => {
                     if (view !== View.SHOP) navigate('/shop');
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && setIsSearchOpen(false)}
-                  className="min-w-0 flex-1 bg-transparent border-none outline-none text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-white placeholder:text-zinc-500 placeholder:font-semibold"
+                  className="min-w-0 flex-1 bg-transparent border-none outline-none focus-visible:outline-none text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-white placeholder:text-zinc-500 placeholder:font-semibold"
                 />
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen(false)}
-                  className="min-h-12 min-w-12 w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all"
+                  className="nav-item interactive-control min-h-12 min-w-12 w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all"
                 >
                   <X className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                 </button>
@@ -460,7 +460,7 @@ export const Navbar: React.FC = () => {
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setMenuOpen(false)}
-                className="w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center border border-white/10 hover:border-white transition-all"
+                className="nav-item interactive-control w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center border border-white/10 hover:border-white transition-all"
               >
                 <X className="w-6 h-6 text-white" />
               </motion.button>

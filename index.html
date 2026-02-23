@@ -18,6 +18,8 @@
             --mobile-nav-height: 70px;
             --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
             --mobile-safe-top: env(safe-area-inset-top, 0px);
+            --ui-focus-outline: rgba(90, 224, 255, 0.88);
+            --ui-focus-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18);
 
             /* Strict monochrome theme */
             --bg-main: var(--obsidian);
@@ -121,16 +123,16 @@
 
         @keyframes shine-sweep {
             0% {
-                transform: translateX(-200%) skewX(-30deg);
+                transform: translateX(-180%) skewX(-24deg);
                 opacity: 0;
             }
 
             50% {
-                opacity: 0.15;
+                opacity: 0.09;
             }
 
             100% {
-                transform: translateX(300%) skewX(-30deg);
+                transform: translateX(320%) skewX(-24deg);
                 opacity: 0;
             }
         }
@@ -138,13 +140,48 @@
         .shine-sweep {
             position: absolute;
             top: 0;
-            left: 0;
-            width: 60%;
+            left: -34%;
+            width: 40%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-            animation: shine-sweep 8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+            animation: shine-sweep 9s infinite cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
             will-change: transform, opacity;
+            border-radius: inherit;
+        }
+
+        .card,
+        .nav-item,
+        .interactive-control {
+            position: relative;
+        }
+
+        :where(button, a[href], [role="button"], input, select, textarea, .card, .nav-item, .interactive-control) {
+            transition: color 180ms ease-out, background-color 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out, opacity 180ms ease-out;
+        }
+
+        :where(button, [role="button"], .nav-item, .interactive-control) {
+            cursor: pointer;
+        }
+
+        :where(button, a[href], [role="button"], input, select, textarea, .card, .nav-item, .interactive-control):focus {
+            outline: none;
+        }
+
+        :where(button, a[href], [role="button"], input, select, textarea, .card, .nav-item, .interactive-control):focus-visible {
+            outline: 2px solid var(--ui-focus-outline);
+            outline-offset: 2px;
+            box-shadow: var(--ui-focus-shadow);
+        }
+
+        :where(button, [role="button"], .nav-item, .interactive-control):active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        :where(button:disabled, input:disabled, select:disabled, textarea:disabled, .interactive-control:disabled) {
+            opacity: 0.58;
+            cursor: not-allowed;
+            filter: saturate(0.75);
         }
 
         /* Global brightness lift for frequently used low-contrast utility classes */
@@ -191,15 +228,6 @@
 
         ::-webkit-scrollbar {
             width: 0px;
-        }
-
-        button:focus-visible,
-        a:focus-visible,
-        input:focus-visible,
-        select:focus-visible,
-        textarea:focus-visible {
-            outline: 2px solid rgba(34, 211, 238, 0.8);
-            outline-offset: 2px;
         }
 
         button,

@@ -37,13 +37,13 @@ const SidebarItem: React.FC<{
     whileHover={{ scale: 1.02, x: 5 }}
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
-    className={`w-full flex items-center gap-4 p-5 rounded-[24px] transition-all relative overflow-hidden ${active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+    className={`nav-item interactive-control w-full flex items-center gap-4 p-5 rounded-[24px] transition-all relative overflow-hidden ${active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
       }`}
   >
     {active && (
       <motion.div
         layoutId="active-pill"
-        className="absolute inset-0 bg-blue-600 -z-10 shadow-[0_0_30px_rgba(37,99,235,0.4)]"
+        className="absolute inset-0 bg-blue-600 -z-10 shadow-[0_0_18px_rgba(37,99,235,0.34)]"
       />
     )}
     <Icon className={`w-5 h-5 ${active ? 'scale-110' : ''}`} />
@@ -924,13 +924,13 @@ export const AdminPanel = () => {
                 placeholder="Search products, orders, users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none outline-none text-[11px] font-black uppercase tracking-[0.3em] text-white placeholder:text-zinc-700 w-64 focus:w-80 transition-all duration-700"
+                className="bg-transparent border-none outline-none focus-visible:outline-none text-[11px] font-black uppercase tracking-[0.3em] text-white placeholder:text-zinc-700 w-64 focus:w-80 transition-all duration-700"
               />
             </div>
             <div className="flex gap-4">
               <button
                 onClick={() => { switchTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }}
-                className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group"
+                className="nav-item interactive-control w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group"
               >
                 <Bell className="w-7 h-7 text-zinc-500 group-hover:text-white transition-all" />
                 {newOrdersCount > 0 && (
@@ -941,7 +941,7 @@ export const AdminPanel = () => {
               </button>
               <button
                 onClick={() => switchTab('SYNC')}
-                className="w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group"
+                className="nav-item interactive-control w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group"
               >
                 <Database className="w-7 h-7 text-zinc-500 group-hover:text-emerald-500 transition-all" />
               </button>

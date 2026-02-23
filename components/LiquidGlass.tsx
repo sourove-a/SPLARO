@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 export const GlassCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`liquid-glass rounded-[32px] border border-white/10 relative overflow-hidden bg-white/[0.03] shadow-[0_0_50px_rgba(0,0,0,0.5)] ${className}`}>
+  <div className={`card liquid-glass rounded-[32px] border border-white/10 relative overflow-hidden bg-white/[0.03] shadow-[0_0_38px_rgba(0,0,0,0.42)] ${className}`}>
     <div className="ribbed-texture absolute inset-0 pointer-events-none opacity-[0.03]" />
     <div className="relative z-10 h-full">
       {children}
@@ -31,10 +31,10 @@ export const RibbedCard: React.FC<{ children: React.ReactNode; className?: strin
       onMouseMove={interactive ? handleMouse : undefined}
       onMouseLeave={interactive ? () => { x.set(0); y.set(0); } : undefined}
       style={interactive ? { rotateX, rotateY, transformStyle: "preserve-3d" } : {}}
-      className={`liquid-glass rounded-[40px] p-10 relative overflow-hidden ${className}`}
+      className={`card group liquid-glass rounded-[40px] p-10 relative overflow-hidden ${className}`}
     >
       <div className="ribbed-texture absolute inset-0 pointer-events-none opacity-[0.02]" />
-      <div className="shine-sweep" />
+      <div className="shine-sweep opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <div className="relative z-10">
         {children}
       </div>
@@ -63,9 +63,9 @@ export const LuxuryFloatingInput: React.FC<{
         animate={{
           borderColor: focused ? 'rgba(0, 212, 255, 0.6)' : error ? 'rgba(244, 63, 94, 0.5)' : isValid ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.15)',
           backgroundColor: focused ? 'rgba(255, 255, 255, 0.1)' : error ? 'rgba(244, 63, 94, 0.08)' : 'rgba(255, 255, 255, 0.06)',
-          boxShadow: focused ? '0 0 40px rgba(0, 212, 255, 0.15)' : 'none'
+          boxShadow: focused ? '0 0 0 2px rgba(56, 189, 248, 0.28), 0 0 20px rgba(0, 212, 255, 0.14)' : '0 10px 26px rgba(0, 0, 0, 0.28)'
         }}
-        className={`relative flex items-center h-22 md:h-24 border rounded-[32px] transition-all duration-500 overflow-hidden backdrop-blur-3xl shadow-2xl`}
+        className={`relative flex items-center h-22 md:h-24 border rounded-[32px] transition-all duration-200 ease-out overflow-hidden backdrop-blur-3xl`}
       >
 
         <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
@@ -97,7 +97,7 @@ export const LuxuryFloatingInput: React.FC<{
             onBlur={() => setFocused(false)}
             onChange={(e) => onChange(e.target.value)}
             placeholder={focused && !isFilled ? placeholder : ""}
-            className="w-full h-full bg-transparent px-6 pt-7 outline-none text-white font-bold text-base tracking-widest placeholder:text-zinc-700 transition-all relative z-10 pointer-events-auto"
+            className="w-full h-full bg-transparent px-6 pt-7 outline-none focus-visible:outline-none text-white font-bold text-base tracking-widest placeholder:text-zinc-700 transition-all relative z-10 pointer-events-auto"
           />
         </div>
 
@@ -160,21 +160,21 @@ export const PrimaryButton: React.FC<{
   <motion.button
     type={type}
     whileHover={!disabled && !isLoading ? {
-      scale: 1.03,
-      y: -4,
-      boxShadow: "0 25px 50px -12px rgba(0, 212, 255, 0.4)"
+      scale: 1.012,
+      y: -2,
+      boxShadow: "0 14px 30px rgba(0, 212, 255, 0.28)"
     } : {}}
     whileTap={!disabled && !isLoading ? {
-      scale: 0.96,
-      y: 2,
-      boxShadow: "0 5px 15px -3px rgba(0, 212, 255, 0.2)"
+      scale: 0.988,
+      y: 1,
+      boxShadow: "0 6px 16px rgba(0, 212, 255, 0.2)"
     } : {}}
     onClick={onClick}
     disabled={disabled || isLoading}
-    className={`relative bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 rounded-[32px] font-black text-white overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group shadow-[0_0_40px_rgba(0,212,255,0.3)] hover:shadow-[0_0_60px_rgba(0,212,255,0.5)] border border-white/20 ${className}`}
+    className={`interactive-control relative bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 rounded-[32px] font-black text-white overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group shadow-[0_0_26px_rgba(0,212,255,0.24)] hover:shadow-[0_0_36px_rgba(0,212,255,0.35)] border border-white/20 ${className}`}
   >
     <div className="ribbed-texture absolute inset-0 opacity-[0.1] pointer-events-none" />
-    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    <div className="absolute inset-0 bg-white/16 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
     <div className="relative z-10 flex items-center justify-center gap-4 px-10 uppercase tracking-[0.4em]">
       {isLoading ? (
@@ -189,18 +189,7 @@ export const PrimaryButton: React.FC<{
       ) : children}
     </div>
 
-    <div className="shine-sweep !duration-[4s] !opacity-30" />
-
-    {/* Anticipation Ripple Effect */}
-    <AnimatePresence>
-      {!isLoading && !disabled && (
-        <motion.div
-          className="absolute inset-0 bg-white/10 scale-0 rounded-full"
-          whileTap={{ scale: 4, opacity: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        />
-      )}
-    </AnimatePresence>
+    <div className="shine-sweep !duration-[5.4s] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
   </motion.button>
 );
 
@@ -213,10 +202,9 @@ export const SocialButton: React.FC<{
     whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.3)', y: -2 }}
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
-    className="w-full h-18 bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-white/10 flex items-center justify-center gap-4 transition-all group shadow-xl"
+    className="interactive-control w-full h-18 bg-white/[0.05] backdrop-blur-xl rounded-2xl border border-white/10 flex items-center justify-center gap-4 transition-all group shadow-[0_8px_20px_rgba(0,0,0,0.25)]"
   >
     <div className="shrink-0 transition-transform duration-500 group-hover:scale-110">{icon}</div>
     <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-200 group-hover:text-white transition-colors">{label}</span>
   </motion.button>
 );
-
