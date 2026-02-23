@@ -17,30 +17,63 @@ export enum View {
 export type Language = 'EN' | 'BN';
 export type Theme = 'DARK' | 'LIGHT';
 
+export interface ProductImage {
+  id: string;
+  productId?: string;
+  url: string;
+  altText?: string;
+  sortOrder?: number;
+  isMain?: boolean;
+  width?: number;
+  height?: number;
+  createdAt?: string;
+}
+
+export interface ProductColorVariant {
+  name: string;
+  hex: string;
+  material?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
+  slug?: string;
+  productSlug?: string;
   productType?: 'shoe' | 'bag' | string;
   brand: 'Nike' | 'Adidas' | 'Jordan' | 'Splaro' | 'Luxury Imports' | 'New Balance' | 'Yeezy' | 'Balenciaga' | 'Gucci' | 'Prada' | 'Louis Vuitton' |
   'Anta' | 'Li-Ning' | '361 Degrees' | 'Xtep' | 'Peak' | 'Qiaodan' | 'Bmai' | 'ERKE' | 'Feiyue' | 'Warrior' | 'Belle' | 'Red Dragonfly' | 'Aokang' | 'Fuguiniao' | 'Staccato' | 'Teenmix' | 'Do-win' | 'Dynafish' |
   'Dior' | 'Versace' | 'Fendi' | 'Hermes' | 'Saint Laurent' | 'Burberry' | 'Chanel' | 'Valentino' | 'Givenchy' | 'Off-White' | 'Alexander McQueen' | string;
+  brandSlug?: string;
   price: number;
+  discountPrice?: number;
+  discountStartsAt?: string;
+  discountEndsAt?: string;
   originalPrice?: number;
   image: string;
+  mainImageId?: string;
+  galleryImages?: ProductImage[];
   category: 'Sneakers' | 'Running' | 'Casual' | 'Basketball' | 'Sandals' | 'Boots' | 'Formal' | 'Shoes' | 'Bags' | string;
+  categorySlug?: string;
   subCategory?: string;
+  subCategorySlug?: string;
   type: 'Men' | 'Women' | 'Unisex';
   description: { EN: string; BN: string };
   sizes: string[];
   colors: string[];
+  colorVariants?: ProductColorVariant[];
   materials?: string[];
   featured?: boolean;
   tags?: ('New Arrival' | 'Best Seller' | 'On Sale')[];
   sku?: string;
+  barcode?: string;
   weight?: string;
   dimensions?: { l: string; w: string; h: string };
   stock?: number;
   lowStockThreshold?: number;
+  status?: 'DRAFT' | 'PUBLISHED';
+  hideWhenOutOfStock?: boolean;
+  liveUrl?: string;
   discountPercentage?: number;
   sizeChartImage?: string;
   additionalImages?: string[];

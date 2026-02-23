@@ -243,20 +243,31 @@ function ensure_core_schema($db) {
     ensure_table($db, 'products', "CREATE TABLE IF NOT EXISTS `products` (
       `id` varchar(50) NOT NULL,
       `name` varchar(255) NOT NULL,
+      `slug` varchar(255) DEFAULT NULL,
       `brand` varchar(100) NOT NULL,
+      `brand_slug` varchar(120) DEFAULT NULL,
       `price` int(11) NOT NULL,
+      `discount_price` int(11) DEFAULT NULL,
+      `discount_starts_at` datetime DEFAULT NULL,
+      `discount_ends_at` datetime DEFAULT NULL,
       `image` text NOT NULL,
+      `main_image_id` varchar(80) DEFAULT NULL,
       `category` varchar(100) NOT NULL,
+      `category_slug` varchar(120) DEFAULT NULL,
       `type` varchar(50) NOT NULL,
       `description` longtext DEFAULT NULL,
       `sizes` longtext DEFAULT NULL,
       `colors` longtext DEFAULT NULL,
+      `color_variants` longtext DEFAULT NULL,
       `materials` longtext DEFAULT NULL,
       `tags` longtext DEFAULT NULL,
       `featured` tinyint(1) DEFAULT 0,
       `sku` varchar(100) DEFAULT NULL,
+      `barcode` varchar(120) DEFAULT NULL,
       `stock` int(11) DEFAULT 50,
       `low_stock_threshold` int(11) DEFAULT NULL,
+      `status` varchar(20) DEFAULT 'PUBLISHED',
+      `hide_when_out_of_stock` tinyint(1) DEFAULT 0,
       `weight` varchar(50) DEFAULT NULL,
       `dimensions` longtext DEFAULT NULL,
       `variations` longtext DEFAULT NULL,
@@ -264,7 +275,23 @@ function ensure_core_schema($db) {
       `size_chart_image` text DEFAULT NULL,
       `discount_percentage` int(11) DEFAULT NULL,
       `sub_category` varchar(100) DEFAULT NULL,
+      `sub_category_slug` varchar(120) DEFAULT NULL,
+      `product_url` text DEFAULT NULL,
       PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'product_images', "CREATE TABLE IF NOT EXISTS `product_images` (
+      `id` varchar(80) NOT NULL,
+      `product_id` varchar(50) NOT NULL,
+      `url` text NOT NULL,
+      `alt_text` varchar(255) DEFAULT NULL,
+      `sort_order` int(11) DEFAULT 0,
+      `is_main` tinyint(1) DEFAULT 0,
+      `width` int(11) DEFAULT NULL,
+      `height` int(11) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      KEY `idx_product_images_product` (`product_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     ensure_table($db, 'orders', "CREATE TABLE IF NOT EXISTS `orders` (
@@ -395,14 +422,25 @@ function ensure_core_schema($db) {
     ensure_column($db, 'site_settings', 'google_client_id', 'varchar(255) DEFAULT NULL');
 
     ensure_column($db, 'products', 'description', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'slug', 'varchar(255) DEFAULT NULL');
     ensure_column($db, 'products', 'sizes', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'colors', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'color_variants', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'materials', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'tags', 'longtext DEFAULT NULL');
+    ensure_column($db, 'products', 'brand_slug', 'varchar(120) DEFAULT NULL');
     ensure_column($db, 'products', 'featured', 'tinyint(1) DEFAULT 0');
     ensure_column($db, 'products', 'sku', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'products', 'barcode', 'varchar(120) DEFAULT NULL');
     ensure_column($db, 'products', 'stock', 'int(11) DEFAULT 50');
     ensure_column($db, 'products', 'low_stock_threshold', 'int(11) DEFAULT NULL');
+    ensure_column($db, 'products', 'status', 'varchar(20) DEFAULT \"PUBLISHED\"');
+    ensure_column($db, 'products', 'hide_when_out_of_stock', 'tinyint(1) DEFAULT 0');
+    ensure_column($db, 'products', 'discount_price', 'int(11) DEFAULT NULL');
+    ensure_column($db, 'products', 'discount_starts_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'products', 'discount_ends_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'products', 'main_image_id', 'varchar(80) DEFAULT NULL');
+    ensure_column($db, 'products', 'category_slug', 'varchar(120) DEFAULT NULL');
     ensure_column($db, 'products', 'weight', 'varchar(50) DEFAULT NULL');
     ensure_column($db, 'products', 'dimensions', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'variations', 'longtext DEFAULT NULL');
@@ -410,6 +448,8 @@ function ensure_core_schema($db) {
     ensure_column($db, 'products', 'size_chart_image', 'text DEFAULT NULL');
     ensure_column($db, 'products', 'discount_percentage', 'int(11) DEFAULT NULL');
     ensure_column($db, 'products', 'sub_category', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'products', 'sub_category_slug', 'varchar(120) DEFAULT NULL');
+    ensure_column($db, 'products', 'product_url', 'text DEFAULT NULL');
     ensure_column($db, 'products', 'created_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP');
 
     ensure_column($db, 'orders', 'district', 'varchar(100) DEFAULT NULL');
@@ -460,6 +500,13 @@ function ensure_core_schema($db) {
     ensure_index($db, 'subscriptions', 'idx_subscriptions_email', 'CREATE INDEX idx_subscriptions_email ON subscriptions(email)');
     ensure_index($db, 'subscriptions', 'idx_subscriptions_created_at', 'CREATE INDEX idx_subscriptions_created_at ON subscriptions(created_at)');
     ensure_index($db, 'products', 'idx_products_created_at', 'CREATE INDEX idx_products_created_at ON products(created_at)');
+    ensure_index($db, 'products', 'idx_products_slug', 'CREATE INDEX idx_products_slug ON products(slug)');
+    ensure_index($db, 'products', 'idx_products_brand_slug', 'CREATE INDEX idx_products_brand_slug ON products(brand_slug)');
+    ensure_index($db, 'products', 'idx_products_category_slug', 'CREATE INDEX idx_products_category_slug ON products(category_slug)');
+    ensure_index($db, 'products', 'idx_products_sub_category_slug', 'CREATE INDEX idx_products_sub_category_slug ON products(sub_category_slug)');
+    ensure_index($db, 'products', 'idx_products_status', 'CREATE INDEX idx_products_status ON products(status)');
+    ensure_index($db, 'product_images', 'idx_product_images_product', 'CREATE INDEX idx_product_images_product ON product_images(product_id)');
+    ensure_index($db, 'product_images', 'idx_product_images_sort', 'CREATE INDEX idx_product_images_sort ON product_images(product_id, sort_order)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
     ensure_index($db, 'audit_logs', 'idx_audit_logs_created_at', 'CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)');
     ensure_index($db, 'audit_logs', 'idx_audit_logs_entity', 'CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id)');
@@ -1024,6 +1071,31 @@ function safe_json_decode_assoc($raw, $default = []) {
     }
     $decoded = json_decode($raw, true);
     return is_array($decoded) ? $decoded : (is_array($default) ? $default : []);
+}
+
+function slugify_text($text) {
+    $text = strtolower(trim((string)$text));
+    $text = preg_replace('/[^\p{L}\p{N}\s-]+/u', '', $text);
+    $text = preg_replace('/[\s_-]+/', '-', $text);
+    $text = trim((string)$text, '-');
+    if ($text === '') {
+        return 'item-' . substr(bin2hex(random_bytes(4)), 0, 6);
+    }
+    return $text;
+}
+
+function build_product_live_url($brandSlug, $categorySlug, $productSlug) {
+    $origin = trim((string)env_or_default('APP_ORIGIN', ''));
+    if ($origin === '') {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+        if ($host !== '') {
+            $origin = $scheme . '://' . $host;
+        }
+    }
+    $path = '/product/' . rawurlencode((string)$brandSlug) . '/' . rawurlencode((string)$categorySlug) . '/' . rawurlencode((string)$productSlug);
+    if ($origin === '') return $path;
+    return rtrim($origin, '/') . $path;
 }
 
 function cms_default_theme_settings() {
@@ -1913,7 +1985,7 @@ if ($method === 'GET' && $action === 'sync') {
     $products = [];
     if (!$isAdmin && $method === 'GET' && $action === 'sync') {
         // Light sync for regular users: just active products with essential fields
-        $products = $db->query("SELECT id, name, brand, price, image, category, type, featured, stock, low_stock_threshold, discount_percentage FROM products LIMIT 100")->fetchAll();
+        $products = $db->query("SELECT id, name, slug, brand, brand_slug, price, discount_price, discount_starts_at, discount_ends_at, image, main_image_id, category, category_slug, sub_category, sub_category_slug, type, description, sizes, colors, color_variants, materials, tags, featured, sku, barcode, stock, low_stock_threshold, status, hide_when_out_of_stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, product_url FROM products WHERE status = 'PUBLISHED' LIMIT 200")->fetchAll();
     } else {
         $products = $db->query("SELECT * FROM products")->fetchAll();
     }
@@ -1922,6 +1994,7 @@ if ($method === 'GET' && $action === 'sync') {
         if (isset($p['description'])) $p['description'] = json_decode($p['description'], true) ?? ['EN' => '', 'BN' => ''];
         if (isset($p['sizes'])) $p['sizes'] = json_decode($p['sizes'], true) ?? [];
         if (isset($p['colors'])) $p['colors'] = json_decode($p['colors'], true) ?? [];
+        if (isset($p['color_variants'])) $p['colorVariants'] = json_decode($p['color_variants'], true) ?? [];
         if (isset($p['materials'])) $p['materials'] = json_decode($p['materials'], true) ?? [];
         if (isset($p['tags'])) $p['tags'] = json_decode($p['tags'], true) ?? [];
         if (isset($p['dimensions'])) $p['dimensions'] = json_decode($p['dimensions'], true) ?? ['l'=>'', 'w'=>'', 'h'=>''];
@@ -1940,6 +2013,102 @@ if ($method === 'GET' && $action === 'sync') {
             $cleanPrice = preg_replace('/[^0-9]/', '', $rawPrice);
             $p['price'] = (int)$cleanPrice;
         }
+        if (isset($p['discount_price']) && $p['discount_price'] !== null && $p['discount_price'] !== '') {
+            $p['discountPrice'] = (int)$p['discount_price'];
+        }
+        if (isset($p['discount_starts_at'])) {
+            $p['discountStartsAt'] = $p['discount_starts_at'];
+        }
+        if (isset($p['discount_ends_at'])) {
+            $p['discountEndsAt'] = $p['discount_ends_at'];
+        }
+        if (isset($p['slug']) && trim((string)$p['slug']) !== '') {
+            $p['productSlug'] = trim((string)$p['slug']);
+        }
+        if (isset($p['brand_slug'])) {
+            $p['brandSlug'] = trim((string)$p['brand_slug']);
+        }
+        if (isset($p['category_slug'])) {
+            $p['categorySlug'] = trim((string)$p['category_slug']);
+        }
+        if (isset($p['sub_category_slug'])) {
+            $p['subCategorySlug'] = trim((string)$p['sub_category_slug']);
+        }
+        if (isset($p['main_image_id'])) {
+            $p['mainImageId'] = trim((string)$p['main_image_id']);
+        }
+        if (isset($p['sub_category'])) {
+            $p['subCategory'] = (string)$p['sub_category'];
+        }
+        if (isset($p['hide_when_out_of_stock'])) {
+            $p['hideWhenOutOfStock'] = (int)$p['hide_when_out_of_stock'] === 1;
+        }
+        if (isset($p['status'])) {
+            $p['status'] = strtoupper((string)$p['status']) === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+        }
+        if (isset($p['product_url'])) {
+            $p['liveUrl'] = (string)$p['product_url'];
+        }
+    }
+    unset($p);
+
+    $productImagesByProduct = [];
+    try {
+        if (!empty($products)) {
+            $imageRows = $db->query("SELECT id, product_id, url, alt_text, sort_order, is_main, width, height, created_at FROM product_images ORDER BY product_id ASC, sort_order ASC, created_at ASC")->fetchAll();
+            foreach ($imageRows as $row) {
+                $pid = (string)($row['product_id'] ?? '');
+                if ($pid === '') continue;
+                if (!isset($productImagesByProduct[$pid])) {
+                    $productImagesByProduct[$pid] = [];
+                }
+                $productImagesByProduct[$pid][] = [
+                    'id' => (string)($row['id'] ?? ''),
+                    'productId' => $pid,
+                    'url' => (string)($row['url'] ?? ''),
+                    'altText' => (string)($row['alt_text'] ?? ''),
+                    'sortOrder' => isset($row['sort_order']) ? (int)$row['sort_order'] : 0,
+                    'isMain' => isset($row['is_main']) ? ((int)$row['is_main'] === 1) : false,
+                    'width' => isset($row['width']) && $row['width'] !== null ? (int)$row['width'] : null,
+                    'height' => isset($row['height']) && $row['height'] !== null ? (int)$row['height'] : null,
+                    'createdAt' => $row['created_at'] ?? null
+                ];
+            }
+
+            foreach ($products as &$productRow) {
+                $pid = (string)($productRow['id'] ?? '');
+                $gallery = $productImagesByProduct[$pid] ?? [];
+                if (!empty($gallery)) {
+                    usort($gallery, function($a, $b) {
+                        return ((int)($a['sortOrder'] ?? 0)) <=> ((int)($b['sortOrder'] ?? 0));
+                    });
+                    $productRow['galleryImages'] = $gallery;
+                    $main = null;
+                    foreach ($gallery as $img) {
+                        if (!empty($img['isMain'])) {
+                            $main = $img;
+                            break;
+                        }
+                    }
+                    if ($main === null) {
+                        $main = $gallery[0];
+                    }
+                    if (!empty($main['url'])) {
+                        $productRow['image'] = $main['url'];
+                    }
+                    $productRow['additionalImages'] = array_values(array_map(function($img) use ($main) {
+                        if ($main && (string)$img['id'] === (string)$main['id']) return null;
+                        return $img['url'] ?? null;
+                    }, $gallery));
+                    $productRow['additionalImages'] = array_values(array_filter($productRow['additionalImages'], function($url) {
+                        return is_string($url) && trim($url) !== '';
+                    }));
+                }
+            }
+            unset($productRow);
+        }
+    } catch (Exception $e) {
+        error_log('SPLARO_PRODUCT_IMAGE_SYNC_READ_FAILED: ' . $e->getMessage());
     }
 
     $orders = [];
@@ -2139,8 +2308,16 @@ if ($method === 'POST' && $action === 'create_order') {
     }
     $productName = $firstProduct['name'] ?? ($firstItem['name'] ?? 'N/A');
     $productUrlRaw = $firstItem['productUrl'] ?? ($firstItem['url'] ?? '');
-    if ($productUrlRaw === '' && !empty($firstProduct['id'])) {
-        $productUrlRaw = '/product/' . rawurlencode((string)$firstProduct['id']);
+    if ($productUrlRaw === '' && !empty($firstProduct['liveUrl'])) {
+        $productUrlRaw = (string)$firstProduct['liveUrl'];
+    }
+    if ($productUrlRaw === '') {
+        $brandSlug = slugify_text($firstProduct['brandSlug'] ?? $firstProduct['brand'] ?? 'brand');
+        $categorySlug = slugify_text($firstProduct['categorySlug'] ?? $firstProduct['category'] ?? 'category');
+        $productSlug = slugify_text($firstProduct['productSlug'] ?? $firstProduct['slug'] ?? $firstProduct['id'] ?? $firstProduct['name'] ?? 'product');
+        if (!empty($firstProduct['id']) || !empty($firstProduct['name'])) {
+            $productUrlRaw = '/product/' . rawurlencode((string)$brandSlug) . '/' . rawurlencode((string)$categorySlug) . '/' . rawurlencode((string)$productSlug);
+        }
     }
     if ($productUrlRaw && strpos($productUrlRaw, 'http') !== 0 && strpos($productUrlRaw, '/') === 0) {
         $productUrlRaw = $siteBase . $productUrlRaw;
@@ -2326,64 +2503,240 @@ if ($method === 'POST' && $action === 'sync_products') {
         }
 
         $upsert = $db->prepare("INSERT INTO products 
-            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, low_stock_threshold, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, name, slug, brand, brand_slug, price, discount_price, discount_starts_at, discount_ends_at, image, main_image_id, category, category_slug, type, description, sizes, colors, color_variants, materials, tags, featured, sku, barcode, stock, low_stock_threshold, status, hide_when_out_of_stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category, sub_category_slug, product_url) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
+                slug = VALUES(slug),
                 brand = VALUES(brand),
+                brand_slug = VALUES(brand_slug),
                 price = VALUES(price),
+                discount_price = VALUES(discount_price),
+                discount_starts_at = VALUES(discount_starts_at),
+                discount_ends_at = VALUES(discount_ends_at),
                 image = VALUES(image),
+                main_image_id = VALUES(main_image_id),
                 category = VALUES(category),
+                category_slug = VALUES(category_slug),
                 type = VALUES(type),
                 description = VALUES(description),
                 sizes = VALUES(sizes),
                 colors = VALUES(colors),
+                color_variants = VALUES(color_variants),
                 materials = VALUES(materials),
                 tags = VALUES(tags),
                 featured = VALUES(featured),
                 sku = VALUES(sku),
+                barcode = VALUES(barcode),
                 stock = VALUES(stock),
                 low_stock_threshold = VALUES(low_stock_threshold),
+                status = VALUES(status),
+                hide_when_out_of_stock = VALUES(hide_when_out_of_stock),
                 weight = VALUES(weight),
                 dimensions = VALUES(dimensions),
                 variations = VALUES(variations),
                 additional_images = VALUES(additional_images),
                 size_chart_image = VALUES(size_chart_image),
                 discount_percentage = VALUES(discount_percentage),
-                sub_category = VALUES(sub_category)");
+                sub_category = VALUES(sub_category),
+                sub_category_slug = VALUES(sub_category_slug),
+                product_url = VALUES(product_url)");
+
+        $existingStmt = $db->prepare("SELECT id, price, status, image FROM products WHERE id = ? LIMIT 1");
+        $slugLookupStmt = $db->prepare("SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1");
+        $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+        $insertImageStmt = $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
 
         $db->beginTransaction();
         $incomingIds = [];
+        $seenSlugs = [];
         foreach ($products as $p) {
-            if (empty($p['id']) || empty($p['name']) || empty($p['brand']) || !isset($p['price']) || empty($p['image']) || empty($p['category']) || empty($p['type'])) {
+            if (empty($p['id']) || empty($p['name']) || empty($p['brand']) || !isset($p['price']) || empty($p['category']) || empty($p['type'])) {
                 throw new RuntimeException('PRODUCT_REQUIRED_FIELDS_MISSING');
             }
-            $incomingIds[] = (string)$p['id'];
+
+            $productId = (string)$p['id'];
+            $incomingIds[] = $productId;
+            $existingStmt->execute([$productId]);
+            $existing = $existingStmt->fetch();
+
+            $baseProductSlug = slugify_text($p['productSlug'] ?? $p['slug'] ?? $p['name'] ?? $productId);
+            $productSlug = $baseProductSlug;
+            $slugSuffix = 2;
+            while (in_array($productSlug, $seenSlugs, true)) {
+                $productSlug = $baseProductSlug . '-' . $slugSuffix;
+                $slugSuffix++;
+            }
+            while (true) {
+                $slugLookupStmt->execute([$productSlug, $productId]);
+                $slugConflict = $slugLookupStmt->fetch();
+                if (!$slugConflict) break;
+                $productSlug = $baseProductSlug . '-' . $slugSuffix;
+                $slugSuffix++;
+            }
+            $seenSlugs[] = $productSlug;
+            $brandSlug = slugify_text($p['brandSlug'] ?? $p['brand_slug'] ?? $p['brand'] ?? 'brand');
+            $categorySlug = slugify_text($p['categorySlug'] ?? $p['category_slug'] ?? $p['category'] ?? 'category');
+            $subCategory = trim((string)($p['subCategory'] ?? $p['sub_category'] ?? ''));
+            $subCategorySlug = $subCategory !== '' ? slugify_text($p['subCategorySlug'] ?? $p['sub_category_slug'] ?? $subCategory) : null;
+            $status = strtoupper((string)($p['status'] ?? 'PUBLISHED')) === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+            $hideWhenOutOfStock = !empty($p['hideWhenOutOfStock']) ? 1 : 0;
+
+            $galleryImages = [];
+            if (is_array($p['galleryImages'] ?? null)) {
+                foreach (($p['galleryImages'] ?? []) as $idx => $img) {
+                    $url = trim((string)($img['url'] ?? ''));
+                    if ($url === '') continue;
+                    $galleryImages[] = [
+                        'id' => trim((string)($img['id'] ?? '')) ?: ('img_' . substr(bin2hex(random_bytes(6)), 0, 12)),
+                        'url' => $url,
+                        'altText' => trim((string)($img['altText'] ?? $img['alt_text'] ?? $p['name'] ?? '')),
+                        'sortOrder' => isset($img['sortOrder']) ? (int)$img['sortOrder'] : (isset($img['sort_order']) ? (int)$img['sort_order'] : $idx),
+                        'isMain' => !empty($img['isMain']) || !empty($img['is_main']),
+                        'width' => isset($img['width']) ? (int)$img['width'] : null,
+                        'height' => isset($img['height']) ? (int)$img['height'] : null
+                    ];
+                }
+            }
+            if (empty($galleryImages)) {
+                $fallbackMain = trim((string)($p['image'] ?? ''));
+                if ($fallbackMain !== '') {
+                    $galleryImages[] = [
+                        'id' => trim((string)($p['mainImageId'] ?? '')) ?: ('img_' . substr(bin2hex(random_bytes(6)), 0, 12)),
+                        'url' => $fallbackMain,
+                        'altText' => trim((string)($p['name'] ?? '')),
+                        'sortOrder' => 0,
+                        'isMain' => true,
+                        'width' => null,
+                        'height' => null
+                    ];
+                }
+                if (is_array($p['additionalImages'] ?? null)) {
+                    foreach (($p['additionalImages'] ?? []) as $idx => $urlRaw) {
+                        $url = trim((string)$urlRaw);
+                        if ($url === '') continue;
+                        $galleryImages[] = [
+                            'id' => 'img_' . substr(bin2hex(random_bytes(6)), 0, 12),
+                            'url' => $url,
+                            'altText' => trim((string)($p['name'] ?? '')),
+                            'sortOrder' => $idx + 1,
+                            'isMain' => false,
+                            'width' => null,
+                            'height' => null
+                        ];
+                    }
+                }
+            }
+
+            usort($galleryImages, function($a, $b) {
+                return ((int)$a['sortOrder']) <=> ((int)$b['sortOrder']);
+            });
+            $mainImage = null;
+            foreach ($galleryImages as $img) {
+                if (!empty($img['isMain'])) {
+                    $mainImage = $img;
+                    break;
+                }
+            }
+            if ($mainImage === null && !empty($galleryImages)) {
+                $mainImage = $galleryImages[0];
+                $mainImage['isMain'] = true;
+            }
+            $mainImageUrl = $mainImage['url'] ?? trim((string)($p['image'] ?? ''));
+            $mainImageId = $mainImage['id'] ?? (trim((string)($p['mainImageId'] ?? '')) ?: null);
+
+            $additionalImages = array_values(array_filter(array_map(function($img) use ($mainImageId) {
+                if ($mainImageId !== null && (string)($img['id'] ?? '') === (string)$mainImageId) return null;
+                return $img['url'] ?? null;
+            }, $galleryImages), function($url) {
+                return is_string($url) && trim($url) !== '';
+            }));
+
+            $productUrl = trim((string)($p['liveUrl'] ?? $p['productUrl'] ?? $p['product_url'] ?? ''));
+            if ($productUrl === '') {
+                $productUrl = build_product_live_url($brandSlug, $categorySlug, $productSlug);
+            }
+
             $upsert->execute([
-                $p['id'],
+                $productId,
                 $p['name'],
+                $productSlug,
                 $p['brand'],
+                $brandSlug,
                 $p['price'],
-                $p['image'],
+                isset($p['discountPrice']) && $p['discountPrice'] !== '' ? (int)$p['discountPrice'] : (isset($p['discount_price']) && $p['discount_price'] !== '' ? (int)$p['discount_price'] : null),
+                !empty($p['discountStartsAt']) ? (string)$p['discountStartsAt'] : (!empty($p['discount_starts_at']) ? (string)$p['discount_starts_at'] : null),
+                !empty($p['discountEndsAt']) ? (string)$p['discountEndsAt'] : (!empty($p['discount_ends_at']) ? (string)$p['discount_ends_at'] : null),
+                $mainImageUrl,
+                $mainImageId,
                 $p['category'],
+                $categorySlug,
                 $p['type'],
                 json_encode($p['description'] ?? []),
                 json_encode($p['sizes'] ?? []),
                 json_encode($p['colors'] ?? []),
+                json_encode($p['colorVariants'] ?? ($p['color_variants'] ?? [])),
                 json_encode($p['materials'] ?? []),
                 json_encode($p['tags'] ?? []),
                 ($p['featured'] ?? false) ? 1 : 0,
                 $p['sku'] ?? null,
+                $p['barcode'] ?? null,
                 $p['stock'] ?? 50,
                 isset($p['lowStockThreshold']) && $p['lowStockThreshold'] !== '' ? max(0, (int)$p['lowStockThreshold']) : (isset($p['low_stock_threshold']) && $p['low_stock_threshold'] !== '' ? max(0, (int)$p['low_stock_threshold']) : null),
+                $status,
+                $hideWhenOutOfStock,
                 $p['weight'] ?? null,
                 json_encode($p['dimensions'] ?? []),
                 json_encode($p['variations'] ?? []),
-                json_encode($p['additionalImages'] ?? []),
+                json_encode($additionalImages),
                 $p['sizeChartImage'] ?? null,
                 $p['discountPercentage'] ?? null,
-                $p['subCategory'] ?? null
+                $subCategory !== '' ? $subCategory : null,
+                $subCategorySlug,
+                $productUrl
             ]);
+
+            $deleteImagesStmt->execute([$productId]);
+            foreach ($galleryImages as $idx => $img) {
+                $imgId = trim((string)($img['id'] ?? ''));
+                $imgUrl = trim((string)($img['url'] ?? ''));
+                if ($imgId === '' || $imgUrl === '') continue;
+                $insertImageStmt->execute([
+                    $imgId,
+                    $productId,
+                    $imgUrl,
+                    trim((string)($img['altText'] ?? '')) ?: trim((string)($p['name'] ?? '')),
+                    isset($img['sortOrder']) ? (int)$img['sortOrder'] : $idx,
+                    ($mainImageId !== null && (string)$imgId === (string)$mainImageId) ? 1 : (!empty($img['isMain']) ? 1 : 0),
+                    isset($img['width']) && $img['width'] !== null ? (int)$img['width'] : null,
+                    isset($img['height']) && $img['height'] !== null ? (int)$img['height'] : null
+                ]);
+            }
+
+            $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin');
+            $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+            if ($existing) {
+                audit_log_insert($db, $actorId, 'PRODUCT_UPDATED', 'PRODUCT', $productId, $existing, [
+                    'name' => $p['name'],
+                    'price' => $p['price'],
+                    'status' => $status,
+                    'slug' => $productSlug
+                ], $ipAddress);
+                if ((int)($existing['price'] ?? 0) !== (int)$p['price']) {
+                    audit_log_insert($db, $actorId, 'PRICE_CHANGED', 'PRODUCT', $productId, ['price' => (int)($existing['price'] ?? 0)], ['price' => (int)$p['price']], $ipAddress);
+                }
+                if (strtoupper((string)($existing['status'] ?? 'PUBLISHED')) !== $status) {
+                    audit_log_insert($db, $actorId, $status === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED', 'PRODUCT', $productId, ['status' => (string)($existing['status'] ?? 'PUBLISHED')], ['status' => $status], $ipAddress);
+                }
+                audit_log_insert($db, $actorId, 'IMAGES_UPDATED', 'PRODUCT', $productId, null, ['mainImageId' => $mainImageId, 'count' => count($galleryImages)], $ipAddress);
+            } else {
+                audit_log_insert($db, $actorId, 'PRODUCT_CREATED', 'PRODUCT', $productId, null, [
+                    'name' => $p['name'],
+                    'price' => $p['price'],
+                    'status' => $status,
+                    'slug' => $productSlug
+                ], $ipAddress);
+            }
         }
 
         if ($purgeMissing && !empty($incomingIds)) {
@@ -2400,6 +2753,93 @@ if ($method === 'POST' && $action === 'sync_products') {
         }
         error_log("SPLARO_PRODUCT_SYNC_FAILURE: " . $e->getMessage());
         echo json_encode(["status" => "error", "message" => "PRODUCT_SYNC_FAILED"]);
+    }
+    exit;
+}
+
+// 3.1 PRODUCT MEDIA UPLOAD (ADMIN)
+if ($method === 'POST' && $action === 'upload_product_image') {
+    require_admin_access($requestAuthUser);
+    try {
+        if (!isset($_FILES['image']) || !is_array($_FILES['image'])) {
+            echo json_encode(["status" => "error", "message" => "IMAGE_REQUIRED"]);
+            exit;
+        }
+
+        $file = $_FILES['image'];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            echo json_encode(["status" => "error", "message" => "UPLOAD_FAILED"]);
+            exit;
+        }
+
+        $maxBytes = 6 * 1024 * 1024; // 6MB
+        if ((int)($file['size'] ?? 0) > $maxBytes) {
+            echo json_encode(["status" => "error", "message" => "IMAGE_TOO_LARGE"]);
+            exit;
+        }
+
+        $tmpPath = (string)($file['tmp_name'] ?? '');
+        $mime = function_exists('mime_content_type') ? (string)mime_content_type($tmpPath) : '';
+        $allowed = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/avif' => 'avif'
+        ];
+        if (!isset($allowed[$mime])) {
+            echo json_encode(["status" => "error", "message" => "INVALID_IMAGE_TYPE"]);
+            exit;
+        }
+
+        $ext = $allowed[$mime];
+        $uploadRoot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__)), '/\\') . '/uploads/products';
+        if (!is_dir($uploadRoot)) {
+            @mkdir($uploadRoot, 0755, true);
+        }
+        if (!is_dir($uploadRoot) || !is_writable($uploadRoot)) {
+            echo json_encode(["status" => "error", "message" => "UPLOAD_PATH_NOT_WRITABLE"]);
+            exit;
+        }
+
+        $fileName = 'prd_' . date('Ymd_His') . '_' . substr(bin2hex(random_bytes(6)), 0, 12) . '.' . $ext;
+        $destPath = $uploadRoot . '/' . $fileName;
+        if (!move_uploaded_file($tmpPath, $destPath)) {
+            echo json_encode(["status" => "error", "message" => "UPLOAD_MOVE_FAILED"]);
+            exit;
+        }
+
+        $relative = '/uploads/products/' . $fileName;
+        $origin = trim((string)env_or_default('APP_ORIGIN', ''));
+        $publicUrl = $origin !== '' ? rtrim($origin, '/') . $relative : $relative;
+
+        $dimensions = @getimagesize($destPath);
+        $width = is_array($dimensions) ? (int)($dimensions[0] ?? 0) : 0;
+        $height = is_array($dimensions) ? (int)($dimensions[1] ?? 0) : 0;
+
+        audit_log_insert(
+            $db,
+            (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin'),
+            'IMAGES_UPDATED',
+            'PRODUCT_MEDIA',
+            $fileName,
+            null,
+            ['url' => $publicUrl, 'width' => $width, 'height' => $height],
+            $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+        );
+
+        echo json_encode([
+            "status" => "success",
+            "message" => "IMAGE_UPLOADED",
+            "data" => [
+                "url" => $publicUrl,
+                "relative_url" => $relative,
+                "width" => $width,
+                "height" => $height
+            ]
+        ]);
+    } catch (Exception $e) {
+        error_log("SPLARO_IMAGE_UPLOAD_FAILED: " . $e->getMessage());
+        echo json_encode(["status" => "error", "message" => "IMAGE_UPLOAD_FAILED"]);
     }
     exit;
 }

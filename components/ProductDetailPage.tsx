@@ -7,6 +7,7 @@ import { View } from '../types';
 import { useEffect } from 'react';
 import { GlassCard } from './LiquidGlass';
 import { resolveProductUrgencyState } from '../lib/urgency';
+import { productMatchesRoute, ProductRouteParams, slugifyValue } from '../lib/productRoute';
 
 const Accordion = ({ title, children }: { title: string; children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,16 +39,47 @@ const Accordion = ({ title, children }: { title: string; children: React.ReactNo
 };
 
 export const ProductDetailPage: React.FC = () => {
-  const { id } = useParams();
+  const params = useParams();
   const { products, selectedProduct: initialSelected, addToCart, language, setSelectedProduct, siteSettings } = useApp();
   const navigate = useNavigate();
 
-  const product = products.find(p => p.id === id) || initialSelected;
+  const routeParams: ProductRouteParams = {
+    id: params.id,
+    brandSlug: params.brandSlug,
+    categorySlug: params.categorySlug,
+    productSlug: params.productSlug
+  };
+  const hasRouteTarget = Boolean(routeParams.id || routeParams.productSlug);
+
+  const matchedProduct = useMemo(
+    () => products.find((candidate) => productMatchesRoute(candidate, routeParams)),
+    [products, routeParams.id, routeParams.brandSlug, routeParams.categorySlug, routeParams.productSlug]
+  );
+
+  const product = useMemo(() => {
+    if (matchedProduct) return matchedProduct;
+    if (!hasRouteTarget) return initialSelected;
+    if (initialSelected && productMatchesRoute(initialSelected, routeParams)) return initialSelected;
+    return null;
+  }, [matchedProduct, hasRouteTarget, initialSelected, routeParams]);
+
   const sizeOptions = product?.sizes && product.sizes.length > 0 ? product.sizes : ['Free Size'];
+  const galleryImages = useMemo(() => {
+    if (!product) return [];
+    const fromGallery = Array.isArray(product.galleryImages)
+      ? product.galleryImages
+        .filter((img: any) => String(img?.url || '').trim() !== '')
+        .sort((a: any, b: any) => Number(a?.sortOrder || 0) - Number(b?.sortOrder || 0))
+        .map((img: any) => String(img.url))
+      : [];
+    if (fromGallery.length > 0) return fromGallery;
+    return [product.image, ...(product.additionalImages || [])].filter((img) => !!img);
+  }, [product]);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || 'Free Size');
-  const [activeImg, setActiveImg] = useState(product?.image || '');
+  const [activeImg, setActiveImg] = useState(galleryImages[0] || product?.image || '');
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const urgency = useMemo(
     () =>
       product
@@ -69,10 +101,10 @@ export const ProductDetailPage: React.FC = () => {
       setSelectedProduct(product);
     }
     if (product) {
-      setActiveImg(product.image);
+      setActiveImg(galleryImages[0] || product.image);
       setSelectedSize(product.sizes?.[0] || 'Free Size');
     }
-  }, [product, initialSelected, setSelectedProduct]);
+  }, [product, initialSelected, setSelectedProduct, galleryImages]);
 
   useEffect(() => {
     if (!product) return;
@@ -94,7 +126,14 @@ export const ProductDetailPage: React.FC = () => {
   return (
     <div className="pt-28 sm:pt-32 md:pt-40 pb-10 sm:pb-16 px-4 sm:px-6 max-w-screen-xl mx-auto min-h-screen overflow-x-hidden">
       <button
-        onClick={() => navigate('/shop')}
+        onClick={() => {
+          const categorySlug = slugifyValue(routeParams.categorySlug || (product as any)?.categorySlug || product?.category || '');
+          if (categorySlug) {
+            navigate(`/shop?category=${categorySlug}`);
+            return;
+          }
+          navigate('/shop');
+        }}
         className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 hover:text-cyan-400 transition-colors mb-8 md:mb-12"
       >
         <ChevronLeft className="w-3 h-3" /> BACK TO THE SHOP
@@ -105,13 +144,13 @@ export const ProductDetailPage: React.FC = () => {
         <div className="lg:w-3/5 flex flex-col md:flex-row gap-4 sm:gap-6 min-w-0">
           {/* Vertical Thumbnails */}
           <div className="flex md:flex-col gap-3 sm:gap-4 order-2 md:order-1 shrink-0 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
-            {[product.image, ...(product.additionalImages || [])].filter(img => !!img).map((img, i) => (
+            {galleryImages.map((img, i) => (
               <button
                 key={i}
                 onClick={() => setActiveImg(img)}
                 className={`w-16 sm:w-20 md:w-24 aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-cyan-500' : 'border-white/5 hover:border-white/20'}`}
               >
-                <img src={img} className="w-full h-full object-cover" />
+                <img src={img} className="w-full h-full object-cover" loading="lazy" />
               </button>
             ))}
           </div>
@@ -122,9 +161,22 @@ export const ProductDetailPage: React.FC = () => {
               key={activeImg}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              onTouchStart={(e) => setTouchStartX(e.touches[0]?.clientX ?? null)}
+              onTouchEnd={(e) => {
+                if (touchStartX === null || galleryImages.length <= 1) return;
+                const endX = e.changedTouches[0]?.clientX ?? touchStartX;
+                const delta = endX - touchStartX;
+                if (Math.abs(delta) < 35) return;
+                const currentIndex = Math.max(0, galleryImages.findIndex((url) => url === activeImg));
+                const nextIndex = delta < 0
+                  ? Math.min(galleryImages.length - 1, currentIndex + 1)
+                  : Math.max(0, currentIndex - 1);
+                setActiveImg(galleryImages[nextIndex] || activeImg);
+                setTouchStartX(null);
+              }}
               className="bg-zinc-950 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] overflow-hidden aspect-[4/5] sm:aspect-square border border-white/5 flex items-center justify-center relative group max-w-full"
             >
-              <img src={activeImg} className="w-full h-full object-cover" alt={product.name} />
+              <img src={activeImg} className="w-full h-full object-cover" alt={product.name} loading="eager" />
               <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button className="min-h-12 min-w-12 p-3 sm:p-4 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-white">
                   <Eye className="w-5 h-5" />

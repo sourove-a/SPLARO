@@ -51,14 +51,25 @@ try {
         "ALTER TABLE `users` ADD COLUMN `reset_code` varchar(10) DEFAULT NULL AFTER `role`",
         "ALTER TABLE `users` ADD COLUMN `reset_expiry` datetime DEFAULT NULL AFTER `reset_code`",
         "ALTER TABLE `products` ADD COLUMN `description` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `slug` varchar(255) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `sizes` longtext DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `colors` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `color_variants` longtext DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `materials` longtext DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `tags` longtext DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `brand_slug` varchar(120) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `featured` tinyint(1) DEFAULT 0",
         "ALTER TABLE `products` ADD COLUMN `sku` varchar(100) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `barcode` varchar(120) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `stock` int(11) DEFAULT 50",
         "ALTER TABLE `products` ADD COLUMN `low_stock_threshold` int(11) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `status` varchar(20) DEFAULT 'PUBLISHED'",
+        "ALTER TABLE `products` ADD COLUMN `hide_when_out_of_stock` tinyint(1) DEFAULT 0",
+        "ALTER TABLE `products` ADD COLUMN `discount_price` int(11) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `discount_starts_at` datetime DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `discount_ends_at` datetime DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `main_image_id` varchar(80) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `category_slug` varchar(120) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `weight` varchar(50) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `dimensions` longtext DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `variations` longtext DEFAULT NULL",
@@ -66,6 +77,8 @@ try {
         "ALTER TABLE `products` ADD COLUMN `size_chart_image` text DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `discount_percentage` int(11) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `sub_category` varchar(100) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `sub_category_slug` varchar(120) DEFAULT NULL",
+        "ALTER TABLE `products` ADD COLUMN `product_url` text DEFAULT NULL",
         "ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL",
         "ALTER TABLE `orders` ADD COLUMN `customer_comment` text DEFAULT NULL",
         "ALTER TABLE `site_settings` ADD COLUMN `content_pages` longtext DEFAULT NULL",
@@ -80,6 +93,25 @@ try {
             // Likely column already exists
             $error_count++;
         }
+    }
+
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS `product_images` (
+            `id` varchar(80) NOT NULL,
+            `product_id` varchar(50) NOT NULL,
+            `url` text NOT NULL,
+            `alt_text` varchar(255) DEFAULT NULL,
+            `sort_order` int(11) DEFAULT 0,
+            `is_main` tinyint(1) DEFAULT 0,
+            `width` int(11) DEFAULT NULL,
+            `height` int(11) DEFAULT NULL,
+            `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_product_images_product` (`product_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $success_count++;
+    } catch (PDOException $e) {
+        $error_count++;
     }
 
     // 3. RUN IDENTITY ENFORCEMENT (SEED FROM ENV ONLY)

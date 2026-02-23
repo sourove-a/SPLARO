@@ -61,16 +61,16 @@ export const LuxuryFloatingInput: React.FC<{
     <div className="relative mb-6 group w-full">
       <motion.div
         animate={{
-          borderColor: focused ? 'rgba(0, 212, 255, 0.6)' : error ? 'rgba(244, 63, 94, 0.5)' : isValid ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.15)',
-          backgroundColor: focused ? 'rgba(255, 255, 255, 0.1)' : error ? 'rgba(244, 63, 94, 0.08)' : 'rgba(255, 255, 255, 0.06)',
-          boxShadow: focused ? '0 0 0 2px rgba(56, 189, 248, 0.28), 0 0 20px rgba(0, 212, 255, 0.14)' : '0 10px 26px rgba(0, 0, 0, 0.28)'
+          borderColor: focused ? 'rgba(34, 211, 238, 0.6)' : error ? 'rgba(244, 63, 94, 0.6)' : isValid ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.24)',
+          backgroundColor: focused ? 'rgba(15, 22, 36, 0.96)' : error ? 'rgba(94, 22, 38, 0.45)' : 'rgba(15, 22, 36, 0.9)',
+          boxShadow: focused ? '0 0 0 2px rgba(34, 211, 238, 0.24), 0 8px 22px rgba(0, 0, 0, 0.42)' : '0 6px 16px rgba(0, 0, 0, 0.28)'
         }}
-        className={`relative flex items-center h-22 md:h-24 border rounded-[32px] transition-all duration-200 ease-out overflow-hidden backdrop-blur-3xl`}
+        className={`relative flex items-center h-22 md:h-24 border rounded-[24px] transition-all duration-200 ease-out overflow-hidden backdrop-blur-md`}
       >
 
         <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
 
-        <div className={`pl-10 transition-all duration-500 ${focused ? 'text-cyan-400 scale-110 drop-shadow-[0_0_8px_rgba(0,212,255,0.4)]' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-400'}`}>
+        <div className={`pl-8 transition-all duration-300 ${focused ? 'text-cyan-300 scale-105' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-300'}`}>
           {icon}
         </div>
 
@@ -84,7 +84,7 @@ export const LuxuryFloatingInput: React.FC<{
               color: (focused || isFilled) ? '#00D4FF' : error ? '#f43f5e' : isValid ? '#10b981' : '#71717A'
             }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none text-[12px] font-black uppercase tracking-[0.4em] origin-left z-20 whitespace-nowrap"
+            className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-black uppercase tracking-[0.3em] origin-left z-20 whitespace-nowrap"
           >
             {label}
           </motion.label>
@@ -97,7 +97,7 @@ export const LuxuryFloatingInput: React.FC<{
             onBlur={() => setFocused(false)}
             onChange={(e) => onChange(e.target.value)}
             placeholder={focused && !isFilled ? placeholder : ""}
-            className="w-full h-full bg-transparent px-6 pt-7 outline-none focus-visible:outline-none text-white font-bold text-base tracking-widest placeholder:text-zinc-700 transition-all relative z-10 pointer-events-auto"
+            className="w-full h-full bg-transparent px-5 pt-7 outline-none focus-visible:outline-none text-white font-semibold text-[15px] tracking-[0.08em] placeholder:text-zinc-500 transition-all relative z-10 pointer-events-auto"
           />
         </div>
 

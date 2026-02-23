@@ -733,6 +733,7 @@ const AppContent = () => {
             <Route path="/" element={<HomeView />} />
             <Route path="/shop" element={<ShopPage />} />
             <Route path="/detail" element={<ProductDetailPage />} />
+            <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<ProductDetailPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />

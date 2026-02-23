@@ -8,20 +8,31 @@ SET time_zone = "+00:00";
 CREATE TABLE IF NOT EXISTS `products` (
   `id` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
+  `slug` varchar(255) DEFAULT NULL,
   `brand` varchar(100) NOT NULL,
+  `brand_slug` varchar(120) DEFAULT NULL,
   `price` int(11) NOT NULL,
+  `discount_price` int(11) DEFAULT NULL,
+  `discount_starts_at` datetime DEFAULT NULL,
+  `discount_ends_at` datetime DEFAULT NULL,
   `image` text NOT NULL,
+  `main_image_id` varchar(80) DEFAULT NULL,
   `category` varchar(100) NOT NULL,
+  `category_slug` varchar(120) DEFAULT NULL,
   `type` varchar(50) NOT NULL,
   `description` longtext DEFAULT NULL,
   `sizes` longtext DEFAULT NULL,
   `colors` longtext DEFAULT NULL,
+  `color_variants` longtext DEFAULT NULL,
   `materials` longtext DEFAULT NULL,
   `tags` longtext DEFAULT NULL,
   `featured` tinyint(1) DEFAULT 0,
   `sku` varchar(100) DEFAULT NULL,
+  `barcode` varchar(120) DEFAULT NULL,
   `stock` int(11) DEFAULT 50,
   `low_stock_threshold` int(11) DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'PUBLISHED',
+  `hide_when_out_of_stock` tinyint(1) DEFAULT 0,
   `weight` varchar(50) DEFAULT NULL,
   `dimensions` longtext DEFAULT NULL,
   `variations` longtext DEFAULT NULL,
@@ -29,7 +40,23 @@ CREATE TABLE IF NOT EXISTS `products` (
   `size_chart_image` text DEFAULT NULL,
   `discount_percentage` int(11) DEFAULT NULL,
   `sub_category` varchar(100) DEFAULT NULL,
+  `sub_category_slug` varchar(120) DEFAULT NULL,
+  `product_url` text DEFAULT NULL,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `product_images` (
+  `id` varchar(80) NOT NULL,
+  `product_id` varchar(50) NOT NULL,
+  `url` text NOT NULL,
+  `alt_text` varchar(255) DEFAULT NULL,
+  `sort_order` int(11) DEFAULT 0,
+  `is_main` tinyint(1) DEFAULT 0,
+  `width` int(11) DEFAULT NULL,
+  `height` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_product_images_product` (`product_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 2. SHIPMENT MANIFEST (ORDERS)

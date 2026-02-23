@@ -9,6 +9,7 @@
     "start": "node server.mjs",
     "start:hostinger": "node server.mjs",
     "preview": "vite preview",
+    "test:product-route": "node scripts/product-route.smoke.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev --name init_mysql",

@@ -5,6 +5,7 @@ import { Product, View } from '../types';
 import { useApp } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { resolveProductUrgencyState } from '../lib/urgency';
+import { buildProductRoute, slugifyValue } from '../lib/productRoute';
 
 export const ProductCard: React.FC<{ product: Product; index?: number; language?: string }> = ({ product, index = 0, language = 'EN' }) => {
 
@@ -39,7 +40,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => {
         setSelectedProduct(product);
-        navigate(`/product/${product.id}`);
+        navigate(buildProductRoute(product));
       }}
       className="group relative cursor-pointer"
     >
@@ -52,6 +53,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
           <motion.img
             src={product.image}
             alt={product.name}
+            loading="lazy"
             animate={{
               scale: isHovered ? 1.08 : 1.02,
               filter: isHovered ? 'brightness(1.1) saturate(1.1)' : 'brightness(0.9) saturate(1)'
@@ -144,12 +146,45 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       <div className="px-2">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1">
-            <span className="text-[8px] font-black text-cyan-500 uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`/shop?brand=${slugifyValue((product as any).brandSlug || product.brand)}`);
+              }}
+              className="text-[8px] font-black text-cyan-500 uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-cyan-300"
+            >
               {product.brand}
-            </span>
+            </button>
             <h3 className="text-xl md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">
               {product.name}
             </h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/shop?category=${slugifyValue((product as any).categorySlug || product.category)}`);
+                }}
+                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-cyan-500/45 hover:text-cyan-300"
+              >
+                {product.category}
+              </button>
+              {product.subCategory && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const categorySlug = slugifyValue((product as any).categorySlug || product.category);
+                    const subSlug = slugifyValue((product as any).subCategorySlug || product.subCategory);
+                    navigate(`/shop?category=${categorySlug}&sub=${subSlug}`);
+                  }}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-cyan-500/35 hover:text-cyan-300"
+                >
+                  {product.subCategory}
+                </button>
+              )}
+            </div>
             {(urgency.outOfStock || urgency.showUrgency || urgency.trustLabel) && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {(urgency.outOfStock || urgency.showUrgency) && (

@@ -111,6 +111,15 @@ const getQueryCategory = (search: string): string | null => {
   return normalizeCategoryName(param);
 };
 
+const getQueryBrand = (search: string): string => {
+  return String(new URLSearchParams(search).get('brand') || '').trim().toLowerCase();
+};
+
+const getQuerySub = (search: string): string => {
+  const params = new URLSearchParams(search);
+  return String(params.get('sub') || params.get('subcategory') || '').trim().toLowerCase();
+};
+
 const isSizeFilter = (filter: CatalogFilter) => filter.id.includes('size');
 
 const normalizeSortOption = (value: unknown): SortOption => {
@@ -222,6 +231,8 @@ export const ShopPage: React.FC = () => {
   const [openMultiFilterId, setOpenMultiFilterId] = useState<string | null>(null);
 
   const queryCategory = useMemo(() => getQueryCategory(location.search), [location.search]);
+  const queryBrand = useMemo(() => getQueryBrand(location.search), [location.search]);
+  const querySubCategory = useMemo(() => getQuerySub(location.search), [location.search]);
 
   useEffect(() => {
     if (queryCategory !== selectedCategory) {
@@ -368,6 +379,22 @@ export const ShopPage: React.FC = () => {
   const filteredProducts = useMemo(() => {
     let result = [...categoryScopedProducts];
 
+    if (queryBrand) {
+      result = result.filter((product) => {
+        const brandRaw = String((product as any).brandSlug || product.brand || '').toLowerCase();
+        const brandSlug = brandRaw.replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+        return brandRaw === queryBrand || brandSlug === queryBrand;
+      });
+    }
+
+    if (querySubCategory) {
+      result = result.filter((product) => {
+        const subRaw = String((product as any).subCategorySlug || product.subCategory || '').toLowerCase();
+        const subSlug = subRaw.replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+        return subRaw === querySubCategory || subSlug === querySubCategory;
+      });
+    }
+
     if (searchQuery.trim()) {
       const term = searchQuery.toLowerCase();
       result = result.filter((product) =>
@@ -403,7 +430,7 @@ export const ShopPage: React.FC = () => {
     }
 
     return result;
-  }, [categoryScopedProducts, searchQuery, activeFilterSet, selectedMultiFilters, priceRange, sortOption]);
+  }, [categoryScopedProducts, queryBrand, querySubCategory, searchQuery, activeFilterSet, selectedMultiFilters, priceRange, sortOption]);
 
   const toggleMultiFilter = (filterId: string, value: string) => {
     setSelectedMultiFilters((prev) => {

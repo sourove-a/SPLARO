@@ -17,7 +17,8 @@ import {
 
 
 import { useApp } from '../store';
-import { View, OrderStatus, Product, DiscountCode, Order } from '../types';
+import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant } from '../types';
+import { buildProductRoute, resolveUniqueSlug, slugifyValue } from '../lib/productRoute';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
@@ -109,45 +110,299 @@ const ProductModal: React.FC<{
   onClose: () => void;
   onSave: (p: Product) => void;
 }> = ({ product, onClose, onSave }) => {
+  const API_NODE = '/api/index.php';
   const [formData, setFormData] = useState<Partial<Product>>(product || {
     id: '',
     name: '',
+    productSlug: '',
     brand: 'Splaro',
+    brandSlug: 'splaro',
     price: 0,
+    discountPrice: undefined,
+    discountStartsAt: '',
+    discountEndsAt: '',
     image: '',
+    galleryImages: [],
     category: 'Shoes',
+    categorySlug: 'shoes',
     subCategory: '',
+    subCategorySlug: '',
     type: 'Men',
     description: { EN: '', BN: '' },
     sizes: [],
     colors: [],
+    colorVariants: [],
     materials: [],
     tags: ['New Arrival'],
     featured: false,
     sku: `SP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+    barcode: '',
     stock: 50,
     lowStockThreshold: undefined,
+    status: 'PUBLISHED',
+    hideWhenOutOfStock: false,
     weight: '0.8kg',
     dimensions: { l: '32cm', w: '20cm', h: '12cm' },
     variations: []
   });
 
-  const [colorInput, setColorInput] = useState('');
+  const [colorNameInput, setColorNameInput] = useState('');
+  const [colorHexInput, setColorHexInput] = useState('#111827');
+  const [colorMaterialInput, setColorMaterialInput] = useState('');
+  const [galleryUrlInput, setGalleryUrlInput] = useState('');
+  const [isUploadingMain, setIsUploadingMain] = useState(false);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+  const [draggingGalleryId, setDraggingGalleryId] = useState<string | null>(null);
 
-  const availableSizes = ['38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
+  const sizeSetsByCategory: Record<string, string[]> = {
+    shoes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
+    bags: ['Mini', 'Small', 'Medium', 'Large', 'XL']
+  };
   const availableBrands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Splaro', 'Luxury Imports'];
   const availableCategories = ['Shoes', 'Bags'];
   const availableSubCategories = ['Sneakers', 'Running', 'Formal', 'Casual', 'Basketball', 'Sandals', 'Boots', 'Handbags', 'Backpacks', 'Totes'];
   const availableMaterials = ['Leather', 'Synthetic', 'Mesh', 'Canvas', 'Knit', 'Suede'];
+  const sizeSetKey = String(formData.categorySlug || formData.category || '').toLowerCase().includes('bag') ? 'bags' : 'shoes';
+  const activeSizeOptions = sizeSetsByCategory[sizeSetKey] || sizeSetsByCategory.shoes;
 
-  const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
+  const slugify = slugifyValue;
+  const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://splaro.co';
+  const resolvedBrandSlug = slugify(formData.brandSlug || formData.brand || 'brand');
+  const resolvedCategorySlug = slugify(formData.categorySlug || formData.category || 'category');
+  const resolvedProductSlug = slugify(formData.productSlug || formData.id || formData.name || 'product');
+  const liveProductUrl = `${appOrigin}/product/${resolvedBrandSlug}/${resolvedCategorySlug}/${resolvedProductSlug}`;
+
+  const normalizeGallery = (raw: unknown, fallbackMainUrl: string): ProductImage[] => {
+    const fromRaw = Array.isArray(raw) ? raw : [];
+    const items: ProductImage[] = fromRaw
+      .map((img: any, index) => {
+        const url = String(img?.url || '').trim();
+        if (!url) return null;
+        return {
+          id: String(img?.id || `img_${Math.random().toString(36).slice(2, 10)}`),
+          url,
+          altText: String(img?.altText || img?.alt_text || ''),
+          sortOrder: Number.isFinite(Number(img?.sortOrder ?? img?.sort_order)) ? Number(img?.sortOrder ?? img?.sort_order) : index,
+          isMain: Boolean(img?.isMain ?? img?.is_main),
+          width: Number.isFinite(Number(img?.width)) ? Number(img?.width) : undefined,
+          height: Number.isFinite(Number(img?.height)) ? Number(img?.height) : undefined
+        };
+      })
+      .filter(Boolean) as ProductImage[];
+
+    if (items.length > 0) {
+      const sorted = [...items].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      if (!sorted.some((item) => item.isMain)) {
+        sorted[0] = { ...sorted[0], isMain: true };
+      }
+      return sorted;
+    }
+
+    const fallbackMain = fallbackMainUrl.trim();
+    if (!fallbackMain) return [];
+    return [{
+      id: `img_${Math.random().toString(36).slice(2, 10)}`,
+      url: fallbackMain,
+      altText: String(formData.name || ''),
+      sortOrder: 0,
+      isMain: true
+    }];
+  };
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    const authToken = localStorage.getItem('splaro-auth-token') || '';
+    const adminKey = localStorage.getItem('splaro-admin-key') || '';
+    const csrfTokenMatch = document.cookie.match(/(?:^|;\s*)splaro_csrf=([^;]+)/);
+    if (authToken) headers.Authorization = `Bearer ${authToken}`;
+    if (adminKey) headers['X-Admin-Key'] = adminKey;
+    if (csrfTokenMatch?.[1]) headers['X-CSRF-Token'] = decodeURIComponent(csrfTokenMatch[1]);
+    return headers;
+  };
+
+  const uploadImageFile = async (file: File): Promise<{ url: string; width?: number; height?: number } | null> => {
+    const data = new FormData();
+    data.append('image', file);
+    const res = await fetch(`${API_NODE}?action=upload_product_image`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: data
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.status !== 'success') {
+      const message = payload?.message || 'Image upload failed';
+      window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'error', message } }));
+      return null;
+    }
+    return {
+      url: String(payload?.data?.url || payload?.data?.relative_url || ''),
+      width: payload?.data?.width,
+      height: payload?.data?.height
+    };
+  };
+
+  const setMainImageById = (id: string) => {
+    setFormData((prev) => {
+      const gallery = normalizeGallery(prev.galleryImages, prev.image || '').map((img) => ({
+        ...img,
+        isMain: img.id === id
+      }));
+      const main = gallery.find((img) => img.id === id) || gallery[0];
+      return {
+        ...prev,
+        image: main?.url || prev.image || '',
+        mainImageId: main?.id,
+        galleryImages: gallery
+      };
+    });
+  };
+
+  const removeGalleryImage = (id: string) => {
+    setFormData((prev) => {
+      const gallery = normalizeGallery(prev.galleryImages, prev.image || '').filter((img) => img.id !== id);
+      if (gallery.length > 0 && !gallery.some((img) => img.isMain)) {
+        gallery[0] = { ...gallery[0], isMain: true };
+      }
+      const main = gallery.find((img) => img.isMain) || gallery[0];
+      return {
+        ...prev,
+        image: main?.url || '',
+        mainImageId: main?.id,
+        galleryImages: gallery
+      };
+    });
+  };
+
+  const moveGalleryImage = (id: string, direction: 'up' | 'down') => {
+    setFormData((prev) => {
+      const gallery = [...normalizeGallery(prev.galleryImages, prev.image || '')];
+      const index = gallery.findIndex((img) => img.id === id);
+      if (index < 0) return prev;
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= gallery.length) return prev;
+      const [item] = gallery.splice(index, 1);
+      gallery.splice(target, 0, item);
+      const reordered = gallery.map((img, idx) => ({ ...img, sortOrder: idx }));
+      return { ...prev, galleryImages: reordered };
+    });
+  };
+
+  const reorderGalleryByDrop = (targetId: string) => {
+    if (!draggingGalleryId || draggingGalleryId === targetId) return;
+    setFormData((prev) => {
+      const gallery = [...normalizeGallery(prev.galleryImages, prev.image || '')];
+      const fromIndex = gallery.findIndex((img) => img.id === draggingGalleryId);
+      const toIndex = gallery.findIndex((img) => img.id === targetId);
+      if (fromIndex < 0 || toIndex < 0) return prev;
+      const [moved] = gallery.splice(fromIndex, 1);
+      gallery.splice(toIndex, 0, moved);
+      return {
+        ...prev,
+        galleryImages: gallery.map((img, idx) => ({ ...img, sortOrder: idx }))
+      };
+    });
+  };
+
+  const addGalleryImageByUrl = (url: string) => {
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return;
+    setFormData((prev) => {
+      const gallery = normalizeGallery(prev.galleryImages, prev.image || '');
+      if (gallery.some((img) => img.url === cleanUrl)) return prev;
+      const nextItem: ProductImage = {
+        id: `img_${Math.random().toString(36).slice(2, 10)}`,
+        url: cleanUrl,
+        altText: String(prev.name || ''),
+        sortOrder: gallery.length,
+        isMain: gallery.length === 0
+      };
+      const nextGallery = [...gallery, nextItem];
+      const main = nextGallery.find((img) => img.isMain) || nextGallery[0];
+      return {
+        ...prev,
+        image: main?.url || cleanUrl,
+        mainImageId: main?.id,
+        galleryImages: nextGallery
+      };
+    });
+    setGalleryUrlInput('');
+  };
+
+  const normalizeHex = (rawHex: string): string => {
+    const clean = rawHex.trim().replace(/[^0-9a-fA-F]/g, '');
+    if (clean === '') return '#111827';
+    const normalized = clean.length === 3
+      ? clean.split('').map((segment) => segment + segment).join('')
+      : clean.slice(0, 6).padEnd(6, '0');
+    return `#${normalized.toLowerCase()}`;
+  };
+
+  const addColorVariant = () => {
+    const name = colorNameInput.trim();
+    if (!name) return;
+    const hex = normalizeHex(colorHexInput);
+    const material = colorMaterialInput.trim();
+    setFormData((prev) => {
+      const variants = Array.isArray(prev.colorVariants) ? [...prev.colorVariants] : [];
+      const existingIndex = variants.findIndex((item) => item.name.toLowerCase() === name.toLowerCase());
+      if (existingIndex >= 0) {
+        variants[existingIndex] = { ...variants[existingIndex], hex, material };
+      } else {
+        variants.push({ name, hex, material });
+      }
+      const colors = Array.isArray(prev.colors) ? [...prev.colors] : [];
+      if (!colors.some((value) => value.toLowerCase() === name.toLowerCase())) {
+        colors.push(name);
+      }
+      return {
+        ...prev,
+        colors,
+        colorVariants: variants
+      };
+    });
+    setColorNameInput('');
+    setColorMaterialInput('');
+  };
+
+  const removeColorVariant = (name: string) => {
+    setFormData((prev) => {
+      const variants = (Array.isArray(prev.colorVariants) ? prev.colorVariants : []).filter((item) => item.name !== name);
+      const colors = (Array.isArray(prev.colors) ? prev.colors : []).filter((value) => value.toLowerCase() !== name.toLowerCase());
+      return {
+        ...prev,
+        colors,
+        colorVariants: variants
+      };
+    });
+  };
+
+  useEffect(() => {
+    setFormData((prev) => {
+      const normalized = normalizeGallery(prev.galleryImages || (product?.galleryImages || []), prev.image || product?.image || '');
+      const main = normalized.find((img) => img.isMain) || normalized[0];
+      const existingColors = Array.isArray(prev.colors) ? prev.colors : [];
+      const colorVariants = Array.isArray(prev.colorVariants)
+        ? prev.colorVariants
+        : existingColors.map((name) => ({ name, hex: '#111827', material: '' }));
+      return {
+        ...prev,
+        galleryImages: normalized,
+        image: main?.url || prev.image || '',
+        mainImageId: main?.id || prev.mainImageId,
+        colorVariants
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNameChange = (name: string) => {
-    if (!product) {
-      setFormData({ ...formData, name, id: slugify(name) });
-    } else {
-      setFormData({ ...formData, name });
-    }
+    const generated = slugify(name);
+    setFormData({
+      ...formData,
+      name,
+      id: generated || formData.id,
+      productSlug: generated || formData.productSlug
+    });
   };
 
   const toggleSize = (size: string) => {
@@ -195,8 +450,10 @@ const ProductModal: React.FC<{
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Identity & Category</h3>
                 <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={handleNameChange} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
                 <div className="space-y-2">
-                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v) })} placeholder="nike-air-max" icon={<Globe className="w-5 h-5" />} />
-                  <p className="px-6 text-[8px] font-black text-cyan-500/50 uppercase tracking-[0.2em]">This defines the link: splaro.co/product/{formData.id || '...'}</p>
+                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.productSlug || formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v), productSlug: slugify(v) })} placeholder="nike-air-max" icon={<Globe className="w-5 h-5" />} />
+                  <p className="px-6 text-[8px] font-black text-cyan-500/50 uppercase tracking-[0.2em]">
+                    Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
@@ -205,7 +462,7 @@ const ProductModal: React.FC<{
                     <div className="relative">
                       <select
                         value={formData.brand}
-                        onChange={e => setFormData({ ...formData, brand: e.target.value as any })}
+                        onChange={e => setFormData({ ...formData, brand: e.target.value as any, brandSlug: slugify(e.target.value) })}
                         className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
                         {availableBrands.map(b => <option key={b} value={b} className="bg-[#0A0C12]">{b}</option>)}
@@ -218,7 +475,7 @@ const ProductModal: React.FC<{
                     <div className="relative">
                       <select
                         value={formData.category}
-                        onChange={e => setFormData({ ...formData, category: e.target.value as any })}
+                        onChange={e => setFormData({ ...formData, category: e.target.value as any, categorySlug: slugify(e.target.value) })}
                         className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
                         {availableCategories.map(c => <option key={c} value={c} className="bg-[#0A0C12]">{c}</option>)}
@@ -244,7 +501,7 @@ const ProductModal: React.FC<{
                   <LuxuryFloatingInput
                     label="Sub-Category Archive"
                     value={formData.subCategory || ''}
-                    onChange={v => setFormData({ ...formData, subCategory: v })}
+                    onChange={v => setFormData({ ...formData, subCategory: v, subCategorySlug: slugify(v) })}
                     placeholder="e.g. Sneakers, Formal, Running"
                     icon={<Layers className="w-5 h-5" />}
                   />
@@ -252,7 +509,7 @@ const ProductModal: React.FC<{
                     {availableSubCategories.map(sc => (
                       <button
                         key={sc}
-                        onClick={() => setFormData({ ...formData, subCategory: sc })}
+                        onClick={() => setFormData({ ...formData, subCategory: sc, subCategorySlug: slugify(sc) })}
                         className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-cyan-500 border-cyan-500 text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
                       >
                         {sc}
@@ -290,10 +547,14 @@ const ProductModal: React.FC<{
             {/* Middle Column: Finances & Media */}
             <div className="space-y-10">
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Financial Matrix</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Pricing & Stock</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <LuxuryFloatingInput label="Asset Value (৳)" type="number" value={formData.price?.toString() || ''} onChange={v => setFormData({ ...formData, price: Number(v) })} placeholder="0.00" icon={<DollarSign className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Discount %" type="number" value={formData.discountPercentage?.toString() || ''} onChange={v => setFormData({ ...formData, discountPercentage: Number(v) })} placeholder="0" icon={<Tag className="w-5 h-5" />} />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <LuxuryFloatingInput label="Discount Price (৳)" type="number" value={formData.discountPrice?.toString() || ''} onChange={v => setFormData({ ...formData, discountPrice: String(v).trim() === '' ? undefined : Number(v) })} placeholder="Optional" icon={<Tag className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="SKU" value={formData.sku || ''} onChange={v => setFormData({ ...formData, sku: v })} placeholder="SP-XXXXXX" icon={<Box className="w-5 h-5" />} />
                 </div>
                 <LuxuryFloatingInput label="Total Archive Stock" type="number" value={formData.stock?.toString() || ''} onChange={v => setFormData({ ...formData, stock: Number(v) })} placeholder="50" icon={<Layers className="w-5 h-5" />} />
                 <LuxuryFloatingInput
@@ -307,33 +568,185 @@ const ProductModal: React.FC<{
                   placeholder="Leave empty to use global setting"
                   icon={<AlertTriangle className="w-5 h-5" />}
                 />
+                <div className="grid grid-cols-2 gap-6">
+                  <LuxuryFloatingInput label="Discount Start (YYYY-MM-DD HH:MM)" value={formData.discountStartsAt || ''} onChange={v => setFormData({ ...formData, discountStartsAt: v })} placeholder="2026-03-01 00:00" icon={<Clock className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Discount End (YYYY-MM-DD HH:MM)" value={formData.discountEndsAt || ''} onChange={v => setFormData({ ...formData, discountEndsAt: v })} placeholder="2026-03-10 23:59" icon={<Clock className="w-5 h-5" />} />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Status</label>
+                    <select
+                      value={formData.status || 'PUBLISHED'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as Product['status'] })}
+                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                    >
+                      <option value="PUBLISHED">Published</option>
+                      <option value="DRAFT">Draft</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Barcode (Optional)</label>
+                    <input
+                      value={formData.barcode || ''}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-3 text-xs text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.hideWhenOutOfStock)}
+                    onChange={(e) => setFormData({ ...formData, hideWhenOutOfStock: e.target.checked })}
+                  />
+                  Hide product when out of stock
+                </label>
               </div>
 
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Visual Media Portfolio</h3>
-                <LuxuryFloatingInput label="Primary Discovery Link" value={formData.image || ''} onChange={v => setFormData({ ...formData, image: v })} placeholder="Primary high-res image URL" icon={<ImageIcon className="w-5 h-5" />} />
-
-                <div className="space-y-4 pt-4">
-                  <label className="text-[9px] font-black uppercase text-zinc-500 tracking-[0.3em] pl-6">Additional Archival Views (Up to 5)</label>
-                  <div className="grid grid-cols-1 gap-4">
-                    {[0, 1, 2, 3, 4].map(idx => (
-                      <LuxuryFloatingInput
-                        key={idx}
-                        label={`Visual Node ${idx + 1}`}
-                        value={(formData.additionalImages || [])[idx] || ''}
-                        onChange={v => {
-                          const newImgs = [...(formData.additionalImages || [])];
-                          newImgs[idx] = v;
-                          setFormData({ ...formData, additionalImages: newImgs.filter(img => img.trim() !== '') });
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Media Gallery</h3>
+                <p className="text-[10px] text-zinc-400 font-bold">1 main image + gallery images (recommended 3-4).</p>
+                <div className="space-y-3">
+                  <LuxuryFloatingInput
+                    label="Main Image URL"
+                    value={formData.image || ''}
+                    onChange={v => {
+                      const nextUrl = v.trim();
+                      const gallery = normalizeGallery(formData.galleryImages, nextUrl);
+                      if (gallery.length === 0 && nextUrl) {
+                        gallery.push({
+                          id: `img_${Math.random().toString(36).slice(2, 10)}`,
+                          url: nextUrl,
+                          altText: String(formData.name || ''),
+                          sortOrder: 0,
+                          isMain: true
+                        });
+                      }
+                      const nextGallery = gallery.map((img, idx) => ({
+                        ...img,
+                        isMain: idx === 0 ? true : img.isMain
+                      }));
+                      const main = nextGallery.find((img) => img.isMain) || nextGallery[0];
+                      setFormData({
+                        ...formData,
+                        image: nextUrl,
+                        mainImageId: main?.id,
+                        galleryImages: nextGallery
+                      });
+                    }}
+                    placeholder="https://..."
+                    icon={<ImageIcon className="w-5 h-5" />}
+                  />
+                  <div className="flex flex-wrap gap-3">
+                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10'}`}>
+                      {isUploadingMain ? 'Uploading...' : 'Upload Main Image'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/avif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsUploadingMain(true);
+                          const result = await uploadImageFile(file);
+                          setIsUploadingMain(false);
+                          if (!result?.url) return;
+                          setFormData((prev) => {
+                            const gallery = normalizeGallery(prev.galleryImages, prev.image || '').filter((img) => img.url !== result.url);
+                            const mainId = `img_${Math.random().toString(36).slice(2, 10)}`;
+                            const main: ProductImage = {
+                              id: mainId,
+                              url: result.url,
+                              altText: String(prev.name || ''),
+                              sortOrder: 0,
+                              isMain: true,
+                              width: result.width,
+                              height: result.height
+                            };
+                            const nextGallery = [main, ...gallery.map((img, idx) => ({ ...img, isMain: false, sortOrder: idx + 1 }))];
+                            return {
+                              ...prev,
+                              image: result.url,
+                              mainImageId: mainId,
+                              galleryImages: nextGallery
+                            };
+                          });
                         }}
-                        placeholder="Archival perspective URL"
-                        icon={<Layers className="w-4 h-4" />}
                       />
-                    ))}
+                    </label>
                   </div>
                 </div>
 
-                <LuxuryFloatingInput label="Spec Chart (Size Image)" value={formData.sizeChartImage || ''} onChange={v => setFormData({ ...formData, sizeChartImage: v })} placeholder="Sizing manifest URL" icon={<Maximize className="w-5 h-5" />} />
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={galleryUrlInput}
+                      onChange={(e) => setGalleryUrlInput(e.target.value)}
+                      placeholder="Add gallery image URL"
+                      className="flex-1 h-12 rounded-xl border border-white/20 bg-[#0f1624] px-4 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addGalleryImageByUrl(galleryUrlInput)}
+                      className="px-4 h-12 rounded-xl border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                    >
+                      Add
+                    </button>
+                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10'}`}>
+                      {isUploadingGallery ? 'Uploading...' : 'Upload'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/avif"
+                        multiple
+                        className="hidden"
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length === 0) return;
+                          setIsUploadingGallery(true);
+                          for (const file of files) {
+                            const result = await uploadImageFile(file);
+                            if (result?.url) {
+                              addGalleryImageByUrl(result.url);
+                            }
+                          }
+                          setIsUploadingGallery(false);
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">Drag করে reorder করতে পারবে, সাথে up/down controls ও থাকবে.</p>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                  {normalizeGallery(formData.galleryImages, formData.image || '').map((img, index) => (
+                    <div
+                      key={img.id}
+                      draggable
+                      onDragStart={() => setDraggingGalleryId(img.id)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => {
+                        reorderGalleryByDrop(img.id);
+                        setDraggingGalleryId(null);
+                      }}
+                      onDragEnd={() => setDraggingGalleryId(null)}
+                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-cyan-500/50 opacity-70' : 'border-white/15'}`}
+                    >
+                      <img src={img.url} alt={img.altText || 'Product image'} className="w-14 h-14 rounded-lg object-cover border border-white/15" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-white truncate">{img.url}</p>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-[0.12em]">#{index + 1} {img.isMain ? '• Main image' : ''}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => moveGalleryImage(img.id, 'up')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↑</button>
+                        <button type="button" onClick={() => moveGalleryImage(img.id, 'down')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↓</button>
+                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-cyan-500/50 text-cyan-300' : 'border-white/20 text-zinc-300'}`}>Main</button>
+                        <button type="button" onClick={() => removeGalleryImage(img.id)} className="px-2 py-1 rounded border border-rose-500/40 text-rose-300 text-[10px]">Remove</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <LuxuryFloatingInput label="Size Chart Image URL" value={formData.sizeChartImage || ''} onChange={v => setFormData({ ...formData, sizeChartImage: v })} placeholder="Sizing image URL" icon={<Maximize className="w-5 h-5" />} />
               </div>
 
               <div className="space-y-4">
@@ -361,9 +774,10 @@ const ProductModal: React.FC<{
             {/* Right Column: Descriptions & Variations */}
             <div className="space-y-10">
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Archival Sizing Grid (EU)</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Attributes (Size/Color/Gender)</h3>
+                <p className="text-[10px] text-zinc-500 font-semibold">Size সেট category অনুযায়ী load হবে: {sizeSetKey === 'bags' ? 'Bags' : 'Shoes'}.</p>
                 <div className="grid grid-cols-4 gap-3">
-                  {availableSizes.map(size => (
+                  {activeSizeOptions.map(size => (
                     <button
                       key={size}
                       onClick={() => toggleSize(size)}
@@ -376,7 +790,7 @@ const ProductModal: React.FC<{
               </div>
 
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Knowledge Base (EN/BN)</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Descriptions (EN/BN)</h3>
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
                   <textarea
@@ -398,7 +812,7 @@ const ProductModal: React.FC<{
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Material Identity</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Material Options</h3>
                 <div className="flex flex-wrap gap-2">
                   {availableMaterials.map(m => (
                     <button
@@ -415,7 +829,7 @@ const ProductModal: React.FC<{
                 </div>
               </div>
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Discovery Optimization (SEO)</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">SEO + Links</h3>
                 <LuxuryFloatingInput
                   label="Meta Title Manifest"
                   value={formData.seoTitle || formData.name || ''}
@@ -423,6 +837,52 @@ const ProductModal: React.FC<{
                   placeholder="Elite Luxury Footwear..."
                   icon={<Globe className="w-5 h-5" />}
                 />
+                <div className="grid grid-cols-2 gap-4">
+                  <LuxuryFloatingInput
+                    label="Product Slug"
+                    value={formData.productSlug || formData.id || ''}
+                    onChange={v => setFormData({ ...formData, productSlug: slugify(v), id: slugify(v) })}
+                    placeholder="gucchi001"
+                    icon={<Globe className="w-5 h-5" />}
+                  />
+                  <LuxuryFloatingInput
+                    label="Brand Slug"
+                    value={formData.brandSlug || ''}
+                    onChange={v => setFormData({ ...formData, brandSlug: slugify(v) })}
+                    placeholder="gucci"
+                    icon={<Tag className="w-5 h-5" />}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <LuxuryFloatingInput
+                    label="Category Slug"
+                    value={formData.categorySlug || ''}
+                    onChange={v => setFormData({ ...formData, categorySlug: slugify(v) })}
+                    placeholder="shoes"
+                    icon={<Layers className="w-5 h-5" />}
+                  />
+                  <LuxuryFloatingInput
+                    label="Subcategory Slug"
+                    value={formData.subCategorySlug || ''}
+                    onChange={v => setFormData({ ...formData, subCategorySlug: slugify(v) })}
+                    placeholder="sneakers"
+                    icon={<Layers className="w-5 h-5" />}
+                  />
+                </div>
+                <div className="p-4 rounded-xl border border-white/15 bg-[#0f1624]">
+                  <p className="text-[10px] text-zinc-400 uppercase tracking-[0.18em] font-black mb-2">Live URL Preview</p>
+                  <p className="text-xs text-cyan-300 break-all font-semibold">{liveProductUrl}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(liveProductUrl);
+                      window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
+                    }}
+                    className="mt-3 px-3 py-2 rounded-lg border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                  >
+                    Copy Link
+                  </button>
+                </div>
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
                   <textarea
@@ -437,47 +897,59 @@ const ProductModal: React.FC<{
               <div className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Variation Intelligence</h3>
                 <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
-                  <div className="flex gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <input
                       type="text"
-                      placeholder="COLOR IDENTITY (e.g. Midnight Black)"
-                      value={colorInput}
-                      onChange={e => setColorInput(e.target.value)}
-                      onKeyPress={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (colorInput.trim()) {
-                            setFormData({ ...formData, colors: [...(formData.colors || []), colorInput.trim()] });
-                            setColorInput('');
-                          }
-                        }
-                      }}
-                      className="flex-1 bg-[#0A0C12]/50 border border-white/10 rounded-[20px] px-6 py-4 text-[11px] font-black tracking-widest outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-700 text-white uppercase"
+                      placeholder="Color name (e.g. Midnight Black)"
+                      value={colorNameInput}
+                      onChange={(e) => setColorNameInput(e.target.value)}
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 text-white"
                     />
-                    <button
-                      onClick={() => {
-                        if (colorInput.trim()) {
-                          setFormData({ ...formData, colors: [...(formData.colors || []), colorInput.trim()] });
-                          setColorInput('');
+                    <input
+                      type="text"
+                      placeholder="#111827"
+                      value={colorHexInput}
+                      onChange={(e) => setColorHexInput(e.target.value)}
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 text-white uppercase"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Material label (optional)"
+                      value={colorMaterialInput}
+                      onChange={(e) => setColorMaterialInput(e.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          addColorVariant();
                         }
                       }}
-                      className="px-8 rounded-[20px] bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
-                    >
-                      Add
-                    </button>
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 text-white"
+                    />
                   </div>
+                  <button
+                    type="button"
+                    onClick={addColorVariant}
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
+                  >
+                    Add Color
+                  </button>
                   <div className="flex flex-wrap gap-2">
-                    {formData.colors?.map(c => (
+                    {(formData.colorVariants || []).map((variant) => (
                       <span
-                        key={c}
-                        onClick={() => setFormData({ ...formData, colors: formData.colors?.filter(x => x !== c) })}
-                        className="px-3 py-1 bg-white/5 rounded-lg border border-white/10 text-[8px] font-black uppercase cursor-pointer hover:bg-rose-500/20 hover:border-rose-500/50 hover:text-rose-500 transition-all flex items-center gap-2 group"
+                        key={variant.name}
+                        onClick={() => removeColorVariant(variant.name)}
+                        className="px-3 py-1.5 bg-white/5 rounded-lg border border-white/10 text-[8px] font-black uppercase cursor-pointer hover:bg-rose-500/20 hover:border-rose-500/50 hover:text-rose-500 transition-all flex items-center gap-2 group"
                       >
-                        {c}
+                        <span className="w-3 h-3 rounded-full border border-white/25" style={{ backgroundColor: normalizeHex(variant.hex || '#111827') }} />
+                        {variant.name}
+                        {variant.material ? ` • ${variant.material}` : ''}
                         <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </span>
                     ))}
                   </div>
+                  {(formData.colorVariants || []).length === 0 && (
+                    <p className="text-[10px] text-zinc-500">No color variants added yet.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -493,6 +965,14 @@ const ProductModal: React.FC<{
                 if (typeof window !== 'undefined') {
                   window.dispatchEvent(new CustomEvent('splaro-toast', {
                     detail: { tone: 'error', message: 'Name and price are required.' }
+                  }));
+                }
+                return;
+              }
+              if (!resolvedBrandSlug || !resolvedCategorySlug || !resolvedProductSlug) {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('splaro-toast', {
+                    detail: { tone: 'error', message: 'Brand slug, category slug, and product slug are required.' }
                   }));
                 }
                 return;
@@ -1319,7 +1799,39 @@ export const AdminPanel = () => {
                               </div>
                               <div>
                                 <p className="font-black italic uppercase text-lg leading-tight tracking-tighter text-white">{p.name}</p>
-                                <p className="text-[10px] text-zinc-500 mt-1 uppercase font-black tracking-widest">{p.brand}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <a
+                                    href={`/shop?brand=${encodeURIComponent(String((p as any).brandSlug || p.brand || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}`}
+                                    className="text-[10px] text-zinc-400 uppercase font-black tracking-widest hover:text-cyan-300"
+                                  >
+                                    {p.brand}
+                                  </a>
+                                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.14em] ${String(p.status || 'PUBLISHED').toUpperCase() === 'DRAFT' ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'}`}>
+                                    {String(p.status || 'PUBLISHED').toUpperCase()}
+                                  </span>
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <a
+                                    href={(p as any).liveUrl || '#'}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[9px] text-cyan-300 hover:text-cyan-200 break-all"
+                                  >
+                                    {(p as any).liveUrl || 'No live URL'}
+                                  </a>
+                                  {(p as any).liveUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText((p as any).liveUrl);
+                                        showToast('Product URL copied.', 'success');
+                                      }}
+                                      className="px-2 py-1 rounded-md border border-cyan-500/35 text-cyan-300 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-cyan-500/10"
+                                    >
+                                      Copy
+                                    </button>
+                                  )}
+                                </div>
                                 <div className="flex gap-2 mt-3">
                                   {p.featured && <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-[7px] font-black uppercase">Featured</span>}
                                   {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-[7px] font-black uppercase">{t}</span>)}
@@ -1329,8 +1841,15 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-8">
                             <div className="space-y-2">
-                              <span className="px-4 py-1.5 liquid-glass border border-white/5 rounded-full text-[9px] font-black text-white uppercase block w-fit">{p.category}</span>
-                              <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest ml-4">{p.type} Archive</span>
+                              <a href={`/shop?category=${encodeURIComponent(String((p as any).categorySlug || p.category || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-cyan-500/45">
+                                {p.category}
+                              </a>
+                              {p.subCategory && (
+                                <a href={`/shop?category=${encodeURIComponent(String((p as any).categorySlug || p.category || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}&sub=${encodeURIComponent(String((p as any).subCategorySlug || p.subCategory || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-cyan-300">
+                                  {p.subCategory}
+                                </a>
+                              )}
+                              <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest ml-4">{p.type}</span>
                             </div>
                           </td>
                           <td className="p-8">
@@ -2683,11 +3202,71 @@ export const AdminPanel = () => {
               product={editingProduct}
               onClose={() => setIsProductModalOpen(false)}
               onSave={(p) => {
-                const slugify = (text: string) => text.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
-                const finalProduct = { ...p };
-                if (!finalProduct.id || finalProduct.id.trim() === '') {
-                  finalProduct.id = slugify(finalProduct.name) || Math.random().toString(36).substr(2, 6);
+                const requestedSlug = slugifyValue(p.productSlug || p.id || p.name) || Math.random().toString(36).substr(2, 6);
+                const takenByOther = products
+                  .filter((item) => !(editingProduct && item.id === editingProduct.id))
+                  .map((item) => String(item.productSlug || item.slug || item.id || item.name));
+                const uniqueSlug = resolveUniqueSlug(requestedSlug, takenByOther);
+
+                const brandSlug = slugifyValue(p.brandSlug || p.brand || 'brand');
+                const categorySlug = slugifyValue(p.categorySlug || p.category || 'category');
+                const subCategorySlug = p.subCategory ? slugifyValue(p.subCategorySlug || p.subCategory) : '';
+                const galleryImagesRaw = Array.isArray(p.galleryImages) ? p.galleryImages : [];
+                const normalizedGallery = galleryImagesRaw
+                  .filter((img) => String(img?.url || '').trim() !== '')
+                  .map((img, idx) => ({
+                    ...img,
+                    id: String(img.id || `img_${Math.random().toString(36).slice(2, 10)}`),
+                    sortOrder: idx
+                  }));
+                const normalizedColorVariants = (Array.isArray(p.colorVariants) ? p.colorVariants : [])
+                  .map((variant) => ({
+                    name: String(variant?.name || '').trim(),
+                    hex: String(variant?.hex || '#111827').trim(),
+                    material: String(variant?.material || '').trim()
+                  }))
+                  .filter((variant) => variant.name !== '');
+                const normalizedColors = normalizedColorVariants.length > 0
+                  ? normalizedColorVariants.map((variant) => variant.name)
+                  : (Array.isArray(p.colors) ? p.colors.map((color) => String(color).trim()).filter(Boolean) : []);
+                if (normalizedGallery.length > 0 && !normalizedGallery.some((img) => img.isMain)) {
+                  normalizedGallery[0] = { ...normalizedGallery[0], isMain: true };
                 }
+                const mainImage = normalizedGallery.find((img) => img.isMain) || normalizedGallery[0];
+                const image = mainImage?.url || p.image || '';
+                const additionalImages = normalizedGallery
+                  .filter((img) => img.id !== mainImage?.id)
+                  .map((img) => img.url);
+
+                const finalId = editingProduct?.id || uniqueSlug;
+                const liveUrl = `${window.location.origin}${buildProductRoute({
+                  ...p,
+                  brandSlug,
+                  categorySlug,
+                  productSlug: uniqueSlug
+                })}`;
+
+                const finalProduct = {
+                  ...p,
+                  id: finalId,
+                  productSlug: uniqueSlug,
+                  slug: uniqueSlug,
+                  brandSlug,
+                  categorySlug,
+                  subCategorySlug: subCategorySlug || undefined,
+                  liveUrl,
+                  status: p.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
+                  image,
+                  mainImageId: mainImage?.id,
+                  colors: normalizedColors,
+                  colorVariants: normalizedColorVariants,
+                  galleryImages: normalizedGallery,
+                  additionalImages,
+                  lowStockThreshold: p.lowStockThreshold === undefined || p.lowStockThreshold === null
+                    ? undefined
+                    : Math.max(0, Number(p.lowStockThreshold))
+                };
+
                 addOrUpdateProduct(finalProduct);
                 setIsProductModalOpen(false);
               }}
