@@ -11,9 +11,40 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\SMTP;
 
-require 'PHPMailer/Exception.php';
-require 'PHPMailer/PHPMailer.php';
-require 'PHPMailer/SMTP.php';
+$__splaroRequestAction = $_GET['action'] ?? '';
+register_shutdown_function(function () use ($__splaroRequestAction) {
+    $lastError = error_get_last();
+    if (!$lastError) {
+        return;
+    }
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR];
+    if (!in_array((int)($lastError['type'] ?? 0), $fatalTypes, true)) {
+        return;
+    }
+    if (headers_sent()) {
+        return;
+    }
+
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "status" => "error",
+        "message" => "INTERNAL_SERVER_ERROR",
+        "action" => (string)$__splaroRequestAction
+    ]);
+});
+
+$mailerBase = __DIR__ . '/PHPMailer/';
+$mailerFiles = [
+    $mailerBase . 'Exception.php',
+    $mailerBase . 'PHPMailer.php',
+    $mailerBase . 'SMTP.php',
+];
+foreach ($mailerFiles as $mailerFile) {
+    if (is_file($mailerFile) && is_readable($mailerFile)) {
+        require_once $mailerFile;
+    }
+}
 
 function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true) {
     global $db;
@@ -45,6 +76,24 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
 
     if ($fromAddress === '') {
         $fromAddress = $smtpUser !== '' ? $smtpUser : 'info@splaro.co';
+    }
+
+    if (!class_exists(PHPMailer::class)) {
+        error_log("SPLARO_MAILER_UNAVAILABLE: PHPMailer class not loaded");
+        if (function_exists('mail')) {
+            $headers = [
+                "From: SPLARO <{$fromAddress}>",
+                "Reply-To: {$fromAddress}",
+                "MIME-Version: 1.0"
+            ];
+            $headers[] = $isHtml
+                ? "Content-Type: text/html; charset=UTF-8"
+                : "Content-Type: text/plain; charset=UTF-8";
+
+            $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
+            return @mail($to, $subject, $mailBody, implode("\r\n", $headers));
+        }
+        return false;
     }
 
     $mail = new PHPMailer(true);
