@@ -308,6 +308,22 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'sync_queue', "CREATE TABLE IF NOT EXISTS `sync_queue` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `sync_type` varchar(50) NOT NULL,
+      `payload_json` longtext NOT NULL,
+      `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+      `attempts` int(11) NOT NULL DEFAULT 0,
+      `max_attempts` int(11) NOT NULL DEFAULT 5,
+      `last_http_code` int(11) DEFAULT NULL,
+      `last_error` text DEFAULT NULL,
+      `next_attempt_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `locked_at` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_table($db, 'traffic_metrics', "CREATE TABLE IF NOT EXISTS `traffic_metrics` (
       `id` int(11) NOT NULL AUTO_INCREMENT,
       `session_id` varchar(100) NOT NULL,
@@ -387,6 +403,8 @@ function ensure_core_schema($db) {
     ensure_index($db, 'subscriptions', 'idx_subscriptions_created_at', 'CREATE INDEX idx_subscriptions_created_at ON subscriptions(created_at)');
     ensure_index($db, 'products', 'idx_products_created_at', 'CREATE INDEX idx_products_created_at ON products(created_at)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
+    ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
+    ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
     ensure_index($db, 'traffic_metrics', 'idx_traffic_metrics_created_at', 'CREATE INDEX idx_traffic_metrics_created_at ON traffic_metrics(last_active)');
 
     try {
@@ -418,6 +436,25 @@ function maybe_ensure_core_schema($db) {
 }
 
 maybe_ensure_core_schema($db);
+
+// Backward-compatible hot migration for deployments where schema cache skipped new tables.
+ensure_table($db, 'sync_queue', "CREATE TABLE IF NOT EXISTS `sync_queue` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `sync_type` varchar(50) NOT NULL,
+  `payload_json` longtext NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `max_attempts` int(11) NOT NULL DEFAULT 5,
+  `last_http_code` int(11) DEFAULT NULL,
+  `last_error` text DEFAULT NULL,
+  `next_attempt_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `locked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
+ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
 
 function load_smtp_settings($db) {
     $settings = [
@@ -983,6 +1020,59 @@ function maybe_ensure_admin_account($db) {
 $requestAuthUser = get_authenticated_user_from_request();
 maybe_ensure_admin_account($db);
 
+function get_sync_queue_summary($db) {
+    $summary = [
+        'enabled' => GOOGLE_SHEETS_WEBHOOK_URL !== '',
+        'pending' => 0,
+        'retry' => 0,
+        'processing' => 0,
+        'success' => 0,
+        'dead' => 0,
+        'lastFailure' => null,
+    ];
+
+    if (!$db || !$summary['enabled']) {
+        return $summary;
+    }
+
+    try {
+        $rows = $db->query("SELECT status, COUNT(*) AS total FROM sync_queue GROUP BY status")->fetchAll();
+        foreach ($rows as $row) {
+            $status = strtoupper((string)($row['status'] ?? ''));
+            $total = (int)($row['total'] ?? 0);
+            if ($status === 'PENDING') $summary['pending'] = $total;
+            if ($status === 'RETRY') $summary['retry'] = $total;
+            if ($status === 'PROCESSING') $summary['processing'] = $total;
+            if ($status === 'SUCCESS') $summary['success'] = $total;
+            if ($status === 'DEAD') $summary['dead'] = $total;
+        }
+    } catch (Exception $e) {
+        // no-op
+    }
+
+    try {
+        $stmt = $db->query("SELECT id, sync_type, last_http_code, last_error, updated_at FROM sync_queue WHERE status = 'DEAD' ORDER BY id DESC LIMIT 1");
+        $lastFailure = $stmt->fetch();
+        if ($lastFailure) {
+            $summary['lastFailure'] = [
+                'id' => (int)($lastFailure['id'] ?? 0),
+                'type' => (string)($lastFailure['sync_type'] ?? ''),
+                'http' => (int)($lastFailure['last_http_code'] ?? 0),
+                'error' => (string)($lastFailure['last_error'] ?? ''),
+                'updated_at' => (string)($lastFailure['updated_at'] ?? ''),
+            ];
+        }
+    } catch (Exception $e) {
+        // no-op
+    }
+
+    if (function_exists('get_sheets_circuit_state')) {
+        $summary['circuit'] = get_sheets_circuit_state();
+    }
+
+    return $summary;
+}
+
 if ($method === 'GET' && $action === 'health') {
     echo json_encode([
         "status" => "success",
@@ -993,7 +1083,8 @@ if ($method === 'GET' && $action === 'health') {
         "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
         "dbName" => DB_NAME,
         "envSource" => basename((string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? '')),
-        "dbPasswordSource" => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? '')
+        "dbPasswordSource" => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? ''),
+        "sheets" => get_sync_queue_summary($db)
     ]);
     exit;
 }
@@ -1151,6 +1242,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
 if ($method === 'GET' && $action === 'sync') {
     $isAdmin = is_admin_authenticated($requestAuthUser);
     $isUser = is_array($requestAuthUser) && strtoupper((string)($requestAuthUser['role'] ?? '')) === 'USER';
+    $syncQueueProcess = null;
 
     $settings = $db->query("SELECT * FROM site_settings LIMIT 1")->fetch();
     if ($settings) {
@@ -1200,6 +1292,9 @@ if ($method === 'GET' && $action === 'sync') {
     $meta = [];
 
     if ($isAdmin) {
+        // Opportunistic background drain for pending sheet sync jobs.
+        $syncQueueProcess = process_sync_queue($db, 5, false);
+
         $page = max(1, (int)($_GET['page'] ?? 1));
         $pageSize = (int)($_GET['pageSize'] ?? 30);
         if ($pageSize < 10) $pageSize = 10;
@@ -1268,7 +1363,9 @@ if ($method === 'GET' && $action === 'sync') {
                 'page' => $usersPage,
                 'pageSize' => $usersPageSize,
                 'count' => $userCount
-            ]
+            ],
+            'syncQueue' => $syncQueueProcess,
+            'syncQueueSummary' => get_sync_queue_summary($db)
         ];
     } elseif ($isUser && !empty($requestAuthUser['email'])) {
         $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC");
@@ -2441,6 +2538,32 @@ if ($method === 'POST' && $action === 'initialize_sheets') {
     exit;
 }
 
+if ($method === 'GET' && $action === 'sync_queue_status') {
+    require_admin_access($requestAuthUser);
+    echo json_encode([
+        "status" => "success",
+        "queue" => get_sync_queue_summary($db)
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'process_sync_queue') {
+    require_admin_access($requestAuthUser);
+    $payload = json_decode(file_get_contents('php://input'), true);
+    $limit = (int)($payload['limit'] ?? ($_GET['limit'] ?? 20));
+    if ($limit < 1) $limit = 1;
+    if ($limit > 100) $limit = 100;
+    $force = !empty($payload['force']) || (($_GET['force'] ?? '') === '1');
+
+    $result = process_sync_queue($db, $limit, $force);
+    echo json_encode([
+        "status" => "success",
+        "result" => $result,
+        "queue" => get_sync_queue_summary($db)
+    ]);
+    exit;
+}
+
 // 7. COLLECTOR HEARTBEAT PROTOCOL
 if ($method === 'POST' && $action === 'update_order_metadata') {
     require_admin_access($requestAuthUser);
@@ -2491,106 +2614,357 @@ if ($method === 'POST' && $action === 'heartbeat') {
 /**
  * INSTITUTIONAL GOOGLE SHEETS SYNC PROTOCOL
  */
-function sync_to_sheets($type, $data) {
-    $webhook_url = GOOGLE_SHEETS_WEBHOOK_URL;
-    if (!$webhook_url) {
-        return;
+function sheets_circuit_cache_file() {
+    $key = md5((string)GOOGLE_SHEETS_WEBHOOK_URL);
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_sheets_circuit_{$key}.json";
+}
+
+function get_sheets_circuit_state() {
+    $state = [
+        'open' => false,
+        'remaining_seconds' => 0,
+        'last_error' => '',
+        'last_http_code' => 0,
+    ];
+
+    $file = sheets_circuit_cache_file();
+    if (!is_file($file)) {
+        return $state;
     }
 
-    $timestamp = date('Y-m-d H:i:s');
-    $basePayload = [
+    $payload = json_decode((string)@file_get_contents($file), true);
+    if (!is_array($payload)) {
+        return $state;
+    }
+
+    $until = (int)($payload['open_until'] ?? 0);
+    $now = time();
+    if ($until > $now) {
+        $state['open'] = true;
+        $state['remaining_seconds'] = $until - $now;
+    }
+
+    $state['last_error'] = (string)($payload['last_error'] ?? '');
+    $state['last_http_code'] = (int)($payload['last_http_code'] ?? 0);
+    return $state;
+}
+
+function open_sheets_circuit($error, $httpCode = 0) {
+    $seconds = (int)GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS;
+    if ($seconds < 30) $seconds = 30;
+    if ($seconds > 3600) $seconds = 3600;
+
+    $payload = [
+        'open_until' => time() + $seconds,
+        'last_error' => (string)$error,
+        'last_http_code' => (int)$httpCode,
+        'opened_at' => date('c')
+    ];
+    @file_put_contents(sheets_circuit_cache_file(), json_encode($payload), LOCK_EX);
+}
+
+function close_sheets_circuit() {
+    $file = sheets_circuit_cache_file();
+    if (is_file($file)) {
+        @unlink($file);
+    }
+}
+
+function build_sheets_payload($type, $data) {
+    $payload = [
         'type' => $type,
         'action' => $type,
-        'timestamp' => $timestamp,
+        'timestamp' => date('Y-m-d H:i:s'),
         'data' => is_array($data) ? $data : ['value' => $data],
     ];
 
-    // Compatibility layer for different Apps Script payload handlers:
-    // keep nested `data`, but also mirror scalar fields to top-level.
     if (is_array($data)) {
         foreach ($data as $k => $v) {
             if (!is_string($k)) continue;
-            if (!array_key_exists($k, $basePayload) && (is_scalar($v) || $v === null)) {
-                $basePayload[$k] = $v;
+            if (!array_key_exists($k, $payload) && (is_scalar($v) || $v === null)) {
+                $payload[$k] = $v;
             }
         }
     }
 
-    $jsonBody = json_encode($basePayload);
+    return $payload;
+}
+
+function perform_sheets_sync_request($type, $data) {
+    $webhookUrl = GOOGLE_SHEETS_WEBHOOK_URL;
+    if ($webhookUrl === '') {
+        return [false, 0, 'WEBHOOK_NOT_CONFIGURED', ''];
+    }
+
+    $jsonBody = json_encode(build_sheets_payload($type, $data));
     if (!is_string($jsonBody) || $jsonBody === '') {
-        error_log("SPLARO_SHEETS_SYNC_WARNING: invalid payload for type {$type}");
-        return;
+        return [false, 0, 'INVALID_PAYLOAD', ''];
     }
 
-    $maxAttempts = 3;
-    $delayMs = 200;
-    $lastError = '';
-    $lastHttp = 0;
+    $timeout = (int)GOOGLE_SHEETS_TIMEOUT_SECONDS;
+    if ($timeout < 2) $timeout = 2;
+    if ($timeout > 15) $timeout = 15;
 
-    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-        $headers = "Content-type: application/json\r\nAccept: application/json\r\n";
-        if (defined('TELEGRAM_WEBHOOK_SECRET') && TELEGRAM_WEBHOOK_SECRET !== '') {
-            $headers .= "X-Webhook-Secret: " . TELEGRAM_WEBHOOK_SECRET . "\r\n";
-        }
+    $headers = [
+        'Content-Type: application/json',
+        'Accept: application/json',
+    ];
 
-        $options = [
-            'http' => [
-                'header'  => $headers,
-                'method'  => 'POST',
-                'content' => $jsonBody,
-                'timeout' => 5,
-                'ignore_errors' => true
-            ],
-        ];
+    if (GOOGLE_SHEETS_WEBHOOK_SECRET !== '') {
+        $sig = hash_hmac('sha256', $jsonBody, GOOGLE_SHEETS_WEBHOOK_SECRET);
+        $headers[] = 'X-Webhook-Signature: sha256=' . $sig;
+        $headers[] = 'X-Webhook-Timestamp: ' . (string)time();
+        $headers[] = 'X-Webhook-Secret: ' . GOOGLE_SHEETS_WEBHOOK_SECRET; // compatibility
+    }
 
-        $context = stream_context_create($options);
-        $response = @file_get_contents($webhook_url, false, $context);
-        $httpCode = 0;
-        $responseHeaders = [];
-        if (function_exists('http_get_last_response_headers')) {
-            $fetchedHeaders = @http_get_last_response_headers();
-            if (is_array($fetchedHeaders)) {
-                $responseHeaders = $fetchedHeaders;
-            }
-        }
+    if (function_exists('curl_init')) {
+        $ch = curl_init($webhookUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $jsonBody,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT => $timeout,
+        ]);
 
-        if (!empty($responseHeaders)) {
-            foreach ($responseHeaders as $line) {
-                if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
-                    $httpCode = (int)$m[1];
-                    break;
-                }
-            }
-        }
+        $response = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = (string)curl_error($ch);
+        curl_close($ch);
 
         if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
-            return;
+            return [true, $httpCode, '', (string)$response];
         }
+        if ($response === false) {
+            return [false, $httpCode, $curlError !== '' ? $curlError : 'NETWORK_OR_TIMEOUT', ''];
+        }
+        return [false, $httpCode, 'HTTP_' . $httpCode, (string)$response];
+    }
 
-        $lastHttp = $httpCode;
-        $lastError = ($response === false) ? 'NETWORK_OR_TIMEOUT' : ('HTTP_' . $httpCode);
+    $context = stream_context_create([
+        'http' => [
+            'header'  => implode("\r\n", $headers) . "\r\n",
+            'method'  => 'POST',
+            'content' => $jsonBody,
+            'timeout' => $timeout,
+            'ignore_errors' => true
+        ],
+    ]);
 
-        if ($attempt < $maxAttempts) {
-            usleep($delayMs * 1000);
-            $delayMs *= 2;
+    $response = @file_get_contents($webhookUrl, false, $context);
+    $responseHeaders = function_exists('http_get_last_response_headers')
+        ? @http_get_last_response_headers()
+        : ($GLOBALS['http_response_header'] ?? []);
+    $httpCode = 0;
+    if (is_array($responseHeaders)) {
+        foreach ($responseHeaders as $line) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                $httpCode = (int)$m[1];
+                break;
+            }
         }
     }
 
-    error_log("SPLARO_SHEETS_SYNC_WARNING: type={$type}; http={$lastHttp}; error={$lastError}");
+    if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+        return [true, $httpCode, '', (string)$response];
+    }
+    if ($response === false) {
+        return [false, $httpCode, 'NETWORK_OR_TIMEOUT', ''];
+    }
+    return [false, $httpCode, 'HTTP_' . $httpCode, (string)$response];
+}
+
+function enqueue_sync_job($db, $type, $data) {
+    if (!$db || GOOGLE_SHEETS_WEBHOOK_URL === '') {
+        return 0;
+    }
+
+    $maxAttempts = (int)GOOGLE_SHEETS_MAX_RETRIES;
+    if ($maxAttempts < 1) $maxAttempts = 1;
+    if ($maxAttempts > 10) $maxAttempts = 10;
+
+    $payloadJson = json_encode(is_array($data) ? $data : ['value' => $data]);
+    if (!is_string($payloadJson) || $payloadJson === '') {
+        return 0;
+    }
+
+    $stmt = $db->prepare("INSERT INTO sync_queue (sync_type, payload_json, status, attempts, max_attempts, next_attempt_at) VALUES (?, ?, 'PENDING', 0, ?, NOW())");
+    $stmt->execute([(string)$type, $payloadJson, $maxAttempts]);
+    return (int)$db->lastInsertId();
+}
+
+function calculate_sync_retry_delay($attemptNumber) {
+    $attempt = (int)$attemptNumber;
+    if ($attempt < 1) $attempt = 1;
+    $delay = (int)pow(2, $attempt) * 3;
+    if ($delay < 5) $delay = 5;
+    if ($delay > 900) $delay = 900;
+    return $delay;
+}
+
+function process_sync_queue($db, $limit = 20, $force = false) {
+    $result = [
+        'processed' => 0,
+        'success' => 0,
+        'failed' => 0,
+        'retried' => 0,
+        'dead' => 0,
+        'paused' => false,
+        'reason' => '',
+    ];
+
+    if (!$db) {
+        $result['paused'] = true;
+        $result['reason'] = 'DB_UNAVAILABLE';
+        return $result;
+    }
+
+    if (GOOGLE_SHEETS_WEBHOOK_URL === '') {
+        $result['paused'] = true;
+        $result['reason'] = 'WEBHOOK_NOT_CONFIGURED';
+        return $result;
+    }
+
+    $limit = (int)$limit;
+    if ($limit < 1) $limit = 1;
+    if ($limit > 100) $limit = 100;
+
+    $circuit = get_sheets_circuit_state();
+    if (!$force && !empty($circuit['open'])) {
+        $result['paused'] = true;
+        $result['reason'] = 'CIRCUIT_OPEN';
+        $result['circuit'] = $circuit;
+        return $result;
+    }
 
     try {
-        global $db;
-        if (isset($db) && $db) {
-            $stmt = $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)");
-            $stmt->execute([
-                'SHEETS_SYNC_FAILED',
-                "Failed to sync {$type} to Google Sheets ({$lastError})",
-                $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
-            ]);
-        }
+        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $jobs = $stmt->fetchAll();
     } catch (Exception $e) {
-        // no-op
+        $result['paused'] = true;
+        $result['reason'] = 'QUEUE_READ_FAILED';
+        return $result;
     }
+
+    foreach ($jobs as $job) {
+        $jobId = (int)($job['id'] ?? 0);
+        if ($jobId <= 0) continue;
+
+        $claim = $db->prepare("UPDATE sync_queue SET status = 'PROCESSING', attempts = attempts + 1, locked_at = NOW() WHERE id = ? AND status IN ('PENDING', 'RETRY')");
+        $claim->execute([$jobId]);
+        if ($claim->rowCount() < 1) {
+            continue;
+        }
+
+        $result['processed']++;
+        $attemptsNow = ((int)($job['attempts'] ?? 0)) + 1;
+        $maxAttempts = (int)($job['max_attempts'] ?? 0);
+        if ($maxAttempts < 1) $maxAttempts = 1;
+        $syncType = (string)($job['sync_type'] ?? '');
+
+        $decoded = json_decode((string)($job['payload_json'] ?? ''), true);
+        if (!is_array($decoded)) {
+            $dead = $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = 0, locked_at = NULL WHERE id = ?");
+            $dead->execute(['INVALID_PAYLOAD_JSON', $jobId]);
+            $result['failed']++;
+            $result['dead']++;
+            continue;
+        }
+
+        [$ok, $httpCode, $error, $response] = perform_sheets_sync_request($syncType, $decoded);
+        if ($ok) {
+            close_sheets_circuit();
+            $done = $db->prepare("UPDATE sync_queue SET status = 'SUCCESS', last_error = NULL, last_http_code = ?, locked_at = NULL, next_attempt_at = NOW() WHERE id = ?");
+            $done->execute([$httpCode, $jobId]);
+            $result['success']++;
+            continue;
+        }
+
+        $result['failed']++;
+        $lastError = $error !== '' ? $error : 'SYNC_FAILED';
+
+        if ((int)$httpCode === 0 || strpos($lastError, 'NETWORK') !== false || strpos($lastError, 'TIMEOUT') !== false) {
+            open_sheets_circuit($lastError, (int)$httpCode);
+        }
+
+        if ($attemptsNow >= $maxAttempts) {
+            $dead = $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = ?, locked_at = NULL WHERE id = ?");
+            $dead->execute([$lastError, $httpCode, $jobId]);
+            $result['dead']++;
+
+            try {
+                $log = $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)");
+                $log->execute([
+                    'SHEETS_SYNC_FAILED',
+                    "Dead-letter sync job {$jobId} ({$syncType}) failed after {$attemptsNow} attempts: {$lastError}",
+                    $_SERVER['REMOTE_ADDR'] ?? 'SERVER'
+                ]);
+            } catch (Exception $e) {
+                // no-op
+            }
+        } else {
+            $delay = calculate_sync_retry_delay($attemptsNow);
+            $retry = $db->prepare("UPDATE sync_queue SET status = 'RETRY', last_error = ?, last_http_code = ?, locked_at = NULL, next_attempt_at = DATE_ADD(NOW(), INTERVAL ? SECOND) WHERE id = ?");
+            $retry->bindValue(1, $lastError, PDO::PARAM_STR);
+            $retry->bindValue(2, (int)$httpCode, PDO::PARAM_INT);
+            $retry->bindValue(3, (int)$delay, PDO::PARAM_INT);
+            $retry->bindValue(4, $jobId, PDO::PARAM_INT);
+            $retry->execute();
+            $result['retried']++;
+        }
+    }
+
+    return $result;
+}
+
+function schedule_sync_queue_drain($db) {
+    static $scheduled = false;
+    if ($scheduled || !$db) {
+        return;
+    }
+    $scheduled = true;
+
+    register_shutdown_function(function() use ($db) {
+        try {
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+        } catch (Exception $e) {
+            // no-op
+        }
+        process_sync_queue($db, 5, false);
+    });
+}
+
+function sync_to_sheets($type, $data) {
+    if (GOOGLE_SHEETS_WEBHOOK_URL === '') {
+        return false;
+    }
+
+    global $db;
+    $queued = 0;
+    if (isset($db) && $db) {
+        try {
+            $queued = enqueue_sync_job($db, $type, $data);
+        } catch (Exception $e) {
+            $queued = 0;
+        }
+    }
+
+    if ($queued > 0) {
+        schedule_sync_queue_drain($db);
+        return true;
+    }
+
+    // Fallback direct attempt when queue insert is unavailable.
+    [$ok, $httpCode, $error] = perform_sheets_sync_request($type, $data);
+    if (!$ok) {
+        error_log("SPLARO_SHEETS_SYNC_WARNING: type={$type}; http={$httpCode}; error={$error}");
+    }
+    return $ok;
 }
 
 http_response_code(404);
