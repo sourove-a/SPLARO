@@ -58,7 +58,7 @@ export const LuxuryFloatingInput: React.FC<{
   const isFilled = value.length > 0;
 
   return (
-    <div className="relative mb-6 group w-full">
+    <div className="relative mb-4 group w-full">
       <motion.div
         animate={{
           borderColor: focused ? 'rgba(34, 211, 238, 0.6)' : error ? 'rgba(244, 63, 94, 0.6)' : isValid ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.24)',
@@ -97,7 +97,7 @@ export const LuxuryFloatingInput: React.FC<{
             onBlur={() => setFocused(false)}
             onChange={(e) => onChange(e.target.value)}
             placeholder={focused && !isFilled ? placeholder : ""}
-            className="w-full h-full bg-transparent px-5 pt-7 outline-none focus-visible:outline-none text-white font-semibold text-[15px] tracking-[0.08em] placeholder:text-zinc-500 transition-all relative z-10 pointer-events-auto"
+            className="w-full h-full bg-transparent px-5 pt-7 outline-none focus-visible:outline-none text-white font-semibold text-[15px] tracking-[0.08em] placeholder:text-zinc-500 transition-all relative z-10 pointer-events-auto appearance-none"
           />
         </div>
 
@@ -138,10 +138,10 @@ export const LuxuryFloatingInput: React.FC<{
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
-            className="absolute -bottom-8 left-8 flex items-center gap-2"
+            className="mt-2 ml-2 flex items-center gap-2 min-h-[18px]"
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" />
-            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">{error}</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e] shrink-0" />
+            <span className="text-[10px] font-semibold text-rose-300 tracking-[0.06em] leading-tight">{error}</span>
           </motion.div>
         )}
       </AnimatePresence>

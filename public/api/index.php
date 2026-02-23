@@ -2976,6 +2976,9 @@ if ($method === 'POST' && $action === 'signup') {
         $existing = $refetch->fetch();
         $safeExisting = sanitize_user_payload($existing);
         $token = issue_auth_token($safeExisting);
+        if (isset($input['google_sub'])) {
+            sync_to_sheets('SIGNUP', $safeExisting);
+        }
         $csrfToken = refresh_csrf_token();
         echo json_encode(["status" => "success", "user" => $safeExisting, "token" => $token, "csrf_token" => $csrfToken]);
         exit;

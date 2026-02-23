@@ -82,7 +82,15 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   const [showPass, setShowPass] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || siteSettings.googleClientId || '').trim();
+  const [googleButtonState, setGoogleButtonState] = useState<'idle' | 'ready' | 'missing' | 'unavailable'>('idle');
+  const googleClientId = String(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    siteSettings.googleClientId ||
+    // @ts-ignore - legacy runtime payload
+    siteSettings.google_client_id ||
+    // @ts-ignore - optional runtime injection
+    (typeof window !== 'undefined' ? (window.__SPLARO_GOOGLE_CLIENT_ID || window.GOOGLE_CLIENT_ID || '') : '')
+  ).trim();
   const floatingAssets = useMemo(
     () =>
       Array.from({ length: 6 }, () => ({
@@ -440,24 +448,64 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   };
 
   useEffect(() => {
-    // @ts-ignore
-    if (window.google && googleClientId) {
-      // @ts-ignore
-      google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleGoogleSuccess,
-        auto_select: false,
-        cancel_on_tap_outside: true
-      });
+    let cancelled = false;
+    let retries = 0;
+    const maxRetries = 20;
 
-      // Render official button
-      // @ts-ignore
-      google.accounts.id.renderButton(
-        document.getElementById("googleSignInBtn"),
-        { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" }
-      );
+    if (!googleClientId) {
+      setGoogleButtonState('missing');
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [googleClientId]);
+
+    const renderGoogleButton = () => {
+      if (cancelled) return;
+      const mountNode = document.getElementById('googleSignInBtn');
+      // @ts-ignore - gsi script global
+      const googleObj = window.google;
+
+      if (!mountNode || !googleObj?.accounts?.id) {
+        retries += 1;
+        if (retries >= maxRetries) {
+          setGoogleButtonState('unavailable');
+          return;
+        }
+        window.setTimeout(renderGoogleButton, 250);
+        return;
+      }
+
+      try {
+        // @ts-ignore - gsi script global
+        googleObj.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleSuccess,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+
+        mountNode.innerHTML = '';
+        // @ts-ignore - gsi script global
+        googleObj.accounts.id.renderButton(mountNode, {
+          theme: 'outline',
+          size: 'large',
+          width: Math.max(240, Math.min(420, mountNode.clientWidth || 320)),
+          text: 'continue_with',
+          shape: 'pill'
+        });
+
+        setGoogleButtonState('ready');
+      } catch {
+        setGoogleButtonState('unavailable');
+      }
+    };
+
+    renderGoogleButton();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, authMode]);
 
   const getIdentityIcon = () => {
     return <Mail className="w-5 h-5 text-cyan-400" />;
@@ -668,7 +716,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                         setRecoveryStep('email');
                         setAuthMode('forgot');
                       }}
-                      className="text-[9px] font-black uppercase text-cyan-500/60 hover:text-cyan-400 tracking-widest transition-colors"
+                      className="text-[10px] font-black uppercase text-cyan-400/80 hover:text-cyan-300 tracking-widest transition-colors"
                     >
                       Forgot Password?
                     </button>
@@ -702,8 +750,13 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             {googleClientId ? (
               <div id="googleSignInBtn" className="w-full max-w-sm"></div>
             ) : (
-              <div className="w-full max-w-sm h-12 rounded-full border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-[0.2em] text-white/40 flex items-center justify-center">
+              <div className="w-full max-w-sm h-12 rounded-full border border-cyan-400/30 bg-cyan-500/10 text-[10px] font-semibold tracking-wide text-cyan-100 flex items-center justify-center px-4 text-center">
                 Google login সেট করতে Admin Settings এ Google Client ID দিন
+              </div>
+            )}
+            {googleClientId && googleButtonState === 'unavailable' && (
+              <div className="w-full max-w-sm mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-[10px] text-rose-200 text-center">
+                Google sign in এখন unavailable. কিছুক্ষণ পর আবার try করুন।
               </div>
             )}
           </div>
@@ -732,10 +785,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-4"
+              className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-4"
             >
               <AlertCircle className="w-4 h-4 text-rose-500" />
-              <p className="text-[9px] font-black uppercase text-rose-500 tracking-widest">Please correct the errors above</p>
+              <p className="text-[11px] font-semibold text-rose-200 tracking-wide">Please correct the highlighted fields and try again.</p>
             </motion.div>
           )}
         </AnimatePresence>
