@@ -639,6 +639,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return '';
     }
   };
+  const getCsrfToken = () => {
+    if (typeof document === 'undefined') return '';
+    const match = document.cookie.match(/(?:^|;\s*)splaro_csrf=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  };
   const getAuthHeaders = (json = false) => {
     const headers: Record<string, string> = {};
     if (json) {
@@ -652,6 +657,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (adminKey) {
       headers['X-Admin-Key'] = adminKey;
     }
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
     return headers;
   };
 
@@ -659,6 +668,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { message, tone } }));
   };
+
+  const normalizeUserPayload = (raw: any): User => ({
+    ...(raw || {}),
+    profileImage: raw?.profile_image || raw?.profileImage || '',
+    createdAt: raw?.created_at || raw?.createdAt || new Date().toISOString(),
+    defaultShippingAddress: raw?.default_shipping_address ?? raw?.defaultShippingAddress ?? '',
+    notificationEmail: typeof raw?.notification_email === 'boolean'
+      ? raw.notification_email
+      : (typeof raw?.notificationEmail === 'boolean' ? raw.notificationEmail : (Number(raw?.notification_email ?? 1) === 1)),
+    notificationSms: typeof raw?.notification_sms === 'boolean'
+      ? raw.notification_sms
+      : (typeof raw?.notificationSms === 'boolean' ? raw.notificationSms : (Number(raw?.notification_sms ?? 0) === 1)),
+    preferredLanguage: raw?.preferred_language || raw?.preferredLanguage || 'EN',
+    twoFactorEnabled: typeof raw?.two_factor_enabled === 'boolean'
+      ? raw.two_factor_enabled
+      : (typeof raw?.twoFactorEnabled === 'boolean' ? raw.twoFactorEnabled : (Number(raw?.two_factor_enabled ?? 0) === 1)),
+    lastPasswordChangeAt: raw?.last_password_change_at || raw?.lastPasswordChangeAt || undefined,
+    forceRelogin: typeof raw?.force_relogin === 'boolean'
+      ? raw.force_relogin
+      : (typeof raw?.forceRelogin === 'boolean' ? raw.forceRelogin : (Number(raw?.force_relogin ?? 0) === 1))
+  });
 
   const syncRegistry = async () => {
     try {
@@ -720,11 +750,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setOrders([]);
         }
         if (Array.isArray(result.data.users)) {
-          const mappedUsers = result.data.users.map((u: any) => ({
-            ...u,
-            profileImage: u.profile_image || '',
-            createdAt: u.created_at
-          }));
+          const mappedUsers = result.data.users.map((u: any) => normalizeUserPayload(u));
           if (mappedUsers.length > 0 || user?.role === 'ADMIN') {
             setUsers(mappedUsers);
           } else if (user) {
@@ -961,11 +987,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!res.ok) return;
         const result = await res.json();
         if (result.status === 'success' && result.user) {
-          const normalized = {
-            ...result.user,
-            profileImage: result.user.profile_image || result.user.profileImage || '',
-            createdAt: result.user.created_at || result.user.createdAt || new Date().toISOString()
-          };
+          const normalized = normalizeUserPayload(result.user);
           if (result.token) {
             localStorage.setItem('splaro-auth-token', result.token);
           }

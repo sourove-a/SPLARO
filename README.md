@@ -53,3 +53,14 @@ Prerequisite: Node.js
 2. `npm run prisma:generate`
 3. `npm run prisma:migrate`
 4. `npm run prisma:seed`
+
+## User Dashboard UX + Security Refactor
+- Updated dashboard UI: `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/components/UserDashboard.tsx`
+  - Password change moved to a hidden secure modal (default closed).
+  - Added sections: Profile, Order History, Account Security, Preferences, Support.
+  - Added active session list, 2FA toggle, logout-all-sessions action.
+- Updated backend security/actions: `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/public/api/index.php`
+  - New actions: `csrf`, `user_sessions`, `logout_all_sessions`, `toggle_two_factor`, `update_preferences`, `create_support_ticket`.
+  - Hardened actions with CSRF and rate limits: `change_password`, `update_profile`.
+  - Added audit/system logs for password/security/profile/preference/session/ticket events.
+  - Added `last_password_change_at` + `force_relogin` handling in password flows.

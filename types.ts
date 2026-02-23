@@ -75,6 +75,13 @@ export interface User {
   address?: string;
   profileImage?: string;
   role: 'USER' | 'ADMIN';
+  defaultShippingAddress?: string;
+  notificationEmail?: boolean;
+  notificationSms?: boolean;
+  preferredLanguage?: 'EN' | 'BN' | string;
+  twoFactorEnabled?: boolean;
+  lastPasswordChangeAt?: string;
+  forceRelogin?: boolean;
   createdAt: string;
 }
 

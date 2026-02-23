@@ -308,6 +308,30 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'audit_logs', "CREATE TABLE IF NOT EXISTS `audit_logs` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `actor_id` varchar(50) DEFAULT NULL,
+      `action` varchar(100) NOT NULL,
+      `entity_type` varchar(100) NOT NULL,
+      `entity_id` varchar(100) DEFAULT NULL,
+      `before_json` longtext DEFAULT NULL,
+      `after_json` longtext DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'support_tickets', "CREATE TABLE IF NOT EXISTS `support_tickets` (
+      `id` varchar(50) NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `email` varchar(255) NOT NULL,
+      `subject` varchar(255) NOT NULL,
+      `message` text NOT NULL,
+      `status` varchar(50) NOT NULL DEFAULT 'OPEN',
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_table($db, 'sync_queue', "CREATE TABLE IF NOT EXISTS `sync_queue` (
       `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
       `sync_type` varchar(50) NOT NULL,
@@ -392,10 +416,19 @@ function ensure_core_schema($db) {
     ensure_column($db, 'users', 'reset_expiry', 'datetime DEFAULT NULL');
     ensure_column($db, 'users', 'address', 'text DEFAULT NULL');
     ensure_column($db, 'users', 'profile_image', 'text DEFAULT NULL');
+    ensure_column($db, 'users', 'last_password_change_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'users', 'force_relogin', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'two_factor_enabled', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'two_factor_secret', 'varchar(128) DEFAULT NULL');
+    ensure_column($db, 'users', 'notification_email', 'tinyint(1) NOT NULL DEFAULT 1');
+    ensure_column($db, 'users', 'notification_sms', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'preferred_language', 'varchar(8) DEFAULT \"EN\"');
+    ensure_column($db, 'users', 'default_shipping_address', 'text DEFAULT NULL');
 
     ensure_index($db, 'users', 'idx_users_email', 'CREATE INDEX idx_users_email ON users(email)');
     ensure_index($db, 'users', 'idx_users_phone', 'CREATE INDEX idx_users_phone ON users(phone)');
     ensure_index($db, 'users', 'idx_users_created_at', 'CREATE INDEX idx_users_created_at ON users(created_at)');
+    ensure_index($db, 'users', 'idx_users_force_relogin', 'CREATE INDEX idx_users_force_relogin ON users(force_relogin)');
     ensure_index($db, 'orders', 'idx_orders_email', 'CREATE INDEX idx_orders_email ON orders(customer_email)');
     ensure_index($db, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
     ensure_index($db, 'orders', 'idx_orders_created_at', 'CREATE INDEX idx_orders_created_at ON orders(created_at)');
@@ -403,6 +436,10 @@ function ensure_core_schema($db) {
     ensure_index($db, 'subscriptions', 'idx_subscriptions_created_at', 'CREATE INDEX idx_subscriptions_created_at ON subscriptions(created_at)');
     ensure_index($db, 'products', 'idx_products_created_at', 'CREATE INDEX idx_products_created_at ON products(created_at)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
+    ensure_index($db, 'audit_logs', 'idx_audit_logs_created_at', 'CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)');
+    ensure_index($db, 'audit_logs', 'idx_audit_logs_entity', 'CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id)');
+    ensure_index($db, 'support_tickets', 'idx_support_tickets_created_at', 'CREATE INDEX idx_support_tickets_created_at ON support_tickets(created_at)');
+    ensure_index($db, 'support_tickets', 'idx_support_tickets_user', 'CREATE INDEX idx_support_tickets_user ON support_tickets(user_id)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
     ensure_index($db, 'traffic_metrics', 'idx_traffic_metrics_created_at', 'CREATE INDEX idx_traffic_metrics_created_at ON traffic_metrics(last_active)');
@@ -750,6 +787,97 @@ function is_rate_limited($bucket, $maxRequests = 20, $windowSeconds = 60) {
     return $state['count'] > $maxRequests;
 }
 
+function is_rate_limited_scoped($bucket, $scopeKey, $maxRequests = 10, $windowSeconds = 60) {
+    $scope = trim((string)$scopeKey);
+    if ($scope === '') {
+        $scope = 'global';
+    }
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $key = md5($bucket . '|' . $scope . '|' . $ip);
+    $file = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_rate_scope_" . $key . ".json";
+    $now = time();
+
+    $state = ['start' => $now, 'count' => 0];
+    if (file_exists($file)) {
+        $raw = @file_get_contents($file);
+        $parsed = json_decode($raw, true);
+        if (is_array($parsed) && isset($parsed['start']) && isset($parsed['count'])) {
+            $state = $parsed;
+        }
+    }
+
+    if (($now - (int)$state['start']) >= $windowSeconds) {
+        $state = ['start' => $now, 'count' => 0];
+    }
+
+    $state['count'] = (int)$state['count'] + 1;
+    @file_put_contents($file, json_encode($state), LOCK_EX);
+
+    return $state['count'] > $maxRequests;
+}
+
+function is_https_request() {
+    if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
+        return true;
+    }
+    $forwardedProto = strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    return $forwardedProto === 'https';
+}
+
+function generate_csrf_token() {
+    return base64url_encode(random_bytes(24));
+}
+
+function set_csrf_cookie($token) {
+    $params = [
+        'expires' => time() + (30 * 24 * 60 * 60),
+        'path' => '/',
+        'secure' => is_https_request(),
+        'httponly' => false,
+        'samesite' => 'Lax'
+    ];
+    setcookie('splaro_csrf', (string)$token, $params);
+}
+
+function refresh_csrf_token() {
+    $token = generate_csrf_token();
+    set_csrf_cookie($token);
+    return $token;
+}
+
+function read_csrf_token_from_cookie() {
+    return trim((string)($_COOKIE['splaro_csrf'] ?? ''));
+}
+
+function require_csrf_token() {
+    $cookieToken = read_csrf_token_from_cookie();
+    $headerToken = trim((string)get_header_value('X-CSRF-Token'));
+    if ($cookieToken === '' || $headerToken === '' || !hash_equals($cookieToken, $headerToken)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "CSRF_INVALID"]);
+        exit;
+    }
+}
+
+function base32_encode_bytes($input) {
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $binary = '';
+    $length = strlen((string)$input);
+    for ($i = 0; $i < $length; $i++) {
+        $binary .= str_pad(decbin(ord($input[$i])), 8, '0', STR_PAD_LEFT);
+    }
+
+    $chunks = str_split($binary, 5);
+    $encoded = '';
+    foreach ($chunks as $chunk) {
+        if (strlen($chunk) < 5) {
+            $chunk = str_pad($chunk, 5, '0', STR_PAD_RIGHT);
+        }
+        $encoded .= $alphabet[bindec($chunk)];
+    }
+    return $encoded;
+}
+
 function build_display_name_from_email($email) {
     $base = explode('@', (string)$email)[0] ?? '';
     $clean = preg_replace('/\d+/', ' ', $base);
@@ -800,15 +928,97 @@ function get_header_value($key) {
     return '';
 }
 
+function log_system_event($db, $eventType, $description, $userId = null, $ip = null) {
+    if (!$db) {
+        return;
+    }
+    try {
+        $stmt = $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)");
+        $stmt->execute([
+            (string)$eventType,
+            (string)$description,
+            $userId !== null ? (string)$userId : null,
+            $ip !== null ? (string)$ip : ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN')
+        ]);
+    } catch (Exception $e) {
+        // best-effort logging only
+    }
+}
+
+function log_audit_event($db, $actorId, $action, $entityType, $entityId = null, $before = null, $after = null, $ip = null) {
+    if (!$db) {
+        return;
+    }
+    try {
+        $stmt = $db->prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, before_json, after_json, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $actorId !== null ? (string)$actorId : null,
+            (string)$action,
+            (string)$entityType,
+            $entityId !== null ? (string)$entityId : null,
+            $before !== null ? json_encode($before) : null,
+            $after !== null ? json_encode($after) : null,
+            $ip !== null ? (string)$ip : ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN')
+        ]);
+    } catch (Exception $e) {
+        // best-effort logging only
+    }
+}
+
+function is_strong_password($password) {
+    $value = (string)$password;
+    if (strlen($value) < 8) return false;
+    if (!preg_match('/[a-z]/', $value)) return false;
+    if (!preg_match('/[A-Z]/', $value)) return false;
+    if (!preg_match('/\d/', $value)) return false;
+    if (!preg_match('/[^a-zA-Z0-9]/', $value)) return false;
+    return true;
+}
+
+function resolve_session_id() {
+    $headerSessionId = trim((string)get_header_value('X-Session-Id'));
+    if ($headerSessionId !== '') {
+        return $headerSessionId;
+    }
+    $cookieSessionId = trim((string)($_COOKIE['splaro_session_id'] ?? ''));
+    return $cookieSessionId;
+}
+
+function clear_user_sessions($db, $userId, $exceptSessionId = null) {
+    if (!$db || !$userId) {
+        return;
+    }
+    try {
+        if ($exceptSessionId !== null && trim((string)$exceptSessionId) !== '') {
+            $stmt = $db->prepare("DELETE FROM traffic_metrics WHERE user_id = ? AND session_id <> ?");
+            $stmt->execute([(string)$userId, trim((string)$exceptSessionId)]);
+            return;
+        }
+        $stmt = $db->prepare("DELETE FROM traffic_metrics WHERE user_id = ?");
+        $stmt->execute([(string)$userId]);
+    } catch (Exception $e) {
+        // best-effort cleanup only
+    }
+}
+
 function issue_auth_token($user) {
     if (APP_AUTH_SECRET === '') {
         return '';
+    }
+
+    $pwdChangedAt = null;
+    if (!empty($user['last_password_change_at'])) {
+        $ts = strtotime((string)$user['last_password_change_at']);
+        if ($ts && $ts > 0) {
+            $pwdChangedAt = $ts;
+        }
     }
 
     $payload = [
         'uid' => (string)($user['id'] ?? ''),
         'email' => (string)($user['email'] ?? ''),
         'role' => strtoupper((string)($user['role'] ?? 'USER')),
+        'pwd_at' => $pwdChangedAt ?: time(),
         'exp' => time() + (12 * 60 * 60)
     ];
 
@@ -848,10 +1058,42 @@ function get_authenticated_user_from_request() {
         return null;
     }
 
+    $uid = (string)($payload['uid'] ?? '');
+    if ($uid === '') {
+        return null;
+    }
+
+    global $db;
+    if (!isset($db) || !$db) {
+        return null;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT id, email, role, force_relogin, last_password_change_at FROM users WHERE id = ? LIMIT 1");
+        $stmt->execute([$uid]);
+        $row = $stmt->fetch();
+    } catch (Exception $e) {
+        return null;
+    }
+
+    if (!$row) {
+        return null;
+    }
+
+    if ((int)($row['force_relogin'] ?? 0) === 1) {
+        return null;
+    }
+
+    $tokenPwdAt = (int)($payload['pwd_at'] ?? 0);
+    $dbPwdAt = !empty($row['last_password_change_at']) ? strtotime((string)$row['last_password_change_at']) : 0;
+    if ($dbPwdAt && $tokenPwdAt && $tokenPwdAt < $dbPwdAt) {
+        return null;
+    }
+
     return [
-        'id' => (string)($payload['uid'] ?? ''),
-        'email' => strtolower((string)($payload['email'] ?? '')),
-        'role' => strtoupper((string)($payload['role'] ?? 'USER'))
+        'id' => (string)($row['id'] ?? ''),
+        'email' => strtolower((string)($row['email'] ?? ($payload['email'] ?? ''))),
+        'role' => strtoupper((string)($row['role'] ?? ($payload['role'] ?? 'USER')))
     ];
 }
 
@@ -894,6 +1136,13 @@ function sanitize_user_payload($user) {
         'address' => $user['address'] ?? '',
         'profile_image' => $user['profile_image'] ?? '',
         'role' => $user['role'] ?? 'USER',
+        'default_shipping_address' => $user['default_shipping_address'] ?? '',
+        'notification_email' => isset($user['notification_email']) ? ((int)$user['notification_email'] === 1) : true,
+        'notification_sms' => isset($user['notification_sms']) ? ((int)$user['notification_sms'] === 1) : false,
+        'preferred_language' => $user['preferred_language'] ?? 'EN',
+        'two_factor_enabled' => isset($user['two_factor_enabled']) ? ((int)$user['two_factor_enabled'] === 1) : false,
+        'last_password_change_at' => $user['last_password_change_at'] ?? null,
+        'force_relogin' => isset($user['force_relogin']) ? ((int)$user['force_relogin'] === 1) : false,
         'created_at' => $user['created_at'] ?? date('c')
     ];
 }
@@ -1789,7 +2038,7 @@ if ($method === 'POST' && $action === 'signup') {
         echo json_encode(["status" => "error", "message" => "PASSWORD_REQUIRED"]);
         exit;
     }
-    if ($password !== 'social_auth_sync' && strlen($password) < 6) {
+    if ($password !== 'social_auth_sync' && !is_strong_password($password)) {
         echo json_encode(["status" => "error", "message" => "WEAK_PASSWORD"]);
         exit;
     }
@@ -1846,13 +2095,25 @@ if ($method === 'POST' && $action === 'signup') {
             $persistRole = 'USER';
         }
 
-        $update = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ?, role = ? WHERE id = ?");
+        $preferredLanguage = strtoupper(trim((string)($input['preferredLanguage'] ?? ($existing['preferred_language'] ?? 'EN'))));
+        if (!in_array($preferredLanguage, ['EN', 'BN'], true)) {
+            $preferredLanguage = 'EN';
+        }
+        $notificationEmail = array_key_exists('notificationEmail', $input) ? (!empty($input['notificationEmail']) ? 1 : 0) : (int)($existing['notification_email'] ?? 1);
+        $notificationSms = array_key_exists('notificationSms', $input) ? (!empty($input['notificationSms']) ? 1 : 0) : (int)($existing['notification_sms'] ?? 0);
+        $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? ($existing['default_shipping_address'] ?? '')));
+
+        $update = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ?, role = ?, default_shipping_address = ?, notification_email = ?, notification_sms = ?, preferred_language = ? WHERE id = ?");
         $update->execute([
             $name,
             $phone,
             $address !== '' ? $address : ($existing['address'] ?? null),
             $profileImage !== '' ? $profileImage : ($existing['profile_image'] ?? null),
             $persistRole,
+            $defaultShippingAddress !== '' ? $defaultShippingAddress : ($existing['default_shipping_address'] ?? null),
+            $notificationEmail,
+            $notificationSms,
+            $preferredLanguage,
             $existing['id']
         ]);
         $refetch = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
@@ -1860,11 +2121,21 @@ if ($method === 'POST' && $action === 'signup') {
         $existing = $refetch->fetch();
         $safeExisting = sanitize_user_payload($existing);
         $token = issue_auth_token($safeExisting);
-        echo json_encode(["status" => "success", "user" => $safeExisting, "token" => $token]);
+        $csrfToken = refresh_csrf_token();
+        echo json_encode(["status" => "success", "user" => $safeExisting, "token" => $token, "csrf_token" => $csrfToken]);
         exit;
     }
 
-    $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $preferredLanguage = strtoupper(trim((string)($input['preferredLanguage'] ?? 'EN')));
+    if (!in_array($preferredLanguage, ['EN', 'BN'], true)) {
+        $preferredLanguage = 'EN';
+    }
+    $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? $address));
+    $notificationEmail = array_key_exists('notificationEmail', $input) ? (!empty($input['notificationEmail']) ? 1 : 0) : 1;
+    $notificationSms = array_key_exists('notificationSms', $input) ? (!empty($input['notificationSms']) ? 1 : 0) : 0;
+    $nowIso = date('Y-m-d H:i:s');
+
+    $stmt = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role, default_shipping_address, notification_email, notification_sms, preferred_language, two_factor_enabled, force_relogin, last_password_change_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $id,
         $name,
@@ -1873,7 +2144,14 @@ if ($method === 'POST' && $action === 'signup') {
         $address !== '' ? $address : null,
         $profileImage !== '' ? $profileImage : null,
         $password,
-        $role
+        $role,
+        $defaultShippingAddress !== '' ? $defaultShippingAddress : null,
+        $notificationEmail,
+        $notificationSms,
+        $preferredLanguage,
+        0,
+        0,
+        $nowIso
     ]);
 
     $fetchCreated = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
@@ -1927,10 +2205,12 @@ Phone: " . $phone;
         . "<b>Phone:</b> " . telegram_escape_html($phone);
     send_telegram_message($telegramSignupMessage);
 
+    $csrfToken = refresh_csrf_token();
     echo json_encode([
         "status" => "success",
         "user" => $userPayload,
         "token" => $token,
+        "csrf_token" => $csrfToken,
         "email" => ["admin" => $adminMail, "welcome" => $welcomeMail]
     ]);
     exit;
@@ -2092,7 +2372,7 @@ if ($method === 'POST' && $action === 'reset_password') {
     
     if ($user) {
         $newPasswordHash = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL WHERE email = ?");
+        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = 1 WHERE email = ?");
         $stmt->execute([$newPasswordHash, $email]);
         
         echo json_encode(["status" => "success", "message" => "PASSWORD_OVERRIDDEN"]);
@@ -2104,14 +2384,17 @@ if ($method === 'POST' && $action === 'reset_password') {
 
 // 5.4 PASSWORD CHANGE (AUTHENTICATED USER)
 if ($method === 'POST' && $action === 'change_password') {
-    if (is_rate_limited('change_password', 8, 60)) {
-        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
-        exit;
-    }
-
     if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
         http_response_code(401);
         echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    $scopeKey = (string)$requestAuthUser['id'] . '|' . strtolower((string)($requestAuthUser['email'] ?? ''));
+    if (is_rate_limited_scoped('change_password', $scopeKey, 6, 300)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
         exit;
     }
 
@@ -2124,13 +2407,19 @@ if ($method === 'POST' && $action === 'change_password') {
     $currentPassword = (string)($input['currentPassword'] ?? '');
     $newPassword = (string)($input['newPassword'] ?? '');
     $confirmPassword = (string)($input['confirmPassword'] ?? '');
+    $logoutAllSessions = !empty($input['logoutAllSessions']);
+    $sendEmailAlert = !array_key_exists('sendEmailAlert', $input) ? true : !empty($input['sendEmailAlert']);
 
     if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
         echo json_encode(["status" => "error", "message" => "MISSING_FIELDS"]);
         exit;
     }
-    if (strlen($newPassword) < 6) {
+    if (!is_strong_password($newPassword)) {
         echo json_encode(["status" => "error", "message" => "WEAK_PASSWORD"]);
+        exit;
+    }
+    if (hash_equals($currentPassword, $newPassword)) {
+        echo json_encode(["status" => "error", "message" => "PASSWORD_REUSE_NOT_ALLOWED"]);
         exit;
     }
     if (!hash_equals($newPassword, $confirmPassword)) {
@@ -2160,14 +2449,63 @@ if ($method === 'POST' && $action === 'change_password') {
     }
 
     $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-    $update = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL WHERE id = ?");
-    $update->execute([$newPasswordHash, $user['id']]);
+    $forceRelogin = $logoutAllSessions ? 1 : 0;
+    $update = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = ? WHERE id = ?");
+    $update->execute([$newPasswordHash, $forceRelogin, $user['id']]);
+
+    $updatedStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $updatedStmt->execute([$user['id']]);
+    $updatedUser = $updatedStmt->fetch() ?: $user;
 
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-    $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
-       ->execute(['PASSWORD_CHANGED', "Password changed for " . ($user['email'] ?? $user['id']), $user['id'], $ip]);
+    log_system_event($db, 'PASSWORD_CHANGED', "Password changed for " . ($user['email'] ?? $user['id']), $user['id'], $ip);
+    log_audit_event(
+        $db,
+        $requestAuthUser['id'] ?? $user['id'],
+        'PASSWORD_CHANGED',
+        'USER',
+        $user['id'],
+        ['force_relogin' => (int)($user['force_relogin'] ?? 0), 'last_password_change_at' => $user['last_password_change_at'] ?? null],
+        ['force_relogin' => $forceRelogin, 'last_password_change_at' => $updatedUser['last_password_change_at'] ?? date('c')],
+        $ip
+    );
 
-    echo json_encode(["status" => "success", "message" => "PASSWORD_UPDATED"]);
+    if ($sendEmailAlert) {
+        $recipient = strtolower(trim((string)($updatedUser['email'] ?? '')));
+        if (filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+            $timeText = date('Y-m-d H:i:s');
+            $alertSubject = 'SPLARO Security Alert: Password changed';
+            $alertBody = "<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a;'>"
+                . "<h2 style='margin:0 0 12px;font-size:20px;'>Password changed successfully</h2>"
+                . "<p style='margin:0 0 10px;font-size:14px;line-height:1.7;'>Your account password was updated on {$timeText}.</p>"
+                . "<p style='margin:0;font-size:13px;line-height:1.7;color:#475467;'>If this was not you, contact support immediately.</p>"
+                . "</div>";
+            smtp_send_mail($db, $recipient, $alertSubject, $alertBody, true);
+        }
+    }
+
+    if ($logoutAllSessions) {
+        clear_user_sessions($db, $user['id']);
+        echo json_encode([
+            "status" => "success",
+            "message" => "PASSWORD_UPDATED",
+            "relogin_required" => true,
+            "all_sessions_logged_out" => true
+        ]);
+        exit;
+    }
+
+    $safeUser = sanitize_user_payload($updatedUser);
+    $token = issue_auth_token($safeUser);
+    $csrfToken = refresh_csrf_token();
+    echo json_encode([
+        "status" => "success",
+        "message" => "PASSWORD_UPDATED",
+        "relogin_required" => false,
+        "user" => $safeUser,
+        "token" => $token,
+        "csrf_token" => $csrfToken
+    ]);
     exit;
 }
 
@@ -2314,17 +2652,29 @@ if ($method === 'POST' && $action === 'login') {
     }
 
     if ($user && $isAuthenticated) {
-        $ip = $_SERVER['REMOTE_ADDR'];
-        $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
-           ->execute(['IDENTITY_VALIDATION', 'Login Successful for ' . $user['name'], $user['id'], $ip]);
+        try {
+            $resetForceRelogin = $db->prepare("UPDATE users SET force_relogin = 0 WHERE id = ?");
+            $resetForceRelogin->execute([$user['id']]);
+            $reloadAfterReset = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+            $reloadAfterReset->execute([$user['id']]);
+            $reloaded = $reloadAfterReset->fetch();
+            if ($reloaded) {
+                $user = $reloaded;
+            }
+        } catch (Exception $e) {
+            // continue with available user object
+        }
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        log_system_event($db, 'IDENTITY_VALIDATION', 'Login Successful for ' . ($user['name'] ?? 'Unknown'), $user['id'] ?? null, $ip);
 
         $safeUser = sanitize_user_payload($user);
         $token = issue_auth_token($safeUser);
-        echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token]);
+        $csrfToken = refresh_csrf_token();
+        echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token, "csrf_token" => $csrfToken]);
     } else {
-        $ip = $_SERVER['REMOTE_ADDR'];
-        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-           ->execute(['SECURITY_ALERT', 'Failed login attempt for ' . ($email ?: 'Unknown'), $ip]);
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        log_system_event($db, 'SECURITY_ALERT', 'Failed login attempt for ' . ($email ?: 'Unknown'), null, $ip);
         
         echo json_encode(["status" => "error", "message" => "INVALID_CREDENTIALS"]);
     }
@@ -2335,6 +2685,14 @@ if ($method === 'POST' && $action === 'update_profile') {
     if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
         http_response_code(401);
         echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    $scopeKey = (string)$requestAuthUser['id'] . '|' . strtolower((string)($requestAuthUser['email'] ?? ''));
+    if (is_rate_limited_scoped('update_profile', $scopeKey, 20, 300)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
         exit;
     }
 
@@ -2367,13 +2725,28 @@ if ($method === 'POST' && $action === 'update_profile') {
     }
     $address = trim((string)($input['address'] ?? ($currentUser['address'] ?? '')));
     $profileImage = trim((string)($input['profileImage'] ?? ($input['profile_image'] ?? ($currentUser['profile_image'] ?? ''))));
+    $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? ($input['default_shipping_address'] ?? ($currentUser['default_shipping_address'] ?? ''))));
+    $notificationEmail = array_key_exists('notificationEmail', $input)
+        ? (!empty($input['notificationEmail']) ? 1 : 0)
+        : (int)($currentUser['notification_email'] ?? 1);
+    $notificationSms = array_key_exists('notificationSms', $input)
+        ? (!empty($input['notificationSms']) ? 1 : 0)
+        : (int)($currentUser['notification_sms'] ?? 0);
+    $preferredLanguage = strtoupper(trim((string)($input['preferredLanguage'] ?? ($input['preferred_language'] ?? ($currentUser['preferred_language'] ?? 'EN')))));
+    if (!in_array($preferredLanguage, ['EN', 'BN'], true)) {
+        $preferredLanguage = 'EN';
+    }
 
-    $updateStmt = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ? WHERE id = ?");
+    $updateStmt = $db->prepare("UPDATE users SET name = ?, phone = ?, address = ?, profile_image = ?, default_shipping_address = ?, notification_email = ?, notification_sms = ?, preferred_language = ? WHERE id = ?");
     $updateStmt->execute([
         $name,
         $phone,
         $address !== '' ? $address : null,
         $profileImage !== '' ? $profileImage : null,
+        $defaultShippingAddress !== '' ? $defaultShippingAddress : null,
+        $notificationEmail,
+        $notificationSms,
+        $preferredLanguage,
         $targetUserId
     ]);
 
@@ -2383,11 +2756,353 @@ if ($method === 'POST' && $action === 'update_profile') {
     $safeUser = sanitize_user_payload($updatedUser ?: []);
     $token = issue_auth_token($safeUser);
 
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $db->prepare("INSERT INTO system_logs (event_type, event_description, user_id, ip_address) VALUES (?, ?, ?, ?)")
-       ->execute(['PROFILE_UPDATE', 'Identity profile was updated.', $targetUserId, $ip]);
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'PROFILE_UPDATE', 'Identity profile was updated.', $targetUserId, $ip);
+    log_audit_event(
+        $db,
+        $requestAuthUser['id'] ?? $targetUserId,
+        'PROFILE_UPDATED',
+        'USER',
+        $targetUserId,
+        [
+            'name' => $currentUser['name'] ?? '',
+            'phone' => $currentUser['phone'] ?? '',
+            'address' => $currentUser['address'] ?? '',
+            'default_shipping_address' => $currentUser['default_shipping_address'] ?? '',
+            'notification_email' => (int)($currentUser['notification_email'] ?? 1),
+            'notification_sms' => (int)($currentUser['notification_sms'] ?? 0),
+            'preferred_language' => $currentUser['preferred_language'] ?? 'EN'
+        ],
+        [
+            'name' => $safeUser['name'] ?? '',
+            'phone' => $safeUser['phone'] ?? '',
+            'address' => $safeUser['address'] ?? '',
+            'default_shipping_address' => $safeUser['default_shipping_address'] ?? '',
+            'notification_email' => $safeUser['notification_email'] ?? true,
+            'notification_sms' => $safeUser['notification_sms'] ?? false,
+            'preferred_language' => $safeUser['preferred_language'] ?? 'EN'
+        ],
+        $ip
+    );
 
-    echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token]);
+    $csrfToken = refresh_csrf_token();
+    echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token, "csrf_token" => $csrfToken]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'csrf') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+    $csrfToken = refresh_csrf_token();
+    echo json_encode(["status" => "success", "csrf_token" => $csrfToken]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'user_sessions') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    if (is_rate_limited_scoped('user_sessions', (string)$requestAuthUser['id'], 30, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $sessionRows = [];
+    try {
+        $stmt = $db->prepare("SELECT session_id, ip_address, path, user_agent, last_active FROM traffic_metrics WHERE user_id = ? ORDER BY last_active DESC LIMIT 30");
+        $stmt->execute([(string)$requestAuthUser['id']]);
+        $sessionRows = $stmt->fetchAll() ?: [];
+    } catch (Exception $e) {
+        $sessionRows = [];
+    }
+
+    $currentSession = resolve_session_id();
+    $sessions = array_map(function ($row) use ($currentSession) {
+        $sid = (string)($row['session_id'] ?? '');
+        return [
+            'session_id' => $sid,
+            'ip_address' => (string)($row['ip_address'] ?? ''),
+            'path' => (string)($row['path'] ?? '/'),
+            'user_agent' => (string)($row['user_agent'] ?? ''),
+            'last_active' => $row['last_active'] ?? null,
+            'is_current' => ($currentSession !== '' && hash_equals($currentSession, $sid))
+        ];
+    }, $sessionRows);
+
+    echo json_encode(["status" => "success", "sessions" => $sessions]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'logout_all_sessions') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    if (is_rate_limited_scoped('logout_all_sessions', (string)$requestAuthUser['id'], 5, 300)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        $input = [];
+    }
+    $keepCurrent = !empty($input['keepCurrent']);
+    $currentSession = resolve_session_id();
+
+    if ($keepCurrent && $currentSession !== '') {
+        clear_user_sessions($db, (string)$requestAuthUser['id'], $currentSession);
+        $db->prepare("UPDATE users SET force_relogin = 0 WHERE id = ?")->execute([(string)$requestAuthUser['id']]);
+    } else {
+        clear_user_sessions($db, (string)$requestAuthUser['id']);
+        $db->prepare("UPDATE users SET force_relogin = 1 WHERE id = ?")->execute([(string)$requestAuthUser['id']]);
+    }
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'SESSIONS_LOGOUT_ALL', 'All sessions were terminated by user request.', (string)$requestAuthUser['id'], $ip);
+    log_audit_event(
+        $db,
+        (string)$requestAuthUser['id'],
+        'SESSIONS_TERMINATED',
+        'USER',
+        (string)$requestAuthUser['id'],
+        ['keep_current' => $keepCurrent],
+        ['force_relogin' => $keepCurrent ? 0 : 1],
+        $ip
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "SESSIONS_TERMINATED",
+        "relogin_required" => !$keepCurrent
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'toggle_two_factor') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    if (is_rate_limited_scoped('toggle_two_factor', (string)$requestAuthUser['id'], 8, 300)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input) || !array_key_exists('enabled', $input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $enabled = !empty($input['enabled']);
+
+    $userStmt = $db->prepare("SELECT id, email, two_factor_enabled, two_factor_secret FROM users WHERE id = ? LIMIT 1");
+    $userStmt->execute([(string)$requestAuthUser['id']]);
+    $currentUser = $userStmt->fetch();
+    if (!$currentUser) {
+        echo json_encode(["status" => "error", "message" => "USER_NOT_FOUND"]);
+        exit;
+    }
+
+    $secret = (string)($currentUser['two_factor_secret'] ?? '');
+    if ($enabled && $secret === '') {
+        $secret = base32_encode_bytes(random_bytes(20));
+    }
+    if (!$enabled) {
+        $secret = '';
+    }
+
+    $updateStmt = $db->prepare("UPDATE users SET two_factor_enabled = ?, two_factor_secret = ? WHERE id = ?");
+    $updateStmt->execute([$enabled ? 1 : 0, $secret !== '' ? $secret : null, (string)$requestAuthUser['id']]);
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'TWO_FACTOR_UPDATED', $enabled ? 'Authenticator 2FA enabled.' : 'Authenticator 2FA disabled.', (string)$requestAuthUser['id'], $ip);
+    log_audit_event(
+        $db,
+        (string)$requestAuthUser['id'],
+        'TWO_FACTOR_UPDATED',
+        'USER',
+        (string)$requestAuthUser['id'],
+        ['enabled' => (int)($currentUser['two_factor_enabled'] ?? 0)],
+        ['enabled' => $enabled ? 1 : 0],
+        $ip
+    );
+
+    $email = strtolower((string)($currentUser['email'] ?? ($requestAuthUser['email'] ?? '')));
+    $issuer = rawurlencode('SPLARO');
+    $account = rawurlencode('SPLARO:' . $email);
+    $otpauth = $secret !== '' ? "otpauth://totp/{$account}?secret={$secret}&issuer={$issuer}&algorithm=SHA1&digits=6&period=30" : '';
+
+    echo json_encode([
+        "status" => "success",
+        "two_factor_enabled" => $enabled,
+        "secret" => $enabled ? $secret : null,
+        "otpauth_url" => $enabled ? $otpauth : null
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'update_preferences') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    if (is_rate_limited_scoped('update_preferences', (string)$requestAuthUser['id'], 15, 300)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? $input['default_shipping_address'] ?? ''));
+    $notificationEmail = !empty($input['notificationEmail']) ? 1 : 0;
+    $notificationSms = !empty($input['notificationSms']) ? 1 : 0;
+    $preferredLanguage = strtoupper(trim((string)($input['preferredLanguage'] ?? $input['preferred_language'] ?? 'EN')));
+    if (!in_array($preferredLanguage, ['EN', 'BN'], true)) {
+        $preferredLanguage = 'EN';
+    }
+
+    $beforeStmt = $db->prepare("SELECT default_shipping_address, notification_email, notification_sms, preferred_language FROM users WHERE id = ? LIMIT 1");
+    $beforeStmt->execute([(string)$requestAuthUser['id']]);
+    $before = $beforeStmt->fetch() ?: [];
+
+    $updateStmt = $db->prepare("UPDATE users SET default_shipping_address = ?, notification_email = ?, notification_sms = ?, preferred_language = ? WHERE id = ?");
+    $updateStmt->execute([
+        $defaultShippingAddress !== '' ? $defaultShippingAddress : null,
+        $notificationEmail,
+        $notificationSms,
+        $preferredLanguage,
+        (string)$requestAuthUser['id']
+    ]);
+
+    $updatedStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $updatedStmt->execute([(string)$requestAuthUser['id']]);
+    $updatedUser = $updatedStmt->fetch();
+    $safeUser = sanitize_user_payload($updatedUser ?: []);
+    $token = issue_auth_token($safeUser);
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'PREFERENCES_UPDATED', 'Account preferences updated.', (string)$requestAuthUser['id'], $ip);
+    log_audit_event(
+        $db,
+        (string)$requestAuthUser['id'],
+        'PREFERENCES_UPDATED',
+        'USER',
+        (string)$requestAuthUser['id'],
+        [
+            'default_shipping_address' => $before['default_shipping_address'] ?? '',
+            'notification_email' => (int)($before['notification_email'] ?? 1),
+            'notification_sms' => (int)($before['notification_sms'] ?? 0),
+            'preferred_language' => $before['preferred_language'] ?? 'EN'
+        ],
+        [
+            'default_shipping_address' => $safeUser['default_shipping_address'] ?? '',
+            'notification_email' => $safeUser['notification_email'] ?? true,
+            'notification_sms' => $safeUser['notification_sms'] ?? false,
+            'preferred_language' => $safeUser['preferred_language'] ?? 'EN'
+        ],
+        $ip
+    );
+
+    $csrfToken = refresh_csrf_token();
+    echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token, "csrf_token" => $csrfToken]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'create_support_ticket') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    if (is_rate_limited_scoped('create_support_ticket', (string)$requestAuthUser['id'], 5, 900)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $subject = trim((string)($input['subject'] ?? ''));
+    $message = trim((string)($input['message'] ?? ''));
+    if ($subject === '' || $message === '') {
+        echo json_encode(["status" => "error", "message" => "MISSING_FIELDS"]);
+        exit;
+    }
+    if (strlen($subject) < 4 || strlen($subject) > 180 || strlen($message) < 10 || strlen($message) > 2000) {
+        echo json_encode(["status" => "error", "message" => "INVALID_TICKET_CONTENT"]);
+        exit;
+    }
+
+    $userStmt = $db->prepare("SELECT id, email FROM users WHERE id = ? LIMIT 1");
+    $userStmt->execute([(string)$requestAuthUser['id']]);
+    $userRow = $userStmt->fetch();
+    if (!$userRow) {
+        echo json_encode(["status" => "error", "message" => "USER_NOT_FOUND"]);
+        exit;
+    }
+
+    $ticketId = 'tkt_' . bin2hex(random_bytes(6));
+    $insertStmt = $db->prepare("INSERT INTO support_tickets (id, user_id, email, subject, message, status) VALUES (?, ?, ?, ?, ?, 'OPEN')");
+    $insertStmt->execute([
+        $ticketId,
+        (string)$requestAuthUser['id'],
+        strtolower((string)($userRow['email'] ?? '')),
+        $subject,
+        $message
+    ]);
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'SUPPORT_TICKET_CREATED', "Support ticket {$ticketId} created.", (string)$requestAuthUser['id'], $ip);
+    log_audit_event(
+        $db,
+        (string)$requestAuthUser['id'],
+        'SUPPORT_TICKET_CREATED',
+        'SUPPORT_TICKET',
+        $ticketId,
+        null,
+        ['subject' => $subject, 'status' => 'OPEN'],
+        $ip
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "ticket" => [
+            "id" => $ticketId,
+            "subject" => $subject,
+            "status" => "OPEN",
+            "created_at" => date('c')
+        ]
+    ]);
     exit;
 }
 

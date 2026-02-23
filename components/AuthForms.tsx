@@ -99,6 +99,26 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     if (!key) return;
     localStorage.setItem('splaro-admin-key', key);
   };
+  const normalizeApiUser = (raw: any) => ({
+    ...(raw || {}),
+    profileImage: raw?.profile_image || raw?.profileImage || '',
+    createdAt: raw?.created_at || raw?.createdAt || new Date().toISOString(),
+    defaultShippingAddress: raw?.default_shipping_address ?? raw?.defaultShippingAddress ?? '',
+    notificationEmail: typeof raw?.notification_email === 'boolean'
+      ? raw.notification_email
+      : (typeof raw?.notificationEmail === 'boolean' ? raw.notificationEmail : (Number(raw?.notification_email ?? 1) === 1)),
+    notificationSms: typeof raw?.notification_sms === 'boolean'
+      ? raw.notification_sms
+      : (typeof raw?.notificationSms === 'boolean' ? raw.notificationSms : (Number(raw?.notification_sms ?? 0) === 1)),
+    preferredLanguage: raw?.preferred_language || raw?.preferredLanguage || 'EN',
+    twoFactorEnabled: typeof raw?.two_factor_enabled === 'boolean'
+      ? raw.two_factor_enabled
+      : (typeof raw?.twoFactorEnabled === 'boolean' ? raw.twoFactorEnabled : (Number(raw?.two_factor_enabled ?? 0) === 1)),
+    lastPasswordChangeAt: raw?.last_password_change_at || raw?.lastPasswordChangeAt || undefined,
+    forceRelogin: typeof raw?.force_relogin === 'boolean'
+      ? raw.force_relogin
+      : (typeof raw?.forceRelogin === 'boolean' ? raw.forceRelogin : (Number(raw?.force_relogin ?? 0) === 1))
+  });
 
   const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   const isPhone = (val: string) => /^(01)[3-9]\d{8}$/.test(val);
@@ -148,11 +168,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           });
           const result = await res.json();
           if (result.status === 'success') {
-            const normalizedUser = {
-              ...result.user,
-              profileImage: result.user?.profile_image || result.user?.profileImage || '',
-              createdAt: result.user?.created_at || result.user?.createdAt || new Date().toISOString()
-            };
+            const normalizedUser = normalizeApiUser(result.user);
             persistAuthToken(result.token);
             if (normalizedUser.role === 'ADMIN' && location.pathname === '/sourove-admin') {
               persistAdminKey(formData.password);
@@ -238,11 +254,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (result.status !== 'success') throw new Error(result.message || 'SIGNUP_FAILED');
           persistAuthToken(result.token);
           if (result.user) {
-            userToStore = {
-              ...result.user,
-              profileImage: result.user.profile_image || result.user.profileImage || '',
-              createdAt: result.user.created_at || result.user.createdAt || new Date().toISOString()
-            };
+            userToStore = normalizeApiUser(result.user);
           }
         }
 
@@ -409,11 +421,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         if (result.status !== 'success') throw new Error(result.message || 'GOOGLE_SIGNUP_FAILED');
         persistAuthToken(result.token);
         if (result.user) {
-          userToStore = {
-            ...result.user,
-            profileImage: result.user.profile_image || result.user.profileImage || '',
-            createdAt: result.user.created_at || result.user.createdAt || new Date().toISOString()
-          };
+          userToStore = normalizeApiUser(result.user);
         }
       }
 
