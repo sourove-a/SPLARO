@@ -53,6 +53,23 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       .join(' ');
   };
 
+  const generatePublicUserId = () => {
+    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const getRandomHex = (len: number) => {
+      if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        const bytes = new Uint8Array(Math.ceil(len / 2));
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes)
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('')
+          .slice(0, len)
+          .toUpperCase();
+      }
+      return Math.random().toString(16).slice(2).padEnd(len, '0').slice(0, len).toUpperCase();
+    };
+    return `USR-${datePart}-${getRandomHex(10)}`;
+  };
+
   useEffect(() => {
     if (forcedMode && authMode !== forcedMode) {
       setErrors({});
@@ -242,7 +259,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       try {
         const normalizedEmail = formData.email.trim().toLowerCase();
         const newUser: any = {
-          id: `usr_${Math.random().toString(36).substr(2, 9)}`,
+          id: generatePublicUserId(),
           name: formData.signupName.trim() || buildDisplayNameFromEmail(normalizedEmail),
           email: normalizedEmail,
           phone: formData.signupPhone.trim(),
@@ -282,7 +299,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
         if (canFallbackToLocal) {
           const fallbackUser = {
-            id: `usr_${Math.random().toString(36).substr(2, 9)}`,
+            id: generatePublicUserId(),
             name: formData.signupName.trim() || buildDisplayNameFromEmail(formData.email.trim().toLowerCase()),
             email: formData.email.trim().toLowerCase(),
             phone: formData.signupPhone.trim(),

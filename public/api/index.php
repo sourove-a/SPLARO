@@ -2203,6 +2203,16 @@ function is_strong_password($password) {
     return true;
 }
 
+function generate_public_user_id() {
+    $datePart = gmdate('Ymd');
+    try {
+        $randomPart = strtoupper(substr(bin2hex(random_bytes(5)), 0, 10));
+    } catch (Exception $e) {
+        $randomPart = strtoupper(substr(sha1(uniqid((string)mt_rand(), true)), 0, 10));
+    }
+    return "USR-{$datePart}-{$randomPart}";
+}
+
 function resolve_session_id() {
     $headerSessionId = trim((string)get_header_value('X-Session-Id'));
     if ($headerSessionId !== '') {
@@ -3726,7 +3736,7 @@ if ($method === 'POST' && $action === 'signup') {
 
     $id = trim((string)($input['id'] ?? ''));
     if ($id === '') {
-        $id = uniqid('usr_', true);
+        $id = generate_public_user_id();
     }
 
     $usersHasDefaultShipping = column_exists($db, 'users', 'default_shipping_address');
