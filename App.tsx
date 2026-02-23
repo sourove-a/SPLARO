@@ -262,10 +262,10 @@ const HomeView = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
           <div className="max-w-3xl">
             <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
-              LUXURY<br /><span className="text-cyan-500">IN MOTION.</span>
+              MODERN<br /><span className="text-cyan-500">LUXURY FLOW.</span>
             </h2>
-            <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium capitalize">
-              Premium footwear and bags with clean lines, strong character, and elevated finish.
+            <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium">
+              Imported footwear and bags with sharp lines, bold character, and a refined finish.
             </p>
           </div>
           <button
@@ -276,7 +276,7 @@ const HomeView = () => {
             }}
             className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-cyan-500 transition-all duration-700"
           >
-            Enter the Shop <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
+            Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">

@@ -88,7 +88,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
                 className="w-full h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-cyan-400/20 hover:text-white transition-all duration-500"
               >
-                <Eye className="w-4 h-4" /> Quick Insight
+                <Eye className="w-4 h-4" /> View Details
               </motion.button>
 
               <div className="grid grid-cols-2 gap-3 w-full">
@@ -196,8 +196,8 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     }`}
                   >
                     {urgency.outOfStock
-                      ? 'Out of stock'
-                      : `Low stock: ${urgency.knownStock ?? ''} left`}
+                      ? 'Currently unavailable'
+                      : `Limited stock: ${urgency.knownStock ?? ''} left`}
                   </span>
                 )}
                 {!urgency.outOfStock && urgency.trustLabel && (
@@ -217,12 +217,12 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
           <div className="h-[1px] flex-1 bg-white" />
           <div className="flex items-center gap-2">
             <Globe className="w-3 h-3" />
-            <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">Direct Import</span>
+            <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">Curated Import</span>
           </div>
           <div className="w-1 h-1 rounded-full bg-cyan-500" />
           <div className="flex items-center gap-2">
             <Clock className="w-3 h-3 text-cyan-500" />
-            <span className="text-[7px] font-black text-cyan-500 uppercase tracking-[0.4em]">ETA: 7-10 DAYS</span>
+            <span className="text-[7px] font-black text-cyan-500 uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
           </div>
         </div>
       </div>
