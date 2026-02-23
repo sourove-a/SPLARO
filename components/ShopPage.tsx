@@ -125,6 +125,62 @@ const decodeManualBreaks = (value: string) => {
     .replace(/\r\n/g, '\n');
 };
 
+const WORD_SUFFIX_FRAGMENTS = new Set([
+  'ar',
+  'ed',
+  'er',
+  'es',
+  'ing',
+  'ion',
+  'ity',
+  'ive',
+  'ment',
+  'ness',
+  's',
+  'tion',
+  'sion'
+]);
+
+const repairSplitWords = (value: string): string => {
+  const tokens = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (tokens.length <= 1) {
+    return tokens.join(' ');
+  }
+
+  const repaired: string[] = [];
+
+  tokens.forEach((token) => {
+    const plainToken = token.replace(/[^a-z]/gi, '');
+    if (!repaired.length || !plainToken) {
+      repaired.push(token);
+      return;
+    }
+
+    const previous = repaired[repaired.length - 1];
+    const previousPlain = previous.replace(/[^a-z]/gi, '');
+    const lower = plainToken.toLowerCase();
+
+    const looksLikeSplitFragment =
+      /^[a-z]+$/i.test(plainToken) &&
+      /^[a-z]+$/i.test(previousPlain) &&
+      previousPlain.length >= 4 &&
+      (plainToken.length <= 2 || WORD_SUFFIX_FRAGMENTS.has(lower));
+
+    if (looksLikeSplitFragment) {
+      repaired[repaired.length - 1] = `${previous}${token}`;
+      return;
+    }
+
+    repaired.push(token);
+  });
+
+  return repaired.join(' ');
+};
+
 const balanceHeadlineLines = (title: string, maxLines: number): string[] => {
   const clean = title.trim().replace(/\s+/g, ' ');
   if (!clean) return [];
@@ -202,17 +258,26 @@ export const ShopPage: React.FC = () => {
       ...cmsGlobalOverride,
       ...cmsCategoryOverride
     } as any;
-    const heroTitle = String(merged.heroTitle || defaultTitle).trim() || defaultTitle;
+    const heroTitle = repairSplitWords(String(merged.heroTitle || defaultTitle).trim()) || defaultTitle;
     const heroTitleMode = merged.heroTitleMode === 'MANUAL' ? 'MANUAL' : 'AUTO';
     const heroMaxLines = Math.min(4, Math.max(1, Number(merged.heroMaxLines || 2)));
     const manualLinesRaw = decodeManualBreaks(String(merged.heroTitleManualBreaks || heroTitle));
     const manualLines = manualLinesRaw
       .split('\n')
-      .map((line) => line.trim())
+      .map((line) => repairSplitWords(line.trim()))
       .filter(Boolean)
       .slice(0, heroMaxLines);
+    const manualSingleTokenTooShort = manualLines.some((line) => {
+      const tokens = line.split(/\s+/).filter(Boolean);
+      return tokens.length === 1 && tokens[0].length <= 3;
+    });
+    const normalizedManual = manualLines.join(' ');
+    const repairedManual = repairSplitWords(normalizedManual);
+    const manualHasBrokenSplit = normalizedManual !== repairedManual;
     const autoLines = balanceHeadlineLines(heroTitle, heroMaxLines);
-    const titleLines = heroTitleMode === 'MANUAL' && manualLines.length > 0 ? manualLines : autoLines;
+    const titleLines = heroTitleMode === 'MANUAL' && manualLines.length > 0 && !manualSingleTokenTooShort && !manualHasBrokenSplit
+      ? manualLines
+      : autoLines;
 
     return {
       ...merged,
@@ -398,7 +463,7 @@ export const ShopPage: React.FC = () => {
               <span className="text-[10px] font-black uppercase tracking-[0.4em]">{resolvedHero.heroBadge}</span>
             </motion.div>
             <h1
-              className={`hero-headline font-black uppercase italic mb-4 sm:mb-6 ${resolvedHero.autoBalance ? '' : 'text-wrap-pretty'}`}
+              className={`hero-headline font-black uppercase italic mb-4 sm:mb-6 break-normal whitespace-normal ${resolvedHero.autoBalance ? '' : 'text-wrap-pretty'}`}
               style={{ textWrap: resolvedHero.autoBalance ? 'balance' : 'pretty' } as React.CSSProperties}
               data-align={resolvedHero.heroAlignment.toLowerCase()}
             >
