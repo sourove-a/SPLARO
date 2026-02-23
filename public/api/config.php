@@ -12,10 +12,16 @@ function bootstrap_env_files() {
         $cleanDocRoot = rtrim($docRoot, '/\\');
         $candidates[] = $cleanDocRoot . '/.env.local';
         $candidates[] = $cleanDocRoot . '/.env';
+        $candidates[] = $cleanDocRoot . '/.builds/config/.env.local';
+        $candidates[] = $cleanDocRoot . '/.builds/config/.env';
         $candidates[] = $cleanDocRoot . '/api/.env.local';
         $candidates[] = $cleanDocRoot . '/api/.env';
+        $candidates[] = $cleanDocRoot . '/api/.builds/config/.env.local';
+        $candidates[] = $cleanDocRoot . '/api/.builds/config/.env';
         $candidates[] = dirname($cleanDocRoot) . '/.env.local';
         $candidates[] = dirname($cleanDocRoot) . '/.env';
+        $candidates[] = dirname($cleanDocRoot) . '/.builds/config/.env.local';
+        $candidates[] = dirname($cleanDocRoot) . '/.builds/config/.env';
     }
 
     $candidates = array_merge($candidates, [
