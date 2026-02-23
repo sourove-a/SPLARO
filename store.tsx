@@ -337,7 +337,9 @@ const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   containerWidth: 'XL',
   spacingScale: 'COMFORTABLE',
   reduceGlow: false,
-  premiumMinimalMode: false
+  premiumMinimalMode: false,
+  enableUrgencyUI: true,
+  lowStockThreshold: 5
 };
 
 const DEFAULT_HERO_SETTINGS: HeroSettings = {
@@ -486,6 +488,7 @@ const normalizeThemeSettings = (raw: any): ThemeSettings => {
   const parsedHeadingScale = Number(typography.headingScale ?? base.typography.headingScale);
   const parsedBorderRadius = Number(input.borderRadius ?? base.borderRadius);
   const parsedShadowIntensity = Number(input.shadowIntensity ?? base.shadowIntensity);
+  const parsedLowStockThreshold = Number(input.lowStockThreshold ?? input.low_stock_threshold ?? base.lowStockThreshold);
 
   return {
     ...base,
@@ -515,7 +518,13 @@ const normalizeThemeSettings = (raw: any): ThemeSettings => {
       ? input.spacingScale
       : base.spacingScale,
     reduceGlow: Boolean(input.reduceGlow),
-    premiumMinimalMode: Boolean(input.premiumMinimalMode)
+    premiumMinimalMode: Boolean(input.premiumMinimalMode),
+    enableUrgencyUI: input.enableUrgencyUI === undefined
+      ? Boolean(base.enableUrgencyUI)
+      : Boolean(input.enableUrgencyUI),
+    lowStockThreshold: Number.isFinite(parsedLowStockThreshold)
+      ? Math.min(50, Math.max(0, Math.round(parsedLowStockThreshold)))
+      : base.lowStockThreshold
   };
 };
 
@@ -946,7 +955,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return;
         }
 
-        if (result.data.products?.length > 0) setProducts(result.data.products);
+        if (result.data.products?.length > 0) {
+          const mappedProducts = result.data.products.map((p: any) => {
+            const rawStock = Number(p?.stock);
+            const rawLowStockThreshold = Number(p?.lowStockThreshold ?? p?.low_stock_threshold);
+            return {
+              ...p,
+              stock: Number.isFinite(rawStock) ? Math.max(0, Math.floor(rawStock)) : undefined,
+              lowStockThreshold: Number.isFinite(rawLowStockThreshold) ? Math.max(0, Math.floor(rawLowStockThreshold)) : undefined
+            };
+          });
+          setProducts(mappedProducts);
+        }
         if (result.data.logs?.length > 0) setLogs(result.data.logs);
         if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
         if (Array.isArray(result.data.orders)) {

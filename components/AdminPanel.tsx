@@ -126,6 +126,7 @@ const ProductModal: React.FC<{
     featured: false,
     sku: `SP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
     stock: 50,
+    lowStockThreshold: undefined,
     weight: '0.8kg',
     dimensions: { l: '32cm', w: '20cm', h: '12cm' },
     variations: []
@@ -295,6 +296,17 @@ const ProductModal: React.FC<{
                   <LuxuryFloatingInput label="Discount %" type="number" value={formData.discountPercentage?.toString() || ''} onChange={v => setFormData({ ...formData, discountPercentage: Number(v) })} placeholder="0" icon={<Tag className="w-5 h-5" />} />
                 </div>
                 <LuxuryFloatingInput label="Total Archive Stock" type="number" value={formData.stock?.toString() || ''} onChange={v => setFormData({ ...formData, stock: Number(v) })} placeholder="50" icon={<Layers className="w-5 h-5" />} />
+                <LuxuryFloatingInput
+                  label="Low Stock Threshold (Optional)"
+                  type="number"
+                  value={formData.lowStockThreshold?.toString() || ''}
+                  onChange={v => setFormData({
+                    ...formData,
+                    lowStockThreshold: String(v).trim() === '' ? undefined : Math.max(0, Number(v))
+                  })}
+                  placeholder="Leave empty to use global setting"
+                  icon={<AlertTriangle className="w-5 h-5" />}
+                />
               </div>
 
               <div className="space-y-6">
@@ -601,6 +613,7 @@ export const AdminPanel = () => {
 
   const validateCmsDraft = () => {
     const hero = siteSettings.cmsDraft.heroSettings;
+    const theme = siteSettings.cmsDraft.themeSettings;
     if ((hero.heroTitle || '').trim().length > 120) {
       showToast('Hero title max length is 120 characters.', 'error');
       return false;
@@ -617,6 +630,10 @@ export const AdminPanel = () => {
     const overrideUrls = Object.values(siteSettings.cmsDraft.categoryHeroOverrides || {}).map((o: any) => String(o?.heroCtaUrl || ''));
     if (overrideUrls.some((url) => !isValidUrl(url))) {
       showToast('Category CTA URL must start with / or http(s).', 'error');
+      return false;
+    }
+    if (!Number.isFinite(Number(theme.lowStockThreshold)) || Number(theme.lowStockThreshold) < 0 || Number(theme.lowStockThreshold) > 50) {
+      showToast('Low stock threshold must be between 0 and 50.', 'error');
       return false;
     }
     return true;
@@ -1328,9 +1345,9 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-8 text-center">
                             <div className="w-fit mx-auto px-6 py-3 rounded-2xl liquid-glass border border-white/5">
-                              <p className="text-[10px] font-black text-white">{p.stock || 50}</p>
+                              <p className="text-[10px] font-black text-white">{p.stock ?? 50}</p>
                               <div className="w-12 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
-                                <div className={`h-full ${(p.stock || 50) < 10 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, (p.stock || 50) * 2)}%` }} />
+                                <div className={`h-full ${(p.stock ?? 50) < 10 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, (p.stock ?? 50) * 2)}%` }} />
                               </div>
                             </div>
                           </td>
@@ -1999,6 +2016,29 @@ export const AdminPanel = () => {
                       />
                       Premium minimal mode
                     </label>
+                    <label className="flex items-center gap-3 text-xs text-zinc-300 col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(siteSettings.cmsDraft.themeSettings.enableUrgencyUI)}
+                        onChange={(e) => updateThemeSettingsField('enableUrgencyUI', e.target.checked)}
+                      />
+                      Enable stock urgency labels
+                    </label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Low Stock Threshold</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={50}
+                      value={siteSettings.cmsDraft.themeSettings.lowStockThreshold}
+                      onChange={(e) => updateThemeSettingsField('lowStockThreshold', Number(e.target.value))}
+                      className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                    />
+                    <p className="text-[10px] text-zinc-500">
+                      Show “Low stock” only when stock is known and at or below this value.
+                    </p>
                   </div>
                 </GlassCard>
 

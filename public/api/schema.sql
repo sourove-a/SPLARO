@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `featured` tinyint(1) DEFAULT 0,
   `sku` varchar(100) DEFAULT NULL,
   `stock` int(11) DEFAULT 50,
+  `low_stock_threshold` int(11) DEFAULT NULL,
   `weight` varchar(50) DEFAULT NULL,
   `dimensions` longtext DEFAULT NULL,
   `variations` longtext DEFAULT NULL,

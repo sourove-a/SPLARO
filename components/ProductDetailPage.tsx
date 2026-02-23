@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, ChevronLeft, Minus, Plus, Heart, Share2, HelpCircle, Eye, Truck, RotateCcw, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { useApp } from '../store';
 import { View } from '../types';
 import { useEffect } from 'react';
 import { GlassCard } from './LiquidGlass';
+import { resolveProductUrgencyState } from '../lib/urgency';
 
 const Accordion = ({ title, children }: { title: string; children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,7 +39,7 @@ const Accordion = ({ title, children }: { title: string; children: React.ReactNo
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams();
-  const { products, selectedProduct: initialSelected, addToCart, language, setSelectedProduct } = useApp();
+  const { products, selectedProduct: initialSelected, addToCart, language, setSelectedProduct, siteSettings } = useApp();
   const navigate = useNavigate();
 
   const product = products.find(p => p.id === id) || initialSelected;
@@ -47,6 +48,21 @@ export const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || 'Free Size');
   const [activeImg, setActiveImg] = useState(product?.image || '');
+  const urgency = useMemo(
+    () =>
+      product
+        ? resolveProductUrgencyState(product, siteSettings)
+        : {
+            knownStock: null,
+            outOfStock: false,
+            lowStock: false,
+            showUrgency: false,
+            threshold: 5,
+            urgencyLabel: 'Limited availability',
+            trustLabel: null
+          },
+    [product, siteSettings]
+  );
 
   useEffect(() => {
     if (product && product.id !== initialSelected?.id) {
@@ -57,6 +73,16 @@ export const ProductDetailPage: React.FC = () => {
       setSelectedSize(product.sizes?.[0] || 'Free Size');
     }
   }, [product, initialSelected, setSelectedProduct]);
+
+  useEffect(() => {
+    if (!product) return;
+    if (urgency.knownStock === null) return;
+    if (urgency.outOfStock) {
+      setQuantity(1);
+      return;
+    }
+    setQuantity((prev) => Math.max(1, Math.min(prev, urgency.knownStock || 1)));
+  }, [product, urgency.knownStock, urgency.outOfStock]);
 
   if (!product) return (
     <div className="pt-40 text-center">
@@ -155,8 +181,19 @@ export const ProductDetailPage: React.FC = () => {
                   </button>
                   <span className="flex-1 text-center font-black text-xl tracking-wide text-white">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-11 h-11 rounded-xl border border-white/10 text-white/85 hover:border-cyan-400/40 hover:text-cyan-300 transition-all flex items-center justify-center"
+                    onClick={() =>
+                      setQuantity((prev) => {
+                        if (urgency.outOfStock) return 1;
+                        if (urgency.knownStock !== null) return Math.min(prev + 1, Math.max(1, urgency.knownStock));
+                        return prev + 1;
+                      })
+                    }
+                    className={`w-11 h-11 rounded-xl border border-white/10 transition-all flex items-center justify-center ${
+                      urgency.outOfStock
+                        ? 'opacity-40 cursor-not-allowed text-white/40'
+                        : 'text-white/85 hover:border-cyan-400/40 hover:text-cyan-300'
+                    }`}
+                    disabled={urgency.outOfStock}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -165,19 +202,28 @@ export const ProductDetailPage: React.FC = () => {
 
               <div className="space-y-3 pt-1">
                 <button
-                  onClick={() => addToCart({
-                    product: product,
-                    quantity,
-                    selectedSize: selectedSize || sizeOptions[0],
-                    selectedColor: (product.colors?.[0] || 'Original')
-                  })}
-                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-400 text-black font-black text-[11px] tracking-[0.22em] uppercase transition-all hover:brightness-110 shadow-[0_12px_30px_rgba(56,189,248,0.35)]"
+                  onClick={() => {
+                    if (urgency.outOfStock) return;
+                    addToCart({
+                      product: product,
+                      quantity,
+                      selectedSize: selectedSize || sizeOptions[0],
+                      selectedColor: (product.colors?.[0] || 'Original')
+                    });
+                  }}
+                  disabled={urgency.outOfStock}
+                  className={`w-full h-14 rounded-2xl font-black text-[11px] tracking-[0.22em] uppercase transition-all ${
+                    urgency.outOfStock
+                      ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed border border-white/10'
+                      : 'bg-gradient-to-r from-cyan-500 to-sky-400 text-black hover:brightness-110 shadow-[0_12px_30px_rgba(56,189,248,0.35)]'
+                  }`}
                 >
-                  Add To Cart
+                  {urgency.outOfStock ? 'Out Of Stock' : 'Add To Cart'}
                 </button>
 
                 <button
                   onClick={() => {
+                    if (urgency.outOfStock) return;
                     addToCart({
                       product: product,
                       quantity,
@@ -186,7 +232,12 @@ export const ProductDetailPage: React.FC = () => {
                     });
                     navigate('/checkout');
                   }}
-                  className="w-full h-14 rounded-2xl bg-white text-black font-black text-[11px] tracking-[0.3em] uppercase hover:bg-cyan-100 transition-all shadow-[0_18px_36px_rgba(0,0,0,0.28)]"
+                  disabled={urgency.outOfStock}
+                  className={`w-full h-14 rounded-2xl font-black text-[11px] tracking-[0.3em] uppercase transition-all ${
+                    urgency.outOfStock
+                      ? 'bg-zinc-900 text-zinc-500 border border-white/10 cursor-not-allowed'
+                      : 'bg-white text-black hover:bg-cyan-100 shadow-[0_18px_36px_rgba(0,0,0,0.28)]'
+                  }`}
                 >
                   Buy It Now
                 </button>
@@ -195,19 +246,33 @@ export const ProductDetailPage: React.FC = () => {
 
 
             {/* Urgency Section */}
-            <div className="space-y-3 pt-6">
-              <p className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">HURRY! ONLY <span className="text-cyan-500">16 LEFT</span> IN STOCK.</p>
-              <div className="h-2 w-full bg-zinc-800/50 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '40%' }}
-                  className="h-full bg-zinc-400"
-                />
+            {(urgency.outOfStock || urgency.showUrgency || urgency.trustLabel) && (
+              <div className="space-y-3 pt-6">
+                {(urgency.outOfStock || urgency.showUrgency) && (
+                  <>
+                    <p className={`text-[11px] font-black tracking-[0.15em] uppercase ${
+                      urgency.outOfStock ? 'text-rose-400' : 'text-zinc-300'
+                    }`}>
+                      {urgency.outOfStock ? 'Out of stock' : urgency.urgencyLabel}
+                    </p>
+                    {urgency.showUrgency && urgency.knownStock !== null && urgency.threshold > 0 && (
+                      <div className="h-2 w-full bg-zinc-800/60 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.max(8, Math.min(100, (urgency.knownStock / Math.max(urgency.threshold, 1)) * 100))}%` }}
+                          className="h-full bg-cyan-500/70"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+                {urgency.trustLabel && !urgency.outOfStock && (
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/15 bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.16em] text-white/80">
+                    {urgency.trustLabel}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
-                <Eye className="w-4 h-4" /> 27 People viewing this right now
-              </div>
-            </div>
+            )}
 
             {/* Payment Logos */}
             <div className="py-6 flex flex-wrap gap-6 items-center opacity-70 border-b border-white/5">

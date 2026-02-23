@@ -58,6 +58,7 @@ try {
         "ALTER TABLE `products` ADD COLUMN `featured` tinyint(1) DEFAULT 0",
         "ALTER TABLE `products` ADD COLUMN `sku` varchar(100) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `stock` int(11) DEFAULT 50",
+        "ALTER TABLE `products` ADD COLUMN `low_stock_threshold` int(11) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `weight` varchar(50) DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `dimensions` longtext DEFAULT NULL",
         "ALTER TABLE `products` ADD COLUMN `variations` longtext DEFAULT NULL",

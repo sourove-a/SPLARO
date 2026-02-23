@@ -1,16 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'framer-motion';
 import { Heart, ArrowRight, Eye, ShoppingBag, Globe, Clock } from 'lucide-react';
 import { Product, View } from '../types';
 import { useApp } from '../store';
 import { useNavigate } from 'react-router-dom';
+import { resolveProductUrgencyState } from '../lib/urgency';
 
 export const ProductCard: React.FC<{ product: Product; index?: number; language?: string }> = ({ product, index = 0, language = 'EN' }) => {
 
-  const { setSelectedProduct, addToCart } = useApp();
+  const { setSelectedProduct, addToCart, siteSettings } = useApp();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = useRef(null);
+  const urgency = useMemo(() => resolveProductUrgencyState(product, siteSettings), [product, siteSettings]);
 
   // Parallax Scroll Logic
   const { scrollYProgress } = useScroll({
@@ -95,9 +97,15 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   transition={{ delay: 0.05 }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (urgency.outOfStock) return;
                     addToCart({ product, quantity: 1, selectedSize: product.sizes[0], selectedColor: product.colors[0] });
                   }}
-                  className="h-14 bg-blue-600 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl hover:bg-blue-500 transition-all duration-500"
+                  disabled={urgency.outOfStock}
+                  className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${
+                    urgency.outOfStock
+                      ? 'bg-zinc-900 border border-white/10 text-zinc-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white shadow-xl hover:bg-blue-500'
+                  }`}
                 >
                   <ShoppingBag className="w-4 h-4" />
                 </motion.button>
@@ -109,10 +117,16 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   transition={{ delay: 0.1 }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (urgency.outOfStock) return;
                     addToCart({ product, quantity: 1, selectedSize: product.sizes[0], selectedColor: product.colors[0] });
                     navigate('/checkout');
                   }}
-                  className="h-14 bg-white text-black rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] shadow-xl hover:bg-cyan-400 transition-all duration-500"
+                  disabled={urgency.outOfStock}
+                  className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
+                    urgency.outOfStock
+                      ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
+                      : 'bg-white text-black shadow-xl hover:bg-cyan-400'
+                  }`}
                 >
                   Buy Now
                 </motion.button>
@@ -136,6 +150,28 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             <h3 className="text-xl md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">
               {product.name}
             </h3>
+            {(urgency.outOfStock || urgency.showUrgency || urgency.trustLabel) && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {(urgency.outOfStock || urgency.showUrgency) && (
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.14em] ${
+                      urgency.outOfStock
+                        ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                        : 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300'
+                    }`}
+                  >
+                    {urgency.outOfStock
+                      ? 'Out of stock'
+                      : `Low stock: ${urgency.knownStock ?? ''} left`}
+                  </span>
+                )}
+                {!urgency.outOfStock && urgency.trustLabel && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75">
+                    {urgency.trustLabel}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="text-right">
             <p className="text-xl font-black text-white group-hover:text-cyan-400 transition-colors">৳{product.price.toLocaleString()}</p>

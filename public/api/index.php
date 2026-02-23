@@ -256,6 +256,7 @@ function ensure_core_schema($db) {
       `featured` tinyint(1) DEFAULT 0,
       `sku` varchar(100) DEFAULT NULL,
       `stock` int(11) DEFAULT 50,
+      `low_stock_threshold` int(11) DEFAULT NULL,
       `weight` varchar(50) DEFAULT NULL,
       `dimensions` longtext DEFAULT NULL,
       `variations` longtext DEFAULT NULL,
@@ -401,6 +402,7 @@ function ensure_core_schema($db) {
     ensure_column($db, 'products', 'featured', 'tinyint(1) DEFAULT 0');
     ensure_column($db, 'products', 'sku', 'varchar(100) DEFAULT NULL');
     ensure_column($db, 'products', 'stock', 'int(11) DEFAULT 50');
+    ensure_column($db, 'products', 'low_stock_threshold', 'int(11) DEFAULT NULL');
     ensure_column($db, 'products', 'weight', 'varchar(50) DEFAULT NULL');
     ensure_column($db, 'products', 'dimensions', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'variations', 'longtext DEFAULT NULL');
@@ -1045,7 +1047,9 @@ function cms_default_theme_settings() {
         'containerWidth' => 'XL',
         'spacingScale' => 'COMFORTABLE',
         'reduceGlow' => false,
-        'premiumMinimalMode' => false
+        'premiumMinimalMode' => false,
+        'enableUrgencyUI' => true,
+        'lowStockThreshold' => 5
     ];
 }
 
@@ -1139,7 +1143,11 @@ function cms_normalize_theme_settings($raw) {
             ? (string)$input['spacingScale']
             : $base['spacingScale'],
         'reduceGlow' => (bool)($input['reduceGlow'] ?? false),
-        'premiumMinimalMode' => (bool)($input['premiumMinimalMode'] ?? false)
+        'premiumMinimalMode' => (bool)($input['premiumMinimalMode'] ?? false),
+        'enableUrgencyUI' => isset($input['enableUrgencyUI'])
+            ? (bool)$input['enableUrgencyUI']
+            : (bool)($base['enableUrgencyUI'] ?? true),
+        'lowStockThreshold' => max(0, min(50, (int)($input['lowStockThreshold'] ?? $input['low_stock_threshold'] ?? $base['lowStockThreshold'] ?? 5)))
     ];
 }
 
@@ -1905,7 +1913,7 @@ if ($method === 'GET' && $action === 'sync') {
     $products = [];
     if (!$isAdmin && $method === 'GET' && $action === 'sync') {
         // Light sync for regular users: just active products with essential fields
-        $products = $db->query("SELECT id, name, brand, price, image, category, type, featured, stock, discount_percentage FROM products LIMIT 100")->fetchAll();
+        $products = $db->query("SELECT id, name, brand, price, image, category, type, featured, stock, low_stock_threshold, discount_percentage FROM products LIMIT 100")->fetchAll();
     } else {
         $products = $db->query("SELECT * FROM products")->fetchAll();
     }
@@ -1923,6 +1931,9 @@ if ($method === 'GET' && $action === 'sync') {
         if (isset($p['discount_percentage'])) $p['discountPercentage'] = $p['discount_percentage'];
         if (isset($p['featured'])) $p['featured'] = $p['featured'] == 1;
         if (isset($p['stock'])) $p['stock'] = (int)$p['stock'];
+        if (array_key_exists('low_stock_threshold', $p) && $p['low_stock_threshold'] !== null && $p['low_stock_threshold'] !== '') {
+            $p['lowStockThreshold'] = (int)$p['low_stock_threshold'];
+        }
         
         if (isset($p['price'])) {
             $rawPrice = (string)$p['price'];
@@ -2315,8 +2326,8 @@ if ($method === 'POST' && $action === 'sync_products') {
         }
 
         $upsert = $db->prepare("INSERT INTO products 
-            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, name, brand, price, image, category, type, description, sizes, colors, materials, tags, featured, sku, stock, low_stock_threshold, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, sub_category) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
                 brand = VALUES(brand),
@@ -2332,6 +2343,7 @@ if ($method === 'POST' && $action === 'sync_products') {
                 featured = VALUES(featured),
                 sku = VALUES(sku),
                 stock = VALUES(stock),
+                low_stock_threshold = VALUES(low_stock_threshold),
                 weight = VALUES(weight),
                 dimensions = VALUES(dimensions),
                 variations = VALUES(variations),
@@ -2363,6 +2375,7 @@ if ($method === 'POST' && $action === 'sync_products') {
                 ($p['featured'] ?? false) ? 1 : 0,
                 $p['sku'] ?? null,
                 $p['stock'] ?? 50,
+                isset($p['lowStockThreshold']) && $p['lowStockThreshold'] !== '' ? max(0, (int)$p['lowStockThreshold']) : (isset($p['low_stock_threshold']) && $p['low_stock_threshold'] !== '' ? max(0, (int)$p['low_stock_threshold']) : null),
                 $p['weight'] ?? null,
                 json_encode($p['dimensions'] ?? []),
                 json_encode($p['variations'] ?? []),

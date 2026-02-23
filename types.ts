@@ -40,6 +40,7 @@ export interface Product {
   weight?: string;
   dimensions?: { l: string; w: string; h: string };
   stock?: number;
+  lowStockThreshold?: number;
   discountPercentage?: number;
   sizeChartImage?: string;
   additionalImages?: string[];
@@ -131,6 +132,8 @@ export interface ThemeSettings {
   spacingScale: 'COMPACT' | 'COMFORTABLE' | 'RELAXED';
   reduceGlow: boolean;
   premiumMinimalMode: boolean;
+  enableUrgencyUI: boolean;
+  lowStockThreshold: number;
 }
 
 export interface HeroSettings {
