@@ -1,0 +1,31 @@
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="starFill" x1="74" y1="60" x2="262" y2="268" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#94F0FF"/>
+      <stop offset="45%" stop-color="#47B9FF"/>
+      <stop offset="100%" stop-color="#665EFF"/>
+    </linearGradient>
+    <linearGradient id="starStroke" x1="42" y1="36" x2="282" y2="286" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FBFEFF"/>
+      <stop offset="55%" stop-color="#9BE9FF"/>
+      <stop offset="100%" stop-color="#C1A3FF"/>
+    </linearGradient>
+    <radialGradient id="starLight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(126 102) rotate(40) scale(124 106)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="starGlow" x="24" y="24" width="272" height="272" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g filter="url(#starGlow)">
+    <path d="M160 46L191.8 110.7L263.3 121.1L211.6 171.5L223.8 242.7L160 209.2L96.2 242.7L108.4 171.5L56.7 121.1L128.2 110.7L160 46Z" fill="url(#starFill)"/>
+    <path d="M160 46L191.8 110.7L263.3 121.1L211.6 171.5L223.8 242.7L160 209.2L96.2 242.7L108.4 171.5L56.7 121.1L128.2 110.7L160 46Z" fill="url(#starLight)"/>
+    <path d="M160 46L191.8 110.7L263.3 121.1L211.6 171.5L223.8 242.7L160 209.2L96.2 242.7L108.4 171.5L56.7 121.1L128.2 110.7L160 46Z" stroke="url(#starStroke)" stroke-width="12"/>
+  </g>
+</svg>

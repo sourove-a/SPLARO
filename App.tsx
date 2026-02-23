@@ -258,31 +258,57 @@ const HomeView = () => {
   return (
     <div className="relative">
       <HeroSlider />
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
-          <div className="max-w-3xl">
-            <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
-              MODERN<br /><span className="text-cyan-500">LUXURY FLOW.</span>
-            </h2>
-            <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium">
-              Imported footwear and bags with sharp lines, bold character, and a refined finish.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setSelectedCategory(null);
-              setSearchQuery('');
-              navigate('/shop');
-            }}
-            className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-cyan-500 transition-all duration-700"
-          >
-            Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
-          </button>
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40 relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+          <motion.img
+            src="/ornaments/liquid-orb.svg"
+            alt=""
+            animate={{ y: [0, -10, 0], rotate: [-2, 3, -2] }}
+            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+            className="hidden md:block absolute -top-6 right-[7%] w-20 lg:w-28 opacity-30 mix-blend-screen"
+          />
+          <motion.img
+            src="/ornaments/liquid-star.svg"
+            alt=""
+            animate={{ y: [0, 12, 0], rotate: [0, -6, 0] }}
+            transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+            className="hidden lg:block absolute top-[24%] -left-8 w-24 opacity-18 mix-blend-screen"
+          />
+          <motion.img
+            src="/ornaments/liquid-infinity.svg"
+            alt=""
+            animate={{ y: [0, -8, 0], rotate: [1, -2, 1] }}
+            transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+            className="hidden xl:block absolute bottom-[14%] right-[3%] w-44 opacity-18 mix-blend-screen"
+          />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">
-          {displayProducts.map((p, i) => (
-            <ProductCard key={p.id} product={p} index={i} />
-          ))}
+
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
+            <div className="max-w-3xl">
+              <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
+                MODERN<br /><span className="text-cyan-500">LUXURY FLOW.</span>
+              </h2>
+              <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium">
+                Imported footwear and bags with sharp lines, bold character, and a refined finish.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedCategory(null);
+                setSearchQuery('');
+                navigate('/shop');
+              }}
+              className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-cyan-500 transition-all duration-700"
+            >
+              Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">
+            {displayProducts.map((p, i) => (
+              <ProductCard key={p.id} product={p} index={i} />
+            ))}
+          </div>
         </div>
       </section>
     </div>
