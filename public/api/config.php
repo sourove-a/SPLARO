@@ -4,6 +4,12 @@
  * Target Environment: Hostinger Shared/Business
  */
 
+// Keep API responses JSON-clean in production while still writing diagnostics to server logs.
+@ini_set('display_errors', '0');
+@ini_set('display_startup_errors', '0');
+@ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
 function bootstrap_env_files() {
     $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
 
@@ -343,7 +349,10 @@ function get_db_connection() {
         return null;
     }
 
-    $allowHostFallback = filter_var((string)env_or_default('DB_HOST_FALLBACK', 'false'), FILTER_VALIDATE_BOOLEAN);
+    $hostFallbackRaw = trim((string)env_or_default('DB_HOST_FALLBACK', ''));
+    $allowHostFallback = $hostFallbackRaw === ''
+        ? in_array(DB_HOST, ['127.0.0.1', 'localhost'], true)
+        : filter_var($hostFallbackRaw, FILTER_VALIDATE_BOOLEAN);
     $hostCandidates = [DB_HOST];
     if ($allowHostFallback) {
         if (DB_HOST === '127.0.0.1') {

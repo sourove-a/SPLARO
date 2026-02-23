@@ -115,6 +115,15 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
+function get_env_source_label() {
+    $source = (string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? '');
+    if ($source === '') {
+        return 'runtime';
+    }
+    $base = basename($source);
+    return $base !== '' ? $base : $source;
+}
+
 $db = get_db_connection();
 if (!$db) {
     $bootstrapError = $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] ?? ["message" => "DATABASE_CONNECTION_FAILED"];
@@ -133,7 +142,7 @@ if (!$db) {
             "storage" => "fallback",
             "dbHost" => DB_HOST,
             "dbName" => DB_NAME,
-            "envSource" => basename((string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? '')),
+            "envSource" => get_env_source_label(),
             "dbPasswordSource" => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? ''),
             "db" => $bootstrapError
         ]);
@@ -1751,7 +1760,7 @@ if ($method === 'GET' && $action === 'health') {
         "storage" => "mysql",
         "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
         "dbName" => DB_NAME,
-        "envSource" => basename((string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? '')),
+        "envSource" => get_env_source_label(),
         "dbPasswordSource" => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? ''),
         "sheets" => get_sync_queue_summary($db)
     ]);
