@@ -265,21 +265,21 @@ const HomeView = () => {
             alt=""
             animate={{ y: [0, -10, 0], rotate: [-2, 3, -2] }}
             transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
-            className="hidden md:block absolute -top-6 right-[7%] w-20 lg:w-28 opacity-30 mix-blend-screen"
+            className="absolute top-4 right-4 sm:top-2 sm:right-[6%] w-14 sm:w-20 lg:w-28 opacity-55 sm:opacity-42 drop-shadow-[0_0_24px_rgba(132,228,255,0.25)]"
           />
           <motion.img
             src="/ornaments/liquid-star.svg"
             alt=""
             animate={{ y: [0, 12, 0], rotate: [0, -6, 0] }}
             transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-            className="hidden lg:block absolute top-[24%] -left-8 w-24 opacity-18 mix-blend-screen"
+            className="hidden md:block absolute top-[24%] left-[1.5%] w-14 lg:w-24 opacity-30 drop-shadow-[0_0_18px_rgba(132,228,255,0.22)]"
           />
           <motion.img
             src="/ornaments/liquid-infinity.svg"
             alt=""
             animate={{ y: [0, -8, 0], rotate: [1, -2, 1] }}
             transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
-            className="hidden xl:block absolute bottom-[14%] right-[3%] w-44 opacity-18 mix-blend-screen"
+            className="hidden lg:block absolute bottom-[12%] right-[2%] w-36 xl:w-44 opacity-24 drop-shadow-[0_0_22px_rgba(132,228,255,0.22)]"
           />
         </div>
 
