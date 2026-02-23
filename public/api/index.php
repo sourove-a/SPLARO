@@ -2733,7 +2733,7 @@ function perform_sheets_sync_request($type, $data) {
         $curlError = (string)curl_error($ch);
         curl_close($ch);
 
-        if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+        if ($response !== false && (($httpCode >= 200 && $httpCode < 300) || ($httpCode >= 300 && $httpCode < 400))) {
             return [true, $httpCode, '', (string)$response];
         }
         if ($response === false) {
@@ -2766,7 +2766,7 @@ function perform_sheets_sync_request($type, $data) {
         }
     }
 
-    if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+    if ($response !== false && (($httpCode >= 200 && $httpCode < 300) || ($httpCode >= 300 && $httpCode < 400))) {
         return [true, $httpCode, '', (string)$response];
     }
     if ($response === false) {
