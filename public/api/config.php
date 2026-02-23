@@ -14,6 +14,8 @@ function bootstrap_env_files() {
         $candidates[] = $cleanDocRoot . '/.env';
         $candidates[] = $cleanDocRoot . '/api/.env.local';
         $candidates[] = $cleanDocRoot . '/api/.env';
+        $candidates[] = dirname($cleanDocRoot) . '/.env.local';
+        $candidates[] = dirname($cleanDocRoot) . '/.env';
     }
 
     $candidates = array_merge($candidates, [
@@ -23,9 +25,21 @@ function bootstrap_env_files() {
         __DIR__ . '/.env',
         __DIR__ . '/../../.env.local',
         __DIR__ . '/../../.env',
+        dirname(__DIR__, 2) . '/.env.local',
+        dirname(__DIR__, 2) . '/.env',
     ]);
 
+    $candidates = array_unique($candidates);
+    $tried = [];
+    $found = false;
+
     foreach ($candidates as $file) {
+        $tried[] = [
+            'path' => $file,
+            'exists' => is_file($file),
+            'readable' => is_readable($file)
+        ];
+
         if (!is_file($file) || !is_readable($file)) {
             continue;
         }
@@ -34,6 +48,9 @@ function bootstrap_env_files() {
         if (!is_array($lines)) {
             continue;
         }
+
+        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $file;
+        $found = true;
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -55,19 +72,20 @@ function bootstrap_env_files() {
             $value = trim($value, "\"'");
 
             if ($key !== '') {
-                // Force override with file values so public_html/.env.local is the
-                // single source of truth for PHP runtime on shared hosting.
                 putenv($key . '=' . $value);
                 $_ENV[$key] = $value;
                 $_SERVER[$key] = $value;
             }
         }
-
-        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $file;
-        return;
+        break; 
     }
 
-    $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = '';
+    if (!$found) {
+        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = 'NONE';
+        $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
+    } else {
+         $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
+    }
 }
 
 bootstrap_env_files();
@@ -315,21 +333,32 @@ function get_db_connection() {
         return null;
     }
 
+    $allowHostFallback = filter_var((string)env_or_default('DB_HOST_FALLBACK', 'false'), FILTER_VALIDATE_BOOLEAN);
     $hostCandidates = [DB_HOST];
-    if (DB_HOST === '127.0.0.1') {
-        $hostCandidates[] = 'localhost';
-    } elseif (DB_HOST === 'localhost') {
-        $hostCandidates[] = '127.0.0.1';
+    if ($allowHostFallback) {
+        if (DB_HOST === '127.0.0.1') {
+            $hostCandidates[] = 'localhost';
+        } elseif (DB_HOST === 'localhost') {
+            $hostCandidates[] = '127.0.0.1';
+        }
     }
     $hostCandidates = array_values(array_unique(array_filter($hostCandidates)));
 
     $lastError = '';
     $lastSqlState = '';
     $attemptedHosts = [];
+    $dbSocket = trim((string)env_or_default('DB_SOCKET', ''));
     foreach ($hostCandidates as $host) {
         $attemptedHosts[] = $host;
         try {
-            $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+            if ($dbSocket !== '') {
+                $dsn = "mysql:unix_socket=" . $dbSocket . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+            } elseif ($host === 'localhost') {
+                // Keep localhost socket-friendly on shared hosting; forcing port can route as 127.0.0.1.
+                $dsn = "mysql:host=localhost;dbname=" . DB_NAME . ";charset=utf8mb4";
+            } else {
+                $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+            }
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -351,7 +380,8 @@ function get_db_connection() {
         "message" => "DATABASE_CONNECTION_FAILED",
         "code" => $lastSqlState,
         "reason" => $lastError,
-        "hostsTried" => $attemptedHosts
+        "hostsTried" => $attemptedHosts,
+        "hostFallbackEnabled" => $allowHostFallback
     ];
     return null;
 }
