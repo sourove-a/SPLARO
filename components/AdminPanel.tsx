@@ -1041,10 +1041,154 @@ export const AdminPanel = () => {
   });
   const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [cmsCategoryTab, setCmsCategoryTab] = useState<CmsCategoryTab>('all');
+  const [invoiceActionKey, setInvoiceActionKey] = useState<string | null>(null);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
     window.setTimeout(() => setToast(null), 2600);
+  };
+
+  const API_NODE = '/api/index.php';
+  const getAuthHeaders = (json = false): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (json) headers['Content-Type'] = 'application/json';
+    const token = localStorage.getItem('splaro-auth-token') || '';
+    const adminKey = localStorage.getItem('splaro-admin-key') || '';
+    const csrfTokenMatch = document.cookie.match(/(?:^|;\s*)splaro_csrf=([^;]+)/);
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (adminKey) headers['X-Admin-Key'] = adminKey;
+    if (csrfTokenMatch?.[1]) headers['X-CSRF-Token'] = decodeURIComponent(csrfTokenMatch[1]);
+    return headers;
+  };
+
+  const updateInvoiceSettingsField = (patch: any) => {
+    setSiteSettings({
+      ...siteSettings,
+      invoiceSettings: {
+        ...siteSettings.invoiceSettings,
+        ...patch
+      }
+    });
+  };
+
+  const updateInvoiceThemeField = (field: string, value: string) => {
+    setSiteSettings({
+      ...siteSettings,
+      invoiceSettings: {
+        ...siteSettings.invoiceSettings,
+        theme: {
+          ...siteSettings.invoiceSettings.theme,
+          [field]: value
+        }
+      }
+    });
+  };
+
+  const updateInvoiceSerialType = (index: number, patch: any) => {
+    const nextTypes = [...(siteSettings.invoiceSettings.serialTypes || [])];
+    if (!nextTypes[index]) return;
+    nextTypes[index] = { ...nextTypes[index], ...patch };
+    updateInvoiceSettingsField({ serialTypes: nextTypes });
+  };
+
+  const removeInvoiceSerialType = (index: number) => {
+    const current = [...(siteSettings.invoiceSettings.serialTypes || [])];
+    if (current.length <= 1) return;
+    current.splice(index, 1);
+    const nextDefault = current.some((item) => item.code === siteSettings.invoiceSettings.defaultType)
+      ? siteSettings.invoiceSettings.defaultType
+      : (current[0]?.code || 'INV');
+    updateInvoiceSettingsField({ serialTypes: current, defaultType: nextDefault });
+  };
+
+  const addInvoiceSerialType = () => {
+    const current = [...(siteSettings.invoiceSettings.serialTypes || [])];
+    current.push({
+      code: `T${current.length + 1}`,
+      label: `Type ${current.length + 1}`
+    });
+    updateInvoiceSettingsField({ serialTypes: current });
+  };
+
+  const runInvoiceAction = async (
+    order: Order,
+    options: { type?: string; send?: boolean; autoOpen?: boolean } = {}
+  ) => {
+    const type = (options.type || siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase();
+    const actionKey = `${order.id}:${type}:${options.send ? 'send' : 'generate'}`;
+    setInvoiceActionKey(actionKey);
+    try {
+      const res = await fetch(`${API_NODE}?action=generate_invoice_document`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          orderId: order.id,
+          type,
+          send: Boolean(options.send)
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result.status !== 'success') {
+        showToast(result?.message || 'Invoice action failed.', 'error');
+        return null;
+      }
+
+      const doc = result?.data || {};
+      if (options.send) {
+        if (doc.status === 'SENT') {
+          showToast(`Invoice sent: ${doc.serial}`, 'success');
+        } else {
+          showToast(`Invoice generated but mail failed: ${doc.serial}`, 'error');
+        }
+      } else {
+        showToast(`Document generated: ${doc.serial}`, 'success');
+      }
+
+      if (options.autoOpen !== false) {
+        const url = String(doc.downloadUrl || doc.pdfUrl || doc.htmlUrl || '');
+        if (url) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      }
+      return doc;
+    } catch (err) {
+      showToast('Invoice request failed. Please retry.', 'error');
+      return null;
+    } finally {
+      setInvoiceActionKey(null);
+    }
+  };
+
+  const downloadLatestInvoice = async (order: Order, type?: string) => {
+    const safeType = (type || siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase();
+    const actionKey = `${order.id}:${safeType}:latest`;
+    setInvoiceActionKey(actionKey);
+    try {
+      const query = new URLSearchParams({
+        action: 'latest_invoice_document',
+        orderId: order.id,
+        type: safeType
+      });
+      const res = await fetch(`${API_NODE}?${query.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result.status !== 'success') {
+        await runInvoiceAction(order, { type: safeType, send: false, autoOpen: true });
+        return;
+      }
+      const url = String(result?.data?.downloadUrl || result?.data?.pdfUrl || result?.data?.htmlUrl || '');
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        showToast(`Opened ${result?.data?.serial || 'document'}`, 'success');
+      } else {
+        showToast('No document URL found.', 'error');
+      }
+    } catch (err) {
+      showToast('Failed to open invoice document.', 'error');
+    } finally {
+      setInvoiceActionKey(null);
+    }
   };
 
   const adminRole = String(user?.role || 'ADMIN').toUpperCase();
@@ -2411,6 +2555,189 @@ export const AdminPanel = () => {
                 </GlassCard>
               </div>
 
+              <div className="grid grid-cols-1 gap-12">
+                <GlassCard className="p-12 space-y-8">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-3xl font-black uppercase italic tracking-tight">Invoice Settings</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Serial format, template and email controls</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
+                        {siteSettings.invoiceSettings.invoiceEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      <button
+                        onClick={() => updateInvoiceSettingsField({ invoiceEnabled: !siteSettings.invoiceSettings.invoiceEnabled })}
+                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
+                      >
+                        Toggle
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Prefix</label>
+                      <input
+                        type="text"
+                        value={siteSettings.invoiceSettings.invoicePrefix}
+                        onChange={(e) => updateInvoiceSettingsField({ invoicePrefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Number Padding</label>
+                      <input
+                        type="number"
+                        min={3}
+                        max={10}
+                        value={siteSettings.invoiceSettings.numberPadding}
+                        onChange={(e) => updateInvoiceSettingsField({ numberPadding: Math.max(3, Math.min(10, Number(e.target.value) || 6)) })}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Default Type</label>
+                      <select
+                        value={siteSettings.invoiceSettings.defaultType}
+                        onChange={(e) => updateInvoiceSettingsField({ defaultType: e.target.value })}
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      >
+                        {(siteSettings.invoiceSettings.serialTypes || []).map((item) => (
+                          <option key={item.code} value={item.code}>{item.code} - {item.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Counter Mode</label>
+                      <button
+                        onClick={() => updateInvoiceSettingsField({ separateCounterPerType: !siteSettings.invoiceSettings.separateCounterPerType })}
+                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-cyan-400/50 text-cyan-200 bg-cyan-500/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                      >
+                        {siteSettings.invoiceSettings.separateCounterPerType ? 'Separate by Type' : 'Global Counter'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <LuxuryFloatingInput
+                      label="Invoice Footer Text"
+                      value={siteSettings.invoiceSettings.footerText}
+                      onChange={(v) => updateInvoiceSettingsField({ footerText: v })}
+                      icon={<FileText className="w-5 h-5" />}
+                    />
+                    <LuxuryFloatingInput
+                      label="Policy/Notes Text"
+                      value={siteSettings.invoiceSettings.policyText}
+                      onChange={(v) => updateInvoiceSettingsField({ policyText: v })}
+                      icon={<Info className="w-5 h-5" />}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {[
+                      { key: 'primaryColor', label: 'Primary' },
+                      { key: 'accentColor', label: 'Accent' },
+                      { key: 'backgroundColor', label: 'Background' },
+                      { key: 'tableHeaderColor', label: 'Table Header' },
+                      { key: 'buttonColor', label: 'Button' }
+                    ].map((item) => (
+                      <div key={item.key} className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{item.label}</label>
+                        <input
+                          type="text"
+                          value={(siteSettings.invoiceSettings.theme as any)[item.key]}
+                          onChange={(e) => updateInvoiceThemeField(item.key, e.target.value)}
+                          className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    {[
+                      { key: 'showProductImages', label: 'Product Images' },
+                      { key: 'showTax', label: 'Show Tax' },
+                      { key: 'showDiscount', label: 'Show Discount' },
+                      { key: 'showShipping', label: 'Show Shipping' },
+                      { key: 'taxRate', label: `Tax Rate (${siteSettings.invoiceSettings.taxRate}%)` }
+                    ].map((item) => (
+                      <div key={item.key} className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{item.label}</label>
+                        {item.key === 'taxRate' ? (
+                          <input
+                            type="number"
+                            min={0}
+                            max={50}
+                            step={0.25}
+                            value={siteSettings.invoiceSettings.taxRate}
+                            onChange={(e) => updateInvoiceSettingsField({ taxRate: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
+                            className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => updateInvoiceSettingsField({ [item.key]: !(siteSettings.invoiceSettings as any)[item.key] })}
+                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-emerald-500/40 text-emerald-200 bg-emerald-500/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                          >
+                            {(siteSettings.invoiceSettings as any)[item.key] ? 'On' : 'Off'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Serial Types</label>
+                      <button
+                        onClick={addInvoiceSerialType}
+                        className="h-10 px-4 rounded-xl border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/10 transition-all"
+                      >
+                        Add Type
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {(siteSettings.invoiceSettings.serialTypes || []).map((serialType, index) => (
+                        <div key={`${serialType.code}_${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-3">
+                          <input
+                            type="text"
+                            value={serialType.code}
+                            onChange={(e) => updateInvoiceSerialType(index, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
+                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          />
+                          <input
+                            type="text"
+                            value={serialType.label}
+                            onChange={(e) => updateInvoiceSerialType(index, { label: e.target.value })}
+                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          />
+                          <button
+                            onClick={() => removeInvoiceSerialType(index)}
+                            disabled={(siteSettings.invoiceSettings.serialTypes || []).length <= 1}
+                            className="h-11 px-4 rounded-xl border border-rose-500/30 text-rose-300 text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-rose-500/10 transition-all"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <PrimaryButton
+                    className="w-full h-16 text-[10px]"
+                    onClick={() => {
+                      if (!canManageProtocols) {
+                        showToast('Editor role cannot change invoice settings.', 'error');
+                        return;
+                      }
+                      updateSettings({ invoiceSettings: siteSettings.invoiceSettings });
+                    }}
+                  >
+                    SAVE INVOICE SETTINGS
+                  </PrimaryButton>
+                </GlassCard>
+              </div>
+
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                 <GlassCard className="p-12 space-y-8">
                   <div className="flex items-center justify-between gap-4">
@@ -3450,25 +3777,63 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col md:row gap-6">
-                    <PrimaryButton onClick={() => window.print()} className="flex-1 h-20 text-[11px] tracking-[0.4em] shadow-[0_20px_40px_rgba(0,212,255,0.15)]">GENERATE FISCAL INVOICE</PrimaryButton>
-                    <button
-                      onClick={() => {
-                        const id = selectedOrder.id;
-                        updateOrderStatus(id, 'Shipped');
-                        setSelectedOrder(null);
-                        showToast(`Order ${id} moved to shipped.`, 'success');
-                      }}
-                      className="flex-1 h-20 bg-blue-600 hover:bg-blue-500 text-white rounded-[32px] text-[11px] font-black uppercase tracking-[0.4em] transition-all shadow-[0_20px_40px_rgba(37,99,235,0.2)]"
-                    >
-                      DEPLOY ASSET
-                    </button>
-                    <button
-                      onClick={() => { updateOrderStatus(selectedOrder.id, 'Cancelled'); setSelectedOrder(null); }}
-                      className="px-10 h-20 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-[32px] text-[11px] font-black uppercase tracking-[0.4em] transition-all"
-                    >
-                      ABORT DEPLOYMENT
-                    </button>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <PrimaryButton
+                        onClick={() => runInvoiceAction(selectedOrder, { type: siteSettings.invoiceSettings.defaultType || 'INV', send: false, autoOpen: false })}
+                        disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:generate`}
+                        className="h-14 text-[10px] tracking-[0.2em]"
+                      >
+                        {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:generate` ? 'Generating...' : 'Generate Invoice'}
+                      </PrimaryButton>
+                      <button
+                        onClick={() => runInvoiceAction(selectedOrder, { type: siteSettings.invoiceSettings.defaultType || 'INV', send: true, autoOpen: false })}
+                        disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send`}
+                        className="h-14 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-emerald-500/20 disabled:opacity-60"
+                      >
+                        {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send` ? 'Sending...' : 'Send Invoice'}
+                      </button>
+                      <button
+                        onClick={() => downloadLatestInvoice(selectedOrder, siteSettings.invoiceSettings.defaultType || 'INV')}
+                        disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest`}
+                        className="h-14 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-cyan-500/20 disabled:opacity-60"
+                      >
+                        {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest` ? 'Opening...' : 'Download PDF'}
+                      </button>
+                      <button
+                        onClick={() => runInvoiceAction(selectedOrder, { type: 'MNF', send: false, autoOpen: true })}
+                        disabled={invoiceActionKey === `${selectedOrder.id}:MNF:generate`}
+                        className="h-14 rounded-2xl border border-violet-500/30 bg-violet-500/10 text-violet-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-violet-500/20 disabled:opacity-60"
+                      >
+                        {invoiceActionKey === `${selectedOrder.id}:MNF:generate` ? 'Generating...' : 'Generate Manifest'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <button
+                        onClick={() => window.print()}
+                        className="h-14 rounded-2xl border border-white/15 bg-white/5 text-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10"
+                      >
+                        Print Preview
+                      </button>
+                      <button
+                        onClick={() => {
+                          const id = selectedOrder.id;
+                          updateOrderStatus(id, 'Shipped');
+                          setSelectedOrder(null);
+                          showToast(`Order ${id} moved to shipped.`, 'success');
+                        }}
+                        className="h-14 rounded-2xl border border-blue-500/40 bg-blue-600 text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500"
+                      >
+                        Mark Shipped
+                      </button>
+                      <button
+                        onClick={() => { updateOrderStatus(selectedOrder.id, 'Cancelled'); setSelectedOrder(null); }}
+                        className="h-14 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-rose-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-rose-500/20"
+                      >
+                        Cancel Order
+                      </button>
+                    </div>
                   </div>
                 </GlassCard>
               </motion.div>

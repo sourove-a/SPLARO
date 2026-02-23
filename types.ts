@@ -207,6 +207,35 @@ export interface CmsRevision {
   payload: CmsBundle;
 }
 
+export interface InvoiceSerialType {
+  code: string;
+  label: string;
+}
+
+export interface InvoiceSettings {
+  invoiceEnabled: boolean;
+  invoicePrefix: string;
+  numberPadding: number;
+  serialTypes: InvoiceSerialType[];
+  defaultType: string;
+  separateCounterPerType: boolean;
+  theme: {
+    primaryColor: string;
+    accentColor: string;
+    backgroundColor: string;
+    tableHeaderColor: string;
+    buttonColor: string;
+  };
+  logoUrl: string;
+  footerText: string;
+  policyText: string;
+  showProductImages: boolean;
+  showTax: boolean;
+  taxRate: number;
+  showDiscount: boolean;
+  showShipping: boolean;
+}
+
 export interface SiteSettings {
   siteName: string;
   supportPhone: string;
@@ -259,4 +288,5 @@ export interface SiteSettings {
   cmsPublished: CmsBundle;
   cmsActiveVersion: 'DRAFT' | 'PUBLISHED';
   cmsRevisions: CmsRevision[];
+  invoiceSettings: InvoiceSettings;
 }

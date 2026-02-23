@@ -13,7 +13,8 @@ import {
   ThemeSettings,
   HeroSettings,
   CategoryHeroOverride,
-  CmsRevision
+  CmsRevision,
+  InvoiceSettings
 } from './types';
 import { shouldUsePhpApi } from './lib/runtime';
 
@@ -426,6 +427,34 @@ const DEFAULT_STORY_POSTS: SiteSettings['storyPosts'] = [
   }
 ];
 
+const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
+  invoiceEnabled: true,
+  invoicePrefix: 'SPL',
+  numberPadding: 6,
+  serialTypes: [
+    { code: 'INV', label: 'Invoice' },
+    { code: 'MNF', label: 'Manifest' },
+    { code: 'RCT', label: 'Receipt' }
+  ],
+  defaultType: 'INV',
+  separateCounterPerType: false,
+  theme: {
+    primaryColor: '#0A0C12',
+    accentColor: '#41DCFF',
+    backgroundColor: '#F4F7FF',
+    tableHeaderColor: '#111827',
+    buttonColor: '#2563EB'
+  },
+  logoUrl: '',
+  footerText: 'SPLARO • Luxury Footwear & Bags • www.splaro.co',
+  policyText: 'For support and returns, please contact support@splaro.co.',
+  showProductImages: true,
+  showTax: false,
+  taxRate: 0,
+  showDiscount: true,
+  showShipping: true
+};
+
 const createDefaultCmsBundle = (): CmsBundle => ({
   themeSettings: {
     ...DEFAULT_THEME_SETTINGS,
@@ -461,7 +490,12 @@ const createDefaultSiteSettings = (): SiteSettings => ({
   cmsDraft: createDefaultCmsBundle(),
   cmsPublished: createDefaultCmsBundle(),
   cmsActiveVersion: 'PUBLISHED',
-  cmsRevisions: []
+  cmsRevisions: [],
+  invoiceSettings: {
+    ...DEFAULT_INVOICE_SETTINGS,
+    serialTypes: DEFAULT_INVOICE_SETTINGS.serialTypes.map((item) => ({ ...item })),
+    theme: { ...DEFAULT_INVOICE_SETTINGS.theme }
+  }
 });
 
 const parseJsonObject = (value: unknown): any => {
@@ -602,6 +636,55 @@ const normalizeCmsRevisions = (raw: any): CmsRevision[] => {
     .slice(0, 10);
 };
 
+const normalizeInvoiceSettings = (raw: any): InvoiceSettings => {
+  const base = {
+    ...DEFAULT_INVOICE_SETTINGS,
+    serialTypes: DEFAULT_INVOICE_SETTINGS.serialTypes.map((item) => ({ ...item })),
+    theme: { ...DEFAULT_INVOICE_SETTINGS.theme }
+  };
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const serialTypesRaw = Array.isArray(input.serialTypes) ? input.serialTypes : [];
+  const serialTypes = serialTypesRaw
+    .map((item: any) => ({
+      code: String(item?.code || '').trim().toUpperCase(),
+      label: String(item?.label || '').trim()
+    }))
+    .filter((item: any) => item.code !== '' && item.label !== '');
+
+  const resolvedSerialTypes = serialTypes.length > 0 ? serialTypes : base.serialTypes;
+  const defaultTypeCandidate = String(input.defaultType || '').trim().toUpperCase();
+  const hasDefaultType = resolvedSerialTypes.some((item) => item.code === defaultTypeCandidate);
+  const numberPaddingRaw = Number(input.numberPadding ?? base.numberPadding);
+  const taxRateRaw = Number(input.taxRate ?? base.taxRate);
+  const incomingTheme = input.theme && typeof input.theme === 'object' ? input.theme : {};
+
+  return {
+    ...base,
+    ...input,
+    invoiceEnabled: input.invoiceEnabled === undefined ? base.invoiceEnabled : Boolean(input.invoiceEnabled),
+    invoicePrefix: String(input.invoicePrefix || base.invoicePrefix).trim().toUpperCase().slice(0, 10) || base.invoicePrefix,
+    numberPadding: Number.isFinite(numberPaddingRaw) ? Math.min(10, Math.max(3, Math.round(numberPaddingRaw))) : base.numberPadding,
+    serialTypes: resolvedSerialTypes,
+    defaultType: hasDefaultType ? defaultTypeCandidate : resolvedSerialTypes[0].code,
+    separateCounterPerType: input.separateCounterPerType === undefined ? base.separateCounterPerType : Boolean(input.separateCounterPerType),
+    theme: {
+      primaryColor: String(incomingTheme.primaryColor || base.theme.primaryColor),
+      accentColor: String(incomingTheme.accentColor || base.theme.accentColor),
+      backgroundColor: String(incomingTheme.backgroundColor || base.theme.backgroundColor),
+      tableHeaderColor: String(incomingTheme.tableHeaderColor || base.theme.tableHeaderColor),
+      buttonColor: String(incomingTheme.buttonColor || base.theme.buttonColor)
+    },
+    logoUrl: String(input.logoUrl || base.logoUrl),
+    footerText: String(input.footerText || base.footerText),
+    policyText: String(input.policyText || base.policyText),
+    showProductImages: input.showProductImages === undefined ? base.showProductImages : Boolean(input.showProductImages),
+    showTax: input.showTax === undefined ? base.showTax : Boolean(input.showTax),
+    taxRate: Number.isFinite(taxRateRaw) ? Math.min(50, Math.max(0, taxRateRaw)) : base.taxRate,
+    showDiscount: input.showDiscount === undefined ? base.showDiscount : Boolean(input.showDiscount),
+    showShipping: input.showShipping === undefined ? base.showShipping : Boolean(input.showShipping)
+  };
+};
+
 const normalizeSiteSettings = (raw: any): SiteSettings => {
   const base = createDefaultSiteSettings();
   const input = raw && typeof raw === 'object' ? raw : {};
@@ -612,6 +695,7 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
   const incomingCmsPublishedRaw = input.cmsPublished || input.cms_published || parsedSettingsJson.cmsPublished || parsedSettingsJson.cms_published;
   const incomingCmsRevisionsRaw = input.cmsRevisions || input.cms_revisions || parsedSettingsJson.cmsRevisions || parsedSettingsJson.cms_revisions;
   const incomingCmsActiveVersionRaw = String(input.cmsActiveVersion || input.cms_active_version || parsedSettingsJson.cmsActiveVersion || parsedSettingsJson.cms_active_version || base.cmsActiveVersion).toUpperCase();
+  const incomingInvoiceSettingsRaw = input.invoiceSettings || input.invoice_settings || parsedSettingsJson.invoiceSettings || parsedSettingsJson.invoice_settings;
   const rawInstagram = String(input.instagramLink || '').trim();
   const shouldUseDefaultInstagram =
     rawInstagram === '' || rawInstagram.toLowerCase().includes('instagram.com/splaro.co');
@@ -658,6 +742,7 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
   const cmsPublished = normalizeCmsBundle(incomingCmsPublishedRaw || fallbackCmsBundle || base.cmsPublished);
   const cmsRevisions = normalizeCmsRevisions(incomingCmsRevisionsRaw);
   const cmsActiveVersion = incomingCmsActiveVersionRaw === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
+  const invoiceSettings = normalizeInvoiceSettings(incomingInvoiceSettingsRaw || base.invoiceSettings);
 
   return {
     ...base,
@@ -676,7 +761,8 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
     cmsDraft,
     cmsPublished,
     cmsActiveVersion,
-    cmsRevisions
+    cmsRevisions,
+    invoiceSettings
   };
 };
 

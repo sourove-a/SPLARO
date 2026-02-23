@@ -56,7 +56,7 @@ foreach ($mailerFiles as $mailerFile) {
     }
 }
 
-function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true) {
+function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
     global $db;
 
     $smtpSettings = [
@@ -139,6 +139,27 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         $mail->Subject = $subject;
         $mail->Body    = $body;
         $mail->AltBody = $altBody ?: strip_tags($body);
+
+        if (is_array($attachments)) {
+            foreach ($attachments as $attachment) {
+                if (!is_array($attachment)) {
+                    continue;
+                }
+                $filePath = (string)($attachment['path'] ?? '');
+                if ($filePath === '' || !is_file($filePath)) {
+                    continue;
+                }
+                $fileName = trim((string)($attachment['name'] ?? ''));
+                $mimeType = trim((string)($attachment['type'] ?? ''));
+                if ($fileName !== '' && $mimeType !== '') {
+                    $mail->addAttachment($filePath, $fileName, PHPMailer::ENCODING_BASE64, $mimeType);
+                } elseif ($fileName !== '') {
+                    $mail->addAttachment($filePath, $fileName);
+                } else {
+                    $mail->addAttachment($filePath);
+                }
+            }
+        }
 
         $mail->send();
         return true;
@@ -467,6 +488,44 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'invoice_counters', "CREATE TABLE IF NOT EXISTS `invoice_counters` (
+      `counter_key` varchar(50) NOT NULL,
+      `current_number` bigint(20) unsigned NOT NULL DEFAULT 0,
+      `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`counter_key`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'invoice_documents', "CREATE TABLE IF NOT EXISTS `invoice_documents` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `serial` varchar(80) NOT NULL,
+      `doc_type` varchar(20) NOT NULL,
+      `status` varchar(20) NOT NULL DEFAULT 'GENERATED',
+      `html_path` text DEFAULT NULL,
+      `pdf_path` text DEFAULT NULL,
+      `html_url` text DEFAULT NULL,
+      `pdf_url` text DEFAULT NULL,
+      `sent_at` datetime DEFAULT NULL,
+      `created_by_admin_id` varchar(80) DEFAULT NULL,
+      `error_message` text DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_invoice_serial` (`serial`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_column($db, 'invoice_documents', 'order_id', 'varchar(50) NOT NULL');
+    ensure_column($db, 'invoice_documents', 'serial', 'varchar(80) NOT NULL');
+    ensure_column($db, 'invoice_documents', 'doc_type', 'varchar(20) NOT NULL');
+    ensure_column($db, 'invoice_documents', 'status', 'varchar(20) NOT NULL DEFAULT \"GENERATED\"');
+    ensure_column($db, 'invoice_documents', 'html_path', 'text DEFAULT NULL');
+    ensure_column($db, 'invoice_documents', 'pdf_path', 'text DEFAULT NULL');
+    ensure_column($db, 'invoice_documents', 'html_url', 'text DEFAULT NULL');
+    ensure_column($db, 'invoice_documents', 'pdf_url', 'text DEFAULT NULL');
+    ensure_column($db, 'invoice_documents', 'sent_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'invoice_documents', 'created_by_admin_id', 'varchar(80) DEFAULT NULL');
+    ensure_column($db, 'invoice_documents', 'error_message', 'text DEFAULT NULL');
+
     ensure_table($db, 'traffic_metrics', "CREATE TABLE IF NOT EXISTS `traffic_metrics` (
       `id` int(11) NOT NULL AUTO_INCREMENT,
       `session_id` varchar(100) NOT NULL,
@@ -584,6 +643,9 @@ function ensure_core_schema($db) {
     ensure_index($db, 'settings_revisions', 'idx_settings_revisions_section_created', 'CREATE INDEX idx_settings_revisions_section_created ON settings_revisions(section_key, created_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
+    ensure_index($db, 'invoice_documents', 'idx_invoice_documents_order', 'CREATE INDEX idx_invoice_documents_order ON invoice_documents(order_id, created_at)');
+    ensure_index($db, 'invoice_documents', 'idx_invoice_documents_type', 'CREATE INDEX idx_invoice_documents_type ON invoice_documents(doc_type, created_at)');
+    ensure_index($db, 'invoice_documents', 'idx_invoice_documents_status', 'CREATE INDEX idx_invoice_documents_status ON invoice_documents(status, created_at)');
     ensure_index($db, 'traffic_metrics', 'idx_traffic_metrics_created_at', 'CREATE INDEX idx_traffic_metrics_created_at ON traffic_metrics(last_active)');
 
     try {
@@ -657,6 +719,33 @@ ensure_table($db, 'settings_revisions', "CREATE TABLE IF NOT EXISTS `settings_re
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 ensure_index($db, 'page_sections', 'idx_page_sections_updated_at', 'CREATE INDEX idx_page_sections_updated_at ON page_sections(updated_at)');
 ensure_index($db, 'settings_revisions', 'idx_settings_revisions_section_created', 'CREATE INDEX idx_settings_revisions_section_created ON settings_revisions(section_key, created_at)');
+ensure_table($db, 'invoice_counters', "CREATE TABLE IF NOT EXISTS `invoice_counters` (
+  `counter_key` varchar(50) NOT NULL,
+  `current_number` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`counter_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'invoice_documents', "CREATE TABLE IF NOT EXISTS `invoice_documents` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `serial` varchar(80) NOT NULL,
+  `doc_type` varchar(20) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'GENERATED',
+  `html_path` text DEFAULT NULL,
+  `pdf_path` text DEFAULT NULL,
+  `html_url` text DEFAULT NULL,
+  `pdf_url` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `created_by_admin_id` varchar(80) DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_invoice_serial` (`serial`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_index($db, 'invoice_documents', 'idx_invoice_documents_order', 'CREATE INDEX idx_invoice_documents_order ON invoice_documents(order_id, created_at)');
+ensure_index($db, 'invoice_documents', 'idx_invoice_documents_type', 'CREATE INDEX idx_invoice_documents_type ON invoice_documents(doc_type, created_at)');
+ensure_index($db, 'invoice_documents', 'idx_invoice_documents_status', 'CREATE INDEX idx_invoice_documents_status ON invoice_documents(status, created_at)');
 
 function load_smtp_settings($db) {
     $settings = [
@@ -723,6 +812,660 @@ function smtp_send_mail($db, $to, $subject, $body, $isHtml = true) {
         $isHtml ? strip_tags($body) : $body,
         $isHtml
     );
+}
+
+function smtp_send_mail_with_attachments($db, $to, $subject, $body, $isHtml = true, $attachments = []) {
+    return send_institutional_email(
+        $to,
+        $subject,
+        $body,
+        $isHtml ? strip_tags($body) : $body,
+        $isHtml,
+        $attachments
+    );
+}
+
+function invoice_default_settings() {
+    return [
+        'invoiceEnabled' => true,
+        'invoicePrefix' => 'SPL',
+        'numberPadding' => 6,
+        'serialTypes' => [
+            ['code' => 'INV', 'label' => 'Invoice'],
+            ['code' => 'MNF', 'label' => 'Manifest'],
+            ['code' => 'RCT', 'label' => 'Receipt']
+        ],
+        'defaultType' => 'INV',
+        'separateCounterPerType' => false,
+        'theme' => [
+            'primaryColor' => '#0A0C12',
+            'accentColor' => '#41DCFF',
+            'backgroundColor' => '#F4F7FF',
+            'tableHeaderColor' => '#111827',
+            'buttonColor' => '#2563EB'
+        ],
+        'logoUrl' => '',
+        'footerText' => 'SPLARO • Luxury Footwear & Bags • www.splaro.co',
+        'policyText' => 'For support and returns, please contact support@splaro.co.',
+        'showProductImages' => true,
+        'showTax' => false,
+        'taxRate' => 0,
+        'showDiscount' => true,
+        'showShipping' => true
+    ];
+}
+
+function invoice_escape($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function invoice_valid_color($value, $fallback) {
+    $candidate = trim((string)$value);
+    if (preg_match('/^#[0-9a-fA-F]{6}$/', $candidate)) {
+        return strtoupper($candidate);
+    }
+    return $fallback;
+}
+
+function invoice_normalize_settings($raw, $siteSettingsRow = null) {
+    $base = invoice_default_settings();
+    $input = is_array($raw) ? $raw : [];
+    $themeInput = isset($input['theme']) && is_array($input['theme']) ? $input['theme'] : [];
+
+    $serialTypes = [];
+    if (!empty($input['serialTypes']) && is_array($input['serialTypes'])) {
+        foreach ($input['serialTypes'] as $serialType) {
+            if (!is_array($serialType)) continue;
+            $code = strtoupper(trim((string)($serialType['code'] ?? '')));
+            $label = trim((string)($serialType['label'] ?? ''));
+            if ($code === '' || $label === '') continue;
+            $serialTypes[] = ['code' => preg_replace('/[^A-Z0-9]/', '', $code), 'label' => $label];
+        }
+    }
+    if (empty($serialTypes)) {
+        $serialTypes = $base['serialTypes'];
+    }
+
+    $defaultType = strtoupper(trim((string)($input['defaultType'] ?? $base['defaultType'])));
+    $serialCodes = array_map(function ($item) {
+        return strtoupper((string)($item['code'] ?? ''));
+    }, $serialTypes);
+    if (!in_array($defaultType, $serialCodes, true)) {
+        $defaultType = strtoupper((string)$serialTypes[0]['code']);
+    }
+
+    $prefix = strtoupper(trim((string)($input['invoicePrefix'] ?? $base['invoicePrefix'])));
+    $prefix = preg_replace('/[^A-Z0-9]/', '', $prefix);
+    if ($prefix === '') {
+        $prefix = $base['invoicePrefix'];
+    }
+
+    $logoUrl = trim((string)($input['logoUrl'] ?? ''));
+    if ($logoUrl === '' && is_array($siteSettingsRow)) {
+        $logoUrl = trim((string)($siteSettingsRow['logo_url'] ?? ''));
+    }
+
+    $padding = (int)($input['numberPadding'] ?? $base['numberPadding']);
+    if ($padding < 3) $padding = 3;
+    if ($padding > 10) $padding = 10;
+    $taxRate = (float)($input['taxRate'] ?? $base['taxRate']);
+    if ($taxRate < 0) $taxRate = 0;
+    if ($taxRate > 50) $taxRate = 50;
+
+    return [
+        'invoiceEnabled' => isset($input['invoiceEnabled']) ? (bool)$input['invoiceEnabled'] : (bool)$base['invoiceEnabled'],
+        'invoicePrefix' => $prefix,
+        'numberPadding' => $padding,
+        'serialTypes' => $serialTypes,
+        'defaultType' => $defaultType,
+        'separateCounterPerType' => isset($input['separateCounterPerType']) ? (bool)$input['separateCounterPerType'] : (bool)$base['separateCounterPerType'],
+        'theme' => [
+            'primaryColor' => invoice_valid_color($themeInput['primaryColor'] ?? '', $base['theme']['primaryColor']),
+            'accentColor' => invoice_valid_color($themeInput['accentColor'] ?? '', $base['theme']['accentColor']),
+            'backgroundColor' => invoice_valid_color($themeInput['backgroundColor'] ?? '', $base['theme']['backgroundColor']),
+            'tableHeaderColor' => invoice_valid_color($themeInput['tableHeaderColor'] ?? '', $base['theme']['tableHeaderColor']),
+            'buttonColor' => invoice_valid_color($themeInput['buttonColor'] ?? '', $base['theme']['buttonColor'])
+        ],
+        'logoUrl' => $logoUrl,
+        'footerText' => trim((string)($input['footerText'] ?? $base['footerText'])),
+        'policyText' => trim((string)($input['policyText'] ?? $base['policyText'])),
+        'showProductImages' => isset($input['showProductImages']) ? (bool)$input['showProductImages'] : (bool)$base['showProductImages'],
+        'showTax' => isset($input['showTax']) ? (bool)$input['showTax'] : (bool)$base['showTax'],
+        'taxRate' => $taxRate,
+        'showDiscount' => isset($input['showDiscount']) ? (bool)$input['showDiscount'] : (bool)$base['showDiscount'],
+        'showShipping' => isset($input['showShipping']) ? (bool)$input['showShipping'] : (bool)$base['showShipping']
+    ];
+}
+
+function invoice_file_safe_name($value) {
+    $safe = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string)$value);
+    $safe = trim((string)$safe, '_');
+    return $safe !== '' ? $safe : 'invoice';
+}
+
+function invoice_app_origin() {
+    $origin = trim((string)env_or_default('APP_ORIGIN', ''));
+    if ($origin !== '') {
+        return rtrim($origin, '/');
+    }
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return '';
+    }
+    return $scheme . '://' . $host;
+}
+
+function invoice_ensure_output_dir() {
+    $dir = __DIR__ . DIRECTORY_SEPARATOR . 'invoices';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    return $dir;
+}
+
+function invoice_relative_url($relativePath) {
+    $relative = ltrim((string)$relativePath, '/');
+    $origin = invoice_app_origin();
+    if ($origin === '') {
+        return '/' . $relative;
+    }
+    return $origin . '/' . $relative;
+}
+
+function invoice_payment_status($orderRow) {
+    $status = strtoupper(trim((string)($orderRow['status'] ?? '')));
+    if (in_array($status, ['PAID', 'SUCCESS'], true)) {
+        return 'PAID';
+    }
+    if (in_array($status, ['PENDING', 'PROCESSING'], true)) {
+        return 'PENDING';
+    }
+    return 'COD';
+}
+
+function invoice_parse_items($rawItems) {
+    $items = [];
+    $decoded = $rawItems;
+    if (is_string($rawItems)) {
+        $decoded = json_decode($rawItems, true);
+    }
+    if (!is_array($decoded)) {
+        return $items;
+    }
+
+    foreach ($decoded as $row) {
+        if (!is_array($row)) continue;
+        $product = isset($row['product']) && is_array($row['product']) ? $row['product'] : [];
+        $name = trim((string)($row['name'] ?? $product['name'] ?? 'Product'));
+        $qty = (int)($row['quantity'] ?? 1);
+        if ($qty <= 0) $qty = 1;
+        $unitPrice = (float)($row['unitPrice'] ?? $row['price'] ?? $product['price'] ?? 0);
+        if ($unitPrice < 0) $unitPrice = 0;
+        $lineTotal = (float)($row['lineTotal'] ?? ($unitPrice * $qty));
+        if ($lineTotal < 0) $lineTotal = $unitPrice * $qty;
+        $productUrl = trim((string)($row['productUrl'] ?? $row['url'] ?? $product['liveUrl'] ?? ''));
+        $imageUrl = trim((string)($row['image'] ?? $row['imageUrl'] ?? $product['image'] ?? ''));
+        $size = trim((string)($row['selectedSize'] ?? $row['size'] ?? ''));
+        $color = trim((string)($row['selectedColor'] ?? $row['color'] ?? ''));
+
+        $items[] = [
+            'name' => $name !== '' ? $name : 'Product',
+            'quantity' => $qty,
+            'unitPrice' => $unitPrice,
+            'lineTotal' => $lineTotal,
+            'productUrl' => $productUrl,
+            'imageUrl' => $imageUrl,
+            'size' => $size,
+            'color' => $color
+        ];
+    }
+    return $items;
+}
+
+function invoice_currency($amount) {
+    $value = (float)$amount;
+    return 'BDT ' . number_format($value, 2);
+}
+
+function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $documentLabel, $totals) {
+    $theme = $settings['theme'];
+    $paymentStatus = invoice_payment_status($orderRow);
+    $statusColor = $paymentStatus === 'PAID'
+        ? '#16A34A'
+        : ($paymentStatus === 'PENDING' ? '#D97706' : '#2563EB');
+    $logoUrl = trim((string)($settings['logoUrl'] ?? ''));
+    $siteName = trim((string)($orderRow['site_name'] ?? 'SPLARO'));
+    if ($siteName === '') $siteName = 'SPLARO';
+
+    $itemsRows = '';
+    $showImages = !empty($settings['showProductImages']);
+    foreach ($items as $item) {
+        $sizeColor = [];
+        if (!empty($item['size'])) $sizeColor[] = 'Size: ' . invoice_escape($item['size']);
+        if (!empty($item['color'])) $sizeColor[] = 'Color: ' . invoice_escape($item['color']);
+        $metaText = !empty($sizeColor) ? implode(' • ', $sizeColor) : 'Standard item';
+        $thumb = '';
+        if ($showImages) {
+            $image = trim((string)($item['imageUrl'] ?? ''));
+            if ($image === '') {
+                $thumb = "<div style=\"width:52px;height:52px;border-radius:12px;background:#E5E7EB;border:1px solid #D1D5DB;\"></div>";
+            } else {
+                $thumb = "<img src=\"" . invoice_escape($image) . "\" alt=\"" . invoice_escape($item['name']) . "\" style=\"width:52px;height:52px;object-fit:cover;border-radius:12px;border:1px solid #D1D5DB;display:block;\" />";
+            }
+        }
+        $productLabel = invoice_escape($item['name']);
+        if (!empty($item['productUrl'])) {
+            $productLabel = "<a href=\"" . invoice_escape($item['productUrl']) . "\" style=\"color:#111827;text-decoration:none;\">" . invoice_escape($item['name']) . "</a>";
+        }
+
+        $itemsRows .= "<tr>"
+            . "<td style=\"padding:12px 10px;border-bottom:1px solid #E5E7EB;vertical-align:middle;\">" . $thumb . "</td>"
+            . "<td style=\"padding:12px 10px;border-bottom:1px solid #E5E7EB;vertical-align:middle;\">"
+            . "<div style=\"font-weight:700;color:#0F172A;font-size:14px;line-height:1.4;\">" . $productLabel . "</div>"
+            . "<div style=\"font-size:12px;color:#64748B;margin-top:3px;\">" . $metaText . "</div>"
+            . "</td>"
+            . "<td style=\"padding:12px 10px;border-bottom:1px solid #E5E7EB;text-align:center;font-size:13px;color:#0F172A;\">" . (int)$item['quantity'] . "</td>"
+            . "<td style=\"padding:12px 10px;border-bottom:1px solid #E5E7EB;text-align:right;font-size:13px;color:#0F172A;\">" . invoice_currency($item['unitPrice']) . "</td>"
+            . "<td style=\"padding:12px 10px;border-bottom:1px solid #E5E7EB;text-align:right;font-size:13px;font-weight:700;color:#0F172A;\">" . invoice_currency($item['lineTotal']) . "</td>"
+            . "</tr>";
+    }
+
+    $logoBlock = $logoUrl !== ''
+        ? "<img src=\"" . invoice_escape($logoUrl) . "\" alt=\"SPLARO\" style=\"height:38px;max-width:140px;object-fit:contain;display:block;\" />"
+        : "<div style=\"font-size:34px;font-weight:900;line-height:1;color:#0F172A;\">SPLARO</div>";
+
+    $footerText = invoice_escape((string)($settings['footerText'] ?? ''));
+    $policyText = invoice_escape((string)($settings['policyText'] ?? ''));
+    $typeCodeEscaped = invoice_escape($typeCode);
+
+    return "<!doctype html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <title>" . invoice_escape($serial) . "</title>
+</head>
+<body style=\"margin:0;padding:20px;background:#EEF2FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0F172A;\">
+  <div style=\"max-width:820px;margin:0 auto;background:" . invoice_escape($theme['backgroundColor']) . ";border:1px solid #DBE1F0;border-radius:18px;overflow:hidden;\">
+    <div style=\"padding:24px 26px;background:linear-gradient(140deg," . invoice_escape($theme['primaryColor']) . ",#111827 72%);color:#F8FAFC;\">
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">
+        <tr>
+          <td style=\"vertical-align:top;width:50%;\">" . $logoBlock . "
+            <div style=\"margin-top:10px;font-size:12px;font-weight:700;letter-spacing:0.06em;color:#BFDBFE;\">Luxury Footwear &amp; Bags</div>
+          </td>
+          <td style=\"vertical-align:top;text-align:right;\">
+            <div style=\"font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#93C5FD;\">$documentLabel</div>
+            <div style=\"font-size:34px;font-weight:900;line-height:1.15;margin-top:8px;\">" . invoice_escape($serial) . "</div>
+            <div style=\"margin-top:10px;\">
+              <span style=\"display:inline-block;padding:7px 12px;border-radius:999px;background:" . $statusColor . ";color:#fff;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;\">$paymentStatus</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div style=\"padding:24px 26px 8px;\">
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom:18px;\">
+        <tr>
+          <td style=\"width:52%;vertical-align:top;padding:0 16px 16px 0;\">
+            <div style=\"font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;\">Customer</div>
+            <div style=\"font-size:20px;font-weight:800;color:#0F172A;margin-top:6px;\">" . invoice_escape($orderRow['customer_name'] ?? '') . "</div>
+            <div style=\"font-size:13px;color:#334155;margin-top:6px;\">" . invoice_escape($orderRow['customer_email'] ?? '') . "</div>
+            <div style=\"font-size:13px;color:#334155;margin-top:2px;\">" . invoice_escape($orderRow['phone'] ?? '') . "</div>
+          </td>
+          <td style=\"width:48%;vertical-align:top;padding:0 0 16px;\">
+            <div style=\"font-size:12px;color:#64748B;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;\">Shipping Address</div>
+            <div style=\"font-size:14px;color:#0F172A;line-height:1.55;margin-top:8px;font-weight:600;\">" . invoice_escape($orderRow['address'] ?? '') . "</div>
+            <div style=\"margin-top:8px;font-size:12px;color:#475569;font-weight:700;\">" . invoice_escape(($orderRow['thana'] ?? '') . ', ' . ($orderRow['district'] ?? '')) . "</div>
+          </td>
+        </tr>
+      </table>
+
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom:22px;\">
+        <tr>
+          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;\">
+            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Order ID:</span>
+            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($orderRow['id'] ?? '') . "</span>
+          </td>
+          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;text-align:right;\">
+            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Date:</span>
+            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape(date('Y-m-d H:i')) . "</span>
+          </td>
+        </tr>
+      </table>
+
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;\">
+        <thead>
+          <tr style=\"background:" . invoice_escape($theme['tableHeaderColor']) . ";\">
+            <th style=\"padding:12px 10px;width:72px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:left;\">Image</th>
+            <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:left;\">Product</th>
+            <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:center;\">Qty</th>
+            <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:right;\">Unit Price</th>
+            <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:right;\">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>$itemsRows</tbody>
+      </table>
+
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-top:20px;\">
+        <tr>
+          <td style=\"width:50%;vertical-align:top;padding-right:12px;\">
+            <div style=\"padding:14px 16px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;\">
+              <div style=\"font-size:11px;color:#64748B;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;\">Notes</div>
+              <div style=\"margin-top:8px;font-size:13px;line-height:1.6;color:#334155;\">" . $policyText . "</div>
+            </div>
+          </td>
+          <td style=\"width:50%;vertical-align:top;padding-left:12px;\">
+            <div style=\"padding:14px 16px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;\">
+              <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">
+                <tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Subtotal</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['subtotal']) . "</td></tr>"
+                  . (!empty($settings['showDiscount']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Discount</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">-" . invoice_currency($totals['discount']) . "</td></tr>" : '') .
+                  (!empty($settings['showShipping']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Shipping</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['shipping']) . "</td></tr>" : '') .
+                  (!empty($settings['showTax']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Tax</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['tax']) . "</td></tr>" : '') .
+                "<tr><td colspan=\"2\" style=\"padding-top:8px;border-bottom:1px solid #CBD5E1;\"></td></tr>
+                <tr><td style=\"padding-top:10px;color:#0F172A;font-size:16px;font-weight:900;letter-spacing:0.03em;text-transform:uppercase;\">Grand Total</td><td style=\"padding-top:10px;color:" . invoice_escape($theme['buttonColor']) . ";font-size:20px;text-align:right;font-weight:900;\">" . invoice_currency($totals['grand']) . "</td></tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div style=\"padding:20px 26px 24px;color:#64748B;font-size:12px;background:#F8FAFC;border-top:1px solid #E2E8F0;\">
+      <div style=\"font-weight:700;\">" . $footerText . "</div>
+      <div style=\"margin-top:6px;\">Type: $typeCodeEscaped • Generated from SPLARO Admin Panel</div>
+    </div>
+  </div>
+</body>
+</html>";
+}
+
+function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label) {
+    $lines = [];
+    $lines[] = "SPLARO {$label}";
+    $lines[] = "Serial: {$serial}";
+    $lines[] = "Order: " . (string)($orderRow['id'] ?? '');
+    $lines[] = "Date: " . date('Y-m-d H:i');
+    $lines[] = "Customer: " . (string)($orderRow['customer_name'] ?? '');
+    $lines[] = "Email: " . (string)($orderRow['customer_email'] ?? '');
+    $lines[] = "Phone: " . (string)($orderRow['phone'] ?? '');
+    $lines[] = "Address: " . (string)($orderRow['address'] ?? '');
+    $lines[] = "District/Thana: " . (string)($orderRow['district'] ?? '') . ' / ' . (string)($orderRow['thana'] ?? '');
+    $lines[] = "Items:";
+    foreach ($items as $item) {
+        $lines[] = "- " . (string)$item['name'] . " | Qty " . (int)$item['quantity'] . " | " . invoice_currency($item['lineTotal']);
+    }
+    $lines[] = "Subtotal: " . invoice_currency($totals['subtotal']);
+    $lines[] = "Discount: " . invoice_currency($totals['discount']);
+    $lines[] = "Shipping: " . invoice_currency($totals['shipping']);
+    $lines[] = "Tax: " . invoice_currency($totals['tax']);
+    $lines[] = "Grand Total: " . invoice_currency($totals['grand']);
+    return implode("\n", $lines);
+}
+
+function invoice_pdf_escape_text($text) {
+    $text = str_replace(["\\", "(", ")"], ["\\\\", "\\(", "\\)"], (string)$text);
+    $encoded = @iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
+    return $encoded === false ? preg_replace('/[^\x20-\x7E]/', '?', $text) : $encoded;
+}
+
+function invoice_generate_basic_pdf($text, $targetPath) {
+    $lines = preg_split('/\r\n|\r|\n/', (string)$text);
+    $maxLines = 45;
+    $lines = array_slice($lines, 0, $maxLines);
+
+    $commands = [];
+    $commands[] = "BT";
+    $commands[] = "/F1 11 Tf";
+    $commands[] = "50 790 Td";
+    foreach ($lines as $index => $line) {
+        if ($index > 0) {
+            $commands[] = "0 -15 Td";
+        }
+        $commands[] = "(" . invoice_pdf_escape_text($line) . ") Tj";
+    }
+    $commands[] = "ET";
+    $stream = implode("\n", $commands);
+    $streamLength = strlen($stream);
+
+    $objects = [];
+    $objects[] = "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj";
+    $objects[] = "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj";
+    $objects[] = "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj";
+    $objects[] = "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj";
+    $objects[] = "5 0 obj << /Length {$streamLength} >> stream\n{$stream}\nendstream endobj";
+
+    $pdf = "%PDF-1.4\n";
+    $offsets = [0];
+    foreach ($objects as $object) {
+        $offsets[] = strlen($pdf);
+        $pdf .= $object . "\n";
+    }
+    $xrefOffset = strlen($pdf);
+    $totalObjects = count($objects) + 1;
+    $pdf .= "xref\n0 {$totalObjects}\n";
+    $pdf .= "0000000000 65535 f \n";
+    for ($i = 1; $i <= count($objects); $i++) {
+        $pdf .= str_pad((string)$offsets[$i], 10, '0', STR_PAD_LEFT) . " 00000 n \n";
+    }
+    $pdf .= "trailer << /Size {$totalObjects} /Root 1 0 R >>\nstartxref\n{$xrefOffset}\n%%EOF";
+    return @file_put_contents($targetPath, $pdf) !== false;
+}
+
+function invoice_generate_pdf_file($html, $plainText, $targetPath) {
+    try {
+        if (class_exists('Dompdf\\Dompdf')) {
+            $dompdf = new \Dompdf\Dompdf([
+                'isRemoteEnabled' => true,
+                'defaultFont' => 'DejaVu Sans'
+            ]);
+            $dompdf->loadHtml((string)$html, 'UTF-8');
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            return @file_put_contents($targetPath, $dompdf->output()) !== false;
+        }
+    } catch (Exception $e) {
+        error_log('SPLARO_INVOICE_DOMPDF_FAILED: ' . $e->getMessage());
+    }
+
+    try {
+        if (class_exists('Mpdf\\Mpdf')) {
+            $mpdf = new \Mpdf\Mpdf(['format' => 'A4']);
+            $mpdf->WriteHTML((string)$html);
+            $mpdf->Output($targetPath, 'F');
+            return is_file($targetPath) && filesize($targetPath) > 0;
+        }
+    } catch (Exception $e) {
+        error_log('SPLARO_INVOICE_MPDF_FAILED: ' . $e->getMessage());
+    }
+
+    return invoice_generate_basic_pdf($plainText, $targetPath);
+}
+
+function invoice_allocate_serial($db, $settings, $typeCode) {
+    $type = strtoupper(trim((string)$typeCode));
+    if ($type === '') {
+        $type = strtoupper((string)($settings['defaultType'] ?? 'INV'));
+    }
+    $counterKey = !empty($settings['separateCounterPerType']) ? ('TYPE_' . $type) : 'GLOBAL';
+    $number = 0;
+
+    $db->beginTransaction();
+    try {
+        $stmt = $db->prepare("SELECT counter_key, current_number FROM invoice_counters WHERE counter_key = ? FOR UPDATE");
+        $stmt->execute([$counterKey]);
+        $counterRow = $stmt->fetch();
+        if (!$counterRow) {
+            $insert = $db->prepare("INSERT INTO invoice_counters (counter_key, current_number, updated_at) VALUES (?, 0, NOW())");
+            $insert->execute([$counterKey]);
+            $number = 1;
+            $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
+            $update->execute([$number, $counterKey]);
+        } else {
+            $number = ((int)$counterRow['current_number']) + 1;
+            $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
+            $update->execute([$number, $counterKey]);
+        }
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+
+    $padding = (int)($settings['numberPadding'] ?? 6);
+    if ($padding < 3) $padding = 3;
+    if ($padding > 10) $padding = 10;
+    $prefix = strtoupper(trim((string)($settings['invoicePrefix'] ?? 'SPL')));
+    if ($prefix === '') $prefix = 'SPL';
+    $serial = $prefix . '-' . str_pad((string)$number, $padding, '0', STR_PAD_LEFT) . '-' . $type;
+
+    return [
+        'serial' => $serial,
+        'type' => $type,
+        'number' => $number,
+        'counterKey' => $counterKey
+    ];
+}
+
+function invoice_create_document($db, $orderRow, $settings, $typeCode, $createdBy, $sendEmail = false) {
+    $orderId = (string)($orderRow['id'] ?? '');
+    if ($orderId === '') {
+        throw new Exception('ORDER_ID_MISSING');
+    }
+    $items = invoice_parse_items($orderRow['items'] ?? []);
+    if (empty($items)) {
+        throw new Exception('ORDER_ITEMS_MISSING');
+    }
+
+    $subtotal = 0.0;
+    foreach ($items as $item) {
+        $subtotal += (float)$item['lineTotal'];
+    }
+    $shipping = (float)($orderRow['shipping_fee'] ?? 0);
+    $discount = (float)($orderRow['discount_amount'] ?? 0);
+    $tax = !empty($settings['showTax']) ? round(max(0, $subtotal - $discount + $shipping) * ((float)$settings['taxRate'] / 100), 2) : 0;
+    $grand = (float)($orderRow['total'] ?? 0);
+    if ($grand <= 0) {
+        $grand = max(0, $subtotal - $discount + $shipping + $tax);
+    }
+
+    $totals = [
+        'subtotal' => $subtotal,
+        'shipping' => $shipping,
+        'discount' => $discount,
+        'tax' => $tax,
+        'grand' => $grand
+    ];
+
+    $type = strtoupper(trim((string)$typeCode));
+    if ($type === '') {
+        $type = strtoupper((string)($settings['defaultType'] ?? 'INV'));
+    }
+    $label = 'Invoice';
+    foreach (($settings['serialTypes'] ?? []) as $serialType) {
+        if (strtoupper((string)($serialType['code'] ?? '')) === $type) {
+            $label = (string)($serialType['label'] ?? 'Invoice');
+            break;
+        }
+    }
+
+    $serialData = invoice_allocate_serial($db, $settings, $type);
+    $serial = (string)$serialData['serial'];
+    $html = invoice_build_html($orderRow, $items, $settings, $serial, $type, $label, $totals);
+    $plainText = invoice_build_plain_text($orderRow, $items, $serial, $totals, $label);
+
+    $outputDir = invoice_ensure_output_dir();
+    $timeToken = date('Ymd_His');
+    $safeSerial = invoice_file_safe_name($serial);
+    $htmlName = $safeSerial . '_' . $timeToken . '.html';
+    $pdfName = $safeSerial . '_' . $timeToken . '.pdf';
+    $htmlPath = $outputDir . DIRECTORY_SEPARATOR . $htmlName;
+    $pdfPath = $outputDir . DIRECTORY_SEPARATOR . $pdfName;
+
+    if (@file_put_contents($htmlPath, $html) === false) {
+        throw new Exception('INVOICE_HTML_WRITE_FAILED');
+    }
+    $pdfGenerated = invoice_generate_pdf_file($html, $plainText, $pdfPath);
+    if (!$pdfGenerated) {
+        $pdfPath = null;
+    }
+
+    $htmlRelative = 'api/invoices/' . $htmlName;
+    $pdfRelative = $pdfPath ? ('api/invoices/' . $pdfName) : null;
+    $htmlUrl = invoice_relative_url($htmlRelative);
+    $pdfUrl = $pdfRelative ? invoice_relative_url($pdfRelative) : null;
+
+    $status = 'GENERATED';
+    $errorMessage = null;
+    $sentAt = null;
+
+    if ($sendEmail) {
+        $toEmail = trim((string)($orderRow['customer_email'] ?? ''));
+        if ($toEmail === '') {
+            throw new Exception('CUSTOMER_EMAIL_MISSING');
+        }
+        $subject = "{$label} {$serial} • SPLARO Order {$orderId}";
+        $attachments = [];
+        if ($pdfPath && is_file($pdfPath)) {
+            $attachments[] = [
+                'path' => $pdfPath,
+                'name' => $serial . '.pdf',
+                'type' => 'application/pdf'
+            ];
+        } else {
+            $attachments[] = [
+                'path' => $htmlPath,
+                'name' => $serial . '.html',
+                'type' => 'text/html'
+            ];
+        }
+        $sent = smtp_send_mail_with_attachments($db, $toEmail, $subject, $html, true, $attachments);
+        if (!$sent) {
+            usleep(300000);
+            $sent = smtp_send_mail_with_attachments($db, $toEmail, $subject, $html, true, $attachments);
+        }
+        if ($sent) {
+            $status = 'SENT';
+            $sentAt = date('Y-m-d H:i:s');
+        } else {
+            $status = 'FAILED';
+            $errorMessage = 'SMTP_SEND_FAILED';
+        }
+    }
+
+    $insert = $db->prepare("INSERT INTO invoice_documents (order_id, serial, doc_type, status, html_path, pdf_path, html_url, pdf_url, sent_at, created_by_admin_id, error_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $insert->execute([
+        $orderId,
+        $serial,
+        $type,
+        $status,
+        $htmlRelative,
+        $pdfRelative,
+        $htmlUrl,
+        $pdfUrl,
+        $sentAt,
+        $createdBy !== null ? (string)$createdBy : null,
+        $errorMessage
+    ]);
+    $invoiceId = (int)$db->lastInsertId();
+
+    return [
+        'id' => $invoiceId,
+        'orderId' => $orderId,
+        'serial' => $serial,
+        'type' => $type,
+        'label' => $label,
+        'status' => $status,
+        'htmlPath' => $htmlRelative,
+        'pdfPath' => $pdfRelative,
+        'htmlUrl' => $htmlUrl,
+        'pdfUrl' => $pdfUrl,
+        'sentAt' => $sentAt,
+        'error' => $errorMessage
+    ];
 }
 
 function telegram_escape_html($value) {
@@ -4057,6 +4800,8 @@ if ($method === 'POST' && $action === 'update_settings') {
         'maintenanceMode',
         'smtpSettings',
         'logisticsConfig',
+        'invoiceSettings',
+        'invoice_settings',
         'slides',
         'googleClientId',
         'google_client_id'
@@ -4144,6 +4889,10 @@ if ($method === 'POST' && $action === 'update_settings') {
         }
 
         $existingSettingsJson = safe_json_decode_assoc($existingSettingsRow['settings_json'] ?? '{}', []);
+        $currentInvoiceSettings = invoice_normalize_settings(
+            $existingSettingsJson['invoiceSettings'] ?? $existingSettingsJson['invoice_settings'] ?? [],
+            $existingSettingsRow
+        );
         $currentCmsDraft = cms_normalize_bundle($existingSettingsJson['cmsDraft'] ?? $existingSettingsJson['cms_draft'] ?? []);
         $currentCmsPublished = cms_normalize_bundle($existingSettingsJson['cmsPublished'] ?? $existingSettingsJson['cms_published'] ?? []);
         $currentCmsRevisions = cms_normalize_revisions($existingSettingsJson['cmsRevisions'] ?? $existingSettingsJson['cms_revisions'] ?? []);
@@ -4240,6 +4989,12 @@ if ($method === 'POST' && $action === 'update_settings') {
         $nextSettingsJson['cmsPublished'] = $nextCmsPublished;
         $nextSettingsJson['cmsActiveVersion'] = $nextCmsActiveVersion;
         $nextSettingsJson['cmsRevisions'] = $nextCmsRevisions;
+        $incomingInvoiceSettings = $input['invoiceSettings'] ?? ($input['invoice_settings'] ?? null);
+        if (is_array($incomingInvoiceSettings)) {
+            $nextSettingsJson['invoiceSettings'] = invoice_normalize_settings(array_merge($currentInvoiceSettings, $incomingInvoiceSettings), $existingSettingsRow);
+        } else {
+            $nextSettingsJson['invoiceSettings'] = $currentInvoiceSettings;
+        }
 
         $params = [
             $input['siteName'] ?? ($existingSettingsRow['site_name'] ?? 'SPLARO'),
@@ -4394,6 +5149,199 @@ if ($method === 'POST' && $action === 'update_order_metadata') {
     ]);
 
     echo json_encode(["status" => "success"]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'generate_invoice_document') {
+    require_admin_access($requestAuthUser);
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "INVOICE_ADMIN_REQUIRED"]);
+        exit;
+    }
+
+    require_csrf_token();
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $orderId = trim((string)($input['orderId'] ?? $input['order_id'] ?? ''));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+
+    $sendRequested = !empty($input['send']) || !empty($input['sendEmail']) || !empty($input['send_email']);
+    if ($sendRequested && is_rate_limited_scoped('invoice_send', $orderId, 3, 300)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $typeCode = strtoupper(trim((string)($input['type'] ?? '')));
+
+    $orderStmt = $db->prepare("SELECT * FROM orders WHERE id = ? LIMIT 1");
+    $orderStmt->execute([$orderId]);
+    $orderRow = $orderStmt->fetch();
+    if (!$orderRow) {
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+
+    $settingsRow = $db->query("SELECT * FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+    $settingsJson = safe_json_decode_assoc($settingsRow['settings_json'] ?? '{}', []);
+    $invoiceSettingsRaw = $settingsJson['invoiceSettings'] ?? ($settingsJson['invoice_settings'] ?? []);
+    $invoiceSettings = invoice_normalize_settings($invoiceSettingsRaw, $settingsRow ?: []);
+
+    if (empty($invoiceSettings['invoiceEnabled'])) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "INVOICE_MODULE_DISABLED"]);
+        exit;
+    }
+
+    if ($typeCode === '') {
+        $typeCode = strtoupper((string)($invoiceSettings['defaultType'] ?? 'INV'));
+    }
+    $allowedTypes = array_map(function ($type) {
+        return strtoupper((string)($type['code'] ?? ''));
+    }, (array)($invoiceSettings['serialTypes'] ?? []));
+    if (!in_array($typeCode, $allowedTypes, true)) {
+        $typeCode = strtoupper((string)($invoiceSettings['defaultType'] ?? 'INV'));
+    }
+
+    $createdBy = is_array($requestAuthUser)
+        ? ((string)($requestAuthUser['id'] ?? ($requestAuthUser['email'] ?? 'admin')))
+        : 'admin_key';
+
+    try {
+        $document = invoice_create_document($db, $orderRow, $invoiceSettings, $typeCode, $createdBy, $sendRequested);
+    } catch (Exception $e) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        log_system_event($db, 'INVOICE_FAILED', 'Invoice generation failed for order ' . $orderId . ': ' . $e->getMessage(), $createdBy, $ip);
+        log_audit_event(
+            $db,
+            $createdBy,
+            'INVOICE_FAILED',
+            'ORDER',
+            $orderId,
+            null,
+            ['reason' => $e->getMessage(), 'type' => $typeCode],
+            $ip
+        );
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "INVOICE_GENERATION_FAILED"]);
+        exit;
+    }
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'INVOICE_GENERATED', 'Invoice document ' . $document['serial'] . ' generated for order ' . $orderId, $createdBy, $ip);
+    log_audit_event(
+        $db,
+        $createdBy,
+        'INVOICE_GENERATED',
+        'ORDER',
+        $orderId,
+        null,
+        [
+            'serial' => $document['serial'],
+            'type' => $document['type'],
+            'status' => $document['status']
+        ],
+        $ip
+    );
+
+    if ($sendRequested) {
+        if ($document['status'] === 'SENT') {
+            log_system_event($db, 'INVOICE_SENT', 'Invoice ' . $document['serial'] . ' sent to customer.', $createdBy, $ip);
+            log_audit_event(
+                $db,
+                $createdBy,
+                'INVOICE_SENT',
+                'ORDER',
+                $orderId,
+                null,
+                ['serial' => $document['serial'], 'type' => $document['type']],
+                $ip
+            );
+        } else {
+            log_system_event($db, 'INVOICE_FAILED', 'Invoice send failed for ' . $document['serial'], $createdBy, $ip);
+            log_audit_event(
+                $db,
+                $createdBy,
+                'INVOICE_FAILED',
+                'ORDER',
+                $orderId,
+                null,
+                ['serial' => $document['serial'], 'type' => $document['type'], 'error' => $document['error'] ?? 'SMTP_SEND_FAILED'],
+                $ip
+            );
+        }
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "message" => $sendRequested ? ($document['status'] === 'SENT' ? "INVOICE_SENT" : "INVOICE_SEND_FAILED") : "INVOICE_GENERATED",
+        "data" => [
+            "id" => $document['id'],
+            "orderId" => $document['orderId'],
+            "serial" => $document['serial'],
+            "type" => $document['type'],
+            "label" => $document['label'],
+            "status" => $document['status'],
+            "downloadUrl" => $document['pdfUrl'] ?: $document['htmlUrl'],
+            "pdfUrl" => $document['pdfUrl'],
+            "htmlUrl" => $document['htmlUrl'],
+            "sentAt" => $document['sentAt']
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'latest_invoice_document') {
+    require_admin_access($requestAuthUser);
+
+    $orderId = trim((string)($_GET['orderId'] ?? $_GET['order_id'] ?? ''));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+    $type = strtoupper(trim((string)($_GET['type'] ?? '')));
+
+    $sql = "SELECT id, order_id, serial, doc_type, status, html_path, pdf_path, html_url, pdf_url, sent_at, created_by_admin_id, error_message, created_at FROM invoice_documents WHERE order_id = ?";
+    $params = [$orderId];
+    if ($type !== '') {
+        $sql .= " AND doc_type = ?";
+        $params[] = $type;
+    }
+    $sql .= " ORDER BY created_at DESC LIMIT 1";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $doc = $stmt->fetch();
+
+    if (!$doc) {
+        echo json_encode(["status" => "error", "message" => "INVOICE_NOT_FOUND"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            "id" => (int)$doc['id'],
+            "orderId" => (string)$doc['order_id'],
+            "serial" => (string)$doc['serial'],
+            "type" => (string)$doc['doc_type'],
+            "status" => (string)$doc['status'],
+            "downloadUrl" => (string)($doc['pdf_url'] ?: $doc['html_url']),
+            "pdfUrl" => (string)($doc['pdf_url'] ?? ''),
+            "htmlUrl" => (string)($doc['html_url'] ?? ''),
+            "sentAt" => $doc['sent_at'] ?? null,
+            "createdAt" => $doc['created_at'] ?? null
+        ]
+    ]);
     exit;
 }
 
