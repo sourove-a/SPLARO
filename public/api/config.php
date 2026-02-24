@@ -13,6 +13,18 @@ error_reporting(E_ALL);
 function bootstrap_env_files() {
     $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
     $allowOverride = filter_var((string)($_SERVER['SPLARO_ENV_OVERRIDE'] ?? getenv('SPLARO_ENV_OVERRIDE') ?: ''), FILTER_VALIDATE_BOOLEAN);
+    $decodePercentEncoded = static function ($value) {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return '';
+        }
+        // Decode only when URL-encoded byte sequences exist.
+        // This avoids turning plain '+' characters into spaces.
+        if (!preg_match('/%[0-9A-Fa-f]{2}/', $value)) {
+            return '';
+        }
+        return rawurldecode($value);
+    };
     $setRuntimeVar = static function ($key, $value) {
         $key = trim((string)$key);
         $value = (string)$value;
@@ -40,9 +52,14 @@ function bootstrap_env_files() {
         if ($runtimePassword === '') {
             $urlEncoded = trim((string)getenv('DB_PASSWORD_URLENC'));
             if ($urlEncoded !== '') {
-                $decoded = rawurldecode($urlEncoded);
-                $runtimePassword = $decoded !== '' ? $decoded : $urlEncoded;
-                $runtimePasswordSource = 'DB_PASSWORD_URLENC';
+                $decoded = $decodePercentEncoded($urlEncoded);
+                if ($decoded !== '') {
+                    $runtimePassword = $decoded;
+                    $runtimePasswordSource = 'DB_PASSWORD_URLENC_DECODED';
+                } else {
+                    $runtimePassword = $urlEncoded;
+                    $runtimePasswordSource = 'DB_PASSWORD_URLENC_RAW';
+                }
             }
         }
 
@@ -370,13 +387,20 @@ function resolve_db_password_candidates($fallbackFromDbUrl = '') {
             'value' => $value
         ];
     };
+    $decodePercentEncoded = static function ($value) {
+        $value = trim((string)$value);
+        if ($value === '' || !preg_match('/%[0-9A-Fa-f]{2}/', $value)) {
+            return '';
+        }
+        return rawurldecode($value);
+    };
 
     // Priority: plain env first, encoded variants as fallback.
     $plainPrimary = trim((string)env_or_default('DB_PASSWORD', ''));
     if ($plainPrimary !== '') {
         $addCandidate('DB_PASSWORD', $plainPrimary);
-        $decodedPrimary = rawurldecode($plainPrimary);
-        if ($decodedPrimary !== $plainPrimary && $decodedPrimary !== '') {
+        $decodedPrimary = $decodePercentEncoded($plainPrimary);
+        if ($decodedPrimary !== '') {
             $addCandidate('DB_PASSWORD_DECODED', $decodedPrimary);
         }
     }
@@ -384,8 +408,8 @@ function resolve_db_password_candidates($fallbackFromDbUrl = '') {
     $plainAlias = trim((string)env_or_default('DB_PASS', ''));
     if ($plainAlias !== '') {
         $addCandidate('DB_PASS', $plainAlias);
-        $decodedAlias = rawurldecode($plainAlias);
-        if ($decodedAlias !== $plainAlias && $decodedAlias !== '') {
+        $decodedAlias = $decodePercentEncoded($plainAlias);
+        if ($decodedAlias !== '') {
             $addCandidate('DB_PASS_DECODED', $decodedAlias);
         }
     }
@@ -395,8 +419,8 @@ function resolve_db_password_candidates($fallbackFromDbUrl = '') {
         // Some panels store URL-encoded password; others store raw value in this key.
         // Try both to maximize compatibility without changing user-provided password.
         $addCandidate('DB_PASSWORD_URLENC_RAW', $urlEncoded);
-        $decoded = rawurldecode($urlEncoded);
-        if ($decoded !== '' && $decoded !== $urlEncoded) {
+        $decoded = $decodePercentEncoded($urlEncoded);
+        if ($decoded !== '') {
             $addCandidate('DB_PASSWORD_URLENC', $decoded);
         }
     }
