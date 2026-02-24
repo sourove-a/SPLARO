@@ -243,12 +243,12 @@
         }
 
         :where(button, a[href], [role="button"], input, select, textarea, .nav-item, .interactive-control):focus-visible {
-            outline: 2px solid var(--ui-focus-outline);
-            outline-offset: 1px;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(86, 221, 255, 0.22);
         }
 
         :where(input, select, textarea):focus-visible {
-            box-shadow: 0 0 0 2px rgba(86, 221, 255, 0.18);
+            box-shadow: 0 0 0 2px rgba(86, 221, 255, 0.22);
         }
 
         :where(button, [role="button"], .nav-item, .interactive-control):active:not(:disabled) {
@@ -289,6 +289,13 @@
 
         .luxury-input-field::placeholder {
             color: rgba(163, 183, 209, 0.78) !important;
+        }
+
+        .interactive-control .shine-sweep,
+        .interactive-control .ribbed-texture,
+        .nav-item .shine-sweep,
+        .nav-item .ribbed-texture {
+            display: none !important;
         }
 
         input:-webkit-autofill,
