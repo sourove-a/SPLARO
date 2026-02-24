@@ -27,35 +27,35 @@ function bootstrap_env_files() {
         return;
     }
 
-    $candidates = [];
+    $locations = [];
     if ($docRoot !== '') {
         $cleanDocRoot = rtrim($docRoot, '/\\');
-        $candidates[] = $cleanDocRoot . '/.env.local';
-        $candidates[] = $cleanDocRoot . '/.env';
-        $candidates[] = $cleanDocRoot . '/.builds/config/.env.local';
-        $candidates[] = $cleanDocRoot . '/.builds/config/.env';
-        $candidates[] = $cleanDocRoot . '/api/.env.local';
-        $candidates[] = $cleanDocRoot . '/api/.env';
-        $candidates[] = $cleanDocRoot . '/api/.builds/config/.env.local';
-        $candidates[] = $cleanDocRoot . '/api/.builds/config/.env';
-        $candidates[] = dirname($cleanDocRoot) . '/.env.local';
-        $candidates[] = dirname($cleanDocRoot) . '/.env';
-        $candidates[] = dirname($cleanDocRoot) . '/.builds/config/.env.local';
-        $candidates[] = dirname($cleanDocRoot) . '/.builds/config/.env';
+        $locations[] = $cleanDocRoot;
+        $locations[] = $cleanDocRoot . '/.builds/config';
+        $locations[] = $cleanDocRoot . '/api';
+        $locations[] = $cleanDocRoot . '/api/.builds/config';
+        $locations[] = dirname($cleanDocRoot);
+        $locations[] = dirname($cleanDocRoot) . '/.builds/config';
+    }
+    $locations[] = __DIR__ . '/..';
+    $locations[] = __DIR__;
+    $locations[] = __DIR__ . '/../../';
+    $locations[] = dirname(__DIR__, 2);
+
+    $locations = array_values(array_unique(array_filter($locations)));
+    $localCandidates = [];
+    $envCandidates = [];
+    foreach ($locations as $location) {
+        $location = rtrim((string)$location, '/\\');
+        if ($location === '') {
+            continue;
+        }
+        $localCandidates[] = $location . '/.env.local';
+        $envCandidates[] = $location . '/.env';
     }
 
-    $candidates = array_merge($candidates, [
-        __DIR__ . '/../.env.local',
-        __DIR__ . '/../.env',
-        __DIR__ . '/.env.local',
-        __DIR__ . '/.env',
-        __DIR__ . '/../../.env.local',
-        __DIR__ . '/../../.env',
-        dirname(__DIR__, 2) . '/.env.local',
-        dirname(__DIR__, 2) . '/.env',
-    ]);
-
-    $candidates = array_unique($candidates);
+    // Always prefer .env.local across all known locations before falling back to .env.
+    $candidates = array_values(array_unique(array_merge($localCandidates, $envCandidates)));
     $tried = [];
     $found = false;
 
