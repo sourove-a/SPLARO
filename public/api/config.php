@@ -13,11 +13,12 @@ error_reporting(E_ALL);
 function bootstrap_env_files() {
     $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
     $allowOverride = filter_var((string)($_SERVER['SPLARO_ENV_OVERRIDE'] ?? getenv('SPLARO_ENV_OVERRIDE') ?: ''), FILTER_VALIDATE_BOOLEAN);
+    // Consider runtime DB env "ready" only when plain password vars exist.
+    // If only encoded variants are present, keep loading .env files to fill DB_PASSWORD/DB_PASS.
     $runtimeDbReady = trim((string)getenv('DB_NAME')) !== '' && trim((string)getenv('DB_USER')) !== '' && (
         trim((string)getenv('DB_PASSWORD')) !== '' ||
         trim((string)getenv('DB_PASS')) !== '' ||
-        trim((string)getenv('DB_PASSWORD_URLENC')) !== '' ||
-        trim((string)getenv('DB_PASSWORD_B64')) !== ''
+        trim((string)getenv('MYSQL_PASSWORD')) !== ''
     );
 
     if ($runtimeDbReady && !$allowOverride) {
@@ -325,14 +326,18 @@ function resolve_db_password_candidates($fallbackFromDbUrl = '') {
 
     $urlEncoded = trim((string)env_or_default('DB_PASSWORD_URLENC', ''));
     if ($urlEncoded !== '') {
+        // Some panels store URL-encoded password; others store raw value in this key.
+        // Try both to maximize compatibility without changing user-provided password.
+        $addCandidate('DB_PASSWORD_URLENC_RAW', $urlEncoded);
         $decoded = rawurldecode($urlEncoded);
-        if ($decoded !== '') {
+        if ($decoded !== '' && $decoded !== $urlEncoded) {
             $addCandidate('DB_PASSWORD_URLENC', $decoded);
         }
     }
 
     $b64 = trim((string)env_or_default('DB_PASSWORD_B64', ''));
     if ($b64 !== '') {
+        $addCandidate('DB_PASSWORD_B64_RAW', $b64);
         $decoded = base64_decode($b64, true);
         if (is_string($decoded) && $decoded !== '') {
             $addCandidate('DB_PASSWORD_B64', $decoded);
