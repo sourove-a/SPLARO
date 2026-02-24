@@ -56,20 +56,22 @@ export const LuxuryFloatingInput: React.FC<{
 }> = ({ label, value, onChange, icon, type = "text", error, isValid, suffix, placeholder, autoComplete = "off" }) => {
   const [focused, setFocused] = useState(false);
   const isFilled = value.length > 0;
+  const inputMode =
+    type === 'number' ? 'decimal'
+      : type === 'tel' ? 'tel'
+        : type === 'email' ? 'email'
+          : undefined;
 
   return (
     <div className="relative mb-4 group w-full">
       <motion.div
         animate={{
-          borderColor: focused ? 'rgba(34, 211, 238, 0.6)' : error ? 'rgba(244, 63, 94, 0.6)' : isValid ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.24)',
-          backgroundColor: focused ? 'rgba(15, 22, 36, 0.96)' : error ? 'rgba(94, 22, 38, 0.45)' : 'rgba(15, 22, 36, 0.9)',
-          boxShadow: focused ? '0 0 0 2px rgba(34, 211, 238, 0.24), 0 8px 22px rgba(0, 0, 0, 0.42)' : '0 6px 16px rgba(0, 0, 0, 0.28)'
+          borderColor: focused ? 'rgba(56, 216, 255, 0.72)' : error ? 'rgba(244, 63, 94, 0.6)' : isValid ? 'rgba(16, 185, 129, 0.55)' : 'rgba(160, 214, 255, 0.32)',
+          backgroundColor: focused ? 'rgba(10, 18, 32, 0.98)' : error ? 'rgba(78, 17, 34, 0.46)' : 'rgba(10, 18, 32, 0.94)',
+          boxShadow: focused ? '0 0 0 2px rgba(56, 216, 255, 0.2), 0 10px 26px rgba(3, 10, 22, 0.5)' : '0 8px 18px rgba(3, 10, 22, 0.36)'
         }}
-        className={`relative flex items-center h-22 md:h-24 border rounded-[24px] transition-all duration-200 ease-out overflow-hidden backdrop-blur-md`}
+        className="relative flex items-center h-20 md:h-24 border rounded-[24px] transition-all duration-200 ease-out overflow-hidden"
       >
-
-        <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
-
         <div className={`pl-8 transition-all duration-300 ${focused ? 'text-cyan-300 scale-105' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-300'}`}>
           {icon}
         </div>
@@ -79,12 +81,12 @@ export const LuxuryFloatingInput: React.FC<{
             initial={false}
             animate={{
               y: (focused || isFilled) ? -24 : 0,
-              scale: (focused || isFilled) ? 0.55 : 1,
+              scale: (focused || isFilled) ? 0.58 : 1,
               x: (focused || isFilled) ? -20 : 0,
-              color: (focused || isFilled) ? '#00D4FF' : error ? '#f43f5e' : isValid ? '#10b981' : '#71717A'
+              color: (focused || isFilled) ? '#56ddff' : error ? '#f43f5e' : isValid ? '#10b981' : '#9CB4D3'
             }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-black uppercase tracking-[0.3em] origin-left z-20 whitespace-nowrap"
+            className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-black uppercase tracking-[0.18em] origin-left z-20 whitespace-nowrap"
           >
             {label}
           </motion.label>
@@ -92,12 +94,13 @@ export const LuxuryFloatingInput: React.FC<{
           <input
             type={type}
             value={value}
+            inputMode={inputMode}
             autoComplete={autoComplete}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onChange={(e) => onChange(e.target.value)}
             placeholder={focused && !isFilled ? placeholder : ""}
-            className="w-full h-full bg-transparent px-5 pt-7 outline-none focus-visible:outline-none text-white font-semibold text-[15px] tracking-[0.08em] placeholder:text-zinc-500 transition-all relative z-10 pointer-events-auto appearance-none"
+            className="luxury-input-field w-full h-full bg-transparent px-5 pt-7 outline-none focus-visible:outline-none text-white font-semibold text-[15px] md:text-base tracking-[0.01em] placeholder:text-[#9BB0CC] transition-all relative z-10 pointer-events-auto appearance-none"
           />
         </div>
 

@@ -230,7 +230,7 @@
             position: relative;
         }
 
-        :where(button, a[href], [role="button"], input, select, textarea, .card, .nav-item, .interactive-control) {
+        :where(button, a[href], [role="button"], input, select, textarea, .nav-item, .interactive-control) {
             transition: color 180ms ease-out, background-color 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out, transform 180ms ease-out, opacity 180ms ease-out;
         }
 
@@ -238,14 +238,17 @@
             cursor: pointer;
         }
 
-        :where(button, a[href], [role="button"], input, select, textarea, .card, .nav-item, .interactive-control):focus {
+        :where(button, a[href], [role="button"], input, select, textarea, .nav-item, .interactive-control):focus {
             outline: none;
         }
 
-        :where(button, a[href], [role="button"], input, select, textarea, .card, .nav-item, .interactive-control):focus-visible {
+        :where(button, a[href], [role="button"], input, select, textarea, .nav-item, .interactive-control):focus-visible {
             outline: 2px solid var(--ui-focus-outline);
-            outline-offset: 2px;
-            box-shadow: var(--ui-focus-shadow);
+            outline-offset: 1px;
+        }
+
+        :where(input, select, textarea):focus-visible {
+            box-shadow: 0 0 0 2px rgba(86, 221, 255, 0.18);
         }
 
         :where(button, [role="button"], .nav-item, .interactive-control):active:not(:disabled) {
@@ -263,7 +266,29 @@
         select {
             background-clip: padding-box;
             color: var(--text-main);
+            -webkit-text-fill-color: var(--text-main);
             caret-color: var(--text-main);
+        }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+
+        .luxury-input-field {
+            color: #eef6ff !important;
+            -webkit-text-fill-color: #eef6ff !important;
+            text-shadow: 0 0 0 transparent;
+        }
+
+        .luxury-input-field::placeholder {
+            color: rgba(163, 183, 209, 0.78) !important;
         }
 
         input:-webkit-autofill,
@@ -276,10 +301,19 @@
         select:-webkit-autofill:hover,
         select:-webkit-autofill:focus {
             -webkit-text-fill-color: var(--text-main) !important;
-            -webkit-box-shadow: 0 0 0 1000px rgba(15, 22, 36, 0.96) inset !important;
-            box-shadow: 0 0 0 1000px rgba(15, 22, 36, 0.96) inset !important;
+            -webkit-box-shadow: 0 0 0 1000px rgba(10, 18, 32, 0.98) inset !important;
+            box-shadow: 0 0 0 1000px rgba(10, 18, 32, 0.98) inset !important;
             transition: background-color 9999s ease-out 0s !important;
             caret-color: var(--text-main);
+        }
+
+        .luxury-input-field:-webkit-autofill,
+        .luxury-input-field:-webkit-autofill:hover,
+        .luxury-input-field:-webkit-autofill:focus {
+            -webkit-text-fill-color: #eef6ff !important;
+            -webkit-box-shadow: 0 0 0 1000px rgba(10, 18, 32, 0.98) inset !important;
+            box-shadow: 0 0 0 1000px rgba(10, 18, 32, 0.98) inset !important;
+            caret-color: #eef6ff !important;
         }
 
         /* Global brightness lift for frequently used low-contrast utility classes */
