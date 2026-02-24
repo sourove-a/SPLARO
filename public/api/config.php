@@ -304,22 +304,7 @@ function resolve_db_password_candidates($fallbackFromDbUrl = '') {
         ];
     };
 
-    $b64 = trim((string)env_or_default('DB_PASSWORD_B64', ''));
-    if ($b64 !== '') {
-        $decoded = base64_decode($b64, true);
-        if (is_string($decoded) && $decoded !== '') {
-            $addCandidate('DB_PASSWORD_B64', $decoded);
-        }
-    }
-
-    $urlEncoded = trim((string)env_or_default('DB_PASSWORD_URLENC', ''));
-    if ($urlEncoded !== '') {
-        $decoded = rawurldecode($urlEncoded);
-        if ($decoded !== '') {
-            $addCandidate('DB_PASSWORD_URLENC', $decoded);
-        }
-    }
-
+    // Priority: plain env first, encoded variants as fallback.
     $plainPrimary = trim((string)env_or_default('DB_PASSWORD', ''));
     if ($plainPrimary !== '') {
         $addCandidate('DB_PASSWORD', $plainPrimary);
@@ -335,6 +320,22 @@ function resolve_db_password_candidates($fallbackFromDbUrl = '') {
         $decodedAlias = rawurldecode($plainAlias);
         if ($decodedAlias !== $plainAlias && $decodedAlias !== '') {
             $addCandidate('DB_PASS_DECODED', $decodedAlias);
+        }
+    }
+
+    $urlEncoded = trim((string)env_or_default('DB_PASSWORD_URLENC', ''));
+    if ($urlEncoded !== '') {
+        $decoded = rawurldecode($urlEncoded);
+        if ($decoded !== '') {
+            $addCandidate('DB_PASSWORD_URLENC', $decoded);
+        }
+    }
+
+    $b64 = trim((string)env_or_default('DB_PASSWORD_B64', ''));
+    if ($b64 !== '') {
+        $decoded = base64_decode($b64, true);
+        if (is_string($decoded) && $decoded !== '') {
+            $addCandidate('DB_PASSWORD_B64', $decoded);
         }
     }
 
