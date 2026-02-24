@@ -455,12 +455,12 @@ const ProductModal: React.FC<{
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Identity & Category</h3>
                 <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={handleNameChange} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
                 <div className="space-y-2">
-                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.productSlug || formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v), productSlug: slugify(v) })} placeholder="best-nike-shoes অথবা new-arrival-2026" icon={<Globe className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.productSlug || formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v), productSlug: slugify(v) })} placeholder="nike-air-max" icon={<Globe className="w-5 h-5" />} />
                   <p className="px-6 text-[8px] font-black text-cyan-500/50 uppercase tracking-[0.2em]">
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
                   </p>
                   <p className="px-6 text-[9px] font-semibold text-zinc-400 tracking-[0.06em]">
-                    Slug now supports custom hyphen style, including double-hyphen (`--`) when needed.
+                    Allowed symbols: letters, numbers, -, _, . and ~
                   </p>
                 </div>
 
@@ -850,7 +850,7 @@ const ProductModal: React.FC<{
                     label="Product Slug"
                     value={formData.productSlug || formData.id || ''}
                     onChange={v => setFormData({ ...formData, productSlug: slugify(v), id: slugify(v) })}
-                    placeholder="best-nike-shoes"
+                    placeholder="gucchi001"
                     icon={<Globe className="w-5 h-5" />}
                   />
                   <LuxuryFloatingInput
