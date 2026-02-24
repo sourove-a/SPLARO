@@ -460,7 +460,7 @@ const ProductModal: React.FC<{
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
                   </p>
                   <p className="px-6 text-[9px] font-semibold text-zinc-400 tracking-[0.06em]">
-                    Allowed symbols: letters, numbers, -, _, . and ~
+                    Allowed symbols: letters, numbers, - _ . ~ ! $ & ' ( ) * + , ; = : @ (blocked: / ? # %)
                   </p>
                 </div>
 
