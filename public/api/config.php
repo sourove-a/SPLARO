@@ -13,6 +13,71 @@ error_reporting(E_ALL);
 function bootstrap_env_files() {
     $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
     $allowOverride = filter_var((string)($_SERVER['SPLARO_ENV_OVERRIDE'] ?? getenv('SPLARO_ENV_OVERRIDE') ?: ''), FILTER_VALIDATE_BOOLEAN);
+    $setRuntimeVar = static function ($key, $value) {
+        $key = trim((string)$key);
+        $value = (string)$value;
+        if ($key === '' || $value === '') {
+            return;
+        }
+        putenv($key . '=' . $value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    };
+
+    // Prime plain DB_PASSWORD from runtime encoded aliases before any .env file load.
+    $existingPassword = trim((string)getenv('DB_PASSWORD'));
+    $existingAlias = trim((string)getenv('DB_PASS'));
+    if ($existingPassword === '' && $existingAlias === '') {
+        $runtimePassword = '';
+        $runtimePasswordSource = '';
+
+        $mysqlPassword = trim((string)getenv('MYSQL_PASSWORD'));
+        if ($mysqlPassword !== '') {
+            $runtimePassword = $mysqlPassword;
+            $runtimePasswordSource = 'MYSQL_PASSWORD';
+        }
+
+        if ($runtimePassword === '') {
+            $urlEncoded = trim((string)getenv('DB_PASSWORD_URLENC'));
+            if ($urlEncoded !== '') {
+                $decoded = rawurldecode($urlEncoded);
+                $runtimePassword = $decoded !== '' ? $decoded : $urlEncoded;
+                $runtimePasswordSource = 'DB_PASSWORD_URLENC';
+            }
+        }
+
+        if ($runtimePassword === '') {
+            $b64 = trim((string)getenv('DB_PASSWORD_B64'));
+            if ($b64 !== '') {
+                $decoded = base64_decode($b64, true);
+                if (is_string($decoded) && $decoded !== '') {
+                    $runtimePassword = $decoded;
+                    $runtimePasswordSource = 'DB_PASSWORD_B64';
+                }
+            }
+        }
+
+        if ($runtimePassword === '') {
+            $databaseUrl = trim((string)getenv('DATABASE_URL'));
+            if ($databaseUrl !== '') {
+                $parts = parse_url($databaseUrl);
+                if (is_array($parts) && isset($parts['pass'])) {
+                    $decoded = rawurldecode((string)$parts['pass']);
+                    if ($decoded !== '') {
+                        $runtimePassword = $decoded;
+                        $runtimePasswordSource = 'DATABASE_URL';
+                    }
+                }
+            }
+        }
+
+        if ($runtimePassword !== '') {
+            $setRuntimeVar('DB_PASSWORD', $runtimePassword);
+            $setRuntimeVar('DB_PASS', $runtimePassword);
+            $GLOBALS['SPLARO_RUNTIME_PASSWORD_PRIMED_FROM'] = $runtimePasswordSource;
+        }
+    }
+
     // Consider runtime DB env "ready" only when plain password vars exist.
     // If only encoded variants are present, keep loading .env files to fill DB_PASSWORD/DB_PASS.
     $runtimeDbReady = trim((string)getenv('DB_NAME')) !== '' && trim((string)getenv('DB_USER')) !== '' && (
@@ -22,7 +87,8 @@ function bootstrap_env_files() {
     );
 
     if ($runtimeDbReady && !$allowOverride) {
-        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = 'RUNTIME_ENV';
+        $primedFrom = trim((string)($GLOBALS['SPLARO_RUNTIME_PASSWORD_PRIMED_FROM'] ?? ''));
+        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $primedFrom !== '' ? ('RUNTIME_ENV:' . $primedFrom) : 'RUNTIME_ENV';
         $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = [];
         return;
     }
