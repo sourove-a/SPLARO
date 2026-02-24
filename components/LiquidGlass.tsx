@@ -67,12 +67,12 @@ export const LuxuryFloatingInput: React.FC<{
       <motion.div
         animate={{
           borderColor: focused ? 'rgba(56, 216, 255, 0.72)' : error ? 'rgba(244, 63, 94, 0.6)' : isValid ? 'rgba(16, 185, 129, 0.55)' : 'rgba(160, 214, 255, 0.32)',
-          backgroundColor: focused ? 'rgba(10, 18, 32, 0.98)' : error ? 'rgba(78, 17, 34, 0.46)' : 'rgba(10, 18, 32, 0.94)',
+          backgroundColor: focused ? 'rgba(12, 22, 39, 0.98)' : error ? 'rgba(78, 17, 34, 0.46)' : 'rgba(12, 22, 39, 0.94)',
           boxShadow: focused ? '0 0 0 2px rgba(56, 216, 255, 0.2), 0 10px 26px rgba(3, 10, 22, 0.5)' : '0 8px 18px rgba(3, 10, 22, 0.36)'
         }}
         className="relative flex items-center h-20 md:h-24 border rounded-[24px] transition-all duration-200 ease-out overflow-hidden"
       >
-        <div className={`pl-8 transition-all duration-300 ${focused ? 'text-cyan-300 scale-105' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-300'}`}>
+        <div className={`pl-8 transition-all duration-300 ${focused ? 'text-cyan-300 scale-105' : error ? 'text-rose-400' : isValid ? 'text-emerald-400' : 'text-zinc-200'}`}>
           {icon}
         </div>
 
@@ -100,7 +100,7 @@ export const LuxuryFloatingInput: React.FC<{
             onBlur={() => setFocused(false)}
             onChange={(e) => onChange(e.target.value)}
             placeholder={focused && !isFilled ? placeholder : ""}
-            className="luxury-input-field w-full h-full bg-transparent px-5 pt-7 outline-none focus-visible:outline-none text-white font-semibold text-[15px] md:text-base tracking-[0.01em] placeholder:text-[#9BB0CC] transition-all relative z-10 pointer-events-auto appearance-none"
+            className="luxury-input-field w-full h-full bg-transparent px-5 pt-7 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 text-white font-semibold text-[15px] md:text-base tracking-[0.01em] placeholder:text-[#9BB0CC] transition-all relative z-10 pointer-events-auto appearance-none shadow-none"
           />
         </div>
 

@@ -15,6 +15,7 @@ import {
   normalizeCategoryName,
   validateProductForCategory
 } from '../lib/catalogFilters';
+import { slugifyValue } from '../lib/productRoute';
 
 const FilterPill: React.FC<{
   label: string;
@@ -382,7 +383,7 @@ export const ShopPage: React.FC = () => {
     if (queryBrand) {
       result = result.filter((product) => {
         const brandRaw = String((product as any).brandSlug || product.brand || '').toLowerCase();
-        const brandSlug = brandRaw.replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+        const brandSlug = slugifyValue(brandRaw);
         return brandRaw === queryBrand || brandSlug === queryBrand;
       });
     }
@@ -390,7 +391,7 @@ export const ShopPage: React.FC = () => {
     if (querySubCategory) {
       result = result.filter((product) => {
         const subRaw = String((product as any).subCategorySlug || product.subCategory || '').toLowerCase();
-        const subSlug = subRaw.replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-');
+        const subSlug = slugifyValue(subRaw);
         return subRaw === querySubCategory || subSlug === querySubCategory;
       });
     }

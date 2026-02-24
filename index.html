@@ -242,13 +242,15 @@
             outline: none;
         }
 
-        :where(button, a[href], [role="button"], input, select, textarea, .nav-item, .interactive-control):focus-visible {
+        :where(button, a[href], [role="button"], .nav-item, .interactive-control):focus-visible {
             outline: none;
             box-shadow: 0 0 0 2px rgba(86, 221, 255, 0.22);
         }
 
         :where(input, select, textarea):focus-visible {
-            box-shadow: 0 0 0 2px rgba(86, 221, 255, 0.22);
+            outline: none;
+            box-shadow: none !important;
+            border-color: rgba(111, 224, 255, 0.5) !important;
         }
 
         :where(button, [role="button"], .nav-item, .interactive-control):active:not(:disabled) {
@@ -272,13 +274,14 @@
 
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
+            -webkit-appearance: none !important;
             margin: 0;
         }
 
         input[type="number"] {
-            appearance: textfield;
-            -moz-appearance: textfield;
+            appearance: textfield !important;
+            -moz-appearance: textfield !important;
+            -webkit-appearance: textfield !important;
         }
 
         .luxury-input-field {
@@ -439,6 +442,32 @@
 
         ::-webkit-scrollbar {
             width: 0px;
+        }
+
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(111, 224, 255, 0.55) rgba(255, 255, 255, 0.08);
+            scrollbar-gutter: stable both-edges;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 999px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(111, 224, 255, 0.9), rgba(74, 194, 255, 0.75));
+            border-radius: 999px;
+            border: 2px solid rgba(4, 12, 24, 0.5);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, rgba(124, 236, 255, 0.98), rgba(87, 207, 255, 0.85));
         }
 
         button,

@@ -418,13 +418,13 @@ const ProductModal: React.FC<{
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-6 bg-black/80 backdrop-blur-xl"
     >
       <motion.div
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-6xl bg-[#0A0C12] border border-white/10 rounded-[48px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)]"
+        className="w-full max-w-[94vw] xl:max-w-[1480px] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)]"
       >
-        <div className="p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
+        <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
           <div className="flex items-center gap-6">
             <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/40">
               <LayoutDashboard className="w-8 h-8 text-white" />
@@ -433,7 +433,7 @@ const ProductModal: React.FC<{
               <h2 className="text-3xl font-black uppercase italic tracking-tighter">
                 {product ? 'Edit Asset' : 'Initialize Asset'}
               </h2>
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Resource Archive Protocol</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400 mt-1">Product Configuration Panel</p>
             </div>
           </div>
           <button onClick={onClose} className="p-4 rounded-2xl hover:bg-white/5 transition-colors">
@@ -441,18 +441,26 @@ const ProductModal: React.FC<{
           </button>
         </div>
 
-        <div className="p-10 max-h-[75vh] overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+        <div className="p-8 md:p-10 max-h-[82vh] overflow-y-scroll custom-scrollbar">
+          <div className="sticky top-0 z-20 flex justify-end mb-4 pointer-events-none">
+            <span className="px-3 py-1 rounded-full border border-cyan-400/25 bg-[#09162b]/80 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/80">
+              Scroll for more
+            </span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-10 2xl:gap-12">
 
             {/* Left Column: Basic Info & Specs */}
-            <div className="space-y-10">
+            <div className="space-y-12">
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Identity & Category</h3>
                 <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={handleNameChange} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
                 <div className="space-y-2">
-                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.productSlug || formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v), productSlug: slugify(v) })} placeholder="nike-air-max" icon={<Globe className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.productSlug || formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v), productSlug: slugify(v) })} placeholder="best-nike-shoes অথবা new-arrival-2026" icon={<Globe className="w-5 h-5" />} />
                   <p className="px-6 text-[8px] font-black text-cyan-500/50 uppercase tracking-[0.2em]">
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
+                  </p>
+                  <p className="px-6 text-[9px] font-semibold text-zinc-400 tracking-[0.06em]">
+                    Slug now supports custom hyphen style, including double-hyphen (`--`) when needed.
                   </p>
                 </div>
 
@@ -545,7 +553,7 @@ const ProductModal: React.FC<{
             </div>
 
             {/* Middle Column: Finances & Media */}
-            <div className="space-y-10">
+            <div className="space-y-12">
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Pricing & Stock</h3>
                 <div className="grid grid-cols-2 gap-6">
@@ -578,7 +586,7 @@ const ProductModal: React.FC<{
                     <select
                       value={formData.status || 'PUBLISHED'}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as Product['status'] })}
-                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
                     >
                       <option value="PUBLISHED">Published</option>
                       <option value="DRAFT">Draft</option>
@@ -589,7 +597,7 @@ const ProductModal: React.FC<{
                     <input
                       value={formData.barcode || ''}
                       onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
                     />
                   </div>
                 </div>
@@ -683,7 +691,7 @@ const ProductModal: React.FC<{
                       value={galleryUrlInput}
                       onChange={(e) => setGalleryUrlInput(e.target.value)}
                       placeholder="Add gallery image URL"
-                      className="flex-1 h-12 rounded-xl border border-white/20 bg-[#0f1624] px-4 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                      className="flex-1 h-12 rounded-xl border border-white/20 bg-[#0f1624] px-4 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
                     />
                     <button
                       type="button"
@@ -772,7 +780,7 @@ const ProductModal: React.FC<{
             </div>
 
             {/* Right Column: Descriptions & Variations */}
-            <div className="space-y-10">
+            <div className="space-y-12">
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Attributes (Size/Color/Gender)</h3>
                 <p className="text-[10px] text-zinc-500 font-semibold">Size সেট category অনুযায়ী load হবে: {sizeSetKey === 'bags' ? 'Bags' : 'Shoes'}.</p>
@@ -842,7 +850,7 @@ const ProductModal: React.FC<{
                     label="Product Slug"
                     value={formData.productSlug || formData.id || ''}
                     onChange={v => setFormData({ ...formData, productSlug: slugify(v), id: slugify(v) })}
-                    placeholder="gucchi001"
+                    placeholder="best-nike-shoes"
                     icon={<Globe className="w-5 h-5" />}
                   />
                   <LuxuryFloatingInput
@@ -903,14 +911,14 @@ const ProductModal: React.FC<{
                       placeholder="Color name (e.g. Midnight Black)"
                       value={colorNameInput}
                       onChange={(e) => setColorNameInput(e.target.value)}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 text-white"
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 text-white"
                     />
                     <input
                       type="text"
                       placeholder="#111827"
                       value={colorHexInput}
                       onChange={(e) => setColorHexInput(e.target.value)}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 text-white uppercase"
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 text-white uppercase"
                     />
                     <input
                       type="text"
@@ -923,7 +931,7 @@ const ProductModal: React.FC<{
                           addColorVariant();
                         }
                       }}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 text-white"
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 text-white"
                     />
                   </div>
                   <button
@@ -1945,7 +1953,7 @@ export const AdminPanel = () => {
                                 <p className="font-black italic uppercase text-lg leading-tight tracking-tighter text-white">{p.name}</p>
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                   <a
-                                    href={`/shop?brand=${encodeURIComponent(String((p as any).brandSlug || p.brand || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}`}
+                                    href={`/shop?brand=${encodeURIComponent(slugifyValue((p as any).brandSlug || p.brand || ''))}`}
                                     className="text-[10px] text-zinc-400 uppercase font-black tracking-widest hover:text-cyan-300"
                                   >
                                     {p.brand}
@@ -1985,11 +1993,11 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-8">
                             <div className="space-y-2">
-                              <a href={`/shop?category=${encodeURIComponent(String((p as any).categorySlug || p.category || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-cyan-500/45">
+                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-cyan-500/45">
                                 {p.category}
                               </a>
                               {p.subCategory && (
-                                <a href={`/shop?category=${encodeURIComponent(String((p as any).categorySlug || p.category || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}&sub=${encodeURIComponent(String((p as any).subCategorySlug || p.subCategory || '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-'))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-cyan-300">
+                                <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}&sub=${encodeURIComponent(slugifyValue((p as any).subCategorySlug || p.subCategory || ''))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-cyan-300">
                                   {p.subCategory}
                                 </a>
                               )}

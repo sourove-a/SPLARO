@@ -11,8 +11,9 @@ export const slugifyValue = (value: unknown): string => {
   const raw = String(value ?? '')
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/_+/g, '-')
     .replace(/^-+|-+$/g, '');
   return raw;
 };

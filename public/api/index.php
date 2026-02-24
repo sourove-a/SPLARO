@@ -1893,8 +1893,9 @@ function safe_json_decode_assoc($raw, $default = []) {
 
 function slugify_text($text) {
     $text = strtolower(trim((string)$text));
-    $text = preg_replace('/[^\p{L}\p{N}\s-]+/u', '', $text);
-    $text = preg_replace('/[\s_-]+/', '-', $text);
+    $text = preg_replace('/[^\p{L}\p{N}\s_-]+/u', '', $text);
+    $text = preg_replace('/\s+/u', '-', $text);
+    $text = preg_replace('/_+/u', '-', $text);
     $text = trim((string)$text, '-');
     if ($text === '') {
         return 'item-' . substr(bin2hex(random_bytes(4)), 0, 6);
