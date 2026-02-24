@@ -211,6 +211,12 @@ if (!$db) {
     $safeDbStatus = [
         "message" => $bootstrapError['message'] ?? 'DATABASE_CONNECTION_FAILED'
     ];
+    if (isset($bootstrapError['code']) && $bootstrapError['code'] !== '') {
+        $safeDbStatus['code'] = (string)$bootstrapError['code'];
+    }
+    if (!empty($bootstrapError['hostsTried']) && is_array($bootstrapError['hostsTried'])) {
+        $safeDbStatus['hostsTried'] = array_values($bootstrapError['hostsTried']);
+    }
     if ($healthDebug) {
         $safeDbStatus['details'] = $bootstrapError;
     }
