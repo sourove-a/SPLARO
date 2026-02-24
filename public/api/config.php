@@ -12,6 +12,19 @@ error_reporting(E_ALL);
 
 function bootstrap_env_files() {
     $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+    $allowOverride = filter_var((string)($_SERVER['SPLARO_ENV_OVERRIDE'] ?? getenv('SPLARO_ENV_OVERRIDE') ?: ''), FILTER_VALIDATE_BOOLEAN);
+    $runtimeDbReady = trim((string)getenv('DB_NAME')) !== '' && trim((string)getenv('DB_USER')) !== '' && (
+        trim((string)getenv('DB_PASSWORD')) !== '' ||
+        trim((string)getenv('DB_PASS')) !== '' ||
+        trim((string)getenv('DB_PASSWORD_URLENC')) !== '' ||
+        trim((string)getenv('DB_PASSWORD_B64')) !== ''
+    );
+
+    if ($runtimeDbReady && !$allowOverride) {
+        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = 'RUNTIME_ENV';
+        $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = [];
+        return;
+    }
 
     $candidates = [];
     if ($docRoot !== '') {
@@ -84,6 +97,12 @@ function bootstrap_env_files() {
             $value = trim($value, "\"'");
 
             if ($key !== '') {
+                if (!$allowOverride) {
+                    $existing = getenv($key);
+                    if ($existing !== false && trim((string)$existing) !== '') {
+                        continue;
+                    }
+                }
                 putenv($key . '=' . $value);
                 $_ENV[$key] = $value;
                 $_SERVER[$key] = $value;
@@ -266,13 +285,30 @@ function parse_database_url() {
     ];
 }
 
-function resolve_db_password($fallbackFromDbUrl = '') {
+function resolve_db_password_candidates($fallbackFromDbUrl = '') {
+    $candidates = [];
+    $seen = [];
+    $addCandidate = static function ($source, $value) use (&$candidates, &$seen) {
+        $value = (string)$value;
+        if ($value === '') {
+            return;
+        }
+        $key = hash('sha256', $value);
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $candidates[] = [
+            'source' => (string)$source,
+            'value' => $value
+        ];
+    };
+
     $b64 = trim((string)env_or_default('DB_PASSWORD_B64', ''));
     if ($b64 !== '') {
         $decoded = base64_decode($b64, true);
         if (is_string($decoded) && $decoded !== '') {
-            $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'DB_PASSWORD_B64';
-            return $decoded;
+            $addCandidate('DB_PASSWORD_B64', $decoded);
         }
     }
 
@@ -280,28 +316,59 @@ function resolve_db_password($fallbackFromDbUrl = '') {
     if ($urlEncoded !== '') {
         $decoded = rawurldecode($urlEncoded);
         if ($decoded !== '') {
-            $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'DB_PASSWORD_URLENC';
-            return $decoded;
+            $addCandidate('DB_PASSWORD_URLENC', $decoded);
         }
     }
 
-    $plain = env_first(['DB_PASSWORD', 'DB_PASS', 'MYSQL_PASSWORD'], $fallbackFromDbUrl);
-    if ((string)$plain !== '') {
-        $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'DB_PASSWORD_OR_DB_PASS';
-        return (string)$plain;
+    $plainPrimary = trim((string)env_or_default('DB_PASSWORD', ''));
+    if ($plainPrimary !== '') {
+        $addCandidate('DB_PASSWORD', $plainPrimary);
+        $decodedPrimary = rawurldecode($plainPrimary);
+        if ($decodedPrimary !== $plainPrimary && $decodedPrimary !== '') {
+            $addCandidate('DB_PASSWORD_DECODED', $decodedPrimary);
+        }
     }
 
-    $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = 'EMPTY';
-    return '';
+    $plainAlias = trim((string)env_or_default('DB_PASS', ''));
+    if ($plainAlias !== '') {
+        $addCandidate('DB_PASS', $plainAlias);
+        $decodedAlias = rawurldecode($plainAlias);
+        if ($decodedAlias !== $plainAlias && $decodedAlias !== '') {
+            $addCandidate('DB_PASS_DECODED', $decodedAlias);
+        }
+    }
+
+    $mysqlPassword = trim((string)env_or_default('MYSQL_PASSWORD', ''));
+    if ($mysqlPassword !== '') {
+        $addCandidate('MYSQL_PASSWORD', $mysqlPassword);
+    }
+
+    if (trim((string)$fallbackFromDbUrl) !== '') {
+        $addCandidate('DATABASE_URL', (string)$fallbackFromDbUrl);
+    }
+
+    if (empty($candidates)) {
+        $candidates[] = [
+            'source' => 'EMPTY',
+            'value' => ''
+        ];
+    }
+
+    return $candidates;
 }
 
 $dbUrl = parse_database_url();
+$dbPasswordCandidates = resolve_db_password_candidates((string)($dbUrl['pass'] ?? ''));
+$primaryDbPassword = (string)($dbPasswordCandidates[0]['value'] ?? '');
+$primaryDbPasswordSource = (string)($dbPasswordCandidates[0]['source'] ?? 'EMPTY');
+$GLOBALS['SPLARO_DB_PASSWORD_CANDIDATES'] = $dbPasswordCandidates;
+$GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = $primaryDbPasswordSource;
 
 // 1. DATABASE COORDINATES
 define('DB_HOST', trim((string)env_first(['DB_HOST', 'MYSQL_HOST', 'MYSQLHOST', 'DB_SERVER'], $dbUrl['host'] !== '' ? $dbUrl['host'] : '127.0.0.1')));
 define('DB_NAME', trim((string)env_first(['DB_NAME', 'MYSQL_DATABASE', 'DB_DATABASE'], $dbUrl['name'])));
 define('DB_USER', trim((string)env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNAME', 'DB_USERNAME'], $dbUrl['user'])));
-define('DB_PASSWORD', resolve_db_password((string)($dbUrl['pass'] ?? '')));
+define('DB_PASSWORD', $primaryDbPassword);
 define('DB_PASS', DB_PASSWORD);
 define('DB_PORT', (int)trim((string)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306')));
 
@@ -369,33 +436,48 @@ function get_db_connection() {
 
     $lastError = '';
     $lastSqlState = '';
+    $lastPasswordSource = (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? 'EMPTY');
     $attemptedHosts = [];
+    $passwordSourcesTried = [];
     $dbSocket = trim((string)env_or_default('DB_SOCKET', ''));
+    $passwordCandidates = $GLOBALS['SPLARO_DB_PASSWORD_CANDIDATES'] ?? [];
+    if (!is_array($passwordCandidates) || empty($passwordCandidates)) {
+        $passwordCandidates = [
+            ['source' => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? 'DB_PASSWORD'), 'value' => (string)DB_PASSWORD]
+        ];
+    }
     foreach ($hostCandidates as $host) {
         $attemptedHosts[] = $host;
-        try {
-            if ($dbSocket !== '') {
-                $dsn = "mysql:unix_socket=" . $dbSocket . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-            } elseif ($host === 'localhost') {
-                // Keep localhost socket-friendly on shared hosting; forcing port can route as 127.0.0.1.
-                $dsn = "mysql:host=localhost;dbname=" . DB_NAME . ";charset=utf8mb4";
-            } else {
-                $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+        foreach ($passwordCandidates as $candidate) {
+            $candidatePassword = (string)($candidate['value'] ?? '');
+            $candidateSource = (string)($candidate['source'] ?? 'UNKNOWN');
+            $passwordSourcesTried[] = $candidateSource;
+            try {
+                if ($dbSocket !== '') {
+                    $dsn = "mysql:unix_socket=" . $dbSocket . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+                } elseif ($host === 'localhost') {
+                    // Keep localhost socket-friendly on shared hosting; forcing port can route as 127.0.0.1.
+                    $dsn = "mysql:host=localhost;dbname=" . DB_NAME . ";charset=utf8mb4";
+                } else {
+                    $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+                }
+                $options = [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                    PDO::ATTR_TIMEOUT            => 5,
+                ];
+                $pdo = new PDO($dsn, DB_USER, $candidatePassword, $options);
+                $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
+                $GLOBALS['SPLARO_DB_CONNECTED_HOST'] = $host;
+                $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = $candidateSource;
+                return $pdo;
+            } catch (\PDOException $e) {
+                $lastError = $e->getMessage();
+                $lastSqlState = (string)$e->getCode();
+                $lastPasswordSource = $candidateSource;
+                error_log("SPLARO_DB_CONNECTION_ERROR[{$host}|{$candidateSource}]: " . $lastError);
             }
-            $options = [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES   => false,
-                PDO::ATTR_TIMEOUT            => 5,
-            ];
-            $pdo = new PDO($dsn, DB_USER, DB_PASSWORD, $options);
-            $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
-            $GLOBALS['SPLARO_DB_CONNECTED_HOST'] = $host;
-            return $pdo;
-        } catch (\PDOException $e) {
-            $lastError = $e->getMessage();
-            $lastSqlState = (string)$e->getCode();
-            error_log("SPLARO_DB_CONNECTION_ERROR[{$host}]: " . $lastError);
         }
     }
 
@@ -403,6 +485,8 @@ function get_db_connection() {
         "message" => "DATABASE_CONNECTION_FAILED",
         "code" => $lastSqlState,
         "reason" => $lastError,
+        "passwordSource" => $lastPasswordSource,
+        "passwordSourcesTried" => array_values(array_unique($passwordSourcesTried)),
         "hostsTried" => $attemptedHosts,
         "hostFallbackEnabled" => $allowHostFallback
     ];
