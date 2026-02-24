@@ -313,7 +313,11 @@ define('SMTP_PASS', env_or_default('SMTP_PASS', ''));
 
 // 2.1 CORE API SECURITY
 define('ADMIN_KEY', env_or_default('ADMIN_KEY', ''));
-define('APP_AUTH_SECRET', env_or_default('APP_AUTH_SECRET', (ADMIN_KEY !== '' ? ADMIN_KEY : DB_PASS)));
+$appAuthSecret = trim((string)env_or_default('APP_AUTH_SECRET', ''));
+if ($appAuthSecret === '') {
+    $appAuthSecret = hash('sha256', 'splaro|' . DB_HOST . '|' . DB_NAME . '|' . DB_USER);
+}
+define('APP_AUTH_SECRET', $appAuthSecret);
 
 // 3. TELEGRAM COMMAND CENTER (NEVER EXPOSE TO CLIENT)
 define('TELEGRAM_BOT_TOKEN', env_or_default('TELEGRAM_BOT_TOKEN', ''));
