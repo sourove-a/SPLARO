@@ -103,12 +103,8 @@ function bootstrap_env_files() {
         trim((string)getenv('MYSQL_PASSWORD')) !== ''
     );
 
-    if ($runtimeDbReady && !$allowOverride) {
-        $primedFrom = trim((string)($GLOBALS['SPLARO_RUNTIME_PASSWORD_PRIMED_FROM'] ?? ''));
-        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $primedFrom !== '' ? ('RUNTIME_ENV:' . $primedFrom) : 'RUNTIME_ENV';
-        $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = [];
-        return;
-    }
+    // Do not short-circuit on runtime DB vars.
+    // Always attempt .env.local/.env so file-based DB credentials can correct stale runtime values.
 
     $locations = [];
     if ($docRoot !== '') {
@@ -179,11 +175,27 @@ function bootstrap_env_files() {
             $key = trim($parts[0]);
             $value = trim($parts[1]);
             $value = trim($value, "\"'");
+            $forceOverrideKeys = [
+                'DB_HOST',
+                'DB_PORT',
+                'DB_NAME',
+                'DB_USER',
+                'DB_PASSWORD',
+                'DB_PASS',
+                'DB_PASSWORD_URLENC',
+                'DB_PASSWORD_B64',
+                'DATABASE_URL',
+                'MYSQL_HOST',
+                'MYSQL_PORT',
+                'MYSQL_DATABASE',
+                'MYSQL_USER',
+                'MYSQL_PASSWORD',
+            ];
 
             if ($key !== '') {
                 if (!$allowOverride) {
                     $existing = getenv($key);
-                    if ($existing !== false && trim((string)$existing) !== '') {
+                    if ($existing !== false && trim((string)$existing) !== '' && !in_array($key, $forceOverrideKeys, true)) {
                         continue;
                     }
                 }
@@ -196,7 +208,8 @@ function bootstrap_env_files() {
     }
 
     if (!$found) {
-        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = 'NONE';
+        $primedFrom = trim((string)($GLOBALS['SPLARO_RUNTIME_PASSWORD_PRIMED_FROM'] ?? ''));
+        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $primedFrom !== '' ? ('RUNTIME_ENV:' . $primedFrom) : 'RUNTIME_ENV';
         $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
     } else {
          $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
