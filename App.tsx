@@ -475,7 +475,7 @@ const Footer = () => {
 
             {/* Headquarters Column */}
             <div className="lg:col-span-3 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">HQ COMMAND</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">HEAD OFFICE</h4>
               <div className="flex items-start gap-6 group">
                 <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 shrink-0 group-hover:bg-blue-600/20 transition-all">
                   <MapPin className="w-4 h-4" />
@@ -483,7 +483,7 @@ const Footer = () => {
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.15em] text-zinc-100 leading-relaxed">Sector 13, Road 16</p>
                   <p className="text-xs font-black uppercase tracking-[0.15em] text-zinc-100 leading-relaxed">Uttara, Dhaka 1230</p>
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-700 mt-2">Bangladesh Territory</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-700 mt-2">Bangladesh</p>
                 </div>
               </div>
             </div>
@@ -505,22 +505,21 @@ const Footer = () => {
 
             {/* Quick Vault Access */}
             <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">ARCHIVE</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">QUICK LINKS</h4>
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/shop')} className="cursor-pointer transition-all duration-300">COLLECTION</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">ARCHIVE</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300">LOGISTICS</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/shop')} className="cursor-pointer transition-all duration-300">SHOP</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">HOME</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300">ORDER TRACKING</motion.span>
               </div>
             </div>
 
             {/* Institutional Column */}
             <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">MANIFEST</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">SUPPORT</h4>
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/manifest')} className="cursor-pointer transition-all duration-300">MANIFEST</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/manifest')} className="cursor-pointer transition-all duration-300">ABOUT SPLARO</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/privacy')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/terms')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300 text-cyan-500/80">ORDER TRACKING</motion.span>
                 <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/refund-policy')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
               </div>
             </div>
@@ -533,7 +532,7 @@ const Footer = () => {
                 <Globe className="w-4 h-4" />
               </div>
               <p className="text-[9px] font-black uppercase tracking-[0.35em] text-zinc-300">
-                <span className="text-white font-extrabold">Directly Imported from China to Bangladesh</span> – Premium Grade.
+                <span className="text-white font-extrabold">Directly imported from China to Bangladesh</span> - Premium grade.
               </p>
             </div>
             <div className="flex items-center gap-6 text-zinc-800">

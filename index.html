@@ -32,10 +32,10 @@
             --mobile-safe-top: env(safe-area-inset-top, 0px);
             --ui-focus-outline: rgba(132, 228, 255, 0.94);
             --ui-focus-shadow: 0 0 0 4px rgba(90, 200, 250, 0.22);
-            --splaro-primary: #16355f;
-            --splaro-accent: #6fe0ff;
-            --splaro-bg: #060e1d;
-            --splaro-surface: rgba(18, 33, 58, 0.74);
+            --splaro-primary: #0a84ff;
+            --splaro-accent: #64d2ff;
+            --splaro-bg: #07142a;
+            --splaro-surface: rgba(20, 39, 67, 0.78);
             --splaro-text: #F3F8FF;
             --splaro-radius: 24px;
             --splaro-shadow-strength: 60;
@@ -50,7 +50,7 @@
             --text-main: var(--splaro-text);
             --text-dim: rgba(227, 236, 250, 0.74);
             --glass-bg: var(--splaro-surface);
-            --glass-border: rgba(132, 228, 255, 0.5);
+            --glass-border: rgba(148, 222, 255, 0.62);
             --ribbed-opacity: 0.035;
             --glow-strength: 1;
         }
@@ -90,9 +90,9 @@
             margin: 0;
             background-color: var(--bg-main);
             background-image:
-                radial-gradient(circle at 14% 16%, rgba(83, 175, 255, 0.2), transparent 38%),
-                radial-gradient(circle at 86% 82%, rgba(111, 224, 255, 0.16), transparent 34%),
-                linear-gradient(180deg, #081228 0%, #050b18 52%, #040912 100%);
+                radial-gradient(circle at 14% 16%, rgba(95, 186, 255, 0.26), transparent 38%),
+                radial-gradient(circle at 86% 82%, rgba(126, 226, 255, 0.2), transparent 34%),
+                linear-gradient(180deg, #0a1a35 0%, #071327 52%, #050d1a 100%);
             color: var(--text-main);
             transition: background-color 0.35s ease, color 0.25s ease;
             -webkit-font-smoothing: antialiased;
@@ -174,17 +174,17 @@
 
         .liquid-glass {
             background:
-                linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 38%, rgba(132, 228, 255, 0.12) 100%),
+                linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 38%, rgba(148, 222, 255, 0.16) 100%),
                 var(--glass-bg);
             backdrop-filter: blur(34px) saturate(180%);
             -webkit-backdrop-filter: blur(34px) saturate(180%);
             border: 1px solid var(--glass-border);
             border-radius: var(--splaro-radius, 24px);
             box-shadow:
-                0 0 0 1px rgba(150, 235, 255, 0.16),
-                inset 0 1px 0 rgba(255, 255, 255, 0.24),
-                0 22px calc(18px + (var(--splaro-shadow-strength, 60) * 0.75px)) rgba(5, 8, 18, 0.56),
-                0 0 calc(10px + (var(--splaro-shadow-strength, 60) * 0.45px)) rgba(90, 200, 250, 0.2);
+                0 0 0 1px rgba(160, 228, 255, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.28),
+                0 22px calc(18px + (var(--splaro-shadow-strength, 60) * 0.75px)) rgba(5, 8, 18, 0.52),
+                0 0 calc(10px + (var(--splaro-shadow-strength, 60) * 0.45px)) rgba(110, 206, 255, 0.24);
         }
 
         .ribbed-texture {

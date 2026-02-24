@@ -473,7 +473,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             <div onClick={(e) => e.stopPropagation()} className="flex-1 px-8 md:px-16 flex flex-col justify-center max-w-4xl relative z-10">
-              <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.45em] mb-12">Navigation</p>
+              <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.38em] mb-12">Site Navigation</p>
               <div className="space-y-2">
                 {menuItems.map((item, i) => (
                   <div key={item.label} className="w-full">

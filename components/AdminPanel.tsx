@@ -422,7 +422,7 @@ const ProductModal: React.FC<{
     >
       <motion.div
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-[94vw] xl:max-w-[1480px] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)]"
+        className="w-full max-w-[96vw] 2xl:max-w-[1720px] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)]"
       >
         <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
           <div className="flex items-center gap-6">
@@ -431,7 +431,7 @@ const ProductModal: React.FC<{
             </div>
             <div>
               <h2 className="text-3xl font-black uppercase italic tracking-tighter">
-                {product ? 'Edit Asset' : 'Initialize Asset'}
+                {product ? 'Edit Product' : 'Add Product'}
               </h2>
               <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400 mt-1">Product Configuration Panel</p>
             </div>
@@ -507,7 +507,7 @@ const ProductModal: React.FC<{
 
                 <div className="space-y-4">
                   <LuxuryFloatingInput
-                    label="Sub-Category Archive"
+                    label="Subcategory"
                     value={formData.subCategory || ''}
                     onChange={v => setFormData({ ...formData, subCategory: v, subCategorySlug: slugify(v) })}
                     placeholder="e.g. Sneakers, Formal, Running"
@@ -527,13 +527,13 @@ const ProductModal: React.FC<{
                 </div>
 
                 <div className="pt-6 border-t border-white/5 space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4">Discovery Protocol</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4">Featured Visibility</h4>
                   <button
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
                     className={`w-full py-5 rounded-2xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-cyan-500 border-cyan-500 text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
                   >
                     <Sparkles className={`w-4 h-4 ${formData.featured ? 'animate-pulse' : ''}`} />
-                    <span className="text-[9px] font-black uppercase tracking-[0.3em]">{formData.featured ? 'FEATURED ON HOME ARCHIVE' : 'MARK AS FEATURED'}</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.3em]">{formData.featured ? 'FEATURED ON HOME' : 'MARK AS FEATURED'}</span>
                   </button>
                 </div>
               </div>
@@ -758,7 +758,7 @@ const ProductModal: React.FC<{
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Asset Status</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Product Tags</h3>
                 <div className="grid grid-cols-2 gap-4">
                   {['New Arrival', 'Best Seller', 'On Sale'].map(tag => (
                     <button
@@ -773,7 +773,7 @@ const ProductModal: React.FC<{
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
                     className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.featured ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'border-white/5 text-zinc-600'}`}
                   >
-                    FEATURED ARCHIVE
+                    FEATURED PRODUCT
                   </button>
                 </div>
               </div>
@@ -966,7 +966,7 @@ const ProductModal: React.FC<{
 
 
         <div className="p-10 border-t border-white/5 flex gap-6 bg-white/[0.02]">
-          <button onClick={onClose} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.4em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white">Abort Signal</button>
+          <button onClick={onClose} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white">Cancel</button>
           <PrimaryButton
             onClick={() => {
               if (!formData.name || !formData.price) {
@@ -989,7 +989,7 @@ const ProductModal: React.FC<{
             }}
             className="flex-[2] h-18 shadow-[0_20px_60px_rgba(37,99,235,0.4)]"
           >
-            <Sparkles className="w-5 h-5 mr-3" /> Commit to Database
+            <Sparkles className="w-5 h-5 mr-3" /> Save Product
           </PrimaryButton>
         </div>
       </motion.div>
@@ -1893,12 +1893,12 @@ export const AdminPanel = () => {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-[#0A0C12]/50 p-10 rounded-[40px] border border-white/5">
                 <div className="flex gap-12">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Archival Portfolio</span>
-                    <span className="text-4xl font-black italic tracking-tighter text-white">{products.length} <span className="text-zinc-700 text-sm not-italic ml-2">ASSETS</span></span>
+                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Product Catalog</span>
+                    <span className="text-4xl font-black italic tracking-tighter text-white">{products.length} <span className="text-zinc-700 text-sm not-italic ml-2">ITEMS</span></span>
                   </div>
                   <div className="w-[1px] h-12 bg-white/5" />
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Global Valuation</span>
+                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Catalog Value</span>
                     <span className="text-4xl font-black italic tracking-tighter text-cyan-500">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
                   </div>
                 </div>
@@ -1915,7 +1915,7 @@ export const AdminPanel = () => {
                     <Search className="w-5 h-5 text-zinc-500" />
                     <input
                       type="text"
-                      placeholder="ARCHIVE DISCOVERY..."
+                      placeholder="Search products..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest text-white w-48"
@@ -1923,7 +1923,7 @@ export const AdminPanel = () => {
                   </div>
 
                   <PrimaryButton onClick={() => { setEditingProduct(null); setIsProductModalOpen(true); }} className="px-12 h-16 text-[10px]">
-                    <Plus className="w-5 h-5 mr-3" /> INITIALIZE ASSET
+                    <Plus className="w-5 h-5 mr-3" /> ADD PRODUCT
                   </PrimaryButton>
                 </div>
               </div>
@@ -1933,12 +1933,12 @@ export const AdminPanel = () => {
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600">
-                        <th className="p-10">ASSET IDENTIFIER</th>
-                        <th className="p-10">CATEGORIZATION</th>
-                        <th className="p-10">ARCHIVAL SPECS</th>
-                        <th className="p-10">VALUATION</th>
-                        <th className="p-10">STOCK GRID</th>
-                        <th className="p-10">OPERATIONS</th>
+                        <th className="p-10">PRODUCT</th>
+                        <th className="p-10">CATEGORY</th>
+                        <th className="p-10">ATTRIBUTES</th>
+                        <th className="p-10">PRICE</th>
+                        <th className="p-10">STOCK</th>
+                        <th className="p-10">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1969,7 +1969,7 @@ export const AdminPanel = () => {
                                     rel="noreferrer"
                                     className="text-[9px] text-cyan-300 hover:text-cyan-200 break-all"
                                   >
-                                    {(p as any).liveUrl || 'No live URL'}
+                                    {(p as any).liveUrl || 'URL not generated'}
                                   </a>
                                   {(p as any).liveUrl && (
                                     <button
