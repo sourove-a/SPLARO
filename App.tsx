@@ -732,6 +732,7 @@ const AppContent = () => {
           <Routes location={location}>
             <Route path="/" element={<HomeView />} />
             <Route path="/shop" element={<ShopPage />} />
+            <Route path="/search" element={<Navigate to="/shop" replace />} />
             <Route path="/detail" element={<ProductDetailPage />} />
             <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<ProductDetailPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />

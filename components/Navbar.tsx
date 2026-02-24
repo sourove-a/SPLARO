@@ -299,7 +299,13 @@ export const Navbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setIsSearchOpen(true)}
+              onClick={() => {
+                setSelectedCategory(null);
+                if (location.pathname !== '/shop') {
+                  navigate('/shop');
+                }
+                setIsSearchOpen(true);
+              }}
               className="nav-item interactive-control relative group p-2 mx-2"
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 text-white/40 group-hover:text-white">
@@ -426,9 +432,14 @@ export const Navbar: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    if (view !== View.SHOP) navigate('/shop');
+                    if (location.pathname !== '/shop') navigate('/shop');
                   }}
-                  onKeyDown={(e) => e.key === 'Enter' && setIsSearchOpen(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      setIsSearchOpen(false);
+                    }
+                  }}
                   className="min-w-0 flex-1 bg-transparent border-none outline-none focus-visible:outline-none text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-white placeholder:text-zinc-500 placeholder:font-semibold"
                 />
                 <button

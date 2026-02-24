@@ -78,6 +78,9 @@ export const MobileTabBar: React.FC = () => {
                   }
 
                   if (item.label === 'DISCOVER') {
+                    if (location.pathname !== '/shop') {
+                      navigate('/shop');
+                    }
                     setIsSearchOpen(true);
                     return;
                   }
