@@ -26,7 +26,7 @@ export const getProductRouteParts = (product: Partial<Product>) => {
 
 export const buildProductRoute = (product: Partial<Product>): string => {
   const { brandSlug, categorySlug, productSlug } = getProductRouteParts(product);
-  return `/product/${brandSlug}/${categorySlug}/${productSlug}`;
+  return `/product/${encodeURIComponent(brandSlug)}/${encodeURIComponent(categorySlug)}/${encodeURIComponent(productSlug)}`;
 };
 
 export const resolveUniqueSlug = (desiredSlug: string, existingSlugs: string[]): string => {
