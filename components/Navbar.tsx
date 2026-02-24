@@ -72,21 +72,21 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
     <button
       type="button"
       onClick={onClick}
-      className="nav-item interactive-control w-full text-left py-7 border-b border-white/5 flex items-center justify-between group transition-all duration-500"
+      className="nav-item interactive-control w-full text-left py-7 border-b border-white/15 flex items-center justify-between group transition-all duration-500"
     >
       <div className="flex flex-col">
-        <span className="text-[10px] font-black text-cyan-500/40 uppercase tracking-[0.5em] mb-3 opacity-0 group-hover:opacity-100 transition-all duration-700 transform translate-y-3 group-hover:translate-y-0 italic">
-          Archive Protocol
+        <span className="text-[10px] font-black text-cyan-200/85 uppercase tracking-[0.44em] mb-3 opacity-90 group-hover:opacity-100 transition-all duration-500 transform translate-y-0.5 group-hover:translate-y-0 italic">
+          Quick Access
         </span>
-        <span className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white/20 group-hover:text-white transition-all duration-700 group-hover:pl-4 italic leading-none">
+        <span className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white/90 group-hover:text-white transition-all duration-500 group-hover:pl-3 italic leading-none">
           {label}
         </span>
       </div>
       <motion.div
-        whileHover={{ x: 10, scale: 1.1 }}
-        className="w-16 h-16 rounded-full liquid-glass border border-white/5 flex items-center justify-center opacity-20 group-hover:opacity-100 group-hover:border-cyan-500/50 transition-all duration-700"
+        whileHover={{ x: 8, scale: 1.08 }}
+        className="w-16 h-16 rounded-full liquid-glass border border-cyan-200/35 flex items-center justify-center opacity-90 group-hover:opacity-100 group-hover:border-cyan-200/80 transition-all duration-500"
       >
-        <ArrowRight className="w-6 h-6 text-white group-hover:text-cyan-400" />
+        <ArrowRight className="w-6 h-6 text-cyan-100 group-hover:text-white" />
       </motion.div>
     </button>
   </motion.div>
@@ -184,14 +184,20 @@ export const Navbar: React.FC = () => {
     }
     setMenuOpen(false);
     setIsSearchOpen(false);
-    if (`${location.pathname}${location.search}` !== path) {
+    const currentPathWithQuery = `${location.pathname}${location.search}`;
+    if (currentPathWithQuery !== path) {
       navigate(path);
       window.setTimeout(() => {
         const current = `${window.location.pathname}${window.location.search}`;
         if (current !== path) {
           window.location.assign(path);
         }
+        if (path === '/') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }, 120);
+    } else if (path === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -445,7 +451,7 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
             onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 z-[500] bg-[#050505] overflow-y-auto overscroll-contain flex flex-col"
+            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(123,236,255,0.26),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(108,156,255,0.24),transparent_40%),linear-gradient(180deg,#0a1b3f_0%,#071632_42%,#050f24_100%)] overflow-y-auto overscroll-contain flex flex-col"
           >
             <div className="absolute inset-0 pointer-events-none opacity-20">
               <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#00D4FF11,transparent_50%)]" />
@@ -467,7 +473,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             <div onClick={(e) => e.stopPropagation()} className="flex-1 px-8 md:px-16 flex flex-col justify-center max-w-4xl relative z-10">
-              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em] mb-12">Archive Navigation</p>
+              <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.45em] mb-12">Navigation</p>
               <div className="space-y-2">
                 {menuItems.map((item, i) => (
                   <div key={item.label} className="w-full">
@@ -488,8 +494,8 @@ export const Navbar: React.FC = () => {
 
             <div onClick={(e) => e.stopPropagation()} className="px-8 py-10 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-8 relative z-10 border-t border-white/5">
               <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                <p className="text-[10px] font-black tracking-widest text-white/50 uppercase">Session Secure</p>
+                <div className="w-2 h-2 rounded-full bg-cyan-200 animate-pulse" />
+                <p className="text-[10px] font-black tracking-widest text-white/75 uppercase">Session Active</p>
               </div>
 
               <div className="flex gap-10">
@@ -505,7 +511,7 @@ export const Navbar: React.FC = () => {
                     href={social.link}
                     target={social.link.startsWith('http') ? '_blank' : undefined}
                     rel={social.link.startsWith('http') ? 'noreferrer noopener' : undefined}
-                    className="text-white/30 transition-all"
+                    className="text-white/70 transition-all"
                   >
                     <social.icon className="w-5 h-5" />
                   </motion.a>

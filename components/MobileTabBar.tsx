@@ -5,11 +5,12 @@ import { Home, Search, ShoppingBag, User } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
 
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const MobileTabBar: React.FC = () => {
   const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },
@@ -80,6 +81,7 @@ export const MobileTabBar: React.FC = () => {
                     setIsSearchOpen(true);
                     return;
                   }
+                  setIsSearchOpen(false);
                   const path =
                     item.view === View.USER_DASHBOARD
                       ? '/user_dashboard'
@@ -90,6 +92,15 @@ export const MobileTabBar: React.FC = () => {
                           : item.view === View.HOME
                             ? '/'
                             : `/${item.view.toLowerCase()}`;
+                  if (path === '/') {
+                    if (`${location.pathname}${location.search}` === '/') {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else {
+                      navigate(path);
+                      window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 90);
+                    }
+                    return;
+                  }
                   navigate(path);
                 }}
                 className="nav-item interactive-control relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none touch-manipulation"
@@ -97,8 +108,8 @@ export const MobileTabBar: React.FC = () => {
                 <div className="relative p-1.5">
                   <item.icon
                     className={`w-7 h-7 transition-all duration-500 ${isActive
-                      ? 'text-cyan-400 scale-110 drop-shadow-[0_0_10px_rgba(0,212,255,0.6)]'
-                      : 'text-white/40 scale-100 opacity-60'
+                      ? 'text-cyan-300 scale-110 drop-shadow-[0_0_12px_rgba(111,224,255,0.75)]'
+                      : 'text-white/80 scale-100 opacity-95'
                       }`}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
@@ -117,7 +128,7 @@ export const MobileTabBar: React.FC = () => {
                 {isActive && (
                   <motion.div
                     layoutId="dock-active-indicator"
-                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-cyan-500 active-glow"
+                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(111,224,255,0.65)]"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                   />
                 )}

@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 
-const SLIDES = [
+const FALLBACK_SLIDES = [
   {
     id: "nike",
     title: "NIKE AIR FLOW",
@@ -47,27 +47,26 @@ const KineticLetter = ({ letter, index, active, ...props }: { letter: string; in
 
 export const HeroSlider = () => {
   const [index, setIndex] = useState(0);
-  // Assuming useApp() is defined elsewhere and provides 'slides'
-  // If not, this line might cause an error. Keeping it as per original.
-  const { slides: SLIDES, setSelectedCategory, setSearchQuery } = useApp();
+  const { slides: cmsSlides, setSelectedCategory, setSearchQuery } = useApp();
   const navigate = useNavigate();
+  const slides = Array.isArray(cmsSlides) && cmsSlides.length > 0 ? cmsSlides : FALLBACK_SLIDES;
 
   useEffect(() => {
-    if (!SLIDES || SLIDES.length === 0) return;
+    if (!slides || slides.length === 0) return;
     const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % SLIDES.length);
+      setIndex((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [SLIDES]);
+  }, [slides]);
 
-  if (!SLIDES || SLIDES.length === 0) return null;
+  if (!slides || slides.length === 0) return null;
 
   const showPrevSlide = () => {
-    setIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length);
+    setIndex((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
   const showNextSlide = () => {
-    setIndex((prev) => (prev + 1) % SLIDES.length);
+    setIndex((prev) => (prev + 1) % slides.length);
   };
 
   return (
@@ -83,15 +82,15 @@ export const HeroSlider = () => {
         >
           <div className="w-full h-full relative">
             <img
-              src={SLIDES[index]?.img || ''}
+              src={slides[index]?.img || ''}
               loading={index === 0 ? 'eager' : 'lazy'}
               decoding="async"
               fetchPriority={index === 0 ? 'high' : 'auto'}
               sizes="100vw"
-              className="w-full h-full object-cover opacity-50 grayscale contrast-125"
+              className="w-full h-full object-cover opacity-[0.64] contrast-125 saturate-[1.08]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/60" />
-            <div className="absolute inset-0 bg-blue-900/10 mix-blend-overlay" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#030a18] via-[#040e20]/35 to-[#071329]/72" />
+            <div className="absolute inset-0 bg-cyan-400/18 mix-blend-screen" />
           </div>
         </motion.div>
       </AnimatePresence>
@@ -101,19 +100,19 @@ export const HeroSlider = () => {
         <AnimatePresence mode="wait">
           <motion.div key={`meta-${index}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-6 flex flex-col items-center gap-4">
             <div className="flex items-center gap-3 text-white/40">
-              <span className="text-[10px] font-black uppercase tracking-[0.8em]">{SLIDES[index]?.tag || SLIDES[index]?.tags?.[0] || 'DISCOVERY'}</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.8em]">{slides[index]?.tag || slides[index]?.tags?.[0] || 'DISCOVERY'}</span>
             </div>
 
             <div className="overflow-hidden">
               <h1 className="text-6xl md:text-[10rem] font-black text-white tracking-tighter leading-none">
-                {(SLIDES[index]?.title || "SPLARO").split("").map((char, i) => (
+                {(slides[index]?.title || "SPLARO").split("").map((char, i) => (
                   <KineticLetter key={i} letter={char} index={i} active={true} />
                 ))}
               </h1>
             </div>
 
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} className="text-white text-xs md:text-sm font-bold uppercase tracking-[0.4em] mt-4">
-              {SLIDES[index]?.subtitle || "Official Registry Archive"}
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.82 }} className="text-white/95 text-xs md:text-sm font-bold uppercase tracking-[0.35em] mt-4">
+              {slides[index]?.subtitle || "Official Registry Archive"}
             </motion.p>
           </motion.div>
         </AnimatePresence>
