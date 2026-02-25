@@ -4064,6 +4064,7 @@ function get_admin_role($authUser) {
     if ($role === '') {
         return 'ADMIN';
     }
+    if ($role === 'OWNER') return 'OWNER';
     if ($role === 'ADMIN') return 'ADMIN';
     if ($role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
     if ($role === 'EDITOR') return 'EDITOR';
@@ -4072,7 +4073,7 @@ function get_admin_role($authUser) {
 }
 
 function can_edit_cms_role($role) {
-    return in_array(strtoupper((string)$role), ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true);
+    return in_array(strtoupper((string)$role), ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true);
 }
 
 function is_strong_password($password) {
@@ -4233,7 +4234,7 @@ function get_authenticated_user_from_request() {
 }
 
 function is_admin_authenticated($authUser) {
-    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         return true;
     }
 
@@ -4537,6 +4538,23 @@ function resolve_admin_login_emails($db = null) {
     return [$strictAdminEmail];
 }
 
+function owner_login_email($db = null) {
+    $emails = resolve_admin_login_emails($db);
+    $ownerEmail = strtolower(trim((string)($emails[0] ?? 'admin@splaro.co')));
+    if (!filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)) {
+        $ownerEmail = 'admin@splaro.co';
+    }
+    return $ownerEmail;
+}
+
+function is_owner_identity_email($email, $db = null) {
+    $normalized = strtolower(trim((string)$email));
+    if ($normalized === '') {
+        return false;
+    }
+    return hash_equals(owner_login_email($db), $normalized);
+}
+
 function is_admin_login_email($email, $db = null) {
     $normalized = strtolower(trim((string)$email));
     if ($normalized === '') {
@@ -4571,10 +4589,11 @@ function ensure_admin_identity_account($db) {
     }
 
     $emails = resolve_admin_login_emails($db);
-    $primaryEmail = strtolower((string)($emails[0] ?? 'admin@splaro.co'));
+    $primaryEmail = owner_login_email($db);
     $adminHash = null; // Only compute if we actually need to insert/update
 
     foreach ($emails as $email) {
+        $roleToApply = is_owner_identity_email($email, $db) ? 'OWNER' : 'ADMIN';
         try {
             $userSelectFields = users_sensitive_select_fields($db);
             $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ? LIMIT 1");
@@ -4592,11 +4611,11 @@ function ensure_admin_identity_account($db) {
 
                 if ($needsUpdate) {
                     if ($adminHash === null) $adminHash = password_hash($secret, PASSWORD_DEFAULT);
-                    $update = $db->prepare("UPDATE users SET role = 'ADMIN', password = ? WHERE id = ?");
-                    $update->execute([$adminHash, $existing['id']]);
+                    $update = $db->prepare("UPDATE users SET role = ?, password = ? WHERE id = ?");
+                    $update->execute([$roleToApply, $adminHash, $existing['id']]);
                 } else {
-                    $updateRole = $db->prepare("UPDATE users SET role = 'ADMIN' WHERE id = ?");
-                    $updateRole->execute([$existing['id']]);
+                    $updateRole = $db->prepare("UPDATE users SET role = ? WHERE id = ?");
+                    $updateRole->execute([$roleToApply, $existing['id']]);
                 }
             } else {
                 if ($adminHash === null) $adminHash = password_hash($secret, PASSWORD_DEFAULT);
@@ -4604,13 +4623,13 @@ function ensure_admin_identity_account($db) {
                 $insert = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $insert->execute([
                     $newId,
-                    'Splaro Admin',
+                    $roleToApply === 'OWNER' ? 'Splaro Owner' : 'Splaro Admin',
                     $email,
                     '01700000000',
                     null,
                     null,
                     $adminHash,
-                    'ADMIN'
+                    $roleToApply
                 ]);
             }
         } catch (Exception $e) {
@@ -4621,7 +4640,18 @@ function ensure_admin_identity_account($db) {
         }
     }
 
-    // Strict mode: only one admin email should keep admin role.
+    // Ensure only the configured owner email stays OWNER.
+    try {
+        $demoteOwners = $db->prepare("UPDATE users SET role = 'ADMIN' WHERE role = 'OWNER' AND LOWER(email) <> ?");
+        $demoteOwners->execute([$primaryEmail]);
+    } catch (Exception $e) {
+        error_log("SPLARO_OWNER_STRICT_DEMOTE_FAILURE: " . $e->getMessage());
+        splaro_log_exception('admin.autoseed.owner_demote', $e, [
+            'primary_email' => (string)$primaryEmail
+        ]);
+    }
+
+    // Keep only the configured owner/admin identity as privileged from strict autoseed.
     try {
         $demote = $db->prepare("UPDATE users SET role = 'USER' WHERE role = 'ADMIN' AND LOWER(email) <> ?");
         $demote->execute([$primaryEmail]);
@@ -4713,6 +4743,86 @@ function queue_dead_recent_count($db, $mode = 'ALL', $minutes = null) {
         ], 'WARNING');
         return 0;
     }
+}
+
+function queue_summary_active_workload($summary) {
+    if (!is_array($summary)) {
+        return 0;
+    }
+    return (int)($summary['pending'] ?? 0)
+        + (int)($summary['retry'] ?? 0)
+        + (int)($summary['processing'] ?? 0)
+        + (int)($summary['dead'] ?? 0);
+}
+
+function queue_dead_recent_breakdown($db, $mode = 'ALL', $minutes = null, $scanLimit = 2000) {
+    $scope = queue_scope_from_mode($mode);
+    $windowMinutes = $minutes === null ? (int)HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES : (int)$minutes;
+    if ($windowMinutes < 1) $windowMinutes = 1;
+    if ($windowMinutes > 10080) $windowMinutes = 10080;
+    $limit = (int)$scanLimit;
+    if ($limit < 1) $limit = 1;
+    if ($limit > 5000) $limit = 5000;
+
+    $out = [
+        'mode' => (string)$scope['mode'],
+        'window_minutes' => (int)$windowMinutes,
+        'total' => 0,
+        'scanned' => 0,
+        'permanent' => 0,
+        'transient' => 0,
+        'truncated' => false
+    ];
+    if (!$db) {
+        return $out;
+    }
+
+    try {
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM sync_queue WHERE {$scope['where_sql']} AND status = 'DEAD' AND updated_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)");
+        $countStmt->bindValue(1, $windowMinutes, PDO::PARAM_INT);
+        $countStmt->execute();
+        $out['total'] = (int)$countStmt->fetchColumn();
+    } catch (Throwable $e) {
+        splaro_log_exception('queue.summary.dead_breakdown.count', $e, [
+            'mode' => (string)$scope['mode'],
+            'minutes' => (int)$windowMinutes
+        ], 'WARNING');
+        return $out;
+    }
+
+    if ($out['total'] <= 0) {
+        return $out;
+    }
+
+    try {
+        $scanStmt = $db->prepare("SELECT sync_type, last_http_code, last_error FROM sync_queue WHERE {$scope['where_sql']} AND status = 'DEAD' AND updated_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id DESC LIMIT ?");
+        $scanStmt->bindValue(1, $windowMinutes, PDO::PARAM_INT);
+        $scanStmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $scanStmt->execute();
+        $rows = $scanStmt->fetchAll();
+    } catch (Throwable $e) {
+        splaro_log_exception('queue.summary.dead_breakdown.scan', $e, [
+            'mode' => (string)$scope['mode'],
+            'minutes' => (int)$windowMinutes
+        ], 'WARNING');
+        return $out;
+    }
+
+    $out['scanned'] = is_array($rows) ? count($rows) : 0;
+    $out['truncated'] = $out['total'] > $out['scanned'];
+
+    foreach ($rows as $row) {
+        $syncType = (string)($row['sync_type'] ?? '');
+        $httpCode = (int)($row['last_http_code'] ?? 0);
+        $lastError = (string)($row['last_error'] ?? '');
+        if (queue_dead_reason_is_permanent($syncType, $httpCode, $lastError)) {
+            $out['permanent']++;
+        } else {
+            $out['transient']++;
+        }
+    }
+
+    return $out;
 }
 
 function get_queue_summary($db, $mode = 'SHEETS') {
@@ -4994,9 +5104,15 @@ function health_recommended_action($service, $error = '', $context = []) {
         return 'Verify bot token, admin allowlist, webhook secret, and Telegram API reachability.';
     }
     if ($serviceKey === 'SHEETS') {
+        if (strpos($errorText, 'TRANSIENT') !== false || strpos($errorText, 'TIMEOUT') !== false) {
+            return 'Sheets timeout/network issue detected. Increase timeout, verify Apps Script latency, recover dead queue, then rerun probe.';
+        }
         return 'Check Apps Script URL/secret, circuit state, and sheet permissions for the service account.';
     }
     if ($serviceKey === 'QUEUE') {
+        if (strpos($errorText, 'TRANSIENT') !== false) {
+            return 'Transient queue dead jobs detected. Run recover_dead_queue with drain, then monitor retry backlog until zero.';
+        }
         return 'Queue dead/retry increased. Inspect sync_queue last_error, run recover_dead_queue, then drain worker with low batch.';
     }
     if ($serviceKey === 'ORDERS') {
@@ -5006,6 +5122,9 @@ function health_recommended_action($service, $error = '', $context = []) {
         return 'Auth probe failed. Validate users table, JWT secret consistency, and token validation path.';
     }
     if ($serviceKey === 'PUSH') {
+        if (strpos($errorText, 'PUSH_DISABLED') !== false) {
+            return 'Enable VAPID public/private keys, then run Push probe and drain push queue.';
+        }
         return 'Push failures detected. Check VAPID keys, inactive endpoints, and queue dead-letter reasons.';
     }
     return 'Inspect recent system_errors context and retry probe.';
@@ -5430,10 +5549,14 @@ function run_health_probe($db, $probe, $requestAuthUser = null) {
                 'push' => get_push_queue_summary($db),
                 'sheets' => get_sync_queue_summary($db)
             ];
+            $recoveryResult = recover_dead_queue_jobs($db, [
+                'mode' => 'ALL',
+                'limit' => 200
+            ]);
             $campaignResult = process_due_campaigns($db, 2);
-            $telegramResult = process_telegram_queue($db, 2);
-            $pushResult = process_push_queue($db, 5);
-            $sheetsResult = process_sync_queue($db, 2, false);
+            $telegramResult = process_telegram_queue($db, 4);
+            $pushResult = process_push_queue($db, 8);
+            $sheetsResult = process_sync_queue($db, 4, true);
             $after = [
                 'telegram' => get_telegram_queue_summary($db),
                 'push' => get_push_queue_summary($db),
@@ -5441,17 +5564,27 @@ function run_health_probe($db, $probe, $requestAuthUser = null) {
             ];
             $deadBefore = (int)($before['telegram']['dead'] ?? 0) + (int)($before['push']['dead'] ?? 0) + (int)($before['sheets']['dead'] ?? 0);
             $deadAfter = (int)($after['telegram']['dead'] ?? 0) + (int)($after['push']['dead'] ?? 0) + (int)($after['sheets']['dead'] ?? 0);
-            if ($deadAfter > $deadBefore) {
+            $deadBreakdown = queue_dead_recent_breakdown($db, 'ALL');
+            $hasPermanentRecentDead = (int)($deadBreakdown['permanent'] ?? 0) > 0;
+
+            if ($deadAfter > $deadBefore && $hasPermanentRecentDead) {
                 throw new RuntimeException('QUEUE_DEAD_COUNT_INCREASED');
             }
-            $result['status'] = 'PASS';
+            if ($deadAfter > $deadBefore && !$hasPermanentRecentDead) {
+                $result['status'] = 'WARNING';
+                $result['error'] = 'QUEUE_DEAD_TRANSIENT_PRESENT';
+            } else {
+                $result['status'] = 'PASS';
+            }
             $result['details'] = [
+                'recovery' => $recoveryResult,
                 'campaigns' => $campaignResult,
                 'telegram' => $telegramResult,
                 'push' => $pushResult,
                 'sheets' => $sheetsResult,
                 'dead_before' => $deadBefore,
-                'dead_after' => $deadAfter
+                'dead_after' => $deadAfter,
+                'dead_recent_breakdown' => $deadBreakdown
             ];
         } elseif ($probeKey === 'orders') {
             $count = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
@@ -6591,7 +6724,7 @@ function require_campaign_write_access($authUser) {
     require_admin_access($authUser);
     if (is_array($authUser)) {
         $role = strtoupper((string)get_admin_role($authUser));
-        if (!in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        if (!in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
             http_response_code(403);
             echo json_encode(["status" => "error", "message" => "CAMPAIGN_WRITE_ACCESS_REQUIRED"]);
             exit;
@@ -6668,21 +6801,152 @@ if ($method === 'GET' && $action === 'health') {
         splaro_log_exception('health.push.scheduled_campaigns', $e, [], 'WARNING');
     }
 
-    $telegramQueue = get_telegram_queue_summary($db);
-    $pushQueue = get_push_queue_summary($db);
-    $sheetsQueue = get_sync_queue_summary($db);
-    $queueDead = (int)($telegramQueue['dead'] ?? 0) + (int)($pushQueue['dead'] ?? 0) + (int)($sheetsQueue['dead'] ?? 0);
-    $queueDeadRecent = (int)($telegramQueue['dead_recent'] ?? 0) + (int)($pushQueue['dead_recent'] ?? 0) + (int)($sheetsQueue['dead_recent'] ?? 0);
-    $queueHistoricalDead = $queueDead - $queueDeadRecent;
-    if ($queueHistoricalDead < 0) $queueHistoricalDead = 0;
-    $queueRetry = (int)($telegramQueue['retry'] ?? 0) + (int)($pushQueue['retry'] ?? 0) + (int)($sheetsQueue['retry'] ?? 0);
-    $queuePending = (int)($telegramQueue['pending'] ?? 0) + (int)($pushQueue['pending'] ?? 0) + (int)($sheetsQueue['pending'] ?? 0);
+    $sheetsEnabled = trim((string)GOOGLE_SHEETS_WEBHOOK_URL) !== '';
+    $queueStateLoader = function () use ($db, $sheetsEnabled) {
+        $telegramQueueLocal = get_telegram_queue_summary($db);
+        $pushQueueLocal = get_push_queue_summary($db);
+        $sheetsQueueLocal = get_sync_queue_summary($db);
+
+        $telegramBreakdown = queue_dead_recent_breakdown($db, 'TELEGRAM');
+        $pushBreakdown = queue_dead_recent_breakdown($db, 'PUSH');
+        $sheetsBreakdown = queue_dead_recent_breakdown($db, 'SHEETS');
+
+        $telegramAffectsQueue = TELEGRAM_ENABLED || queue_summary_active_workload($telegramQueueLocal) > 0;
+        $pushAffectsQueue = PUSH_ENABLED || queue_summary_active_workload($pushQueueLocal) > 0;
+        $sheetsAffectsQueue = $sheetsEnabled || queue_summary_active_workload($sheetsQueueLocal) > 0;
+
+        $queueDeadLocal = 0;
+        $queueRetryLocal = 0;
+        $queuePendingLocal = 0;
+        $queueDeadRecentPermanentLocal = 0;
+        $queueDeadRecentTransientLocal = 0;
+
+        if ($telegramAffectsQueue) {
+            $queueDeadLocal += (int)($telegramQueueLocal['dead'] ?? 0);
+            $queueRetryLocal += (int)($telegramQueueLocal['retry'] ?? 0);
+            $queuePendingLocal += (int)($telegramQueueLocal['pending'] ?? 0);
+            $queueDeadRecentPermanentLocal += (int)($telegramBreakdown['permanent'] ?? 0);
+            $queueDeadRecentTransientLocal += (int)($telegramBreakdown['transient'] ?? 0);
+        }
+        if ($pushAffectsQueue) {
+            $queueDeadLocal += (int)($pushQueueLocal['dead'] ?? 0);
+            $queueRetryLocal += (int)($pushQueueLocal['retry'] ?? 0);
+            $queuePendingLocal += (int)($pushQueueLocal['pending'] ?? 0);
+            $queueDeadRecentPermanentLocal += (int)($pushBreakdown['permanent'] ?? 0);
+            $queueDeadRecentTransientLocal += (int)($pushBreakdown['transient'] ?? 0);
+        }
+        if ($sheetsAffectsQueue) {
+            $queueDeadLocal += (int)($sheetsQueueLocal['dead'] ?? 0);
+            $queueRetryLocal += (int)($sheetsQueueLocal['retry'] ?? 0);
+            $queuePendingLocal += (int)($sheetsQueueLocal['pending'] ?? 0);
+            $queueDeadRecentPermanentLocal += (int)($sheetsBreakdown['permanent'] ?? 0);
+            $queueDeadRecentTransientLocal += (int)($sheetsBreakdown['transient'] ?? 0);
+        }
+
+        $queueDeadRecentLocal = $queueDeadRecentPermanentLocal + $queueDeadRecentTransientLocal;
+        $queueHistoricalDeadLocal = $queueDeadLocal - $queueDeadRecentLocal;
+        if ($queueHistoricalDeadLocal < 0) $queueHistoricalDeadLocal = 0;
+
+        return [
+            'telegram' => $telegramQueueLocal,
+            'push' => $pushQueueLocal,
+            'sheets' => $sheetsQueueLocal,
+            'breakdown' => [
+                'telegram' => $telegramBreakdown,
+                'push' => $pushBreakdown,
+                'sheets' => $sheetsBreakdown,
+            ],
+            'global' => [
+                'dead' => (int)$queueDeadLocal,
+                'retry' => (int)$queueRetryLocal,
+                'pending' => (int)$queuePendingLocal,
+                'dead_recent' => (int)$queueDeadRecentLocal,
+                'dead_recent_permanent' => (int)$queueDeadRecentPermanentLocal,
+                'dead_recent_transient' => (int)$queueDeadRecentTransientLocal,
+                'dead_historical' => (int)$queueHistoricalDeadLocal
+            ]
+        ];
+    };
+
+    $queueAutoRecovery = [
+        'attempted' => false,
+        'throttled' => false,
+        'result' => [
+            'recovered' => 0,
+            'skipped_permanent' => 0,
+            'total_dead_scanned' => 0
+        ],
+        'processed' => [
+            'campaigns' => ['processed' => 0, 'queued_jobs' => 0],
+            'telegram' => ['processed' => 0, 'success' => 0, 'failed' => 0, 'retried' => 0, 'dead' => 0],
+            'push' => ['processed' => 0, 'success' => 0, 'failed' => 0, 'retried' => 0, 'dead' => 0],
+            'sheets' => ['processed' => 0, 'success' => 0, 'failed' => 0, 'retried' => 0, 'dead' => 0]
+        ]
+    ];
+
+    $queueState = $queueStateLoader();
+    $queueGlobal = is_array($queueState['global'] ?? null) ? $queueState['global'] : [];
+    $needsQueueAutoRecovery = ((int)($queueGlobal['dead_recent_transient'] ?? 0) > 0) || ((int)($queueGlobal['retry'] ?? 0) > 0);
+    if ($needsQueueAutoRecovery) {
+        if (health_alert_rate_limited('queue_auto_recover', 90)) {
+            $queueAutoRecovery['throttled'] = true;
+        } else {
+            $queueAutoRecovery['attempted'] = true;
+            try {
+                $recover = recover_dead_queue_jobs($db, [
+                    'mode' => 'ALL',
+                    'limit' => 300
+                ]);
+                $queueAutoRecovery['result'] = [
+                    'recovered' => (int)($recover['recovered'] ?? 0),
+                    'skipped_permanent' => (int)($recover['skipped_permanent'] ?? 0),
+                    'total_dead_scanned' => (int)($recover['total_dead_scanned'] ?? 0)
+                ];
+                if ((int)($recover['recovered'] ?? 0) > 0 || (int)($queueGlobal['retry'] ?? 0) > 0) {
+                    $queueAutoRecovery['processed']['campaigns'] = process_due_campaigns($db, 2);
+                    $queueAutoRecovery['processed']['telegram'] = process_telegram_queue($db, 6);
+                    $queueAutoRecovery['processed']['push'] = process_push_queue($db, 8);
+                    $queueAutoRecovery['processed']['sheets'] = process_sync_queue($db, 6, true);
+                }
+                log_system_event(
+                    $db,
+                    'HEALTH_QUEUE_AUTO_RECOVERY',
+                    'Auto recovery attempted from health endpoint; recovered=' . (int)($recover['recovered'] ?? 0),
+                    (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin'),
+                    $_SERVER['REMOTE_ADDR'] ?? 'SERVER'
+                );
+            } catch (Throwable $e) {
+                splaro_log_exception('health.queue.auto_recovery', $e, [], 'WARNING');
+            }
+            $queueState = $queueStateLoader();
+        }
+    }
+
+    $telegramQueue = is_array($queueState['telegram'] ?? null) ? $queueState['telegram'] : [];
+    $pushQueue = is_array($queueState['push'] ?? null) ? $queueState['push'] : [];
+    $sheetsQueue = is_array($queueState['sheets'] ?? null) ? $queueState['sheets'] : [];
+    $queueBreakdown = is_array($queueState['breakdown'] ?? null) ? $queueState['breakdown'] : [];
+    $telegramDeadBreakdown = is_array($queueBreakdown['telegram'] ?? null) ? $queueBreakdown['telegram'] : [];
+    $pushDeadBreakdown = is_array($queueBreakdown['push'] ?? null) ? $queueBreakdown['push'] : [];
+    $sheetsDeadBreakdown = is_array($queueBreakdown['sheets'] ?? null) ? $queueBreakdown['sheets'] : [];
+
+    $queueGlobal = is_array($queueState['global'] ?? null) ? $queueState['global'] : [];
+    $queueDead = (int)($queueGlobal['dead'] ?? 0);
+    $queueDeadRecent = (int)($queueGlobal['dead_recent'] ?? 0);
+    $queueDeadRecentPermanent = (int)($queueGlobal['dead_recent_permanent'] ?? 0);
+    $queueDeadRecentTransient = (int)($queueGlobal['dead_recent_transient'] ?? 0);
+    $queueHistoricalDead = (int)($queueGlobal['dead_historical'] ?? 0);
+    $queueRetry = (int)($queueGlobal['retry'] ?? 0);
+    $queuePending = (int)($queueGlobal['pending'] ?? 0);
 
     $queueStatus = 'OK';
     $queueError = '';
-    if ($queueDeadRecent > 0) {
+    if ($queueDeadRecentPermanent > 0) {
         $queueStatus = 'DOWN';
         $queueError = 'QUEUE_DEAD_JOBS_PRESENT';
+    } elseif ($queueDeadRecentTransient > 0) {
+        $queueStatus = 'WARNING';
+        $queueError = 'QUEUE_DEAD_TRANSIENT_PRESENT';
     } elseif ($queueHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $queueStatus = 'WARNING';
         $queueError = 'QUEUE_HISTORICAL_DEAD_JOBS_PRESENT';
@@ -6692,16 +6956,21 @@ if ($method === 'GET' && $action === 'health') {
     }
 
     $telegramDead = (int)($telegramQueue['dead'] ?? 0);
-    $telegramDeadRecent = (int)($telegramQueue['dead_recent'] ?? 0);
+    $telegramDeadRecentPermanent = (int)($telegramDeadBreakdown['permanent'] ?? 0);
+    $telegramDeadRecentTransient = (int)($telegramDeadBreakdown['transient'] ?? 0);
+    $telegramDeadRecent = $telegramDeadRecentPermanent + $telegramDeadRecentTransient;
     $telegramHistoricalDead = $telegramDead - $telegramDeadRecent;
     if ($telegramHistoricalDead < 0) $telegramHistoricalDead = 0;
     $telegramStatus = TELEGRAM_ENABLED ? 'OK' : 'WARNING';
     $telegramError = '';
     if (!TELEGRAM_ENABLED) {
         $telegramError = 'TELEGRAM_DISABLED';
-    } elseif ($telegramDeadRecent > 0) {
+    } elseif ($telegramDeadRecentPermanent > 0) {
         $telegramStatus = 'DOWN';
         $telegramError = 'TELEGRAM_QUEUE_DEAD_PRESENT';
+    } elseif ($telegramDeadRecentTransient > 0) {
+        $telegramStatus = 'WARNING';
+        $telegramError = 'TELEGRAM_QUEUE_DEAD_TRANSIENT_PRESENT';
     } elseif ($telegramHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $telegramStatus = 'WARNING';
         $telegramError = 'TELEGRAM_QUEUE_HISTORICAL_DEAD_PRESENT';
@@ -6712,10 +6981,11 @@ if ($method === 'GET' && $action === 'health') {
 
     $sheetsCircuit = is_array($sheetsQueue['circuit'] ?? null) ? $sheetsQueue['circuit'] : ['open' => false];
     $sheetsDead = (int)($sheetsQueue['dead'] ?? 0);
-    $sheetsDeadRecent = (int)($sheetsQueue['dead_recent'] ?? 0);
+    $sheetsDeadRecentPermanent = (int)($sheetsDeadBreakdown['permanent'] ?? 0);
+    $sheetsDeadRecentTransient = (int)($sheetsDeadBreakdown['transient'] ?? 0);
+    $sheetsDeadRecent = $sheetsDeadRecentPermanent + $sheetsDeadRecentTransient;
     $sheetsHistoricalDead = $sheetsDead - $sheetsDeadRecent;
     if ($sheetsHistoricalDead < 0) $sheetsHistoricalDead = 0;
-    $sheetsEnabled = trim((string)GOOGLE_SHEETS_WEBHOOK_URL) !== '';
     $sheetsStatus = $sheetsEnabled ? 'OK' : 'WARNING';
     $sheetsError = '';
     if (!$sheetsEnabled) {
@@ -6723,9 +6993,12 @@ if ($method === 'GET' && $action === 'health') {
     } elseif (!empty($sheetsCircuit['open'])) {
         $sheetsStatus = 'DOWN';
         $sheetsError = (string)($sheetsCircuit['last_error'] ?? 'SHEETS_CIRCUIT_OPEN');
-    } elseif ($sheetsDeadRecent > 0) {
+    } elseif ($sheetsDeadRecentPermanent > 0) {
         $sheetsStatus = 'DOWN';
         $sheetsError = 'SHEETS_QUEUE_DEAD_PRESENT';
+    } elseif ($sheetsDeadRecentTransient > 0) {
+        $sheetsStatus = 'WARNING';
+        $sheetsError = 'SHEETS_QUEUE_DEAD_TRANSIENT_PRESENT';
     } elseif ($sheetsHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $sheetsStatus = 'WARNING';
         $sheetsError = 'SHEETS_QUEUE_HISTORICAL_DEAD_PRESENT';
@@ -6735,22 +7008,35 @@ if ($method === 'GET' && $action === 'health') {
     }
 
     $pushDead = (int)($pushQueue['dead'] ?? 0);
-    $pushDeadRecent = (int)($pushQueue['dead_recent'] ?? 0);
+    $pushDeadRecentPermanent = (int)($pushDeadBreakdown['permanent'] ?? 0);
+    $pushDeadRecentTransient = (int)($pushDeadBreakdown['transient'] ?? 0);
+    $pushDeadRecent = $pushDeadRecentPermanent + $pushDeadRecentTransient;
     $pushHistoricalDead = $pushDead - $pushDeadRecent;
     if ($pushHistoricalDead < 0) $pushHistoricalDead = 0;
-    $pushStatus = PUSH_ENABLED ? 'OK' : 'WARNING';
+    $pushWorkload = queue_summary_active_workload($pushQueue);
+    $pushNeedsAudience = $pushWorkload > 0 || $scheduledCampaigns > 0;
+    $pushStatus = 'OK';
     $pushError = '';
     if (!PUSH_ENABLED) {
-        $pushError = 'PUSH_DISABLED';
-    } elseif ($pushDeadRecent > 0) {
+        if ($pushNeedsAudience || $activePushSubscriptions > 0) {
+            $pushStatus = 'WARNING';
+            $pushError = 'PUSH_DISABLED';
+        }
+    } elseif ($pushDeadRecentPermanent > 0) {
         $pushStatus = 'DOWN';
         $pushError = 'PUSH_QUEUE_DEAD_PRESENT';
+    } elseif ($pushDeadRecentTransient > 0) {
+        $pushStatus = 'WARNING';
+        $pushError = 'PUSH_QUEUE_DEAD_TRANSIENT_PRESENT';
     } elseif ($pushHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $pushStatus = 'WARNING';
         $pushError = 'PUSH_QUEUE_HISTORICAL_DEAD_PRESENT';
-    } elseif ((int)($pushQueue['retry'] ?? 0) > 0 || $activePushSubscriptions < 1) {
+    } elseif ((int)($pushQueue['retry'] ?? 0) > 0) {
         $pushStatus = 'WARNING';
-        $pushError = $activePushSubscriptions < 1 ? 'NO_ACTIVE_PUSH_SUBSCRIPTIONS' : 'PUSH_QUEUE_RETRY_PRESENT';
+        $pushError = 'PUSH_QUEUE_RETRY_PRESENT';
+    } elseif ($pushNeedsAudience && $activePushSubscriptions < 1) {
+        $pushStatus = 'WARNING';
+        $pushError = 'NO_ACTIVE_PUSH_SUBSCRIPTIONS';
     }
 
     $services = [
@@ -6878,12 +7164,21 @@ if ($method === 'GET' && $action === 'health') {
                 "retry" => $queueRetry,
                 "dead" => $queueDead,
                 "dead_recent" => $queueDeadRecent,
+                "dead_recent_permanent" => $queueDeadRecentPermanent,
+                "dead_recent_transient" => $queueDeadRecentTransient,
                 "dead_historical" => $queueHistoricalDead,
                 "dead_recent_window_minutes" => (int)HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES
             ],
-            "telegram" => $telegramQueue,
-            "push" => $pushQueue,
-            "sheets" => $sheetsQueue
+            "telegram" => array_merge($telegramQueue, [
+                "dead_recent_breakdown" => $telegramDeadBreakdown
+            ]),
+            "push" => array_merge($pushQueue, [
+                "dead_recent_breakdown" => $pushDeadBreakdown
+            ]),
+            "sheets" => array_merge($sheetsQueue, [
+                "dead_recent_breakdown" => $sheetsDeadBreakdown
+            ]),
+            "auto_recovery" => $queueAutoRecovery
         ],
         "telegram" => [
             "enabled" => TELEGRAM_ENABLED,
@@ -8865,6 +9160,17 @@ if ($method === 'POST' && $action === 'admin_user_block') {
         exit;
     }
     $user = admin_fetch_user_or_fail($db, $userId);
+    $isSelfTarget = is_array($requestAuthUser) && !empty($requestAuthUser['id']) && hash_equals((string)$requestAuthUser['id'], (string)$userId);
+    $targetRole = strtoupper((string)($user['role'] ?? 'USER'));
+    $targetEmail = strtolower(trim((string)($user['email'] ?? '')));
+    if ($isSelfTarget) {
+        echo json_encode(["status" => "error", "message" => "SELF_BLOCK_NOT_ALLOWED"]);
+        exit;
+    }
+    if ($targetRole === 'OWNER' || is_owner_identity_email($targetEmail, $db)) {
+        echo json_encode(["status" => "error", "message" => "OWNER_BLOCK_NOT_ALLOWED"]);
+        exit;
+    }
     if (!column_exists($db, 'users', 'is_blocked')) {
         echo json_encode(["status" => "error", "message" => "USER_BLOCK_FIELD_MISSING"]);
         exit;
@@ -8908,12 +9214,30 @@ if ($method === 'POST' && $action === 'admin_user_role') {
         echo json_encode(["status" => "error", "message" => "USER_ID_AND_ROLE_REQUIRED"]);
         exit;
     }
-    $allowedRoles = ['USER', 'VIEWER', 'EDITOR', 'ADMIN', 'SUPER_ADMIN'];
+    $allowedRoles = ['USER', 'VIEWER', 'EDITOR', 'ADMIN', 'OWNER', 'SUPER_ADMIN'];
     if (!in_array($nextRole, $allowedRoles, true)) {
         echo json_encode(["status" => "error", "message" => "INVALID_ROLE"]);
         exit;
     }
     $user = admin_fetch_user_or_fail($db, $userId);
+    $isSelfTarget = is_array($requestAuthUser) && !empty($requestAuthUser['id']) && hash_equals((string)$requestAuthUser['id'], (string)$userId);
+    $targetRole = strtoupper((string)($user['role'] ?? 'USER'));
+    $targetEmail = strtolower(trim((string)($user['email'] ?? '')));
+    $requestRole = get_admin_role($requestAuthUser);
+    if ($targetRole === 'OWNER' || is_owner_identity_email($targetEmail, $db)) {
+        if ($nextRole !== 'OWNER') {
+            echo json_encode(["status" => "error", "message" => "OWNER_ROLE_LOCKED"]);
+            exit;
+        }
+    }
+    if ($isSelfTarget && $requestRole === 'OWNER' && $nextRole !== 'OWNER') {
+        echo json_encode(["status" => "error", "message" => "OWNER_SELF_DEMOTE_NOT_ALLOWED"]);
+        exit;
+    }
+    if ($isSelfTarget && in_array($requestRole, ['ADMIN', 'SUPER_ADMIN'], true) && $nextRole === 'USER') {
+        echo json_encode(["status" => "error", "message" => "SELF_DEMOTE_NOT_ALLOWED"]);
+        exit;
+    }
     $update = $db->prepare("UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?");
     $update->execute([$nextRole, $userId]);
     $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
@@ -8999,7 +9323,7 @@ if ($method === 'POST' && $action === 'admin_permission_matrix_update') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "PERMISSION_UPDATE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9113,7 +9437,7 @@ if ($method === 'POST' && $action === 'admin_permission_matrix_update') {
 if ($method === 'GET' && $action === 'admin_api_keys') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "API_KEY_VIEW_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9194,7 +9518,7 @@ if ($method === 'POST' && $action === 'admin_api_key_create') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "API_KEY_CREATE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9307,7 +9631,7 @@ if ($method === 'POST' && $action === 'admin_api_key_revoke') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "API_KEY_REVOKE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9371,7 +9695,7 @@ if ($method === 'POST' && $action === 'admin_api_key_revoke') {
 if ($method === 'GET' && $action === 'admin_ip_allowlist') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_VIEW_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9414,7 +9738,7 @@ if ($method === 'POST' && $action === 'admin_ip_allowlist_upsert') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_UPDATE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9525,7 +9849,7 @@ if ($method === 'POST' && $action === 'admin_ip_allowlist_delete') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_DELETE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9690,7 +10014,7 @@ if ($method === 'POST' && $action === 'admin_stock_adjust') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
         echo json_encode(["status" => "error", "message" => "STOCK_ADJUST_ACCESS_REQUIRED"]);
         exit;
     }
@@ -9924,7 +10248,7 @@ if ($method === 'POST' && $action === 'admin_product_variant_upsert') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
         echo json_encode(["status" => "error", "message" => "VARIANT_WRITE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10135,7 +10459,7 @@ if ($method === 'POST' && $action === 'admin_product_variant_delete') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
         echo json_encode(["status" => "error", "message" => "VARIANT_DELETE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10574,7 +10898,7 @@ if ($method === 'GET' && $action === 'admin_audit_logs') {
 if ($method === 'GET' && $action === 'admin_export_products') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
         echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10599,7 +10923,7 @@ if ($method === 'GET' && $action === 'admin_export_products') {
 if ($method === 'GET' && $action === 'admin_export_orders') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10638,7 +10962,7 @@ if ($method === 'GET' && $action === 'admin_export_orders') {
 if ($method === 'GET' && $action === 'admin_export_customers') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
         exit;
     }
@@ -11515,16 +11839,14 @@ if ($method === 'POST' && $action === 'create_order') {
         </div>
     </div>";
 
-    // TRIGGER EMAIL NOTIFICATION (ORDER)
-    $smtpConfig = load_smtp_settings($db);
-    $adminRecipient = $smtpConfig['user'] ?? SMTP_USER;
-    $adminMail = smtp_send_mail($db, $adminRecipient, "ADMIN NOTIFY: NEW ORDER " . $input['id'], $invoice_body, true);
+    // Admin alert is Telegram + Sheets only. Keep customer invoice mail enabled.
+    $adminMail = false;
     $customerMail = smtp_send_mail($db, $input['customerEmail'], "INVOICE: Your Splaro Order #" . $input['id'], $invoice_body, true);
 
     echo json_encode([
         "status" => "success",
-        "message" => ($adminMail && $customerMail) ? "INVOICE_DISPATCHED" : "ORDER_PLACED_EMAIL_PENDING",
-        "email" => ["admin" => $adminMail, "customer" => $customerMail],
+        "message" => $customerMail ? "INVOICE_DISPATCHED" : "ORDER_PLACED_EMAIL_PENDING",
+        "email" => ["admin" => false, "customer" => $customerMail],
         "integrations" => [
             "sheets" => ["queued" => (bool)$orderSyncQueued],
             "telegram" => ["queued" => (bool)$telegramOrderQueued],
@@ -12171,10 +12493,10 @@ if ($method === 'POST' && $action === 'signup') {
     }
 
     $role = strtoupper(trim((string)($input['role'] ?? 'USER')));
-    if (!in_array($role, ['USER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (!in_array($role, ['USER', 'ADMIN', 'OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $role = 'USER';
     }
-    if (in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
         if (ADMIN_KEY === '' || !hash_equals(ADMIN_KEY, $adminKeyHeader)) {
             $role = 'USER';
@@ -12182,8 +12504,11 @@ if ($method === 'POST' && $action === 'signup') {
     }
 
     $isAdminIdentity = is_admin_login_email($email, $db);
+    $isOwnerIdentity = is_owner_identity_email($email, $db);
     if ($isAdminIdentity) {
-        if (!in_array($role, ['SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        if ($isOwnerIdentity) {
+            $role = 'OWNER';
+        } elseif (!in_array($role, ['OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
             $role = 'ADMIN';
         }
     }
@@ -12225,12 +12550,16 @@ if ($method === 'POST' && $action === 'signup') {
         }
         $existingRole = strtoupper((string)($existing['role'] ?? 'USER'));
         $persistRole = $existingRole;
-        if ($isAdminIdentity || in_array($existingRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
-            $persistRole = in_array($role, ['SUPER_ADMIN', 'EDITOR', 'VIEWER'], true) ? $role : $existingRole;
-            if (!in_array($persistRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
-                $persistRole = 'ADMIN';
+        if ($isAdminIdentity || in_array($existingRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            if ($isOwnerIdentity || $existingRole === 'OWNER') {
+                $persistRole = 'OWNER';
+            } else {
+                $persistRole = in_array($role, ['OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true) ? $role : $existingRole;
             }
-        } elseif (in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            if (!in_array($persistRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+                $persistRole = $isOwnerIdentity ? 'OWNER' : 'ADMIN';
+            }
+        } elseif (in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
             $persistRole = $role;
         } elseif (in_array($existingRole, ['USER'], true)) {
             $persistRole = 'USER';
@@ -12401,19 +12730,8 @@ if ($method === 'POST' && $action === 'signup') {
         'queued' => (bool)$signupSyncQueued
     ], $signupSyncQueued ? 'INFO' : 'ERROR');
 
-    // TRIGGER EMAIL NOTIFICATION (SIGNUP)
-    $subject = "New Signup: " . $name;
-    $message = "A new account has been created on SPLARO.
-
-Name: " . $name . "
-Email: " . $email . "
-Phone: " . $phone;
-    $smtpConfig = load_smtp_settings($db);
-    $adminRecipient = trim((string)($smtpConfig['user'] ?? SMTP_USER));
+    // Admin alert is Telegram + Sheets only. Email notification to admin is intentionally disabled.
     $adminMail = false;
-    if ($adminRecipient !== '' && filter_var($adminRecipient, FILTER_VALIDATE_EMAIL)) {
-        $adminMail = smtp_send_mail($db, $adminRecipient, $subject, nl2br($message), true);
-    }
 
     $welcomeSubject = "Congratulations! Welcome to SPLARO";
     $welcomeBody = "
@@ -12471,7 +12789,7 @@ Phone: " . $phone;
         "user" => $userPayload,
         "token" => $token,
         "csrf_token" => $csrfToken,
-        "email" => ["admin" => $adminMail, "welcome" => $welcomeMail],
+        "email" => ["admin" => false, "welcome" => $welcomeMail],
         "integrations" => [
             "sheets" => ["queued" => (bool)$signupSyncQueued],
             "telegram" => ["queued" => (bool)$telegramSignupQueued],
@@ -13601,6 +13919,24 @@ if ($method === 'POST' && $action === 'delete_user') {
     $input = json_decode(file_get_contents('php://input'), true);
     if (isset($input['id'])) {
         $targetUserId = (string)$input['id'];
+        $targetUserStmt = $db->prepare("SELECT id, email, role FROM users WHERE id = ? LIMIT 1");
+        $targetUserStmt->execute([$targetUserId]);
+        $targetUser = $targetUserStmt->fetch();
+        if (!$targetUser) {
+            echo json_encode(["status" => "error", "message" => "USER_NOT_FOUND"]);
+            exit;
+        }
+        $targetRole = strtoupper((string)($targetUser['role'] ?? 'USER'));
+        $targetEmail = strtolower(trim((string)($targetUser['email'] ?? '')));
+        $isSelfDelete = is_array($requestAuthUser) && !empty($requestAuthUser['id']) && hash_equals((string)$requestAuthUser['id'], (string)$targetUserId);
+        if ($isSelfDelete) {
+            echo json_encode(["status" => "error", "message" => "SELF_DELETE_NOT_ALLOWED"]);
+            exit;
+        }
+        if ($targetRole === 'OWNER' || is_owner_identity_email($targetEmail, $db)) {
+            echo json_encode(["status" => "error", "message" => "OWNER_DELETE_NOT_ALLOWED"]);
+            exit;
+        }
         if (column_exists($db, 'users', 'deleted_at')) {
             $stmt = $db->prepare("UPDATE users SET deleted_at = NOW(), is_blocked = 1, updated_at = NOW() WHERE id = ?");
             $stmt->execute([$targetUserId]);
@@ -13811,7 +14147,7 @@ if ($method === 'POST' && $action === 'update_order_metadata') {
 if ($method === 'POST' && $action === 'generate_invoice_document') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "INVOICE_ADMIN_REQUIRED"]);
         exit;
@@ -14143,7 +14479,7 @@ function perform_sheets_sync_request($type, $data) {
 
     $timeout = (int)GOOGLE_SHEETS_TIMEOUT_SECONDS;
     if ($timeout < 2) $timeout = 2;
-    if ($timeout > 15) $timeout = 15;
+    if ($timeout > 30) $timeout = 30;
 
     $headers = [
         'Content-Type: application/json',
@@ -14159,7 +14495,10 @@ function perform_sheets_sync_request($type, $data) {
 
     if (function_exists('curl_init')) {
         $ch = curl_init($webhookUrl);
-        $connectTimeout = max(1, min($timeout, 3));
+        $connectTimeout = max(1, min($timeout - 1, 8));
+        if ($connectTimeout <= 0) {
+            $connectTimeout = 1;
+        }
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => $headers,
