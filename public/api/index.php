@@ -4668,6 +4668,59 @@ function health_latest_probe_map($db) {
     return $map;
 }
 
+function health_probe_age_seconds($probeRow) {
+    if (!is_array($probeRow)) {
+        return null;
+    }
+    $createdAt = trim((string)($probeRow['created_at'] ?? ''));
+    if ($createdAt === '') {
+        return null;
+    }
+    $ts = strtotime($createdAt);
+    if ($ts === false) {
+        return null;
+    }
+    $age = time() - (int)$ts;
+    if ($age < 0) {
+        $age = 0;
+    }
+    return $age;
+}
+
+function health_probe_is_recent($probeRow, $maxAgeMinutes = null) {
+    $age = health_probe_age_seconds($probeRow);
+    if ($age === null) {
+        return false;
+    }
+    $minutes = $maxAgeMinutes === null ? (int)HEALTH_PROBE_STALE_MINUTES : (int)$maxAgeMinutes;
+    if ($minutes < 1) $minutes = 1;
+    return $age <= ($minutes * 60);
+}
+
+function health_latest_probe_latency($probeRow, $maxAgeMinutes = null) {
+    if (!health_probe_is_recent($probeRow, $maxAgeMinutes)) {
+        return null;
+    }
+    if (!is_array($probeRow)) {
+        return null;
+    }
+    return isset($probeRow['latency_ms']) ? (int)$probeRow['latency_ms'] : null;
+}
+
+function health_latest_probe_error($probeRow, $maxAgeMinutes = null) {
+    if (!health_probe_is_recent($probeRow, $maxAgeMinutes)) {
+        return '';
+    }
+    if (!is_array($probeRow)) {
+        return '';
+    }
+    $status = strtoupper(trim((string)($probeRow['status'] ?? '')));
+    if ($status === 'PASS' || $status === 'OK') {
+        return '';
+    }
+    return (string)($probeRow['error'] ?? '');
+}
+
 function health_alert_rate_limited($bucket, $windowSeconds = 300) {
     $seconds = max(60, min((int)$windowSeconds, 3600));
     $key = md5('health_alert|' . (string)$bucket);
@@ -4727,6 +4780,23 @@ function health_probe_status_card($statusRaw) {
     return 'DOWN';
 }
 
+function health_sheets_probe_is_transient_failure($httpCode, $error) {
+    $code = (int)$httpCode;
+    $err = strtoupper(trim((string)$error));
+    if ($code === 0 || $code === 408 || $code === 429 || $code >= 500) {
+        return true;
+    }
+    if (
+        strpos($err, 'TIMEOUT') !== false
+        || strpos($err, 'TIMED OUT') !== false
+        || strpos($err, 'NETWORK') !== false
+        || strpos($err, 'CONNECTION') !== false
+    ) {
+        return true;
+    }
+    return false;
+}
+
 function run_health_probe($db, $probe, $requestAuthUser = null) {
     $probeKey = health_normalize_probe($probe);
     $startedAt = microtime(true);
@@ -4772,18 +4842,53 @@ function run_health_probe($db, $probe, $requestAuthUser = null) {
             if (trim((string)GOOGLE_SHEETS_WEBHOOK_URL) === '') {
                 throw new RuntimeException('SHEETS_DISABLED');
             }
-            [$ok, $httpCode, $error, $response] = perform_sheets_sync_request('HEALTH_PROBE', [
-                'probe' => 'sheets',
-                'checked_at' => date('c'),
-                'source' => 'admin_system_health'
-            ]);
-            if (!$ok) {
-                throw new RuntimeException(trim((string)$error) !== '' ? (string)$error : ('SHEETS_HTTP_' . (int)$httpCode));
+            $probeAttempts = (int)HEALTH_SHEETS_PROBE_RETRIES;
+            if ($probeAttempts < 1) $probeAttempts = 1;
+            if ($probeAttempts > 3) $probeAttempts = 3;
+            $attemptDetails = [];
+            $finalHttpCode = 0;
+            $finalError = '';
+            $probeOk = false;
+            $probeResponse = '';
+
+            for ($attempt = 1; $attempt <= $probeAttempts; $attempt++) {
+                [$ok, $httpCode, $error, $response] = perform_sheets_sync_request('HEALTH_PROBE', [
+                    'probe' => 'sheets',
+                    'checked_at' => date('c'),
+                    'source' => 'admin_system_health',
+                    'attempt' => $attempt
+                ]);
+                $finalHttpCode = (int)$httpCode;
+                $finalError = trim((string)$error);
+                $probeResponse = (string)$response;
+                $attemptDetails[] = [
+                    'attempt' => $attempt,
+                    'ok' => (bool)$ok,
+                    'http_code' => (int)$httpCode,
+                    'error' => $finalError
+                ];
+
+                if ($ok) {
+                    $probeOk = true;
+                    break;
+                }
+
+                $isTransient = health_sheets_probe_is_transient_failure($httpCode, $finalError);
+                $hasMoreAttempts = $attempt < $probeAttempts;
+                if (!$isTransient || !$hasMoreAttempts) {
+                    break;
+                }
+                usleep($attempt * 350000);
+            }
+
+            if (!$probeOk) {
+                throw new RuntimeException($finalError !== '' ? $finalError : ('SHEETS_HTTP_' . (int)$finalHttpCode));
             }
             $result['status'] = 'PASS';
             $result['details'] = [
-                'http_code' => (int)$httpCode,
-                'response_ok' => is_array($response) ? (bool)($response['ok'] ?? true) : true
+                'http_code' => (int)$finalHttpCode,
+                'response_preview' => splaro_clip_text($probeResponse, 180),
+                'attempts' => $attemptDetails
             ];
         } elseif ($probeKey === 'queue') {
             $before = [
@@ -6145,16 +6250,16 @@ if ($method === 'GET' && $action === 'health') {
         ],
         'telegram' => [
             'status' => $telegramStatus,
-            'latency_ms' => isset($latestProbeMap['telegram']['latency_ms']) ? (int)$latestProbeMap['telegram']['latency_ms'] : null,
-            'last_checked_at' => (string)($latestProbeMap['telegram']['created_at'] ?? $checkedAt),
-            'error' => $telegramError !== '' ? $telegramError : (string)($latestProbeMap['telegram']['error'] ?? ''),
+            'latency_ms' => health_latest_probe_latency($latestProbeMap['telegram'] ?? null),
+            'last_checked_at' => $checkedAt,
+            'error' => $telegramError !== '' ? $telegramError : health_latest_probe_error($latestProbeMap['telegram'] ?? null),
             'next_action' => $telegramStatus === 'OK' ? '' : health_recommended_action('telegram', $telegramError)
         ],
         'sheets' => [
             'status' => $sheetsStatus,
-            'latency_ms' => isset($latestProbeMap['sheets']['latency_ms']) ? (int)$latestProbeMap['sheets']['latency_ms'] : null,
-            'last_checked_at' => (string)($latestProbeMap['sheets']['created_at'] ?? $checkedAt),
-            'error' => $sheetsError !== '' ? $sheetsError : (string)($latestProbeMap['sheets']['error'] ?? ''),
+            'latency_ms' => health_latest_probe_latency($latestProbeMap['sheets'] ?? null),
+            'last_checked_at' => $checkedAt,
+            'error' => $sheetsError !== '' ? $sheetsError : health_latest_probe_error($latestProbeMap['sheets'] ?? null),
             'next_action' => $sheetsStatus === 'OK' ? '' : health_recommended_action('sheets', $sheetsError)
         ],
         'push' => [
