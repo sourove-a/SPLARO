@@ -25,4 +25,3 @@ dist-ssr
 .secure/
 .cache/
 .splaro-fallback-store.json
-public_html/admin/

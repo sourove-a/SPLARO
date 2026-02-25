@@ -70,6 +70,21 @@ Target path: `/home/u134578371/domains/splaro.co/public_html/admin`
    - `https://admin.splaro.co/` loads admin login/dashboard
    - `https://admin.splaro.co/api/index.php?action=health` returns JSON (with admin auth)
 
+### If `admin.splaro.co` Shows Hostinger "Default page"
+This means subdomain document root is not mapped to the admin deploy folder yet.
+
+Immediate recovery:
+1. In hPanel -> Subdomains -> `admin.splaro.co`, set document root to:
+   `/home/u134578371/domains/splaro.co/public_html/admin`
+2. If your account uses a separate subdomain root, copy admin files there too:
+   - from: `/home/u134578371/domains/splaro.co/public_html/admin`
+   - to: `/home/u134578371/domains/admin.splaro.co/public_html`
+3. Ensure these files exist in the active root:
+   - `index.html`
+   - `index.php`
+   - `.htaccess`
+   - `api/index.php`
+
 ### Protocol A: Institutional Build
 Before deployment, you must generate the static production reveal:
 ```bash
