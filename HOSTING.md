@@ -79,6 +79,7 @@ Immediate recovery:
 2. If your account uses a separate subdomain root, copy admin files there too:
    - from: `/home/u134578371/domains/splaro.co/public_html/admin`
    - to: `/home/u134578371/domains/admin.splaro.co/public_html`
+   - one-shot (SSH): `bash scripts/hostinger-recover-admin.sh`
 3. Ensure these files exist in the active root:
    - `index.html`
    - `index.php`
