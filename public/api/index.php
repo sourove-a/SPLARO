@@ -13630,6 +13630,66 @@ if ($method === 'POST' && $action === 'subscribe') {
     exit;
 }
 
+function normalize_recovery_phone_local($value) {
+    $raw = trim((string)$value);
+    if ($raw === '') {
+        return '';
+    }
+
+    $digits = preg_replace('/\D+/', '', $raw);
+    if (!is_string($digits) || $digits === '') {
+        return '';
+    }
+
+    if (strpos($digits, '0088') === 0) {
+        $digits = substr($digits, 2);
+    }
+
+    if (strlen($digits) === 13 && strpos($digits, '8801') === 0) {
+        $digits = '0' . substr($digits, 3);
+    }
+
+    if (!preg_match('/^01[3-9]\d{8}$/', (string)$digits)) {
+        return '';
+    }
+
+    return (string)$digits;
+}
+
+function find_user_for_recovery($db, $identifier) {
+    $raw = trim((string)$identifier);
+    $userSelectFields = users_sensitive_select_fields($db);
+
+    if ($raw === '') {
+        return ['user' => null, 'type' => '', 'normalized' => ''];
+    }
+
+    $emailCandidate = strtolower($raw);
+    if (filter_var($emailCandidate, FILTER_VALIDATE_EMAIL)) {
+        $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1");
+        $stmt->execute([$emailCandidate]);
+        $user = $stmt->fetch();
+        if ($user) {
+            return ['user' => $user, 'type' => 'email', 'normalized' => $emailCandidate];
+        }
+    }
+
+    $phoneLocal = normalize_recovery_phone_local($raw);
+    if ($phoneLocal !== '') {
+        $variants = array_values(array_unique([$phoneLocal, '88' . $phoneLocal]));
+        $placeholders = implode(',', array_fill(0, count($variants), '?'));
+        $phoneExpr = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')";
+        $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE {$phoneExpr} IN ({$placeholders}) LIMIT 1");
+        $stmt->execute($variants);
+        $user = $stmt->fetch();
+        if ($user) {
+            return ['user' => $user, 'type' => 'phone', 'normalized' => $phoneLocal];
+        }
+    }
+
+    return ['user' => null, 'type' => '', 'normalized' => $raw];
+}
+
 // 5.1 PASSWORD RECOVERY PROTOCOL (GENERATE OTP)
 if ($method === 'POST' && $action === 'forgot_password') {
     if (is_rate_limited('forgot_password', 8, 60)) {
@@ -13638,42 +13698,63 @@ if ($method === 'POST' && $action === 'forgot_password') {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = strtolower(trim((string)($input['email'] ?? '')));
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
+    $identifier = trim((string)($input['identifier'] ?? ($input['email'] ?? '')));
+    if ($identifier === '') {
+        echo json_encode(["status" => "error", "message" => "INVALID_IDENTITY"]);
         exit;
     }
-    
-    $userSelectFields = users_sensitive_select_fields($db);
-    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
-    
+
+    $lookup = find_user_for_recovery($db, $identifier);
+    $user = is_array($lookup['user'] ?? null) ? $lookup['user'] : null;
     if ($user) {
-        $otp = rand(100000, 999999);
+        $otp = random_int(100000, 999999);
         $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-        
-        $stmt = $db->prepare("UPDATE users SET reset_code = ?, reset_expiry = ? WHERE email = ?");
-        $stmt->execute([$otp, $expiry, $email]);
-        
+
+        $userId = (string)($user['id'] ?? '');
+        $targetEmail = strtolower(trim((string)($user['email'] ?? '')));
+        if (!filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            $targetEmail = '';
+        }
+
+        $stmt = $db->prepare("UPDATE users SET reset_code = ?, reset_expiry = ? WHERE id = ?");
+        $stmt->execute([$otp, $expiry, $userId]);
+
         $subject = "IDENTITY RECOVERY: Verification Code";
         $message = "Your Splaro Identity Verification Code is: " . $otp . "
 
 This code expires in 15 minutes. If you did not request this, please ignore.";
-        $success = smtp_send_mail($db, $email, $subject, nl2br($message), true);
+        $success = false;
+        if ($targetEmail !== '') {
+            $success = smtp_send_mail($db, $targetEmail, $subject, nl2br($message), true);
+        }
+
+        $maskedEmail = $targetEmail !== '' ? splaro_clip_text($targetEmail, 80) : 'N/A';
+        $maskedPhone = splaro_clip_text((string)($user['phone'] ?? ''), 40);
         $telegramOtpMessage = "<b>🔐 Password Reset OTP</b>\n"
-            . "<b>Email:</b> " . telegram_escape_html($email) . "\n"
+            . "<b>User ID:</b> " . telegram_escape_html($userId) . "\n"
+            . "<b>Email:</b> " . telegram_escape_html($maskedEmail) . "\n"
+            . "<b>Phone:</b> " . telegram_escape_html($maskedPhone) . "\n"
             . "<b>OTP:</b> " . telegram_escape_html((string)$otp) . "\n"
             . "<b>Expires:</b> " . telegram_escape_html($expiry);
         $telegramSent = send_telegram_message($telegramOtpMessage);
-        
-        if ($success) {
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        if ($success && $telegramSent) {
+            log_system_event($db, 'PASSWORD_RECOVERY_OTP_ISSUED', "Recovery OTP issued via EMAIL+TELEGRAM for user {$userId}", $userId, $ip);
+            echo json_encode([
+                "status" => "success",
+                "message" => "RECOVERY_SIGNAL_DISPATCHED",
+                "channel" => "EMAIL_AND_TELEGRAM"
+            ]);
+        } elseif ($success) {
+            log_system_event($db, 'PASSWORD_RECOVERY_OTP_ISSUED', "Recovery OTP issued via EMAIL for user {$userId}", $userId, $ip);
             echo json_encode([
                 "status" => "success",
                 "message" => "RECOVERY_SIGNAL_DISPATCHED",
                 "channel" => "EMAIL"
             ]);
         } elseif ($telegramSent) {
+            log_system_event($db, 'PASSWORD_RECOVERY_OTP_ISSUED', "Recovery OTP issued via TELEGRAM for user {$userId}", $userId, $ip);
             echo json_encode([
                 "status" => "success",
                 "message" => "RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM",
@@ -13682,13 +13763,18 @@ This code expires in 15 minutes. If you did not request this, please ignore.";
         } else {
             // Controlled fallback so user is never stuck when mail gateway is down.
             $allowOtpPreview = strtolower((string)env_or_default('ALLOW_OTP_PREVIEW', 'true')) === 'true';
-            $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
             $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
                ->execute([
                    'RECOVERY_FALLBACK',
-                   "OTP generated but delivery failed for {$email}.",
+                   "OTP generated but delivery failed for user {$userId}.",
                    $ip
                ]);
+            splaro_record_system_error('AUTH_RECOVERY', 'ERROR', 'Password recovery delivery failed on all channels.', [
+                'user_id' => $userId,
+                'identifier_type' => (string)($lookup['type'] ?? ''),
+                'target_email_present' => $targetEmail !== '',
+                'telegram_enabled' => (bool)TELEGRAM_ENABLED
+            ]);
 
             $response = [
                 "status" => "success",
@@ -13714,24 +13800,38 @@ if ($method === 'POST' && $action === 'reset_password') {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = strtolower(trim((string)($input['email'] ?? '')));
+    $identifier = trim((string)($input['identifier'] ?? ($input['email'] ?? '')));
     $otp = trim((string)($input['otp'] ?? ''));
     $new_password = (string)($input['password'] ?? '');
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $otp === '' || strlen($new_password) < 6) {
+    if ($identifier === '' || $otp === '' || strlen($new_password) < 6) {
         echo json_encode(["status" => "error", "message" => "INVALID_RESET_REQUEST"]);
         exit;
     }
-    
+
+    $lookup = find_user_for_recovery($db, $identifier);
+    $candidate = is_array($lookup['user'] ?? null) ? $lookup['user'] : null;
+    if (!$candidate) {
+        echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);
+        exit;
+    }
+
     $userSelectFields = users_sensitive_select_fields($db);
-    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ? AND reset_code = ? AND reset_expiry > NOW()");
-    $stmt->execute([$email, $otp]);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? AND reset_code = ? AND reset_expiry > NOW()");
+    $stmt->execute([(string)$candidate['id'], $otp]);
     $user = $stmt->fetch();
-    
+
     if ($user) {
         $newPasswordHash = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = 1 WHERE email = ?");
-        $stmt->execute([$newPasswordHash, $email]);
-        
+        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = 1 WHERE id = ?");
+        $stmt->execute([$newPasswordHash, (string)$user['id']]);
+
+        log_system_event(
+            $db,
+            'PASSWORD_RECOVERY_RESET',
+            "Password reset completed for user " . (string)($user['id'] ?? ''),
+            (string)($user['id'] ?? ''),
+            $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+        );
         echo json_encode(["status" => "success", "message" => "PASSWORD_OVERRIDDEN"]);
     } else {
         echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);

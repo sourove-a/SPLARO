@@ -149,6 +149,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
   const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   const isPhone = (val: string) => /^(?:\+?88)?01[3-9]\d{8}$/.test(val.trim());
+  const isRecoveryIdentifier = (val: string) => isEmail(val) || isPhone(val);
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -164,8 +165,13 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         newErrors.confirmPassword = "Password mismatch";
       }
     } else {
-
-      if (!isEmail(formData.identifier)) newErrors.identifier = "Scientific Email ID Required";
+      if (authMode === 'forgot') {
+        if (!isRecoveryIdentifier(formData.identifier)) {
+          newErrors.identifier = "Valid Email or Phone Required";
+        }
+      } else if (!isEmail(formData.identifier)) {
+        newErrors.identifier = "Scientific Email ID Required";
+      }
     }
 
     if (authMode !== 'forgot' && authMode !== 'signup') {
@@ -330,7 +336,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           const res = await fetch(`${API_NODE}?action=forgot_password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: formData.identifier })
+            body: JSON.stringify({
+              identifier: formData.identifier,
+              email: formData.identifier
+            })
           });
           const result = await res.json();
           if (result.status === 'success') {
@@ -338,7 +347,9 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             setRecoveryStep('reset');
             const otpPreview = String(result.otp_preview || '').trim();
             const msg =
-              result.message === 'RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM'
+              result.message === 'RECOVERY_SIGNAL_DISPATCHED' && String(result.channel || '') === 'EMAIL_AND_TELEGRAM'
+                ? 'OTP sent to your email. Backup sent to admin Telegram.'
+                : result.message === 'RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM'
                 ? 'OTP sent to admin Telegram. Use that code to reset.'
                 : result.message === 'RECOVERY_CODE_GENERATED_FALLBACK'
                   ? (otpPreview ? `SMTP down. Use OTP now: ${otpPreview}` : 'SMTP down. OTP generated, contact admin.')
@@ -356,7 +367,9 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         } catch (e) {
           const message = e instanceof Error ? e.message : '';
           if (message === 'IDENTITY_NOT_FOUND') {
-            setErrors({ identifier: 'No account found with this email' });
+            setErrors({ identifier: 'No account found with this email/phone' });
+          } else if (message === 'INVALID_IDENTITY') {
+            setErrors({ identifier: 'Enter a valid email or phone number' });
           } else if (message === 'RATE_LIMIT_EXCEEDED') {
             setErrors({ identifier: 'Too many attempts. Try again after 1 minute' });
           } else if (message === 'RECOVERY_DELIVERY_FAILED') {
@@ -373,6 +386,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              identifier: formData.identifier,
               email: formData.identifier,
               otp: formData.otp,
               password: formData.password
@@ -648,13 +662,13 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               </>
             ) : (
               <LuxuryFloatingInput
-                label="Scientific Email ID"
+                label={authMode === 'forgot' ? 'Email or Phone' : 'Scientific Email ID'}
                 value={formData.identifier}
                 onChange={v => setFormData({ ...formData, identifier: v })}
                 icon={getIdentityIcon()}
                 error={errors.identifier}
-                isValid={isEmail(formData.identifier)}
-                placeholder="name@email.com"
+                isValid={authMode === 'forgot' ? isRecoveryIdentifier(formData.identifier) : isEmail(formData.identifier)}
+                placeholder={authMode === 'forgot' ? 'name@email.com or 01XXXXXXXXX' : 'name@email.com'}
               />
             )}
 
