@@ -196,7 +196,7 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
     }
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'CLI'));
 $action = $_GET['action'] ?? '';
 $__splaroRequestStartedAt = microtime(true);
 if (defined('API_MAX_EXECUTION_SECONDS') && (int)API_MAX_EXECUTION_SECONDS > 0) {
@@ -369,6 +369,7 @@ if (!$db) {
             "time" => date('c'),
             "mode" => "DEGRADED",
             "storage" => "fallback",
+            "push_enabled" => PUSH_ENABLED,
             "dbHost" => DB_HOST,
             "dbName" => DB_NAME,
             "envSource" => get_env_source_label(),
@@ -763,6 +764,7 @@ function ensure_core_schema($db) {
 
     ensure_table($db, 'orders', "CREATE TABLE IF NOT EXISTS `orders` (
       `id` varchar(50) NOT NULL,
+      `order_no` varchar(50) DEFAULT NULL,
       `user_id` varchar(50) DEFAULT NULL,
       `customer_name` varchar(255) NOT NULL,
       `customer_email` varchar(255) NOT NULL,
@@ -780,6 +782,8 @@ function ensure_core_schema($db) {
       `discount_amount` int(11) DEFAULT 0,
       `discount_code` varchar(100) DEFAULT NULL,
       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      `deleted_at` datetime DEFAULT NULL,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
@@ -827,6 +831,159 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'user_addresses', "CREATE TABLE IF NOT EXISTS `user_addresses` (
+      `id` varchar(80) NOT NULL,
+      `user_id` varchar(50) NOT NULL,
+      `label` varchar(60) DEFAULT 'Home',
+      `recipient_name` varchar(255) DEFAULT NULL,
+      `phone` varchar(50) DEFAULT NULL,
+      `district` varchar(100) DEFAULT NULL,
+      `thana` varchar(100) DEFAULT NULL,
+      `address_line` text DEFAULT NULL,
+      `postal_code` varchar(20) DEFAULT NULL,
+      `is_default` tinyint(1) DEFAULT 0,
+      `is_verified` tinyint(1) DEFAULT 0,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      `deleted_at` datetime DEFAULT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'order_items', "CREATE TABLE IF NOT EXISTS `order_items` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `product_id` varchar(80) DEFAULT NULL,
+      `product_name` varchar(255) NOT NULL,
+      `product_slug` varchar(255) DEFAULT NULL,
+      `brand` varchar(120) DEFAULT NULL,
+      `category` varchar(120) DEFAULT NULL,
+      `variant_size` varchar(60) DEFAULT NULL,
+      `variant_color` varchar(80) DEFAULT NULL,
+      `quantity` int(11) NOT NULL DEFAULT 1,
+      `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+      `line_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+      `product_url` text DEFAULT NULL,
+      `image_url` text DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'order_status_history', "CREATE TABLE IF NOT EXISTS `order_status_history` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `from_status` varchar(50) DEFAULT NULL,
+      `to_status` varchar(50) NOT NULL,
+      `note` text DEFAULT NULL,
+      `changed_by` varchar(80) DEFAULT NULL,
+      `changed_by_role` varchar(40) DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'payments', "CREATE TABLE IF NOT EXISTS `payments` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `payment_method` varchar(80) DEFAULT NULL,
+      `provider` varchar(80) DEFAULT NULL,
+      `transaction_ref` varchar(120) DEFAULT NULL,
+      `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+      `currency` varchar(10) DEFAULT 'BDT',
+      `status` varchar(40) NOT NULL DEFAULT 'PENDING',
+      `payload_json` longtext DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'shipments', "CREATE TABLE IF NOT EXISTS `shipments` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `carrier` varchar(120) DEFAULT NULL,
+      `tracking_number` varchar(120) DEFAULT NULL,
+      `status` varchar(40) NOT NULL DEFAULT 'PENDING',
+      `payload_json` longtext DEFAULT NULL,
+      `shipped_at` datetime DEFAULT NULL,
+      `delivered_at` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'refunds', "CREATE TABLE IF NOT EXISTS `refunds` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+      `reason` text DEFAULT NULL,
+      `status` varchar(40) NOT NULL DEFAULT 'PENDING',
+      `created_by` varchar(80) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'cancellations', "CREATE TABLE IF NOT EXISTS `cancellations` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `reason` text DEFAULT NULL,
+      `status` varchar(40) NOT NULL DEFAULT 'CONFIRMED',
+      `created_by` varchar(80) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_roles', "CREATE TABLE IF NOT EXISTS `admin_roles` (
+      `id` varchar(50) NOT NULL,
+      `name` varchar(80) NOT NULL,
+      `description` text DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_admin_roles_name` (`name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_permissions', "CREATE TABLE IF NOT EXISTS `admin_permissions` (
+      `id` varchar(80) NOT NULL,
+      `label` varchar(120) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_role_permissions', "CREATE TABLE IF NOT EXISTS `admin_role_permissions` (
+      `role_id` varchar(50) NOT NULL,
+      `permission_id` varchar(80) NOT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`role_id`, `permission_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_user_roles', "CREATE TABLE IF NOT EXISTS `admin_user_roles` (
+      `user_id` varchar(50) NOT NULL,
+      `role_id` varchar(50) NOT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`user_id`, `role_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_user_notes', "CREATE TABLE IF NOT EXISTS `admin_user_notes` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_id` varchar(50) NOT NULL,
+      `admin_id` varchar(80) DEFAULT NULL,
+      `note` text NOT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'user_events', "CREATE TABLE IF NOT EXISTS `user_events` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_id` varchar(50) NOT NULL,
+      `event_type` varchar(80) NOT NULL,
+      `event_payload` longtext DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_table($db, 'page_sections', "CREATE TABLE IF NOT EXISTS `page_sections` (
       `id` int(11) NOT NULL AUTO_INCREMENT,
       `section_key` varchar(120) NOT NULL,
@@ -863,6 +1020,66 @@ function ensure_core_schema($db) {
       `locked_at` datetime DEFAULT NULL,
       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'push_subscriptions', "CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_id` varchar(50) DEFAULT NULL,
+      `endpoint` text NOT NULL,
+      `endpoint_hash` char(64) NOT NULL,
+      `p256dh` text NOT NULL,
+      `auth` varchar(255) NOT NULL,
+      `user_agent` text DEFAULT NULL,
+      `is_active` tinyint(1) NOT NULL DEFAULT 1,
+      `failure_count` int(11) NOT NULL DEFAULT 0,
+      `last_http_code` int(11) DEFAULT NULL,
+      `last_error` text DEFAULT NULL,
+      `last_failure_at` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `last_seen_at` datetime DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_push_subscriptions_endpoint_hash` (`endpoint_hash`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'notifications', "CREATE TABLE IF NOT EXISTS `notifications` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `user_id` varchar(50) NOT NULL,
+      `title` varchar(191) NOT NULL,
+      `message` text NOT NULL,
+      `url` text DEFAULT NULL,
+      `type` varchar(30) NOT NULL DEFAULT 'system',
+      `campaign_id` bigint(20) unsigned DEFAULT NULL,
+      `is_read` tinyint(1) NOT NULL DEFAULT 0,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `read_at` datetime DEFAULT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'campaigns', "CREATE TABLE IF NOT EXISTS `campaigns` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `title` varchar(191) NOT NULL,
+      `message` text NOT NULL,
+      `image_url` text DEFAULT NULL,
+      `target_type` varchar(60) NOT NULL,
+      `filters_json` longtext DEFAULT NULL,
+      `scheduled_at` datetime DEFAULT NULL,
+      `status` varchar(20) NOT NULL DEFAULT 'draft',
+      `created_by` varchar(80) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'campaign_logs', "CREATE TABLE IF NOT EXISTS `campaign_logs` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `campaign_id` bigint(20) unsigned NOT NULL,
+      `subscription_id` bigint(20) unsigned DEFAULT NULL,
+      `status` varchar(20) NOT NULL,
+      `error_message` text DEFAULT NULL,
+      `sent_at` datetime DEFAULT NULL,
+      `clicked_at` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
@@ -925,6 +1142,22 @@ function ensure_core_schema($db) {
     ensure_column($db, 'site_settings', 'settings_json', 'longtext DEFAULT NULL');
     ensure_column($db, 'site_settings', 'logo_url', 'text DEFAULT NULL');
     ensure_column($db, 'site_settings', 'google_client_id', 'varchar(255) DEFAULT NULL');
+    ensure_column($db, 'push_subscriptions', 'endpoint_hash', 'char(64) DEFAULT NULL');
+    ensure_column($db, 'push_subscriptions', 'failure_count', 'int(11) NOT NULL DEFAULT 0');
+    ensure_column($db, 'push_subscriptions', 'last_http_code', 'int(11) DEFAULT NULL');
+    ensure_column($db, 'push_subscriptions', 'last_error', 'text DEFAULT NULL');
+    ensure_column($db, 'push_subscriptions', 'last_failure_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'push_subscriptions', 'last_seen_at', 'datetime DEFAULT CURRENT_TIMESTAMP');
+    ensure_column($db, 'notifications', 'campaign_id', 'bigint(20) unsigned DEFAULT NULL');
+    ensure_column($db, 'notifications', 'read_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'campaigns', 'image_url', 'text DEFAULT NULL');
+    ensure_column($db, 'campaigns', 'filters_json', 'longtext DEFAULT NULL');
+    ensure_column($db, 'campaigns', 'scheduled_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'campaigns', 'status', 'varchar(20) NOT NULL DEFAULT \"draft\"');
+    ensure_column($db, 'campaigns', 'created_by', 'varchar(80) DEFAULT NULL');
+    ensure_column($db, 'campaigns', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    ensure_column($db, 'campaign_logs', 'subscription_id', 'bigint(20) unsigned DEFAULT NULL');
+    ensure_column($db, 'campaign_logs', 'clicked_at', 'datetime DEFAULT NULL');
 
     ensure_column($db, 'products', 'description', 'longtext DEFAULT NULL');
     ensure_column($db, 'products', 'slug', 'varchar(255) DEFAULT NULL');
@@ -994,11 +1227,18 @@ function ensure_core_schema($db) {
     ensure_column($db, 'users', 'notification_sms', 'tinyint(1) NOT NULL DEFAULT 0');
     ensure_column($db, 'users', 'preferred_language', 'varchar(8) DEFAULT \"EN\"');
     ensure_column($db, 'users', 'default_shipping_address', 'text DEFAULT NULL');
+    ensure_column($db, 'users', 'is_blocked', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'email_verified', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'phone_verified', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    ensure_column($db, 'users', 'deleted_at', 'datetime DEFAULT NULL');
 
     ensure_index($db, 'users', 'idx_users_email', 'CREATE INDEX idx_users_email ON users(email)');
     ensure_index($db, 'users', 'idx_users_phone', 'CREATE INDEX idx_users_phone ON users(phone)');
     ensure_index($db, 'users', 'idx_users_created_at', 'CREATE INDEX idx_users_created_at ON users(created_at)');
     ensure_index($db, 'users', 'idx_users_force_relogin', 'CREATE INDEX idx_users_force_relogin ON users(force_relogin)');
+    ensure_index($db, 'users', 'idx_users_role_blocked', 'CREATE INDEX idx_users_role_blocked ON users(role, is_blocked)');
+    ensure_index($db, 'users', 'idx_users_verified', 'CREATE INDEX idx_users_verified ON users(email_verified, phone_verified)');
     ensure_index($db, 'orders', 'idx_orders_email', 'CREATE INDEX idx_orders_email ON orders(customer_email)');
     ensure_index($db, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
     ensure_index($db, 'orders', 'idx_orders_created_at', 'CREATE INDEX idx_orders_created_at ON orders(created_at)');
@@ -1019,6 +1259,19 @@ function ensure_core_schema($db) {
     ensure_index($db, 'products', 'idx_products_stock_status', 'CREATE INDEX idx_products_stock_status ON products(stock, status)');
     ensure_index($db, 'product_images', 'idx_product_images_product', 'CREATE INDEX idx_product_images_product ON product_images(product_id)');
     ensure_index($db, 'product_images', 'idx_product_images_sort', 'CREATE INDEX idx_product_images_sort ON product_images(product_id, sort_order)');
+    ensure_index($db, 'order_items', 'idx_order_items_order', 'CREATE INDEX idx_order_items_order ON order_items(order_id)');
+    ensure_index($db, 'order_items', 'idx_order_items_product', 'CREATE INDEX idx_order_items_product ON order_items(product_id)');
+    ensure_index($db, 'order_items', 'idx_order_items_order_product_created', 'CREATE INDEX idx_order_items_order_product_created ON order_items(order_id, product_id, created_at)');
+    ensure_index($db, 'order_status_history', 'idx_order_status_history_order_created', 'CREATE INDEX idx_order_status_history_order_created ON order_status_history(order_id, created_at)');
+    ensure_index($db, 'payments', 'idx_payments_order_status_created', 'CREATE INDEX idx_payments_order_status_created ON payments(order_id, status, created_at)');
+    ensure_index($db, 'shipments', 'idx_shipments_order_status_created', 'CREATE INDEX idx_shipments_order_status_created ON shipments(order_id, status, created_at)');
+    ensure_index($db, 'refunds', 'idx_refunds_order_status_created', 'CREATE INDEX idx_refunds_order_status_created ON refunds(order_id, status, created_at)');
+    ensure_index($db, 'refunds', 'idx_refunds_user_created', 'CREATE INDEX idx_refunds_user_created ON refunds(user_id, created_at)');
+    ensure_index($db, 'cancellations', 'idx_cancellations_order_status_created', 'CREATE INDEX idx_cancellations_order_status_created ON cancellations(order_id, status, created_at)');
+    ensure_index($db, 'cancellations', 'idx_cancellations_user_created', 'CREATE INDEX idx_cancellations_user_created ON cancellations(user_id, created_at)');
+    ensure_index($db, 'admin_user_notes', 'idx_admin_user_notes_user_created', 'CREATE INDEX idx_admin_user_notes_user_created ON admin_user_notes(user_id, created_at)');
+    ensure_index($db, 'user_events', 'idx_user_events_user_created', 'CREATE INDEX idx_user_events_user_created ON user_events(user_id, created_at)');
+    ensure_index($db, 'user_events', 'idx_user_events_type_created', 'CREATE INDEX idx_user_events_type_created ON user_events(event_type, created_at)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
     ensure_index($db, 'audit_logs', 'idx_audit_logs_created_at', 'CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)');
     ensure_index($db, 'audit_logs', 'idx_audit_logs_entity', 'CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id)');
@@ -1028,6 +1281,13 @@ function ensure_core_schema($db) {
     ensure_index($db, 'settings_revisions', 'idx_settings_revisions_section_created', 'CREATE INDEX idx_settings_revisions_section_created ON settings_revisions(section_key, created_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
     ensure_index($db, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
+    ensure_index($db, 'push_subscriptions', 'uniq_push_subscriptions_endpoint_hash', 'CREATE UNIQUE INDEX uniq_push_subscriptions_endpoint_hash ON push_subscriptions(endpoint_hash)');
+    ensure_index($db, 'push_subscriptions', 'idx_push_subscriptions_user_active', 'CREATE INDEX idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active)');
+    ensure_index($db, 'notifications', 'idx_notifications_user_created', 'CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at)');
+    ensure_index($db, 'notifications', 'idx_notifications_user_read_created', 'CREATE INDEX idx_notifications_user_read_created ON notifications(user_id, is_read, created_at)');
+    ensure_index($db, 'campaigns', 'idx_campaigns_status_scheduled', 'CREATE INDEX idx_campaigns_status_scheduled ON campaigns(status, scheduled_at)');
+    ensure_index($db, 'campaign_logs', 'idx_campaign_logs_campaign_status_sent', 'CREATE INDEX idx_campaign_logs_campaign_status_sent ON campaign_logs(campaign_id, status, sent_at)');
+    ensure_index($db, 'campaign_logs', 'idx_campaign_logs_subscription_created', 'CREATE INDEX idx_campaign_logs_subscription_created ON campaign_logs(subscription_id, created_at)');
     ensure_index($db, 'invoice_documents', 'idx_invoice_documents_order', 'CREATE INDEX idx_invoice_documents_order ON invoice_documents(order_id, created_at)');
     ensure_index($db, 'invoice_documents', 'idx_invoice_documents_type', 'CREATE INDEX idx_invoice_documents_type ON invoice_documents(doc_type, created_at)');
     ensure_index($db, 'invoice_documents', 'idx_invoice_documents_status', 'CREATE INDEX idx_invoice_documents_status ON invoice_documents(status, created_at)');
@@ -1131,6 +1391,85 @@ ensure_table($db, 'invoice_documents', "CREATE TABLE IF NOT EXISTS `invoice_docu
 ensure_index($db, 'invoice_documents', 'idx_invoice_documents_order', 'CREATE INDEX idx_invoice_documents_order ON invoice_documents(order_id, created_at)');
 ensure_index($db, 'invoice_documents', 'idx_invoice_documents_type', 'CREATE INDEX idx_invoice_documents_type ON invoice_documents(doc_type, created_at)');
 ensure_index($db, 'invoice_documents', 'idx_invoice_documents_status', 'CREATE INDEX idx_invoice_documents_status ON invoice_documents(status, created_at)');
+ensure_table($db, 'push_subscriptions', "CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) DEFAULT NULL,
+  `endpoint` text NOT NULL,
+  `endpoint_hash` char(64) NOT NULL,
+  `p256dh` text NOT NULL,
+  `auth` varchar(255) NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `failure_count` int(11) NOT NULL DEFAULT 0,
+  `last_http_code` int(11) DEFAULT NULL,
+  `last_error` text DEFAULT NULL,
+  `last_failure_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_push_subscriptions_endpoint_hash` (`endpoint_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'notifications', "CREATE TABLE IF NOT EXISTS `notifications` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `title` varchar(191) NOT NULL,
+  `message` text NOT NULL,
+  `url` text DEFAULT NULL,
+  `type` varchar(30) NOT NULL DEFAULT 'system',
+  `campaign_id` bigint(20) unsigned DEFAULT NULL,
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `read_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'campaigns', "CREATE TABLE IF NOT EXISTS `campaigns` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(191) NOT NULL,
+  `message` text NOT NULL,
+  `image_url` text DEFAULT NULL,
+  `target_type` varchar(60) NOT NULL,
+  `filters_json` longtext DEFAULT NULL,
+  `scheduled_at` datetime DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'draft',
+  `created_by` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'campaign_logs', "CREATE TABLE IF NOT EXISTS `campaign_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `campaign_id` bigint(20) unsigned NOT NULL,
+  `subscription_id` bigint(20) unsigned DEFAULT NULL,
+  `status` varchar(20) NOT NULL,
+  `error_message` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `clicked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_index($db, 'push_subscriptions', 'uniq_push_subscriptions_endpoint_hash', 'CREATE UNIQUE INDEX uniq_push_subscriptions_endpoint_hash ON push_subscriptions(endpoint_hash)');
+ensure_index($db, 'push_subscriptions', 'idx_push_subscriptions_user_active', 'CREATE INDEX idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active)');
+ensure_index($db, 'notifications', 'idx_notifications_user_created', 'CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at)');
+ensure_index($db, 'notifications', 'idx_notifications_user_read_created', 'CREATE INDEX idx_notifications_user_read_created ON notifications(user_id, is_read, created_at)');
+ensure_index($db, 'campaigns', 'idx_campaigns_status_scheduled', 'CREATE INDEX idx_campaigns_status_scheduled ON campaigns(status, scheduled_at)');
+ensure_index($db, 'campaign_logs', 'idx_campaign_logs_campaign_status_sent', 'CREATE INDEX idx_campaign_logs_campaign_status_sent ON campaign_logs(campaign_id, status, sent_at)');
+ensure_index($db, 'campaign_logs', 'idx_campaign_logs_subscription_created', 'CREATE INDEX idx_campaign_logs_subscription_created ON campaign_logs(subscription_id, created_at)');
+ensure_column($db, 'push_subscriptions', 'endpoint_hash', 'char(64) DEFAULT NULL');
+ensure_column($db, 'push_subscriptions', 'failure_count', 'int(11) NOT NULL DEFAULT 0');
+ensure_column($db, 'push_subscriptions', 'last_http_code', 'int(11) DEFAULT NULL');
+ensure_column($db, 'push_subscriptions', 'last_error', 'text DEFAULT NULL');
+ensure_column($db, 'push_subscriptions', 'last_failure_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'push_subscriptions', 'last_seen_at', 'datetime DEFAULT CURRENT_TIMESTAMP');
+ensure_column($db, 'notifications', 'campaign_id', 'bigint(20) unsigned DEFAULT NULL');
+ensure_column($db, 'notifications', 'read_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'campaigns', 'image_url', 'text DEFAULT NULL');
+ensure_column($db, 'campaigns', 'filters_json', 'longtext DEFAULT NULL');
+ensure_column($db, 'campaigns', 'scheduled_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'campaigns', 'status', 'varchar(20) NOT NULL DEFAULT \"draft\"');
+ensure_column($db, 'campaigns', 'created_by', 'varchar(80) DEFAULT NULL');
+ensure_column($db, 'campaigns', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+ensure_column($db, 'campaign_logs', 'subscription_id', 'bigint(20) unsigned DEFAULT NULL');
+ensure_column($db, 'campaign_logs', 'clicked_at', 'datetime DEFAULT NULL');
 
 function load_smtp_settings($db) {
     $settings = [
@@ -3178,6 +3517,244 @@ function require_admin_access($authUser) {
     }
 }
 
+function admin_parse_pagination_params($defaultLimit = 20, $maxLimit = 100) {
+    $limit = (int)($_GET['limit'] ?? $defaultLimit);
+    if ($limit < 1) $limit = $defaultLimit;
+    if ($limit > $maxLimit) $limit = $maxLimit;
+    $page = (int)($_GET['page'] ?? 1);
+    if ($page < 1) $page = 1;
+    $offset = ($page - 1) * $limit;
+    $cursorRaw = trim((string)($_GET['cursor'] ?? ''));
+    return [
+        'limit' => $limit,
+        'page' => $page,
+        'offset' => $offset,
+        'cursor' => admin_decode_cursor($cursorRaw)
+    ];
+}
+
+function admin_decode_cursor($cursorRaw) {
+    if ($cursorRaw === '') {
+        return null;
+    }
+    $normalized = strtr($cursorRaw, '-_', '+/');
+    $padding = strlen($normalized) % 4;
+    if ($padding > 0) {
+        $normalized .= str_repeat('=', 4 - $padding);
+    }
+    $decoded = base64_decode($normalized, true);
+    if ($decoded === false) {
+        return null;
+    }
+    $payload = json_decode($decoded, true);
+    if (!is_array($payload)) {
+        return null;
+    }
+    $createdAt = trim((string)($payload['created_at'] ?? ''));
+    $id = trim((string)($payload['id'] ?? ''));
+    if ($createdAt === '' || $id === '') {
+        return null;
+    }
+    return ['created_at' => $createdAt, 'id' => $id];
+}
+
+function admin_encode_cursor($createdAt, $id) {
+    $payload = json_encode([
+        'created_at' => (string)$createdAt,
+        'id' => (string)$id
+    ]);
+    if (!is_string($payload) || $payload === '') {
+        return null;
+    }
+    return rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
+}
+
+function admin_user_select_fields($db) {
+    return build_select_fields($db, 'users', [
+        'id', 'name', 'email', 'phone', 'address', 'profile_image', 'role',
+        'is_blocked', 'email_verified', 'phone_verified',
+        'default_shipping_address', 'notification_email', 'notification_sms',
+        'preferred_language', 'two_factor_enabled', 'last_password_change_at',
+        'force_relogin', 'created_at'
+    ]);
+}
+
+function admin_order_select_fields($db) {
+    return build_select_fields($db, 'orders', [
+        'id', 'order_no', 'user_id', 'customer_name', 'customer_email', 'phone',
+        'district', 'thana', 'address', 'items', 'total', 'status',
+        'tracking_number', 'admin_notes', 'customer_comment', 'shipping_fee',
+        'discount_amount', 'discount_code', 'created_at', 'updated_at', 'deleted_at'
+    ]);
+}
+
+function admin_fetch_user_or_fail($db, $userId) {
+    $userId = trim((string)$userId);
+    if ($userId === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "USER_ID_REQUIRED"]);
+        exit;
+    }
+    $fields = admin_user_select_fields($db);
+    $stmt = $db->prepare("SELECT {$fields} FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $userRow = $stmt->fetch();
+    if (!$userRow) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "USER_NOT_FOUND"]);
+        exit;
+    }
+    return $userRow;
+}
+
+function admin_normalize_user($row) {
+    return [
+        'id' => (string)($row['id'] ?? ''),
+        'name' => (string)($row['name'] ?? ''),
+        'email' => (string)($row['email'] ?? ''),
+        'phone' => (string)($row['phone'] ?? ''),
+        'address' => (string)($row['address'] ?? ''),
+        'profileImage' => (string)($row['profile_image'] ?? ''),
+        'role' => strtoupper((string)($row['role'] ?? 'USER')),
+        'isBlocked' => (int)($row['is_blocked'] ?? 0) === 1,
+        'emailVerified' => (int)($row['email_verified'] ?? 0) === 1,
+        'phoneVerified' => (int)($row['phone_verified'] ?? 0) === 1,
+        'defaultShippingAddress' => (string)($row['default_shipping_address'] ?? ''),
+        'notificationEmail' => (int)($row['notification_email'] ?? 1) === 1,
+        'notificationSms' => (int)($row['notification_sms'] ?? 0) === 1,
+        'preferredLanguage' => (string)($row['preferred_language'] ?? 'EN'),
+        'twoFactorEnabled' => (int)($row['two_factor_enabled'] ?? 0) === 1,
+        'lastPasswordChangeAt' => $row['last_password_change_at'] ?? null,
+        'forceRelogin' => (int)($row['force_relogin'] ?? 0) === 1,
+        'createdAt' => (string)($row['created_at'] ?? '')
+    ];
+}
+
+function admin_normalize_order_status($status) {
+    $normalized = strtoupper(trim((string)$status));
+    $map = [
+        'PENDING' => 'Pending',
+        'CONFIRMED' => 'Processing',
+        'PROCESSING' => 'Processing',
+        'SHIPPED' => 'Shipped',
+        'DELIVERED' => 'Delivered',
+        'CANCELLED' => 'Cancelled',
+        'CANCELED' => 'Cancelled',
+    ];
+    return $map[$normalized] ?? (trim((string)$status) !== '' ? trim((string)$status) : 'Pending');
+}
+
+function admin_user_order_scope_sql($db, $alias = 'o') {
+    $safeAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$alias);
+    if ($safeAlias === '') $safeAlias = 'o';
+    $sql = "({$safeAlias}.user_id = ? OR LOWER({$safeAlias}.customer_email) = ?)";
+    if (column_exists($db, 'orders', 'deleted_at')) {
+        $sql .= " AND {$safeAlias}.deleted_at IS NULL";
+    }
+    return $sql;
+}
+
+function admin_normalize_order_row($row) {
+    $items = invoice_parse_items($row['items'] ?? []);
+    $total = (float)($row['total'] ?? 0);
+    $shipping = (float)($row['shipping_fee'] ?? 0);
+    $discount = (float)($row['discount_amount'] ?? 0);
+    return [
+        'id' => (string)($row['id'] ?? ''),
+        'orderNo' => (string)($row['order_no'] ?? ($row['id'] ?? '')),
+        'userId' => (string)($row['user_id'] ?? ''),
+        'customerName' => (string)($row['customer_name'] ?? ''),
+        'customerEmail' => (string)($row['customer_email'] ?? ''),
+        'phone' => (string)($row['phone'] ?? ''),
+        'district' => (string)($row['district'] ?? ''),
+        'thana' => (string)($row['thana'] ?? ''),
+        'address' => (string)($row['address'] ?? ''),
+        'status' => admin_normalize_order_status($row['status'] ?? 'Pending'),
+        'trackingNumber' => (string)($row['tracking_number'] ?? ''),
+        'adminNotes' => (string)($row['admin_notes'] ?? ''),
+        'customerComment' => (string)($row['customer_comment'] ?? ''),
+        'shippingFee' => $shipping,
+        'discountAmount' => $discount,
+        'discountCode' => (string)($row['discount_code'] ?? ''),
+        'total' => $total,
+        'itemCount' => count($items),
+        'items' => $items,
+        'createdAt' => (string)($row['created_at'] ?? ''),
+        'updatedAt' => (string)($row['updated_at'] ?? ($row['created_at'] ?? ''))
+    ];
+}
+
+function admin_write_order_status_history($db, $orderId, $fromStatus, $toStatus, $note, $requestAuthUser) {
+    try {
+        $stmt = $db->prepare("INSERT INTO order_status_history (order_id, from_status, to_status, note, changed_by, changed_by_role, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            (string)$orderId,
+            $fromStatus !== null ? (string)$fromStatus : null,
+            (string)$toStatus,
+            $note !== null ? (string)$note : null,
+            (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'system'),
+            strtoupper((string)($requestAuthUser['role'] ?? 'SYSTEM')),
+            $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('orders.status_history.write', $e, [
+            'order_id' => (string)$orderId,
+            'to_status' => (string)$toStatus
+        ], 'WARNING');
+    }
+}
+
+function admin_build_user_stats_payload($db, $userRow) {
+    $userId = (string)($userRow['id'] ?? '');
+    $email = strtolower(trim((string)($userRow['email'] ?? '')));
+    $orderScope = admin_user_order_scope_sql($db, 'o');
+
+    $ordersCountStmt = $db->prepare("SELECT COUNT(*) FROM orders o WHERE {$orderScope}");
+    $ordersCountStmt->execute([$userId, $email]);
+    $totalOrders = (int)$ordersCountStmt->fetchColumn();
+
+    $spentStmt = $db->prepare("SELECT COALESCE(SUM(o.total), 0) FROM orders o WHERE {$orderScope}");
+    $spentStmt->execute([$userId, $email]);
+    $lifetimeValue = (float)$spentStmt->fetchColumn();
+
+    $lastOrderStmt = $db->prepare("SELECT o.id, o.created_at, o.status FROM orders o WHERE {$orderScope} ORDER BY o.created_at DESC LIMIT 1");
+    $lastOrderStmt->execute([$userId, $email]);
+    $lastOrder = $lastOrderStmt->fetch();
+
+    $refundCountStmt = $db->prepare("SELECT COUNT(*) FROM refunds r INNER JOIN orders o ON o.id = r.order_id WHERE {$orderScope}");
+    $refundCountStmt->execute([$userId, $email]);
+    $refundCount = (int)$refundCountStmt->fetchColumn();
+
+    $refundAmountStmt = $db->prepare("SELECT COALESCE(SUM(r.amount), 0) FROM refunds r INNER JOIN orders o ON o.id = r.order_id WHERE {$orderScope}");
+    $refundAmountStmt->execute([$userId, $email]);
+    $refundAmount = (float)$refundAmountStmt->fetchColumn();
+
+    $cancellationCountStmt = $db->prepare("SELECT COUNT(*) FROM cancellations c INNER JOIN orders o ON o.id = c.order_id WHERE {$orderScope}");
+    $cancellationCountStmt->execute([$userId, $email]);
+    $cancellationCount = (int)$cancellationCountStmt->fetchColumn();
+
+    $paymentCountStmt = $db->prepare("SELECT COUNT(*) FROM payments p INNER JOIN orders o ON o.id = p.order_id WHERE {$orderScope}");
+    $paymentCountStmt->execute([$userId, $email]);
+    $paymentCount = (int)$paymentCountStmt->fetchColumn();
+
+    $deliveredCountStmt = $db->prepare("SELECT COUNT(*) FROM shipments s INNER JOIN orders o ON o.id = s.order_id WHERE {$orderScope} AND UPPER(COALESCE(s.status, '')) = 'DELIVERED'");
+    $deliveredCountStmt->execute([$userId, $email]);
+    $deliveredCount = (int)$deliveredCountStmt->fetchColumn();
+
+    return [
+        'totalOrders' => $totalOrders,
+        'lifetimeValue' => $lifetimeValue,
+        'totalRefunds' => $refundCount,
+        'refundAmount' => $refundAmount,
+        'totalCancellations' => $cancellationCount,
+        'totalPayments' => $paymentCount,
+        'deliveredShipments' => $deliveredCount,
+        'lastOrderId' => (string)($lastOrder['id'] ?? ''),
+        'lastOrderDate' => $lastOrder['created_at'] ?? null,
+        'lastOrderStatus' => admin_normalize_order_status($lastOrder['status'] ?? '')
+    ];
+}
+
 function sanitize_user_payload($user) {
     return [
         'id' => $user['id'] ?? '',
@@ -3330,8 +3907,22 @@ enforce_global_request_guard($method, $action, $requestAuthUser);
 function get_queue_summary($db, $mode = 'SHEETS') {
     $normalizedMode = strtoupper(trim((string)$mode));
     $isTelegram = $normalizedMode === 'TELEGRAM';
-    $whereSql = $isTelegram ? "sync_type LIKE 'TELEGRAM_%'" : "sync_type NOT LIKE 'TELEGRAM_%'";
-    $enabled = $isTelegram ? TELEGRAM_ENABLED : (GOOGLE_SHEETS_WEBHOOK_URL !== '');
+    $isPush = $normalizedMode === 'PUSH';
+    $isSheets = !$isTelegram && !$isPush;
+    if ($isTelegram) {
+        $whereSql = "sync_type LIKE 'TELEGRAM_%'";
+    } elseif ($isPush) {
+        $whereSql = "sync_type LIKE 'PUSH_%'";
+    } else {
+        $whereSql = "sync_type NOT LIKE 'TELEGRAM_%' AND sync_type NOT LIKE 'PUSH_%'";
+    }
+    if ($isTelegram) {
+        $enabled = TELEGRAM_ENABLED;
+    } elseif ($isPush) {
+        $enabled = PUSH_ENABLED;
+    } else {
+        $enabled = (GOOGLE_SHEETS_WEBHOOK_URL !== '');
+    }
     $summary = [
         'enabled' => $enabled,
         'pending' => 0,
@@ -3377,7 +3968,7 @@ function get_queue_summary($db, $mode = 'SHEETS') {
         splaro_log_exception('queue.summary.last_failure', $e, ['mode' => $normalizedMode]);
     }
 
-    if (!$isTelegram && function_exists('get_sheets_circuit_state')) {
+    if ($isSheets && function_exists('get_sheets_circuit_state')) {
         $summary['circuit'] = get_sheets_circuit_state();
     }
 
@@ -3390,6 +3981,10 @@ function get_sync_queue_summary($db) {
 
 function get_telegram_queue_summary($db) {
     return get_queue_summary($db, 'TELEGRAM');
+}
+
+function get_push_queue_summary($db) {
+    return get_queue_summary($db, 'PUSH');
 }
 
 function get_db_runtime_metrics($db) {
@@ -3422,10 +4017,1102 @@ function get_db_runtime_metrics($db) {
     return $metrics;
 }
 
+function push_queue_sync_type() {
+    return 'PUSH_SEND';
+}
+
+function is_push_queue_sync_type($syncType) {
+    $type = strtoupper(trim((string)$syncType));
+    return $type === push_queue_sync_type() || strpos($type, 'PUSH_') === 0;
+}
+
+function push_vapid_private_key_normalized() {
+    $raw = trim((string)PUSH_VAPID_PRIVATE_KEY);
+    if ($raw === '') {
+        return '';
+    }
+    $normalized = str_replace(["\r\n", "\r"], "\n", $raw);
+    $normalized = str_replace('\\n', "\n", $normalized);
+    return trim($normalized);
+}
+
+function push_ecdsa_der_to_jose($derSignature, $partLength = 32) {
+    $der = (string)$derSignature;
+    if ($der === '' || !is_string($derSignature)) {
+        return '';
+    }
+    $offset = 0;
+    $len = strlen($der);
+    if ($len < 8 || ord($der[$offset]) !== 0x30) {
+        return '';
+    }
+    $offset++;
+    $seqLen = ord($der[$offset]);
+    $offset++;
+    if ($seqLen > 0x80) {
+        $num = $seqLen - 0x80;
+        if ($num < 1 || $num > 4 || ($offset + $num) > $len) {
+            return '';
+        }
+        $seqLen = 0;
+        for ($i = 0; $i < $num; $i++) {
+            $seqLen = ($seqLen << 8) | ord($der[$offset + $i]);
+        }
+        $offset += $num;
+    }
+    if (($offset + $seqLen) > $len) {
+        return '';
+    }
+
+    if ($offset >= $len || ord($der[$offset]) !== 0x02) {
+        return '';
+    }
+    $offset++;
+    if ($offset >= $len) return '';
+    $rLen = ord($der[$offset]);
+    $offset++;
+    if ($rLen > 0x80) {
+        $num = $rLen - 0x80;
+        if ($num < 1 || $num > 4 || ($offset + $num) > $len) return '';
+        $rLen = 0;
+        for ($i = 0; $i < $num; $i++) {
+            $rLen = ($rLen << 8) | ord($der[$offset + $i]);
+        }
+        $offset += $num;
+    }
+    if (($offset + $rLen) > $len) return '';
+    $r = substr($der, $offset, $rLen);
+    $offset += $rLen;
+
+    if ($offset >= $len || ord($der[$offset]) !== 0x02) {
+        return '';
+    }
+    $offset++;
+    if ($offset >= $len) return '';
+    $sLen = ord($der[$offset]);
+    $offset++;
+    if ($sLen > 0x80) {
+        $num = $sLen - 0x80;
+        if ($num < 1 || $num > 4 || ($offset + $num) > $len) return '';
+        $sLen = 0;
+        for ($i = 0; $i < $num; $i++) {
+            $sLen = ($sLen << 8) | ord($der[$offset + $i]);
+        }
+        $offset += $num;
+    }
+    if (($offset + $sLen) > $len) return '';
+    $s = substr($der, $offset, $sLen);
+
+    $r = ltrim($r, "\x00");
+    $s = ltrim($s, "\x00");
+    if ($r === '') $r = "\x00";
+    if ($s === '') $s = "\x00";
+    if (strlen($r) > $partLength || strlen($s) > $partLength) {
+        return '';
+    }
+
+    $r = str_pad($r, $partLength, "\x00", STR_PAD_LEFT);
+    $s = str_pad($s, $partLength, "\x00", STR_PAD_LEFT);
+    return $r . $s;
+}
+
+function push_extract_audience($endpoint) {
+    $parts = parse_url((string)$endpoint);
+    if (!is_array($parts)) {
+        return '';
+    }
+    $scheme = strtolower(trim((string)($parts['scheme'] ?? '')));
+    $host = trim((string)($parts['host'] ?? ''));
+    if ($scheme === '' || $host === '') {
+        return '';
+    }
+    $port = isset($parts['port']) ? (int)$parts['port'] : 0;
+    if ($port > 0) {
+        $isDefault = ($scheme === 'https' && $port === 443) || ($scheme === 'http' && $port === 80);
+        if (!$isDefault) {
+            return $scheme . '://' . $host . ':' . $port;
+        }
+    }
+    return $scheme . '://' . $host;
+}
+
+function push_build_vapid_jwt($audience) {
+    $aud = trim((string)$audience);
+    if ($aud === '') {
+        splaro_integration_trace('push.jwt.audience_missing', [], 'ERROR');
+        return '';
+    }
+    if (!PUSH_ENABLED) {
+        splaro_integration_trace('push.jwt.disabled', [], 'WARNING');
+        return '';
+    }
+
+    $privateKeyPem = push_vapid_private_key_normalized();
+    if ($privateKeyPem === '') {
+        splaro_integration_trace('push.jwt.private_key_missing', [], 'ERROR');
+        return '';
+    }
+    $privateKey = @openssl_pkey_get_private($privateKeyPem);
+    if (!$privateKey) {
+        splaro_integration_trace('push.jwt.private_key_invalid', [], 'ERROR');
+        return '';
+    }
+
+    $header = ['alg' => 'ES256', 'typ' => 'JWT'];
+    $payload = [
+        'aud' => $aud,
+        'exp' => time() + (12 * 60 * 60),
+        'sub' => PUSH_VAPID_SUBJECT !== '' ? PUSH_VAPID_SUBJECT : 'mailto:info@splaro.co'
+    ];
+
+    $headerJson = json_encode($header, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($headerJson) || !is_string($payloadJson) || $headerJson === '' || $payloadJson === '') {
+        splaro_integration_trace('push.jwt.encode_failed', [
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
+        return '';
+    }
+
+    $headerEncoded = base64url_encode($headerJson);
+    $payloadEncoded = base64url_encode($payloadJson);
+    $unsigned = $headerEncoded . '.' . $payloadEncoded;
+    $derSignature = '';
+    $signed = @openssl_sign($unsigned, $derSignature, $privateKey, OPENSSL_ALGO_SHA256);
+    if (!$signed) {
+        splaro_integration_trace('push.jwt.sign_failed', [
+            'openssl_error' => splaro_clip_text((string)openssl_error_string(), 200)
+        ], 'ERROR');
+        return '';
+    }
+    $joseSignature = push_ecdsa_der_to_jose($derSignature, 32);
+    if ($joseSignature === '') {
+        splaro_integration_trace('push.jwt.signature_convert_failed', [], 'ERROR');
+        return '';
+    }
+    return $unsigned . '.' . base64url_encode($joseSignature);
+}
+
+function push_is_transient_failure($httpCode, $errorText = '') {
+    $http = (int)$httpCode;
+    if ($http === 0) {
+        return true;
+    }
+    if (in_array($http, [408, 425, 429, 500, 502, 503, 504], true)) {
+        return true;
+    }
+    $message = strtolower((string)$errorText);
+    $needles = ['timeout', 'temporarily', 'network', 'connection', 'rate limit'];
+    foreach ($needles as $needle) {
+        if ($needle !== '' && strpos($message, $needle) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function push_api_request($endpoint, $headers = [], $timeoutSeconds = 8) {
+    $url = trim((string)$endpoint);
+    if ($url === '') {
+        return [false, 0, 'ENDPOINT_MISSING', ''];
+    }
+
+    $timeout = (int)$timeoutSeconds;
+    if ($timeout < 3) $timeout = 3;
+    if ($timeout > 20) $timeout = 20;
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        $connectTimeout = max(1, min($timeout, 4));
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => is_array($headers) ? $headers : [],
+            CURLOPT_POSTFIELDS => '',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => $connectTimeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_NOSIGNAL => 1,
+            CURLOPT_TCP_KEEPALIVE => 1,
+            CURLOPT_LOW_SPEED_LIMIT => 1,
+            CURLOPT_LOW_SPEED_TIME => $timeout,
+        ]);
+        splaro_integration_trace('push.http.curl.before_exec', [
+            'endpoint_preview' => splaro_clip_text($url, 160),
+            'connect_timeout_seconds' => (int)$connectTimeout,
+            'timeout_seconds' => (int)$timeout
+        ]);
+        $responseBody = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = (int)curl_errno($ch);
+        $curlError = (string)curl_error($ch);
+        $sslVerifyResult = defined('CURLINFO_SSL_VERIFYRESULT') ? curl_getinfo($ch, CURLINFO_SSL_VERIFYRESULT) : null;
+        curl_close($ch);
+
+        splaro_integration_trace('push.http.curl.after_exec', [
+            'endpoint_preview' => splaro_clip_text($url, 160),
+            'http_code' => (int)$httpCode,
+            'curl_errno' => (int)$curlErrNo,
+            'curl_error' => (string)$curlError,
+            'ssl_verify_result' => $sslVerifyResult,
+            'response_preview' => splaro_clip_text($responseBody, 300)
+        ], ($responseBody === false || $httpCode < 200 || $httpCode >= 300) ? 'ERROR' : 'INFO');
+
+        if ($responseBody === false) {
+            return [false, $httpCode, $curlError !== '' ? $curlError : 'CURL_REQUEST_FAILED', ''];
+        }
+        return [(string)$responseBody, $httpCode, '', (string)$responseBody];
+    }
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", is_array($headers) ? $headers : []) . "\r\n",
+            'content' => '',
+            'timeout' => $timeout,
+            'ignore_errors' => true
+        ]
+    ]);
+
+    splaro_integration_trace('push.http.stream.before_exec', [
+        'endpoint_preview' => splaro_clip_text($url, 160),
+        'timeout_seconds' => (int)$timeout
+    ]);
+    $responseBody = @file_get_contents($url, false, $context);
+    $responseHeaders = function_exists('http_get_last_response_headers')
+        ? @http_get_last_response_headers()
+        : ($GLOBALS['http_response_header'] ?? []);
+    $httpCode = 0;
+    if (is_array($responseHeaders)) {
+        foreach ($responseHeaders as $line) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string)$line, $m)) {
+                $httpCode = (int)$m[1];
+                break;
+            }
+        }
+    }
+    splaro_integration_trace('push.http.stream.after_exec', [
+        'endpoint_preview' => splaro_clip_text($url, 160),
+        'http_code' => (int)$httpCode,
+        'response_preview' => splaro_clip_text($responseBody, 300),
+        'headers_preview' => splaro_clip_text(json_encode($responseHeaders), 300)
+    ], ($responseBody === false || $httpCode < 200 || $httpCode >= 300) ? 'ERROR' : 'INFO');
+
+    if ($responseBody === false) {
+        return [false, $httpCode, 'STREAM_REQUEST_FAILED', ''];
+    }
+    return [(string)$responseBody, $httpCode, '', (string)$responseBody];
+}
+
+function push_subscription_endpoint_hash($endpoint) {
+    return hash('sha256', trim((string)$endpoint));
+}
+
+function push_upsert_subscription($db, $userId, $endpoint, $p256dh, $auth, $userAgent = '') {
+    if (!$db) return 0;
+    $endpointText = trim((string)$endpoint);
+    $p256dhText = trim((string)$p256dh);
+    $authText = trim((string)$auth);
+    if ($endpointText === '' || $p256dhText === '' || $authText === '') {
+        return 0;
+    }
+    $endpointHash = push_subscription_endpoint_hash($endpointText);
+
+    $existingStmt = $db->prepare("SELECT id FROM push_subscriptions WHERE endpoint_hash = ? LIMIT 1");
+    $existingStmt->execute([$endpointHash]);
+    $existing = $existingStmt->fetch();
+    if ($existing) {
+        $update = $db->prepare("UPDATE push_subscriptions SET user_id = ?, endpoint = ?, p256dh = ?, auth = ?, user_agent = ?, is_active = 1, last_seen_at = NOW(), last_error = NULL, last_http_code = NULL WHERE id = ?");
+        $update->execute([
+            $userId !== '' ? $userId : null,
+            $endpointText,
+            $p256dhText,
+            $authText,
+            trim((string)$userAgent),
+            (int)$existing['id']
+        ]);
+        return (int)$existing['id'];
+    }
+
+    $insert = $db->prepare("INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, user_agent, is_active, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, 1, NOW())");
+    $insert->execute([
+        $userId !== '' ? $userId : null,
+        $endpointText,
+        $endpointHash,
+        $p256dhText,
+        $authText,
+        trim((string)$userAgent)
+    ]);
+    return (int)$db->lastInsertId();
+}
+
+function insert_user_notification($db, $userId, $title, $message, $url = '', $type = 'system', $campaignId = null) {
+    if (!$db) return 0;
+    $uid = trim((string)$userId);
+    if ($uid === '') return 0;
+    $safeTitle = trim((string)$title);
+    $safeMessage = trim((string)$message);
+    if ($safeTitle === '' || $safeMessage === '') {
+        return 0;
+    }
+    if (function_exists('mb_substr')) {
+        $safeTitle = mb_substr($safeTitle, 0, 180, 'UTF-8');
+        $safeMessage = mb_substr($safeMessage, 0, 2000, 'UTF-8');
+    } else {
+        $safeTitle = substr($safeTitle, 0, 180);
+        $safeMessage = substr($safeMessage, 0, 2000);
+    }
+    $safeType = strtolower(trim((string)$type));
+    if (!in_array($safeType, ['offer', 'order', 'system'], true)) {
+        $safeType = 'system';
+    }
+
+    $stmt = $db->prepare("INSERT INTO notifications (user_id, title, message, url, type, campaign_id, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)");
+    $stmt->execute([
+        $uid,
+        $safeTitle,
+        $safeMessage,
+        trim((string)$url),
+        $safeType,
+        $campaignId !== null ? (int)$campaignId : null
+    ]);
+    return (int)$db->lastInsertId();
+}
+
+function enqueue_push_send_job($db, $payload) {
+    if (!$db || !is_array($payload)) {
+        return 0;
+    }
+    if (!PUSH_ENABLED) {
+        splaro_integration_trace('push.queue.insert.skipped', ['reason' => 'PUSH_DISABLED'], 'WARNING');
+        return 0;
+    }
+    $normalized = [
+        'subscription_id' => (int)($payload['subscription_id'] ?? 0),
+        'user_id' => (string)($payload['user_id'] ?? ''),
+        'endpoint' => (string)($payload['endpoint'] ?? ''),
+        'title' => (string)($payload['title'] ?? ''),
+        'message' => (string)($payload['message'] ?? ''),
+        'url' => (string)($payload['url'] ?? ''),
+        'type' => (string)($payload['type'] ?? 'system'),
+        'campaign_id' => isset($payload['campaign_id']) ? (int)$payload['campaign_id'] : null,
+        'notification_id' => isset($payload['notification_id']) ? (int)$payload['notification_id'] : null,
+        'queued_at' => date('c')
+    ];
+    $payloadJson = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($payloadJson) || $payloadJson === '') {
+        splaro_integration_trace('push.queue.payload_encode_failed', [
+            'json_error' => json_last_error_msg(),
+            'subscription_id' => (int)$normalized['subscription_id']
+        ], 'ERROR');
+        return 0;
+    }
+    $maxAttempts = (int)PUSH_MAX_RETRIES;
+    if ($maxAttempts < 1) $maxAttempts = 1;
+    if ($maxAttempts > 3) $maxAttempts = 3;
+
+    $stmt = $db->prepare("INSERT INTO sync_queue (sync_type, payload_json, status, attempts, max_attempts, next_attempt_at) VALUES (?, ?, 'PENDING', 0, ?, NOW())");
+    $stmt->execute([push_queue_sync_type(), $payloadJson, $maxAttempts]);
+    return (int)$db->lastInsertId();
+}
+
+function queue_push_for_user($db, $userId, $title, $message, $url = '', $type = 'system', $campaignId = null) {
+    $result = [
+        'notification_id' => 0,
+        'subscription_count' => 0,
+        'queued_jobs' => 0
+    ];
+    if (!$db) {
+        return $result;
+    }
+    $uid = trim((string)$userId);
+    if ($uid === '') {
+        return $result;
+    }
+
+    try {
+        $notificationId = insert_user_notification($db, $uid, $title, $message, $url, $type, $campaignId);
+        $result['notification_id'] = $notificationId;
+    } catch (Exception $e) {
+        splaro_log_exception('push.queue.user_notification_insert', $e, ['user_id' => $uid]);
+    }
+
+    try {
+        $subsStmt = $db->prepare("SELECT id, user_id, endpoint FROM push_subscriptions WHERE is_active = 1 AND user_id = ?");
+        $subsStmt->execute([$uid]);
+        $subscriptions = $subsStmt->fetchAll();
+        $result['subscription_count'] = is_array($subscriptions) ? count($subscriptions) : 0;
+        foreach ($subscriptions as $subscription) {
+            $queueId = enqueue_push_send_job($db, [
+                'subscription_id' => (int)($subscription['id'] ?? 0),
+                'user_id' => $uid,
+                'endpoint' => (string)($subscription['endpoint'] ?? ''),
+                'title' => (string)$title,
+                'message' => (string)$message,
+                'url' => (string)$url,
+                'type' => (string)$type,
+                'campaign_id' => $campaignId !== null ? (int)$campaignId : null,
+                'notification_id' => (int)$result['notification_id']
+            ]);
+            if ($queueId > 0) {
+                $result['queued_jobs']++;
+            }
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('push.queue.subscription_fetch_or_insert', $e, ['user_id' => $uid]);
+    }
+
+    if ($result['queued_jobs'] > 0) {
+        schedule_push_queue_drain($db);
+    }
+    return $result;
+}
+
+function queue_order_created_notification($db, $orderId, $userId, $totalAmount = 0) {
+    $uid = trim((string)$userId);
+    if ($uid === '' || !$db) {
+        return ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    }
+    $title = 'Order Confirmed';
+    $message = 'Order #' . trim((string)$orderId) . ' placed successfully. Total ৳' . (int)$totalAmount . '.';
+    return queue_push_for_user($db, $uid, $title, $message, '/order-tracking', 'order', null);
+}
+
+function queue_signup_notification($db, $userId, $name = '') {
+    $uid = trim((string)$userId);
+    if ($uid === '' || !$db) {
+        return ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    }
+    $displayName = trim((string)$name);
+    if ($displayName === '') {
+        $displayName = 'there';
+    }
+    $title = 'Welcome to SPLARO';
+    $message = 'Hi ' . $displayName . ', your account is ready. Start exploring premium collections.';
+    return queue_push_for_user($db, $uid, $title, $message, '/shop', 'system', null);
+}
+
+function queue_order_status_notification($db, $orderId, $statusLabel) {
+    if (!$db) {
+        return ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    }
+    $orderIdentifier = trim((string)$orderId);
+    if ($orderIdentifier === '') {
+        return ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    }
+    try {
+        $stmt = $db->prepare("SELECT id, user_id FROM orders WHERE id = ? LIMIT 1");
+        $stmt->execute([$orderIdentifier]);
+        $order = $stmt->fetch();
+        if (!$order || trim((string)($order['user_id'] ?? '')) === '') {
+            return ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+        }
+        $title = 'Order Status Updated';
+        $message = 'Order #' . $orderIdentifier . ' is now ' . trim((string)$statusLabel) . '.';
+        return queue_push_for_user($db, (string)$order['user_id'], $title, $message, '/order-tracking', 'order', null);
+    } catch (Exception $e) {
+        splaro_log_exception('order.status.push.queue', $e, [
+            'order_id' => (string)$orderIdentifier,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+    return ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+}
+
+function campaign_target_type_normalize($targetType) {
+    $normalized = strtolower(trim((string)$targetType));
+    $allowed = [
+        'all_users',
+        'subscribed_users',
+        'bought_category',
+        'bought_last_30_days',
+        'inactive_60_days'
+    ];
+    if (!in_array($normalized, $allowed, true)) {
+        return 'all_users';
+    }
+    return $normalized;
+}
+
+function campaign_resolve_user_ids($db, $targetType, $filters = []) {
+    if (!$db) return [];
+    $target = campaign_target_type_normalize($targetType);
+    $resolved = [];
+    try {
+        if ($target === 'all_users') {
+            $stmt = $db->query("SELECT id FROM users ORDER BY created_at DESC");
+            foreach ($stmt->fetchAll() as $row) {
+                $id = trim((string)($row['id'] ?? ''));
+                if ($id !== '') $resolved[] = $id;
+            }
+        } elseif ($target === 'subscribed_users') {
+            $stmt = $db->query("SELECT DISTINCT user_id FROM push_subscriptions WHERE is_active = 1 AND user_id IS NOT NULL AND user_id <> ''");
+            foreach ($stmt->fetchAll() as $row) {
+                $id = trim((string)($row['user_id'] ?? ''));
+                if ($id !== '') $resolved[] = $id;
+            }
+        } elseif ($target === 'bought_category') {
+            $category = trim((string)($filters['category'] ?? $filters['category_x'] ?? ''));
+            if ($category !== '') {
+                $needle = '%"category":"' . str_replace('%', '\\%', str_replace('_', '\\_', $category)) . '"%';
+                $stmt = $db->prepare("SELECT DISTINCT user_id FROM orders WHERE user_id IS NOT NULL AND user_id <> '' AND items LIKE ?");
+                $stmt->execute([$needle]);
+                foreach ($stmt->fetchAll() as $row) {
+                    $id = trim((string)($row['user_id'] ?? ''));
+                    if ($id !== '') $resolved[] = $id;
+                }
+            }
+        } elseif ($target === 'bought_last_30_days') {
+            $days = (int)($filters['days'] ?? 30);
+            if ($days < 1) $days = 30;
+            if ($days > 365) $days = 365;
+            $threshold = date('Y-m-d H:i:s', time() - ($days * 86400));
+            $stmt = $db->prepare("SELECT DISTINCT user_id FROM orders WHERE user_id IS NOT NULL AND user_id <> '' AND created_at >= ?");
+            $stmt->execute([$threshold]);
+            foreach ($stmt->fetchAll() as $row) {
+                $id = trim((string)($row['user_id'] ?? ''));
+                if ($id !== '') $resolved[] = $id;
+            }
+        } elseif ($target === 'inactive_60_days') {
+            $days = (int)($filters['days'] ?? 60);
+            if ($days < 1) $days = 60;
+            if ($days > 365) $days = 365;
+            $threshold = date('Y-m-d H:i:s', time() - ($days * 86400));
+            $stmt = $db->prepare("SELECT u.id FROM users u LEFT JOIN orders o ON o.user_id = u.id AND o.created_at >= ? WHERE o.id IS NULL");
+            $stmt->execute([$threshold]);
+            foreach ($stmt->fetchAll() as $row) {
+                $id = trim((string)($row['id'] ?? ''));
+                if ($id !== '') $resolved[] = $id;
+            }
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.resolve_user_ids', $e, [
+            'target_type' => (string)$target
+        ]);
+        return [];
+    }
+    return array_values(array_unique($resolved));
+}
+
+function campaign_resolve_subscriptions($db, $targetType, $userIds = []) {
+    if (!$db) return [];
+    $target = campaign_target_type_normalize($targetType);
+    if ($target === 'subscribed_users') {
+        try {
+            $stmt = $db->query("SELECT id, user_id, endpoint FROM push_subscriptions WHERE is_active = 1 ORDER BY id DESC");
+            $rows = $stmt->fetchAll();
+            return is_array($rows) ? $rows : [];
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.resolve_subscriptions.all', $e);
+            return [];
+        }
+    }
+    if (!is_array($userIds) || empty($userIds)) {
+        return [];
+    }
+
+    $results = [];
+    $chunkSize = 250;
+    $chunks = array_chunk(array_values(array_unique($userIds)), $chunkSize);
+    foreach ($chunks as $chunk) {
+        if (empty($chunk)) continue;
+        $placeholders = implode(', ', array_fill(0, count($chunk), '?'));
+        try {
+            $stmt = $db->prepare("SELECT id, user_id, endpoint FROM push_subscriptions WHERE is_active = 1 AND user_id IN ({$placeholders}) ORDER BY id DESC");
+            $stmt->execute($chunk);
+            $rows = $stmt->fetchAll();
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    $results[] = $row;
+                }
+            }
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.resolve_subscriptions.chunk', $e, [
+                'chunk_size' => count($chunk)
+            ]);
+        }
+    }
+    return $results;
+}
+
+function campaign_dispatch_to_queue($db, $campaignId, $campaignPayload) {
+    $result = [
+        'user_count' => 0,
+        'subscription_count' => 0,
+        'queued_jobs' => 0,
+        'notifications_created' => 0
+    ];
+    if (!$db || !is_array($campaignPayload)) {
+        return $result;
+    }
+    splaro_integration_trace('campaign.dispatch.start', [
+        'campaign_id' => (int)$campaignId
+    ]);
+
+    $targetType = campaign_target_type_normalize((string)($campaignPayload['target_type'] ?? 'all_users'));
+    $filters = safe_json_decode_assoc($campaignPayload['filters_json'] ?? '{}', []);
+    $title = trim((string)($campaignPayload['title'] ?? ''));
+    $message = trim((string)($campaignPayload['message'] ?? ''));
+    $url = trim((string)($filters['url'] ?? $campaignPayload['url'] ?? ''));
+    if ($title === '' || $message === '') {
+        return $result;
+    }
+
+    $userIds = campaign_resolve_user_ids($db, $targetType, $filters);
+    $result['user_count'] = count($userIds);
+
+    $notificationStmt = null;
+    if (!empty($userIds)) {
+        try {
+            $notificationStmt = $db->prepare("INSERT INTO notifications (user_id, title, message, url, type, campaign_id, is_read) VALUES (?, ?, ?, ?, 'offer', ?, 0)");
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.dispatch.notification_prepare', $e, ['campaign_id' => (int)$campaignId]);
+        }
+    }
+    if ($notificationStmt) {
+        foreach ($userIds as $uid) {
+            try {
+                $notificationStmt->execute([(string)$uid, $title, $message, $url, (int)$campaignId]);
+                $result['notifications_created']++;
+            } catch (Exception $e) {
+                splaro_log_exception('campaign.dispatch.notification_insert', $e, [
+                    'campaign_id' => (int)$campaignId,
+                    'user_id' => (string)$uid
+                ]);
+            }
+        }
+    }
+
+    $subscriptions = campaign_resolve_subscriptions($db, $targetType, $userIds);
+    $result['subscription_count'] = is_array($subscriptions) ? count($subscriptions) : 0;
+
+    foreach ($subscriptions as $subscription) {
+        $queueId = 0;
+        try {
+            $queueId = enqueue_push_send_job($db, [
+                'subscription_id' => (int)($subscription['id'] ?? 0),
+                'user_id' => (string)($subscription['user_id'] ?? ''),
+                'endpoint' => (string)($subscription['endpoint'] ?? ''),
+                'title' => $title,
+                'message' => $message,
+                'url' => $url,
+                'type' => 'offer',
+                'campaign_id' => (int)$campaignId
+            ]);
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.dispatch.queue_insert', $e, [
+                'campaign_id' => (int)$campaignId,
+                'subscription_id' => (int)($subscription['id'] ?? 0)
+            ]);
+        }
+        if ($queueId > 0) {
+            $result['queued_jobs']++;
+        }
+    }
+
+    if ($result['queued_jobs'] > 0) {
+        schedule_push_queue_drain($db);
+    }
+
+    splaro_integration_trace('campaign.dispatch.done', [
+        'campaign_id' => (int)$campaignId,
+        'result' => $result
+    ]);
+
+    return $result;
+}
+
+function process_due_campaigns($db, $limit = 3) {
+    $result = [
+        'processed' => 0,
+        'queued_jobs' => 0
+    ];
+    if (!$db) {
+        return $result;
+    }
+    $max = (int)$limit;
+    if ($max < 1) $max = 1;
+    if ($max > 20) $max = 20;
+
+    try {
+        $stmt = $db->prepare("SELECT id, title, message, target_type, filters_json, scheduled_at FROM campaigns WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= NOW() ORDER BY scheduled_at ASC LIMIT ?");
+        $stmt->bindValue(1, $max, PDO::PARAM_INT);
+        $stmt->execute();
+        $campaigns = $stmt->fetchAll();
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.process_due.read', $e);
+        return $result;
+    }
+
+    foreach ($campaigns as $campaign) {
+        $campaignId = (int)($campaign['id'] ?? 0);
+        if ($campaignId <= 0) {
+            continue;
+        }
+        try {
+            $claim = $db->prepare("UPDATE campaigns SET status = 'sending' WHERE id = ? AND status = 'scheduled'");
+            $claim->execute([$campaignId]);
+            if ($claim->rowCount() < 1) {
+                continue;
+            }
+            $dispatch = campaign_dispatch_to_queue($db, $campaignId, $campaign);
+            $done = $db->prepare("UPDATE campaigns SET status = 'sent', updated_at = NOW() WHERE id = ?");
+            $done->execute([$campaignId]);
+            $result['processed']++;
+            $result['queued_jobs'] += (int)($dispatch['queued_jobs'] ?? 0);
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.process_due.dispatch', $e, ['campaign_id' => $campaignId]);
+            try {
+                $db->prepare("UPDATE campaigns SET status = 'scheduled', updated_at = NOW() WHERE id = ?")->execute([$campaignId]);
+            } catch (Exception $inner) {
+                splaro_log_exception('campaign.process_due.restore_status', $inner, ['campaign_id' => $campaignId], 'WARNING');
+            }
+        }
+    }
+    return $result;
+}
+
+function log_campaign_delivery($db, $campaignId, $subscriptionId, $status, $errorMessage = null) {
+    if (!$db || (int)$campaignId <= 0) {
+        return;
+    }
+    try {
+        $stmt = $db->prepare("INSERT INTO campaign_logs (campaign_id, subscription_id, status, error_message, sent_at, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $normalizedStatus = strtolower(trim((string)$status));
+        if (!in_array($normalizedStatus, ['sent', 'failed', 'clicked'], true)) {
+            $normalizedStatus = 'failed';
+        }
+        $sentAt = $normalizedStatus === 'sent' ? date('Y-m-d H:i:s') : null;
+        $stmt->execute([
+            (int)$campaignId,
+            $subscriptionId !== null ? (int)$subscriptionId : null,
+            $normalizedStatus,
+            $errorMessage !== null ? (string)$errorMessage : null,
+            $sentAt
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.log_delivery', $e, [
+            'campaign_id' => (int)$campaignId,
+            'subscription_id' => $subscriptionId !== null ? (int)$subscriptionId : null,
+            'status' => (string)$status
+        ], 'WARNING');
+    }
+}
+
+function perform_push_queue_request($payload) {
+    if (!is_array($payload)) {
+        return [
+            'ok' => false,
+            'http_code' => 0,
+            'error' => 'INVALID_PAYLOAD',
+            'response' => '',
+            'transient' => false,
+            'invalid_endpoint' => false
+        ];
+    }
+    $endpoint = trim((string)($payload['endpoint'] ?? ''));
+    if ($endpoint === '') {
+        return [
+            'ok' => false,
+            'http_code' => 0,
+            'error' => 'ENDPOINT_MISSING',
+            'response' => '',
+            'transient' => false,
+            'invalid_endpoint' => false
+        ];
+    }
+    if (!PUSH_ENABLED) {
+        return [
+            'ok' => false,
+            'http_code' => 0,
+            'error' => 'PUSH_DISABLED',
+            'response' => '',
+            'transient' => false,
+            'invalid_endpoint' => false
+        ];
+    }
+
+    $audience = push_extract_audience($endpoint);
+    if ($audience === '') {
+        return [
+            'ok' => false,
+            'http_code' => 0,
+            'error' => 'INVALID_ENDPOINT_AUDIENCE',
+            'response' => '',
+            'transient' => false,
+            'invalid_endpoint' => false
+        ];
+    }
+
+    $jwt = push_build_vapid_jwt($audience);
+    if ($jwt === '') {
+        return [
+            'ok' => false,
+            'http_code' => 0,
+            'error' => 'VAPID_JWT_FAILED',
+            'response' => '',
+            'transient' => false,
+            'invalid_endpoint' => false
+        ];
+    }
+
+    $publicKey = trim((string)PUSH_VAPID_PUBLIC_KEY);
+    $headers = [
+        'TTL: 60',
+        'Urgency: normal',
+        'Authorization: vapid t=' . $jwt . ', k=' . $publicKey,
+        'Crypto-Key: p256ecdsa=' . $publicKey,
+        'Content-Length: 0'
+    ];
+
+    [$response, $httpCode, $requestError, $responseText] = push_api_request($endpoint, $headers, 8);
+
+    if (is_string($responseText) && trim($responseText) !== '') {
+        $decoded = json_decode($responseText, true);
+        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+            splaro_integration_trace('push.http.response_decode_failed', [
+                'http_code' => (int)$httpCode,
+                'json_error' => json_last_error_msg(),
+                'response_preview' => splaro_clip_text($responseText, 300)
+            ], 'ERROR');
+        }
+    }
+
+    $ok = $response !== false && (int)$httpCode >= 200 && (int)$httpCode < 300;
+    if ($ok) {
+        return [
+            'ok' => true,
+            'http_code' => (int)$httpCode,
+            'error' => '',
+            'response' => is_string($responseText) ? $responseText : '',
+            'transient' => false,
+            'invalid_endpoint' => false
+        ];
+    }
+
+    $errorText = trim((string)$requestError);
+    if ($errorText === '') {
+        $errorText = 'HTTP_' . (int)$httpCode;
+    }
+    return [
+        'ok' => false,
+        'http_code' => (int)$httpCode,
+        'error' => $errorText,
+        'response' => is_string($responseText) ? $responseText : '',
+        'transient' => push_is_transient_failure((int)$httpCode, $errorText),
+        'invalid_endpoint' => in_array((int)$httpCode, [404, 410], true)
+    ];
+}
+
+function process_push_queue($db, $limit = 25) {
+    $result = [
+        'processed' => 0,
+        'success' => 0,
+        'failed' => 0,
+        'retried' => 0,
+        'dead' => 0,
+        'paused' => false,
+        'reason' => ''
+    ];
+    splaro_integration_trace('push.queue.process.start', [
+        'limit' => (int)$limit,
+        'db_available' => (bool)$db,
+        'push_enabled' => PUSH_ENABLED
+    ]);
+    if (!$db) {
+        $result['paused'] = true;
+        $result['reason'] = 'DB_UNAVAILABLE';
+        splaro_integration_trace('push.queue.process.paused', $result, 'WARNING');
+        return $result;
+    }
+    if (!PUSH_ENABLED) {
+        $result['paused'] = true;
+        $result['reason'] = 'PUSH_DISABLED';
+        splaro_integration_trace('push.queue.process.paused', $result, 'WARNING');
+        return $result;
+    }
+
+    $batchLimit = (int)$limit;
+    if ($batchLimit < 1) $batchLimit = 1;
+    if ($batchLimit > 200) $batchLimit = 200;
+    try {
+        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE sync_type = ? AND status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
+        $stmt->bindValue(1, push_queue_sync_type(), PDO::PARAM_STR);
+        $stmt->bindValue(2, $batchLimit, PDO::PARAM_INT);
+        $stmt->execute();
+        $jobs = $stmt->fetchAll();
+    } catch (Exception $e) {
+        $result['paused'] = true;
+        $result['reason'] = 'QUEUE_READ_FAILED';
+        splaro_log_exception('push.queue.process.read', $e);
+        return $result;
+    }
+
+    foreach ($jobs as $job) {
+        $jobId = (int)($job['id'] ?? 0);
+        if ($jobId <= 0) continue;
+
+        $claim = $db->prepare("UPDATE sync_queue SET status = 'PROCESSING', attempts = attempts + 1, locked_at = NOW() WHERE id = ? AND status IN ('PENDING', 'RETRY')");
+        $claim->execute([$jobId]);
+        if ($claim->rowCount() < 1) {
+            continue;
+        }
+
+        $result['processed']++;
+        $attemptsNow = ((int)($job['attempts'] ?? 0)) + 1;
+        $maxAttempts = (int)($job['max_attempts'] ?? PUSH_MAX_RETRIES);
+        if ($maxAttempts < 1) $maxAttempts = 1;
+        if ($maxAttempts > 3) $maxAttempts = 3;
+
+        $payloadRaw = (string)($job['payload_json'] ?? '');
+        $payload = json_decode($payloadRaw, true);
+        if (!is_array($payload)) {
+            $decodeError = json_last_error() !== JSON_ERROR_NONE ? json_last_error_msg() : 'INVALID_JSON_SHAPE';
+            $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = 0, locked_at = NULL WHERE id = ?")
+               ->execute(['INVALID_PAYLOAD_JSON: ' . $decodeError, $jobId]);
+            $result['failed']++;
+            $result['dead']++;
+            splaro_integration_trace('push.queue.payload_decode_failed', [
+                'job_id' => $jobId,
+                'json_error' => $decodeError,
+                'payload_preview' => splaro_clip_text($payloadRaw, 280)
+            ], 'ERROR');
+            continue;
+        }
+
+        $subscriptionId = (int)($payload['subscription_id'] ?? 0);
+        if ($subscriptionId > 0) {
+            try {
+                $subStmt = $db->prepare("SELECT is_active FROM push_subscriptions WHERE id = ? LIMIT 1");
+                $subStmt->execute([$subscriptionId]);
+                $subRow = $subStmt->fetch();
+                if (!$subRow || (int)($subRow['is_active'] ?? 0) !== 1) {
+                    $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = 0, locked_at = NULL WHERE id = ?")
+                       ->execute(['SUBSCRIPTION_INACTIVE', $jobId]);
+                    $result['failed']++;
+                    $result['dead']++;
+                    continue;
+                }
+            } catch (Exception $e) {
+                splaro_log_exception('push.queue.subscription_active_check', $e, [
+                    'job_id' => $jobId,
+                    'subscription_id' => $subscriptionId
+                ], 'WARNING');
+            }
+        }
+
+        $dispatch = perform_push_queue_request($payload);
+        $campaignId = (int)($payload['campaign_id'] ?? 0);
+
+        if (!empty($dispatch['ok'])) {
+            $db->prepare("UPDATE sync_queue SET status = 'SUCCESS', last_error = NULL, last_http_code = ?, locked_at = NULL, next_attempt_at = NOW() WHERE id = ?")
+               ->execute([(int)($dispatch['http_code'] ?? 0), $jobId]);
+            if ($subscriptionId > 0) {
+                $db->prepare("UPDATE push_subscriptions SET is_active = 1, failure_count = 0, last_error = NULL, last_http_code = ?, last_failure_at = NULL, last_seen_at = NOW() WHERE id = ?")
+                   ->execute([(int)($dispatch['http_code'] ?? 0), $subscriptionId]);
+            }
+            if ($campaignId > 0) {
+                log_campaign_delivery($db, $campaignId, $subscriptionId > 0 ? $subscriptionId : null, 'sent', null);
+            }
+            $result['success']++;
+            continue;
+        }
+
+        $result['failed']++;
+        $lastError = (string)($dispatch['error'] ?? 'PUSH_SEND_FAILED');
+        $httpCode = (int)($dispatch['http_code'] ?? 0);
+        $isTransient = !empty($dispatch['transient']);
+        $isInvalidEndpoint = !empty($dispatch['invalid_endpoint']);
+
+        if ($subscriptionId > 0) {
+            $disable = $isInvalidEndpoint ? 0 : 1;
+            $db->prepare("UPDATE push_subscriptions SET is_active = ?, failure_count = failure_count + 1, last_http_code = ?, last_error = ?, last_failure_at = NOW(), last_seen_at = NOW() WHERE id = ?")
+               ->execute([$disable, $httpCode, $lastError, $subscriptionId]);
+        }
+
+        $shouldRetry = $isTransient && !$isInvalidEndpoint && $attemptsNow < $maxAttempts;
+        if ($shouldRetry) {
+            $delay = calculate_sync_retry_delay($attemptsNow);
+            $retry = $db->prepare("UPDATE sync_queue SET status = 'RETRY', last_error = ?, last_http_code = ?, locked_at = NULL, next_attempt_at = DATE_ADD(NOW(), INTERVAL ? SECOND) WHERE id = ?");
+            $retry->bindValue(1, $lastError, PDO::PARAM_STR);
+            $retry->bindValue(2, $httpCode, PDO::PARAM_INT);
+            $retry->bindValue(3, (int)$delay, PDO::PARAM_INT);
+            $retry->bindValue(4, $jobId, PDO::PARAM_INT);
+            $retry->execute();
+            $result['retried']++;
+            continue;
+        }
+
+        $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = ?, locked_at = NULL WHERE id = ?")
+           ->execute([$lastError, $httpCode, $jobId]);
+        if ($campaignId > 0) {
+            log_campaign_delivery($db, $campaignId, $subscriptionId > 0 ? $subscriptionId : null, 'failed', $lastError);
+        }
+        $result['dead']++;
+        log_system_event(
+            $db,
+            'PUSH_DELIVERY_FAILED',
+            "Dead-letter push job {$jobId} failed after {$attemptsNow} attempts: {$lastError}",
+            null,
+            $_SERVER['REMOTE_ADDR'] ?? 'SERVER'
+        );
+    }
+    splaro_integration_trace('push.queue.process.done', $result);
+    return $result;
+}
+
+function schedule_push_queue_drain($db) {
+    static $scheduled = false;
+    if ($scheduled || !$db) {
+        return;
+    }
+    $scheduled = true;
+    register_shutdown_function(function () use ($db) {
+        try {
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+        } catch (Exception $e) {
+            splaro_log_exception('push.queue.shutdown.fastcgi_finish_request', $e, [], 'WARNING');
+        }
+        $dueCampaigns = process_due_campaigns($db, 3);
+        splaro_integration_trace('campaign.queue.shutdown.due_processed', $dueCampaigns);
+        $pushLimit = defined('PUSH_BATCH_LIMIT') ? (int)PUSH_BATCH_LIMIT : 25;
+        if ($pushLimit < 1) $pushLimit = 25;
+        $pushResult = process_push_queue($db, $pushLimit);
+        splaro_integration_trace('push.queue.shutdown.drain_done', $pushResult);
+    });
+}
+
+function read_request_json_payload($stage = 'request.payload') {
+    $raw = file_get_contents('php://input');
+    $decoded = json_decode((string)$raw, true);
+    if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace($stage . '.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($raw, 320)
+        ], 'ERROR');
+    }
+    return [is_array($decoded) ? $decoded : [], (string)$raw];
+}
+
+function require_campaign_write_access($authUser) {
+    require_admin_access($authUser);
+    if (is_array($authUser)) {
+        $role = strtoupper((string)get_admin_role($authUser));
+        if (!in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+            http_response_code(403);
+            echo json_encode(["status" => "error", "message" => "CAMPAIGN_WRITE_ACCESS_REQUIRED"]);
+            exit;
+        }
+    }
+}
+
 if ($method === 'GET' && $action === 'health') {
     $dbPingOk = false;
     $dbLatencyMs = null;
     $dbPingError = '';
+    $activePushSubscriptions = 0;
+    $scheduledCampaigns = 0;
     $dbRuntimeMetrics = get_db_runtime_metrics($db);
     $pingStartedAt = microtime(true);
     try {
@@ -3438,6 +5125,16 @@ if ($method === 'GET' && $action === 'health') {
         splaro_log_exception('health.db.ping', $e, [], 'WARNING');
     }
     $dbLatencyMs = (int)round((microtime(true) - $pingStartedAt) * 1000);
+    try {
+        $activePushSubscriptions = (int)$db->query("SELECT COUNT(*) FROM push_subscriptions WHERE is_active = 1")->fetchColumn();
+    } catch (Throwable $e) {
+        splaro_log_exception('health.push.active_subscriptions', $e, [], 'WARNING');
+    }
+    try {
+        $scheduledCampaigns = (int)$db->query("SELECT COUNT(*) FROM campaigns WHERE status = 'scheduled'")->fetchColumn();
+    } catch (Throwable $e) {
+        splaro_log_exception('health.push.scheduled_campaigns', $e, [], 'WARNING');
+    }
 
     echo json_encode([
         "status" => "success",
@@ -3478,7 +5175,756 @@ if ($method === 'GET' && $action === 'health') {
             "primary_chat_id_preview" => splaro_clip_text(telegram_primary_admin_chat_id(), 32),
             "queue" => get_telegram_queue_summary($db)
         ],
+        "push" => [
+            "enabled" => PUSH_ENABLED,
+            "active_subscriptions" => (int)$activePushSubscriptions,
+            "scheduled_campaigns" => (int)$scheduledCampaigns,
+            "queue" => get_push_queue_summary($db)
+        ],
         "sheets" => get_sync_queue_summary($db)
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'push_public_key') {
+    echo json_encode([
+        "status" => "success",
+        "enabled" => PUSH_ENABLED,
+        "public_key" => (string)PUSH_VAPID_PUBLIC_KEY
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'push_subscribe') {
+    $scopeKey = ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . '|' . substr(md5((string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 12);
+    if (is_rate_limited_scoped('push_subscribe', $scopeKey, 30, 60)) {
+        http_response_code(429);
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    [$input, $raw] = read_request_json_payload('push.subscribe.payload');
+    if (strlen($raw) > 16384) {
+        http_response_code(413);
+        echo json_encode(["status" => "error", "message" => "PAYLOAD_TOO_LARGE"]);
+        exit;
+    }
+
+    $subscription = is_array($input['subscription'] ?? null) ? $input['subscription'] : $input;
+    $keys = is_array($subscription['keys'] ?? null) ? $subscription['keys'] : [];
+    $endpoint = trim((string)($subscription['endpoint'] ?? ''));
+    $p256dh = trim((string)($keys['p256dh'] ?? ($input['p256dh'] ?? '')));
+    $authKey = trim((string)($keys['auth'] ?? ($input['auth'] ?? '')));
+    if ($endpoint === '' || $p256dh === '' || $authKey === '') {
+        echo json_encode(["status" => "error", "message" => "INVALID_SUBSCRIPTION_PAYLOAD"]);
+        exit;
+    }
+    if (strlen($endpoint) > 3000 || strlen($p256dh) > 1024 || strlen($authKey) > 1024) {
+        echo json_encode(["status" => "error", "message" => "SUBSCRIPTION_PAYLOAD_INVALID_LENGTH"]);
+        exit;
+    }
+
+    $authUserId = is_array($requestAuthUser) && !empty($requestAuthUser['id']) ? (string)$requestAuthUser['id'] : '';
+    $userAgent = trim((string)($_SERVER['HTTP_USER_AGENT'] ?? ($input['user_agent'] ?? '')));
+    if (function_exists('mb_substr')) {
+        $userAgent = mb_substr($userAgent, 0, 500, 'UTF-8');
+    } else {
+        $userAgent = substr($userAgent, 0, 500);
+    }
+
+    try {
+        $subscriptionId = push_upsert_subscription($db, $authUserId, $endpoint, $p256dh, $authKey, $userAgent);
+        if ($subscriptionId <= 0) {
+            echo json_encode(["status" => "error", "message" => "SUBSCRIPTION_SAVE_FAILED"]);
+            exit;
+        }
+        log_system_event($db, 'PUSH_SUBSCRIBED', 'Push subscription upserted: #' . $subscriptionId, $authUserId !== '' ? $authUserId : null, $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
+        echo json_encode([
+            "status" => "success",
+            "subscription_id" => $subscriptionId,
+            "push_enabled" => PUSH_ENABLED
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('push.subscribe.handler', $e, [
+            'user_id' => (string)$authUserId
+        ]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "SUBSCRIPTION_SAVE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'push_unsubscribe') {
+    [$input] = read_request_json_payload('push.unsubscribe.payload');
+    $endpoint = trim((string)($input['endpoint'] ?? ''));
+    $authKey = trim((string)($input['auth'] ?? ''));
+    $subscriptionId = (int)($input['subscription_id'] ?? 0);
+    $deactivated = 0;
+
+    try {
+        if ($subscriptionId > 0) {
+            $stmt = $db->prepare("UPDATE push_subscriptions SET is_active = 0, last_seen_at = NOW(), last_error = ?, last_http_code = NULL WHERE id = ?");
+            $stmt->execute(['CLIENT_UNSUBSCRIBE', $subscriptionId]);
+            $deactivated = $stmt->rowCount();
+        } elseif ($endpoint !== '') {
+            $endpointHash = push_subscription_endpoint_hash($endpoint);
+            if ($authKey !== '') {
+                $stmt = $db->prepare("UPDATE push_subscriptions SET is_active = 0, last_seen_at = NOW(), last_error = ?, last_http_code = NULL WHERE endpoint_hash = ? AND auth = ?");
+                $stmt->execute(['CLIENT_UNSUBSCRIBE', $endpointHash, $authKey]);
+            } else {
+                $stmt = $db->prepare("UPDATE push_subscriptions SET is_active = 0, last_seen_at = NOW(), last_error = ?, last_http_code = NULL WHERE endpoint_hash = ?");
+                $stmt->execute(['CLIENT_UNSUBSCRIBE', $endpointHash]);
+            }
+            $deactivated = $stmt->rowCount();
+        } else {
+            echo json_encode(["status" => "error", "message" => "MISSING_ENDPOINT_OR_ID"]);
+            exit;
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('push.unsubscribe.handler', $e);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "UNSUBSCRIBE_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "deactivated" => (int)$deactivated
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'push_latest') {
+    $endpoint = trim((string)($_GET['endpoint'] ?? ''));
+    $authKey = trim((string)($_GET['auth'] ?? ''));
+    if ($endpoint === '') {
+        echo json_encode(["status" => "error", "message" => "ENDPOINT_REQUIRED"]);
+        exit;
+    }
+    if ($authKey === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "AUTH_KEY_REQUIRED"]);
+        exit;
+    }
+    $scopeKey = push_subscription_endpoint_hash($endpoint);
+    if (is_rate_limited_scoped('push_latest', $scopeKey, 120, 60)) {
+        http_response_code(429);
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    try {
+        $subStmt = $db->prepare("SELECT id, user_id, auth FROM push_subscriptions WHERE endpoint_hash = ? AND is_active = 1 LIMIT 1");
+        $subStmt->execute([push_subscription_endpoint_hash($endpoint)]);
+        $subscription = $subStmt->fetch();
+    } catch (Exception $e) {
+        splaro_log_exception('push.latest.subscription_lookup', $e);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "LOOKUP_FAILED"]);
+        exit;
+    }
+
+    if (!$subscription) {
+        echo json_encode(["status" => "success", "payload" => [
+            "title" => "SPLARO",
+            "message" => "New update available.",
+            "url" => "/",
+            "type" => "system"
+        ]]);
+        exit;
+    }
+    if (!hash_equals((string)($subscription['auth'] ?? ''), $authKey)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "UNAUTHORIZED_SUBSCRIPTION"]);
+        exit;
+    }
+
+    $payload = [
+        "title" => "SPLARO",
+        "message" => "New update available.",
+        "url" => "/",
+        "type" => "system"
+    ];
+    $userId = trim((string)($subscription['user_id'] ?? ''));
+    if ($userId !== '') {
+        try {
+            $notificationStmt = $db->prepare("SELECT id, title, message, url, type, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1");
+            $notificationStmt->execute([$userId]);
+            $notification = $notificationStmt->fetch();
+            if ($notification) {
+                $payload = [
+                    "title" => (string)($notification['title'] ?? $payload['title']),
+                    "message" => (string)($notification['message'] ?? $payload['message']),
+                    "url" => (string)($notification['url'] ?? '/'),
+                    "type" => (string)($notification['type'] ?? 'system'),
+                    "notification_id" => (int)($notification['id'] ?? 0),
+                    "created_at" => (string)($notification['created_at'] ?? '')
+                ];
+            }
+        } catch (Exception $e) {
+            splaro_log_exception('push.latest.notification_lookup', $e, ['user_id' => $userId]);
+        }
+    }
+    try {
+        $db->prepare("UPDATE push_subscriptions SET last_seen_at = NOW() WHERE id = ?")->execute([(int)($subscription['id'] ?? 0)]);
+    } catch (Exception $e) {
+        splaro_log_exception('push.latest.subscription_touch', $e, ['subscription_id' => (int)($subscription['id'] ?? 0)], 'WARNING');
+    }
+
+    echo json_encode(["status" => "success", "payload" => $payload]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'notifications') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+    $userId = (string)$requestAuthUser['id'];
+    $page = (int)($_GET['page'] ?? 1);
+    $pageSize = (int)($_GET['page_size'] ?? $_GET['limit'] ?? 10);
+    if ($page < 1) $page = 1;
+    if ($pageSize < 1) $pageSize = 10;
+    if ($pageSize > 50) $pageSize = 50;
+    $offset = ($page - 1) * $pageSize;
+
+    try {
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ?");
+        $countStmt->execute([$userId]);
+        $total = (int)$countStmt->fetchColumn();
+
+        $unreadStmt = $db->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+        $unreadStmt->execute([$userId]);
+        $unread = (int)$unreadStmt->fetchColumn();
+
+        $listStmt = $db->prepare("SELECT id, title, message, url, type, is_read, campaign_id, created_at, read_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        $listStmt->bindValue(1, $userId, PDO::PARAM_STR);
+        $listStmt->bindValue(2, $pageSize, PDO::PARAM_INT);
+        $listStmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $listStmt->execute();
+        $items = $listStmt->fetchAll();
+    } catch (Exception $e) {
+        splaro_log_exception('notifications.list', $e, ['user_id' => $userId]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "NOTIFICATION_READ_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => is_array($items) ? $items : [],
+        "meta" => [
+            "page" => $page,
+            "page_size" => $pageSize,
+            "total" => (int)$total,
+            "total_pages" => $pageSize > 0 ? (int)ceil($total / $pageSize) : 1,
+            "unread" => (int)$unread
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'notifications_read') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+    require_csrf_token();
+    $userId = (string)$requestAuthUser['id'];
+    [$input] = read_request_json_payload('notifications.read.payload');
+
+    $marked = 0;
+    try {
+        if (!empty($input['all'])) {
+            $stmt = $db->prepare("UPDATE notifications SET is_read = 1, read_at = NOW() WHERE user_id = ? AND is_read = 0");
+            $stmt->execute([$userId]);
+            $marked = (int)$stmt->rowCount();
+        } else {
+            $idsInput = $input['ids'] ?? ($input['id'] ?? []);
+            if (!is_array($idsInput)) {
+                $idsInput = [$idsInput];
+            }
+            $ids = [];
+            foreach ($idsInput as $idValue) {
+                $id = (int)$idValue;
+                if ($id > 0) $ids[] = $id;
+            }
+            $ids = array_values(array_unique($ids));
+            if (!empty($ids)) {
+                $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+                $params = array_merge([$userId], $ids);
+                $stmt = $db->prepare("UPDATE notifications SET is_read = 1, read_at = NOW() WHERE user_id = ? AND id IN ({$placeholders})");
+                $stmt->execute($params);
+                $marked = (int)$stmt->rowCount();
+            }
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('notifications.mark_read', $e, ['user_id' => $userId]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "NOTIFICATION_UPDATE_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "marked" => (int)$marked
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'notifications_click') {
+    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
+        exit;
+    }
+    require_csrf_token();
+    $userId = (string)$requestAuthUser['id'];
+    [$input] = read_request_json_payload('notifications.click.payload');
+    $notificationId = (int)($input['id'] ?? 0);
+    if ($notificationId <= 0) {
+        echo json_encode(["status" => "error", "message" => "NOTIFICATION_ID_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $update = $db->prepare("UPDATE notifications SET is_read = 1, read_at = NOW() WHERE id = ? AND user_id = ?");
+        $update->execute([$notificationId, $userId]);
+        $fetch = $db->prepare("SELECT campaign_id FROM notifications WHERE id = ? AND user_id = ? LIMIT 1");
+        $fetch->execute([$notificationId, $userId]);
+        $row = $fetch->fetch();
+        $campaignId = (int)($row['campaign_id'] ?? 0);
+        if ($campaignId > 0) {
+            $clickLog = $db->prepare("INSERT INTO campaign_logs (campaign_id, subscription_id, status, error_message, sent_at, clicked_at, created_at) VALUES (?, NULL, 'clicked', NULL, NOW(), NOW(), NOW())");
+            $clickLog->execute([$campaignId]);
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('notifications.click', $e, [
+            'user_id' => $userId,
+            'notification_id' => $notificationId
+        ]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "NOTIFICATION_CLICK_FAILED"]);
+        exit;
+    }
+    echo json_encode(["status" => "success"]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'notifications_create') {
+    require_campaign_write_access($requestAuthUser);
+    require_csrf_token();
+    [$input] = read_request_json_payload('notifications.create.payload');
+
+    $title = trim((string)($input['title'] ?? ''));
+    $message = trim((string)($input['message'] ?? ''));
+    $url = trim((string)($input['url'] ?? ''));
+    $type = trim((string)($input['type'] ?? 'system'));
+    if ($title === '' || $message === '') {
+        echo json_encode(["status" => "error", "message" => "TITLE_AND_MESSAGE_REQUIRED"]);
+        exit;
+    }
+
+    $targetType = trim((string)($input['target_type'] ?? ''));
+    $filters = is_array($input['filters'] ?? null) ? $input['filters'] : [];
+    $userIds = [];
+
+    if (!empty($input['user_id'])) {
+        $userIds[] = trim((string)$input['user_id']);
+    }
+    if (is_array($input['user_ids'] ?? null)) {
+        foreach ($input['user_ids'] as $uid) {
+            $candidate = trim((string)$uid);
+            if ($candidate !== '') $userIds[] = $candidate;
+        }
+    }
+    if ($targetType !== '') {
+        $resolved = campaign_resolve_user_ids($db, $targetType, $filters);
+        foreach ($resolved as $uid) {
+            $userIds[] = (string)$uid;
+        }
+    }
+    $userIds = array_values(array_unique(array_filter($userIds, static fn($v) => trim((string)$v) !== '')));
+    if (empty($userIds)) {
+        echo json_encode(["status" => "error", "message" => "NO_TARGET_USERS"]);
+        exit;
+    }
+
+    $created = 0;
+    $queued = 0;
+    foreach ($userIds as $uid) {
+        try {
+            $res = queue_push_for_user($db, $uid, $title, $message, $url, $type, null);
+            $created += ((int)($res['notification_id'] ?? 0) > 0) ? 1 : 0;
+            $queued += (int)($res['queued_jobs'] ?? 0);
+        } catch (Exception $e) {
+            splaro_log_exception('notifications.create.enqueue_user', $e, ['user_id' => (string)$uid], 'WARNING');
+        }
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "users_targeted" => count($userIds),
+        "notifications_created" => (int)$created,
+        "queued_push_jobs" => (int)$queued
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'campaign_preview') {
+    require_campaign_write_access($requestAuthUser);
+    require_csrf_token();
+    [$input] = read_request_json_payload('campaign.preview.payload');
+    $targetType = campaign_target_type_normalize((string)($input['target_type'] ?? 'all_users'));
+    $filters = is_array($input['filters'] ?? null) ? $input['filters'] : [];
+
+    $userIds = campaign_resolve_user_ids($db, $targetType, $filters);
+    $subscriptions = campaign_resolve_subscriptions($db, $targetType, $userIds);
+
+    echo json_encode([
+        "status" => "success",
+        "preview" => [
+            "target_type" => $targetType,
+            "users" => count($userIds),
+            "subscriptions" => is_array($subscriptions) ? count($subscriptions) : 0,
+            "sample_user_ids" => array_slice($userIds, 0, 10)
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'campaign_create') {
+    require_campaign_write_access($requestAuthUser);
+    require_csrf_token();
+    [$input] = read_request_json_payload('campaign.create.payload');
+
+    $title = trim((string)($input['title'] ?? ''));
+    $message = trim((string)($input['message'] ?? ''));
+    $imageUrl = trim((string)($input['image'] ?? $input['image_url'] ?? ''));
+    $targetType = campaign_target_type_normalize((string)($input['target_type'] ?? 'all_users'));
+    $filters = is_array($input['filters'] ?? null) ? $input['filters'] : [];
+    $url = trim((string)($input['url'] ?? ''));
+    if ($url !== '') {
+        $filters['url'] = $url;
+    }
+    $filtersJson = json_encode($filters, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($filtersJson)) {
+        splaro_integration_trace('campaign.create.filters_encode_failed', [
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
+        echo json_encode(["status" => "error", "message" => "INVALID_FILTERS"]);
+        exit;
+    }
+    if ($title === '' || $message === '') {
+        echo json_encode(["status" => "error", "message" => "TITLE_AND_MESSAGE_REQUIRED"]);
+        exit;
+    }
+
+    $sendNow = !empty($input['send_now']) || strtolower(trim((string)($input['mode'] ?? ''))) === 'send_now';
+    $scheduledAtRaw = trim((string)($input['scheduled_at'] ?? ''));
+    $scheduledAt = null;
+    if ($scheduledAtRaw !== '') {
+        $ts = strtotime($scheduledAtRaw);
+        if ($ts === false) {
+            echo json_encode(["status" => "error", "message" => "INVALID_SCHEDULED_AT"]);
+            exit;
+        }
+        $scheduledAt = date('Y-m-d H:i:s', $ts);
+    }
+
+    $status = 'draft';
+    if ($sendNow) {
+        $status = 'sending';
+    } elseif ($scheduledAt !== null) {
+        $status = 'scheduled';
+    }
+    $createdBy = is_array($requestAuthUser) ? (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin') : 'admin';
+
+    try {
+        $insert = $db->prepare("INSERT INTO campaigns (title, message, image_url, target_type, filters_json, scheduled_at, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $insert->execute([$title, $message, $imageUrl, $targetType, $filtersJson, $scheduledAt, $status, $createdBy]);
+        $campaignId = (int)$db->lastInsertId();
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.create.insert', $e, [
+            'target_type' => $targetType
+        ]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_CREATE_FAILED"]);
+        exit;
+    }
+
+    $dispatchResult = null;
+    if ($sendNow) {
+        try {
+            $campaignPayload = [
+                'title' => $title,
+                'message' => $message,
+                'target_type' => $targetType,
+                'filters_json' => $filtersJson
+            ];
+            $dispatchResult = campaign_dispatch_to_queue($db, $campaignId, $campaignPayload);
+            $db->prepare("UPDATE campaigns SET status = 'sent', updated_at = NOW() WHERE id = ?")->execute([$campaignId]);
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.create.dispatch_now', $e, ['campaign_id' => $campaignId]);
+            try {
+                $db->prepare("UPDATE campaigns SET status = 'draft', updated_at = NOW() WHERE id = ?")->execute([$campaignId]);
+            } catch (Exception $inner) {
+                splaro_log_exception('campaign.create.dispatch_now.restore_status', $inner, ['campaign_id' => $campaignId], 'WARNING');
+            }
+        }
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "campaign_id" => (int)$campaignId,
+        "campaign_status" => $sendNow ? 'sent' : $status,
+        "dispatch" => $dispatchResult
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'campaign_send') {
+    require_campaign_write_access($requestAuthUser);
+    require_csrf_token();
+    [$input] = read_request_json_payload('campaign.send.payload');
+    $campaignId = (int)($input['campaign_id'] ?? $input['id'] ?? 0);
+    if ($campaignId <= 0) {
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_ID_REQUIRED"]);
+        exit;
+    }
+    $mode = strtolower(trim((string)($input['mode'] ?? 'send_now')));
+    if (!in_array($mode, ['send_now', 'schedule'], true)) {
+        $mode = 'send_now';
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT id, title, message, target_type, filters_json, status FROM campaigns WHERE id = ? LIMIT 1");
+        $stmt->execute([$campaignId]);
+        $campaign = $stmt->fetch();
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.send.read', $e, ['campaign_id' => $campaignId]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_LOOKUP_FAILED"]);
+        exit;
+    }
+    if (!$campaign) {
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_NOT_FOUND"]);
+        exit;
+    }
+
+    if ($mode === 'schedule') {
+        $scheduledAtRaw = trim((string)($input['scheduled_at'] ?? ''));
+        if ($scheduledAtRaw === '') {
+            echo json_encode(["status" => "error", "message" => "SCHEDULED_AT_REQUIRED"]);
+            exit;
+        }
+        $ts = strtotime($scheduledAtRaw);
+        if ($ts === false) {
+            echo json_encode(["status" => "error", "message" => "INVALID_SCHEDULED_AT"]);
+            exit;
+        }
+        $scheduledAt = date('Y-m-d H:i:s', $ts);
+        try {
+            $db->prepare("UPDATE campaigns SET status = 'scheduled', scheduled_at = ?, updated_at = NOW() WHERE id = ?")->execute([$scheduledAt, $campaignId]);
+        } catch (Exception $e) {
+            splaro_log_exception('campaign.send.schedule_update', $e, ['campaign_id' => $campaignId]);
+            http_response_code(500);
+            echo json_encode(["status" => "error", "message" => "CAMPAIGN_SCHEDULE_FAILED"]);
+            exit;
+        }
+        echo json_encode([
+            "status" => "success",
+            "campaign_id" => $campaignId,
+            "campaign_status" => "scheduled",
+            "scheduled_at" => $scheduledAt
+        ]);
+        exit;
+    }
+
+    try {
+        $db->prepare("UPDATE campaigns SET status = 'sending', updated_at = NOW() WHERE id = ?")->execute([$campaignId]);
+        $dispatchResult = campaign_dispatch_to_queue($db, $campaignId, $campaign);
+        $db->prepare("UPDATE campaigns SET status = 'sent', updated_at = NOW() WHERE id = ?")->execute([$campaignId]);
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.send.dispatch_now', $e, ['campaign_id' => $campaignId]);
+        try {
+            $db->prepare("UPDATE campaigns SET status = 'draft', updated_at = NOW() WHERE id = ?")->execute([$campaignId]);
+        } catch (Exception $inner) {
+            splaro_log_exception('campaign.send.dispatch_now.restore_status', $inner, ['campaign_id' => $campaignId], 'WARNING');
+        }
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_SEND_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "campaign_id" => $campaignId,
+        "campaign_status" => "sent",
+        "dispatch" => $dispatchResult
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'campaign_list') {
+    require_admin_access($requestAuthUser);
+    $page = (int)($_GET['page'] ?? 1);
+    $pageSize = (int)($_GET['page_size'] ?? $_GET['limit'] ?? 10);
+    if ($page < 1) $page = 1;
+    if ($pageSize < 1) $pageSize = 10;
+    if ($pageSize > 50) $pageSize = 50;
+    $offset = ($page - 1) * $pageSize;
+
+    try {
+        $total = (int)$db->query("SELECT COUNT(*) FROM campaigns")->fetchColumn();
+        $stmt = $db->prepare("SELECT id, title, message, image_url, target_type, filters_json, scheduled_at, status, created_by, created_at, updated_at FROM campaigns ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        $stmt->bindValue(1, $pageSize, PDO::PARAM_INT);
+        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll();
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.list', $e);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_LIST_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => is_array($items) ? $items : [],
+        "meta" => [
+            "page" => $page,
+            "page_size" => $pageSize,
+            "total" => (int)$total,
+            "total_pages" => $pageSize > 0 ? (int)ceil($total / $pageSize) : 1
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'campaign_logs') {
+    require_admin_access($requestAuthUser);
+    $campaignId = (int)($_GET['campaign_id'] ?? $_GET['id'] ?? 0);
+    $page = (int)($_GET['page'] ?? 1);
+    $pageSize = (int)($_GET['page_size'] ?? $_GET['limit'] ?? 20);
+    if ($page < 1) $page = 1;
+    if ($pageSize < 1) $pageSize = 20;
+    if ($pageSize > 100) $pageSize = 100;
+    $offset = ($page - 1) * $pageSize;
+
+    $whereSql = '';
+    $params = [];
+    if ($campaignId > 0) {
+        $whereSql = 'WHERE campaign_id = ?';
+        $params[] = $campaignId;
+    }
+    try {
+        if ($campaignId > 0) {
+            $countStmt = $db->prepare("SELECT COUNT(*) FROM campaign_logs WHERE campaign_id = ?");
+            $countStmt->execute([$campaignId]);
+            $total = (int)$countStmt->fetchColumn();
+            $stmt = $db->prepare("SELECT id, campaign_id, subscription_id, status, error_message, sent_at, clicked_at, created_at FROM campaign_logs WHERE campaign_id = ? ORDER BY id DESC LIMIT ? OFFSET ?");
+            $stmt->bindValue(1, $campaignId, PDO::PARAM_INT);
+            $stmt->bindValue(2, $pageSize, PDO::PARAM_INT);
+            $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $items = $stmt->fetchAll();
+        } else {
+            $total = (int)$db->query("SELECT COUNT(*) FROM campaign_logs")->fetchColumn();
+            $stmt = $db->prepare("SELECT id, campaign_id, subscription_id, status, error_message, sent_at, clicked_at, created_at FROM campaign_logs ORDER BY id DESC LIMIT ? OFFSET ?");
+            $stmt->bindValue(1, $pageSize, PDO::PARAM_INT);
+            $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $items = $stmt->fetchAll();
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('campaign.logs', $e, [
+            'campaign_id' => $campaignId > 0 ? $campaignId : null
+        ]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "CAMPAIGN_LOGS_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => is_array($items) ? $items : [],
+        "meta" => [
+            "page" => $page,
+            "page_size" => $pageSize,
+            "total" => (int)$total,
+            "total_pages" => $pageSize > 0 ? (int)ceil($total / $pageSize) : 1
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'push_subscribers') {
+    require_admin_access($requestAuthUser);
+    $page = (int)($_GET['page'] ?? 1);
+    $pageSize = (int)($_GET['page_size'] ?? $_GET['limit'] ?? 20);
+    if ($page < 1) $page = 1;
+    if ($pageSize < 1) $pageSize = 20;
+    if ($pageSize > 100) $pageSize = 100;
+    $offset = ($page - 1) * $pageSize;
+
+    $activeOnly = isset($_GET['active_only']) && $_GET['active_only'] !== '0';
+    $whereSql = $activeOnly ? "WHERE is_active = 1" : "";
+
+    try {
+        $count = (int)$db->query("SELECT COUNT(*) FROM push_subscriptions {$whereSql}")->fetchColumn();
+        $activeCount = (int)$db->query("SELECT COUNT(*) FROM push_subscriptions WHERE is_active = 1")->fetchColumn();
+        $stmt = $db->prepare("SELECT id, user_id, endpoint, user_agent, is_active, failure_count, last_http_code, last_error, last_failure_at, created_at, last_seen_at FROM push_subscriptions {$whereSql} ORDER BY id DESC LIMIT ? OFFSET ?");
+        $stmt->bindValue(1, $pageSize, PDO::PARAM_INT);
+        $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $items = $stmt->fetchAll();
+    } catch (Exception $e) {
+        splaro_log_exception('push.subscribers.list', $e);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "PUSH_SUBSCRIBER_LIST_FAILED"]);
+        exit;
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => is_array($items) ? $items : [],
+        "meta" => [
+            "page" => $page,
+            "page_size" => $pageSize,
+            "total" => (int)$count,
+            "total_pages" => $pageSize > 0 ? (int)ceil($count / $pageSize) : 1,
+            "active_subscriptions" => (int)$activeCount
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'push_subscription_toggle') {
+    require_campaign_write_access($requestAuthUser);
+    require_csrf_token();
+    [$input] = read_request_json_payload('push.subscriber.toggle.payload');
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) {
+        echo json_encode(["status" => "error", "message" => "SUBSCRIPTION_ID_REQUIRED"]);
+        exit;
+    }
+    $isActive = !empty($input['is_active']) ? 1 : 0;
+    try {
+        $stmt = $db->prepare("UPDATE push_subscriptions SET is_active = ?, last_seen_at = NOW(), last_error = ? WHERE id = ?");
+        $stmt->execute([$isActive, $isActive === 1 ? null : 'ADMIN_DISABLED', $id]);
+    } catch (Exception $e) {
+        splaro_log_exception('push.subscriber.toggle', $e, ['subscription_id' => $id]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "SUBSCRIBER_TOGGLE_FAILED"]);
+        exit;
+    }
+    echo json_encode([
+        "status" => "success",
+        "subscription_id" => $id,
+        "is_active" => $isActive === 1
     ]);
     exit;
 }
@@ -3586,6 +6032,20 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                             null,
                             $_SERVER['REMOTE_ADDR'] ?? 'TELEGRAM_WEBHOOK'
                         );
+                        try {
+                            $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
+                            splaro_integration_trace('telegram.callback.order_status.push_queue_result', [
+                                'order_id' => (string)$orderId,
+                                'status' => (string)$statusLabel,
+                                'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
+                                'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
+                            ]);
+                        } catch (Exception $e) {
+                            splaro_log_exception('telegram.callback.order_status.push_queue', $e, [
+                                'order_id' => (string)$orderId,
+                                'status' => (string)$statusLabel
+                            ], 'WARNING');
+                        }
                         $callbackMessage = "Updated: {$statusLabel}";
                         $detail = telegram_load_order_details($db, $orderId);
                         $reply = "<b>Status updated.</b> #" . telegram_escape_html($orderId) . " -> " . telegram_escape_html($statusLabel) . "\n\n" . $detail['text'];
@@ -3616,10 +6076,12 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                 $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
                 $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
                 $telegramQueue = get_telegram_queue_summary($db);
+                $pushQueue = get_push_queue_summary($db);
                 $reply = "<b>SPLARO Health</b>\n"
                     . "Orders: {$orderCount}\n"
                     . "Users: {$userCount}\n"
                     . "Telegram Queue: P{$telegramQueue['pending']} R{$telegramQueue['retry']} D{$telegramQueue['dead']}\n"
+                    . "Push Queue: P{$pushQueue['pending']} R{$pushQueue['retry']} D{$pushQueue['dead']}\n"
                     . "Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
                 $replyOptions = ['reply_markup' => telegram_main_inline_keyboard()];
                 $callbackMessage = 'Health refreshed';
@@ -3671,10 +6133,12 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
             $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
             $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
             $telegramQueue = get_telegram_queue_summary($db);
+            $pushQueue = get_push_queue_summary($db);
             $reply = "<b>SPLARO Health</b>\n"
                 . "Orders: {$orderCount}\n"
                 . "Users: {$userCount}\n"
                 . "Telegram Queue: P{$telegramQueue['pending']} R{$telegramQueue['retry']} D{$telegramQueue['dead']}\n"
+                . "Push Queue: P{$pushQueue['pending']} R{$pushQueue['retry']} D{$pushQueue['dead']}\n"
                 . "Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
             $replyOptions['reply_markup'] = telegram_main_inline_keyboard();
         } elseif ($command === '/orders') {
@@ -3711,6 +6175,20 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                         null,
                         $_SERVER['REMOTE_ADDR'] ?? 'TELEGRAM_WEBHOOK'
                     );
+                    try {
+                        $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
+                        splaro_integration_trace('telegram.command.order_status.push_queue_result', [
+                            'order_id' => (string)$orderId,
+                            'status' => (string)$statusLabel,
+                            'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
+                            'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
+                        ]);
+                    } catch (Exception $e) {
+                        splaro_log_exception('telegram.command.order_status.push_queue', $e, [
+                            'order_id' => (string)$orderId,
+                            'status' => (string)$statusLabel
+                        ], 'WARNING');
+                    }
                     $reply = "<b>Status updated.</b>\n#" . telegram_escape_html($orderId) . " -> " . telegram_escape_html($statusLabel);
                     $replyOptions['reply_markup'] = telegram_order_action_keyboard($orderId);
                 } else {
@@ -4007,15 +6485,31 @@ if ($method === 'GET' && $action === 'sync') {
     if ($isAdmin) {
         // Opportunistic background drain for pending integration jobs.
         try {
+            $campaignProcess = process_due_campaigns($db, 3);
             $syncQueueProcess = [
+                'campaigns' => $campaignProcess,
                 'telegram' => process_telegram_queue($db, 10),
+                'push' => process_push_queue($db, 10),
                 'sheets' => process_sync_queue($db, 5, false)
             ];
         } catch (Exception $e) {
             error_log('SPLARO_SYNC_QUEUE_PROCESS_FAILED: ' . $e->getMessage());
             splaro_log_exception('sheets.queue.process.opportunistic_admin_sync', $e);
             $syncQueueProcess = [
+                'campaigns' => [
+                    'processed' => 0,
+                    'queued_jobs' => 0
+                ],
                 'telegram' => [
+                    'processed' => 0,
+                    'success' => 0,
+                    'failed' => 0,
+                    'retried' => 0,
+                    'dead' => 0,
+                    'paused' => true,
+                    'reason' => 'SYNC_QUEUE_PROCESS_FAILED'
+                ],
+                'push' => [
                     'processed' => 0,
                     'success' => 0,
                     'failed' => 0,
@@ -4114,6 +6608,7 @@ if ($method === 'GET' && $action === 'sync') {
             'syncQueue' => $syncQueueProcess,
             'syncQueueSummary' => [
                 'telegram' => get_telegram_queue_summary($db),
+                'push' => get_push_queue_summary($db),
                 'sheets' => get_sync_queue_summary($db)
             ]
         ];
@@ -4152,6 +6647,927 @@ if ($method === 'GET' && $action === 'sync') {
         "dbName" => DB_NAME,
         "data" => $data
     ]);
+    exit;
+}
+
+// 1.1 ADMIN USER MANAGEMENT (WOO-COMMERCE STYLE CUSTOMER VIEW)
+if ($method === 'GET' && $action === 'admin_users') {
+    require_admin_access($requestAuthUser);
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $cursor = $pagination['cursor'];
+
+    $search = trim((string)($_GET['search'] ?? $_GET['q'] ?? ''));
+    $status = strtoupper(trim((string)($_GET['status'] ?? '')));
+    $where = [];
+    $params = [];
+
+    if (column_exists($db, 'users', 'deleted_at')) {
+        $where[] = "deleted_at IS NULL";
+    }
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(id LIKE ? OR name LIKE ? OR email LIKE ? OR phone LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if ($status !== '') {
+        if ($status === 'BLOCKED' && column_exists($db, 'users', 'is_blocked')) {
+            $where[] = "is_blocked = 1";
+        } elseif ($status === 'ACTIVE' && column_exists($db, 'users', 'is_blocked')) {
+            $where[] = "is_blocked = 0";
+        } else {
+            $where[] = "UPPER(role) = ?";
+            $params[] = $status;
+        }
+    }
+    if (is_array($cursor)) {
+        $where[] = "(created_at < ? OR (created_at = ? AND id < ?))";
+        $params[] = (string)$cursor['created_at'];
+        $params[] = (string)$cursor['created_at'];
+        $params[] = (string)$cursor['id'];
+    }
+
+    $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+    $fields = admin_user_select_fields($db);
+    $sql = "SELECT {$fields} FROM users {$whereSql} ORDER BY created_at DESC, id DESC LIMIT " . ($limit + 1);
+    if (!is_array($cursor)) {
+        $sql .= " OFFSET {$offset}";
+    }
+    $rows = safe_query_all($db, $sql, $params);
+    $hasMore = count($rows) > $limit;
+    if ($hasMore) {
+        array_pop($rows);
+    }
+
+    $usersData = array_map('admin_normalize_user', $rows);
+    $statsByUserId = [];
+    $statsByEmail = [];
+    if (!empty($usersData)) {
+        $userIds = [];
+        $emails = [];
+        foreach ($usersData as $u) {
+            if ($u['id'] !== '') $userIds[] = $u['id'];
+            if ($u['email'] !== '') $emails[] = strtolower($u['email']);
+        }
+        $userIds = array_values(array_unique($userIds));
+        $emails = array_values(array_unique($emails));
+
+        if (!empty($userIds)) {
+            $placeholders = implode(', ', array_fill(0, count($userIds), '?'));
+            $ordersWhere = "user_id IN ({$placeholders})";
+            if (column_exists($db, 'orders', 'deleted_at')) {
+                $ordersWhere .= " AND deleted_at IS NULL";
+            }
+            $statsRows = safe_query_all(
+                $db,
+                "SELECT user_id, COUNT(*) AS total_orders, COALESCE(SUM(total), 0) AS total_spent, MAX(created_at) AS last_order_at
+                 FROM orders
+                 WHERE {$ordersWhere}
+                 GROUP BY user_id",
+                $userIds
+            );
+            foreach ($statsRows as $row) {
+                $key = (string)($row['user_id'] ?? '');
+                if ($key === '') continue;
+                $statsByUserId[$key] = [
+                    'total_orders' => (int)($row['total_orders'] ?? 0),
+                    'total_spent' => (float)($row['total_spent'] ?? 0),
+                    'last_order_at' => $row['last_order_at'] ?? null
+                ];
+            }
+        }
+
+        if (!empty($emails)) {
+            $emailPlaceholders = implode(', ', array_fill(0, count($emails), '?'));
+            $ordersWhere = "LOWER(customer_email) IN ({$emailPlaceholders})";
+            if (column_exists($db, 'orders', 'deleted_at')) {
+                $ordersWhere .= " AND deleted_at IS NULL";
+            }
+            $statsRowsByEmail = safe_query_all(
+                $db,
+                "SELECT LOWER(customer_email) AS email_key, COUNT(*) AS total_orders, COALESCE(SUM(total), 0) AS total_spent, MAX(created_at) AS last_order_at
+                 FROM orders
+                 WHERE {$ordersWhere}
+                 GROUP BY LOWER(customer_email)",
+                $emails
+            );
+            foreach ($statsRowsByEmail as $row) {
+                $key = (string)($row['email_key'] ?? '');
+                if ($key === '') continue;
+                $statsByEmail[$key] = [
+                    'total_orders' => (int)($row['total_orders'] ?? 0),
+                    'total_spent' => (float)($row['total_spent'] ?? 0),
+                    'last_order_at' => $row['last_order_at'] ?? null
+                ];
+            }
+        }
+    }
+
+    foreach ($usersData as &$u) {
+        $byUserId = $statsByUserId[$u['id']] ?? ['total_orders' => 0, 'total_spent' => 0, 'last_order_at' => null];
+        $byEmail = $statsByEmail[strtolower((string)$u['email'])] ?? ['total_orders' => 0, 'total_spent' => 0, 'last_order_at' => null];
+        $u['totalOrders'] = (int)$byUserId['total_orders'] + (int)$byEmail['total_orders'];
+        $u['lifetimeValue'] = (float)$byUserId['total_spent'] + (float)$byEmail['total_spent'];
+        $u['lastOrderAt'] = $byUserId['last_order_at'] ?: $byEmail['last_order_at'];
+    }
+    unset($u);
+
+    $nextCursor = null;
+    if ($hasMore && !empty($usersData)) {
+        $last = $usersData[count($usersData) - 1];
+        $nextCursor = admin_encode_cursor((string)($last['createdAt'] ?? ''), (string)($last['id'] ?? ''));
+    }
+    $countTotal = null;
+    if (!is_array($cursor)) {
+        $countWhere = [];
+        $countParams = [];
+        if (column_exists($db, 'users', 'deleted_at')) {
+            $countWhere[] = "deleted_at IS NULL";
+        }
+        if ($search !== '') {
+            $wild = '%' . $search . '%';
+            $countWhere[] = "(id LIKE ? OR name LIKE ? OR email LIKE ? OR phone LIKE ?)";
+            $countParams[] = $wild;
+            $countParams[] = $wild;
+            $countParams[] = $wild;
+            $countParams[] = $wild;
+        }
+        if ($status !== '') {
+            if ($status === 'BLOCKED' && column_exists($db, 'users', 'is_blocked')) {
+                $countWhere[] = "is_blocked = 1";
+            } elseif ($status === 'ACTIVE' && column_exists($db, 'users', 'is_blocked')) {
+                $countWhere[] = "is_blocked = 0";
+            } else {
+                $countWhere[] = "UPPER(role) = ?";
+                $countParams[] = $status;
+            }
+        }
+        $countWhereSql = $countWhere ? ('WHERE ' . implode(' AND ', $countWhere)) : '';
+        $countTotal = safe_query_count($db, "SELECT COUNT(*) FROM users {$countWhereSql}", $countParams);
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $usersData,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "hasMore" => $hasMore,
+            "nextCursor" => $nextCursor,
+            "count" => $countTotal
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_user_stats') {
+    require_admin_access($requestAuthUser);
+    $userId = trim((string)($_GET['id'] ?? $_GET['userId'] ?? ''));
+    $userRow = admin_fetch_user_or_fail($db, $userId);
+    $stats = admin_build_user_stats_payload($db, $userRow);
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            'userId' => (string)$userRow['id'],
+            'email' => (string)$userRow['email'],
+            'stats' => $stats
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_user_orders') {
+    require_admin_access($requestAuthUser);
+    $userId = trim((string)($_GET['id'] ?? $_GET['userId'] ?? ''));
+    $userRow = admin_fetch_user_or_fail($db, $userId);
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $cursor = $pagination['cursor'];
+    $search = trim((string)($_GET['search'] ?? $_GET['q'] ?? ''));
+    $status = trim((string)($_GET['status'] ?? ''));
+    $scopeSql = admin_user_order_scope_sql($db, 'o');
+    $where = [$scopeSql];
+    $params = [(string)$userRow['id'], strtolower((string)$userRow['email'])];
+    if ($status !== '') {
+        $where[] = "UPPER(o.status) = ?";
+        $params[] = strtoupper($status);
+    }
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(o.id LIKE ? OR o.order_no LIKE ? OR o.customer_name LIKE ? OR o.customer_email LIKE ? OR o.phone LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if (is_array($cursor)) {
+        $where[] = "(o.created_at < ? OR (o.created_at = ? AND o.id < ?))";
+        $params[] = (string)$cursor['created_at'];
+        $params[] = (string)$cursor['created_at'];
+        $params[] = (string)$cursor['id'];
+    }
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
+    $orderFields = admin_order_select_fields($db);
+    $sql = "SELECT {$orderFields} FROM orders o {$whereSql} ORDER BY o.created_at DESC, o.id DESC LIMIT " . ($limit + 1);
+    if (!is_array($cursor)) {
+        $sql .= " OFFSET {$offset}";
+    }
+    $rows = safe_query_all($db, $sql, $params);
+    $hasMore = count($rows) > $limit;
+    if ($hasMore) array_pop($rows);
+
+    $ordersData = [];
+    foreach ($rows as $row) {
+        $ordersData[] = admin_normalize_order_row($row);
+    }
+
+    if (!empty($ordersData)) {
+        $orderIds = array_values(array_filter(array_map(function ($o) { return (string)($o['id'] ?? ''); }, $ordersData)));
+        if (!empty($orderIds)) {
+            $placeholders = implode(', ', array_fill(0, count($orderIds), '?'));
+            $itemCountRows = safe_query_all(
+                $db,
+                "SELECT order_id, COALESCE(SUM(quantity), 0) AS qty FROM order_items WHERE order_id IN ({$placeholders}) GROUP BY order_id",
+                $orderIds
+            );
+            $qtyMap = [];
+            foreach ($itemCountRows as $r) {
+                $qtyMap[(string)($r['order_id'] ?? '')] = (int)($r['qty'] ?? 0);
+            }
+            foreach ($ordersData as &$o) {
+                $oid = (string)$o['id'];
+                if (isset($qtyMap[$oid])) {
+                    $o['itemCount'] = (int)$qtyMap[$oid];
+                }
+            }
+            unset($o);
+        }
+    }
+
+    $nextCursor = null;
+    if ($hasMore && !empty($ordersData)) {
+        $last = $ordersData[count($ordersData) - 1];
+        $nextCursor = admin_encode_cursor((string)($last['createdAt'] ?? ''), (string)($last['id'] ?? ''));
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $ordersData,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "hasMore" => $hasMore,
+            "nextCursor" => $nextCursor
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_user_activity') {
+    require_admin_access($requestAuthUser);
+    $userId = trim((string)($_GET['id'] ?? $_GET['userId'] ?? ''));
+    $userRow = admin_fetch_user_or_fail($db, $userId);
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $scope = admin_user_order_scope_sql($db, 'o');
+    $email = strtolower((string)$userRow['email']);
+    $uid = (string)$userRow['id'];
+
+    $unionSql = "
+        SELECT * FROM (
+            SELECT CONCAT('ORDER_STATUS:', osh.id) AS event_id, 'ORDER_STATUS' AS event_type, osh.order_id AS reference_id, osh.note AS details, osh.created_at AS created_at
+            FROM order_status_history osh
+            INNER JOIN orders o ON o.id = osh.order_id
+            WHERE {$scope}
+            UNION ALL
+            SELECT CONCAT('PAYMENT:', p.id) AS event_id, 'PAYMENT' AS event_type, p.order_id AS reference_id,
+                   CONCAT(COALESCE(p.payment_method, 'Payment'), ' • ', COALESCE(p.status, 'PENDING'), ' • BDT ', FORMAT(COALESCE(p.amount,0), 2)) AS details,
+                   p.created_at AS created_at
+            FROM payments p
+            INNER JOIN orders o ON o.id = p.order_id
+            WHERE {$scope}
+            UNION ALL
+            SELECT CONCAT('SHIPMENT:', s.id) AS event_id, 'SHIPMENT' AS event_type, s.order_id AS reference_id,
+                   CONCAT('Shipment ', COALESCE(s.status, 'PENDING'), IFNULL(CONCAT(' • ', s.tracking_number), '')) AS details,
+                   s.created_at AS created_at
+            FROM shipments s
+            INNER JOIN orders o ON o.id = s.order_id
+            WHERE {$scope}
+            UNION ALL
+            SELECT CONCAT('REFUND:', r.id) AS event_id, 'REFUND' AS event_type, r.order_id AS reference_id,
+                   CONCAT('Refund ', COALESCE(r.status, 'PENDING'), ' • BDT ', FORMAT(COALESCE(r.amount,0), 2)) AS details,
+                   r.created_at AS created_at
+            FROM refunds r
+            INNER JOIN orders o ON o.id = r.order_id
+            WHERE {$scope}
+            UNION ALL
+            SELECT CONCAT('CANCEL:', c.id) AS event_id, 'CANCELLATION' AS event_type, c.order_id AS reference_id,
+                   CONCAT('Cancellation ', COALESCE(c.status, 'CONFIRMED')) AS details,
+                   c.created_at AS created_at
+            FROM cancellations c
+            INNER JOIN orders o ON o.id = c.order_id
+            WHERE {$scope}
+            UNION ALL
+            SELECT CONCAT('NOTE:', an.id) AS event_id, 'ADMIN_NOTE' AS event_type, an.user_id AS reference_id, an.note AS details, an.created_at AS created_at
+            FROM admin_user_notes an
+            WHERE an.user_id = ?
+            UNION ALL
+            SELECT CONCAT('USER_EVENT:', ue.id) AS event_id, COALESCE(ue.event_type, 'USER_EVENT') AS event_type, ue.user_id AS reference_id,
+                   COALESCE(ue.event_payload, '') AS details, ue.created_at AS created_at
+            FROM user_events ue
+            WHERE ue.user_id = ?
+        ) activity
+        ORDER BY created_at DESC
+        LIMIT " . ($limit + 1) . " OFFSET {$offset}";
+
+    $params = [
+        $uid, $email,
+        $uid, $email,
+        $uid, $email,
+        $uid, $email,
+        $uid, $email,
+        $uid,
+        $uid
+    ];
+    $rows = safe_query_all($db, $unionSql, $params);
+    $hasMore = count($rows) > $limit;
+    if ($hasMore) array_pop($rows);
+    $events = [];
+    foreach ($rows as $row) {
+        $events[] = [
+            'id' => (string)($row['event_id'] ?? ''),
+            'type' => (string)($row['event_type'] ?? 'EVENT'),
+            'referenceId' => (string)($row['reference_id'] ?? ''),
+            'details' => (string)($row['details'] ?? ''),
+            'createdAt' => (string)($row['created_at'] ?? '')
+        ];
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $events,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "hasMore" => $hasMore
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_user_note') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $inputRaw = file_get_contents('php://input');
+    $input = json_decode((string)$inputRaw, true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $userId = trim((string)($input['id'] ?? $input['userId'] ?? ''));
+    $note = trim((string)($input['note'] ?? ''));
+    if ($userId === '' || $note === '') {
+        echo json_encode(["status" => "error", "message" => "USER_ID_AND_NOTE_REQUIRED"]);
+        exit;
+    }
+    if (mb_strlen($note) > 2000) {
+        $note = mb_substr($note, 0, 2000);
+    }
+    admin_fetch_user_or_fail($db, $userId);
+    $stmt = $db->prepare("INSERT INTO admin_user_notes (user_id, admin_id, note) VALUES (?, ?, ?)");
+    $adminActorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+    $stmt->execute([$userId, $adminActorId, $note]);
+    $noteId = (int)$db->lastInsertId();
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'ADMIN_USER_NOTE', "Admin note added for user {$userId}", $adminActorId, $ip);
+    log_audit_event($db, $adminActorId, 'USER_NOTE_ADDED', 'USER', $userId, null, ['noteId' => $noteId], $ip);
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            "id" => $noteId,
+            "userId" => $userId,
+            "adminId" => $adminActorId,
+            "note" => $note,
+            "createdAt" => date('Y-m-d H:i:s')
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_user_profile') {
+    require_admin_access($requestAuthUser);
+    $userId = trim((string)($_GET['id'] ?? $_GET['userId'] ?? ''));
+    $userRow = admin_fetch_user_or_fail($db, $userId);
+    $normalizedUser = admin_normalize_user($userRow);
+    $stats = admin_build_user_stats_payload($db, $userRow);
+
+    $addressesRows = safe_query_all(
+        $db,
+        "SELECT id, label, recipient_name, phone, district, thana, address_line, postal_code, is_default, is_verified, created_at, updated_at
+         FROM user_addresses
+         WHERE user_id = ? AND (deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')
+         ORDER BY is_default DESC, updated_at DESC",
+        [(string)$userRow['id']]
+    );
+    $addresses = [];
+    foreach ($addressesRows as $address) {
+        $addresses[] = [
+            'id' => (string)($address['id'] ?? ''),
+            'label' => (string)($address['label'] ?? 'Address'),
+            'recipientName' => (string)($address['recipient_name'] ?? ''),
+            'phone' => (string)($address['phone'] ?? ''),
+            'district' => (string)($address['district'] ?? ''),
+            'thana' => (string)($address['thana'] ?? ''),
+            'addressLine' => (string)($address['address_line'] ?? ''),
+            'postalCode' => (string)($address['postal_code'] ?? ''),
+            'isDefault' => (int)($address['is_default'] ?? 0) === 1,
+            'isVerified' => (int)($address['is_verified'] ?? 0) === 1,
+            'createdAt' => (string)($address['created_at'] ?? ''),
+            'updatedAt' => (string)($address['updated_at'] ?? '')
+        ];
+    }
+
+    $scopeSql = admin_user_order_scope_sql($db, 'o');
+    $purchasedRows = safe_query_all(
+        $db,
+        "SELECT
+            COALESCE(oi.product_id, '') AS product_id,
+            oi.product_name,
+            MAX(oi.image_url) AS image_url,
+            SUM(oi.quantity) AS total_qty,
+            SUM(oi.line_total) AS total_spent,
+            MAX(o.created_at) AS last_purchased_at
+         FROM order_items oi
+         INNER JOIN orders o ON o.id = oi.order_id
+         WHERE {$scopeSql}
+         GROUP BY COALESCE(oi.product_id, ''), oi.product_name
+         ORDER BY total_spent DESC, total_qty DESC
+         LIMIT 100",
+        [(string)$userRow['id'], strtolower((string)$userRow['email'])]
+    );
+    $purchasedProducts = [];
+    foreach ($purchasedRows as $row) {
+        $purchasedProducts[] = [
+            'productId' => (string)($row['product_id'] ?? ''),
+            'productName' => (string)($row['product_name'] ?? 'Product'),
+            'imageUrl' => (string)($row['image_url'] ?? ''),
+            'totalQuantity' => (int)($row['total_qty'] ?? 0),
+            'totalSpent' => (float)($row['total_spent'] ?? 0),
+            'lastPurchasedAt' => $row['last_purchased_at'] ?? null
+        ];
+    }
+
+    $orderFields = admin_order_select_fields($db);
+    $recentOrderRows = safe_query_all(
+        $db,
+        "SELECT {$orderFields} FROM orders o WHERE {$scopeSql} ORDER BY o.created_at DESC LIMIT 20",
+        [(string)$userRow['id'], strtolower((string)$userRow['email'])]
+    );
+    $recentOrders = [];
+    foreach ($recentOrderRows as $row) {
+        $recentOrders[] = admin_normalize_order_row($row);
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            'user' => $normalizedUser,
+            'stats' => $stats,
+            'addresses' => $addresses,
+            'purchasedProducts' => $purchasedProducts,
+            'recentOrders' => $recentOrders
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_orders') {
+    require_admin_access($requestAuthUser);
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $cursor = $pagination['cursor'];
+    $search = trim((string)($_GET['search'] ?? $_GET['q'] ?? ''));
+    $status = strtoupper(trim((string)($_GET['status'] ?? '')));
+    $dateFrom = trim((string)($_GET['date_from'] ?? ''));
+    $dateTo = trim((string)($_GET['date_to'] ?? ''));
+
+    $where = [];
+    $params = [];
+    if (column_exists($db, 'orders', 'deleted_at')) {
+        $where[] = "o.deleted_at IS NULL";
+    }
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(o.id LIKE ? OR o.order_no LIKE ? OR o.customer_name LIKE ? OR o.customer_email LIKE ? OR o.phone LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if ($status !== '') {
+        $where[] = "UPPER(o.status) = ?";
+        $params[] = $status;
+    }
+    if ($dateFrom !== '') {
+        $where[] = "o.created_at >= ?";
+        $params[] = $dateFrom . ' 00:00:00';
+    }
+    if ($dateTo !== '') {
+        $where[] = "o.created_at <= ?";
+        $params[] = $dateTo . ' 23:59:59';
+    }
+    if (is_array($cursor)) {
+        $where[] = "(o.created_at < ? OR (o.created_at = ? AND o.id < ?))";
+        $params[] = (string)$cursor['created_at'];
+        $params[] = (string)$cursor['created_at'];
+        $params[] = (string)$cursor['id'];
+    }
+    $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+    $orderFields = admin_order_select_fields($db);
+    $sql = "SELECT {$orderFields} FROM orders o {$whereSql} ORDER BY o.created_at DESC, o.id DESC LIMIT " . ($limit + 1);
+    if (!is_array($cursor)) {
+        $sql .= " OFFSET {$offset}";
+    }
+    $rows = safe_query_all($db, $sql, $params);
+    $hasMore = count($rows) > $limit;
+    if ($hasMore) array_pop($rows);
+
+    $ordersData = [];
+    foreach ($rows as $row) {
+        $ordersData[] = admin_normalize_order_row($row);
+    }
+    $nextCursor = null;
+    if ($hasMore && !empty($ordersData)) {
+        $last = $ordersData[count($ordersData) - 1];
+        $nextCursor = admin_encode_cursor((string)($last['createdAt'] ?? ''), (string)($last['id'] ?? ''));
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $ordersData,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "hasMore" => $hasMore,
+            "nextCursor" => $nextCursor
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_order_detail') {
+    require_admin_access($requestAuthUser);
+    $orderId = trim((string)($_GET['id'] ?? $_GET['orderId'] ?? ''));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+    $orderFields = admin_order_select_fields($db);
+    $stmt = $db->prepare("SELECT {$orderFields} FROM orders WHERE id = ? LIMIT 1");
+    $stmt->execute([$orderId]);
+    $orderRow = $stmt->fetch();
+    if (!$orderRow) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+
+    $orderData = admin_normalize_order_row($orderRow);
+    $itemRows = safe_query_all($db, "SELECT id, product_id, product_name, product_slug, brand, category, variant_size, variant_color, quantity, unit_price, line_total, product_url, image_url, created_at FROM order_items WHERE order_id = ? ORDER BY id ASC", [$orderId]);
+    if (!empty($itemRows)) {
+        $orderData['items'] = array_map(function ($row) {
+            return [
+                'id' => (int)($row['id'] ?? 0),
+                'productId' => (string)($row['product_id'] ?? ''),
+                'productName' => (string)($row['product_name'] ?? ''),
+                'productSlug' => (string)($row['product_slug'] ?? ''),
+                'brand' => (string)($row['brand'] ?? ''),
+                'category' => (string)($row['category'] ?? ''),
+                'size' => (string)($row['variant_size'] ?? ''),
+                'color' => (string)($row['variant_color'] ?? ''),
+                'quantity' => (int)($row['quantity'] ?? 0),
+                'unitPrice' => (float)($row['unit_price'] ?? 0),
+                'lineTotal' => (float)($row['line_total'] ?? 0),
+                'productUrl' => (string)($row['product_url'] ?? ''),
+                'imageUrl' => (string)($row['image_url'] ?? ''),
+                'createdAt' => (string)($row['created_at'] ?? '')
+            ];
+        }, $itemRows);
+        $orderData['itemCount'] = array_sum(array_map(function ($item) {
+            return (int)($item['quantity'] ?? 0);
+        }, $orderData['items']));
+    }
+
+    $timelineRows = safe_query_all($db, "SELECT id, from_status, to_status, note, changed_by, changed_by_role, ip_address, created_at FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC, id ASC", [$orderId]);
+    $paymentsRows = safe_query_all($db, "SELECT id, payment_method, provider, transaction_ref, amount, currency, status, created_at, updated_at FROM payments WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
+    $shipmentsRows = safe_query_all($db, "SELECT id, carrier, tracking_number, status, shipped_at, delivered_at, created_at, updated_at FROM shipments WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
+    $refundRows = safe_query_all($db, "SELECT id, amount, reason, status, created_by, created_at, updated_at FROM refunds WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
+    $cancelRows = safe_query_all($db, "SELECT id, reason, status, created_by, created_at, updated_at FROM cancellations WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
+
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            "order" => $orderData,
+            "timeline" => $timelineRows,
+            "payments" => $paymentsRows,
+            "shipments" => $shipmentsRows,
+            "refunds" => $refundRows,
+            "cancellations" => $cancelRows
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_order_timeline') {
+    require_admin_access($requestAuthUser);
+    $orderId = trim((string)($_GET['id'] ?? $_GET['orderId'] ?? ''));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+    $rows = safe_query_all($db, "SELECT id, from_status, to_status, note, changed_by, changed_by_role, ip_address, created_at FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC, id ASC", [$orderId]);
+    echo json_encode(["status" => "success", "data" => $rows]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_order_status') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
+    $nextStatus = admin_normalize_order_status($input['status'] ?? '');
+    $note = trim((string)($input['note'] ?? ''));
+    if ($orderId === '' || $nextStatus === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_AND_STATUS_REQUIRED"]);
+        exit;
+    }
+    $stmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
+    $stmt->execute([$orderId]);
+    $order = $stmt->fetch();
+    if (!$order) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+    $db->beginTransaction();
+    try {
+        $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+        $update->execute([$nextStatus, $orderId]);
+        admin_write_order_status_history($db, $orderId, (string)($order['status'] ?? ''), $nextStatus, $note !== '' ? $note : 'Updated from admin panel', $requestAuthUser);
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('admin.order.status', $e, ['order_id' => $orderId, 'status' => $nextStatus]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "ORDER_STATUS_UPDATE_FAILED"]);
+        exit;
+    }
+    log_audit_event(
+        $db,
+        (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key'),
+        'ORDER_STATUS_UPDATED',
+        'ORDER',
+        $orderId,
+        ['status' => (string)($order['status'] ?? '')],
+        ['status' => $nextStatus, 'note' => $note],
+        $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+    );
+    echo json_encode(["status" => "success", "message" => "ORDER_STATUS_UPDATED"]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_order_cancel') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
+    $reason = trim((string)($input['reason'] ?? 'Cancelled by admin'));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+    $orderStmt = $db->prepare("SELECT id, user_id, status FROM orders WHERE id = ? LIMIT 1");
+    $orderStmt->execute([$orderId]);
+    $order = $orderStmt->fetch();
+    if (!$order) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+    $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+    $db->beginTransaction();
+    try {
+        $insert = $db->prepare("INSERT INTO cancellations (order_id, user_id, reason, status, created_by) VALUES (?, ?, ?, ?, ?)");
+        $insert->execute([$orderId, (string)($order['user_id'] ?? ''), $reason, 'CONFIRMED', $actor]);
+        $update = $db->prepare("UPDATE orders SET status = 'Cancelled', updated_at = NOW() WHERE id = ?");
+        $update->execute([$orderId]);
+        admin_write_order_status_history($db, $orderId, (string)($order['status'] ?? ''), 'Cancelled', $reason, $requestAuthUser);
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('admin.order.cancel', $e, ['order_id' => $orderId]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "ORDER_CANCEL_FAILED"]);
+        exit;
+    }
+    log_audit_event($db, $actor, 'ORDER_CANCELLED', 'ORDER', $orderId, ['status' => (string)($order['status'] ?? '')], ['status' => 'Cancelled', 'reason' => $reason], $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
+    echo json_encode(["status" => "success", "message" => "ORDER_CANCELLED"]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_order_refund') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+    $reason = trim((string)($input['reason'] ?? 'Refund processed by admin'));
+    $amountInput = $input['amount'] ?? null;
+    $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+
+    $orderStmt = $db->prepare("SELECT id, user_id, total, status FROM orders WHERE id = ? LIMIT 1");
+    $orderStmt->execute([$orderId]);
+    $order = $orderStmt->fetch();
+    if (!$order) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+    $amount = $amountInput !== null ? (float)$amountInput : (float)($order['total'] ?? 0);
+    if ($amount < 0) $amount = 0;
+
+    $db->beginTransaction();
+    try {
+        $insert = $db->prepare("INSERT INTO refunds (order_id, user_id, amount, reason, status, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+        $insert->execute([$orderId, (string)($order['user_id'] ?? ''), $amount, $reason, 'APPROVED', $actor]);
+        admin_write_order_status_history($db, $orderId, (string)($order['status'] ?? ''), admin_normalize_order_status((string)($order['status'] ?? '')), 'Refund approved: BDT ' . number_format($amount, 2), $requestAuthUser);
+        $db->commit();
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('admin.order.refund', $e, ['order_id' => $orderId]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "ORDER_REFUND_FAILED"]);
+        exit;
+    }
+    log_audit_event($db, $actor, 'ORDER_REFUNDED', 'ORDER', $orderId, null, ['amount' => $amount, 'reason' => $reason], $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
+    echo json_encode([
+        "status" => "success",
+        "message" => "ORDER_REFUND_RECORDED",
+        "data" => [
+            "orderId" => $orderId,
+            "amount" => $amount
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_reports_summary') {
+    require_admin_access($requestAuthUser);
+    $range = strtoupper(trim((string)($_GET['range'] ?? 'MONTH')));
+    $rangeWhere = '';
+    if ($range === 'TODAY') {
+        $rangeWhere = " AND o.created_at >= DATE(NOW())";
+    } elseif ($range === 'WEEK') {
+        $rangeWhere = " AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+    } elseif ($range === 'MONTH') {
+        $rangeWhere = " AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+    }
+
+    $ordersScope = "WHERE 1=1";
+    if (column_exists($db, 'orders', 'deleted_at')) {
+        $ordersScope .= " AND o.deleted_at IS NULL";
+    }
+    $summaryRow = $db->query(
+        "SELECT
+            COUNT(*) AS total_orders,
+            COALESCE(SUM(o.total), 0) AS gross_sales,
+            COALESCE(SUM(CASE WHEN UPPER(o.status) IN ('CANCELLED','CANCELED') THEN 1 ELSE 0 END), 0) AS cancelled_orders
+         FROM orders o {$ordersScope}{$rangeWhere}"
+    )->fetch();
+
+    $usersCreated = $db->query("SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn();
+    $subsCreated = $db->query("SELECT COUNT(*) FROM subscriptions WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn();
+    $refundAmount = $db->query("SELECT COALESCE(SUM(amount), 0) FROM refunds WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn();
+
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            "range" => strtolower($range),
+            "totalOrders" => (int)($summaryRow['total_orders'] ?? 0),
+            "grossSales" => (float)($summaryRow['gross_sales'] ?? 0),
+            "cancelledOrders" => (int)($summaryRow['cancelled_orders'] ?? 0),
+            "newUsers30d" => (int)$usersCreated,
+            "newSubscribers30d" => (int)$subsCreated,
+            "refundAmount30d" => (float)$refundAmount
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_reports_top_products') {
+    require_admin_access($requestAuthUser);
+    $limit = max(1, min(100, (int)($_GET['limit'] ?? 20)));
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            COALESCE(NULLIF(oi.product_name, ''), 'Product') AS product_name,
+            COALESCE(NULLIF(oi.product_id, ''), '') AS product_id,
+            COALESCE(SUM(oi.quantity), 0) AS total_qty,
+            COALESCE(SUM(oi.line_total), 0) AS total_sales,
+            MAX(oi.image_url) AS image_url
+         FROM order_items oi
+         GROUP BY COALESCE(NULLIF(oi.product_id, ''), oi.product_name), COALESCE(NULLIF(oi.product_name, ''), 'Product')
+         ORDER BY total_sales DESC, total_qty DESC
+         LIMIT {$limit}"
+    );
+    echo json_encode(["status" => "success", "data" => $rows]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_reports_top_customers') {
+    require_admin_access($requestAuthUser);
+    $limit = max(1, min(100, (int)($_GET['limit'] ?? 20)));
+    $ordersScope = "";
+    if (column_exists($db, 'orders', 'deleted_at')) {
+        $ordersScope = "WHERE o.deleted_at IS NULL";
+    }
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            COALESCE(NULLIF(o.user_id, ''), CONCAT('email:', LOWER(o.customer_email))) AS customer_key,
+            MAX(o.customer_name) AS customer_name,
+            LOWER(MAX(o.customer_email)) AS customer_email,
+            MAX(o.phone) AS phone,
+            COUNT(*) AS total_orders,
+            COALESCE(SUM(o.total), 0) AS total_spent,
+            MAX(o.created_at) AS last_order_at
+         FROM orders o
+         {$ordersScope}
+         GROUP BY COALESCE(NULLIF(o.user_id, ''), CONCAT('email:', LOWER(o.customer_email)))
+         ORDER BY total_spent DESC, total_orders DESC
+         LIMIT {$limit}"
+    );
+    echo json_encode(["status" => "success", "data" => $rows]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_reports_cancellations') {
+    require_admin_access($requestAuthUser);
+    $limit = max(1, min(200, (int)($_GET['limit'] ?? 50)));
+    $rows = safe_query_all(
+        $db,
+        "SELECT c.id, c.order_id, c.user_id, c.reason, c.status, c.created_by, c.created_at, o.customer_name, o.customer_email, o.total
+         FROM cancellations c
+         LEFT JOIN orders o ON o.id = c.order_id
+         ORDER BY c.created_at DESC
+         LIMIT {$limit}"
+    );
+    echo json_encode(["status" => "success", "data" => $rows]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_reports_refunds') {
+    require_admin_access($requestAuthUser);
+    $limit = max(1, min(200, (int)($_GET['limit'] ?? 50)));
+    $rows = safe_query_all(
+        $db,
+        "SELECT r.id, r.order_id, r.user_id, r.amount, r.reason, r.status, r.created_by, r.created_at, o.customer_name, o.customer_email, o.total
+         FROM refunds r
+         LEFT JOIN orders o ON o.id = r.order_id
+         ORDER BY r.created_at DESC
+         LIMIT {$limit}"
+    );
+    echo json_encode(["status" => "success", "data" => $rows]);
     exit;
 }
 
@@ -4236,6 +7652,7 @@ if ($method === 'POST' && $action === 'create_order') {
     try {
         splaro_integration_trace('order.db.insert.begin', ['order_id' => $orderId]);
         $db->beginTransaction();
+        $initialStatus = admin_normalize_order_status($input['status'] ?? 'Pending');
         $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $orderId,
@@ -4248,12 +7665,45 @@ if ($method === 'POST' && $action === 'create_order') {
             $input['address'],
             $orderItemsJson,
             $input['total'],
-            $input['status'] ?? 'Pending',
+            $initialStatus,
             $input['customerComment'] ?? null,
             isset($input['shippingFee']) ? (int)$input['shippingFee'] : null,
             isset($input['discountAmount']) ? (int)$input['discountAmount'] : 0,
             $input['discountCode'] ?? null
         ]);
+
+        $parsedItems = invoice_parse_items($input['items'] ?? []);
+        if (!empty($parsedItems)) {
+            $itemInsert = $db->prepare("INSERT INTO order_items (order_id, product_id, product_name, product_slug, brand, category, variant_size, variant_color, quantity, unit_price, line_total, product_url, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            foreach ($parsedItems as $index => $item) {
+                $rawItem = isset($input['items'][$index]) && is_array($input['items'][$index]) ? $input['items'][$index] : [];
+                $rawProduct = isset($rawItem['product']) && is_array($rawItem['product']) ? $rawItem['product'] : [];
+                $itemInsert->execute([
+                    $orderId,
+                    (string)($rawProduct['id'] ?? ''),
+                    (string)($item['name'] ?? 'Product'),
+                    (string)($rawProduct['productSlug'] ?? $rawProduct['slug'] ?? ''),
+                    (string)($rawProduct['brand'] ?? ''),
+                    (string)($rawProduct['category'] ?? ''),
+                    (string)($item['size'] ?? ''),
+                    (string)($item['color'] ?? ''),
+                    (int)($item['quantity'] ?? 1),
+                    (float)($item['unitPrice'] ?? 0),
+                    (float)($item['lineTotal'] ?? 0),
+                    (string)($item['productUrl'] ?? ''),
+                    (string)($item['imageUrl'] ?? '')
+                ]);
+            }
+        }
+
+        admin_write_order_status_history(
+            $db,
+            $orderId,
+            null,
+            $initialStatus,
+            'Order created via checkout',
+            $requestAuthUser
+        );
         $db->commit();
         splaro_integration_trace('order.db.insert.committed', ['order_id' => $orderId]);
     } catch (Exception $e) {
@@ -4351,6 +7801,26 @@ if ($method === 'POST' && $action === 'create_order') {
         'queued' => (bool)$telegramOrderQueued
     ], $telegramOrderQueued ? 'INFO' : 'ERROR');
 
+    $pushOrderResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    try {
+        $pushOrderResult = queue_order_created_notification(
+            $db,
+            (string)$orderId,
+            (string)($resolvedUserId ?? ''),
+            (int)($input['total'] ?? 0)
+        );
+        splaro_integration_trace('order.integration.push_queue_result', [
+            'order_id' => (string)$orderId,
+            'notification_id' => (int)($pushOrderResult['notification_id'] ?? 0),
+            'subscriptions' => (int)($pushOrderResult['subscription_count'] ?? 0),
+            'queued_jobs' => (int)($pushOrderResult['queued_jobs'] ?? 0)
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('order.integration.push_queue', $e, [
+            'order_id' => (string)$orderId
+        ], 'WARNING');
+    }
+
     // CONSTRUCT LUXURY HTML INVOICE
     $items_html = '';
     foreach (($input['items'] ?? []) as $item) {
@@ -4447,7 +7917,11 @@ if ($method === 'POST' && $action === 'create_order') {
         "email" => ["admin" => $adminMail, "customer" => $customerMail],
         "integrations" => [
             "sheets" => ["queued" => (bool)$orderSyncQueued],
-            "telegram" => ["queued" => (bool)$telegramOrderQueued]
+            "telegram" => ["queued" => (bool)$telegramOrderQueued],
+            "push" => [
+                "notification_id" => (int)($pushOrderResult['notification_id'] ?? 0),
+                "queued_jobs" => (int)($pushOrderResult['queued_jobs'] ?? 0)
+            ]
         ]
     ]);
     exit;
@@ -4520,10 +7994,30 @@ if ($method === 'POST' && $action === 'update_order_status') {
             'queued' => (bool)$telegramStatusQueued
         ], $telegramStatusQueued ? 'INFO' : 'ERROR');
 
+        $pushStatusResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+        try {
+            $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
+            splaro_integration_trace('order.status_update.push_queue_result', [
+                'order_id' => (string)$orderId,
+                'status' => (string)$statusLabel,
+                'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
+                'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
+            ]);
+        } catch (Exception $e) {
+            splaro_log_exception('order.status_update.push_queue', $e, [
+                'order_id' => (string)$orderId,
+                'status' => (string)$statusLabel
+            ], 'WARNING');
+        }
+
         echo json_encode([
             "status" => "success",
             "message" => "STATUS_SYNCHRONIZED",
-            "telegram" => ["queued" => (bool)$telegramStatusQueued]
+            "telegram" => ["queued" => (bool)$telegramStatusQueued],
+            "push" => [
+                "notification_id" => (int)($pushStatusResult['notification_id'] ?? 0),
+                "queued_jobs" => (int)($pushStatusResult['queued_jobs'] ?? 0)
+            ]
         ]);
         exit;
     } catch (Exception $e) {
@@ -5271,6 +8765,20 @@ Phone: " . $phone;
         'queued' => (bool)$telegramSignupQueued
     ], $telegramSignupQueued ? 'INFO' : 'ERROR');
 
+    $pushSignupResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    try {
+        $pushSignupResult = queue_signup_notification($db, (string)$id, (string)$name);
+        splaro_integration_trace('signup.integration.push_queue_result', [
+            'user_id' => (string)$id,
+            'notification_id' => (int)($pushSignupResult['notification_id'] ?? 0),
+            'queued_jobs' => (int)($pushSignupResult['queued_jobs'] ?? 0)
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('signup.integration.push_queue', $e, [
+            'user_id' => (string)$id
+        ], 'WARNING');
+    }
+
     $csrfToken = refresh_csrf_token();
     echo json_encode([
         "status" => "success",
@@ -5280,7 +8788,11 @@ Phone: " . $phone;
         "email" => ["admin" => $adminMail, "welcome" => $welcomeMail],
         "integrations" => [
             "sheets" => ["queued" => (bool)$signupSyncQueued],
-            "telegram" => ["queued" => (bool)$telegramSignupQueued]
+            "telegram" => ["queued" => (bool)$telegramSignupQueued],
+            "push" => [
+                "notification_id" => (int)($pushSignupResult['notification_id'] ?? 0),
+                "queued_jobs" => (int)($pushSignupResult['queued_jobs'] ?? 0)
+            ]
         ]
     ]);
     exit;
@@ -6431,11 +9943,22 @@ if ($method === 'POST' && $action === 'initialize_sheets') {
 
 if ($method === 'GET' && $action === 'sync_queue_status') {
     require_admin_access($requestAuthUser);
+    $activePushSubscriptions = 0;
+    try {
+        $activePushSubscriptions = (int)$db->query("SELECT COUNT(*) FROM push_subscriptions WHERE is_active = 1")->fetchColumn();
+    } catch (Exception $e) {
+        splaro_log_exception('queue.status.push_active_count', $e, [], 'WARNING');
+    }
     echo json_encode([
         "status" => "success",
         "queue" => [
             "telegram" => get_telegram_queue_summary($db),
+            "push" => get_push_queue_summary($db),
             "sheets" => get_sync_queue_summary($db)
+        ],
+        "push" => [
+            "enabled" => PUSH_ENABLED,
+            "active_subscriptions" => (int)$activePushSubscriptions
         ]
     ]);
     exit;
@@ -6461,17 +9984,25 @@ if ($method === 'POST' && $action === 'process_sync_queue') {
     $telegramLimit = (int)($payload['telegram_limit'] ?? $limit);
     if ($telegramLimit < 1) $telegramLimit = 1;
     if ($telegramLimit > 100) $telegramLimit = 100;
+    $pushLimit = (int)($payload['push_limit'] ?? $limit);
+    if ($pushLimit < 1) $pushLimit = 1;
+    if ($pushLimit > 200) $pushLimit = 200;
 
+    $campaignResult = process_due_campaigns($db, 5);
     $telegramResult = process_telegram_queue($db, $telegramLimit);
+    $pushResult = process_push_queue($db, $pushLimit);
     $sheetsResult = process_sync_queue($db, $limit, $force);
     echo json_encode([
         "status" => "success",
         "result" => [
+            "campaigns" => $campaignResult,
             "telegram" => $telegramResult,
+            "push" => $pushResult,
             "sheets" => $sheetsResult
         ],
         "queue" => [
             "telegram" => get_telegram_queue_summary($db),
+            "push" => get_push_queue_summary($db),
             "sheets" => get_sync_queue_summary($db)
         ]
     ]);
@@ -7331,7 +10862,7 @@ function process_sync_queue($db, $limit = 20, $force = false) {
     }
 
     try {
-        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE sync_type NOT LIKE 'TELEGRAM_%' AND status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
+        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE sync_type NOT LIKE 'TELEGRAM_%' AND sync_type NOT LIKE 'PUSH_%' AND status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
         $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->execute();
         $jobs = $stmt->fetchAll();
@@ -7499,6 +11030,12 @@ function schedule_sync_queue_drain($db) {
         } catch (Exception $e) {
             splaro_log_exception('sheets.queue.shutdown.fastcgi_finish_request', $e);
         }
+        splaro_integration_trace('campaign.queue.shutdown.drain_start', ['limit' => 3]);
+        $campaignResult = process_due_campaigns($db, 3);
+        splaro_integration_trace('campaign.queue.shutdown.drain_done', $campaignResult);
+        splaro_integration_trace('push.queue.shutdown.drain_start', ['limit' => 10]);
+        $pushDrainResult = process_push_queue($db, 10);
+        splaro_integration_trace('push.queue.shutdown.drain_done', $pushDrainResult);
         splaro_integration_trace('telegram.queue.shutdown.drain_start', ['limit' => 10]);
         $telegramDrainResult = process_telegram_queue($db, 10);
         splaro_integration_trace('telegram.queue.shutdown.drain_done', $telegramDrainResult);

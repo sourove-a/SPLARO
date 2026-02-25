@@ -9,6 +9,7 @@ import {
 import { useApp } from '../store';
 import { View } from '../types';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { NotificationBell } from './NotificationBell';
 
 export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string }) => {
   const { siteSettings } = useApp();
@@ -336,6 +337,7 @@ export const Navbar: React.FC = () => {
         <div className="flex-1 flex justify-end items-center gap-8">
           {/* Desktop Right Links */}
           <div className="hidden lg:flex items-center gap-6 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[24px] border border-white/5 shadow-xl pointer-events-auto">
+            {user && <NotificationBell />}
             {rightItems.map((item) => {
               const isActive = getIsActive(item);
               return item.label === 'IDENTITY' ? (
@@ -384,6 +386,12 @@ export const Navbar: React.FC = () => {
               );
             })}
           </div>
+
+          {user && (
+            <div className="lg:hidden">
+              <NotificationBell mobile />
+            </div>
+          )}
 
           <button
             type="button"

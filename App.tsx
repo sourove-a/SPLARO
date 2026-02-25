@@ -18,6 +18,7 @@ import { CartPage } from './components/CartPage';
 import { CheckoutPage } from './components/CheckoutPage';
 import { ProductCard } from './components/ProductCard';
 import { PrimaryButton, GlassCard } from './components/LiquidGlass';
+import { SubscriptionPrompt } from './components/SubscriptionPrompt';
 import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
 import {
   AdminCampaignsPage,
@@ -768,6 +769,8 @@ const AppContent = () => {
           </Routes>
         </main>
       )}
+
+      <SubscriptionPrompt />
 
       {/* Global Controls & Redesigned WhatsApp Orb */}
       {view !== View.ORDER_SUCCESS && (

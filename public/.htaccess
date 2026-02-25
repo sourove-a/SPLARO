@@ -2,10 +2,15 @@ AddType image/svg+xml .svg
 AddType image/x-icon .ico
 AddType application/manifest+json .webmanifest
 
+DirectoryIndex index.php index.html
+
+<IfModule mod_authz_core.c>
+  Require all granted
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  DirectoryIndex index.php index.html
 
   # Force HTTPS Handshake
   RewriteCond %{HTTPS} off

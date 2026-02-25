@@ -19,6 +19,7 @@ import {
 import { useApp } from '../store';
 import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant } from '../types';
 import { buildProductRoute, resolveUniqueSlug, slugifyValue } from '../lib/productRoute';
+import { CampaignForm } from './CampaignForm';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
@@ -3494,38 +3495,7 @@ export const AdminPanel = () => {
                   <Plus className="w-4 h-4 mr-2" /> CREATE CAMPAIGN
                 </PrimaryButton>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <GlassCard className="p-10 border-blue-500/20">
-                  <div className="flex justify-between items-start mb-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-blue-600 flex items-center justify-center text-white shadow-xl">
-                      <Zap className="w-8 h-8" />
-                    </div>
-                    <span className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-full text-[9px] font-black uppercase">Live</span>
-                  </div>
-                  <h4 className="text-2xl font-black uppercase italic mb-4">Campaign flow</h4>
-                  <p className="text-[11px] text-zinc-500 font-medium leading-relaxed uppercase mb-10">Build, schedule, and send notifications with clear audience targeting.</p>
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    <span>Audience targeting</span>
-                    <button onClick={() => navigate('/admin/campaigns')} className="text-cyan-400 hover:text-cyan-300 transition-colors">OPEN</button>
-                  </div>
-                </GlassCard>
-
-                <GlassCard className="p-10 opacity-60">
-                  <div className="flex justify-between items-start mb-10">
-                    <div className="w-16 h-16 rounded-[24px] bg-zinc-800 flex items-center justify-center text-zinc-500">
-                      <Search className="w-8 h-8" />
-                    </div>
-                    <span className="px-4 py-2 bg-zinc-800 text-zinc-600 rounded-full text-[9px] font-black uppercase">Ready</span>
-                  </div>
-                  <h4 className="text-2xl font-black uppercase italic mb-4">Search everything</h4>
-                  <p className="text-[11px] text-zinc-500 font-medium leading-relaxed uppercase mb-10">Find users, orders, and campaigns from one screen.</p>
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    <span>Fast lookup</span>
-                    <button onClick={() => navigate('/admin/search')} className="text-blue-400 hover:text-blue-300 transition-colors">OPEN</button>
-                  </div>
-                </GlassCard>
-              </div>
+              <CampaignForm />
             </motion.div>
           )}
 

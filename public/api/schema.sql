@@ -136,5 +136,75 @@ CREATE TABLE IF NOT EXISTS `traffic_metrics` (
   UNIQUE KEY `session_id` (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 7. WEB PUSH SUBSCRIPTIONS
+CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) DEFAULT NULL,
+  `endpoint` text NOT NULL,
+  `endpoint_hash` char(64) NOT NULL,
+  `p256dh` text NOT NULL,
+  `auth` varchar(255) NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `failure_count` int(11) NOT NULL DEFAULT 0,
+  `last_http_code` int(11) DEFAULT NULL,
+  `last_error` text DEFAULT NULL,
+  `last_failure_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_push_subscriptions_endpoint_hash` (`endpoint_hash`),
+  KEY `idx_push_subscriptions_user_active` (`user_id`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 8. IN-APP NOTIFICATIONS
+CREATE TABLE IF NOT EXISTS `notifications` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `title` varchar(191) NOT NULL,
+  `message` text NOT NULL,
+  `url` text DEFAULT NULL,
+  `type` varchar(30) NOT NULL DEFAULT 'system',
+  `campaign_id` bigint(20) unsigned DEFAULT NULL,
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `read_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_notifications_user_created` (`user_id`, `created_at`),
+  KEY `idx_notifications_user_read_created` (`user_id`, `is_read`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 9. CAMPAIGNS
+CREATE TABLE IF NOT EXISTS `campaigns` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(191) NOT NULL,
+  `message` text NOT NULL,
+  `image_url` text DEFAULT NULL,
+  `target_type` varchar(60) NOT NULL,
+  `filters_json` longtext DEFAULT NULL,
+  `scheduled_at` datetime DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'draft',
+  `created_by` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_campaigns_status_scheduled` (`status`, `scheduled_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 10. CAMPAIGN DELIVERY LOGS
+CREATE TABLE IF NOT EXISTS `campaign_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `campaign_id` bigint(20) unsigned NOT NULL,
+  `subscription_id` bigint(20) unsigned DEFAULT NULL,
+  `status` varchar(20) NOT NULL,
+  `error_message` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `clicked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_campaign_logs_campaign_status_sent` (`campaign_id`, `status`, `sent_at`),
+  KEY `idx_campaign_logs_subscription_created` (`subscription_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- INITIALIZE SETTINGS & ADMIN
 INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co');

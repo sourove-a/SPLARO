@@ -153,7 +153,7 @@ export const ProductImageZoom: React.FC<ProductImageZoomProps> = ({
       touchStartRef.current = { x: t.clientX, y: t.clientY };
       movedRef.current = false;
     }
-  }, [onTouchStart]);
+  }, []);
 
   const handleTouchMoveInternal = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (event.touches.length === 2) {

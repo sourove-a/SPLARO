@@ -350,7 +350,7 @@ function apply_cors_headers() {
 
     header('Vary: Origin');
     header("Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Key, X-Requested-With");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Key, X-Requested-With, X-CSRF-Token");
     header("Access-Control-Max-Age: 600");
     header("Content-Type: application/json");
 
@@ -587,6 +587,14 @@ define('GOOGLE_SHEETS_WEBHOOK_SECRET', env_or_default('GOOGLE_SHEETS_WEBHOOK_SEC
 define('GOOGLE_SHEETS_MAX_RETRIES', (int)env_or_default('GOOGLE_SHEETS_MAX_RETRIES', 5));
 define('GOOGLE_SHEETS_TIMEOUT_SECONDS', (int)env_or_default('GOOGLE_SHEETS_TIMEOUT_SECONDS', 5));
 define('GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS', (int)env_or_default('GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS', 600));
+
+// 5. WEB PUSH (VAPID)
+define('PUSH_VAPID_PUBLIC_KEY', trim((string)env_first(['PUSH_VAPID_PUBLIC_KEY', 'VAPID_PUBLIC_KEY'], '')));
+define('PUSH_VAPID_PRIVATE_KEY', trim((string)env_first(['PUSH_VAPID_PRIVATE_KEY', 'VAPID_PRIVATE_KEY'], '')));
+define('PUSH_VAPID_SUBJECT', trim((string)env_first(['PUSH_VAPID_SUBJECT', 'VAPID_SUBJECT'], 'mailto:info@splaro.co')));
+define('PUSH_MAX_RETRIES', splaro_env_int('PUSH_MAX_RETRIES', 3, 1, 3));
+define('PUSH_BATCH_LIMIT', splaro_env_int('PUSH_BATCH_LIMIT', 25, 1, 200));
+define('PUSH_ENABLED', PUSH_VAPID_PUBLIC_KEY !== '' && PUSH_VAPID_PRIVATE_KEY !== '');
 
 /**
  * Establish Security Handshake with MySQL Database
