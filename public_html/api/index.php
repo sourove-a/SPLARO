@@ -719,11 +719,27 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
             $targetCandidates[] = $configuredRoot;
         }
 
+        // Candidate 1: common subfolder root when subdomain points to /splaro.co/public_html/admin
+        $targetCandidates[] = $webRoot . '/admin';
+
         $domainsRoot = splaro_normalize_path_string(dirname(dirname($webRoot)));
         if ($domainsRoot !== '') {
             $targetCandidates[] = $domainsRoot . '/admin.splaro.co/public_html';
+            $targetCandidates[] = $domainsRoot . '/admin.splaro.co';
+            $targetCandidates[] = $domainsRoot . '/splaro.co/public_html/admin';
         }
+
+        $accountHome = splaro_normalize_path_string(dirname($domainsRoot));
+        if ($accountHome !== '') {
+            $targetCandidates[] = $accountHome . '/public_html/admin';
+            $targetCandidates[] = $accountHome . '/public_html';
+        }
+
         $targetCandidates[] = '/home/u134578371/domains/admin.splaro.co/public_html';
+        $targetCandidates[] = '/home/u134578371/domains/admin.splaro.co';
+        $targetCandidates[] = '/home/u134578371/domains/splaro.co/public_html/admin';
+        $targetCandidates[] = '/home/u134578371/public_html/admin';
+        $targetCandidates[] = '/home/u134578371/public_html';
 
         $targetsTouched = 0;
         $targetsAttempted = 0;
