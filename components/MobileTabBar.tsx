@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Home, Search, ShoppingBag, User } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
+import { isAdminRole } from '../lib/roles';
 
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -11,12 +12,13 @@ export const MobileTabBar: React.FC = () => {
   const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const hasAdminAccess = isAdminRole(user?.role);
 
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },
     { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
     { icon: Search, view: View.SHOP, label: 'DISCOVER' },
-    { icon: User, view: user ? View.USER_DASHBOARD : View.SIGNUP, label: user ? 'IDENTITY' : 'SIGNUP' }
+    { icon: User, view: user ? (hasAdminAccess ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, label: user ? 'IDENTITY' : 'SIGNUP' }
   ];
 
   const getIsActive = (item: any) => {
@@ -34,8 +36,8 @@ export const MobileTabBar: React.FC = () => {
 
     if (item.view === View.CART) return view === View.CART || view === View.CHECKOUT;
 
-    if (item.view === View.USER_DASHBOARD || item.view === View.LOGIN || item.view === View.SIGNUP) {
-      return view === View.USER_DASHBOARD || view === View.LOGIN || view === View.SIGNUP;
+    if (item.view === View.USER_DASHBOARD || item.view === View.ADMIN_DASHBOARD || item.view === View.LOGIN || item.view === View.SIGNUP) {
+      return view === View.USER_DASHBOARD || view === View.ADMIN_DASHBOARD || view === View.LOGIN || view === View.SIGNUP;
     }
 
     return isBaseViewActive;
@@ -86,7 +88,9 @@ export const MobileTabBar: React.FC = () => {
                   }
                   setIsSearchOpen(false);
                   const path =
-                    item.view === View.USER_DASHBOARD
+                    item.view === View.ADMIN_DASHBOARD
+                      ? '/admin_dashboard'
+                      : item.view === View.USER_DASHBOARD
                       ? '/user_dashboard'
                       : item.view === View.SIGNUP
                         ? '/signup'

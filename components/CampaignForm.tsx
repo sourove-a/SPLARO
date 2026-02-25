@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCcw, Send, Clock3, Eye } from 'lucide-react';
 import { useApp } from '../store';
+import { canWriteCms } from '../lib/roles';
 
 type CampaignRow = {
   id: number;
@@ -58,8 +59,7 @@ function parseFilters(raw: string): Record<string, any> {
 
 export const CampaignForm: React.FC = () => {
   const { user } = useApp();
-  const role = String(user?.role || '').toUpperCase();
-  const canWrite = role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'EDITOR';
+  const canWrite = canWriteCms(user?.role);
 
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');

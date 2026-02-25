@@ -1544,7 +1544,7 @@ function ensure_core_schema($db) {
     ensure_column($db, 'users', 'two_factor_secret', 'varchar(128) DEFAULT NULL');
     ensure_column($db, 'users', 'notification_email', 'tinyint(1) NOT NULL DEFAULT 1');
     ensure_column($db, 'users', 'notification_sms', 'tinyint(1) NOT NULL DEFAULT 0');
-    ensure_column($db, 'users', 'preferred_language', 'varchar(8) DEFAULT \"EN\"');
+    ensure_column($db, 'users', 'preferred_language', "varchar(8) DEFAULT 'EN'");
     ensure_column($db, 'users', 'default_shipping_address', 'text DEFAULT NULL');
     ensure_column($db, 'users', 'is_blocked', 'tinyint(1) NOT NULL DEFAULT 0');
     ensure_column($db, 'users', 'email_verified', 'tinyint(1) NOT NULL DEFAULT 0');

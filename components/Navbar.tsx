@@ -10,6 +10,7 @@ import { useApp } from '../store';
 import { View } from '../types';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
+import { isAdminRole } from '../lib/roles';
 
 export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string }) => {
   const { siteSettings } = useApp();
@@ -229,9 +230,11 @@ export const Navbar: React.FC = () => {
     { label: 'BAGS', view: View.SHOP, category: 'Bags', icon: Briefcase },
   ];
 
+  const hasAdminAccess = isAdminRole(user?.role);
+
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
-    { label: user ? 'IDENTITY' : 'SIGNUP', view: user ? (user.role === 'ADMIN' ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, icon: UserIcon },
+    { label: user ? 'IDENTITY' : 'SIGNUP', view: user ? (hasAdminAccess ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
 
@@ -242,7 +245,7 @@ export const Navbar: React.FC = () => {
     { label: 'BAGS', view: View.SHOP, category: 'Bags', prefix: 'PROCEED TO' },
     { label: 'STORY', view: View.STORY, prefix: 'PROCEED TO' },
     { label: 'SUPPORT', view: View.SUPPORT, prefix: 'PROCEED TO' },
-    ...(user?.role === 'ADMIN'
+    ...(hasAdminAccess
       ? [{ label: 'ADMIN DASHBOARD', view: View.ADMIN_DASHBOARD, prefix: 'ACCESS PORTAL' }]
       : user
         ? [{ label: 'IDENTITY VAULT', view: View.USER_DASHBOARD, prefix: 'PROCEED TO' }]
@@ -347,7 +350,7 @@ export const Navbar: React.FC = () => {
                   type="button"
                   onClick={() => {
                     if (user) {
-                      navigate(user.role === 'ADMIN' ? '/admin_dashboard' : '/user_dashboard');
+                      navigate(isAdminRole(user.role) ? '/admin_dashboard' : '/user_dashboard');
                     } else {
                       navigate('/login');
                     }

@@ -17,8 +17,9 @@ import {
 
 
 import { useApp } from '../store';
-import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant } from '../types';
+import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant, User } from '../types';
 import { buildProductRoute, resolveUniqueSlug, slugifyValue } from '../lib/productRoute';
+import { canWriteCms, canWriteProtocols, isAdminRole, normalizeRole } from '../lib/roles';
 import { CampaignForm } from './CampaignForm';
 import { SystemHealthPanel } from './SystemHealthPanel';
 
@@ -1126,7 +1127,7 @@ export const AdminPanel = () => {
   const [usersError, setUsersError] = useState('');
   const [usersPage, setUsersPage] = useState(1);
   const [usersPageSize] = useState(20);
-  const [userStatusFilter, setUserStatusFilter] = useState<'ALL' | 'ACTIVE' | 'BLOCKED' | 'ADMIN' | 'USER'>('ALL');
+  const [userStatusFilter, setUserStatusFilter] = useState<'ALL' | 'ACTIVE' | 'BLOCKED' | 'OWNER' | 'ADMIN' | 'USER'>('ALL');
   const [adminUsersMeta, setAdminUsersMeta] = useState<{ page: number; limit: number; hasMore: boolean; count: number | null }>({
     page: 1,
     limit: 20,
@@ -1155,11 +1156,23 @@ export const AdminPanel = () => {
   const [customerActivityLoading, setCustomerActivityLoading] = useState(false);
   const [customerNoteDraft, setCustomerNoteDraft] = useState('');
   const [customerNoteSaving, setCustomerNoteSaving] = useState(false);
+  const [adminProfileForm, setAdminProfileForm] = useState({
+    name: String(user?.name || ''),
+    phone: String(user?.phone || '')
+  });
+  const [adminProfileSaving, setAdminProfileSaving] = useState(false);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
     window.setTimeout(() => setToast(null), 2600);
   };
+
+  useEffect(() => {
+    setAdminProfileForm({
+      name: String(user?.name || ''),
+      phone: String(user?.phone || '')
+    });
+  }, [user?.id, user?.name, user?.phone]);
 
   const API_NODE = '/api/index.php';
   const getAuthHeaders = (json = false): Record<string, string> => {
@@ -1513,6 +1526,98 @@ export const AdminPanel = () => {
     }
   };
 
+  const isSelfUserRecord = (record: Partial<AdminUserRecord> | null | undefined): boolean => {
+    if (!record || !user) return false;
+    const recordId = String(record.id || '');
+    const recordEmail = String(record.email || '').toLowerCase();
+    const currentId = String(user.id || '');
+    const currentEmail = String(user.email || '').toLowerCase();
+    return (recordId !== '' && currentId !== '' && recordId === currentId) || (recordEmail !== '' && currentEmail !== '' && recordEmail === currentEmail);
+  };
+
+  const isOwnerUserRecord = (record: Partial<AdminUserRecord> | null | undefined): boolean => {
+    if (!record) return false;
+    const role = normalizeRole(record.role);
+    const email = String(record.email || '').toLowerCase();
+    return role === 'OWNER' || email === 'admin@splaro.co';
+  };
+
+  const handleAdminProfileSave = async () => {
+    const nextName = adminProfileForm.name.trim();
+    const nextPhone = adminProfileForm.phone.trim();
+    if (!nextName || !nextPhone) {
+      showToast('Name and phone are required.', 'error');
+      return;
+    }
+
+    setAdminProfileSaving(true);
+    try {
+      const res = await fetch(`${API_NODE}?action=update_profile`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          name: nextName,
+          phone: nextPhone
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Profile update failed.');
+      }
+
+      const updatedRaw = result?.user || {};
+      const nextRole = normalizeRole(updatedRaw.role || user?.role || 'USER') as User['role'];
+      const mergedUser: User = {
+        ...(user || {
+          id: String(updatedRaw.id || ''),
+          name: nextName,
+          email: String(updatedRaw.email || ''),
+          phone: nextPhone,
+          role: nextRole,
+          createdAt: String(updatedRaw.created_at || updatedRaw.createdAt || new Date().toISOString())
+        }),
+        ...updatedRaw,
+        name: String(updatedRaw.name || nextName),
+        phone: String(updatedRaw.phone || nextPhone),
+        role: nextRole,
+        profileImage: String(updatedRaw.profile_image || updatedRaw.profileImage || user?.profileImage || ''),
+        createdAt: String(updatedRaw.created_at || updatedRaw.createdAt || user?.createdAt || new Date().toISOString()),
+        defaultShippingAddress: String(updatedRaw.default_shipping_address ?? updatedRaw.defaultShippingAddress ?? user?.defaultShippingAddress ?? ''),
+      };
+      setUser(mergedUser);
+
+      if (typeof result?.token === 'string' && result.token.trim() !== '') {
+        localStorage.setItem('splaro-auth-token', result.token);
+      }
+      if (typeof result?.csrf_token === 'string' && result.csrf_token.trim() !== '') {
+        document.cookie = `splaro_csrf=${encodeURIComponent(result.csrf_token)}; path=/; max-age=86400; samesite=lax`;
+      }
+
+      setAdminUsers((prev) => prev.map((entry) => (
+        isSelfUserRecord(entry)
+          ? { ...entry, name: nextName, phone: nextPhone }
+          : entry
+      )));
+      setSelectedCustomerProfile((prev) => {
+        if (!prev || !isSelfUserRecord(prev.user)) return prev;
+        return {
+          ...prev,
+          user: {
+            ...prev.user,
+            name: nextName,
+            phone: nextPhone
+          }
+        };
+      });
+
+      showToast('Profile updated.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Profile update failed.', 'error');
+    } finally {
+      setAdminProfileSaving(false);
+    }
+  };
+
   const exportCustomerOrdersCsv = () => {
     if (!selectedCustomerProfile) return;
     const rows = (customerOrders.length > 0 ? customerOrders : selectedCustomerProfile.orders) || [];
@@ -1670,9 +1775,11 @@ export const AdminPanel = () => {
     }
   };
 
-  const adminRole = String(user?.role || 'ADMIN').toUpperCase();
-  const canManageCms = ['ADMIN', 'SUPER_ADMIN', 'EDITOR'].includes(adminRole);
-  const canManageProtocols = ['ADMIN', 'SUPER_ADMIN'].includes(adminRole);
+  const adminRole = normalizeRole(user?.role || 'ADMIN');
+  const canManageCms = canWriteCms(adminRole);
+  const canManageProtocols = canWriteProtocols(adminRole);
+  const adminProfileChanged = adminProfileForm.name.trim() !== String(user?.name || '').trim()
+    || adminProfileForm.phone.trim() !== String(user?.phone || '').trim();
 
   const updateThemeSettingsField = (path: string, value: any) => {
     const next = JSON.parse(JSON.stringify(siteSettings.cmsDraft));
@@ -1887,6 +1994,10 @@ export const AdminPanel = () => {
       hour12: true
     }).toUpperCase();
   };
+
+  const selectedCustomerIsSelf = selectedCustomerProfile ? isSelfUserRecord(selectedCustomerProfile.user) : false;
+  const selectedCustomerIsOwner = selectedCustomerProfile ? isOwnerUserRecord(selectedCustomerProfile.user) : false;
+  const selectedCustomerLocked = selectedCustomerIsSelf || selectedCustomerIsOwner;
 
   const filteredOrders = useMemo(() => {
     let result = orders;
@@ -2580,6 +2691,7 @@ export const AdminPanel = () => {
                       <option value="ALL">All users</option>
                       <option value="ACTIVE">Active</option>
                       <option value="BLOCKED">Blocked</option>
+                      <option value="OWNER">Owner</option>
                       <option value="ADMIN">Admin</option>
                       <option value="USER">User</option>
                     </select>
@@ -2611,6 +2723,9 @@ export const AdminPanel = () => {
                         const joinedAt = u.createdAt ? new Date(u.createdAt) : null;
                         const lastOrderAt = u.lastOrderAt ? new Date(u.lastOrderAt) : null;
                         const avatarLetter = (u.name || 'U').charAt(0).toUpperCase();
+                        const isSelf = isSelfUserRecord(u);
+                        const isOwner = isOwnerUserRecord(u);
+                        const isLockedIdentity = isSelf || isOwner;
                         return (<tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-6">
                             <div className="flex items-center gap-4">
@@ -2631,7 +2746,7 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-6">
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
                                 {u.role}
                               </span>
                               <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>
@@ -2664,19 +2779,22 @@ export const AdminPanel = () => {
                               </button>
                               <button
                                 onClick={() => toggleCustomerBlocked(u)}
+                                disabled={isLockedIdentity}
                                 className={`px-3 py-2 rounded-lg border text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                                   u.isBlocked
                                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
                                     : 'border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
-                                }`}
+                                } ${isLockedIdentity ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
                               >
-                                {u.isBlocked ? 'Unblock' : 'Block'}
+                                {isOwner ? 'Owner Locked' : isSelf ? 'Self Locked' : (u.isBlocked ? 'Unblock' : 'Block')}
                               </button>
                               <select
                                 value={u.role}
                                 onChange={(event) => updateCustomerRole(u, event.target.value as User['role'])}
-                                className="h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-cyan-400/60"
+                                disabled={isLockedIdentity}
+                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-cyan-400/60 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
                               >
+                                {u.role === 'OWNER' && <option value="OWNER">OWNER</option>}
                                 <option value="USER">USER</option>
                                 <option value="EDITOR">EDITOR</option>
                                 <option value="VIEWER">VIEWER</option>
@@ -2939,6 +3057,48 @@ export const AdminPanel = () => {
           {activeTab === 'SETTINGS' && (
             <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                <GlassCard className="p-10 xl:col-span-2">
+                  <div className="flex flex-wrap items-start justify-between gap-6">
+                    <div>
+                      <h3 className="text-2xl font-black uppercase italic tracking-tight text-white">Owner Profile</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mt-2">
+                        Update your personal name and phone for admin account
+                      </p>
+                    </div>
+                    <span className="px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em]">
+                      {adminRole}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
+                    <LuxuryFloatingInput
+                      label="Owner Name"
+                      value={adminProfileForm.name}
+                      onChange={(value) => setAdminProfileForm((prev) => ({ ...prev, name: value }))}
+                      icon={<UserIcon className="w-5 h-5" />}
+                      placeholder="Full name"
+                    />
+                    <LuxuryFloatingInput
+                      label="Owner Phone"
+                      value={adminProfileForm.phone}
+                      onChange={(value) => setAdminProfileForm((prev) => ({ ...prev, phone: value }))}
+                      icon={<Smartphone className="w-5 h-5" />}
+                      placeholder="Phone number"
+                    />
+                    <div className="flex items-end">
+                      <PrimaryButton
+                        className="w-full h-[74px] rounded-2xl text-[10px]"
+                        disabled={adminProfileSaving || !adminProfileChanged}
+                        onClick={handleAdminProfileSave}
+                      >
+                        {adminProfileSaving ? 'Saving...' : 'Save Owner Profile'}
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500 mt-5">
+                    Owner identity cannot be deleted or downgraded from the admin panel.
+                  </p>
+                </GlassCard>
+
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-6 mb-12">
                     <div className="w-16 h-16 rounded-[24px] bg-blue-600/10 flex items-center justify-center text-blue-500">
@@ -4264,13 +4424,18 @@ export const AdminPanel = () => {
                           <div className="flex flex-wrap gap-2 pt-2">
                             <button
                               onClick={() => toggleCustomerBlocked(selectedCustomerProfile.user)}
+                              disabled={selectedCustomerLocked}
                               className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] ${
                                 selectedCustomerProfile.user.isBlocked
                                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
                                   : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
-                              }`}
+                              } ${selectedCustomerLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
-                              {selectedCustomerProfile.user.isBlocked ? 'Unblock User' : 'Block User'}
+                              {selectedCustomerIsOwner
+                                ? 'Owner Locked'
+                                : selectedCustomerIsSelf
+                                  ? 'Self Locked'
+                                  : (selectedCustomerProfile.user.isBlocked ? 'Unblock User' : 'Block User')}
                             </button>
                             <button
                               onClick={exportCustomerOrdersCsv}

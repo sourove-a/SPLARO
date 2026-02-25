@@ -10,6 +10,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { useEffect } from 'react';
 import { shouldUsePhpApi } from '../lib/runtime';
+import { isAdminRole } from '../lib/roles';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
@@ -195,12 +196,12 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (result.status === 'success') {
             const normalizedUser = normalizeApiUser(result.user);
             persistAuthToken(result.token);
-            if (normalizedUser.role === 'ADMIN' && location.pathname === '/sourove-admin') {
+            if (isAdminRole(normalizedUser.role) && location.pathname === '/sourove-admin') {
               persistAdminKey(formData.password);
             }
             setUser(normalizedUser);
             setStatus('success');
-            setTimeout(() => navigate(normalizedUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
+            setTimeout(() => navigate(isAdminRole(normalizedUser.role) ? '/admin_dashboard' : '/'), 1000);
             return;
           }
           if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
@@ -209,7 +210,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             if (localUser && String((localUser as any).password || '') === formData.password) {
               setUser(localUser);
               setStatus('success');
-              setTimeout(() => navigate(localUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
+              setTimeout(() => navigate(isAdminRole(localUser.role) ? '/admin_dashboard' : '/'), 1000);
               return;
             }
           }
@@ -225,7 +226,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (localUser && String((localUser as any).password || '') === formData.password) {
             setUser(localUser);
             setStatus('success');
-            setTimeout(() => navigate(localUser.role === 'ADMIN' ? '/admin_dashboard' : '/'), 1000);
+            setTimeout(() => navigate(isAdminRole(localUser.role) ? '/admin_dashboard' : '/'), 1000);
             return;
           }
         }

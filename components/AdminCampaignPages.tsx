@@ -21,6 +21,7 @@ import {
   runAutomationTick,
   searchAll,
 } from '../lib/adminStore';
+import { isAdminRole } from '../lib/roles';
 
 const PAGE_SIZE = 20;
 
@@ -80,7 +81,7 @@ const useAdminReady = () => {
   }, []);
 
   return {
-    isAdmin: user?.role === 'ADMIN',
+    isAdmin: isAdminRole(user?.role),
   };
 };
 

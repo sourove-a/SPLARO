@@ -21,6 +21,7 @@ import { ProductCard } from './components/ProductCard';
 import { PrimaryButton, GlassCard } from './components/LiquidGlass';
 import { SubscriptionPrompt } from './components/SubscriptionPrompt';
 import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
+import { canWriteCms, isAdminRole } from './lib/roles';
 import {
   AdminCampaignsPage,
   AdminCampaignDetailPage,
@@ -558,7 +559,7 @@ const AppContent = () => {
   const isDark = theme === 'DARK';
   const activeCmsBundle = useMemo(() => {
     const published = siteSettings.cmsPublished || siteSettings.cmsDraft;
-    const isAdminPreviewRole = user?.role && ['ADMIN', 'SUPER_ADMIN', 'EDITOR'].includes(String(user.role).toUpperCase());
+    const isAdminPreviewRole = canWriteCms(user?.role);
     if (siteSettings.cmsActiveVersion === 'DRAFT' && isAdminPreviewRole) {
       return siteSettings.cmsDraft || published;
     }
@@ -636,9 +637,9 @@ const AppContent = () => {
     }
 
     if (user) {
-      if (user.role === 'ADMIN' && p === 'user_dashboard') {
+      if (isAdminRole(user.role) && p === 'user_dashboard') {
         navigate('/admin_dashboard');
-      } else if (user.role === 'USER' && (isAdminRoute || p === 'sourove-admin')) {
+      } else if (!isAdminRole(user.role) && (isAdminRoute || p === 'sourove-admin')) {
         navigate('/user_dashboard');
       }
     }
@@ -708,7 +709,7 @@ const AppContent = () => {
       {showNav && <Navbar theme={theme} setTheme={setTheme} />}
       {showMobileBar && <MobileTabBar />}
 
-      {siteSettings.maintenanceMode && user?.role !== 'ADMIN' && location.pathname !== '/sourove-admin' ? (
+      {siteSettings.maintenanceMode && !isAdminRole(user?.role) && location.pathname !== '/sourove-admin' ? (
         <div className="min-h-screen flex flex-col items-center justify-center p-12 text-center bg-[#05060A]">
           <div className="w-32 h-32 rounded-[40px] bg-blue-600/10 flex items-center justify-center text-blue-500 mb-12 animate-pulse">
             <Activity className="w-16 h-16" />

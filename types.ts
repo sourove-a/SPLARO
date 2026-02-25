@@ -108,7 +108,7 @@ export interface User {
   phone: string;
   address?: string;
   profileImage?: string;
-  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'EDITOR' | 'VIEWER';
+  role: 'USER' | 'OWNER' | 'ADMIN' | 'SUPER_ADMIN' | 'EDITOR' | 'VIEWER';
   defaultShippingAddress?: string;
   notificationEmail?: boolean;
   notificationSms?: boolean;
