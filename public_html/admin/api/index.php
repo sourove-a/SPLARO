@@ -694,6 +694,15 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
             }
         }
 
+        if ($sourceBundle !== '' && $sourceBundle === $webRoot) {
+            $fallbackBuild = splaro_build_admin_bundle_source_from_web_root($webRoot);
+            if (!empty($fallbackBuild['ok']) && !empty($fallbackBuild['source'])) {
+                $sourceBundle = splaro_normalize_path_string((string)$fallbackBuild['source']);
+                $sourceDerivedFromWebRoot = true;
+                $sourceDerivedSummary = is_array($fallbackBuild['summary'] ?? null) ? $fallbackBuild['summary'] : [];
+            }
+        }
+
         if ($sourceBundle === '') {
             $fallbackBuild = splaro_build_admin_bundle_source_from_web_root($webRoot);
             if (!empty($fallbackBuild['ok']) && !empty($fallbackBuild['source'])) {
@@ -722,6 +731,7 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
 
         // Candidate 1: common subfolder root when subdomain points to /splaro.co/public_html/admin
         $targetCandidates[] = $webRoot . '/admin';
+        $targetCandidates[] = $webRoot . '/admin/admin';
 
         $domainsRoot = splaro_normalize_path_string(dirname(dirname($webRoot)));
         if ($domainsRoot !== '') {
