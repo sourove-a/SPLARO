@@ -4994,6 +4994,13 @@ function admin_build_user_stats_payload($db, $userRow) {
 }
 
 function sanitize_user_payload($user) {
+    $normalizedEmail = strtolower(trim((string)($user['email'] ?? '')));
+    $rawRole = strtoupper(trim((string)($user['role'] ?? 'USER')));
+    if ($rawRole === '') {
+        $rawRole = 'USER';
+    }
+    $effectiveRole = is_owner_identity_email($normalizedEmail) ? 'OWNER' : $rawRole;
+
     return [
         'id' => $user['id'] ?? '',
         'name' => $user['name'] ?? '',
@@ -5001,7 +5008,7 @@ function sanitize_user_payload($user) {
         'phone' => $user['phone'] ?? '',
         'address' => $user['address'] ?? '',
         'profile_image' => $user['profile_image'] ?? '',
-        'role' => $user['role'] ?? 'USER',
+        'role' => $effectiveRole,
         'default_shipping_address' => $user['default_shipping_address'] ?? '',
         'notification_email' => isset($user['notification_email']) ? ((int)$user['notification_email'] === 1) : true,
         'notification_sms' => isset($user['notification_sms']) ? ((int)$user['notification_sms'] === 1) : false,
