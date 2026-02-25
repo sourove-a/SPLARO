@@ -679,6 +679,7 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
         }
 
         $sourceCandidates = [];
+        $sourceCandidates[] = $webRoot;
         $sourceCandidates[] = $webRoot . '/admin';
         $sourceCandidates[] = $webRoot . '/public_html/admin';
         $sourceCandidates[] = dirname($webRoot) . '/public_html/admin';
