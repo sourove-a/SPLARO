@@ -534,6 +534,86 @@ function splaro_copy_directory_tree($sourceDir, $targetDir, $maxEntries = 20000)
     return $result;
 }
 
+function splaro_copy_file_entry($sourceFile, $targetFile) {
+    $src = splaro_normalize_path_string((string)$sourceFile);
+    $dst = splaro_normalize_path_string((string)$targetFile);
+    if ($src === '' || $dst === '' || !is_file($src)) {
+        return false;
+    }
+    $parent = splaro_normalize_path_string(dirname($dst));
+    if ($parent === '' || (!is_dir($parent) && !@mkdir($parent, 0755, true) && !is_dir($parent))) {
+        return false;
+    }
+    if (!@copy($src, $dst)) {
+        return false;
+    }
+    @chmod($dst, 0644);
+    return true;
+}
+
+function splaro_build_admin_bundle_source_from_web_root($webRoot) {
+    $root = splaro_normalize_path_string((string)$webRoot);
+    if ($root === '') {
+        return ['ok' => false, 'source' => '', 'summary' => []];
+    }
+    if (!is_file($root . '/index.html') || !is_file($root . '/api/index.php')) {
+        return ['ok' => false, 'source' => '', 'summary' => []];
+    }
+
+    $tempSource = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'splaro_admin_source_' . md5($root);
+    if (!is_dir($tempSource) && !@mkdir($tempSource, 0755, true) && !is_dir($tempSource)) {
+        return ['ok' => false, 'source' => '', 'summary' => []];
+    }
+
+    $entries = [
+        '.htaccess',
+        'index.html',
+        'index.php',
+        'api',
+        'assets',
+        'favicon-192.png',
+        'favicon-32.png',
+        'favicon-512.png',
+        'favicon.ico',
+        'favicon.svg',
+        'apple-touch-icon.png',
+        'site.webmanifest',
+        'logo-mark.svg',
+        'push-sw.js',
+        'invoice-template.html',
+        'ornaments'
+    ];
+
+    $summary = [];
+    foreach ($entries as $entry) {
+        $srcPath = $root . '/' . $entry;
+        $dstPath = $tempSource . '/' . $entry;
+        if (is_dir($srcPath)) {
+            $copyResult = splaro_copy_directory_tree($srcPath, $dstPath, 30000);
+            $summary[] = [
+                'entry' => $entry,
+                'files_copied' => (int)($copyResult['files_copied'] ?? 0),
+                'errors' => (int)(is_array($copyResult['errors'] ?? null) ? count($copyResult['errors']) : 0)
+            ];
+            continue;
+        }
+        if (is_file($srcPath)) {
+            $ok = splaro_copy_file_entry($srcPath, $dstPath);
+            $summary[] = [
+                'entry' => $entry,
+                'files_copied' => $ok ? 1 : 0,
+                'errors' => $ok ? 0 : 1
+            ];
+        }
+    }
+
+    return [
+        'ok' => splaro_is_admin_bundle_dir($tempSource),
+        'source' => splaro_normalize_path_string($tempSource),
+        'summary' => $summary
+    ];
+}
+
 function splaro_admin_subdomain_repair_cache_file() {
     $cacheKey = md5(__DIR__ . '|admin_subdomain_self_heal_v3');
     return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_admin_subdomain_heal_{$cacheKey}.json";
@@ -604,10 +684,21 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
         $sourceCandidates[] = dirname($webRoot) . '/public_html/admin';
 
         $sourceBundle = '';
+        $sourceDerivedFromWebRoot = false;
+        $sourceDerivedSummary = [];
         foreach (array_values(array_unique($sourceCandidates)) as $candidate) {
             if (splaro_is_admin_bundle_dir($candidate)) {
                 $sourceBundle = splaro_normalize_path_string($candidate);
                 break;
+            }
+        }
+
+        if ($sourceBundle === '') {
+            $fallbackBuild = splaro_build_admin_bundle_source_from_web_root($webRoot);
+            if (!empty($fallbackBuild['ok']) && !empty($fallbackBuild['source'])) {
+                $sourceBundle = splaro_normalize_path_string((string)$fallbackBuild['source']);
+                $sourceDerivedFromWebRoot = true;
+                $sourceDerivedSummary = is_array($fallbackBuild['summary'] ?? null) ? $fallbackBuild['summary'] : [];
             }
         }
 
@@ -696,6 +787,8 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
 
         splaro_integration_trace('admin_subdomain.repair.attempt', [
             'source' => $sourceBundle,
+            'source_derived_from_web_root' => $sourceDerivedFromWebRoot,
+            'source_derived_summary' => $sourceDerivedSummary,
             'targets_touched' => $targetsTouched,
             'summaries' => $copySummaries
         ], $targetsTouched > 0 ? 'INFO' : 'WARNING');
@@ -706,6 +799,8 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
             'targets_touched' => $targetsTouched,
             'targets_attempted' => $targetsAttempted,
             'source' => $sourceBundle,
+            'source_derived_from_web_root' => $sourceDerivedFromWebRoot,
+            'source_derived_summary' => $sourceDerivedSummary,
             'summaries' => $copySummaries
         ]);
     } catch (Throwable $e) {
