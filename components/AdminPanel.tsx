@@ -2564,64 +2564,156 @@ export const AdminPanel = () => {
           {activeTab === 'USERS' && (
             <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <GlassCard className="p-0 overflow-hidden">
-                <div className="p-10 border-b border-white/5 flex justify-between items-center">
-                  <h3 className="text-2xl font-black uppercase italic">Identity Database</h3>
-                  <div className="px-6 py-2 liquid-glass border border-white/5 rounded-full text-[10px] font-black uppercase text-zinc-500">
-                    {users.length} Records Archived
+                <div className="p-10 border-b border-white/5 flex flex-col xl:flex-row gap-6 xl:items-center xl:justify-between">
+                  <div>
+                    <h3 className="text-2xl font-black uppercase italic">Customer Profiles</h3>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mt-2">
+                      Woo-style customer intelligence, orders, refunds, activity
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      value={userStatusFilter}
+                      onChange={(event) => setUserStatusFilter(event.target.value as any)}
+                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#0A0C12] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-cyan-400/60"
+                    >
+                      <option value="ALL">All users</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="BLOCKED">Blocked</option>
+                      <option value="ADMIN">Admin</option>
+                      <option value="USER">User</option>
+                    </select>
+                    <button
+                      onClick={() => fetchAdminUsers()}
+                      className="h-11 px-5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-cyan-500/20 transition-all"
+                    >
+                      Refresh
+                    </button>
+                    <div className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[10px] font-black uppercase text-zinc-400">
+                      {adminUsersMeta.count !== null ? `${adminUsersMeta.count}` : adminUsers.length} Records
+                    </div>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                        <th className="p-8">IDENTITY</th>
-                        <th className="p-8">CONTACT</th>
-                        <th className="p-8">PROTOCOL LEVEL</th>
-                        <th className="p-8">JOINED</th>
-                        <th className="p-8">OPERATIONS</th>
+                        <th className="p-6">Identity</th>
+                        <th className="p-6">Contact</th>
+                        <th className="p-6">Verification</th>
+                        <th className="p-6">Orders / LTV</th>
+                        <th className="p-6">Last Order</th>
+                        <th className="p-6">Operations</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm">
-                      {users.map(u => {
+                      {!usersLoading && adminUsers.map((u) => {
                         const joinedAt = u.createdAt ? new Date(u.createdAt) : null;
+                        const lastOrderAt = u.lastOrderAt ? new Date(u.lastOrderAt) : null;
                         const avatarLetter = (u.name || 'U').charAt(0).toUpperCase();
                         return (<tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                          <td className="p-8">
+                          <td className="p-6">
                             <div className="flex items-center gap-4">
                               <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center font-black text-blue-500">{avatarLetter}</div>
-                              <span className="font-black text-white">{u.name || 'Unknown User'}</span>
+                              <div className="min-w-0">
+                                <p className="font-black text-white truncate">{u.name || 'Unknown User'}</p>
+                                <p className="text-[10px] text-zinc-500 font-mono truncate">ID: {u.id}</p>
+                                <p className="text-[10px] text-zinc-600 font-bold uppercase">
+                                  Joined {joinedAt && !Number.isNaN(joinedAt.getTime()) ? joinedAt.toLocaleDateString() : 'N/A'}
+                                </p>
+                              </div>
                             </div>
                           </td>
-                          <td className="p-8">
-                            <p className="font-bold">{u.email || 'N/A'}</p>
-                            <p className="text-[10px] text-zinc-500 font-mono">{u.phone}</p>
+                          <td className="p-6">
+                            <p className="font-bold text-white">{u.email || 'N/A'}</p>
+                            <p className="text-[10px] text-zinc-500 font-mono">{u.phone || 'No phone'}</p>
+                            <p className="text-[10px] text-zinc-500 truncate">{u.address || 'No address set'}</p>
                           </td>
-                          <td className="p-8">
+                          <td className="p-6">
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${u.role === 'ADMIN' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
                                 {u.role}
                               </span>
-                              {u.email?.includes('splaro') && <span className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-[7px] font-black uppercase self-center">Internal Registry</span>}
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>
+                                {u.isBlocked ? 'Blocked' : 'Active'}
+                              </span>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+                                Email {u.emailVerified ? 'Verified' : 'Pending'}
+                              </span>
                             </div>
                           </td>
-                          <td className="p-8">
+                          <td className="p-6">
+                            <div className="space-y-1.5">
+                              <p className="text-white font-black text-[11px]">{Number(u.totalOrders || 0)} orders</p>
+                              <p className="text-cyan-300 font-black text-[11px]">৳{Number(u.lifetimeValue || 0).toLocaleString()}</p>
+                            </div>
+                          </td>
+                          <td className="p-6">
                             <div className="space-y-1">
-                              <p className="text-white font-black text-[11px]">{joinedAt && !Number.isNaN(joinedAt.getTime()) ? joinedAt.toLocaleDateString() : 'N/A'}</p>
-                              <p className="text-zinc-600 text-[8px] font-black uppercase">Initial Sync</p>
+                              <p className="text-white font-black text-[11px]">{lastOrderAt && !Number.isNaN(lastOrderAt.getTime()) ? lastOrderAt.toLocaleDateString() : 'No orders'}</p>
+                              <p className="text-zinc-600 text-[9px] font-black uppercase">Last activity</p>
                             </div>
                           </td>
-
-                          <td className="p-8">
-                            <button onClick={() => deleteUser(u.id)} className="p-3 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <td className="p-6">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={() => openCustomerProfile(u.id)}
+                                className="px-3 py-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/20 transition-all"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => toggleCustomerBlocked(u)}
+                                className={`px-3 py-2 rounded-lg border text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                                  u.isBlocked
+                                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+                                    : 'border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
+                                }`}
+                              >
+                                {u.isBlocked ? 'Unblock' : 'Block'}
+                              </button>
+                              <select
+                                value={u.role}
+                                onChange={(event) => updateCustomerRole(u, event.target.value as User['role'])}
+                                className="h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-cyan-400/60"
+                              >
+                                <option value="USER">USER</option>
+                                <option value="EDITOR">EDITOR</option>
+                                <option value="VIEWER">VIEWER</option>
+                                <option value="ADMIN">ADMIN</option>
+                                <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                              </select>
+                            </div>
                           </td>
                         </tr>
                       );
                       })}
                     </tbody>
                   </table>
-                  {users.length === 0 && <div className="p-20 text-center text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] italic opacity-50">Empty Identity Database</div>}
+                  {usersLoading && <div className="p-20 text-center text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Loading customers...</div>}
+                  {!usersLoading && adminUsers.length === 0 && <div className="p-20 text-center text-zinc-500 text-[10px] font-black uppercase tracking-[0.5em] italic opacity-50">No customer found</div>}
+                  {!usersLoading && usersError && <div className="p-10 text-center text-rose-300 text-xs font-semibold">{usersError}</div>}
+                </div>
+                <div className="px-8 py-5 border-t border-white/5 flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                    Page {adminUsersMeta.page}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setUsersPage((prev) => Math.max(1, prev - 1))}
+                      disabled={usersPage <= 1 || usersLoading}
+                      className="h-9 px-4 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-300 disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      onClick={() => setUsersPage((prev) => prev + 1)}
+                      disabled={!adminUsersMeta.hasMore || usersLoading}
+                      className="h-9 px-4 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-300 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               </GlassCard>
             </motion.div>
@@ -4065,6 +4157,301 @@ export const AdminPanel = () => {
                 setIsProductModalOpen(false);
               }}
             />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {selectedCustomerId && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[230] flex items-center justify-center p-4 md:p-6 bg-black/80 backdrop-blur-xl"
+            >
+              <motion.div
+                initial={{ scale: 0.96, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.96, y: 20 }}
+                className="w-full max-w-7xl max-h-[92vh] overflow-y-auto custom-scrollbar"
+              >
+                <GlassCard className="p-6 md:p-10 !rounded-[36px] border-white/10 bg-[#0A0C12]/95">
+                  <div className="flex items-start justify-between gap-4 mb-8">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-400 font-black mb-2">Customer Profile</p>
+                      <h3 className="text-2xl md:text-4xl font-black tracking-tight text-white">
+                        {selectedCustomerProfile?.user?.name || 'Loading customer...'}
+                      </h3>
+                      {selectedCustomerProfile?.user?.email && (
+                        <p className="text-sm text-zinc-400 mt-2">{selectedCustomerProfile.user.email}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={closeCustomerProfile}
+                      className="w-12 h-12 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {profileLoading && (
+                    <div className="h-64 rounded-3xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-zinc-400 text-sm font-semibold">
+                      Loading customer profile...
+                    </div>
+                  )}
+
+                  {!profileLoading && profileError && (
+                    <div className="h-64 rounded-3xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-center text-rose-200 text-sm font-semibold">
+                      {profileError}
+                    </div>
+                  )}
+
+                  {!profileLoading && !profileError && selectedCustomerProfile && (
+                    <div className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+                        <GlassCard className="p-5">
+                          <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Total Orders</p>
+                          <p className="text-2xl font-black text-white mt-2">{selectedCustomerProfile.stats.totalOrders}</p>
+                        </GlassCard>
+                        <GlassCard className="p-5">
+                          <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Lifetime Value</p>
+                          <p className="text-2xl font-black text-cyan-300 mt-2">৳{selectedCustomerProfile.stats.lifetimeValue.toLocaleString()}</p>
+                        </GlassCard>
+                        <GlassCard className="p-5">
+                          <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Refunds</p>
+                          <p className="text-2xl font-black text-amber-200 mt-2">{selectedCustomerProfile.stats.totalRefunds}</p>
+                          <p className="text-[10px] text-zinc-500 mt-1">৳{selectedCustomerProfile.stats.refundAmount.toLocaleString()}</p>
+                        </GlassCard>
+                        <GlassCard className="p-5">
+                          <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Cancellations</p>
+                          <p className="text-2xl font-black text-rose-200 mt-2">{selectedCustomerProfile.stats.totalCancellations}</p>
+                        </GlassCard>
+                        <GlassCard className="p-5">
+                          <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Last Order</p>
+                          <p className="text-sm font-black text-white mt-2">
+                            {selectedCustomerProfile.stats.lastOrderDate ? new Date(selectedCustomerProfile.stats.lastOrderDate).toLocaleString() : 'N/A'}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 mt-1 uppercase">{selectedCustomerProfile.stats.lastOrderStatus || 'NO STATUS'}</p>
+                        </GlassCard>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                        <GlassCard className="p-6 xl:col-span-4 space-y-4">
+                          <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white">Identity & Verification</h4>
+                          <div className="space-y-3 text-sm">
+                            <div className="flex justify-between gap-4">
+                              <span className="text-zinc-500">Phone</span>
+                              <span className="text-white font-semibold">{selectedCustomerProfile.user.phone || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-zinc-500">Email verification</span>
+                              <span className={`${selectedCustomerProfile.user.emailVerified ? 'text-emerald-300' : 'text-amber-300'} font-semibold`}>
+                                {selectedCustomerProfile.user.emailVerified ? 'Verified' : 'Pending'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-zinc-500">Phone verification</span>
+                              <span className={`${selectedCustomerProfile.user.phoneVerified ? 'text-emerald-300' : 'text-amber-300'} font-semibold`}>
+                                {selectedCustomerProfile.user.phoneVerified ? 'Verified' : 'Pending'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-4">
+                              <span className="text-zinc-500">Status</span>
+                              <span className={`${selectedCustomerProfile.user.isBlocked ? 'text-rose-300' : 'text-emerald-300'} font-semibold`}>
+                                {selectedCustomerProfile.user.isBlocked ? 'Blocked' : 'Active'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            <button
+                              onClick={() => toggleCustomerBlocked(selectedCustomerProfile.user)}
+                              className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] ${
+                                selectedCustomerProfile.user.isBlocked
+                                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                                  : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+                              }`}
+                            >
+                              {selectedCustomerProfile.user.isBlocked ? 'Unblock User' : 'Block User'}
+                            </button>
+                            <button
+                              onClick={exportCustomerOrdersCsv}
+                              className="px-4 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.16em]"
+                            >
+                              Export Orders
+                            </button>
+                          </div>
+                        </GlassCard>
+
+                        <GlassCard className="p-6 xl:col-span-8">
+                          <div className="flex items-center justify-between gap-4 mb-4">
+                            <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white">Purchased Products</h4>
+                            <span className="text-[10px] text-zinc-500 uppercase tracking-[0.16em]">
+                              {selectedCustomerProfile.purchasedProducts.length} rows
+                            </span>
+                          </div>
+                          <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-left">
+                              <thead className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                                <tr>
+                                  <th className="py-3 pr-3">Product</th>
+                                  <th className="py-3 pr-3">Qty</th>
+                                  <th className="py-3 pr-3">Spent</th>
+                                  <th className="py-3">Last Purchase</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {selectedCustomerProfile.purchasedProducts.map((item) => (
+                                  <tr key={`${item.productId}-${item.productName}`} className="border-t border-white/5">
+                                    <td className="py-3 pr-3">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-white/5">
+                                          {item.imageUrl ? (
+                                            <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-zinc-600 text-[9px]">IMG</div>
+                                          )}
+                                        </div>
+                                        <span className="text-sm text-white font-semibold">{item.productName}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 pr-3 text-zinc-300 font-semibold">{item.totalQuantity}</td>
+                                    <td className="py-3 pr-3 text-cyan-200 font-semibold">৳{item.totalSpent.toLocaleString()}</td>
+                                    <td className="py-3 text-zinc-400 text-sm">
+                                      {item.lastPurchasedAt ? new Date(item.lastPurchasedAt).toLocaleString() : 'N/A'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {selectedCustomerProfile.purchasedProducts.length === 0 && (
+                                  <tr>
+                                    <td colSpan={4} className="py-10 text-center text-zinc-500 text-sm">No purchased products found.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </GlassCard>
+                      </div>
+
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        <GlassCard className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white">Order History</h4>
+                            <div className="flex gap-2">
+                              {customerOrdersMeta.hasMore && (
+                                <button
+                                  onClick={() => {
+                                    if (!selectedCustomerId) return;
+                                    fetchCustomerOrders(selectedCustomerId, customerOrdersPage + 1, true);
+                                  }}
+                                  disabled={customerOrdersLoading}
+                                  className="px-3 py-2 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 disabled:opacity-40"
+                                >
+                                  {customerOrdersLoading ? 'Loading...' : 'Load more'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-left">
+                              <thead className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                                <tr>
+                                  <th className="py-3 pr-3">Order</th>
+                                  <th className="py-3 pr-3">Status</th>
+                                  <th className="py-3 pr-3">Total</th>
+                                  <th className="py-3">Date</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(customerOrders.length > 0 ? customerOrders : selectedCustomerProfile.orders).map((order) => (
+                                  <tr key={order.id} className="border-t border-white/5">
+                                    <td className="py-3 pr-3 text-white font-semibold">{order.orderNo || order.id}</td>
+                                    <td className="py-3 pr-3 text-zinc-300">{order.status}</td>
+                                    <td className="py-3 pr-3 text-cyan-200">৳{Number(order.total || 0).toLocaleString()}</td>
+                                    <td className="py-3 text-zinc-400 text-sm">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}</td>
+                                  </tr>
+                                ))}
+                                {(customerOrders.length > 0 ? customerOrders : selectedCustomerProfile.orders).length === 0 && (
+                                  <tr>
+                                    <td colSpan={4} className="py-10 text-center text-zinc-500 text-sm">No order history found.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </GlassCard>
+
+                        <GlassCard className="p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white">Activity & Admin Notes</h4>
+                            {customerActivityMeta.hasMore && (
+                              <button
+                                onClick={() => {
+                                  if (!selectedCustomerId) return;
+                                  fetchCustomerActivity(selectedCustomerId, customerActivityPage + 1, true);
+                                }}
+                                disabled={customerActivityLoading}
+                                className="px-3 py-2 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 disabled:opacity-40"
+                              >
+                                {customerActivityLoading ? 'Loading...' : 'Load more'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="space-y-3 mb-4">
+                            <textarea
+                              value={customerNoteDraft}
+                              onChange={(event) => setCustomerNoteDraft(event.target.value)}
+                              placeholder="Add admin note..."
+                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#0A0C12] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-cyan-400/60 resize-none"
+                            />
+                            <button
+                              onClick={saveCustomerNote}
+                              disabled={customerNoteSaving}
+                              className="h-11 px-5 rounded-xl border border-cyan-500/35 bg-cyan-500/10 text-cyan-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
+                            >
+                              {customerNoteSaving ? 'Saving...' : 'Save note'}
+                            </button>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                            {customerActivity.map((event) => (
+                              <div key={event.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-cyan-300 font-black">{event.type.replace(/_/g, ' ')}</p>
+                                  <p className="text-[10px] text-zinc-500">{event.createdAt ? new Date(event.createdAt).toLocaleString() : 'N/A'}</p>
+                                </div>
+                                <p className="text-sm text-zinc-200 break-words">{event.details || 'No details'}</p>
+                              </div>
+                            ))}
+                            {customerActivity.length === 0 && (
+                              <div className="py-8 text-center text-zinc-500 text-sm">No activity recorded yet.</div>
+                            )}
+                          </div>
+                        </GlassCard>
+                      </div>
+
+                      <GlassCard className="p-6">
+                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white mb-4">Addresses</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {selectedCustomerProfile.addresses.map((address) => (
+                            <div key={address.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[11px] uppercase tracking-[0.16em] font-black text-cyan-300">{address.label || 'Address'}</p>
+                                {address.isDefault && <span className="text-[9px] text-emerald-300 uppercase font-black">Default</span>}
+                              </div>
+                              <p className="text-sm font-semibold text-white">{address.recipientName || selectedCustomerProfile.user.name}</p>
+                              <p className="text-sm text-zinc-300">{address.phone || selectedCustomerProfile.user.phone}</p>
+                              <p className="text-sm text-zinc-400">{address.addressLine}</p>
+                              <p className="text-sm text-zinc-500">{address.thana}, {address.district}</p>
+                            </div>
+                          ))}
+                          {selectedCustomerProfile.addresses.length === 0 && (
+                            <div className="col-span-full py-8 text-center text-zinc-500 text-sm">No saved addresses.</div>
+                          )}
+                        </div>
+                      </GlassCard>
+                    </div>
+                  )}
+                </GlassCard>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
 
