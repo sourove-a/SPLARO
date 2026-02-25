@@ -2483,10 +2483,48 @@ function invoice_valid_color($value, $fallback) {
     return $fallback;
 }
 
+function invoice_theme_from_cms_bundle($cmsBundle, $fallbackTheme) {
+    $fallback = is_array($fallbackTheme) ? $fallbackTheme : invoice_default_settings()['theme'];
+    $bundle = is_array($cmsBundle) ? $cmsBundle : [];
+    $themeSettings = is_array($bundle['themeSettings'] ?? null) ? $bundle['themeSettings'] : [];
+    $colors = is_array($themeSettings['colors'] ?? null) ? $themeSettings['colors'] : [];
+
+    $primary = invoice_valid_color($colors['primary'] ?? '', $fallback['primaryColor']);
+    $accent = invoice_valid_color($colors['accent'] ?? '', $fallback['accentColor']);
+    $background = invoice_valid_color($colors['background'] ?? '', $fallback['backgroundColor']);
+
+    return [
+        'primaryColor' => $primary,
+        'accentColor' => $accent,
+        'backgroundColor' => $background,
+        'tableHeaderColor' => $primary,
+        'buttonColor' => $accent
+    ];
+}
+
+function invoice_theme_defaults_from_site_settings($siteSettingsRow, $fallbackTheme) {
+    $fallback = is_array($fallbackTheme) ? $fallbackTheme : invoice_default_settings()['theme'];
+    if (!is_array($siteSettingsRow)) {
+        return $fallback;
+    }
+
+    $settingsJson = safe_json_decode_assoc($siteSettingsRow['settings_json'] ?? '{}', []);
+    $cmsRaw = $settingsJson['cmsDraft']
+        ?? ($settingsJson['cms_draft']
+            ?? ($settingsJson['cmsPublished']
+                ?? ($settingsJson['cms_published'] ?? [])));
+    if (!is_array($cmsRaw)) {
+        return $fallback;
+    }
+    $cmsBundle = cms_normalize_bundle($cmsRaw);
+    return invoice_theme_from_cms_bundle($cmsBundle, $fallback);
+}
+
 function invoice_normalize_settings($raw, $siteSettingsRow = null) {
     $base = invoice_default_settings();
     $input = is_array($raw) ? $raw : [];
     $themeInput = isset($input['theme']) && is_array($input['theme']) ? $input['theme'] : [];
+    $themeDefaults = invoice_theme_defaults_from_site_settings($siteSettingsRow, $base['theme']);
 
     $serialTypes = [];
     if (!empty($input['serialTypes']) && is_array($input['serialTypes'])) {
@@ -2536,11 +2574,11 @@ function invoice_normalize_settings($raw, $siteSettingsRow = null) {
         'defaultType' => $defaultType,
         'separateCounterPerType' => isset($input['separateCounterPerType']) ? (bool)$input['separateCounterPerType'] : (bool)$base['separateCounterPerType'],
         'theme' => [
-            'primaryColor' => invoice_valid_color($themeInput['primaryColor'] ?? '', $base['theme']['primaryColor']),
-            'accentColor' => invoice_valid_color($themeInput['accentColor'] ?? '', $base['theme']['accentColor']),
-            'backgroundColor' => invoice_valid_color($themeInput['backgroundColor'] ?? '', $base['theme']['backgroundColor']),
-            'tableHeaderColor' => invoice_valid_color($themeInput['tableHeaderColor'] ?? '', $base['theme']['tableHeaderColor']),
-            'buttonColor' => invoice_valid_color($themeInput['buttonColor'] ?? '', $base['theme']['buttonColor'])
+            'primaryColor' => invoice_valid_color($themeInput['primaryColor'] ?? '', $themeDefaults['primaryColor']),
+            'accentColor' => invoice_valid_color($themeInput['accentColor'] ?? '', $themeDefaults['accentColor']),
+            'backgroundColor' => invoice_valid_color($themeInput['backgroundColor'] ?? '', $themeDefaults['backgroundColor']),
+            'tableHeaderColor' => invoice_valid_color($themeInput['tableHeaderColor'] ?? '', $themeDefaults['tableHeaderColor']),
+            'buttonColor' => invoice_valid_color($themeInput['buttonColor'] ?? '', $themeDefaults['buttonColor'])
         ],
         'logoUrl' => $logoUrl,
         'footerText' => trim((string)($input['footerText'] ?? $base['footerText'])),
@@ -2917,9 +2955,7 @@ function invoice_allocate_serial($db, $settings, $typeCode) {
         if (!$counterRow) {
             $insert = $db->prepare("INSERT INTO invoice_counters (counter_key, current_number, updated_at) VALUES (?, 0, NOW())");
             $insert->execute([$counterKey]);
-            $number = 1;
-            $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
-            $update->execute([$number, $counterKey]);
+            $number = 0;
         } else {
             $number = ((int)$counterRow['current_number']) + 1;
             $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
@@ -2939,7 +2975,11 @@ function invoice_allocate_serial($db, $settings, $typeCode) {
     if ($padding > 10) $padding = 10;
     $prefix = strtoupper(trim((string)($settings['invoicePrefix'] ?? 'SPL')));
     if ($prefix === '') $prefix = 'SPL';
-    $serial = $prefix . '-' . str_pad((string)$number, $padding, '0', STR_PAD_LEFT) . '-' . $type;
+    $serialBase = $prefix . '-' . str_pad((string)$number, $padding, '0', STR_PAD_LEFT);
+    $defaultType = strtoupper(trim((string)($settings['defaultType'] ?? 'INV')));
+    $serial = $type === $defaultType
+        ? $serialBase
+        : ($serialBase . '-' . $type);
 
     return [
         'serial' => $serial,
@@ -14564,6 +14604,14 @@ if ($method === 'POST' && $action === 'update_settings') {
             $nextSettingsJson['invoiceSettings'] = invoice_normalize_settings(array_merge($currentInvoiceSettings, $incomingInvoiceSettings), $existingSettingsRow);
         } else {
             $nextSettingsJson['invoiceSettings'] = $currentInvoiceSettings;
+        }
+        if ($hasCmsPayload) {
+            $invoiceThemeSynced = $nextSettingsJson['invoiceSettings'];
+            $invoiceThemeSynced['theme'] = invoice_theme_from_cms_bundle(
+                $nextCmsDraft,
+                is_array($invoiceThemeSynced['theme'] ?? null) ? $invoiceThemeSynced['theme'] : invoice_default_settings()['theme']
+            );
+            $nextSettingsJson['invoiceSettings'] = invoice_normalize_settings($invoiceThemeSynced, $existingSettingsRow);
         }
 
         $params = [

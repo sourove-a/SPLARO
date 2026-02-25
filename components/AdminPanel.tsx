@@ -1671,6 +1671,48 @@ export const AdminPanel = () => {
     });
   };
 
+  const deriveInvoiceThemeFromCmsTheme = (themeSettings: any) => {
+    const colors = themeSettings?.colors || {};
+    return {
+      primaryColor: String(colors.primary || '#0A0C12'),
+      accentColor: String(colors.accent || '#41DCFF'),
+      backgroundColor: String(colors.background || '#F4F7FF'),
+      tableHeaderColor: String(colors.primary || '#111827'),
+      buttonColor: String(colors.accent || '#2563EB')
+    };
+  };
+
+  const syncInvoiceThemeToStoreTheme = () => {
+    if (!canManageProtocols) {
+      showToast('Editor role cannot change invoice settings.', 'error');
+      return;
+    }
+    const nextTheme = deriveInvoiceThemeFromCmsTheme(siteSettings.cmsDraft?.themeSettings || {});
+    updateInvoiceSettingsField({ theme: nextTheme });
+    showToast('Invoice theme synced with Theme Settings.', 'success');
+  };
+
+  const applyInvoiceSerialPreset = () => {
+    if (!canManageProtocols) {
+      showToast('Editor role cannot change invoice settings.', 'error');
+      return;
+    }
+    const currentTypes = [...(siteSettings.invoiceSettings.serialTypes || [])];
+    const hasInv = currentTypes.some((item) => String(item.code || '').toUpperCase() === 'INV');
+    const nextTypes = hasInv
+      ? currentTypes
+      : [{ code: 'INV', label: 'Invoice' }, ...currentTypes];
+
+    updateInvoiceSettingsField({
+      invoicePrefix: 'SPL',
+      numberPadding: 6,
+      defaultType: 'INV',
+      separateCounterPerType: false,
+      serialTypes: nextTypes
+    });
+    showToast('Invoice serial format preset applied: SPL-000000', 'success');
+  };
+
   const updateInvoiceSerialType = (index: number, patch: any) => {
     const nextTypes = [...(siteSettings.invoiceSettings.serialTypes || [])];
     if (!nextTypes[index]) return;
@@ -1895,11 +1937,16 @@ export const AdminPanel = () => {
       ...siteSettings.cmsDraft,
       themeSettings: nextThemeSettings
     };
+    const nextInvoiceSettings = {
+      ...siteSettings.invoiceSettings,
+      theme: deriveInvoiceThemeFromCmsTheme(nextThemeSettings)
+    };
 
     setThemeSaveIntent(publish ? 'publish' : 'draft');
     try {
       const ok = await updateSettings({
         cmsDraft: nextDraft,
+        invoiceSettings: nextInvoiceSettings,
         cmsMode: publish ? 'PUBLISH' : 'DRAFT',
         cmsAction: publish ? 'PUBLISH' : 'SAVE_DRAFT'
       } as any);
@@ -1915,6 +1962,7 @@ export const AdminPanel = () => {
       setSiteSettings({
         ...siteSettings,
         cmsDraft: nextDraft,
+        invoiceSettings: nextInvoiceSettings,
         ...(publish ? { cmsPublished: nextDraft, cmsActiveVersion: 'PUBLISHED' as const } : { cmsActiveVersion: 'DRAFT' as const }),
         cmsRevisions: [nextRevision, ...(siteSettings.cmsRevisions || [])].slice(0, 10)
       });
@@ -3429,6 +3477,36 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
+                  <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 md:p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Invoice Serial Preview</p>
+                        <p className="text-base md:text-lg font-black text-white mt-1">
+                          {`${String(siteSettings.invoiceSettings.invoicePrefix || 'SPL').toUpperCase()}-${'0'.repeat(Math.max(3, Math.min(10, Number(siteSettings.invoiceSettings.numberPadding) || 6)))}`}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1.5 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-200">
+                        Default Type: {(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <button
+                        onClick={applyInvoiceSerialPreset}
+                        className="h-11 rounded-xl border border-emerald-500/40 text-emerald-200 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        disabled={!canManageProtocols}
+                      >
+                        APPLY SPL-000000 FORMAT
+                      </button>
+                      <button
+                        onClick={syncInvoiceThemeToStoreTheme}
+                        className="h-11 rounded-xl border border-cyan-500/40 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        disabled={!canManageProtocols}
+                      >
+                        SYNC WITH THEME SETTINGS
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Prefix</label>
@@ -3498,12 +3576,20 @@ export const AdminPanel = () => {
                     ].map((item) => (
                       <div key={item.key} className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">{item.label}</label>
-                        <input
-                          type="text"
-                          value={(siteSettings.invoiceSettings.theme as any)[item.key]}
-                          onChange={(e) => updateInvoiceThemeField(item.key, e.target.value)}
-                          className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={/^#[0-9a-fA-F]{6}$/.test(String((siteSettings.invoiceSettings.theme as any)[item.key] || '')) ? String((siteSettings.invoiceSettings.theme as any)[item.key]) : '#000000'}
+                            onChange={(e) => updateInvoiceThemeField(item.key, e.target.value.toUpperCase())}
+                            className="h-11 w-12 rounded-xl border border-white/10 bg-[#0A0C12] p-1 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={(siteSettings.invoiceSettings.theme as any)[item.key]}
+                            onChange={(e) => updateInvoiceThemeField(item.key, e.target.value.toUpperCase())}
+                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
