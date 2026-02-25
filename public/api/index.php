@@ -56,71 +56,149 @@ foreach ($mailerFiles as $mailerFile) {
     }
 }
 
-function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
-    global $db;
+function smtp_collect_env_settings() {
+    $secureRaw = strtolower(trim((string)env_first(
+        ['SMTP_SECURE', 'SMTP_ENCRYPTION', 'MAIL_ENCRYPTION'],
+        ((int)SMTP_PORT === 465 ? 'ssl' : 'tls')
+    )));
+    if ($secureRaw === 'smtps') $secureRaw = 'ssl';
+    if ($secureRaw === 'starttls') $secureRaw = 'tls';
 
-    $smtpSettings = [
-        'host' => SMTP_HOST,
-        'port' => SMTP_PORT,
-        'user' => SMTP_USER,
-        'pass' => SMTP_PASS,
-        'from' => SMTP_USER,
+    return [
+        'host' => trim((string)env_first(['SMTP_HOST', 'MAIL_HOST'], SMTP_HOST)),
+        'port' => (int)env_first(['SMTP_PORT', 'MAIL_PORT'], (string)SMTP_PORT),
+        'user' => trim((string)env_first(['SMTP_USER', 'SMTP_USERNAME', 'MAIL_USERNAME', 'MAIL_USER'], SMTP_USER)),
+        'pass' => (string)env_first(['SMTP_PASS', 'SMTP_PASSWORD', 'MAIL_PASSWORD', 'MAIL_PASS'], SMTP_PASS),
+        'from' => trim((string)env_first(['SMTP_FROM', 'SMTP_FROM_ADDRESS', 'MAIL_FROM_ADDRESS'], '')),
+        'secure' => $secureRaw
     ];
+}
 
-    try {
-        if (isset($db) && $db && function_exists('load_smtp_settings')) {
-            $resolved = load_smtp_settings($db);
-            if (is_array($resolved)) {
-                $smtpSettings = array_merge($smtpSettings, $resolved);
-            }
-        }
-    } catch (Exception $e) {
-        splaro_log_exception('mail.smtp_settings_load', $e);
+function smtp_fetch_db_settings($db) {
+    $settings = [];
+    if (!$db) {
+        return $settings;
     }
 
-    $smtpHost = trim((string)($smtpSettings['host'] ?? ''));
-    $smtpPort = (int)($smtpSettings['port'] ?? SMTP_PORT);
-    $smtpUser = trim((string)($smtpSettings['user'] ?? ''));
-    $smtpPass = (string)($smtpSettings['pass'] ?? '');
-    $fromAddress = trim((string)($smtpSettings['from'] ?? $smtpUser));
+    try {
+        $row = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+        if (empty($row['smtp_settings'])) {
+            return $settings;
+        }
 
+        $raw = trim((string)$row['smtp_settings']);
+        if ($raw === '') {
+            return $settings;
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                splaro_structured_log('smtp.settings.decode_failed', [
+                    'json_error' => json_last_error_msg()
+                ], 'WARNING');
+            }
+            return $settings;
+        }
+
+        $host = trim((string)($decoded['host'] ?? ''));
+        $user = trim((string)($decoded['user'] ?? ''));
+        $pass = (string)($decoded['pass'] ?? '');
+        $from = trim((string)($decoded['from'] ?? ''));
+        $secure = strtolower(trim((string)($decoded['secure'] ?? '')));
+        $port = isset($decoded['port']) ? (int)$decoded['port'] : 0;
+
+        if ($host !== '') $settings['host'] = $host;
+        if ($port > 0) $settings['port'] = $port;
+        if ($user !== '') $settings['user'] = $user;
+        if ($pass !== '') $settings['pass'] = $pass;
+        if ($from !== '') $settings['from'] = $from;
+        if ($secure !== '') $settings['secure'] = $secure;
+    } catch (Exception $e) {
+        splaro_log_exception('smtp.settings.load', $e, [], 'WARNING');
+    }
+
+    return $settings;
+}
+
+function smtp_normalize_secure_label($secure, $port) {
+    $candidate = strtolower(trim((string)$secure));
+    if ($candidate === 'smtps') $candidate = 'ssl';
+    if ($candidate === 'starttls') $candidate = 'tls';
+    if ($candidate === '') {
+        $candidate = ((int)$port === 465 ? 'ssl' : 'tls');
+    }
+    if (!in_array($candidate, ['ssl', 'tls', 'none'], true)) {
+        $candidate = ((int)$port === 465 ? 'ssl' : 'tls');
+    }
+    return $candidate;
+}
+
+function smtp_settings_signature($settings) {
+    $host = trim((string)($settings['host'] ?? ''));
+    $port = (int)($settings['port'] ?? 0);
+    $user = trim((string)($settings['user'] ?? ''));
+    $pass = (string)($settings['pass'] ?? '');
+    $from = trim((string)($settings['from'] ?? ''));
+    $secure = smtp_normalize_secure_label($settings['secure'] ?? '', $port);
+    return hash('sha256', $host . '|' . $port . '|' . $user . '|' . $pass . '|' . $from . '|' . $secure);
+}
+
+function smtp_profile_redacted($settings) {
+    $host = trim((string)($settings['host'] ?? ''));
+    $port = (int)($settings['port'] ?? 0);
+    $user = trim((string)($settings['user'] ?? ''));
+    $pass = (string)($settings['pass'] ?? '');
+    $from = trim((string)($settings['from'] ?? ''));
+    $secure = smtp_normalize_secure_label($settings['secure'] ?? '', $port);
+    return [
+        'host' => splaro_clip_text($host, 120),
+        'port' => $port,
+        'secure' => $secure,
+        'user' => splaro_clip_text($user, 120),
+        'from' => splaro_clip_text($from, 120),
+        'auth' => ($user !== '' || $pass !== ''),
+        'pass_set' => $pass !== '',
+        'pass_len' => strlen($pass)
+    ];
+}
+
+function smtp_try_send_profile($settings, $to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
+    $smtpHost = trim((string)($settings['host'] ?? ''));
+    $smtpPort = (int)($settings['port'] ?? SMTP_PORT);
+    $smtpUser = trim((string)($settings['user'] ?? ''));
+    $smtpPass = (string)($settings['pass'] ?? '');
+    $fromAddress = trim((string)($settings['from'] ?? $smtpUser));
     if ($fromAddress === '') {
         $fromAddress = $smtpUser !== '' ? $smtpUser : 'info@splaro.co';
     }
-
-    if (!class_exists(PHPMailer::class)) {
-        error_log("SPLARO_MAILER_UNAVAILABLE: PHPMailer class not loaded");
-        if (function_exists('mail')) {
-            $headers = [
-                "From: SPLARO <{$fromAddress}>",
-                "Reply-To: {$fromAddress}",
-                "MIME-Version: 1.0"
-            ];
-            $headers[] = $isHtml
-                ? "Content-Type: text/html; charset=UTF-8"
-                : "Content-Type: text/plain; charset=UTF-8";
-
-            $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
-            return @mail($to, $subject, $mailBody, implode("\r\n", $headers));
-        }
-        return false;
-    }
+    $secure = smtp_normalize_secure_label($settings['secure'] ?? '', $smtpPort);
 
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
-        $mail->Host       = $smtpHost !== '' ? $smtpHost : SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $smtpUser !== '' ? $smtpUser : SMTP_USER;
-        $mail->Password   = $smtpPass !== '' ? $smtpPass : SMTP_PASS;
-        $mail->Timeout    = 10;
-        $mail->CharSet    = 'UTF-8';
-        $mail->Port       = $smtpPort > 0 ? $smtpPort : (int)SMTP_PORT;
+        $mail->Host = $smtpHost !== '' ? $smtpHost : SMTP_HOST;
+        $mail->Port = $smtpPort > 0 ? $smtpPort : (int)SMTP_PORT;
+        $mail->CharSet = 'UTF-8';
+        $mail->Timeout = 12;
+        $mail->SMTPAuth = ($smtpUser !== '' || $smtpPass !== '');
+        $mail->Username = $smtpUser;
+        $mail->Password = $smtpPass;
+        $mail->AuthType = 'LOGIN';
 
-        if ($mail->Port === 465) {
+        if ($secure === 'ssl') {
+            if ($mail->Port <= 0) {
+                $mail->Port = 465;
+            }
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        } else {
+        } elseif ($secure === 'tls') {
+            if ($mail->Port <= 0) {
+                $mail->Port = 587;
+            }
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        } else {
+            $mail->SMTPSecure = '';
+            $mail->SMTPAutoTLS = false;
         }
 
         // SSL Security Handshake Bypass (Essential for Hostinger/Shared Environments)
@@ -134,10 +212,9 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
 
         $mail->setFrom($fromAddress, 'SPLARO');
         $mail->addAddress($to);
-
         $mail->isHTML($isHtml);
         $mail->Subject = $subject;
-        $mail->Body    = $body;
+        $mail->Body = $body;
         $mail->AltBody = $altBody ?: strip_tags($body);
 
         if (is_array($attachments)) {
@@ -162,38 +239,149 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         }
 
         $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log("SPLARO_MAIL_FAILURE: " . $mail->ErrorInfo . " | Exception: " . $e->getMessage());
-        splaro_log_exception('mail.send.primary', $e, [
-            'to' => splaro_clip_text((string)$to, 120),
-            'subject' => splaro_clip_text((string)$subject, 120)
-        ]);
+        return [
+            'ok' => true,
+            'from' => $fromAddress,
+            'error_info' => '',
+            'error_message' => ''
+        ];
+    } catch (Throwable $e) {
+        return [
+            'ok' => false,
+            'from' => $fromAddress,
+            'error_info' => (string)$mail->ErrorInfo,
+            'error_message' => $e->getMessage(),
+            'exception' => $e
+        ];
+    }
+}
 
-        // Last-resort fallback: native PHP mail() on shared hosting
+function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
+    global $db;
+
+    $envSettings = smtp_collect_env_settings();
+    $smtpSettings = $envSettings;
+    $settingsSource = 'ENV_DEFAULT';
+
+    try {
+        if (isset($db) && $db && function_exists('load_smtp_settings')) {
+            $resolved = load_smtp_settings($db);
+            if (is_array($resolved)) {
+                $smtpSettings = array_merge($smtpSettings, $resolved);
+                $settingsSource = (string)($resolved['source'] ?? 'DB_RESOLVED');
+            }
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('mail.smtp_settings_load', $e);
+    }
+
+    $smtpUser = trim((string)($smtpSettings['user'] ?? ''));
+    $fromAddress = trim((string)($smtpSettings['from'] ?? $smtpUser));
+    if ($fromAddress === '') {
+        $fromAddress = $smtpUser !== '' ? $smtpUser : 'info@splaro.co';
+    }
+
+    if (!class_exists(PHPMailer::class)) {
+        error_log("SPLARO_MAILER_UNAVAILABLE: PHPMailer class not loaded");
         if (function_exists('mail')) {
             $headers = [
                 "From: SPLARO <{$fromAddress}>",
                 "Reply-To: {$fromAddress}",
                 "MIME-Version: 1.0"
             ];
-
-            if ($isHtml) {
-                $headers[] = "Content-Type: text/html; charset=UTF-8";
-            } else {
-                $headers[] = "Content-Type: text/plain; charset=UTF-8";
-            }
+            $headers[] = $isHtml
+                ? "Content-Type: text/html; charset=UTF-8"
+                : "Content-Type: text/plain; charset=UTF-8";
 
             $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
-            $fallbackSent = @mail($to, $subject, $mailBody, implode("\r\n", $headers));
-            if ($fallbackSent) {
-                error_log("SPLARO_MAIL_FALLBACK_SUCCESS: delivered via mail() to {$to}");
-                return true;
-            }
+            return @mail($to, $subject, $mailBody, implode("\r\n", $headers));
         }
-
         return false;
     }
+
+    $profiles = [];
+    $seenSignatures = [];
+    $primarySignature = smtp_settings_signature($smtpSettings);
+    $profiles[] = ['label' => 'primary', 'settings' => $smtpSettings, 'source' => $settingsSource];
+    $seenSignatures[$primarySignature] = true;
+
+    if (isset($db) && $db) {
+        $dbSettings = smtp_fetch_db_settings($db);
+        if (!empty($dbSettings)) {
+            $dbPreferred = array_merge($envSettings, $dbSettings);
+            $dbSignature = smtp_settings_signature($dbPreferred);
+            if (!isset($seenSignatures[$dbSignature])) {
+                $profiles[] = ['label' => 'db_fallback', 'settings' => $dbPreferred, 'source' => 'DB_DIRECT'];
+                $seenSignatures[$dbSignature] = true;
+            }
+        }
+    }
+
+    $envSignature = smtp_settings_signature($envSettings);
+    if (!isset($seenSignatures[$envSignature])) {
+        $profiles[] = ['label' => 'env_fallback', 'settings' => $envSettings, 'source' => 'ENV_DIRECT'];
+        $seenSignatures[$envSignature] = true;
+    }
+
+    $attempts = [];
+    foreach ($profiles as $profile) {
+        $label = (string)($profile['label'] ?? 'attempt');
+        $source = (string)($profile['source'] ?? 'UNKNOWN');
+        $settings = is_array($profile['settings'] ?? null) ? $profile['settings'] : [];
+        $result = smtp_try_send_profile($settings, $to, $subject, $body, $altBody, $isHtml, $attachments);
+        if (!empty($result['ok'])) {
+            if (!empty($attempts)) {
+                splaro_structured_log('mail.send.recovered', [
+                    'to' => splaro_clip_text((string)$to, 120),
+                    'subject' => splaro_clip_text((string)$subject, 120),
+                    'recovered_by' => $label,
+                    'source' => $source
+                ], 'WARNING');
+            }
+            return true;
+        }
+
+        $attemptContext = [
+            'to' => splaro_clip_text((string)$to, 120),
+            'subject' => splaro_clip_text((string)$subject, 120),
+            'attempt' => $label,
+            'source' => $source,
+            'error_info' => splaro_clip_text((string)($result['error_info'] ?? ''), 220),
+            'smtp_profile' => smtp_profile_redacted($settings)
+        ];
+        $attempts[] = $attemptContext;
+        $attemptException = $result['exception'] ?? null;
+        if ($attemptException instanceof Throwable) {
+            splaro_log_exception('mail.send.' . $label, $attemptException, $attemptContext);
+        } else {
+            splaro_structured_log('mail.send.attempt_failed', $attemptContext, 'ERROR');
+        }
+    }
+
+    // Last-resort fallback: native PHP mail() on shared hosting
+    if (function_exists('mail')) {
+        $headers = [
+            "From: SPLARO <{$fromAddress}>",
+            "Reply-To: {$fromAddress}",
+            "MIME-Version: 1.0"
+        ];
+        $headers[] = $isHtml
+            ? "Content-Type: text/html; charset=UTF-8"
+            : "Content-Type: text/plain; charset=UTF-8";
+
+        $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
+        $fallbackSent = @mail($to, $subject, $mailBody, implode("\r\n", $headers));
+        if ($fallbackSent) {
+            splaro_structured_log('mail.send.php_mail_fallback_success', [
+                'to' => splaro_clip_text((string)$to, 120),
+                'subject' => splaro_clip_text((string)$subject, 120),
+                'smtp_attempts' => count($attempts)
+            ], 'WARNING');
+            return true;
+        }
+    }
+
+    return false;
 }
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'CLI'));
@@ -2364,58 +2552,41 @@ ensure_unique_index_when_clean($db, 'products', 'uniq_products_slug', 'slug');
 ensure_unique_index_when_clean($db, 'products', 'uniq_products_sku', 'sku');
 
 function load_smtp_settings($db) {
-    $settings = [
-        'host' => SMTP_HOST,
-        'port' => SMTP_PORT,
-        'user' => SMTP_USER,
-        'pass' => SMTP_PASS,
-        'from' => SMTP_USER,
-        'secure' => ((int)SMTP_PORT === 465 ? 'ssl' : 'tls'),
-    ];
+    $envSettings = smtp_collect_env_settings();
+    $dbSettings = smtp_fetch_db_settings($db);
+    $forceEnv = filter_var((string)env_or_default('SMTP_FORCE_ENV', 'false'), FILTER_VALIDATE_BOOLEAN);
 
-    try {
-        $row = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
-        if (!empty($row['smtp_settings'])) {
-            $custom = json_decode($row['smtp_settings'], true);
-            if (is_array($custom)) {
-                $host = trim((string)($custom['host'] ?? ''));
-                $user = trim((string)($custom['user'] ?? ''));
-                $pass = (string)($custom['pass'] ?? '');
-                $from = trim((string)($custom['from'] ?? ''));
-                $secure = strtolower(trim((string)($custom['secure'] ?? '')));
-                $port = isset($custom['port']) ? (int)$custom['port'] : 0;
-
-                if ($host !== '') $settings['host'] = $host;
-                if ($port > 0) $settings['port'] = $port;
-                if ($user !== '') $settings['user'] = $user;
-                if ($pass !== '') $settings['pass'] = $pass;
-                if ($from !== '') $settings['from'] = $from;
-                if ($secure !== '') $settings['secure'] = $secure;
-            }
-        }
-    } catch (Exception $e) {
-        splaro_log_exception('smtp.settings.load', $e, [], 'WARNING');
+    // DB settings are preferred so admin panel updates take effect instantly.
+    // Set SMTP_FORCE_ENV=true when infrastructure policy requires env-only SMTP.
+    if ($forceEnv) {
+        $settings = array_merge($dbSettings, $envSettings);
+        $source = 'ENV_FORCED';
+    } else {
+        $settings = array_merge($envSettings, $dbSettings);
+        $source = !empty($dbSettings) ? 'DB_PREFERRED' : 'ENV_DEFAULT';
     }
 
-    // Environment variables must win over DB values when provided,
-    // so stale DB SMTP credentials never break delivery.
-    $envHost = trim((string)SMTP_HOST);
-    $envPort = (int)SMTP_PORT;
-    $envUser = trim((string)SMTP_USER);
-    $envPass = (string)SMTP_PASS;
-    $envSecure = strtolower(trim((string)env_or_default('SMTP_SECURE', '')));
-
-    if ($envHost !== '') $settings['host'] = $envHost;
-    if ($envPort > 0) $settings['port'] = $envPort;
-    if ($envUser !== '') $settings['user'] = $envUser;
-    if ($envPass !== '') $settings['pass'] = $envPass;
-    if (in_array($envSecure, ['ssl', 'tls'], true)) {
-        $settings['secure'] = $envSecure;
+    if (!isset($settings['port']) || (int)$settings['port'] <= 0) {
+        $settings['port'] = (int)SMTP_PORT > 0 ? (int)SMTP_PORT : 465;
+    } else {
+        $settings['port'] = (int)$settings['port'];
     }
 
+    if (trim((string)($settings['host'] ?? '')) === '') {
+        $settings['host'] = trim((string)SMTP_HOST);
+    }
+    if (trim((string)($settings['user'] ?? '')) === '') {
+        $settings['user'] = trim((string)SMTP_USER);
+    }
+    if ((string)($settings['pass'] ?? '') === '') {
+        $settings['pass'] = (string)SMTP_PASS;
+    }
     if (trim((string)($settings['from'] ?? '')) === '') {
-        $settings['from'] = (string)($settings['user'] ?? '');
+        $settings['from'] = trim((string)($settings['user'] ?? ''));
     }
+
+    $settings['secure'] = smtp_normalize_secure_label($settings['secure'] ?? '', (int)$settings['port']);
+    $settings['source'] = $source;
 
     return $settings;
 }
