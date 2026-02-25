@@ -561,9 +561,7 @@ const AppContent = () => {
   const hasAdminIdentity = isAdminRole(user?.role);
   const storefrontIdentityPath = user ? '/user_dashboard' : '/login';
   const currentPath = location.pathname.toLowerCase();
-  const isAdminPanelPath = currentPath === '/admin_dashboard' || currentPath === '/admin' || currentPath.startsWith('/admin/');
-  const isAdminAuthPath = currentPath === '/sourove-admin' || currentPath === '/login';
-  const isAdminSurface = adminDomain && (isAdminPanelPath || isAdminAuthPath);
+  const isAdminSurface = adminDomain;
   const isDark = theme === 'DARK';
   const activeCmsBundle = useMemo(() => {
     const published = siteSettings.cmsPublished || siteSettings.cmsDraft;

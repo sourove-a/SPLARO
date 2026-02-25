@@ -99,7 +99,12 @@ export const Navbar: React.FC = () => {
   const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const adminDomain = isAdminSubdomainHost();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  if (adminDomain) {
+    return null;
+  }
 
   useEffect(() => {
     // Route পরিবর্তন হলেই overlay close করে stuck state prevent করা
@@ -232,7 +237,7 @@ export const Navbar: React.FC = () => {
   ];
 
   const hasAdminAccess = isAdminRole(user?.role);
-  const allowAdminPanel = hasAdminAccess && isAdminSubdomainHost();
+  const allowAdminPanel = hasAdminAccess && adminDomain;
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },

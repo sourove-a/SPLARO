@@ -13,8 +13,14 @@ export const MobileTabBar: React.FC = () => {
   const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const adminDomain = isAdminSubdomainHost();
+
+  if (adminDomain) {
+    return null;
+  }
+
   const hasAdminAccess = isAdminRole(user?.role);
-  const allowAdminPanel = hasAdminAccess && isAdminSubdomainHost();
+  const allowAdminPanel = hasAdminAccess && adminDomain;
 
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },
