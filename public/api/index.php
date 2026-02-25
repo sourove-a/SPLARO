@@ -738,6 +738,8 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
 
         $targetCandidates[] = '/home/u134578371/domains/admin.splaro.co/public_html';
         $targetCandidates[] = '/home/u134578371/domains/admin.splaro.co';
+        $targetCandidates[] = '/home/u134578371/domains/splaro.co/admin.splaro.co/public_html';
+        $targetCandidates[] = '/home/u134578371/domains/splaro.co/admin.splaro.co';
         $targetCandidates[] = '/home/u134578371/domains/splaro.co/public_html/admin';
         $targetCandidates[] = '/home/u134578371/public_html/admin';
         $targetCandidates[] = '/home/u134578371/public_html';
