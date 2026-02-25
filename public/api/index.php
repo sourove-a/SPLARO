@@ -740,6 +740,7 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
         $targetCandidates[] = '/home/u134578371/domains/splaro.co/public_html/admin';
         $targetCandidates[] = '/home/u134578371/public_html/admin';
         $targetCandidates[] = '/home/u134578371/public_html';
+        $targetCandidates = array_values(array_unique($targetCandidates));
 
         $targetsTouched = 0;
         $targetsAttempted = 0;
@@ -747,7 +748,7 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
         $sourceReal = splaro_normalize_path_string((string)(realpath($sourceBundle) ?: $sourceBundle));
         $placeholderFiles = ['default.php', 'index2.php', 'index.default.php'];
 
-        foreach (array_values(array_unique($targetCandidates)) as $targetPathRaw) {
+        foreach ($targetCandidates as $targetPathRaw) {
             $targetPath = splaro_normalize_path_string($targetPathRaw);
             if ($targetPath === '') {
                 continue;
@@ -817,6 +818,7 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
             'source' => $sourceBundle,
             'source_derived_from_web_root' => $sourceDerivedFromWebRoot,
             'source_derived_summary' => $sourceDerivedSummary,
+            'target_candidates' => $targetCandidates,
             'summaries' => $copySummaries
         ]);
     } catch (Throwable $e) {
