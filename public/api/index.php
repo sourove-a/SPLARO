@@ -6034,6 +6034,8 @@ if ($method === 'GET' && $action === 'health') {
     $sheetsQueue = get_sync_queue_summary($db);
     $queueDead = (int)($telegramQueue['dead'] ?? 0) + (int)($pushQueue['dead'] ?? 0) + (int)($sheetsQueue['dead'] ?? 0);
     $queueDeadRecent = (int)($telegramQueue['dead_recent'] ?? 0) + (int)($pushQueue['dead_recent'] ?? 0) + (int)($sheetsQueue['dead_recent'] ?? 0);
+    $queueHistoricalDead = $queueDead - $queueDeadRecent;
+    if ($queueHistoricalDead < 0) $queueHistoricalDead = 0;
     $queueRetry = (int)($telegramQueue['retry'] ?? 0) + (int)($pushQueue['retry'] ?? 0) + (int)($sheetsQueue['retry'] ?? 0);
     $queuePending = (int)($telegramQueue['pending'] ?? 0) + (int)($pushQueue['pending'] ?? 0) + (int)($sheetsQueue['pending'] ?? 0);
 
@@ -6042,7 +6044,7 @@ if ($method === 'GET' && $action === 'health') {
     if ($queueDeadRecent > 0) {
         $queueStatus = 'DOWN';
         $queueError = 'QUEUE_DEAD_JOBS_PRESENT';
-    } elseif ($queueDead > 0) {
+    } elseif ($queueHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $queueStatus = 'WARNING';
         $queueError = 'QUEUE_HISTORICAL_DEAD_JOBS_PRESENT';
     } elseif ($queueRetry > 0 || $queuePending > 250) {
@@ -6052,6 +6054,8 @@ if ($method === 'GET' && $action === 'health') {
 
     $telegramDead = (int)($telegramQueue['dead'] ?? 0);
     $telegramDeadRecent = (int)($telegramQueue['dead_recent'] ?? 0);
+    $telegramHistoricalDead = $telegramDead - $telegramDeadRecent;
+    if ($telegramHistoricalDead < 0) $telegramHistoricalDead = 0;
     $telegramStatus = TELEGRAM_ENABLED ? 'OK' : 'WARNING';
     $telegramError = '';
     if (!TELEGRAM_ENABLED) {
@@ -6059,7 +6063,7 @@ if ($method === 'GET' && $action === 'health') {
     } elseif ($telegramDeadRecent > 0) {
         $telegramStatus = 'DOWN';
         $telegramError = 'TELEGRAM_QUEUE_DEAD_PRESENT';
-    } elseif ($telegramDead > 0) {
+    } elseif ($telegramHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $telegramStatus = 'WARNING';
         $telegramError = 'TELEGRAM_QUEUE_HISTORICAL_DEAD_PRESENT';
     } elseif ((int)($telegramQueue['retry'] ?? 0) > 0) {
@@ -6070,6 +6074,8 @@ if ($method === 'GET' && $action === 'health') {
     $sheetsCircuit = is_array($sheetsQueue['circuit'] ?? null) ? $sheetsQueue['circuit'] : ['open' => false];
     $sheetsDead = (int)($sheetsQueue['dead'] ?? 0);
     $sheetsDeadRecent = (int)($sheetsQueue['dead_recent'] ?? 0);
+    $sheetsHistoricalDead = $sheetsDead - $sheetsDeadRecent;
+    if ($sheetsHistoricalDead < 0) $sheetsHistoricalDead = 0;
     $sheetsEnabled = trim((string)GOOGLE_SHEETS_WEBHOOK_URL) !== '';
     $sheetsStatus = $sheetsEnabled ? 'OK' : 'WARNING';
     $sheetsError = '';
@@ -6081,7 +6087,7 @@ if ($method === 'GET' && $action === 'health') {
     } elseif ($sheetsDeadRecent > 0) {
         $sheetsStatus = 'DOWN';
         $sheetsError = 'SHEETS_QUEUE_DEAD_PRESENT';
-    } elseif ($sheetsDead > 0) {
+    } elseif ($sheetsHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $sheetsStatus = 'WARNING';
         $sheetsError = 'SHEETS_QUEUE_HISTORICAL_DEAD_PRESENT';
     } elseif ((int)($sheetsQueue['retry'] ?? 0) > 0) {
@@ -6091,6 +6097,8 @@ if ($method === 'GET' && $action === 'health') {
 
     $pushDead = (int)($pushQueue['dead'] ?? 0);
     $pushDeadRecent = (int)($pushQueue['dead_recent'] ?? 0);
+    $pushHistoricalDead = $pushDead - $pushDeadRecent;
+    if ($pushHistoricalDead < 0) $pushHistoricalDead = 0;
     $pushStatus = PUSH_ENABLED ? 'OK' : 'WARNING';
     $pushError = '';
     if (!PUSH_ENABLED) {
@@ -6098,7 +6106,7 @@ if ($method === 'GET' && $action === 'health') {
     } elseif ($pushDeadRecent > 0) {
         $pushStatus = 'DOWN';
         $pushError = 'PUSH_QUEUE_DEAD_PRESENT';
-    } elseif ($pushDead > 0) {
+    } elseif ($pushHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $pushStatus = 'WARNING';
         $pushError = 'PUSH_QUEUE_HISTORICAL_DEAD_PRESENT';
     } elseif ((int)($pushQueue['retry'] ?? 0) > 0 || $activePushSubscriptions < 1) {
@@ -6231,6 +6239,7 @@ if ($method === 'GET' && $action === 'health') {
                 "retry" => $queueRetry,
                 "dead" => $queueDead,
                 "dead_recent" => $queueDeadRecent,
+                "dead_historical" => $queueHistoricalDead,
                 "dead_recent_window_minutes" => (int)HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES
             ],
             "telegram" => $telegramQueue,
