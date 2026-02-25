@@ -254,6 +254,33 @@ function env_first(array $keys, $default = '') {
     return $default;
 }
 
+function splaro_env_int($keysOrKey, $default, $min, $max) {
+    $raw = '';
+    if (is_array($keysOrKey)) {
+        $raw = env_first($keysOrKey, '');
+    } else {
+        $raw = env_or_default((string)$keysOrKey, '');
+    }
+
+    $value = $raw === '' ? (int)$default : (int)$raw;
+    if ($value < (int)$min) $value = (int)$min;
+    if ($value > (int)$max) $value = (int)$max;
+    return $value;
+}
+
+function splaro_env_bool($keysOrKey, $default = false) {
+    $raw = '';
+    if (is_array($keysOrKey)) {
+        $raw = env_first($keysOrKey, '');
+    } else {
+        $raw = env_or_default((string)$keysOrKey, '');
+    }
+    if ($raw === '') {
+        return (bool)$default;
+    }
+    return filter_var($raw, FILTER_VALIDATE_BOOLEAN);
+}
+
 function parse_origin_host($origin) {
     $parts = parse_url((string)$origin);
     return is_array($parts) ? strtolower((string)($parts['host'] ?? '')) : '';
@@ -480,6 +507,17 @@ define('DB_USER', trim((string)env_first(['DB_USER', 'MYSQL_USER', 'MYSQL_USERNA
 define('DB_PASSWORD', $primaryDbPassword);
 define('DB_PASS', DB_PASSWORD);
 define('DB_PORT', (int)trim((string)env_first(['DB_PORT', 'MYSQL_PORT', 'DATABASE_PORT'], $dbUrl['port'] !== '' ? $dbUrl['port'] : '3306')));
+define('DB_CONNECT_TIMEOUT_SECONDS', splaro_env_int('DB_CONNECT_TIMEOUT_SECONDS', 5, 2, 20));
+define('DB_QUERY_TIMEOUT_MS', splaro_env_int('DB_QUERY_TIMEOUT_MS', 3500, 250, 20000));
+define('DB_LOCK_WAIT_TIMEOUT_SECONDS', splaro_env_int('DB_LOCK_WAIT_TIMEOUT_SECONDS', 10, 2, 120));
+define('DB_IDLE_TIMEOUT_SECONDS', splaro_env_int('DB_IDLE_TIMEOUT_SECONDS', 90, 30, 600));
+define('DB_RETRY_MAX', splaro_env_int('DB_RETRY_MAX', 3, 0, 3));
+define('DB_RETRY_BASE_DELAY_MS', splaro_env_int('DB_RETRY_BASE_DELAY_MS', 120, 50, 2000));
+define('DB_SLOW_QUERY_MS', splaro_env_int('DB_SLOW_QUERY_MS', 900, 100, 30000));
+define('DB_PERSISTENT', splaro_env_bool('DB_PERSISTENT', false));
+define('DB_POOL_TARGET', splaro_env_int('DB_POOL_TARGET', 6, 2, 12));
+define('API_MAX_EXECUTION_SECONDS', splaro_env_int('API_MAX_EXECUTION_SECONDS', 25, 5, 180));
+define('LOG_REQUEST_METRICS', splaro_env_bool('LOG_REQUEST_METRICS', true));
 
 // 2. SMTP COMMAND CENTER
 define('SMTP_HOST', env_or_default('SMTP_HOST', 'smtp.hostinger.com'));
@@ -548,6 +586,8 @@ function get_db_connection() {
     $lastPasswordSource = (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? 'EMPTY');
     $attemptedHosts = [];
     $passwordSourcesTried = [];
+    $connectAttempts = 0;
+    $connectRetries = 0;
     $dbSocket = trim((string)env_or_default('DB_SOCKET', ''));
     $passwordCandidates = $GLOBALS['SPLARO_DB_PASSWORD_CANDIDATES'] ?? [];
     if (!is_array($passwordCandidates) || empty($passwordCandidates)) {
@@ -555,37 +595,127 @@ function get_db_connection() {
             ['source' => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? 'DB_PASSWORD'), 'value' => (string)DB_PASSWORD]
         ];
     }
+
+    $isTransientDbError = static function ($code, $message) {
+        $code = strtoupper(trim((string)$code));
+        $message = strtolower((string)$message);
+        $transientCodes = [
+            '1205', // lock wait timeout
+            '1213', // deadlock
+            '2002', // can't connect
+            '2003', // can't connect to host
+            '2006', // server has gone away
+            '2013', // lost connection
+            '1040', // too many connections
+            '1158', '1159', '1160', '1161',
+            '08S01'
+        ];
+        if (in_array($code, $transientCodes, true)) {
+            return true;
+        }
+        $needles = [
+            'server has gone away',
+            'lost connection',
+            'lock wait timeout',
+            'deadlock found',
+            'too many connections',
+            'connection timed out',
+            'network is unreachable',
+            'temporarily unavailable'
+        ];
+        foreach ($needles as $needle) {
+            if ($needle !== '' && strpos($message, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    $retryDelayMicroseconds = static function ($attemptNumber) {
+        $attempt = (int)$attemptNumber;
+        if ($attempt < 1) $attempt = 1;
+        $base = (int)DB_RETRY_BASE_DELAY_MS;
+        $delayMs = $base * (int)pow(2, max(0, $attempt - 1));
+        if ($delayMs > 5000) $delayMs = 5000;
+        return $delayMs * 1000;
+    };
+
+    $applySessionTimeouts = static function ($pdo) {
+        try {
+            $pdo->exec("SET SESSION innodb_lock_wait_timeout = " . (int)DB_LOCK_WAIT_TIMEOUT_SECONDS);
+        } catch (\Throwable $e) {
+            // Best-effort only.
+        }
+        try {
+            $pdo->exec("SET SESSION wait_timeout = " . (int)DB_IDLE_TIMEOUT_SECONDS);
+            $pdo->exec("SET SESSION interactive_timeout = " . (int)DB_IDLE_TIMEOUT_SECONDS);
+        } catch (\Throwable $e) {
+            // Best-effort only.
+        }
+        try {
+            $pdo->exec("SET SESSION MAX_EXECUTION_TIME = " . (int)DB_QUERY_TIMEOUT_MS);
+        } catch (\Throwable $e) {
+            // MariaDB compatibility fallback.
+            try {
+                $seconds = ((int)DB_QUERY_TIMEOUT_MS) / 1000;
+                $pdo->exec("SET SESSION max_statement_time = " . number_format($seconds, 3, '.', ''));
+            } catch (\Throwable $ignored) {
+                // Best-effort only.
+            }
+        }
+    };
+
+    $maxRetries = (int)DB_RETRY_MAX;
+    if ($maxRetries < 0) $maxRetries = 0;
+    if ($maxRetries > 3) $maxRetries = 3;
+
     foreach ($hostCandidates as $host) {
         $attemptedHosts[] = $host;
         foreach ($passwordCandidates as $candidate) {
             $candidatePassword = (string)($candidate['value'] ?? '');
             $candidateSource = (string)($candidate['source'] ?? 'UNKNOWN');
             $passwordSourcesTried[] = $candidateSource;
-            try {
-                if ($dbSocket !== '') {
-                    $dsn = "mysql:unix_socket=" . $dbSocket . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-                } elseif ($host === 'localhost') {
-                    // Keep localhost socket-friendly on shared hosting; forcing port can route as 127.0.0.1.
-                    $dsn = "mysql:host=localhost;dbname=" . DB_NAME . ";charset=utf8mb4";
-                } else {
-                    $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+            $attempt = 0;
+            while (true) {
+                $attempt++;
+                $connectAttempts++;
+                try {
+                    if ($dbSocket !== '') {
+                        $dsn = "mysql:unix_socket=" . $dbSocket . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+                    } elseif ($host === 'localhost') {
+                        // Keep localhost socket-friendly on shared hosting; forcing port can route as 127.0.0.1.
+                        $dsn = "mysql:host=localhost;dbname=" . DB_NAME . ";charset=utf8mb4";
+                    } else {
+                        $dsn = "mysql:host=" . $host . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
+                    }
+                    $options = [
+                        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_EMULATE_PREPARES   => false,
+                        PDO::ATTR_TIMEOUT            => (int)DB_CONNECT_TIMEOUT_SECONDS,
+                        PDO::ATTR_PERSISTENT         => (bool)DB_PERSISTENT,
+                    ];
+                    $pdo = new PDO($dsn, DB_USER, $candidatePassword, $options);
+                    $applySessionTimeouts($pdo);
+                    $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
+                    $GLOBALS['SPLARO_DB_CONNECTED_HOST'] = $host;
+                    $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = $candidateSource;
+                    $GLOBALS['SPLARO_DB_CONNECT_ATTEMPTS'] = $connectAttempts;
+                    $GLOBALS['SPLARO_DB_CONNECT_RETRIES'] = $connectRetries;
+                    $GLOBALS['SPLARO_DB_PERSISTENT'] = (bool)DB_PERSISTENT;
+                    return $pdo;
+                } catch (\PDOException $e) {
+                    $lastError = $e->getMessage();
+                    $lastSqlState = (string)$e->getCode();
+                    $lastPasswordSource = $candidateSource;
+                    $isTransient = $isTransientDbError($lastSqlState, $lastError);
+                    error_log("SPLARO_DB_CONNECTION_ERROR[{$host}|{$candidateSource}|attempt={$attempt}]: " . $lastError);
+                    if (!$isTransient || $attempt > $maxRetries) {
+                        break;
+                    }
+                    $connectRetries++;
+                    usleep($retryDelayMicroseconds($attempt));
                 }
-                $options = [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                    PDO::ATTR_TIMEOUT            => 5,
-                ];
-                $pdo = new PDO($dsn, DB_USER, $candidatePassword, $options);
-                $GLOBALS['SPLARO_DB_CONNECTION'] = $pdo;
-                $GLOBALS['SPLARO_DB_CONNECTED_HOST'] = $host;
-                $GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] = $candidateSource;
-                return $pdo;
-            } catch (\PDOException $e) {
-                $lastError = $e->getMessage();
-                $lastSqlState = (string)$e->getCode();
-                $lastPasswordSource = $candidateSource;
-                error_log("SPLARO_DB_CONNECTION_ERROR[{$host}|{$candidateSource}]: " . $lastError);
             }
         }
     }
@@ -597,7 +727,15 @@ function get_db_connection() {
         "passwordSource" => $lastPasswordSource,
         "passwordSourcesTried" => array_values(array_unique($passwordSourcesTried)),
         "hostsTried" => $attemptedHosts,
-        "hostFallbackEnabled" => $allowHostFallback
+        "hostFallbackEnabled" => $allowHostFallback,
+        "connectTimeoutSeconds" => (int)DB_CONNECT_TIMEOUT_SECONDS,
+        "retryMax" => $maxRetries,
+        "connectionAttempts" => $connectAttempts,
+        "connectionRetries" => $connectRetries,
+        "persistent" => (bool)DB_PERSISTENT
     ];
+    $GLOBALS['SPLARO_DB_CONNECT_ATTEMPTS'] = $connectAttempts;
+    $GLOBALS['SPLARO_DB_CONNECT_RETRIES'] = $connectRetries;
+    $GLOBALS['SPLARO_DB_PERSISTENT'] = (bool)DB_PERSISTENT;
     return null;
 }

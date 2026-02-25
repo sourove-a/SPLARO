@@ -194,6 +194,58 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
+$__splaroRequestStartedAt = microtime(true);
+if (defined('API_MAX_EXECUTION_SECONDS') && (int)API_MAX_EXECUTION_SECONDS > 0) {
+    @ini_set('max_execution_time', (string)((int)API_MAX_EXECUTION_SECONDS));
+    if (function_exists('set_time_limit')) {
+        @set_time_limit((int)API_MAX_EXECUTION_SECONDS);
+    }
+}
+
+function splaro_structured_log($event, $context = [], $level = 'INFO') {
+    $payload = [
+        'ts' => date('c'),
+        'level' => strtoupper((string)$level),
+        'event' => (string)$event,
+        'context' => is_array($context) ? $context : ['value' => $context],
+    ];
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (is_string($json) && $json !== '') {
+        error_log('SPLARO_LOG ' . $json);
+    } else {
+        error_log('SPLARO_LOG {"event":"LOG_ENCODING_FAILED"}');
+    }
+}
+
+register_shutdown_function(function () use ($method, $action, $__splaroRequestStartedAt) {
+    if (!defined('LOG_REQUEST_METRICS') || !LOG_REQUEST_METRICS) {
+        if (isset($GLOBALS['SPLARO_DB_CONNECTION']) && $GLOBALS['SPLARO_DB_CONNECTION'] instanceof PDO) {
+            $GLOBALS['SPLARO_DB_CONNECTION'] = null;
+        }
+        return;
+    }
+    $durationMs = (int)round((microtime(true) - $__splaroRequestStartedAt) * 1000);
+    $statusCode = http_response_code();
+    if (!$statusCode) $statusCode = 200;
+    $dbConnected = isset($GLOBALS['SPLARO_DB_CONNECTION']) && $GLOBALS['SPLARO_DB_CONNECTION'] instanceof PDO;
+    splaro_structured_log('api.request', [
+        'method' => (string)$method,
+        'action' => (string)$action,
+        'status' => (int)$statusCode,
+        'duration_ms' => $durationMs,
+        'storage' => $dbConnected ? 'mysql' : 'fallback',
+        'db' => [
+            'host' => (string)($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
+            'persistent' => (bool)($GLOBALS['SPLARO_DB_PERSISTENT'] ?? DB_PERSISTENT),
+            'pool_target' => (int)DB_POOL_TARGET,
+            'connect_attempts' => (int)($GLOBALS['SPLARO_DB_CONNECT_ATTEMPTS'] ?? 0),
+            'connect_retries' => (int)($GLOBALS['SPLARO_DB_CONNECT_RETRIES'] ?? 0),
+        ]
+    ]);
+    if (isset($GLOBALS['SPLARO_DB_CONNECTION']) && $GLOBALS['SPLARO_DB_CONNECTION'] instanceof PDO) {
+        $GLOBALS['SPLARO_DB_CONNECTION'] = null;
+    }
+});
 
 function get_env_source_label() {
     $source = (string)($GLOBALS['SPLARO_ENV_SOURCE_FILE'] ?? '');
@@ -313,24 +365,90 @@ function ensure_index($db, $table, $indexName, $indexSql) {
 }
 
 function safe_query_all($db, $sql, $params = []) {
-    try {
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    } catch (Exception $e) {
-        error_log('SPLARO_SAFE_QUERY_FAILED: ' . $e->getMessage() . ' | SQL=' . $sql);
-        return [];
+    $attempt = 0;
+    $maxRetries = defined('DB_RETRY_MAX') ? (int)DB_RETRY_MAX : 0;
+    if ($maxRetries < 0) $maxRetries = 0;
+    if ($maxRetries > 3) $maxRetries = 3;
+    while (true) {
+        $attempt++;
+        $startedAt = microtime(true);
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+            $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
+            if (defined('DB_SLOW_QUERY_MS') && $durationMs >= (int)DB_SLOW_QUERY_MS) {
+                splaro_structured_log('db.slow_query', [
+                    'duration_ms' => $durationMs,
+                    'query_kind' => 'fetch_all',
+                    'attempt' => $attempt
+                ], 'WARN');
+            }
+            return $rows;
+        } catch (Throwable $e) {
+            $message = (string)$e->getMessage();
+            $code = strtoupper(trim((string)$e->getCode()));
+            $lower = strtolower($message);
+            $isTransient = in_array($code, ['1205', '1213', '2006', '2013', '1040', '08S01'], true)
+                || strpos($lower, 'server has gone away') !== false
+                || strpos($lower, 'lost connection') !== false
+                || strpos($lower, 'deadlock found') !== false
+                || strpos($lower, 'lock wait timeout') !== false
+                || strpos($lower, 'too many connections') !== false;
+            if ($isTransient && $attempt <= $maxRetries) {
+                $baseDelay = defined('DB_RETRY_BASE_DELAY_MS') ? (int)DB_RETRY_BASE_DELAY_MS : 120;
+                $delayMs = $baseDelay * (int)pow(2, max(0, $attempt - 1));
+                if ($delayMs > 5000) $delayMs = 5000;
+                usleep($delayMs * 1000);
+                continue;
+            }
+            error_log('SPLARO_SAFE_QUERY_FAILED: ' . $message . ' | SQL=' . $sql);
+            return [];
+        }
     }
 }
 
 function safe_query_count($db, $sql, $params = []) {
-    try {
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        return (int)$stmt->fetchColumn();
-    } catch (Exception $e) {
-        error_log('SPLARO_SAFE_COUNT_FAILED: ' . $e->getMessage() . ' | SQL=' . $sql);
-        return 0;
+    $attempt = 0;
+    $maxRetries = defined('DB_RETRY_MAX') ? (int)DB_RETRY_MAX : 0;
+    if ($maxRetries < 0) $maxRetries = 0;
+    if ($maxRetries > 3) $maxRetries = 3;
+    while (true) {
+        $startedAt = microtime(true);
+        $attempt++;
+        try {
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $count = (int)$stmt->fetchColumn();
+            $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
+            if (defined('DB_SLOW_QUERY_MS') && $durationMs >= (int)DB_SLOW_QUERY_MS) {
+                splaro_structured_log('db.slow_query', [
+                    'duration_ms' => $durationMs,
+                    'query_kind' => 'count',
+                    'attempt' => $attempt
+                ], 'WARN');
+            }
+            return $count;
+        } catch (Throwable $e) {
+            $message = (string)$e->getMessage();
+            $code = strtoupper(trim((string)$e->getCode()));
+            $lower = strtolower($message);
+            $isTransient = in_array($code, ['1205', '1213', '2006', '2013', '1040', '08S01'], true)
+                || strpos($lower, 'server has gone away') !== false
+                || strpos($lower, 'lost connection') !== false
+                || strpos($lower, 'deadlock found') !== false
+                || strpos($lower, 'lock wait timeout') !== false
+                || strpos($lower, 'too many connections') !== false;
+            if ($isTransient && $attempt <= $maxRetries) {
+                $baseDelay = defined('DB_RETRY_BASE_DELAY_MS') ? (int)DB_RETRY_BASE_DELAY_MS : 120;
+                $delayMs = $baseDelay * (int)pow(2, max(0, $attempt - 1));
+                if ($delayMs > 5000) $delayMs = 5000;
+                usleep($delayMs * 1000);
+                continue;
+            }
+            error_log('SPLARO_SAFE_COUNT_FAILED: ' . $message . ' | SQL=' . $sql);
+            return 0;
+        }
     }
 }
 
@@ -686,6 +804,10 @@ function ensure_core_schema($db) {
     ensure_index($db, 'orders', 'idx_orders_email', 'CREATE INDEX idx_orders_email ON orders(customer_email)');
     ensure_index($db, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
     ensure_index($db, 'orders', 'idx_orders_created_at', 'CREATE INDEX idx_orders_created_at ON orders(created_at)');
+    ensure_index($db, 'orders', 'idx_orders_status', 'CREATE INDEX idx_orders_status ON orders(status)');
+    ensure_index($db, 'orders', 'idx_orders_user_created', 'CREATE INDEX idx_orders_user_created ON orders(user_id, created_at)');
+    ensure_index($db, 'orders', 'idx_orders_email_created', 'CREATE INDEX idx_orders_email_created ON orders(customer_email, created_at)');
+    ensure_index($db, 'orders', 'idx_orders_tracking_number', 'CREATE INDEX idx_orders_tracking_number ON orders(tracking_number)');
     ensure_index($db, 'subscriptions', 'idx_subscriptions_email', 'CREATE INDEX idx_subscriptions_email ON subscriptions(email)');
     ensure_index($db, 'subscriptions', 'idx_subscriptions_created_at', 'CREATE INDEX idx_subscriptions_created_at ON subscriptions(created_at)');
     ensure_index($db, 'products', 'idx_products_created_at', 'CREATE INDEX idx_products_created_at ON products(created_at)');
@@ -694,6 +816,9 @@ function ensure_core_schema($db) {
     ensure_index($db, 'products', 'idx_products_category_slug', 'CREATE INDEX idx_products_category_slug ON products(category_slug)');
     ensure_index($db, 'products', 'idx_products_sub_category_slug', 'CREATE INDEX idx_products_sub_category_slug ON products(sub_category_slug)');
     ensure_index($db, 'products', 'idx_products_status', 'CREATE INDEX idx_products_status ON products(status)');
+    ensure_index($db, 'products', 'idx_products_category_type', 'CREATE INDEX idx_products_category_type ON products(category, type)');
+    ensure_index($db, 'products', 'idx_products_status_created', 'CREATE INDEX idx_products_status_created ON products(status, created_at)');
+    ensure_index($db, 'products', 'idx_products_stock_status', 'CREATE INDEX idx_products_stock_status ON products(stock, status)');
     ensure_index($db, 'product_images', 'idx_product_images_product', 'CREATE INDEX idx_product_images_product ON product_images(product_id)');
     ensure_index($db, 'product_images', 'idx_product_images_sort', 'CREATE INDEX idx_product_images_sort ON product_images(product_id, sort_order)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
@@ -1544,13 +1669,18 @@ function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
 
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
+        $connectTimeout = max(1, min((int)$timeoutSeconds, 3));
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => $jsonPayload,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => $timeoutSeconds,
+            CURLOPT_CONNECTTIMEOUT => $connectTimeout,
             CURLOPT_TIMEOUT => $timeoutSeconds,
+            CURLOPT_NOSIGNAL => 1,
+            CURLOPT_TCP_KEEPALIVE => 1,
+            CURLOPT_LOW_SPEED_LIMIT => 1,
+            CURLOPT_LOW_SPEED_TIME => $timeoutSeconds,
         ]);
 
         $responseBody = curl_exec($ch);
@@ -2615,16 +2745,52 @@ function get_sync_queue_summary($db) {
 }
 
 if ($method === 'GET' && $action === 'health') {
+    $dbPingOk = false;
+    $dbLatencyMs = null;
+    $dbPingError = '';
+    $pingStartedAt = microtime(true);
+    try {
+        $pingStmt = $db->query('SELECT 1');
+        $pingStmt->fetchColumn();
+        $dbPingOk = true;
+    } catch (Throwable $e) {
+        $dbPingError = (string)$e->getMessage();
+        $dbPingOk = false;
+    }
+    $dbLatencyMs = (int)round((microtime(true) - $pingStartedAt) * 1000);
+
     echo json_encode([
         "status" => "success",
         "service" => "SPLARO_API",
         "time" => date('c'),
+        "mode" => $dbPingOk ? "NORMAL" : "DEGRADED",
         "telegram_enabled" => TELEGRAM_ENABLED,
         "storage" => "mysql",
         "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
         "dbName" => DB_NAME,
         "envSource" => get_env_source_label(),
         "dbPasswordSource" => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? ''),
+        "db" => [
+            "ping" => $dbPingOk ? "ok" : "failed",
+            "latency_ms" => $dbLatencyMs,
+            "error" => $dbPingOk ? '' : $dbPingError,
+            "connectTimeoutSeconds" => (int)DB_CONNECT_TIMEOUT_SECONDS,
+            "queryTimeoutMs" => (int)DB_QUERY_TIMEOUT_MS,
+            "lockWaitTimeoutSeconds" => (int)DB_LOCK_WAIT_TIMEOUT_SECONDS,
+            "idleTimeoutSeconds" => (int)DB_IDLE_TIMEOUT_SECONDS,
+            "connectAttempts" => (int)($GLOBALS['SPLARO_DB_CONNECT_ATTEMPTS'] ?? 0),
+            "connectRetries" => (int)($GLOBALS['SPLARO_DB_CONNECT_RETRIES'] ?? 0)
+        ],
+        "pool" => [
+            "driver" => "pdo_mysql",
+            "persistent" => (bool)DB_PERSISTENT,
+            "targetSize" => (int)DB_POOL_TARGET,
+            "mode" => "php-request-cache"
+        ],
+        "timeouts" => [
+            "apiMaxExecutionSeconds" => (int)API_MAX_EXECUTION_SECONDS,
+            "sheetsTimeoutSeconds" => (int)GOOGLE_SHEETS_TIMEOUT_SECONDS
+        ],
         "sheets" => get_sync_queue_summary($db)
     ]);
     exit;
@@ -2855,16 +3021,24 @@ if ($method === 'GET' && $action === 'sync') {
     }
 
     $products = [];
+    $productsPage = max(1, (int)($_GET['productsPage'] ?? 1));
+    $productsPageSize = (int)($_GET['productsPageSize'] ?? ($isAdmin ? 200 : 200));
+    if ($productsPageSize < 20) $productsPageSize = 20;
+    if ($productsPageSize > 500) $productsPageSize = 500;
+    $productsOffset = ($productsPage - 1) * $productsPageSize;
+    $productCount = 0;
     if (!$isAdmin && $method === 'GET' && $action === 'sync') {
         // Light sync for regular users: keep schema-tolerant query for legacy databases.
         $statusColumnExists = column_exists($db, 'products', 'status');
+        $productCount = safe_query_count($db, "SELECT COUNT(*) FROM products");
         if ($statusColumnExists) {
-            $products = safe_query_all($db, "SELECT * FROM products WHERE status = 'PUBLISHED' LIMIT 200");
+            $products = safe_query_all($db, "SELECT * FROM products WHERE status = 'PUBLISHED' ORDER BY created_at DESC LIMIT {$productsPageSize}");
         } else {
-            $products = safe_query_all($db, "SELECT * FROM products LIMIT 200");
+            $products = safe_query_all($db, "SELECT * FROM products ORDER BY created_at DESC LIMIT {$productsPageSize}");
         }
     } else {
-        $products = $db->query("SELECT * FROM products")->fetchAll();
+        $productCount = safe_query_count($db, "SELECT COUNT(*) FROM products");
+        $products = safe_query_all($db, "SELECT * FROM products ORDER BY created_at DESC LIMIT {$productsPageSize} OFFSET {$productsOffset}");
     }
 
     foreach ($products as &$p) {
@@ -3060,6 +3234,11 @@ if ($method === 'GET' && $action === 'sync') {
         $logs = safe_query_all($db, "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50");
         $traffic = safe_query_all($db, "SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC");
         $meta = [
+            'products' => [
+                'page' => $productsPage,
+                'pageSize' => $productsPageSize,
+                'count' => $productCount
+            ],
             'orders' => [
                 'page' => $page,
                 'pageSize' => $pageSize,
@@ -3074,7 +3253,7 @@ if ($method === 'GET' && $action === 'sync') {
             'syncQueueSummary' => get_sync_queue_summary($db)
         ];
     } elseif ($isUser && !empty($requestAuthUser['email'])) {
-        $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC");
+        $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC LIMIT 200");
         $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
         $orders = $stmtOrders->fetchAll();
 
@@ -3176,9 +3355,6 @@ if ($method === 'POST' && $action === 'create_order') {
         exit;
     }
 
-    // SYNC TO GOOGLE SHEETS
-    sync_to_sheets('ORDER', $input);
-
     $siteBase = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
     $firstItem = $input['items'][0] ?? [];
     $firstProduct = $firstItem['product'] ?? [];
@@ -3204,6 +3380,31 @@ if ($method === 'POST' && $action === 'create_order') {
     }
     $imageUrl = $firstProduct['image'] ?? ($firstItem['image'] ?? ($firstItem['imageUrl'] ?? 'N/A'));
     $notes = $input['customerComment'] ?? ($input['notes'] ?? 'N/A');
+
+    // SYNC TO GOOGLE SHEETS (normalized payload for stable header mapping)
+    $orderSyncPayload = [
+        'order_id' => $orderId,
+        'created_at' => date('c'),
+        'name' => (string)($input['customerName'] ?? ''),
+        'email' => (string)($input['customerEmail'] ?? ''),
+        'phone' => (string)($input['phone'] ?? ''),
+        'address' => (string)($input['address'] ?? ''),
+        'district' => (string)($input['district'] ?? ''),
+        'thana' => (string)($input['thana'] ?? ''),
+        'product_name' => (string)$productName,
+        'product_url' => (string)($productUrlRaw ?: ''),
+        'image_url' => (string)$imageUrl,
+        'quantity' => (int)$totalQuantity,
+        'notes' => (string)$notes,
+        'status' => (string)($input['status'] ?? 'PENDING'),
+        // compatibility fields for old script variants
+        'id' => $orderId,
+        'customerName' => (string)($input['customerName'] ?? ''),
+        'customerEmail' => (string)($input['customerEmail'] ?? ''),
+        'items' => $input['items'] ?? [],
+        'total' => (int)($input['total'] ?? 0)
+    ];
+    sync_to_sheets('ORDER', $orderSyncPayload);
 
     $telegramOrderMessage = "<b>🛒 New Order</b>\n"
         . "<b>Order ID:</b> " . telegram_escape_html($input['id']) . "\n"
@@ -3963,8 +4164,22 @@ if ($method === 'POST' && $action === 'signup') {
     ]);
     $token = issue_auth_token($userPayload);
 
-    // SYNC TO GOOGLE SHEETS
-    sync_to_sheets('SIGNUP', $userPayload);
+    // SYNC TO GOOGLE SHEETS (normalized payload for stable header mapping)
+    sync_to_sheets('SIGNUP', [
+        'user_id' => (string)$id,
+        'created_at' => date('c'),
+        'name' => (string)$name,
+        'email' => (string)$email,
+        'phone' => (string)$phone,
+        'district' => (string)($input['district'] ?? ''),
+        'thana' => (string)($input['thana'] ?? ''),
+        'address' => (string)$address,
+        'source' => 'web',
+        'verified' => false,
+        // compatibility fields for old script variants
+        'id' => (string)$id,
+        'role' => (string)$role
+    ]);
 
     // TRIGGER EMAIL NOTIFICATION (SIGNUP)
     $subject = "New Signup: " . $name;
@@ -4050,11 +4265,11 @@ if ($method === 'POST' && $action === 'subscribe') {
     $stmt->execute([$subId, $email, $consent, $source]);
 
     sync_to_sheets('SUBSCRIPTION', [
-        'sub_id' => $subId,
+        'sub_id' => (string)$subId,
         'created_at' => date('c'),
-        'email' => $email,
+        'email' => (string)$email,
         'consent' => (bool)$consent,
-        'source' => $source
+        'source' => (string)$source
     ]);
 
     $telegramSubscriptionMessage = "<b>📩 New Subscriber</b>\n"
@@ -5510,13 +5725,18 @@ function perform_sheets_sync_request($type, $data) {
 
     if (function_exists('curl_init')) {
         $ch = curl_init($webhookUrl);
+        $connectTimeout = max(1, min($timeout, 3));
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_POSTFIELDS => $jsonBody,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_CONNECTTIMEOUT => $connectTimeout,
             CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_NOSIGNAL => 1,
+            CURLOPT_TCP_KEEPALIVE => 1,
+            CURLOPT_LOW_SPEED_LIMIT => 1,
+            CURLOPT_LOW_SPEED_TIME => $timeout,
         ]);
 
         $response = curl_exec($ch);
@@ -5677,7 +5897,13 @@ function process_sync_queue($db, $limit = 20, $force = false) {
         $result['failed']++;
         $lastError = $error !== '' ? $error : 'SYNC_FAILED';
 
-        if ((int)$httpCode === 0 || strpos($lastError, 'NETWORK') !== false || strpos($lastError, 'TIMEOUT') !== false) {
+        $httpClass = (int)floor(((int)$httpCode) / 100);
+        $shouldOpenCircuit = ((int)$httpCode === 0)
+            || $httpClass === 5
+            || (int)$httpCode === 429
+            || strpos($lastError, 'NETWORK') !== false
+            || strpos($lastError, 'TIMEOUT') !== false;
+        if ($shouldOpenCircuit) {
             open_sheets_circuit($lastError, (int)$httpCode);
         }
 
@@ -5750,12 +5976,10 @@ function sync_to_sheets($type, $data) {
         return true;
     }
 
-    // Fallback direct attempt when queue insert is unavailable.
-    [$ok, $httpCode, $error] = perform_sheets_sync_request($type, $data);
-    if (!$ok) {
-        error_log("SPLARO_SHEETS_SYNC_WARNING: type={$type}; http={$httpCode}; error={$error}");
-    }
-    return $ok;
+    // Never block core services on external sheet connectivity.
+    // If queue insert fails, record and continue without direct network call.
+    error_log("SPLARO_SHEETS_SYNC_DEFERRED: type={$type}; reason=QUEUE_INSERT_UNAVAILABLE");
+    return false;
 }
 
 http_response_code(404);
