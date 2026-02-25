@@ -4751,8 +4751,7 @@ function queue_summary_active_workload($summary) {
     }
     return (int)($summary['pending'] ?? 0)
         + (int)($summary['retry'] ?? 0)
-        + (int)($summary['processing'] ?? 0)
-        + (int)($summary['dead'] ?? 0);
+        + (int)($summary['processing'] ?? 0);
 }
 
 function queue_dead_recent_breakdown($db, $mode = 'ALL', $minutes = null, $scanLimit = 2000) {
