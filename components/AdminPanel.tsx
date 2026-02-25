@@ -178,6 +178,14 @@ type AdminCustomerProfile = {
   activity: AdminCustomerActivity[];
 };
 
+type OrderShipmentSnapshot = {
+  consignmentId: string;
+  shipmentStatus: string;
+  externalStatus: string;
+  trackingUrl: string;
+  source: 'BOOKING' | 'TRACK' | 'SYNC';
+};
+
 const ProductModal: React.FC<{
   product?: Product | null;
   onClose: () => void;
@@ -1123,6 +1131,8 @@ export const AdminPanel = () => {
   const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [cmsCategoryTab, setCmsCategoryTab] = useState<CmsCategoryTab>('all');
   const [invoiceActionKey, setInvoiceActionKey] = useState<string | null>(null);
+  const [integrationActionKey, setIntegrationActionKey] = useState<string | null>(null);
+  const [selectedOrderShipment, setSelectedOrderShipment] = useState<OrderShipmentSnapshot | null>(null);
   const [themeAdvancedOpen, setThemeAdvancedOpen] = useState(false);
   const [themeSaveIntent, setThemeSaveIntent] = useState<'draft' | 'publish' | null>(null);
   const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>([]);
@@ -1820,6 +1830,210 @@ export const AdminPanel = () => {
     }
   };
 
+  const normalizeOrderStatusCandidate = (statusRaw: unknown): OrderStatus | null => {
+    const status = String(statusRaw || '').trim().toUpperCase();
+    if (status === 'PENDING') return 'Pending';
+    if (status === 'PROCESSING') return 'Processing';
+    if (status === 'SHIPPED') return 'Shipped';
+    if (status === 'DELIVERED') return 'Delivered';
+    if (status === 'CANCELLED' || status === 'CANCELED') return 'Cancelled';
+    return null;
+  };
+
+  const upsertSelectedOrderShipment = (
+    source: OrderShipmentSnapshot['source'],
+    data: {
+      consignmentId?: unknown;
+      shipmentStatus?: unknown;
+      externalStatus?: unknown;
+      trackingUrl?: unknown;
+    }
+  ) => {
+    const next: OrderShipmentSnapshot = {
+      consignmentId: String(data.consignmentId || '').trim(),
+      shipmentStatus: String(data.shipmentStatus || '').trim(),
+      externalStatus: String(data.externalStatus || '').trim(),
+      trackingUrl: String(data.trackingUrl || '').trim(),
+      source
+    };
+    if (!next.consignmentId && !next.shipmentStatus && !next.externalStatus && !next.trackingUrl) return;
+    setSelectedOrderShipment(next);
+  };
+
+  const runSslCommerzInit = async (order: Order) => {
+    const actionKey = `${order.id}:ssl:init`;
+    setIntegrationActionKey(actionKey);
+    try {
+      const res = await fetch(`${API_NODE}?action=sslcommerz_init`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          order_id: (order as any).orderNo || order.id
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Unable to create SSLCommerz session.');
+      }
+      const gatewayUrl = String(result?.gateway_url || '').trim();
+      if (gatewayUrl) {
+        window.open(gatewayUrl, '_blank', 'noopener,noreferrer');
+      }
+      showToast(gatewayUrl ? 'Payment link opened in a new tab.' : 'Payment session created.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'SSLCommerz session failed.', 'error');
+    } finally {
+      setIntegrationActionKey(null);
+    }
+  };
+
+  const runSteadfastCreate = async (order: Order, force = false) => {
+    const actionKey = `${order.id}:steadfast:create:${force ? 'force' : 'normal'}`;
+    setIntegrationActionKey(actionKey);
+    try {
+      const res = await fetch(`${API_NODE}?action=admin_shipments_steadfast_create`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          order_id: (order as any).orderNo || order.id,
+          force
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Steadfast booking failed.');
+      }
+
+      const payload = result?.data || {};
+      const consignmentId = String(payload.consignment_id || payload.consignmentId || '').trim();
+      const trackingUrl = String(payload.tracking_url || payload.trackingUrl || '').trim();
+      const shipmentStatus = String(payload.shipment_status || payload.shipmentStatus || '').trim();
+      const externalStatus = String(payload.external_status || payload.externalStatus || '').trim();
+
+      if (consignmentId) {
+        updateOrderMetadata(order.id, { trackingNumber: consignmentId });
+        setSelectedOrder((prev) => {
+          if (!prev || prev.id !== order.id) return prev;
+          return {
+            ...prev,
+            trackingNumber: consignmentId
+          };
+        });
+      }
+
+      const mappedOrderStatus = normalizeOrderStatusCandidate(shipmentStatus);
+      if (mappedOrderStatus && mappedOrderStatus !== order.status) {
+        updateOrderStatus(order.id, mappedOrderStatus);
+        setSelectedOrder((prev) => {
+          if (!prev || prev.id !== order.id) return prev;
+          return {
+            ...prev,
+            status: mappedOrderStatus
+          };
+        });
+      }
+
+      upsertSelectedOrderShipment('BOOKING', {
+        consignmentId,
+        shipmentStatus,
+        externalStatus,
+        trackingUrl
+      });
+
+      if (trackingUrl) {
+        window.open(trackingUrl, '_blank', 'noopener,noreferrer');
+      }
+      showToast(result?.message === 'SHIPMENT_ALREADY_EXISTS' ? 'Shipment already exists.' : 'Shipment booked in Steadfast.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Steadfast booking failed.', 'error');
+    } finally {
+      setIntegrationActionKey(null);
+    }
+  };
+
+  const runSteadfastTrack = async (order: Order) => {
+    const actionKey = `${order.id}:steadfast:track`;
+    setIntegrationActionKey(actionKey);
+    try {
+      const query = new URLSearchParams({
+        action: 'admin_shipments_steadfast_track',
+        order_id: (order as any).orderNo || order.id
+      });
+      const res = await fetch(`${API_NODE}?${query.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Tracking sync failed.');
+      }
+      const payload = result?.data || {};
+      const consignmentId = String(payload.consignment_id || payload.consignmentId || '').trim();
+      const trackingUrl = String(payload.tracking_url || payload.trackingUrl || '').trim();
+      const shipmentStatus = String(payload.shipment_status || payload.shipmentStatus || '').trim();
+      const externalStatus = String(payload.external_status || payload.externalStatus || '').trim();
+
+      if (consignmentId) {
+        updateOrderMetadata(order.id, { trackingNumber: consignmentId });
+        setSelectedOrder((prev) => {
+          if (!prev || prev.id !== order.id) return prev;
+          return {
+            ...prev,
+            trackingNumber: consignmentId
+          };
+        });
+      }
+
+      const mappedOrderStatus = normalizeOrderStatusCandidate(shipmentStatus);
+      if (mappedOrderStatus && mappedOrderStatus !== order.status) {
+        updateOrderStatus(order.id, mappedOrderStatus);
+        setSelectedOrder((prev) => {
+          if (!prev || prev.id !== order.id) return prev;
+          return {
+            ...prev,
+            status: mappedOrderStatus
+          };
+        });
+      }
+
+      upsertSelectedOrderShipment('TRACK', {
+        consignmentId,
+        shipmentStatus,
+        externalStatus,
+        trackingUrl
+      });
+      showToast('Shipment tracking synced.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Steadfast track failed.', 'error');
+    } finally {
+      setIntegrationActionKey(null);
+    }
+  };
+
+  const runSteadfastSync = async (order: Order) => {
+    const actionKey = `${order.id}:steadfast:sync`;
+    setIntegrationActionKey(actionKey);
+    try {
+      const res = await fetch(`${API_NODE}?action=admin_shipments_steadfast_sync`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ limit: 20 })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Batch sync failed.');
+      }
+      const data = result?.data || {};
+      const synced = Number(data?.synced || 0);
+      const failed = Number(data?.failed || 0);
+      showToast(`Steadfast sync completed: ${synced} synced, ${failed} failed.`, failed > 0 ? 'info' : 'success');
+      await runSteadfastTrack(order);
+    } catch (error: any) {
+      showToast(error?.message || 'Steadfast sync failed.', 'error');
+    } finally {
+      setIntegrationActionKey(null);
+    }
+  };
+
   const adminRole = normalizeRole(user?.role || 'ADMIN');
   const canManageCms = canWriteCms(adminRole);
   const canManageProtocols = canWriteProtocols(adminRole);
@@ -2346,6 +2560,24 @@ export const AdminPanel = () => {
   useEffect(() => {
     setUsersPage(1);
   }, [searchQuery, userStatusFilter]);
+
+  useEffect(() => {
+    if (!selectedOrder) {
+      setSelectedOrderShipment(null);
+      return;
+    }
+    if (!selectedOrder.trackingNumber) return;
+    setSelectedOrderShipment((prev) => {
+      if (prev?.consignmentId) return prev;
+      return {
+        consignmentId: selectedOrder.trackingNumber || '',
+        shipmentStatus: '',
+        externalStatus: '',
+        trackingUrl: '',
+        source: 'TRACK'
+      };
+    });
+  }, [selectedOrder?.id, selectedOrder?.trackingNumber]);
 
 
 
@@ -5031,6 +5263,62 @@ export const AdminPanel = () => {
                   </div>
 
                   <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <button
+                        onClick={() => runSslCommerzInit(selectedOrder)}
+                        disabled={integrationActionKey === `${selectedOrder.id}:ssl:init`}
+                        className="h-14 rounded-2xl border border-cyan-500/35 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-cyan-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        {integrationActionKey === `${selectedOrder.id}:ssl:init` ? 'Creating...' : 'Create Payment Link'}
+                      </button>
+                      <button
+                        onClick={() => runSteadfastCreate(selectedOrder, false)}
+                        disabled={integrationActionKey === `${selectedOrder.id}:steadfast:create:normal`}
+                        className="h-14 rounded-2xl border border-blue-500/35 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        <Truck className="w-4 h-4" />
+                        {integrationActionKey === `${selectedOrder.id}:steadfast:create:normal` ? 'Booking...' : 'Send to Steadfast'}
+                      </button>
+                      <button
+                        onClick={() => runSteadfastTrack(selectedOrder)}
+                        disabled={integrationActionKey === `${selectedOrder.id}:steadfast:track`}
+                        className="h-14 rounded-2xl border border-violet-500/35 bg-violet-500/10 text-violet-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-violet-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        <RefreshCcw className="w-4 h-4" />
+                        {integrationActionKey === `${selectedOrder.id}:steadfast:track` ? 'Tracking...' : 'Track Shipment'}
+                      </button>
+                      <button
+                        onClick={() => runSteadfastSync(selectedOrder)}
+                        disabled={integrationActionKey === `${selectedOrder.id}:steadfast:sync`}
+                        className="h-14 rounded-2xl border border-white/20 bg-white/5 text-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10 disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        <Activity className="w-4 h-4" />
+                        {integrationActionKey === `${selectedOrder.id}:steadfast:sync` ? 'Syncing...' : 'Batch Sync'}
+                      </button>
+                    </div>
+
+                    {(selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus) && (
+                      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em]">
+                          <span className="text-cyan-300">Consignment</span>
+                          <span className="text-zinc-100">{selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || 'N/A'}</span>
+                          <span className="text-zinc-400">Status</span>
+                          <span className="text-emerald-300">{selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus || 'Pending sync'}</span>
+                          <span className="text-zinc-500">Source</span>
+                          <span className="text-zinc-300">{selectedOrderShipment?.source || 'MANUAL'}</span>
+                        </div>
+                        {selectedOrderShipment?.trackingUrl && (
+                          <button
+                            onClick={() => window.open(selectedOrderShipment.trackingUrl, '_blank', 'noopener,noreferrer')}
+                            className="h-10 px-4 rounded-xl border border-cyan-500/35 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-cyan-500/20"
+                          >
+                            Open Tracking
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                       <PrimaryButton
                         onClick={() => runInvoiceAction(selectedOrder, { type: siteSettings.invoiceSettings.defaultType || 'INV', send: false, autoOpen: false })}
