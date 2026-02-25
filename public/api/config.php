@@ -548,6 +548,7 @@ define('DB_RETRY_BASE_DELAY_MS', splaro_env_int('DB_RETRY_BASE_DELAY_MS', 120, 5
 define('DB_SLOW_QUERY_MS', splaro_env_int('DB_SLOW_QUERY_MS', 900, 100, 30000));
 define('DB_PERSISTENT', splaro_env_bool('DB_PERSISTENT', false));
 define('DB_POOL_TARGET', splaro_env_int('DB_POOL_TARGET', 6, 2, 10));
+define('DB_CONNECTION_HINTS_ENABLED', splaro_env_bool('DB_CONNECTION_HINTS_ENABLED', true));
 define('API_MAX_EXECUTION_SECONDS', splaro_env_int('API_MAX_EXECUTION_SECONDS', 25, 5, 180));
 define('LOG_REQUEST_METRICS', splaro_env_bool('LOG_REQUEST_METRICS', true));
 $rateWindowMs = splaro_env_int('RATE_LIMIT_WINDOW_MS', 60000, 1000, 600000);
@@ -616,6 +617,8 @@ define('HEALTH_DB_THREADS_WARN_THRESHOLD', splaro_env_int('HEALTH_DB_THREADS_WAR
 define('HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD', splaro_env_int('HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD', 50, 1, 10000));
 define('HEALTH_DB_ABORTED_CONNECTS_DELTA_WARN_THRESHOLD', splaro_env_int('HEALTH_DB_ABORTED_CONNECTS_DELTA_WARN_THRESHOLD', 8, 1, 1000));
 define('HEALTH_DB_ABORTED_CONNECTS_DELTA_WINDOW_SECONDS', splaro_env_int('HEALTH_DB_ABORTED_CONNECTS_DELTA_WINDOW_SECONDS', 900, 60, 3600));
+define('HEALTH_DB_ABORTED_CONNECTS_MIN_ELAPSED_SECONDS', splaro_env_int('HEALTH_DB_ABORTED_CONNECTS_MIN_ELAPSED_SECONDS', 45, 10, 900));
+define('HEALTH_DB_ABORTED_CONNECTS_RATE_WARN_PER_MINUTE', splaro_env_int('HEALTH_DB_ABORTED_CONNECTS_RATE_WARN_PER_MINUTE', 18, 1, 1000));
 define('HEALTH_QUEUE_DEAD_WARN_THRESHOLD', splaro_env_int('HEALTH_QUEUE_DEAD_WARN_THRESHOLD', 1, 1, 1000));
 define('HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES', splaro_env_int('HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES', 360, 1, 10080));
 define('HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD', splaro_env_int('HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD', 25, 1, 50000));
@@ -631,6 +634,47 @@ define('EXPORT_MAX_ROWS', splaro_env_int('EXPORT_MAX_ROWS', 5000, 100, 50000));
 /**
  * Establish Security Handshake with MySQL Database
  */
+function splaro_db_connection_hint_file() {
+    $scopeKey = md5((string)DB_HOST . '|' . (string)DB_NAME . '|' . (string)DB_USER);
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        . 'splaro_db_connection_hint_' . $scopeKey . '.json';
+}
+
+function splaro_db_read_connection_hint() {
+    $file = splaro_db_connection_hint_file();
+    if (!is_file($file)) {
+        return [
+            'host' => '',
+            'password_source' => ''
+        ];
+    }
+    $raw = @file_get_contents($file);
+    $decoded = json_decode((string)$raw, true);
+    if (!is_array($decoded)) {
+        return [
+            'host' => '',
+            'password_source' => ''
+        ];
+    }
+    return [
+        'host' => trim((string)($decoded['host'] ?? '')),
+        'password_source' => trim((string)($decoded['password_source'] ?? ''))
+    ];
+}
+
+function splaro_db_write_connection_hint($host, $passwordSource) {
+    $payload = [
+        'host' => trim((string)$host),
+        'password_source' => trim((string)$passwordSource),
+        'updated_at' => date('c')
+    ];
+    @file_put_contents(
+        splaro_db_connection_hint_file(),
+        json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+        LOCK_EX
+    );
+}
+
 function get_db_connection() {
     if (isset($GLOBALS['SPLARO_DB_CONNECTION']) && $GLOBALS['SPLARO_DB_CONNECTION'] instanceof PDO) {
         return $GLOBALS['SPLARO_DB_CONNECTION'];
@@ -663,6 +707,18 @@ function get_db_connection() {
     }
     $hostCandidates = array_values(array_unique(array_filter($hostCandidates)));
 
+    $connectionHint = DB_CONNECTION_HINTS_ENABLED ? splaro_db_read_connection_hint() : ['host' => '', 'password_source' => ''];
+    $hintHost = trim((string)($connectionHint['host'] ?? ''));
+    if ($hintHost !== '' && count($hostCandidates) > 1 && in_array($hintHost, $hostCandidates, true)) {
+        $prioritizedHosts = [$hintHost];
+        foreach ($hostCandidates as $candidateHost) {
+            if ($candidateHost !== $hintHost) {
+                $prioritizedHosts[] = $candidateHost;
+            }
+        }
+        $hostCandidates = $prioritizedHosts;
+    }
+
     $lastError = '';
     $lastSqlState = '';
     $lastPasswordSource = (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? 'EMPTY');
@@ -676,6 +732,22 @@ function get_db_connection() {
         $passwordCandidates = [
             ['source' => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? 'DB_PASSWORD'), 'value' => (string)DB_PASSWORD]
         ];
+    }
+    $hintPasswordSource = trim((string)($connectionHint['password_source'] ?? ''));
+    if ($hintPasswordSource !== '' && count($passwordCandidates) > 1) {
+        $preferredCandidates = [];
+        $otherCandidates = [];
+        foreach ($passwordCandidates as $candidate) {
+            $source = trim((string)($candidate['source'] ?? ''));
+            if ($source !== '' && hash_equals($hintPasswordSource, $source)) {
+                $preferredCandidates[] = $candidate;
+            } else {
+                $otherCandidates[] = $candidate;
+            }
+        }
+        if (!empty($preferredCandidates)) {
+            $passwordCandidates = array_values(array_merge($preferredCandidates, $otherCandidates));
+        }
     }
 
     $isTransientDbError = static function ($code, $message) {
@@ -785,6 +857,9 @@ function get_db_connection() {
                     $GLOBALS['SPLARO_DB_CONNECT_ATTEMPTS'] = $connectAttempts;
                     $GLOBALS['SPLARO_DB_CONNECT_RETRIES'] = $connectRetries;
                     $GLOBALS['SPLARO_DB_PERSISTENT'] = (bool)DB_PERSISTENT;
+                    if (DB_CONNECTION_HINTS_ENABLED) {
+                        splaro_db_write_connection_hint($host, $candidateSource);
+                    }
                     return $pdo;
                 } catch (\PDOException $e) {
                     $lastError = $e->getMessage();
@@ -819,7 +894,9 @@ function get_db_connection() {
         "retryMax" => $maxRetries,
         "connectionAttempts" => $connectAttempts,
         "connectionRetries" => $connectRetries,
-        "persistent" => (bool)DB_PERSISTENT
+        "persistent" => (bool)DB_PERSISTENT,
+        "hintHost" => $hintHost,
+        "hintPasswordSource" => $hintPasswordSource
     ];
     $GLOBALS['SPLARO_DB_CONNECT_ATTEMPTS'] = $connectAttempts;
     $GLOBALS['SPLARO_DB_CONNECT_RETRIES'] = $connectRetries;

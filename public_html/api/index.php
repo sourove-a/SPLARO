@@ -56,71 +56,149 @@ foreach ($mailerFiles as $mailerFile) {
     }
 }
 
-function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
-    global $db;
+function smtp_collect_env_settings() {
+    $secureRaw = strtolower(trim((string)env_first(
+        ['SMTP_SECURE', 'SMTP_ENCRYPTION', 'MAIL_ENCRYPTION'],
+        ((int)SMTP_PORT === 465 ? 'ssl' : 'tls')
+    )));
+    if ($secureRaw === 'smtps') $secureRaw = 'ssl';
+    if ($secureRaw === 'starttls') $secureRaw = 'tls';
 
-    $smtpSettings = [
-        'host' => SMTP_HOST,
-        'port' => SMTP_PORT,
-        'user' => SMTP_USER,
-        'pass' => SMTP_PASS,
-        'from' => SMTP_USER,
+    return [
+        'host' => trim((string)env_first(['SMTP_HOST', 'MAIL_HOST'], SMTP_HOST)),
+        'port' => (int)env_first(['SMTP_PORT', 'MAIL_PORT'], (string)SMTP_PORT),
+        'user' => trim((string)env_first(['SMTP_USER', 'SMTP_USERNAME', 'MAIL_USERNAME', 'MAIL_USER'], SMTP_USER)),
+        'pass' => (string)env_first(['SMTP_PASS', 'SMTP_PASSWORD', 'MAIL_PASSWORD', 'MAIL_PASS'], SMTP_PASS),
+        'from' => trim((string)env_first(['SMTP_FROM', 'SMTP_FROM_ADDRESS', 'MAIL_FROM_ADDRESS'], '')),
+        'secure' => $secureRaw
     ];
+}
 
-    try {
-        if (isset($db) && $db && function_exists('load_smtp_settings')) {
-            $resolved = load_smtp_settings($db);
-            if (is_array($resolved)) {
-                $smtpSettings = array_merge($smtpSettings, $resolved);
-            }
-        }
-    } catch (Exception $e) {
-        splaro_log_exception('mail.smtp_settings_load', $e);
+function smtp_fetch_db_settings($db) {
+    $settings = [];
+    if (!$db) {
+        return $settings;
     }
 
-    $smtpHost = trim((string)($smtpSettings['host'] ?? ''));
-    $smtpPort = (int)($smtpSettings['port'] ?? SMTP_PORT);
-    $smtpUser = trim((string)($smtpSettings['user'] ?? ''));
-    $smtpPass = (string)($smtpSettings['pass'] ?? '');
-    $fromAddress = trim((string)($smtpSettings['from'] ?? $smtpUser));
+    try {
+        $row = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+        if (empty($row['smtp_settings'])) {
+            return $settings;
+        }
 
+        $raw = trim((string)$row['smtp_settings']);
+        if ($raw === '') {
+            return $settings;
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                splaro_structured_log('smtp.settings.decode_failed', [
+                    'json_error' => json_last_error_msg()
+                ], 'WARNING');
+            }
+            return $settings;
+        }
+
+        $host = trim((string)($decoded['host'] ?? ''));
+        $user = trim((string)($decoded['user'] ?? ''));
+        $pass = (string)($decoded['pass'] ?? '');
+        $from = trim((string)($decoded['from'] ?? ''));
+        $secure = strtolower(trim((string)($decoded['secure'] ?? '')));
+        $port = isset($decoded['port']) ? (int)$decoded['port'] : 0;
+
+        if ($host !== '') $settings['host'] = $host;
+        if ($port > 0) $settings['port'] = $port;
+        if ($user !== '') $settings['user'] = $user;
+        if ($pass !== '') $settings['pass'] = $pass;
+        if ($from !== '') $settings['from'] = $from;
+        if ($secure !== '') $settings['secure'] = $secure;
+    } catch (Exception $e) {
+        splaro_log_exception('smtp.settings.load', $e, [], 'WARNING');
+    }
+
+    return $settings;
+}
+
+function smtp_normalize_secure_label($secure, $port) {
+    $candidate = strtolower(trim((string)$secure));
+    if ($candidate === 'smtps') $candidate = 'ssl';
+    if ($candidate === 'starttls') $candidate = 'tls';
+    if ($candidate === '') {
+        $candidate = ((int)$port === 465 ? 'ssl' : 'tls');
+    }
+    if (!in_array($candidate, ['ssl', 'tls', 'none'], true)) {
+        $candidate = ((int)$port === 465 ? 'ssl' : 'tls');
+    }
+    return $candidate;
+}
+
+function smtp_settings_signature($settings) {
+    $host = trim((string)($settings['host'] ?? ''));
+    $port = (int)($settings['port'] ?? 0);
+    $user = trim((string)($settings['user'] ?? ''));
+    $pass = (string)($settings['pass'] ?? '');
+    $from = trim((string)($settings['from'] ?? ''));
+    $secure = smtp_normalize_secure_label($settings['secure'] ?? '', $port);
+    return hash('sha256', $host . '|' . $port . '|' . $user . '|' . $pass . '|' . $from . '|' . $secure);
+}
+
+function smtp_profile_redacted($settings) {
+    $host = trim((string)($settings['host'] ?? ''));
+    $port = (int)($settings['port'] ?? 0);
+    $user = trim((string)($settings['user'] ?? ''));
+    $pass = (string)($settings['pass'] ?? '');
+    $from = trim((string)($settings['from'] ?? ''));
+    $secure = smtp_normalize_secure_label($settings['secure'] ?? '', $port);
+    return [
+        'host' => splaro_clip_text($host, 120),
+        'port' => $port,
+        'secure' => $secure,
+        'user' => splaro_clip_text($user, 120),
+        'from' => splaro_clip_text($from, 120),
+        'auth' => ($user !== '' || $pass !== ''),
+        'pass_set' => $pass !== '',
+        'pass_len' => strlen($pass)
+    ];
+}
+
+function smtp_try_send_profile($settings, $to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
+    $smtpHost = trim((string)($settings['host'] ?? ''));
+    $smtpPort = (int)($settings['port'] ?? SMTP_PORT);
+    $smtpUser = trim((string)($settings['user'] ?? ''));
+    $smtpPass = (string)($settings['pass'] ?? '');
+    $fromAddress = trim((string)($settings['from'] ?? $smtpUser));
     if ($fromAddress === '') {
         $fromAddress = $smtpUser !== '' ? $smtpUser : 'info@splaro.co';
     }
-
-    if (!class_exists(PHPMailer::class)) {
-        error_log("SPLARO_MAILER_UNAVAILABLE: PHPMailer class not loaded");
-        if (function_exists('mail')) {
-            $headers = [
-                "From: SPLARO <{$fromAddress}>",
-                "Reply-To: {$fromAddress}",
-                "MIME-Version: 1.0"
-            ];
-            $headers[] = $isHtml
-                ? "Content-Type: text/html; charset=UTF-8"
-                : "Content-Type: text/plain; charset=UTF-8";
-
-            $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
-            return @mail($to, $subject, $mailBody, implode("\r\n", $headers));
-        }
-        return false;
-    }
+    $secure = smtp_normalize_secure_label($settings['secure'] ?? '', $smtpPort);
 
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
-        $mail->Host       = $smtpHost !== '' ? $smtpHost : SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $smtpUser !== '' ? $smtpUser : SMTP_USER;
-        $mail->Password   = $smtpPass !== '' ? $smtpPass : SMTP_PASS;
-        $mail->Timeout    = 10;
-        $mail->CharSet    = 'UTF-8';
-        $mail->Port       = $smtpPort > 0 ? $smtpPort : (int)SMTP_PORT;
+        $mail->Host = $smtpHost !== '' ? $smtpHost : SMTP_HOST;
+        $mail->Port = $smtpPort > 0 ? $smtpPort : (int)SMTP_PORT;
+        $mail->CharSet = 'UTF-8';
+        $mail->Timeout = 12;
+        $mail->SMTPAuth = ($smtpUser !== '' || $smtpPass !== '');
+        $mail->Username = $smtpUser;
+        $mail->Password = $smtpPass;
+        $mail->AuthType = 'LOGIN';
 
-        if ($mail->Port === 465) {
+        if ($secure === 'ssl') {
+            if ($mail->Port <= 0) {
+                $mail->Port = 465;
+            }
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        } else {
+        } elseif ($secure === 'tls') {
+            if ($mail->Port <= 0) {
+                $mail->Port = 587;
+            }
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        } else {
+            $mail->SMTPSecure = '';
+            $mail->SMTPAutoTLS = false;
         }
 
         // SSL Security Handshake Bypass (Essential for Hostinger/Shared Environments)
@@ -134,10 +212,9 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
 
         $mail->setFrom($fromAddress, 'SPLARO');
         $mail->addAddress($to);
-
         $mail->isHTML($isHtml);
         $mail->Subject = $subject;
-        $mail->Body    = $body;
+        $mail->Body = $body;
         $mail->AltBody = $altBody ?: strip_tags($body);
 
         if (is_array($attachments)) {
@@ -162,38 +239,149 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         }
 
         $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log("SPLARO_MAIL_FAILURE: " . $mail->ErrorInfo . " | Exception: " . $e->getMessage());
-        splaro_log_exception('mail.send.primary', $e, [
-            'to' => splaro_clip_text((string)$to, 120),
-            'subject' => splaro_clip_text((string)$subject, 120)
-        ]);
+        return [
+            'ok' => true,
+            'from' => $fromAddress,
+            'error_info' => '',
+            'error_message' => ''
+        ];
+    } catch (Throwable $e) {
+        return [
+            'ok' => false,
+            'from' => $fromAddress,
+            'error_info' => (string)$mail->ErrorInfo,
+            'error_message' => $e->getMessage(),
+            'exception' => $e
+        ];
+    }
+}
 
-        // Last-resort fallback: native PHP mail() on shared hosting
+function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml = true, $attachments = []) {
+    global $db;
+
+    $envSettings = smtp_collect_env_settings();
+    $smtpSettings = $envSettings;
+    $settingsSource = 'ENV_DEFAULT';
+
+    try {
+        if (isset($db) && $db && function_exists('load_smtp_settings')) {
+            $resolved = load_smtp_settings($db);
+            if (is_array($resolved)) {
+                $smtpSettings = array_merge($smtpSettings, $resolved);
+                $settingsSource = (string)($resolved['source'] ?? 'DB_RESOLVED');
+            }
+        }
+    } catch (Exception $e) {
+        splaro_log_exception('mail.smtp_settings_load', $e);
+    }
+
+    $smtpUser = trim((string)($smtpSettings['user'] ?? ''));
+    $fromAddress = trim((string)($smtpSettings['from'] ?? $smtpUser));
+    if ($fromAddress === '') {
+        $fromAddress = $smtpUser !== '' ? $smtpUser : 'info@splaro.co';
+    }
+
+    if (!class_exists(PHPMailer::class)) {
+        error_log("SPLARO_MAILER_UNAVAILABLE: PHPMailer class not loaded");
         if (function_exists('mail')) {
             $headers = [
                 "From: SPLARO <{$fromAddress}>",
                 "Reply-To: {$fromAddress}",
                 "MIME-Version: 1.0"
             ];
-
-            if ($isHtml) {
-                $headers[] = "Content-Type: text/html; charset=UTF-8";
-            } else {
-                $headers[] = "Content-Type: text/plain; charset=UTF-8";
-            }
+            $headers[] = $isHtml
+                ? "Content-Type: text/html; charset=UTF-8"
+                : "Content-Type: text/plain; charset=UTF-8";
 
             $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
-            $fallbackSent = @mail($to, $subject, $mailBody, implode("\r\n", $headers));
-            if ($fallbackSent) {
-                error_log("SPLARO_MAIL_FALLBACK_SUCCESS: delivered via mail() to {$to}");
-                return true;
-            }
+            return @mail($to, $subject, $mailBody, implode("\r\n", $headers));
         }
-
         return false;
     }
+
+    $profiles = [];
+    $seenSignatures = [];
+    $primarySignature = smtp_settings_signature($smtpSettings);
+    $profiles[] = ['label' => 'primary', 'settings' => $smtpSettings, 'source' => $settingsSource];
+    $seenSignatures[$primarySignature] = true;
+
+    if (isset($db) && $db) {
+        $dbSettings = smtp_fetch_db_settings($db);
+        if (!empty($dbSettings)) {
+            $dbPreferred = array_merge($envSettings, $dbSettings);
+            $dbSignature = smtp_settings_signature($dbPreferred);
+            if (!isset($seenSignatures[$dbSignature])) {
+                $profiles[] = ['label' => 'db_fallback', 'settings' => $dbPreferred, 'source' => 'DB_DIRECT'];
+                $seenSignatures[$dbSignature] = true;
+            }
+        }
+    }
+
+    $envSignature = smtp_settings_signature($envSettings);
+    if (!isset($seenSignatures[$envSignature])) {
+        $profiles[] = ['label' => 'env_fallback', 'settings' => $envSettings, 'source' => 'ENV_DIRECT'];
+        $seenSignatures[$envSignature] = true;
+    }
+
+    $attempts = [];
+    foreach ($profiles as $profile) {
+        $label = (string)($profile['label'] ?? 'attempt');
+        $source = (string)($profile['source'] ?? 'UNKNOWN');
+        $settings = is_array($profile['settings'] ?? null) ? $profile['settings'] : [];
+        $result = smtp_try_send_profile($settings, $to, $subject, $body, $altBody, $isHtml, $attachments);
+        if (!empty($result['ok'])) {
+            if (!empty($attempts)) {
+                splaro_structured_log('mail.send.recovered', [
+                    'to' => splaro_clip_text((string)$to, 120),
+                    'subject' => splaro_clip_text((string)$subject, 120),
+                    'recovered_by' => $label,
+                    'source' => $source
+                ], 'WARNING');
+            }
+            return true;
+        }
+
+        $attemptContext = [
+            'to' => splaro_clip_text((string)$to, 120),
+            'subject' => splaro_clip_text((string)$subject, 120),
+            'attempt' => $label,
+            'source' => $source,
+            'error_info' => splaro_clip_text((string)($result['error_info'] ?? ''), 220),
+            'smtp_profile' => smtp_profile_redacted($settings)
+        ];
+        $attempts[] = $attemptContext;
+        $attemptException = $result['exception'] ?? null;
+        if ($attemptException instanceof Throwable) {
+            splaro_log_exception('mail.send.' . $label, $attemptException, $attemptContext);
+        } else {
+            splaro_structured_log('mail.send.attempt_failed', $attemptContext, 'ERROR');
+        }
+    }
+
+    // Last-resort fallback: native PHP mail() on shared hosting
+    if (function_exists('mail')) {
+        $headers = [
+            "From: SPLARO <{$fromAddress}>",
+            "Reply-To: {$fromAddress}",
+            "MIME-Version: 1.0"
+        ];
+        $headers[] = $isHtml
+            ? "Content-Type: text/html; charset=UTF-8"
+            : "Content-Type: text/plain; charset=UTF-8";
+
+        $mailBody = $isHtml ? $body : ($altBody ?: strip_tags($body));
+        $fallbackSent = @mail($to, $subject, $mailBody, implode("\r\n", $headers));
+        if ($fallbackSent) {
+            splaro_structured_log('mail.send.php_mail_fallback_success', [
+                'to' => splaro_clip_text((string)$to, 120),
+                'subject' => splaro_clip_text((string)$subject, 120),
+                'smtp_attempts' => count($attempts)
+            ], 'WARNING');
+            return true;
+        }
+    }
+
+    return false;
 }
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'CLI'));
@@ -2364,58 +2552,41 @@ ensure_unique_index_when_clean($db, 'products', 'uniq_products_slug', 'slug');
 ensure_unique_index_when_clean($db, 'products', 'uniq_products_sku', 'sku');
 
 function load_smtp_settings($db) {
-    $settings = [
-        'host' => SMTP_HOST,
-        'port' => SMTP_PORT,
-        'user' => SMTP_USER,
-        'pass' => SMTP_PASS,
-        'from' => SMTP_USER,
-        'secure' => ((int)SMTP_PORT === 465 ? 'ssl' : 'tls'),
-    ];
+    $envSettings = smtp_collect_env_settings();
+    $dbSettings = smtp_fetch_db_settings($db);
+    $forceEnv = filter_var((string)env_or_default('SMTP_FORCE_ENV', 'false'), FILTER_VALIDATE_BOOLEAN);
 
-    try {
-        $row = $db->query("SELECT smtp_settings FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
-        if (!empty($row['smtp_settings'])) {
-            $custom = json_decode($row['smtp_settings'], true);
-            if (is_array($custom)) {
-                $host = trim((string)($custom['host'] ?? ''));
-                $user = trim((string)($custom['user'] ?? ''));
-                $pass = (string)($custom['pass'] ?? '');
-                $from = trim((string)($custom['from'] ?? ''));
-                $secure = strtolower(trim((string)($custom['secure'] ?? '')));
-                $port = isset($custom['port']) ? (int)$custom['port'] : 0;
-
-                if ($host !== '') $settings['host'] = $host;
-                if ($port > 0) $settings['port'] = $port;
-                if ($user !== '') $settings['user'] = $user;
-                if ($pass !== '') $settings['pass'] = $pass;
-                if ($from !== '') $settings['from'] = $from;
-                if ($secure !== '') $settings['secure'] = $secure;
-            }
-        }
-    } catch (Exception $e) {
-        splaro_log_exception('smtp.settings.load', $e, [], 'WARNING');
+    // DB settings are preferred so admin panel updates take effect instantly.
+    // Set SMTP_FORCE_ENV=true when infrastructure policy requires env-only SMTP.
+    if ($forceEnv) {
+        $settings = array_merge($dbSettings, $envSettings);
+        $source = 'ENV_FORCED';
+    } else {
+        $settings = array_merge($envSettings, $dbSettings);
+        $source = !empty($dbSettings) ? 'DB_PREFERRED' : 'ENV_DEFAULT';
     }
 
-    // Environment variables must win over DB values when provided,
-    // so stale DB SMTP credentials never break delivery.
-    $envHost = trim((string)SMTP_HOST);
-    $envPort = (int)SMTP_PORT;
-    $envUser = trim((string)SMTP_USER);
-    $envPass = (string)SMTP_PASS;
-    $envSecure = strtolower(trim((string)env_or_default('SMTP_SECURE', '')));
-
-    if ($envHost !== '') $settings['host'] = $envHost;
-    if ($envPort > 0) $settings['port'] = $envPort;
-    if ($envUser !== '') $settings['user'] = $envUser;
-    if ($envPass !== '') $settings['pass'] = $envPass;
-    if (in_array($envSecure, ['ssl', 'tls'], true)) {
-        $settings['secure'] = $envSecure;
+    if (!isset($settings['port']) || (int)$settings['port'] <= 0) {
+        $settings['port'] = (int)SMTP_PORT > 0 ? (int)SMTP_PORT : 465;
+    } else {
+        $settings['port'] = (int)$settings['port'];
     }
 
+    if (trim((string)($settings['host'] ?? '')) === '') {
+        $settings['host'] = trim((string)SMTP_HOST);
+    }
+    if (trim((string)($settings['user'] ?? '')) === '') {
+        $settings['user'] = trim((string)SMTP_USER);
+    }
+    if ((string)($settings['pass'] ?? '') === '') {
+        $settings['pass'] = (string)SMTP_PASS;
+    }
     if (trim((string)($settings['from'] ?? '')) === '') {
-        $settings['from'] = (string)($settings['user'] ?? '');
+        $settings['from'] = trim((string)($settings['user'] ?? ''));
     }
+
+    $settings['secure'] = smtp_normalize_secure_label($settings['secure'] ?? '', (int)$settings['port']);
+    $settings['source'] = $source;
 
     return $settings;
 }
@@ -2464,6 +2635,7 @@ function invoice_default_settings() {
         'footerText' => 'SPLARO • Luxury Footwear & Bags • www.splaro.co',
         'policyText' => 'For support and returns, please contact support@splaro.co.',
         'showProductImages' => true,
+        'showOrderId' => false,
         'showTax' => false,
         'taxRate' => 0,
         'showDiscount' => true,
@@ -2483,10 +2655,68 @@ function invoice_valid_color($value, $fallback) {
     return $fallback;
 }
 
+function invoice_hex_to_rgba($hex, $alpha, $fallback) {
+    $candidate = trim((string)$hex);
+    if (!preg_match('/^#([0-9a-fA-F]{6})$/', $candidate, $matches)) {
+        return $fallback;
+    }
+
+    $normalizedAlpha = (float)$alpha;
+    if ($normalizedAlpha < 0) $normalizedAlpha = 0;
+    if ($normalizedAlpha > 1) $normalizedAlpha = 1;
+
+    $hexValue = $matches[1];
+    $r = hexdec(substr($hexValue, 0, 2));
+    $g = hexdec(substr($hexValue, 2, 2));
+    $b = hexdec(substr($hexValue, 4, 2));
+    $alphaText = rtrim(rtrim(number_format($normalizedAlpha, 3, '.', ''), '0'), '.');
+    if ($alphaText === '') $alphaText = '0';
+
+    return "rgba($r,$g,$b,$alphaText)";
+}
+
+function invoice_theme_from_cms_bundle($cmsBundle, $fallbackTheme) {
+    $fallback = is_array($fallbackTheme) ? $fallbackTheme : invoice_default_settings()['theme'];
+    $bundle = is_array($cmsBundle) ? $cmsBundle : [];
+    $themeSettings = is_array($bundle['themeSettings'] ?? null) ? $bundle['themeSettings'] : [];
+    $colors = is_array($themeSettings['colors'] ?? null) ? $themeSettings['colors'] : [];
+
+    $primary = invoice_valid_color($colors['primary'] ?? '', $fallback['primaryColor']);
+    $accent = invoice_valid_color($colors['accent'] ?? '', $fallback['accentColor']);
+    $background = invoice_valid_color($colors['background'] ?? '', $fallback['backgroundColor']);
+
+    return [
+        'primaryColor' => $primary,
+        'accentColor' => $accent,
+        'backgroundColor' => $background,
+        'tableHeaderColor' => $primary,
+        'buttonColor' => $accent
+    ];
+}
+
+function invoice_theme_defaults_from_site_settings($siteSettingsRow, $fallbackTheme) {
+    $fallback = is_array($fallbackTheme) ? $fallbackTheme : invoice_default_settings()['theme'];
+    if (!is_array($siteSettingsRow)) {
+        return $fallback;
+    }
+
+    $settingsJson = safe_json_decode_assoc($siteSettingsRow['settings_json'] ?? '{}', []);
+    $cmsRaw = $settingsJson['cmsDraft']
+        ?? ($settingsJson['cms_draft']
+            ?? ($settingsJson['cmsPublished']
+                ?? ($settingsJson['cms_published'] ?? [])));
+    if (!is_array($cmsRaw)) {
+        return $fallback;
+    }
+    $cmsBundle = cms_normalize_bundle($cmsRaw);
+    return invoice_theme_from_cms_bundle($cmsBundle, $fallback);
+}
+
 function invoice_normalize_settings($raw, $siteSettingsRow = null) {
     $base = invoice_default_settings();
     $input = is_array($raw) ? $raw : [];
     $themeInput = isset($input['theme']) && is_array($input['theme']) ? $input['theme'] : [];
+    $themeDefaults = invoice_theme_defaults_from_site_settings($siteSettingsRow, $base['theme']);
 
     $serialTypes = [];
     if (!empty($input['serialTypes']) && is_array($input['serialTypes'])) {
@@ -2536,16 +2766,17 @@ function invoice_normalize_settings($raw, $siteSettingsRow = null) {
         'defaultType' => $defaultType,
         'separateCounterPerType' => isset($input['separateCounterPerType']) ? (bool)$input['separateCounterPerType'] : (bool)$base['separateCounterPerType'],
         'theme' => [
-            'primaryColor' => invoice_valid_color($themeInput['primaryColor'] ?? '', $base['theme']['primaryColor']),
-            'accentColor' => invoice_valid_color($themeInput['accentColor'] ?? '', $base['theme']['accentColor']),
-            'backgroundColor' => invoice_valid_color($themeInput['backgroundColor'] ?? '', $base['theme']['backgroundColor']),
-            'tableHeaderColor' => invoice_valid_color($themeInput['tableHeaderColor'] ?? '', $base['theme']['tableHeaderColor']),
-            'buttonColor' => invoice_valid_color($themeInput['buttonColor'] ?? '', $base['theme']['buttonColor'])
+            'primaryColor' => invoice_valid_color($themeInput['primaryColor'] ?? '', $themeDefaults['primaryColor']),
+            'accentColor' => invoice_valid_color($themeInput['accentColor'] ?? '', $themeDefaults['accentColor']),
+            'backgroundColor' => invoice_valid_color($themeInput['backgroundColor'] ?? '', $themeDefaults['backgroundColor']),
+            'tableHeaderColor' => invoice_valid_color($themeInput['tableHeaderColor'] ?? '', $themeDefaults['tableHeaderColor']),
+            'buttonColor' => invoice_valid_color($themeInput['buttonColor'] ?? '', $themeDefaults['buttonColor'])
         ],
         'logoUrl' => $logoUrl,
         'footerText' => trim((string)($input['footerText'] ?? $base['footerText'])),
         'policyText' => trim((string)($input['policyText'] ?? $base['policyText'])),
         'showProductImages' => isset($input['showProductImages']) ? (bool)$input['showProductImages'] : (bool)$base['showProductImages'],
+        'showOrderId' => isset($input['showOrderId']) ? (bool)$input['showOrderId'] : (bool)$base['showOrderId'],
         'showTax' => isset($input['showTax']) ? (bool)$input['showTax'] : (bool)$base['showTax'],
         'taxRate' => $taxRate,
         'showDiscount' => isset($input['showDiscount']) ? (bool)$input['showDiscount'] : (bool)$base['showDiscount'],
@@ -2646,13 +2877,38 @@ function invoice_currency($amount) {
 
 function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $documentLabel, $totals) {
     $theme = $settings['theme'];
+    $themePrimary = invoice_valid_color($theme['primaryColor'] ?? '', '#0A0C12');
+    $themeAccent = invoice_valid_color($theme['accentColor'] ?? '', '#41DCFF');
+    $themeBackground = invoice_valid_color($theme['backgroundColor'] ?? '', '#F4F7FF');
+    $themeHeader = invoice_valid_color($theme['tableHeaderColor'] ?? '', '#111827');
+    $themeButton = invoice_valid_color($theme['buttonColor'] ?? '', '#2563EB');
+    $primaryGlow = invoice_hex_to_rgba($themePrimary, 0.34, 'rgba(10,12,18,0.34)');
+    $primarySoft = invoice_hex_to_rgba($themePrimary, 0.16, 'rgba(10,12,18,0.16)');
+    $accentGlow = invoice_hex_to_rgba($themeAccent, 0.26, 'rgba(65,220,255,0.26)');
+    $accentSoft = invoice_hex_to_rgba($themeAccent, 0.14, 'rgba(65,220,255,0.14)');
+    $headerOverlayOne = invoice_hex_to_rgba($themeAccent, 0.28, 'rgba(65,220,255,0.28)');
+    $headerOverlayTwo = invoice_hex_to_rgba($themePrimary, 0.32, 'rgba(10,12,18,0.32)');
+    $tableHeaderBorder = invoice_hex_to_rgba($themeHeader, 0.34, 'rgba(17,24,39,0.34)');
+    $totalPanelBorder = invoice_hex_to_rgba($themeButton, 0.35, 'rgba(37,99,235,0.35)');
     $paymentStatus = invoice_payment_status($orderRow);
     $statusColor = $paymentStatus === 'PAID'
         ? '#16A34A'
         : ($paymentStatus === 'PENDING' ? '#D97706' : '#2563EB');
     $logoUrl = trim((string)($settings['logoUrl'] ?? ''));
-    $siteName = trim((string)($orderRow['site_name'] ?? 'SPLARO'));
+    $siteName = trim((string)($orderRow['site_name'] ?? ($settings['siteName'] ?? 'SPLARO')));
     if ($siteName === '') $siteName = 'SPLARO';
+    $showOrderId = !empty($settings['showOrderId']);
+    $orderReferenceRaw = trim((string)($orderRow['order_no'] ?? $orderRow['id'] ?? ''));
+    $orderReferenceLabel = !empty($orderRow['order_no']) ? 'Order Ref:' : 'Order ID:';
+    $dateCellAlign = $showOrderId ? 'right' : 'left';
+    $issuedAt = date('d M Y • H:i');
+    $orderMetaCell = '';
+    if ($showOrderId && $orderReferenceRaw !== '') {
+        $orderMetaCell = "<td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;\">"
+            . "<span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">" . invoice_escape($orderReferenceLabel) . "</span>"
+            . "<span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($orderReferenceRaw) . "</span>"
+            . "</td>";
+    }
 
     $itemsRows = '';
     $showImages = !empty($settings['showProductImages']);
@@ -2688,8 +2944,8 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
     }
 
     $logoBlock = $logoUrl !== ''
-        ? "<img src=\"" . invoice_escape($logoUrl) . "\" alt=\"SPLARO\" style=\"height:38px;max-width:140px;object-fit:contain;display:block;\" />"
-        : "<div style=\"font-size:34px;font-weight:900;line-height:1;color:#0F172A;\">SPLARO</div>";
+        ? "<img src=\"" . invoice_escape($logoUrl) . "\" alt=\"" . invoice_escape($siteName) . "\" style=\"height:38px;max-width:160px;object-fit:contain;display:block;\" />"
+        : "<div style=\"font-size:36px;font-weight:900;line-height:1;letter-spacing:-0.03em;color:#F8FAFC;\">" . invoice_escape($siteName) . "</div>";
 
     $footerText = invoice_escape((string)($settings['footerText'] ?? ''));
     $policyText = invoice_escape((string)($settings['policyText'] ?? ''));
@@ -2702,17 +2958,19 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>" . invoice_escape($serial) . "</title>
 </head>
-<body style=\"margin:0;padding:20px;background:#EEF2FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0F172A;\">
-  <div style=\"max-width:820px;margin:0 auto;background:" . invoice_escape($theme['backgroundColor']) . ";border:1px solid #DBE1F0;border-radius:18px;overflow:hidden;\">
-    <div style=\"padding:24px 26px;background:linear-gradient(140deg," . invoice_escape($theme['primaryColor']) . ",#111827 72%);color:#F8FAFC;\">
-      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">
+<body style=\"margin:0;padding:24px;background:radial-gradient(circle at 8% 8%," . invoice_escape($accentGlow) . ",transparent 36%),radial-gradient(circle at 90% 4%," . invoice_escape($primarySoft) . ",transparent 42%),linear-gradient(160deg,#E5ECFF 0%,#EEF3FF 48%,#E0E8FF 100%);font-family:'Inter','Segoe UI',Arial,sans-serif;color:#0F172A;\">
+  <div style=\"max-width:860px;margin:0 auto;background:" . invoice_escape($themeBackground) . ";border:1px solid " . invoice_escape($primarySoft) . ";border-radius:24px;overflow:hidden;box-shadow:0 34px 75px " . invoice_escape($primaryGlow) . ";\">
+    <div style=\"position:relative;padding:30px;background:linear-gradient(132deg," . invoice_escape($themePrimary) . " 0%,#060B1A 48%," . invoice_escape($themeAccent) . " 150%);color:#F8FAFC;\">
+      <div style=\"position:absolute;inset:0;background:radial-gradient(circle at 84% 16%," . invoice_escape($headerOverlayOne) . ",transparent 42%),radial-gradient(circle at 12% 88%," . invoice_escape($headerOverlayTwo) . ",transparent 48%);pointer-events:none;\"></div>
+      <div style=\"position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent 0%," . invoice_escape($themeAccent) . " 50%,transparent 100%);opacity:0.9;\"></div>
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"position:relative;z-index:1;\">
         <tr>
           <td style=\"vertical-align:top;width:50%;\">" . $logoBlock . "
-            <div style=\"margin-top:10px;font-size:12px;font-weight:700;letter-spacing:0.06em;color:#BFDBFE;\">Luxury Footwear &amp; Bags</div>
+            <div style=\"margin-top:10px;font-size:12px;font-weight:800;letter-spacing:0.08em;color:#D7EEFF;text-transform:uppercase;\">Luxury Footwear &amp; Bags</div>
           </td>
           <td style=\"vertical-align:top;text-align:right;\">
             <div style=\"font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#93C5FD;\">$documentLabel</div>
-            <div style=\"font-size:34px;font-weight:900;line-height:1.15;margin-top:8px;\">" . invoice_escape($serial) . "</div>
+            <div style=\"font-size:46px;font-weight:900;line-height:1.06;margin-top:8px;letter-spacing:-0.03em;text-shadow:0 10px 26px " . invoice_escape($primaryGlow) . ";\">" . invoice_escape($serial) . "</div>
             <div style=\"margin-top:10px;\">
               <span style=\"display:inline-block;padding:7px 12px;border-radius:999px;background:" . $statusColor . ";color:#fff;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;\">$paymentStatus</span>
             </div>
@@ -2740,20 +2998,17 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
 
       <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom:22px;\">
         <tr>
-          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;\">
-            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Order ID:</span>
-            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($orderRow['id'] ?? '') . "</span>
-          </td>
-          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;text-align:right;\">
-            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Date:</span>
-            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape(date('Y-m-d H:i')) . "</span>
+          " . $orderMetaCell . "
+          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;text-align:" . invoice_escape($dateCellAlign) . ";\">
+            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Issued:</span>
+            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($issuedAt) . "</span>
           </td>
         </tr>
       </table>
 
-      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;\">
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;\">
         <thead>
-          <tr style=\"background:" . invoice_escape($theme['tableHeaderColor']) . ";\">
+          <tr style=\"background:" . invoice_escape($themeHeader) . ";box-shadow:inset 0 -1px 0 " . invoice_escape($tableHeaderBorder) . ";\">
             <th style=\"padding:12px 10px;width:72px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:left;\">Image</th>
             <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:left;\">Product</th>
             <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:center;\">Qty</th>
@@ -2773,14 +3028,14 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
             </div>
           </td>
           <td style=\"width:50%;vertical-align:top;padding-left:12px;\">
-            <div style=\"padding:14px 16px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;\">
+            <div style=\"padding:14px 16px;border-radius:12px;background:linear-gradient(160deg,#FFFFFF 0%,#F8FBFF 100%);border:1px solid " . invoice_escape($totalPanelBorder) . ";\">
               <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">
                 <tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Subtotal</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['subtotal']) . "</td></tr>"
                   . (!empty($settings['showDiscount']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Discount</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">-" . invoice_currency($totals['discount']) . "</td></tr>" : '') .
                   (!empty($settings['showShipping']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Shipping</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['shipping']) . "</td></tr>" : '') .
                   (!empty($settings['showTax']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Tax</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['tax']) . "</td></tr>" : '') .
                 "<tr><td colspan=\"2\" style=\"padding-top:8px;border-bottom:1px solid #CBD5E1;\"></td></tr>
-                <tr><td style=\"padding-top:10px;color:#0F172A;font-size:16px;font-weight:900;letter-spacing:0.03em;text-transform:uppercase;\">Grand Total</td><td style=\"padding-top:10px;color:" . invoice_escape($theme['buttonColor']) . ";font-size:20px;text-align:right;font-weight:900;\">" . invoice_currency($totals['grand']) . "</td></tr>
+                <tr><td style=\"padding-top:10px;color:#0F172A;font-size:16px;font-weight:900;letter-spacing:0.03em;text-transform:uppercase;\">Grand Total</td><td style=\"padding-top:10px;color:" . invoice_escape($themeButton) . ";font-size:30px;text-align:right;font-weight:900;letter-spacing:-0.02em;text-shadow:0 8px 18px " . invoice_escape($accentSoft) . ";\">" . invoice_currency($totals['grand']) . "</td></tr>
               </table>
             </div>
           </td>
@@ -2797,11 +3052,16 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
 </html>";
 }
 
-function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label) {
+function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label, $settings = []) {
     $lines = [];
     $lines[] = "SPLARO {$label}";
     $lines[] = "Serial: {$serial}";
-    $lines[] = "Order: " . (string)($orderRow['id'] ?? '');
+    if (!empty($settings['showOrderId'])) {
+        $reference = trim((string)($orderRow['order_no'] ?? $orderRow['id'] ?? ''));
+        if ($reference !== '') {
+            $lines[] = "Order: " . $reference;
+        }
+    }
     $lines[] = "Date: " . date('Y-m-d H:i');
     $lines[] = "Customer: " . (string)($orderRow['customer_name'] ?? '');
     $lines[] = "Email: " . (string)($orderRow['customer_email'] ?? '');
@@ -2813,11 +3073,21 @@ function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label) {
         $lines[] = "- " . (string)$item['name'] . " | Qty " . (int)$item['quantity'] . " | " . invoice_currency($item['lineTotal']);
     }
     $lines[] = "Subtotal: " . invoice_currency($totals['subtotal']);
-    $lines[] = "Discount: " . invoice_currency($totals['discount']);
-    $lines[] = "Shipping: " . invoice_currency($totals['shipping']);
-    $lines[] = "Tax: " . invoice_currency($totals['tax']);
+    if (!empty($settings['showDiscount'])) {
+        $lines[] = "Discount: " . invoice_currency($totals['discount']);
+    }
+    if (!empty($settings['showShipping'])) {
+        $lines[] = "Shipping: " . invoice_currency($totals['shipping']);
+    }
+    if (!empty($settings['showTax'])) {
+        $lines[] = "Tax: " . invoice_currency($totals['tax']);
+    }
     $lines[] = "Grand Total: " . invoice_currency($totals['grand']);
     return implode("\n", $lines);
+}
+
+function invoice_basic_pdf_fallback_enabled() {
+    return strtolower(trim((string)env_or_default('INVOICE_ALLOW_BASIC_PDF_FALLBACK', 'false'))) === 'true';
 }
 
 function invoice_pdf_escape_text($text) {
@@ -2898,6 +3168,15 @@ function invoice_generate_pdf_file($html, $plainText, $targetPath) {
         splaro_log_exception('invoice.pdf.mpdf', $e, ['target_path' => (string)$targetPath], 'WARNING');
     }
 
+    if (!invoice_basic_pdf_fallback_enabled()) {
+        splaro_structured_log('invoice.pdf.basic_fallback_skipped', [
+            'target_path' => (string)$targetPath,
+            'reason' => 'NO_PDF_ENGINE',
+            'hint' => 'Set INVOICE_ALLOW_BASIC_PDF_FALLBACK=true to re-enable plain text PDF fallback'
+        ], 'WARNING');
+        return false;
+    }
+
     return invoice_generate_basic_pdf($plainText, $targetPath);
 }
 
@@ -2917,11 +3196,18 @@ function invoice_allocate_serial($db, $settings, $typeCode) {
         if (!$counterRow) {
             $insert = $db->prepare("INSERT INTO invoice_counters (counter_key, current_number, updated_at) VALUES (?, 0, NOW())");
             $insert->execute([$counterKey]);
-            $number = 1;
-            $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
-            $update->execute([$number, $counterKey]);
+            $number = 0;
         } else {
-            $number = ((int)$counterRow['current_number']) + 1;
+            $currentNumber = (int)($counterRow['current_number'] ?? 0);
+            $number = $currentNumber + 1;
+            if ($currentNumber > 0) {
+                $docCountStmt = $db->prepare("SELECT COUNT(*) FROM invoice_documents WHERE doc_type = ?");
+                $docCountStmt->execute([$type]);
+                $existingTypeDocs = (int)$docCountStmt->fetchColumn();
+                if ($existingTypeDocs === 0) {
+                    $number = 0;
+                }
+            }
             $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
             $update->execute([$number, $counterKey]);
         }
@@ -2939,7 +3225,11 @@ function invoice_allocate_serial($db, $settings, $typeCode) {
     if ($padding > 10) $padding = 10;
     $prefix = strtoupper(trim((string)($settings['invoicePrefix'] ?? 'SPL')));
     if ($prefix === '') $prefix = 'SPL';
-    $serial = $prefix . '-' . str_pad((string)$number, $padding, '0', STR_PAD_LEFT) . '-' . $type;
+    $serialBase = $prefix . '-' . str_pad((string)$number, $padding, '0', STR_PAD_LEFT);
+    $defaultType = strtoupper(trim((string)($settings['defaultType'] ?? 'INV')));
+    $serial = $type === $defaultType
+        ? $serialBase
+        : ($serialBase . '-' . $type);
 
     return [
         'serial' => $serial,
@@ -2994,7 +3284,7 @@ function invoice_create_document($db, $orderRow, $settings, $typeCode, $createdB
     $serialData = invoice_allocate_serial($db, $settings, $type);
     $serial = (string)$serialData['serial'];
     $html = invoice_build_html($orderRow, $items, $settings, $serial, $type, $label, $totals);
-    $plainText = invoice_build_plain_text($orderRow, $items, $serial, $totals, $label);
+    $plainText = invoice_build_plain_text($orderRow, $items, $serial, $totals, $label, $settings);
 
     $outputDir = invoice_ensure_output_dir();
     $timeToken = date('Ymd_His');
@@ -4206,6 +4496,41 @@ function safe_json_decode_assoc($raw, $default = []) {
         ], 'ERROR');
     }
     return is_array($decoded) ? $decoded : (is_array($default) ? $default : []);
+}
+
+function normalize_logistics_config($raw, $fallback = null) {
+    $base = [
+        'metro' => 90,
+        'regional' => 140
+    ];
+
+    if (is_array($fallback)) {
+        $fallbackMetro = isset($fallback['metro']) ? (int)$fallback['metro'] : $base['metro'];
+        $fallbackRegional = isset($fallback['regional']) ? (int)$fallback['regional'] : $base['regional'];
+        if ($fallbackMetro >= 0) $base['metro'] = $fallbackMetro;
+        if ($fallbackRegional >= 0) $base['regional'] = $fallbackRegional;
+    }
+
+    $input = is_array($raw) ? $raw : [];
+    $pick = static function (array $source, array $keys) {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $source)) continue;
+            if ($source[$key] === null || $source[$key] === '') continue;
+            if (!is_numeric($source[$key])) continue;
+            $value = (int)$source[$key];
+            if ($value < 0) continue;
+            return $value;
+        }
+        return null;
+    };
+
+    $metro = $pick($input, ['metro', 'dhaka', 'metropolitan', 'inside', 'insideDhaka', 'metro_fee', 'metroFee']);
+    $regional = $pick($input, ['regional', 'outside', 'outsideDhaka', 'outside_dhaka', 'regional_fee', 'regionalFee']);
+
+    return [
+        'metro' => $metro !== null ? $metro : $base['metro'],
+        'regional' => $regional !== null ? $regional : $base['regional']
+    ];
 }
 
 function slugify_text($text) {
@@ -7709,11 +8034,14 @@ if ($method === 'GET' && $action === 'health') {
     if (
         (bool)($abortedConnectsWindow['within_window'] ?? false)
         && !(bool)($abortedConnectsWindow['counter_reset'] ?? false)
+        && (int)($abortedConnectsWindow['elapsed_seconds'] ?? 0) >= (int)HEALTH_DB_ABORTED_CONNECTS_MIN_ELAPSED_SECONDS
         && (int)($abortedConnectsWindow['delta'] ?? 0) >= (int)HEALTH_DB_ABORTED_CONNECTS_DELTA_WARN_THRESHOLD
+        && (float)($abortedConnectsWindow['rate_per_minute'] ?? 0.0) >= (float)HEALTH_DB_ABORTED_CONNECTS_RATE_WARN_PER_MINUTE
     ) {
         $abortedDelta = (int)($abortedConnectsWindow['delta'] ?? 0);
         $abortedElapsed = max(1, (int)($abortedConnectsWindow['elapsed_seconds'] ?? 0));
-        health_maybe_send_telegram_alert('DB', 'WARNING', "aborted_connects rising fast: +{$abortedDelta} in {$abortedElapsed}s");
+        $abortedRate = (float)($abortedConnectsWindow['rate_per_minute'] ?? 0.0);
+        health_maybe_send_telegram_alert('DB', 'WARNING', "aborted_connects rising fast: +{$abortedDelta} in {$abortedElapsed}s (~{$abortedRate}/min)");
     }
     if ($queueDeadRecent >= (int)HEALTH_QUEUE_DEAD_WARN_THRESHOLD) {
         health_maybe_send_telegram_alert('QUEUE', 'WARNING', 'dead queue count increased');
@@ -8957,7 +9285,7 @@ if ($method === 'GET' && $action === 'sync') {
     $settings = $db->query("SELECT {$settingsSelectFields} FROM site_settings LIMIT 1")->fetch();
     if ($settings) {
         $settings['smtp_settings'] = json_decode($settings['smtp_settings'] ?? '[]', true);
-        $settings['logistics_config'] = json_decode($settings['logistics_config'] ?? '[]', true);
+        $settings['logistics_config'] = normalize_logistics_config(json_decode($settings['logistics_config'] ?? '[]', true));
         $settings['hero_slides'] = json_decode($settings['hero_slides'] ?? '[]', true);
         $settings['content_pages'] = json_decode($settings['content_pages'] ?? '{}', true);
         $settings['story_posts'] = json_decode($settings['story_posts'] ?? '[]', true);
@@ -13546,6 +13874,55 @@ if ($method === 'POST' && $action === 'subscribe') {
     exit;
 }
 
+function normalize_recovery_phone_local($value) {
+    $raw = trim((string)$value);
+    if ($raw === '') {
+        return '';
+    }
+
+    $digits = preg_replace('/\D+/', '', $raw);
+    if (!is_string($digits) || $digits === '') {
+        return '';
+    }
+
+    if (strpos($digits, '0088') === 0) {
+        $digits = substr($digits, 2);
+    }
+
+    if (strlen($digits) === 13 && strpos($digits, '8801') === 0) {
+        $digits = '0' . substr($digits, 3);
+    }
+
+    if (!preg_match('/^01[3-9]\d{8}$/', (string)$digits)) {
+        return '';
+    }
+
+    return (string)$digits;
+}
+
+function find_user_for_recovery($db, $identifier) {
+    $raw = trim((string)$identifier);
+    $userSelectFields = users_sensitive_select_fields($db);
+
+    if ($raw === '') {
+        return ['user' => null, 'type' => '', 'normalized' => ''];
+    }
+
+    $emailCandidate = strtolower($raw);
+    if (!filter_var($emailCandidate, FILTER_VALIDATE_EMAIL)) {
+        return ['user' => null, 'type' => '', 'normalized' => $emailCandidate];
+    }
+
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1");
+    $stmt->execute([$emailCandidate]);
+    $user = $stmt->fetch();
+    if ($user) {
+        return ['user' => $user, 'type' => 'email', 'normalized' => $emailCandidate];
+    }
+
+    return ['user' => null, 'type' => 'email', 'normalized' => $emailCandidate];
+}
+
 // 5.1 PASSWORD RECOVERY PROTOCOL (GENERATE OTP)
 if ($method === 'POST' && $action === 'forgot_password') {
     if (is_rate_limited('forgot_password', 8, 60)) {
@@ -13554,42 +13931,64 @@ if ($method === 'POST' && $action === 'forgot_password') {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = strtolower(trim((string)($input['email'] ?? '')));
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $identifier = trim((string)($input['identifier'] ?? ($input['email'] ?? '')));
+    $emailCandidate = strtolower($identifier);
+    if (!filter_var($emailCandidate, FILTER_VALIDATE_EMAIL)) {
         echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
         exit;
     }
-    
-    $userSelectFields = users_sensitive_select_fields($db);
-    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
-    
+
+    $lookup = find_user_for_recovery($db, $emailCandidate);
+    $user = is_array($lookup['user'] ?? null) ? $lookup['user'] : null;
     if ($user) {
-        $otp = rand(100000, 999999);
+        $otp = random_int(100000, 999999);
         $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-        
-        $stmt = $db->prepare("UPDATE users SET reset_code = ?, reset_expiry = ? WHERE email = ?");
-        $stmt->execute([$otp, $expiry, $email]);
-        
+
+        $userId = (string)($user['id'] ?? '');
+        $targetEmail = strtolower(trim((string)($user['email'] ?? '')));
+        if (!filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+            $targetEmail = '';
+        }
+
+        $stmt = $db->prepare("UPDATE users SET reset_code = ?, reset_expiry = ? WHERE id = ?");
+        $stmt->execute([$otp, $expiry, $userId]);
+
         $subject = "IDENTITY RECOVERY: Verification Code";
         $message = "Your Splaro Identity Verification Code is: " . $otp . "
 
 This code expires in 15 minutes. If you did not request this, please ignore.";
-        $success = smtp_send_mail($db, $email, $subject, nl2br($message), true);
+        $success = false;
+        if ($targetEmail !== '') {
+            $success = smtp_send_mail($db, $targetEmail, $subject, nl2br($message), true);
+        }
+
+        $maskedEmail = $targetEmail !== '' ? splaro_clip_text($targetEmail, 80) : 'N/A';
+        $maskedPhone = splaro_clip_text((string)($user['phone'] ?? ''), 40);
         $telegramOtpMessage = "<b>🔐 Password Reset OTP</b>\n"
-            . "<b>Email:</b> " . telegram_escape_html($email) . "\n"
+            . "<b>User ID:</b> " . telegram_escape_html($userId) . "\n"
+            . "<b>Email:</b> " . telegram_escape_html($maskedEmail) . "\n"
+            . "<b>Phone:</b> " . telegram_escape_html($maskedPhone) . "\n"
             . "<b>OTP:</b> " . telegram_escape_html((string)$otp) . "\n"
             . "<b>Expires:</b> " . telegram_escape_html($expiry);
         $telegramSent = send_telegram_message($telegramOtpMessage);
-        
-        if ($success) {
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        if ($success && $telegramSent) {
+            log_system_event($db, 'PASSWORD_RECOVERY_OTP_ISSUED', "Recovery OTP issued via EMAIL+TELEGRAM for user {$userId}", $userId, $ip);
+            echo json_encode([
+                "status" => "success",
+                "message" => "RECOVERY_SIGNAL_DISPATCHED",
+                "channel" => "EMAIL_AND_TELEGRAM"
+            ]);
+        } elseif ($success) {
+            log_system_event($db, 'PASSWORD_RECOVERY_OTP_ISSUED', "Recovery OTP issued via EMAIL for user {$userId}", $userId, $ip);
             echo json_encode([
                 "status" => "success",
                 "message" => "RECOVERY_SIGNAL_DISPATCHED",
                 "channel" => "EMAIL"
             ]);
         } elseif ($telegramSent) {
+            log_system_event($db, 'PASSWORD_RECOVERY_OTP_ISSUED', "Recovery OTP issued via TELEGRAM for user {$userId}", $userId, $ip);
             echo json_encode([
                 "status" => "success",
                 "message" => "RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM",
@@ -13598,13 +13997,18 @@ This code expires in 15 minutes. If you did not request this, please ignore.";
         } else {
             // Controlled fallback so user is never stuck when mail gateway is down.
             $allowOtpPreview = strtolower((string)env_or_default('ALLOW_OTP_PREVIEW', 'true')) === 'true';
-            $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
             $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
                ->execute([
                    'RECOVERY_FALLBACK',
-                   "OTP generated but delivery failed for {$email}.",
+                   "OTP generated but delivery failed for user {$userId}.",
                    $ip
                ]);
+            splaro_record_system_error('AUTH_RECOVERY', 'ERROR', 'Password recovery delivery failed on all channels.', [
+                'user_id' => $userId,
+                'identifier_type' => (string)($lookup['type'] ?? ''),
+                'target_email_present' => $targetEmail !== '',
+                'telegram_enabled' => (bool)TELEGRAM_ENABLED
+            ]);
 
             $response = [
                 "status" => "success",
@@ -13630,24 +14034,39 @@ if ($method === 'POST' && $action === 'reset_password') {
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = strtolower(trim((string)($input['email'] ?? '')));
+    $identifier = trim((string)($input['identifier'] ?? ($input['email'] ?? '')));
     $otp = trim((string)($input['otp'] ?? ''));
     $new_password = (string)($input['password'] ?? '');
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $otp === '' || strlen($new_password) < 6) {
+    $emailCandidate = strtolower($identifier);
+    if (!filter_var($emailCandidate, FILTER_VALIDATE_EMAIL) || $otp === '' || strlen($new_password) < 6) {
         echo json_encode(["status" => "error", "message" => "INVALID_RESET_REQUEST"]);
         exit;
     }
-    
+
+    $lookup = find_user_for_recovery($db, $emailCandidate);
+    $candidate = is_array($lookup['user'] ?? null) ? $lookup['user'] : null;
+    if (!$candidate) {
+        echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);
+        exit;
+    }
+
     $userSelectFields = users_sensitive_select_fields($db);
-    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ? AND reset_code = ? AND reset_expiry > NOW()");
-    $stmt->execute([$email, $otp]);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? AND reset_code = ? AND reset_expiry > NOW()");
+    $stmt->execute([(string)$candidate['id'], $otp]);
     $user = $stmt->fetch();
-    
+
     if ($user) {
         $newPasswordHash = password_hash($new_password, PASSWORD_DEFAULT);
-        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = 1 WHERE email = ?");
-        $stmt->execute([$newPasswordHash, $email]);
-        
+        $stmt = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = 1 WHERE id = ?");
+        $stmt->execute([$newPasswordHash, (string)$user['id']]);
+
+        log_system_event(
+            $db,
+            'PASSWORD_RECOVERY_RESET',
+            "Password reset completed for user " . (string)($user['id'] ?? ''),
+            (string)($user['id'] ?? ''),
+            $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+        );
         echo json_encode(["status" => "success", "message" => "PASSWORD_OVERRIDDEN"]);
     } else {
         echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);
@@ -14318,6 +14737,7 @@ if ($method === 'POST' && $action === 'update_settings') {
         'maintenanceMode',
         'smtpSettings',
         'logisticsConfig',
+        'logistics_config',
         'invoiceSettings',
         'invoice_settings',
         'slides',
@@ -14439,6 +14859,17 @@ if ($method === 'POST' && $action === 'update_settings') {
             $mergedSmtpSettings['from'] = (string)($mergedSmtpSettings['user'] ?? '');
         }
 
+        $currentLogisticsConfig = normalize_logistics_config(
+            safe_json_decode_assoc($existingSettingsRow['logistics_config'] ?? '{}', [])
+        );
+        $incomingLogisticsConfig = null;
+        if (array_key_exists('logisticsConfig', $input)) {
+            $incomingLogisticsConfig = $input['logisticsConfig'];
+        } elseif (array_key_exists('logistics_config', $input)) {
+            $incomingLogisticsConfig = $input['logistics_config'];
+        }
+        $nextLogisticsConfig = normalize_logistics_config($incomingLogisticsConfig, $currentLogisticsConfig);
+
         $incomingCmsDraft = $input['cmsDraft'] ?? null;
         if (!is_array($incomingCmsDraft) && isset($input['themeSettings'])) {
             $incomingCmsDraft = [
@@ -14518,6 +14949,14 @@ if ($method === 'POST' && $action === 'update_settings') {
         } else {
             $nextSettingsJson['invoiceSettings'] = $currentInvoiceSettings;
         }
+        if ($hasCmsPayload) {
+            $invoiceThemeSynced = $nextSettingsJson['invoiceSettings'];
+            $invoiceThemeSynced['theme'] = invoice_theme_from_cms_bundle(
+                $nextCmsDraft,
+                is_array($invoiceThemeSynced['theme'] ?? null) ? $invoiceThemeSynced['theme'] : invoice_default_settings()['theme']
+            );
+            $nextSettingsJson['invoiceSettings'] = invoice_normalize_settings($invoiceThemeSynced, $existingSettingsRow);
+        }
 
         $params = [
             $input['siteName'] ?? ($existingSettingsRow['site_name'] ?? 'SPLARO'),
@@ -14528,7 +14967,7 @@ if ($method === 'POST' && $action === 'update_settings') {
             $input['instagramLink'] ?? ($existingSettingsRow['instagram_link'] ?? ''),
             isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : (isset($existingSettingsRow['maintenance_mode']) ? ((int)$existingSettingsRow['maintenance_mode']) : 0),
             json_encode($mergedSmtpSettings),
-            json_encode($input['logisticsConfig'] ?? safe_json_decode_assoc($existingSettingsRow['logistics_config'] ?? '{}', []))
+            json_encode($nextLogisticsConfig)
         ];
 
         if (column_exists($db, 'site_settings', 'hero_slides')) {

@@ -8034,11 +8034,14 @@ if ($method === 'GET' && $action === 'health') {
     if (
         (bool)($abortedConnectsWindow['within_window'] ?? false)
         && !(bool)($abortedConnectsWindow['counter_reset'] ?? false)
+        && (int)($abortedConnectsWindow['elapsed_seconds'] ?? 0) >= (int)HEALTH_DB_ABORTED_CONNECTS_MIN_ELAPSED_SECONDS
         && (int)($abortedConnectsWindow['delta'] ?? 0) >= (int)HEALTH_DB_ABORTED_CONNECTS_DELTA_WARN_THRESHOLD
+        && (float)($abortedConnectsWindow['rate_per_minute'] ?? 0.0) >= (float)HEALTH_DB_ABORTED_CONNECTS_RATE_WARN_PER_MINUTE
     ) {
         $abortedDelta = (int)($abortedConnectsWindow['delta'] ?? 0);
         $abortedElapsed = max(1, (int)($abortedConnectsWindow['elapsed_seconds'] ?? 0));
-        health_maybe_send_telegram_alert('DB', 'WARNING', "aborted_connects rising fast: +{$abortedDelta} in {$abortedElapsed}s");
+        $abortedRate = (float)($abortedConnectsWindow['rate_per_minute'] ?? 0.0);
+        health_maybe_send_telegram_alert('DB', 'WARNING', "aborted_connects rising fast: +{$abortedDelta} in {$abortedElapsed}s (~{$abortedRate}/min)");
     }
     if ($queueDeadRecent >= (int)HEALTH_QUEUE_DEAD_WARN_THRESHOLD) {
         health_maybe_send_telegram_alert('QUEUE', 'WARNING', 'dead queue count increased');
