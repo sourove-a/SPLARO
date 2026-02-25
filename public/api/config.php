@@ -515,9 +515,14 @@ define('DB_RETRY_MAX', splaro_env_int('DB_RETRY_MAX', 3, 0, 3));
 define('DB_RETRY_BASE_DELAY_MS', splaro_env_int('DB_RETRY_BASE_DELAY_MS', 120, 50, 2000));
 define('DB_SLOW_QUERY_MS', splaro_env_int('DB_SLOW_QUERY_MS', 900, 100, 30000));
 define('DB_PERSISTENT', splaro_env_bool('DB_PERSISTENT', false));
-define('DB_POOL_TARGET', splaro_env_int('DB_POOL_TARGET', 6, 2, 12));
+define('DB_POOL_TARGET', splaro_env_int('DB_POOL_TARGET', 6, 2, 10));
 define('API_MAX_EXECUTION_SECONDS', splaro_env_int('API_MAX_EXECUTION_SECONDS', 25, 5, 180));
 define('LOG_REQUEST_METRICS', splaro_env_bool('LOG_REQUEST_METRICS', true));
+$rateWindowMs = splaro_env_int('RATE_LIMIT_WINDOW_MS', 60000, 1000, 600000);
+define('RATE_LIMIT_WINDOW_SECONDS', max(1, (int)ceil($rateWindowMs / 1000)));
+define('RATE_LIMIT_MAX', splaro_env_int('RATE_LIMIT_MAX', 120, 10, 5000));
+define('ADMIN_RATE_LIMIT_MAX', splaro_env_int('ADMIN_RATE_LIMIT_MAX', 240, 20, 10000));
+define('HEAVY_READ_RATE_LIMIT_MAX', splaro_env_int('HEAVY_READ_RATE_LIMIT_MAX', 40, 5, 500));
 
 // 2. SMTP COMMAND CENTER
 define('SMTP_HOST', env_or_default('SMTP_HOST', 'smtp.hostinger.com'));

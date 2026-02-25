@@ -16,6 +16,10 @@ DB_PERSISTENT=false
 DB_POOL_TARGET=6
 API_MAX_EXECUTION_SECONDS=25
 LOG_REQUEST_METRICS=true
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=120
+ADMIN_RATE_LIMIT_MAX=240
+HEAVY_READ_RATE_LIMIT_MAX=40
 GOOGLE_SHEETS_TIMEOUT_SECONDS=5
 GOOGLE_SHEETS_MAX_RETRIES=5
 GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS=600
@@ -32,8 +36,11 @@ GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS=600
 - Sync queue keeps external Sheet delays away from core order/signup flows.
 - External API calls use connect timeout + total timeout + low-speed protection.
 - Health endpoint runs `SELECT 1` ping and returns latency and timeout profile.
+- Health endpoint also returns MySQL runtime counters (`Threads_connected`, `Threads_running`, `Max_used_connections`, `Aborted_connects`) when allowed.
 - Structured logs include request duration and DB connection metadata.
 - Slow query warnings are emitted when query duration exceeds `DB_SLOW_QUERY_MS`.
+- Global request guard now limits burst traffic before DB-heavy handlers run.
+- Heavy sync endpoints have dedicated throttling to reduce DB overload risk.
 
 ## Slow query visibility
 
@@ -48,6 +55,12 @@ If MySQL privileges allow session tuning, optional:
 SET SESSION long_query_time = 1;
 ```
 
+If Hostinger support can enable server slow query log, request:
+
+- `slow_query_log = ON`
+- `long_query_time = 1`
+- `log_queries_not_using_indexes = ON`
+
 ## Operations checklist
 
 1. Confirm `/api/index.php?action=health` shows:
@@ -58,4 +71,3 @@ SET SESSION long_query_time = 1;
 3. Confirm dead Sheet jobs are retried from queue (`sync_queue` table).
 4. Confirm `SPLARO_LOG` request duration entries are written.
 5. Review slow query warnings and add indexes if repeated.
-

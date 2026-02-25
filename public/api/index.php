@@ -365,15 +365,30 @@ function ensure_index($db, $table, $indexName, $indexSql) {
 }
 
 function safe_query_all($db, $sql, $params = []) {
+    $applySelectTimeoutHint = static function ($query) {
+        $query = (string)$query;
+        if (!defined('DB_QUERY_TIMEOUT_MS') || (int)DB_QUERY_TIMEOUT_MS <= 0) {
+            return $query;
+        }
+        if (!preg_match('/^\s*SELECT\b/i', $query)) {
+            return $query;
+        }
+        if (stripos($query, 'MAX_EXECUTION_TIME') !== false) {
+            return $query;
+        }
+        return preg_replace('/^\s*SELECT\b/i', 'SELECT /*+ MAX_EXECUTION_TIME(' . (int)DB_QUERY_TIMEOUT_MS . ') */', $query, 1);
+    };
+
     $attempt = 0;
     $maxRetries = defined('DB_RETRY_MAX') ? (int)DB_RETRY_MAX : 0;
     if ($maxRetries < 0) $maxRetries = 0;
     if ($maxRetries > 3) $maxRetries = 3;
+    $querySql = $applySelectTimeoutHint($sql);
     while (true) {
         $attempt++;
         $startedAt = microtime(true);
         try {
-            $stmt = $db->prepare($sql);
+            $stmt = $db->prepare($querySql);
             $stmt->execute($params);
             $rows = $stmt->fetchAll();
             $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
@@ -402,22 +417,37 @@ function safe_query_all($db, $sql, $params = []) {
                 usleep($delayMs * 1000);
                 continue;
             }
-            error_log('SPLARO_SAFE_QUERY_FAILED: ' . $message . ' | SQL=' . $sql);
+            error_log('SPLARO_SAFE_QUERY_FAILED: ' . $message . ' | SQL=' . $querySql);
             return [];
         }
     }
 }
 
 function safe_query_count($db, $sql, $params = []) {
+    $applySelectTimeoutHint = static function ($query) {
+        $query = (string)$query;
+        if (!defined('DB_QUERY_TIMEOUT_MS') || (int)DB_QUERY_TIMEOUT_MS <= 0) {
+            return $query;
+        }
+        if (!preg_match('/^\s*SELECT\b/i', $query)) {
+            return $query;
+        }
+        if (stripos($query, 'MAX_EXECUTION_TIME') !== false) {
+            return $query;
+        }
+        return preg_replace('/^\s*SELECT\b/i', 'SELECT /*+ MAX_EXECUTION_TIME(' . (int)DB_QUERY_TIMEOUT_MS . ') */', $query, 1);
+    };
+
     $attempt = 0;
     $maxRetries = defined('DB_RETRY_MAX') ? (int)DB_RETRY_MAX : 0;
     if ($maxRetries < 0) $maxRetries = 0;
     if ($maxRetries > 3) $maxRetries = 3;
+    $querySql = $applySelectTimeoutHint($sql);
     while (true) {
         $startedAt = microtime(true);
         $attempt++;
         try {
-            $stmt = $db->prepare($sql);
+            $stmt = $db->prepare($querySql);
             $stmt->execute($params);
             $count = (int)$stmt->fetchColumn();
             $durationMs = (int)round((microtime(true) - $startedAt) * 1000);
@@ -446,7 +476,7 @@ function safe_query_count($db, $sql, $params = []) {
                 usleep($delayMs * 1000);
                 continue;
             }
-            error_log('SPLARO_SAFE_COUNT_FAILED: ' . $message . ' | SQL=' . $sql);
+            error_log('SPLARO_SAFE_COUNT_FAILED: ' . $message . ' | SQL=' . $querySql);
             return 0;
         }
     }
@@ -461,6 +491,65 @@ function column_exists($db, $table, $column) {
         error_log("SPLARO_SCHEMA_WARNING: column_exists failed for {$table}.{$column} -> " . $e->getMessage());
         return false;
     }
+}
+
+function get_table_columns_cached($db, $table) {
+    static $cache = [];
+    $key = strtolower((string)$table);
+    if (isset($cache[$key]) && is_array($cache[$key])) {
+        return $cache[$key];
+    }
+    $columns = [];
+    try {
+        $stmt = $db->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+        $stmt->execute([$table]);
+        $rows = $stmt->fetchAll();
+        foreach ($rows as $row) {
+            $name = strtolower((string)($row['COLUMN_NAME'] ?? ''));
+            if ($name !== '') {
+                $columns[$name] = true;
+            }
+        }
+    } catch (Exception $e) {
+        error_log("SPLARO_SCHEMA_WARNING: get_table_columns failed for {$table} -> " . $e->getMessage());
+    }
+    $cache[$key] = $columns;
+    return $columns;
+}
+
+function build_select_fields($db, $table, array $preferredColumns, $fallback = '*') {
+    $existing = get_table_columns_cached($db, $table);
+    $selected = [];
+    foreach ($preferredColumns as $column) {
+        $name = trim((string)$column);
+        if ($name === '') continue;
+        if (!empty($existing[strtolower($name)])) {
+            $selected[] = $name;
+        }
+    }
+    if (!empty($selected)) {
+        return implode(', ', $selected);
+    }
+    return $fallback;
+}
+
+function users_sensitive_select_fields($db) {
+    return build_select_fields($db, 'users', [
+        'id', 'name', 'email', 'phone', 'address', 'profile_image',
+        'password', 'role', 'reset_code', 'reset_expiry', 'created_at',
+        'last_password_change_at', 'force_relogin', 'two_factor_enabled',
+        'two_factor_secret', 'notification_email', 'notification_sms',
+        'preferred_language', 'default_shipping_address'
+    ]);
+}
+
+function site_settings_select_fields($db) {
+    return build_select_fields($db, 'site_settings', [
+        'id', 'site_name', 'maintenance_mode', 'support_email', 'support_phone',
+        'whatsapp_number', 'facebook_link', 'instagram_link', 'logo_url',
+        'smtp_settings', 'logistics_config', 'hero_slides', 'content_pages',
+        'story_posts', 'campaigns_data', 'settings_json', 'google_client_id'
+    ]);
 }
 
 function ensure_core_schema($db) {
@@ -1916,6 +2005,39 @@ function is_rate_limited_scoped($bucket, $scopeKey, $maxRequests = 10, $windowSe
     return $state['count'] > $maxRequests;
 }
 
+function enforce_global_request_guard($method, $action, $requestAuthUser = null) {
+    $method = strtoupper((string)$method);
+    $action = strtolower(trim((string)$action));
+
+    if ($method === 'OPTIONS' || $action === 'health') {
+        return;
+    }
+
+    $windowSeconds = defined('RATE_LIMIT_WINDOW_SECONDS') ? (int)RATE_LIMIT_WINDOW_SECONDS : 60;
+    if ($windowSeconds < 1) $windowSeconds = 60;
+
+    $isAdmin = is_admin_authenticated($requestAuthUser);
+    $globalMax = $isAdmin
+        ? (defined('ADMIN_RATE_LIMIT_MAX') ? (int)ADMIN_RATE_LIMIT_MAX : 240)
+        : (defined('RATE_LIMIT_MAX') ? (int)RATE_LIMIT_MAX : 120);
+
+    if (is_rate_limited('global_' . strtolower($method), $globalMax, $windowSeconds)) {
+        http_response_code(429);
+        echo json_encode(["status" => "error", "message" => "GLOBAL_RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $heavyActions = ['sync', 'process_sync_queue', 'sync_queue_status'];
+    if (in_array($action, $heavyActions, true)) {
+        $heavyMax = defined('HEAVY_READ_RATE_LIMIT_MAX') ? (int)HEAVY_READ_RATE_LIMIT_MAX : 40;
+        if (is_rate_limited('heavy_' . $action, $heavyMax, $windowSeconds)) {
+            http_response_code(429);
+            echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+            exit;
+        }
+    }
+}
+
 function is_https_request() {
     if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
         return true;
@@ -2617,7 +2739,8 @@ function ensure_admin_identity_account($db) {
 
     foreach ($emails as $email) {
         try {
-            $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
+            $userSelectFields = users_sensitive_select_fields($db);
+            $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ? LIMIT 1");
             $stmt->execute([$email]);
             $existing = $stmt->fetch();
 
@@ -2690,6 +2813,7 @@ function maybe_ensure_admin_account($db) {
 
 $requestAuthUser = get_authenticated_user_from_request();
 maybe_ensure_admin_account($db);
+enforce_global_request_guard($method, $action, $requestAuthUser);
 
 function get_sync_queue_summary($db) {
     $summary = [
@@ -2744,10 +2868,41 @@ function get_sync_queue_summary($db) {
     return $summary;
 }
 
+function get_db_runtime_metrics($db) {
+    $metrics = [
+        'threads_connected' => null,
+        'threads_running' => null,
+        'max_used_connections' => null,
+        'aborted_connects' => null
+    ];
+
+    if (!$db) {
+        return $metrics;
+    }
+
+    try {
+        $stmt = $db->query("SHOW STATUS WHERE Variable_name IN ('Threads_connected', 'Threads_running', 'Max_used_connections', 'Aborted_connects')");
+        $rows = $stmt->fetchAll();
+        foreach ($rows as $row) {
+            $key = strtolower((string)($row['Variable_name'] ?? ''));
+            $value = isset($row['Value']) ? (int)$row['Value'] : null;
+            if ($key === 'threads_connected') $metrics['threads_connected'] = $value;
+            if ($key === 'threads_running') $metrics['threads_running'] = $value;
+            if ($key === 'max_used_connections') $metrics['max_used_connections'] = $value;
+            if ($key === 'aborted_connects') $metrics['aborted_connects'] = $value;
+        }
+    } catch (Throwable $e) {
+        // Shared hosting may deny SHOW STATUS; keep null values.
+    }
+
+    return $metrics;
+}
+
 if ($method === 'GET' && $action === 'health') {
     $dbPingOk = false;
     $dbLatencyMs = null;
     $dbPingError = '';
+    $dbRuntimeMetrics = get_db_runtime_metrics($db);
     $pingStartedAt = microtime(true);
     try {
         $pingStmt = $db->query('SELECT 1');
@@ -2785,7 +2940,8 @@ if ($method === 'GET' && $action === 'health') {
             "driver" => "pdo_mysql",
             "persistent" => (bool)DB_PERSISTENT,
             "targetSize" => (int)DB_POOL_TARGET,
-            "mode" => "php-request-cache"
+            "mode" => "php-request-cache",
+            "runtime" => $dbRuntimeMetrics
         ],
         "timeouts" => [
             "apiMaxExecutionSeconds" => (int)API_MAX_EXECUTION_SECONDS,
@@ -2871,7 +3027,10 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
         if ($orderId === '') {
             $reply = "<b>Usage:</b> /order {order_id}";
         } else {
-            $stmt = $db->prepare("SELECT * FROM orders WHERE id = ? LIMIT 1");
+            $telegramOrderSelectFields = build_select_fields($db, 'orders', [
+                'id', 'customer_name', 'phone', 'status', 'total', 'created_at', 'address', 'district', 'thana'
+            ]);
+            $stmt = $db->prepare("SELECT {$telegramOrderSelectFields} FROM orders WHERE id = ? LIMIT 1");
             $stmt->execute([$orderId]);
             $order = $stmt->fetch();
             if (!$order) {
@@ -2951,7 +3110,8 @@ if ($method === 'GET' && $action === 'sync') {
     $isUser = is_array($requestAuthUser) && strtoupper((string)($requestAuthUser['role'] ?? '')) === 'USER';
     $syncQueueProcess = null;
 
-    $settings = $db->query("SELECT * FROM site_settings LIMIT 1")->fetch();
+    $settingsSelectFields = site_settings_select_fields($db);
+    $settings = $db->query("SELECT {$settingsSelectFields} FROM site_settings LIMIT 1")->fetch();
     if ($settings) {
         $settings['smtp_settings'] = json_decode($settings['smtp_settings'] ?? '[]', true);
         $settings['logistics_config'] = json_decode($settings['logistics_config'] ?? '[]', true);
@@ -3027,18 +3187,27 @@ if ($method === 'GET' && $action === 'sync') {
     if ($productsPageSize > 500) $productsPageSize = 500;
     $productsOffset = ($productsPage - 1) * $productsPageSize;
     $productCount = 0;
+    $productSelectFields = build_select_fields($db, 'products', [
+        'id', 'name', 'brand', 'type', 'price', 'image', 'description', 'slug',
+        'sizes', 'colors', 'color_variants', 'materials', 'tags', 'brand_slug',
+        'featured', 'sku', 'barcode', 'stock', 'low_stock_threshold', 'status',
+        'hide_when_out_of_stock', 'discount_price', 'discount_starts_at', 'discount_ends_at',
+        'main_image_id', 'category', 'category_slug', 'weight', 'dimensions', 'variations',
+        'additional_images', 'size_chart_image', 'discount_percentage',
+        'sub_category', 'sub_category_slug', 'product_url', 'created_at'
+    ]);
+    $productsHasStatus = column_exists($db, 'products', 'status');
     if (!$isAdmin && $method === 'GET' && $action === 'sync') {
         // Light sync for regular users: keep schema-tolerant query for legacy databases.
-        $statusColumnExists = column_exists($db, 'products', 'status');
         $productCount = safe_query_count($db, "SELECT COUNT(*) FROM products");
-        if ($statusColumnExists) {
-            $products = safe_query_all($db, "SELECT * FROM products WHERE status = 'PUBLISHED' ORDER BY created_at DESC LIMIT {$productsPageSize}");
+        if ($productsHasStatus) {
+            $products = safe_query_all($db, "SELECT {$productSelectFields} FROM products WHERE status = 'PUBLISHED' ORDER BY created_at DESC LIMIT {$productsPageSize}");
         } else {
-            $products = safe_query_all($db, "SELECT * FROM products ORDER BY created_at DESC LIMIT {$productsPageSize}");
+            $products = safe_query_all($db, "SELECT {$productSelectFields} FROM products ORDER BY created_at DESC LIMIT {$productsPageSize}");
         }
     } else {
         $productCount = safe_query_count($db, "SELECT COUNT(*) FROM products");
-        $products = safe_query_all($db, "SELECT * FROM products ORDER BY created_at DESC LIMIT {$productsPageSize} OFFSET {$productsOffset}");
+        $products = safe_query_all($db, "SELECT {$productSelectFields} FROM products ORDER BY created_at DESC LIMIT {$productsPageSize} OFFSET {$productsOffset}");
     }
 
     foreach ($products as &$p) {
@@ -3211,7 +3380,16 @@ if ($method === 'GET' && $action === 'sync') {
         $orderWhereSql = $orderWhere ? ('WHERE ' . implode(' AND ', $orderWhere)) : '';
 
         $orderCount = safe_query_count($db, "SELECT COUNT(*) FROM orders {$orderWhereSql}", $orderParams);
-        $orders = safe_query_all($db, "SELECT * FROM orders {$orderWhereSql} ORDER BY created_at DESC LIMIT {$pageSize} OFFSET {$offset}", $orderParams);
+        $orderSelectFields = build_select_fields($db, 'orders', [
+            'id', 'user_id', 'customer_name', 'customer_email', 'phone', 'district', 'thana',
+            'address', 'items', 'total', 'status', 'tracking_number', 'admin_notes',
+            'customer_comment', 'shipping_fee', 'discount_amount', 'discount_code', 'created_at'
+        ]);
+        $orders = safe_query_all(
+            $db,
+            "SELECT {$orderSelectFields} FROM orders {$orderWhereSql} ORDER BY created_at DESC LIMIT {$pageSize} OFFSET {$offset}",
+            $orderParams
+        );
 
         $usersPage = max(1, (int)($_GET['usersPage'] ?? $page));
         $usersPageSize = (int)($_GET['usersPageSize'] ?? $pageSize);
@@ -3231,8 +3409,10 @@ if ($method === 'GET' && $action === 'sync') {
         $userCount = safe_query_count($db, "SELECT COUNT(*) FROM users {$userWhereSql}", $userParams);
         $users = safe_query_all($db, "SELECT id, name, email, phone, address, profile_image, role, created_at FROM users {$userWhereSql} ORDER BY created_at DESC LIMIT {$usersPageSize} OFFSET {$usersOffset}", $userParams);
 
-        $logs = safe_query_all($db, "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50");
-        $traffic = safe_query_all($db, "SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC");
+        $logSelectFields = build_select_fields($db, 'system_logs', ['id', 'event_type', 'event_description', 'user_id', 'ip_address', 'created_at']);
+        $trafficSelectFields = build_select_fields($db, 'traffic_metrics', ['id', 'session_id', 'user_id', 'ip_address', 'path', 'user_agent', 'last_active']);
+        $logs = safe_query_all($db, "SELECT {$logSelectFields} FROM system_logs ORDER BY created_at DESC LIMIT 50");
+        $traffic = safe_query_all($db, "SELECT {$trafficSelectFields} FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC");
         $meta = [
             'products' => [
                 'page' => $productsPage,
@@ -3253,7 +3433,12 @@ if ($method === 'GET' && $action === 'sync') {
             'syncQueueSummary' => get_sync_queue_summary($db)
         ];
     } elseif ($isUser && !empty($requestAuthUser['email'])) {
-        $stmtOrders = $db->prepare("SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC LIMIT 200");
+        $userOrderSelectFields = build_select_fields($db, 'orders', [
+            'id', 'user_id', 'customer_name', 'customer_email', 'phone', 'district', 'thana',
+            'address', 'items', 'total', 'status', 'tracking_number', 'admin_notes',
+            'customer_comment', 'shipping_fee', 'discount_amount', 'discount_code', 'created_at'
+        ]);
+        $stmtOrders = $db->prepare("SELECT {$userOrderSelectFields} FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC LIMIT 200");
         $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
         $orders = $stmtOrders->fetchAll();
 
@@ -4010,7 +4195,8 @@ if ($method === 'POST' && $action === 'signup') {
     $usersHasForceRelogin = column_exists($db, 'users', 'force_relogin');
     $usersHasLastPasswordChange = column_exists($db, 'users', 'last_password_change_at');
 
-    $check = $db->prepare("SELECT * FROM users WHERE email = ?");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $check = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ?");
     $check->execute([$email]);
     $existing = $check->fetch();
 
@@ -4082,7 +4268,7 @@ if ($method === 'POST' && $action === 'signup') {
         $updateValues[] = $existing['id'];
         $update = $db->prepare("UPDATE users SET " . implode(', ', $updateParts) . " WHERE id = ?");
         $update->execute($updateValues);
-        $refetch = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+        $refetch = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
         $refetch->execute([$existing['id']]);
         $existing = $refetch->fetch();
         $safeExisting = sanitize_user_payload($existing);
@@ -4149,7 +4335,7 @@ if ($method === 'POST' && $action === 'signup') {
     $stmt = $db->prepare("INSERT INTO users (" . implode(', ', $insertColumns) . ") VALUES (" . $insertPlaceholders . ")");
     $stmt->execute($insertValues);
 
-    $fetchCreated = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $fetchCreated = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
     $fetchCreated->execute([$id]);
     $createdUser = $fetchCreated->fetch();
     $userPayload = sanitize_user_payload($createdUser ?: [
@@ -4298,7 +4484,8 @@ if ($method === 'POST' && $action === 'forgot_password') {
         exit;
     }
     
-    $stmt = $db->prepare("SELECT * FROM users WHERE email = ?");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
     
@@ -4375,7 +4562,8 @@ if ($method === 'POST' && $action === 'reset_password') {
         exit;
     }
     
-    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND reset_code = ? AND reset_expiry > NOW()");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ? AND reset_code = ? AND reset_expiry > NOW()");
     $stmt->execute([$email, $otp]);
     $user = $stmt->fetch();
     
@@ -4436,7 +4624,8 @@ if ($method === 'POST' && $action === 'change_password') {
         exit;
     }
 
-    $stmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
     $stmt->execute([$requestAuthUser['id']]);
     $user = $stmt->fetch();
     if (!$user) {
@@ -4462,7 +4651,7 @@ if ($method === 'POST' && $action === 'change_password') {
     $update = $db->prepare("UPDATE users SET password = ?, reset_code = NULL, reset_expiry = NULL, last_password_change_at = NOW(), force_relogin = ? WHERE id = ?");
     $update->execute([$newPasswordHash, $forceRelogin, $user['id']]);
 
-    $updatedStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $updatedStmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
     $updatedStmt->execute([$user['id']]);
     $updatedUser = $updatedStmt->fetch() ?: $user;
 
@@ -4546,7 +4735,8 @@ if ($method === 'POST' && $action === 'login') {
         exit;
     }
 
-    $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ? LIMIT 1");
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
@@ -4569,7 +4759,7 @@ if ($method === 'POST' && $action === 'login') {
         try {
             $resetForceRelogin = $db->prepare("UPDATE users SET force_relogin = 0 WHERE id = ?");
             $resetForceRelogin->execute([$user['id']]);
-            $reloadAfterReset = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+            $reloadAfterReset = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
             $reloadAfterReset->execute([$user['id']]);
             $reloaded = $reloadAfterReset->fetch();
             if ($reloaded) {
@@ -4621,7 +4811,8 @@ if ($method === 'POST' && $action === 'update_profile') {
         $targetUserId = (string)$input['id'];
     }
 
-    $currentUserStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $currentUserStmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
     $currentUserStmt->execute([$targetUserId]);
     $currentUser = $currentUserStmt->fetch();
     if (!$currentUser) {
@@ -4664,7 +4855,7 @@ if ($method === 'POST' && $action === 'update_profile') {
         $targetUserId
     ]);
 
-    $updatedStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $updatedStmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
     $updatedStmt->execute([$targetUserId]);
     $updatedUser = $updatedStmt->fetch();
     $safeUser = sanitize_user_payload($updatedUser ?: []);
@@ -4912,7 +5103,8 @@ if ($method === 'POST' && $action === 'update_preferences') {
         (string)$requestAuthUser['id']
     ]);
 
-    $updatedStmt = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+    $userSelectFields = users_sensitive_select_fields($db);
+    $updatedStmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
     $updatedStmt->execute([(string)$requestAuthUser['id']]);
     $updatedUser = $updatedStmt->fetch();
     $safeUser = sanitize_user_payload($updatedUser ?: []);
@@ -5125,7 +5317,8 @@ if ($method === 'POST' && $action === 'update_settings') {
         }
 
         $existingSmtpSettings = [];
-        $existingSettingsRow = $db->query("SELECT * FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+        $settingsSelectFields = site_settings_select_fields($db);
+        $existingSettingsRow = $db->query("SELECT {$settingsSelectFields} FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
         if (!empty($existingSettingsRow['smtp_settings'])) {
             $decodedSmtp = json_decode((string)$existingSettingsRow['smtp_settings'], true);
             if (is_array($decodedSmtp)) {
@@ -5428,7 +5621,12 @@ if ($method === 'POST' && $action === 'generate_invoice_document') {
 
     $typeCode = strtoupper(trim((string)($input['type'] ?? '')));
 
-    $orderStmt = $db->prepare("SELECT * FROM orders WHERE id = ? LIMIT 1");
+    $invoiceOrderSelectFields = build_select_fields($db, 'orders', [
+        'id', 'user_id', 'customer_name', 'customer_email', 'phone', 'district', 'thana',
+        'address', 'items', 'total', 'status', 'tracking_number', 'admin_notes',
+        'customer_comment', 'shipping_fee', 'discount_amount', 'discount_code', 'created_at'
+    ]);
+    $orderStmt = $db->prepare("SELECT {$invoiceOrderSelectFields} FROM orders WHERE id = ? LIMIT 1");
     $orderStmt->execute([$orderId]);
     $orderRow = $orderStmt->fetch();
     if (!$orderRow) {
@@ -5436,7 +5634,8 @@ if ($method === 'POST' && $action === 'generate_invoice_document') {
         exit;
     }
 
-    $settingsRow = $db->query("SELECT * FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+    $settingsSelectFields = site_settings_select_fields($db);
+    $settingsRow = $db->query("SELECT {$settingsSelectFields} FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
     $settingsJson = safe_json_decode_assoc($settingsRow['settings_json'] ?? '{}', []);
     $invoiceSettingsRaw = $settingsJson['invoiceSettings'] ?? ($settingsJson['invoice_settings'] ?? []);
     $invoiceSettings = invoice_normalize_settings($invoiceSettingsRaw, $settingsRow ?: []);
