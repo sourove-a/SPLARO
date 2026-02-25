@@ -1,10 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, ChevronLeft, Minus, Plus, Heart, Share2, HelpCircle, Eye, Truck, RotateCcw, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../store';
 import { View } from '../types';
-import { useEffect } from 'react';
 import { GlassCard } from './LiquidGlass';
 import { resolveProductUrgencyState } from '../lib/urgency';
 import { productMatchesRoute, ProductRouteParams, slugifyValue } from '../lib/productRoute';
@@ -80,7 +79,6 @@ export const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || 'Free Size');
   const [activeImg, setActiveImg] = useState(galleryImages[0] || product?.image || '');
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const urgency = useMemo(
     () =>
       product
@@ -117,22 +115,14 @@ export const ProductDetailPage: React.FC = () => {
     setQuantity((prev) => Math.max(1, Math.min(prev, urgency.knownStock || 1)));
   }, [product, urgency.knownStock, urgency.outOfStock]);
 
-  const handleGalleryTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    setTouchStartX(event.touches[0]?.clientX ?? null);
-  };
-
-  const handleGalleryTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null || galleryImages.length <= 1) return;
-    const endX = event.changedTouches[0]?.clientX ?? touchStartX;
-    const delta = endX - touchStartX;
-    if (Math.abs(delta) < 35) return;
+  const handleImageSwipe = useCallback((direction: 'next' | 'prev') => {
+    if (galleryImages.length <= 1) return;
     const currentIndex = Math.max(0, galleryImages.findIndex((url) => url === activeImg));
-    const nextIndex = delta < 0
+    const nextIndex = direction === 'next'
       ? Math.min(galleryImages.length - 1, currentIndex + 1)
       : Math.max(0, currentIndex - 1);
     setActiveImg(galleryImages[nextIndex] || activeImg);
-    setTouchStartX(null);
-  };
+  }, [activeImg, galleryImages]);
 
   if (!product) return (
     <div className="pt-40 text-center">
@@ -190,8 +180,7 @@ export const ProductDetailPage: React.FC = () => {
                 zoomScale={2.2}
                 tapZoomScale={2.1}
                 showLens
-                onTouchStart={handleGalleryTouchStart}
-                onTouchEnd={handleGalleryTouchEnd}
+                onHorizontalSwipe={handleImageSwipe}
               />
               <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button className="min-h-12 min-w-12 p-3 sm:p-4 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-white">

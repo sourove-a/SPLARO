@@ -39,6 +39,17 @@ To archive your discovery terminal on GitHub, execute the following tactical com
 
 Hostinger supports high-performance web discovery. Follow these protocols to host your archive.
 
+### Fast Fix for `403 Forbidden`
+If your domain shows `403 Forbidden - Access to this resource on the server is denied`, your `public_html` likely does not contain the built app entry files.
+
+From this repository root run:
+
+```bash
+./scripts/prepare-public-html.sh
+```
+
+Then upload the full contents of `public_html/` to Hostinger `public_html` (overwrite existing files).
+
 ### Protocol A: Institutional Build
 Before deployment, you must generate the static production reveal:
 ```bash

@@ -12,8 +12,7 @@ type ProductImageZoomProps = {
   minPinchScale?: number;
   maxPinchScale?: number;
   showLens?: boolean;
-  onTouchStart?: (event: React.TouchEvent<HTMLDivElement>) => void;
-  onTouchEnd?: (event: React.TouchEvent<HTMLDivElement>) => void;
+  onHorizontalSwipe?: (direction: 'next' | 'prev') => void;
 };
 
 type PendingTransform = {
@@ -24,6 +23,8 @@ type PendingTransform = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const SWIPE_THRESHOLD_PX = 35;
+const TAP_MOVE_TOLERANCE_PX = 6;
 
 const touchDistance = (touches: React.TouchList) => {
   if (touches.length < 2) return 0;
@@ -43,8 +44,7 @@ export const ProductImageZoom: React.FC<ProductImageZoomProps> = ({
   minPinchScale = 1,
   maxPinchScale = 3,
   showLens = true,
-  onTouchStart,
-  onTouchEnd
+  onHorizontalSwipe
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isTouchDeviceRef = useRef(false);
@@ -143,7 +143,6 @@ export const ProductImageZoom: React.FC<ProductImageZoomProps> = ({
   }, [scheduleTransform]);
 
   const handleTouchStartInternal = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    onTouchStart?.(event);
     if (event.touches.length === 2) {
       pinchStartDistanceRef.current = touchDistance(event.touches);
       pinchStartScaleRef.current = currentScaleRef.current;
@@ -175,35 +174,79 @@ export const ProductImageZoom: React.FC<ProductImageZoomProps> = ({
     if (event.touches.length === 1 && currentScaleRef.current > 1.01) {
       const t = event.touches[0];
       const { xPct, yPct } = pointerToRatio(t.clientX, t.clientY);
+      if (event.cancelable) event.preventDefault();
       scheduleTransform(currentScaleRef.current, xPct, yPct, false);
       const start = touchStartRef.current;
-      if (start && (Math.abs(t.clientX - start.x) > 6 || Math.abs(t.clientY - start.y) > 6)) {
+      if (start && (Math.abs(t.clientX - start.x) > TAP_MOVE_TOLERANCE_PX || Math.abs(t.clientY - start.y) > TAP_MOVE_TOLERANCE_PX)) {
+        movedRef.current = true;
+      }
+      return;
+    }
+
+    if (event.touches.length === 1) {
+      const t = event.touches[0];
+      const start = touchStartRef.current;
+      if (start && (Math.abs(t.clientX - start.x) > TAP_MOVE_TOLERANCE_PX || Math.abs(t.clientY - start.y) > TAP_MOVE_TOLERANCE_PX)) {
         movedRef.current = true;
       }
     }
   }, [maxPinchScale, minPinchScale, pointerToRatio, scheduleTransform]);
 
   const handleTouchEndInternal = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    onTouchEnd?.(event);
     if (event.touches.length < 2) {
       pinchStartDistanceRef.current = null;
     }
 
-    if (event.changedTouches.length !== 1) return;
-    if (movedRef.current) return;
+    if (event.changedTouches.length !== 1) {
+      touchStartRef.current = null;
+      movedRef.current = false;
+      return;
+    }
 
     const touch = event.changedTouches[0];
-    const { xPct, yPct } = pointerToRatio(touch.clientX, touch.clientY);
+    const start = touchStartRef.current;
+    const deltaX = start ? touch.clientX - start.x : 0;
+    const deltaY = start ? touch.clientY - start.y : 0;
     const currentlyZoomed = currentScaleRef.current > 1.01;
+
+    if (
+      !currentlyZoomed &&
+      start &&
+      Math.abs(deltaX) >= SWIPE_THRESHOLD_PX &&
+      Math.abs(deltaX) > Math.abs(deltaY)
+    ) {
+      onHorizontalSwipe?.(deltaX < 0 ? 'next' : 'prev');
+      touchStartRef.current = null;
+      movedRef.current = false;
+      return;
+    }
+
+    if (movedRef.current) {
+      touchStartRef.current = null;
+      movedRef.current = false;
+      return;
+    }
+
+    const { xPct, yPct } = pointerToRatio(touch.clientX, touch.clientY);
     if (currentlyZoomed) {
       scheduleTransform(1, 50, 50, true);
       setMobileZoomed(false);
+      touchStartRef.current = null;
+      movedRef.current = false;
       return;
     }
 
     scheduleTransform(tapZoomScale, xPct, yPct, true);
     setMobileZoomed(true);
-  }, [onTouchEnd, pointerToRatio, scheduleTransform, tapZoomScale]);
+    touchStartRef.current = null;
+    movedRef.current = false;
+  }, [onHorizontalSwipe, pointerToRatio, scheduleTransform, tapZoomScale]);
+
+  const handleTouchCancelInternal = useCallback(() => {
+    pinchStartDistanceRef.current = null;
+    touchStartRef.current = null;
+    movedRef.current = false;
+  }, []);
 
   return (
     <div
@@ -215,6 +258,7 @@ export const ProductImageZoom: React.FC<ProductImageZoomProps> = ({
       onTouchStart={handleTouchStartInternal}
       onTouchMove={handleTouchMoveInternal}
       onTouchEnd={handleTouchEndInternal}
+      onTouchCancel={handleTouchCancelInternal}
       role="img"
       aria-label={alt}
       aria-live="polite"
