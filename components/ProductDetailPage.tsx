@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { GlassCard } from './LiquidGlass';
 import { resolveProductUrgencyState } from '../lib/urgency';
 import { productMatchesRoute, ProductRouteParams, slugifyValue } from '../lib/productRoute';
+import ProductImageZoom from './ProductImageZoom';
 
 const Accordion = ({ title, children }: { title: string; children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -116,6 +117,23 @@ export const ProductDetailPage: React.FC = () => {
     setQuantity((prev) => Math.max(1, Math.min(prev, urgency.knownStock || 1)));
   }, [product, urgency.knownStock, urgency.outOfStock]);
 
+  const handleGalleryTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleGalleryTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null || galleryImages.length <= 1) return;
+    const endX = event.changedTouches[0]?.clientX ?? touchStartX;
+    const delta = endX - touchStartX;
+    if (Math.abs(delta) < 35) return;
+    const currentIndex = Math.max(0, galleryImages.findIndex((url) => url === activeImg));
+    const nextIndex = delta < 0
+      ? Math.min(galleryImages.length - 1, currentIndex + 1)
+      : Math.max(0, currentIndex - 1);
+    setActiveImg(galleryImages[nextIndex] || activeImg);
+    setTouchStartX(null);
+  };
+
   if (!product) return (
     <div className="pt-40 text-center">
       <h2 className="text-2xl font-black uppercase text-zinc-500 tracking-tighter italic">UNIT NOT ENCOUNTERED</h2>
@@ -161,22 +179,20 @@ export const ProductDetailPage: React.FC = () => {
               key={activeImg}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              onTouchStart={(e) => setTouchStartX(e.touches[0]?.clientX ?? null)}
-              onTouchEnd={(e) => {
-                if (touchStartX === null || galleryImages.length <= 1) return;
-                const endX = e.changedTouches[0]?.clientX ?? touchStartX;
-                const delta = endX - touchStartX;
-                if (Math.abs(delta) < 35) return;
-                const currentIndex = Math.max(0, galleryImages.findIndex((url) => url === activeImg));
-                const nextIndex = delta < 0
-                  ? Math.min(galleryImages.length - 1, currentIndex + 1)
-                  : Math.max(0, currentIndex - 1);
-                setActiveImg(galleryImages[nextIndex] || activeImg);
-                setTouchStartX(null);
-              }}
               className="bg-zinc-950 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] overflow-hidden aspect-[4/5] sm:aspect-square border border-white/5 flex items-center justify-center relative group max-w-full"
             >
-              <img src={activeImg} className="w-full h-full object-cover" alt={product.name} loading="eager" />
+              <ProductImageZoom
+                src={activeImg}
+                highResSrc={activeImg}
+                alt={product.name}
+                className="w-full h-full"
+                imageClassName="w-full h-full object-cover"
+                zoomScale={2.2}
+                tapZoomScale={2.1}
+                showLens
+                onTouchStart={handleGalleryTouchStart}
+                onTouchEnd={handleGalleryTouchEnd}
+              />
               <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button className="min-h-12 min-w-12 p-3 sm:p-4 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-white">
                   <Eye className="w-5 h-5" />
