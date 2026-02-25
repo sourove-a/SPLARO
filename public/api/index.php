@@ -5891,6 +5891,64 @@ function health_latest_probe_error($probeRow, $maxAgeMinutes = null) {
     return (string)($probeRow['error'] ?? '');
 }
 
+function health_counter_state_file($bucket) {
+    $safeBucket = preg_replace('/[^a-z0-9_-]/i', '_', strtolower((string)$bucket));
+    if (!is_string($safeBucket) || $safeBucket === '') {
+        $safeBucket = md5((string)$bucket);
+    }
+    $scopeKey = md5((string)DB_HOST . '|' . (string)DB_NAME . '|' . (string)DB_USER);
+    return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+        . "splaro_health_counter_{$scopeKey}_{$safeBucket}.json";
+}
+
+function health_track_monotonic_counter($bucket, $currentValue, $windowSeconds = 900) {
+    $window = max(60, min((int)$windowSeconds, 3600));
+    $current = max(0, (int)$currentValue);
+    $now = time();
+    $file = health_counter_state_file($bucket);
+
+    $previousValue = null;
+    $previousTime = 0;
+    if (is_file($file)) {
+        $raw = @file_get_contents($file);
+        $parsed = json_decode((string)$raw, true);
+        if (is_array($parsed)) {
+            $previousValue = isset($parsed['value']) ? (int)$parsed['value'] : null;
+            $previousTime = isset($parsed['time']) ? (int)$parsed['time'] : 0;
+        }
+    }
+
+    $elapsed = $previousTime > 0 ? max(0, $now - $previousTime) : 0;
+    $counterReset = false;
+    $delta = 0;
+    if ($previousValue !== null) {
+        if ($current >= $previousValue) {
+            $delta = $current - $previousValue;
+        } else {
+            $counterReset = true;
+        }
+    }
+
+    @file_put_contents($file, json_encode([
+        'value' => $current,
+        'time' => $now
+    ]), LOCK_EX);
+
+    $withinWindow = $elapsed > 0 && $elapsed <= $window;
+    $ratePerMinute = $elapsed > 0 ? round(($delta / max(1, $elapsed)) * 60, 2) : 0.0;
+
+    return [
+        'current' => $current,
+        'previous' => $previousValue,
+        'delta' => $delta,
+        'elapsed_seconds' => $elapsed,
+        'rate_per_minute' => $ratePerMinute,
+        'within_window' => $withinWindow,
+        'counter_reset' => $counterReset,
+        'window_seconds' => $window
+    ];
+}
+
 function health_alert_rate_limited($bucket, $windowSeconds = 300) {
     $seconds = max(60, min((int)$windowSeconds, 3600));
     $key = md5('health_alert|' . (string)$bucket);
@@ -7608,6 +7666,16 @@ if ($method === 'GET' && $action === 'health') {
         ]
     ];
 
+    $abortedConnectsWindow = health_track_monotonic_counter(
+        'db_aborted_connects',
+        (int)($dbRuntimeMetrics['aborted_connects'] ?? 0),
+        (int)HEALTH_DB_ABORTED_CONNECTS_DELTA_WINDOW_SECONDS
+    );
+    $dbRuntimeMetrics['aborted_connects_delta'] = (int)($abortedConnectsWindow['delta'] ?? 0);
+    $dbRuntimeMetrics['aborted_connects_delta_elapsed_seconds'] = (int)($abortedConnectsWindow['elapsed_seconds'] ?? 0);
+    $dbRuntimeMetrics['aborted_connects_delta_rate_per_minute'] = (float)($abortedConnectsWindow['rate_per_minute'] ?? 0.0);
+    $dbRuntimeMetrics['aborted_connects_delta_window_seconds'] = (int)($abortedConnectsWindow['window_seconds'] ?? (int)HEALTH_DB_ABORTED_CONNECTS_DELTA_WINDOW_SECONDS);
+
     $mode = 'NORMAL';
     foreach ($services as $service) {
         if ((string)($service['status'] ?? '') === 'DOWN') {
@@ -7638,8 +7706,14 @@ if ($method === 'GET' && $action === 'health') {
     if ((int)($dbRuntimeMetrics['threads_connected'] ?? 0) > (int)HEALTH_DB_THREADS_WARN_THRESHOLD) {
         health_maybe_send_telegram_alert('DB', 'WARNING', 'threads_connected above threshold');
     }
-    if ((int)($dbRuntimeMetrics['aborted_connects'] ?? 0) > (int)HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD) {
-        health_maybe_send_telegram_alert('DB', 'WARNING', 'aborted_connects above threshold');
+    if (
+        (bool)($abortedConnectsWindow['within_window'] ?? false)
+        && !(bool)($abortedConnectsWindow['counter_reset'] ?? false)
+        && (int)($abortedConnectsWindow['delta'] ?? 0) >= (int)HEALTH_DB_ABORTED_CONNECTS_DELTA_WARN_THRESHOLD
+    ) {
+        $abortedDelta = (int)($abortedConnectsWindow['delta'] ?? 0);
+        $abortedElapsed = max(1, (int)($abortedConnectsWindow['elapsed_seconds'] ?? 0));
+        health_maybe_send_telegram_alert('DB', 'WARNING', "aborted_connects rising fast: +{$abortedDelta} in {$abortedElapsed}s");
     }
     if ($queueDeadRecent >= (int)HEALTH_QUEUE_DEAD_WARN_THRESHOLD) {
         health_maybe_send_telegram_alert('QUEUE', 'WARNING', 'dead queue count increased');
