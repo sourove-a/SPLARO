@@ -2203,6 +2203,15 @@ export const AdminPanel = () => {
   }, []);
 
   useEffect(() => {
+    const handler = () => {
+      showToast('Admin session expired. Please sign in again.', 'error');
+      navigate('/sourove-admin');
+    };
+    window.addEventListener('splaro-admin-auth-required', handler as EventListener);
+    return () => window.removeEventListener('splaro-admin-auth-required', handler as EventListener);
+  }, [navigate]);
+
+  useEffect(() => {
     if (activeTab !== 'USERS') return;
     const timer = window.setTimeout(() => {
       fetchAdminUsers();
@@ -3195,13 +3204,23 @@ export const AdminPanel = () => {
                     </div>
                   </div>
                   <PrimaryButton
-                    className="mt-10 w-full rounded-2xl h-16 text-[10px]"
+                    className="mt-8 w-full rounded-2xl h-12 text-[10px]"
                     onClick={() => {
                       if (!canManageProtocols) {
                         showToast('Editor role cannot change protocol settings.', 'error');
                         return;
                       }
-                      updateSettings(siteSettings);
+                      updateSettings({
+                        siteName: siteSettings.siteName,
+                        logoUrl: siteSettings.logoUrl,
+                        maintenanceMode: siteSettings.maintenanceMode,
+                        supportPhone: siteSettings.supportPhone,
+                        whatsappNumber: siteSettings.whatsappNumber,
+                        supportEmail: siteSettings.supportEmail,
+                        googleClientId: siteSettings.googleClientId,
+                        facebookLink: siteSettings.facebookLink,
+                        instagramLink: siteSettings.instagramLink
+                      });
                     }}
                   >
                     SAVE INSTITUTIONAL PROFILE
@@ -3252,14 +3271,14 @@ export const AdminPanel = () => {
                   </div>
                 </GlassCard>
 
-                <GlassCard className="p-12">
-                  <div className="flex items-center gap-4 mb-12">
+                <GlassCard className="p-8 md:p-10">
+                  <div className="flex items-center gap-3 mb-8">
                     <div className="w-12 h-12 rounded-[20px] bg-blue-600/10 flex items-center justify-center text-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.2)]">
                       <Truck className="w-6 h-6" />
                     </div>
-                    <h3 className="text-3xl font-black uppercase italic">Logistics Configuration</h3>
+                    <h3 className="text-xl md:text-2xl font-black uppercase italic">Logistics Configuration</h3>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-4">Metropolitan Fee (Dhaka)</label>
                       <div className="relative">
@@ -3268,7 +3287,7 @@ export const AdminPanel = () => {
                           type="number"
                           value={logisticsConfig?.metro || 0}
                           onChange={e => setLogisticsConfig({ ...logisticsConfig, metro: Number(e.target.value) })}
-                          className="w-full h-16 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-xl outline-none bg-white/5 text-white"
+                          className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-base outline-none bg-white/5 text-white"
                         />
                       </div>
                     </div>
@@ -3280,13 +3299,13 @@ export const AdminPanel = () => {
                           type="number"
                           value={logisticsConfig?.regional || 0}
                           onChange={e => setLogisticsConfig({ ...logisticsConfig, regional: Number(e.target.value) })}
-                          className="w-full h-16 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-xl outline-none bg-white/5 text-white"
+                          className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-base outline-none bg-white/5 text-white"
                         />
                       </div>
                     </div>
                   </div>
                   <PrimaryButton
-                    className="mt-12 w-full py-6"
+                    className="mt-8 w-full h-12 text-[10px]"
                     onClick={() => {
                       if (!canManageProtocols) {
                         showToast('Editor role cannot change logistics protocol.', 'error');
@@ -3295,16 +3314,16 @@ export const AdminPanel = () => {
                       updateSettings({ logisticsConfig });
                     }}
                   >
-                    COMMIT OVERRIDE
+                    SAVE LOGISTICS
                   </PrimaryButton>
                 </GlassCard>
               </div>
 
               <div className="grid grid-cols-1 gap-12">
-                <GlassCard className="p-12 space-y-8">
+                <GlassCard className="p-8 md:p-10 space-y-8">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tight">Invoice Settings</h3>
+                      <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Invoice Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Serial format, template and email controls</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -3469,7 +3488,7 @@ export const AdminPanel = () => {
                   </div>
 
                   <PrimaryButton
-                    className="w-full h-16 text-[10px]"
+                    className="w-full h-12 text-[10px]"
                     onClick={() => {
                       if (!canManageProtocols) {
                         showToast('Editor role cannot change invoice settings.', 'error');
@@ -3484,10 +3503,10 @@ export const AdminPanel = () => {
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                <GlassCard className="p-12 space-y-8">
+                <GlassCard className="p-8 md:p-10 space-y-8">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tight">Theme Settings</h3>
+                      <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
                     </div>
                     <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">
@@ -3631,12 +3650,21 @@ export const AdminPanel = () => {
                       Show “Low stock” only when stock is known and at or below this value.
                     </p>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <PrimaryButton className="w-full h-12 text-[10px]" onClick={persistCmsDraft}>
+                      SAVE THEME DRAFT
+                    </PrimaryButton>
+                    <PrimaryButton className="w-full h-12 text-[10px]" onClick={publishCmsDraft}>
+                      PUBLISH THEME
+                    </PrimaryButton>
+                  </div>
                 </GlassCard>
 
-                <GlassCard className="p-12 space-y-8">
+                <GlassCard className="p-8 md:p-10 space-y-8">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tight">Hero & Pages CMS</h3>
+                      <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Hero & Pages CMS</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Draft / publish with revision history</p>
                     </div>
                     <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
@@ -3852,10 +3880,10 @@ export const AdminPanel = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <PrimaryButton className="w-full h-14 text-[10px]" onClick={persistCmsDraft}>
+                    <PrimaryButton className="w-full h-12 text-[10px]" onClick={persistCmsDraft}>
                       SAVE DRAFT
                     </PrimaryButton>
-                    <PrimaryButton className="w-full h-14 text-[10px]" onClick={publishCmsDraft}>
+                    <PrimaryButton className="w-full h-12 text-[10px]" onClick={publishCmsDraft}>
                       PUBLISH
                     </PrimaryButton>
                   </div>
@@ -3918,7 +3946,7 @@ export const AdminPanel = () => {
                   ))}
                 </div>
 
-                <PrimaryButton className="mt-10 w-full h-16 text-[10px]" onClick={() => updateSettings(siteSettings)}>
+                <PrimaryButton className="mt-10 w-full h-12 text-[10px]" onClick={() => updateSettings({ cmsPages: siteSettings.cmsPages })}>
                   SAVE ALL PAGE CONTENT
                 </PrimaryButton>
               </GlassCard>
@@ -4016,7 +4044,7 @@ export const AdminPanel = () => {
                 )}
               </div>
 
-              <PrimaryButton className="w-full h-16 text-[10px]" onClick={() => updateSettings(siteSettings)}>
+              <PrimaryButton className="w-full h-12 text-[10px]" onClick={() => updateSettings({ storyPosts: siteSettings.storyPosts })}>
                 SAVE STORY POSTS
               </PrimaryButton>
             </motion.div>

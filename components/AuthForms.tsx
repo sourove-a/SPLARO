@@ -197,7 +197,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (result.status === 'success') {
             const normalizedUser = normalizeApiUser(result.user);
             persistAuthToken(result.token);
-            if (isAdminRole(normalizedUser.role) && location.pathname === '/sourove-admin') {
+            if (isAdminRole(normalizedUser.role) && adminDomain) {
               persistAdminKey(formData.password);
             }
             setUser(normalizedUser);

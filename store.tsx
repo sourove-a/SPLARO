@@ -1421,57 +1421,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateSettings = async (data: any) => {
-    if (IS_PROD) {
-      const cmsKeys = ['cmsDraft', 'cmsPublished', 'cmsMode', 'cmsAction', 'themeSettings', 'heroSettings', 'categoryHeroOverrides'];
-      const isCmsIntent = cmsKeys.some((key) => Object.prototype.hasOwnProperty.call(data || {}, key));
-      const payload = isCmsIntent
-        ? {
-          cmsDraft: data?.cmsDraft ?? siteSettings.cmsDraft,
-          cmsPublished: data?.cmsPublished,
-          cmsMode: data?.cmsMode,
-          cmsAction: data?.cmsAction,
-          themeSettings: data?.themeSettings,
-          heroSettings: data?.heroSettings,
-          categoryHeroOverrides: data?.categoryHeroOverrides
-        }
-        : {
-          ...siteSettings,
-          smtpSettings,
-          logisticsConfig,
-          slides,
-          ...data
-        };
+    if (!IS_PROD) return;
 
-      try {
-        const res = await fetch(`${API_NODE}?action=update_settings`, {
-          method: 'POST',
-          headers: getAuthHeaders(true),
-          body: JSON.stringify(payload)
-        });
-        const result = await res.json().catch(() => ({}));
+    const source = (data && typeof data === 'object') ? data : {};
+    const hasOwn = (key: string) => Object.prototype.hasOwnProperty.call(source, key);
+    const cmsKeys = ['cmsDraft', 'cmsPublished', 'cmsMode', 'cmsAction', 'themeSettings', 'heroSettings', 'categoryHeroOverrides'];
+    const isCmsIntent = cmsKeys.some((key) => hasOwn(key));
 
-        if (res.ok && result.status === 'success') {
-          const storage = String(result.storage || '').toLowerCase();
-          setDbStatus(storage === 'mysql' ? 'MYSQL' : 'FALLBACK');
-          emitToast(storage === 'mysql' ? 'Settings saved to MySQL.' : 'Settings saved in fallback storage.', 'success');
-        } else {
-          const backendMessage = String(result?.message || '').trim();
-          const normalizedError = backendMessage.toUpperCase();
-          if (normalizedError === 'DATABASE_CONNECTION_FAILED' || normalizedError === 'DATABASE_ENV_NOT_CONFIGURED') {
-            setDbStatus('FALLBACK');
-          }
-          emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
-          console.error('SETTING_SYNC_ERROR:', {
-            httpStatus: res.status,
-            message: backendMessage,
-            result
-          });
-        }
-      } catch (e) {
-        setDbStatus('FALLBACK');
-        emitToast('Network error while saving settings. Please retry.', 'error');
-        console.error('SETTING_SYNC_FAILURE:', e);
+    const payload: Record<string, any> = {};
+    if (isCmsIntent) {
+      payload.cmsDraft = source?.cmsDraft ?? siteSettings.cmsDraft;
+      payload.cmsPublished = source?.cmsPublished;
+      payload.cmsMode = source?.cmsMode;
+      payload.cmsAction = source?.cmsAction;
+      payload.themeSettings = source?.themeSettings;
+      payload.heroSettings = source?.heroSettings;
+      payload.categoryHeroOverrides = source?.categoryHeroOverrides;
+    } else {
+      const profileKeys = [
+        'siteName',
+        'supportEmail',
+        'supportPhone',
+        'whatsappNumber',
+        'facebookLink',
+        'instagramLink',
+        'maintenanceMode',
+        'logoUrl',
+        'googleClientId'
+      ];
+      profileKeys.forEach((key) => {
+        if (hasOwn(key)) payload[key] = source[key];
+      });
+
+      if (hasOwn('google_client_id') && !hasOwn('googleClientId')) {
+        payload.googleClientId = source.google_client_id;
       }
+      if (hasOwn('smtpSettings')) {
+        payload.smtpSettings = source.smtpSettings ?? smtpSettings;
+      }
+      if (hasOwn('logisticsConfig')) {
+        payload.logisticsConfig = source.logisticsConfig ?? logisticsConfig;
+      }
+      if (hasOwn('slides')) {
+        payload.slides = source.slides ?? slides;
+      }
+      if (hasOwn('invoiceSettings') || hasOwn('invoice_settings')) {
+        payload.invoiceSettings = source.invoiceSettings ?? source.invoice_settings ?? siteSettings.invoiceSettings;
+      }
+      if (hasOwn('cmsPages') || hasOwn('contentPages') || hasOwn('content_pages')) {
+        payload.cmsPages = source.cmsPages ?? source.contentPages ?? source.content_pages;
+      }
+      if (hasOwn('storyPosts') || hasOwn('story_posts')) {
+        payload.storyPosts = source.storyPosts ?? source.story_posts;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        payload.siteName = siteSettings.siteName;
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_NODE}?action=update_settings`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (res.ok && result.status === 'success') {
+        const storage = String(result.storage || '').toLowerCase();
+        setDbStatus(storage === 'mysql' ? 'MYSQL' : 'FALLBACK');
+        emitToast(storage === 'mysql' ? 'Settings saved to MySQL.' : 'Settings saved in fallback storage.', 'success');
+      } else {
+        const backendMessage = String(result?.message || '').trim();
+        const normalizedError = backendMessage.toUpperCase();
+        if (normalizedError === 'DATABASE_CONNECTION_FAILED' || normalizedError === 'DATABASE_ENV_NOT_CONFIGURED') {
+          setDbStatus('FALLBACK');
+        }
+        if (normalizedError === 'ADMIN_ACCESS_REQUIRED' && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('splaro-admin-auth-required'));
+        }
+        emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
+        console.error('SETTING_SYNC_ERROR:', {
+          httpStatus: res.status,
+          message: backendMessage,
+          payloadKeys: Object.keys(payload),
+          result
+        });
+      }
+    } catch (e) {
+      setDbStatus('FALLBACK');
+      emitToast('Network error while saving settings. Please retry.', 'error');
+      console.error('SETTING_SYNC_FAILURE:', e);
     }
   };
 
