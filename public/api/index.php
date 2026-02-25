@@ -33,7 +33,7 @@ register_shutdown_function(function () use ($__splaroRequestAction) {
         "message" => "INTERNAL_SERVER_ERROR",
         "action" => (string)$__splaroRequestAction
     ];
-    if ((string)$__splaroRequestAction === 'health' || (string)$__splaroRequestAction === 'sync') {
+    if ((string)$__splaroRequestAction === 'health') {
         $payload['fatal'] = [
             'type' => (int)($lastError['type'] ?? 0),
             'message' => (string)($lastError['message'] ?? ''),
