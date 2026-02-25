@@ -455,7 +455,7 @@ if (!$db) {
 
     $fallbackAdminHeader = trim((string)($_SERVER['HTTP_X_ADMIN_KEY'] ?? ''));
     $fallbackAdminAllowed = ($fallbackAdminHeader !== '' && ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $fallbackAdminHeader));
-    $healthActions = ['health', 'health_probe', 'health_events', 'system_errors'];
+    $healthActions = ['health', 'health_probe', 'health_events', 'system_errors', 'recover_dead_queue'];
     if (in_array($action, $healthActions, true) && !$fallbackAdminAllowed) {
         http_response_code(403);
         echo json_encode([
@@ -535,6 +535,20 @@ if (!$db) {
             "status" => "success",
             "events" => [],
             "errors" => []
+        ]);
+        exit;
+    }
+
+    if ($method === 'POST' && $action === 'recover_dead_queue') {
+        http_response_code(503);
+        echo json_encode([
+            "status" => "error",
+            "message" => "DATABASE_CONNECTION_FAILED",
+            "result" => [
+                "recovered" => 0,
+                "skipped_permanent" => 0,
+                "total_dead_scanned" => 0
+            ]
         ]);
         exit;
     }
@@ -3024,7 +3038,7 @@ function enforce_global_request_guard($method, $action, $requestAuthUser = null)
         exit;
     }
 
-    $heavyActions = ['sync', 'process_sync_queue', 'sync_queue_status', 'health_probe', 'health_events', 'system_errors'];
+    $heavyActions = ['sync', 'process_sync_queue', 'sync_queue_status', 'health_probe', 'health_events', 'system_errors', 'recover_dead_queue'];
     if (in_array($action, $heavyActions, true)) {
         $heavyMax = defined('HEAVY_READ_RATE_LIMIT_MAX') ? (int)HEAVY_READ_RATE_LIMIT_MAX : 40;
         if (is_rate_limited('heavy_' . $action, $heavyMax, $windowSeconds)) {
@@ -4110,15 +4124,21 @@ $requestAuthUser = get_authenticated_user_from_request();
 maybe_ensure_admin_account($db);
 enforce_global_request_guard($method, $action, $requestAuthUser);
 
-function get_queue_summary($db, $mode = 'SHEETS') {
+function queue_scope_from_mode($mode = 'SHEETS') {
     $normalizedMode = strtoupper(trim((string)$mode));
+    if (!in_array($normalizedMode, ['SHEETS', 'TELEGRAM', 'PUSH', 'ALL'], true)) {
+        $normalizedMode = 'SHEETS';
+    }
     $isTelegram = $normalizedMode === 'TELEGRAM';
     $isPush = $normalizedMode === 'PUSH';
-    $isSheets = !$isTelegram && !$isPush;
+    $isAll = $normalizedMode === 'ALL';
+    $isSheets = !$isTelegram && !$isPush && !$isAll;
     if ($isTelegram) {
         $whereSql = "sync_type LIKE 'TELEGRAM_%'";
     } elseif ($isPush) {
         $whereSql = "sync_type LIKE 'PUSH_%'";
+    } elseif ($isAll) {
+        $whereSql = "1=1";
     } else {
         $whereSql = "sync_type NOT LIKE 'TELEGRAM_%' AND sync_type NOT LIKE 'PUSH_%'";
     }
@@ -4126,9 +4146,46 @@ function get_queue_summary($db, $mode = 'SHEETS') {
         $enabled = TELEGRAM_ENABLED;
     } elseif ($isPush) {
         $enabled = PUSH_ENABLED;
+    } elseif ($isAll) {
+        $enabled = true;
     } else {
         $enabled = (GOOGLE_SHEETS_WEBHOOK_URL !== '');
     }
+    return [
+        'mode' => $normalizedMode,
+        'where_sql' => $whereSql,
+        'enabled' => (bool)$enabled,
+        'is_sheets' => (bool)$isSheets,
+    ];
+}
+
+function queue_dead_recent_count($db, $mode = 'ALL', $minutes = null) {
+    if (!$db) {
+        return 0;
+    }
+    $scope = queue_scope_from_mode($mode);
+    $windowMinutes = $minutes === null ? (int)HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES : (int)$minutes;
+    if ($windowMinutes < 1) $windowMinutes = 1;
+    if ($windowMinutes > 10080) $windowMinutes = 10080;
+    try {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM sync_queue WHERE {$scope['where_sql']} AND status = 'DEAD' AND updated_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)");
+        $stmt->bindValue(1, $windowMinutes, PDO::PARAM_INT);
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
+    } catch (Throwable $e) {
+        splaro_log_exception('queue.summary.dead_recent', $e, [
+            'mode' => (string)$scope['mode'],
+            'minutes' => (int)$windowMinutes
+        ], 'WARNING');
+        return 0;
+    }
+}
+
+function get_queue_summary($db, $mode = 'SHEETS') {
+    $scope = queue_scope_from_mode($mode);
+    $normalizedMode = (string)$scope['mode'];
+    $whereSql = (string)$scope['where_sql'];
+    $enabled = (bool)$scope['enabled'];
     $summary = [
         'enabled' => $enabled,
         'pending' => 0,
@@ -4136,6 +4193,7 @@ function get_queue_summary($db, $mode = 'SHEETS') {
         'processing' => 0,
         'success' => 0,
         'dead' => 0,
+        'dead_recent' => 0,
         'lastFailure' => null,
     ];
 
@@ -4157,6 +4215,7 @@ function get_queue_summary($db, $mode = 'SHEETS') {
     } catch (Exception $e) {
         splaro_log_exception('queue.summary.status_counts', $e, ['mode' => $normalizedMode]);
     }
+    $summary['dead_recent'] = queue_dead_recent_count($db, $normalizedMode);
 
     try {
         $stmt = $db->query("SELECT id, sync_type, last_http_code, last_error, updated_at FROM sync_queue WHERE {$whereSql} AND status = 'DEAD' ORDER BY id DESC LIMIT 1");
@@ -4174,7 +4233,7 @@ function get_queue_summary($db, $mode = 'SHEETS') {
         splaro_log_exception('queue.summary.last_failure', $e, ['mode' => $normalizedMode]);
     }
 
-    if ($isSheets && function_exists('get_sheets_circuit_state')) {
+    if (!empty($scope['is_sheets']) && function_exists('get_sheets_circuit_state')) {
         $summary['circuit'] = get_sheets_circuit_state();
     }
 
@@ -4191,6 +4250,153 @@ function get_telegram_queue_summary($db) {
 
 function get_push_queue_summary($db) {
     return get_queue_summary($db, 'PUSH');
+}
+
+function queue_dead_reason_is_permanent($syncType, $httpCode, $lastError) {
+    $type = strtoupper(trim((string)$syncType));
+    $error = strtoupper(trim((string)$lastError));
+    $http = (int)$httpCode;
+
+    if ($error === '') {
+        $error = 'UNKNOWN';
+    }
+
+    $alwaysPermanentTokens = [
+        'INVALID_PAYLOAD_JSON',
+        'INVALID_JSON_SHAPE',
+        'INVALID_TELEGRAM_PAYLOAD',
+        'ENDPOINT_MISSING',
+        'INVALID_ENDPOINT_AUDIENCE',
+        'SUBSCRIPTION_INACTIVE'
+    ];
+    foreach ($alwaysPermanentTokens as $token) {
+        if (strpos($error, $token) !== false) {
+            return true;
+        }
+    }
+
+    if (strpos($type, 'PUSH_') === 0) {
+        if (in_array($http, [404, 410], true)) {
+            return true;
+        }
+        foreach (['PUSH_DISABLED', 'VAPID_JWT_FAILED'] as $token) {
+            if (strpos($error, $token) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (strpos($type, 'TELEGRAM_') === 0) {
+        if (in_array($http, [400, 401, 403], true)) {
+            return true;
+        }
+        $telegramPermanentTokens = [
+            'CHAT NOT FOUND',
+            'BOT WAS BLOCKED',
+            'USER IS DEACTIVATED',
+            'TELEGRAM_DISABLED',
+            'TELEGRAM_BOT_TOKEN_MISSING'
+        ];
+        foreach ($telegramPermanentTokens as $token) {
+            if (strpos($error, $token) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (in_array($http, [400, 401, 403, 404], true)) {
+        $looksTransient = strpos($error, 'NETWORK') !== false || strpos($error, 'TIMEOUT') !== false || strpos($error, 'HTTP_429') !== false;
+        if (!$looksTransient) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function recover_dead_queue_jobs($db, $options = []) {
+    $mode = strtoupper(trim((string)($options['mode'] ?? 'ALL')));
+    if (!in_array($mode, ['ALL', 'TELEGRAM', 'PUSH', 'SHEETS'], true)) {
+        $mode = 'ALL';
+    }
+    $limit = (int)($options['limit'] ?? 100);
+    if ($limit < 1) $limit = 1;
+    if ($limit > 1000) $limit = 1000;
+    $scope = queue_scope_from_mode($mode);
+
+    $result = [
+        'mode' => $scope['mode'],
+        'limit' => $limit,
+        'total_dead_scanned' => 0,
+        'recovered' => 0,
+        'skipped_permanent' => 0,
+        'failed_updates' => 0,
+        'skipped_examples' => []
+    ];
+    if (!$db) {
+        return $result;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT id, sync_type, last_http_code, last_error FROM sync_queue WHERE {$scope['where_sql']} AND status = 'DEAD' ORDER BY id ASC LIMIT ?");
+        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $jobs = $stmt->fetchAll();
+    } catch (Throwable $e) {
+        splaro_log_exception('queue.recover.read', $e, [
+            'mode' => (string)$scope['mode'],
+            'limit' => (int)$limit
+        ]);
+        return $result;
+    }
+
+    $result['total_dead_scanned'] = is_array($jobs) ? count($jobs) : 0;
+    if (empty($jobs)) {
+        return $result;
+    }
+
+    $retryStmt = $db->prepare("UPDATE sync_queue SET status = 'RETRY', attempts = 0, next_attempt_at = NOW(), locked_at = NULL, last_http_code = NULL, last_error = ? WHERE id = ? AND status = 'DEAD'");
+    foreach ($jobs as $job) {
+        $jobId = (int)($job['id'] ?? 0);
+        if ($jobId <= 0) {
+            continue;
+        }
+        $syncType = (string)($job['sync_type'] ?? '');
+        $httpCode = (int)($job['last_http_code'] ?? 0);
+        $lastError = (string)($job['last_error'] ?? '');
+        if (queue_dead_reason_is_permanent($syncType, $httpCode, $lastError)) {
+            $result['skipped_permanent']++;
+            if (count($result['skipped_examples']) < 15) {
+                $result['skipped_examples'][] = [
+                    'id' => $jobId,
+                    'sync_type' => $syncType,
+                    'http_code' => $httpCode,
+                    'error' => splaro_clip_text($lastError, 220)
+                ];
+            }
+            continue;
+        }
+
+        try {
+            $retryStmt->execute([
+                'RECOVERED_FROM_DEAD_AT_' . date('c'),
+                $jobId
+            ]);
+            if ($retryStmt->rowCount() > 0) {
+                $result['recovered']++;
+            }
+        } catch (Throwable $e) {
+            $result['failed_updates']++;
+            splaro_log_exception('queue.recover.update', $e, [
+                'job_id' => $jobId,
+                'sync_type' => $syncType
+            ]);
+        }
+    }
+
+    return $result;
 }
 
 function get_db_runtime_metrics($db) {
@@ -4257,7 +4463,7 @@ function health_recommended_action($service, $error = '', $context = []) {
         return 'Check Apps Script URL/secret, circuit state, and sheet permissions for the service account.';
     }
     if ($serviceKey === 'QUEUE') {
-        return 'Queue dead/retry increased. Inspect sync_queue last_error and drain worker with low batch.';
+        return 'Queue dead/retry increased. Inspect sync_queue last_error, run recover_dead_queue, then drain worker with low batch.';
     }
     if ($serviceKey === 'ORDERS') {
         return 'Orders API probe failed. Validate orders table health, write permissions, and payload validation logs.';
@@ -5827,32 +6033,43 @@ if ($method === 'GET' && $action === 'health') {
     $pushQueue = get_push_queue_summary($db);
     $sheetsQueue = get_sync_queue_summary($db);
     $queueDead = (int)($telegramQueue['dead'] ?? 0) + (int)($pushQueue['dead'] ?? 0) + (int)($sheetsQueue['dead'] ?? 0);
+    $queueDeadRecent = (int)($telegramQueue['dead_recent'] ?? 0) + (int)($pushQueue['dead_recent'] ?? 0) + (int)($sheetsQueue['dead_recent'] ?? 0);
     $queueRetry = (int)($telegramQueue['retry'] ?? 0) + (int)($pushQueue['retry'] ?? 0) + (int)($sheetsQueue['retry'] ?? 0);
     $queuePending = (int)($telegramQueue['pending'] ?? 0) + (int)($pushQueue['pending'] ?? 0) + (int)($sheetsQueue['pending'] ?? 0);
 
     $queueStatus = 'OK';
     $queueError = '';
-    if ($queueDead > 0) {
+    if ($queueDeadRecent > 0) {
         $queueStatus = 'DOWN';
         $queueError = 'QUEUE_DEAD_JOBS_PRESENT';
+    } elseif ($queueDead > 0) {
+        $queueStatus = 'WARNING';
+        $queueError = 'QUEUE_HISTORICAL_DEAD_JOBS_PRESENT';
     } elseif ($queueRetry > 0 || $queuePending > 250) {
         $queueStatus = 'WARNING';
         $queueError = $queueRetry > 0 ? 'QUEUE_RETRY_JOBS_PRESENT' : 'QUEUE_PENDING_BACKLOG_HIGH';
     }
 
+    $telegramDead = (int)($telegramQueue['dead'] ?? 0);
+    $telegramDeadRecent = (int)($telegramQueue['dead_recent'] ?? 0);
     $telegramStatus = TELEGRAM_ENABLED ? 'OK' : 'WARNING';
     $telegramError = '';
     if (!TELEGRAM_ENABLED) {
         $telegramError = 'TELEGRAM_DISABLED';
-    } elseif ((int)($telegramQueue['dead'] ?? 0) > 0) {
+    } elseif ($telegramDeadRecent > 0) {
         $telegramStatus = 'DOWN';
         $telegramError = 'TELEGRAM_QUEUE_DEAD_PRESENT';
+    } elseif ($telegramDead > 0) {
+        $telegramStatus = 'WARNING';
+        $telegramError = 'TELEGRAM_QUEUE_HISTORICAL_DEAD_PRESENT';
     } elseif ((int)($telegramQueue['retry'] ?? 0) > 0) {
         $telegramStatus = 'WARNING';
         $telegramError = 'TELEGRAM_QUEUE_RETRY_PRESENT';
     }
 
     $sheetsCircuit = is_array($sheetsQueue['circuit'] ?? null) ? $sheetsQueue['circuit'] : ['open' => false];
+    $sheetsDead = (int)($sheetsQueue['dead'] ?? 0);
+    $sheetsDeadRecent = (int)($sheetsQueue['dead_recent'] ?? 0);
     $sheetsEnabled = trim((string)GOOGLE_SHEETS_WEBHOOK_URL) !== '';
     $sheetsStatus = $sheetsEnabled ? 'OK' : 'WARNING';
     $sheetsError = '';
@@ -5861,21 +6078,29 @@ if ($method === 'GET' && $action === 'health') {
     } elseif (!empty($sheetsCircuit['open'])) {
         $sheetsStatus = 'DOWN';
         $sheetsError = (string)($sheetsCircuit['last_error'] ?? 'SHEETS_CIRCUIT_OPEN');
-    } elseif ((int)($sheetsQueue['dead'] ?? 0) > 0) {
+    } elseif ($sheetsDeadRecent > 0) {
         $sheetsStatus = 'DOWN';
         $sheetsError = 'SHEETS_QUEUE_DEAD_PRESENT';
+    } elseif ($sheetsDead > 0) {
+        $sheetsStatus = 'WARNING';
+        $sheetsError = 'SHEETS_QUEUE_HISTORICAL_DEAD_PRESENT';
     } elseif ((int)($sheetsQueue['retry'] ?? 0) > 0) {
         $sheetsStatus = 'WARNING';
         $sheetsError = 'SHEETS_QUEUE_RETRY_PRESENT';
     }
 
+    $pushDead = (int)($pushQueue['dead'] ?? 0);
+    $pushDeadRecent = (int)($pushQueue['dead_recent'] ?? 0);
     $pushStatus = PUSH_ENABLED ? 'OK' : 'WARNING';
     $pushError = '';
     if (!PUSH_ENABLED) {
         $pushError = 'PUSH_DISABLED';
-    } elseif ((int)($pushQueue['dead'] ?? 0) > 0) {
+    } elseif ($pushDeadRecent > 0) {
         $pushStatus = 'DOWN';
         $pushError = 'PUSH_QUEUE_DEAD_PRESENT';
+    } elseif ($pushDead > 0) {
+        $pushStatus = 'WARNING';
+        $pushError = 'PUSH_QUEUE_HISTORICAL_DEAD_PRESENT';
     } elseif ((int)($pushQueue['retry'] ?? 0) > 0 || $activePushSubscriptions < 1) {
         $pushStatus = 'WARNING';
         $pushError = $activePushSubscriptions < 1 ? 'NO_ACTIVE_PUSH_SUBSCRIPTIONS' : 'PUSH_QUEUE_RETRY_PRESENT';
@@ -5966,7 +6191,7 @@ if ($method === 'GET' && $action === 'health') {
     if ((int)($dbRuntimeMetrics['aborted_connects'] ?? 0) > (int)HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD) {
         health_maybe_send_telegram_alert('DB', 'WARNING', 'aborted_connects above threshold');
     }
-    if ($queueDead >= (int)HEALTH_QUEUE_DEAD_WARN_THRESHOLD) {
+    if ($queueDeadRecent >= (int)HEALTH_QUEUE_DEAD_WARN_THRESHOLD) {
         health_maybe_send_telegram_alert('QUEUE', 'WARNING', 'dead queue count increased');
     }
 
@@ -6004,7 +6229,9 @@ if ($method === 'GET' && $action === 'health') {
             "totals" => [
                 "pending" => $queuePending,
                 "retry" => $queueRetry,
-                "dead" => $queueDead
+                "dead" => $queueDead,
+                "dead_recent" => $queueDeadRecent,
+                "dead_recent_window_minutes" => (int)HEALTH_QUEUE_DEAD_DOWN_WINDOW_MINUTES
             ],
             "telegram" => $telegramQueue,
             "push" => $pushQueue,
@@ -11011,6 +11238,82 @@ if ($method === 'GET' && $action === 'sync_queue_status') {
             "enabled" => PUSH_ENABLED,
             "active_subscriptions" => (int)$activePushSubscriptions
         ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'recover_dead_queue') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    [$payload] = read_request_json_payload('queue.recover.payload');
+
+    $mode = strtoupper(trim((string)($payload['mode'] ?? 'ALL')));
+    if (!in_array($mode, ['ALL', 'TELEGRAM', 'PUSH', 'SHEETS'], true)) {
+        $mode = 'ALL';
+    }
+    $limit = (int)($payload['limit'] ?? 200);
+    if ($limit < 1) $limit = 1;
+    if ($limit > 1000) $limit = 1000;
+    $processAfter = !empty($payload['process_after']) || !empty($payload['drain']) || (($_GET['process_after'] ?? '') === '1');
+
+    $beforeQueue = [
+        'telegram' => get_telegram_queue_summary($db),
+        'push' => get_push_queue_summary($db),
+        'sheets' => get_sync_queue_summary($db)
+    ];
+
+    $recoverResult = recover_dead_queue_jobs($db, [
+        'mode' => $mode,
+        'limit' => $limit
+    ]);
+
+    $processResult = [
+        'campaigns' => ['processed' => 0, 'queued_jobs' => 0],
+        'telegram' => ['processed' => 0, 'success' => 0, 'failed' => 0, 'retried' => 0, 'dead' => 0],
+        'push' => ['processed' => 0, 'success' => 0, 'failed' => 0, 'retried' => 0, 'dead' => 0],
+        'sheets' => ['processed' => 0, 'success' => 0, 'failed' => 0, 'retried' => 0, 'dead' => 0],
+    ];
+    if ($processAfter) {
+        $processResult['campaigns'] = process_due_campaigns($db, 3);
+        $processResult['telegram'] = process_telegram_queue($db, 8);
+        $processResult['push'] = process_push_queue($db, 12);
+        $processResult['sheets'] = process_sync_queue($db, 8, true);
+    }
+
+    $afterQueue = [
+        'telegram' => get_telegram_queue_summary($db),
+        'push' => get_push_queue_summary($db),
+        'sheets' => get_sync_queue_summary($db)
+    ];
+
+    $deadBefore = (int)($beforeQueue['telegram']['dead'] ?? 0)
+        + (int)($beforeQueue['push']['dead'] ?? 0)
+        + (int)($beforeQueue['sheets']['dead'] ?? 0);
+    $deadAfter = (int)($afterQueue['telegram']['dead'] ?? 0)
+        + (int)($afterQueue['push']['dead'] ?? 0)
+        + (int)($afterQueue['sheets']['dead'] ?? 0);
+
+    log_system_event(
+        $db,
+        'QUEUE_DEAD_RECOVERY',
+        "Dead queue recovery mode={$mode}; scanned={$recoverResult['total_dead_scanned']}; recovered={$recoverResult['recovered']}; skipped={$recoverResult['skipped_permanent']}; dead_before={$deadBefore}; dead_after={$deadAfter}",
+        (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin'),
+        $_SERVER['REMOTE_ADDR'] ?? 'SERVER'
+    );
+
+    if ((int)($recoverResult['failed_updates'] ?? 0) > 0) {
+        splaro_record_system_error('QUEUE', 'ERROR', 'Failed to move some dead jobs into retry queue.', [
+            'failed_updates' => (int)$recoverResult['failed_updates'],
+            'mode' => (string)$mode
+        ]);
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "result" => $recoverResult,
+        "processed" => $processResult,
+        "queue_before" => $beforeQueue,
+        "queue_after" => $afterQueue
     ]);
     exit;
 }

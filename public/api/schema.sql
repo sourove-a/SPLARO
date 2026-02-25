@@ -87,9 +87,188 @@ CREATE TABLE IF NOT EXISTS `users` (
   `phone` varchar(50) DEFAULT NULL,
   `password` varchar(255) NOT NULL,
   `role` varchar(20) DEFAULT 'USER',
+  `is_blocked` tinyint(1) DEFAULT 0,
+  `email_verified` tinyint(1) DEFAULT 0,
+  `phone_verified` tinyint(1) DEFAULT 0,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_users_phone` (`phone`),
+  KEY `idx_users_role_blocked` (`role`,`is_blocked`),
+  KEY `idx_users_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3.1 USER ADDRESSES
+CREATE TABLE IF NOT EXISTS `user_addresses` (
+  `id` varchar(80) NOT NULL,
+  `user_id` varchar(50) NOT NULL,
+  `label` varchar(60) DEFAULT 'Home',
+  `recipient_name` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `district` varchar(100) DEFAULT NULL,
+  `thana` varchar(100) DEFAULT NULL,
+  `address_line` text DEFAULT NULL,
+  `postal_code` varchar(20) DEFAULT NULL,
+  `is_default` tinyint(1) DEFAULT 0,
+  `is_verified` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_addresses_user_default` (`user_id`,`is_default`,`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3.2 ORDERS LINE ITEMS
+CREATE TABLE IF NOT EXISTS `order_items` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `product_id` varchar(80) DEFAULT NULL,
+  `product_name` varchar(255) NOT NULL,
+  `product_slug` varchar(255) DEFAULT NULL,
+  `brand` varchar(120) DEFAULT NULL,
+  `category` varchar(120) DEFAULT NULL,
+  `variant_size` varchar(60) DEFAULT NULL,
+  `variant_color` varchar(80) DEFAULT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `unit_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `line_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `product_url` text DEFAULT NULL,
+  `image_url` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_order_items_order` (`order_id`),
+  KEY `idx_order_items_product` (`product_id`),
+  KEY `idx_order_items_order_product_created` (`order_id`,`product_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3.3 ORDER TIMELINE
+CREATE TABLE IF NOT EXISTS `order_status_history` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `from_status` varchar(50) DEFAULT NULL,
+  `to_status` varchar(50) NOT NULL,
+  `note` text DEFAULT NULL,
+  `changed_by` varchar(80) DEFAULT NULL,
+  `changed_by_role` varchar(40) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_order_status_history_order_created` (`order_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3.4 PAYMENTS, SHIPMENTS, REFUNDS, CANCELLATIONS
+CREATE TABLE IF NOT EXISTS `payments` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `payment_method` varchar(80) DEFAULT NULL,
+  `provider` varchar(80) DEFAULT NULL,
+  `transaction_ref` varchar(120) DEFAULT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `currency` varchar(10) DEFAULT 'BDT',
+  `status` varchar(40) NOT NULL DEFAULT 'PENDING',
+  `payload_json` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_payments_order_status_created` (`order_id`,`status`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `shipments` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `carrier` varchar(120) DEFAULT NULL,
+  `tracking_number` varchar(120) DEFAULT NULL,
+  `status` varchar(40) NOT NULL DEFAULT 'PENDING',
+  `payload_json` longtext DEFAULT NULL,
+  `shipped_at` datetime DEFAULT NULL,
+  `delivered_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_shipments_order_status_created` (`order_id`,`status`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `refunds` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `reason` text DEFAULT NULL,
+  `status` varchar(40) NOT NULL DEFAULT 'PENDING',
+  `created_by` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_refunds_order_status_created` (`order_id`,`status`,`created_at`),
+  KEY `idx_refunds_user_created` (`user_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `cancellations` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
+  `reason` text DEFAULT NULL,
+  `status` varchar(40) NOT NULL DEFAULT 'CONFIRMED',
+  `created_by` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_cancellations_order_status_created` (`order_id`,`status`,`created_at`),
+  KEY `idx_cancellations_user_created` (`user_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3.5 ADMIN RBAC + CUSTOMER NOTES
+CREATE TABLE IF NOT EXISTS `admin_roles` (
+  `id` varchar(50) NOT NULL,
+  `name` varchar(80) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_admin_roles_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_permissions` (
+  `id` varchar(80) NOT NULL,
+  `label` varchar(120) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_role_permissions` (
+  `role_id` varchar(50) NOT NULL,
+  `permission_id` varchar(80) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`role_id`,`permission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_user_roles` (
+  `user_id` varchar(50) NOT NULL,
+  `role_id` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`,`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_user_notes` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `admin_id` varchar(80) DEFAULT NULL,
+  `note` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_admin_user_notes_user_created` (`user_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `user_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `event_type` varchar(80) NOT NULL,
+  `event_payload` longtext DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_events_user_created` (`user_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 4. INSTITUTIONAL PROTOCOLS (SITE_SETTINGS)

@@ -113,6 +113,19 @@ const runProbe = async (probe: ProbeName) => {
   return json?.result || null;
 };
 
+const recoverDeadQueue = async () => {
+  const res = await fetch(`${API_NODE}?action=recover_dead_queue`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify({ mode: 'ALL', limit: 300, process_after: true })
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.status !== 'success') {
+    throw new Error(String(json?.message || 'Queue recovery failed'));
+  }
+  return json;
+};
+
 const formatTime = (value: string | null | undefined) => {
   if (!value) return 'N/A';
   const d = new Date(value);
@@ -170,6 +183,15 @@ export const SystemHealthPanel: React.FC = () => {
 
   const probeMutation = useMutation({
     mutationFn: runProbe,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-health'] });
+      queryClient.invalidateQueries({ queryKey: ['system-health-events'] });
+      queryClient.invalidateQueries({ queryKey: ['system-health-errors'] });
+    }
+  });
+
+  const recoverQueueMutation = useMutation({
+    mutationFn: recoverDeadQueue,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['system-health'] });
       queryClient.invalidateQueries({ queryKey: ['system-health-events'] });
@@ -251,13 +273,24 @@ export const SystemHealthPanel: React.FC = () => {
             {state.status !== 'OK' && (
               <p className="text-[11px] text-amber-300 leading-relaxed">{state.next_action || 'Check logs and retry probe.'}</p>
             )}
-            <button
-              onClick={() => probe && probeMutation.mutate(probe)}
-              disabled={!probe || probeMutation.isPending}
-              className="w-full rounded-xl border border-white/20 py-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {probeMutation.isPending ? 'Running...' : 'Run Check'}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => probe && probeMutation.mutate(probe)}
+                disabled={!probe || probeMutation.isPending}
+                className="w-full rounded-xl border border-white/20 py-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {probeMutation.isPending ? 'Running...' : 'Run Check'}
+              </button>
+              {key === 'queue' && (
+                <button
+                  onClick={() => recoverQueueMutation.mutate()}
+                  disabled={recoverQueueMutation.isPending}
+                  className="w-full rounded-xl border border-amber-500/40 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 hover:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {recoverQueueMutation.isPending ? 'Repairing...' : 'Repair Queue'}
+                </button>
+              )}
+            </div>
           </GlassCard>
         ))}
       </div>
@@ -377,6 +410,27 @@ export const SystemHealthPanel: React.FC = () => {
           </span>
           <span className="ml-2">{probeMutation.data.latency_ms} ms</span>
           {probeMutation.data.error ? <span className="ml-2 text-rose-300">{probeMutation.data.error}</span> : null}
+        </GlassCard>
+      )}
+
+      {recoverQueueMutation.data && (
+        <GlassCard className="p-4 text-xs">
+          Queue repair result:
+          <span className="ml-2 text-amber-300">
+            recovered {Number(recoverQueueMutation.data?.result?.recovered || 0)}
+          </span>
+          <span className="ml-2 text-zinc-300">
+            skipped {Number(recoverQueueMutation.data?.result?.skipped_permanent || 0)}
+          </span>
+          <span className="ml-2 text-zinc-500">
+            scanned {Number(recoverQueueMutation.data?.result?.total_dead_scanned || 0)}
+          </span>
+        </GlassCard>
+      )}
+
+      {recoverQueueMutation.isError && (
+        <GlassCard className="p-4 border border-rose-500/30 text-xs text-rose-300">
+          Queue repair failed: {(recoverQueueMutation.error as Error)?.message || 'Unknown error'}
         </GlassCard>
       )}
 

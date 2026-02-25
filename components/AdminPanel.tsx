@@ -1071,7 +1071,7 @@ const ProductModal: React.FC<{
 
 export const AdminPanel = () => {
   const {
-    users, deleteUser, deleteOrder,
+    deleteOrder,
     setView, products, orders, updateOrderStatus,
     addOrUpdateProduct, deleteProduct, discounts,
     addDiscount, toggleDiscount, deleteDiscount,
