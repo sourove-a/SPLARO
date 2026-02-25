@@ -2835,7 +2835,7 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
 </html>";
 }
 
-function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label) {
+function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label, $settings = []) {
     $lines = [];
     $lines[] = "SPLARO {$label}";
     $lines[] = "Serial: {$serial}";
@@ -2851,11 +2851,21 @@ function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label) {
         $lines[] = "- " . (string)$item['name'] . " | Qty " . (int)$item['quantity'] . " | " . invoice_currency($item['lineTotal']);
     }
     $lines[] = "Subtotal: " . invoice_currency($totals['subtotal']);
-    $lines[] = "Discount: " . invoice_currency($totals['discount']);
-    $lines[] = "Shipping: " . invoice_currency($totals['shipping']);
-    $lines[] = "Tax: " . invoice_currency($totals['tax']);
+    if (!empty($settings['showDiscount'])) {
+        $lines[] = "Discount: " . invoice_currency($totals['discount']);
+    }
+    if (!empty($settings['showShipping'])) {
+        $lines[] = "Shipping: " . invoice_currency($totals['shipping']);
+    }
+    if (!empty($settings['showTax'])) {
+        $lines[] = "Tax: " . invoice_currency($totals['tax']);
+    }
     $lines[] = "Grand Total: " . invoice_currency($totals['grand']);
     return implode("\n", $lines);
+}
+
+function invoice_basic_pdf_fallback_enabled() {
+    return strtolower(trim((string)env_or_default('INVOICE_ALLOW_BASIC_PDF_FALLBACK', 'false'))) === 'true';
 }
 
 function invoice_pdf_escape_text($text) {
@@ -2934,6 +2944,15 @@ function invoice_generate_pdf_file($html, $plainText, $targetPath) {
     } catch (Exception $e) {
         error_log('SPLARO_INVOICE_MPDF_FAILED: ' . $e->getMessage());
         splaro_log_exception('invoice.pdf.mpdf', $e, ['target_path' => (string)$targetPath], 'WARNING');
+    }
+
+    if (!invoice_basic_pdf_fallback_enabled()) {
+        splaro_structured_log('invoice.pdf.basic_fallback_skipped', [
+            'target_path' => (string)$targetPath,
+            'reason' => 'NO_PDF_ENGINE',
+            'hint' => 'Set INVOICE_ALLOW_BASIC_PDF_FALLBACK=true to re-enable plain text PDF fallback'
+        ], 'WARNING');
+        return false;
     }
 
     return invoice_generate_basic_pdf($plainText, $targetPath);
@@ -3043,7 +3062,7 @@ function invoice_create_document($db, $orderRow, $settings, $typeCode, $createdB
     $serialData = invoice_allocate_serial($db, $settings, $type);
     $serial = (string)$serialData['serial'];
     $html = invoice_build_html($orderRow, $items, $settings, $serial, $type, $label, $totals);
-    $plainText = invoice_build_plain_text($orderRow, $items, $serial, $totals, $label);
+    $plainText = invoice_build_plain_text($orderRow, $items, $serial, $totals, $label, $settings);
 
     $outputDir = invoice_ensure_output_dir();
     $timeToken = date('Ymd_His');
