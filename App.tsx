@@ -566,11 +566,14 @@ const AppContent = () => {
   const activeCmsBundle = useMemo(() => {
     const published = siteSettings.cmsPublished || siteSettings.cmsDraft;
     const isAdminPreviewRole = canWriteCms(user?.role);
+    if (isAdminSurface && isAdminPreviewRole) {
+      return siteSettings.cmsDraft || published;
+    }
     if (siteSettings.cmsActiveVersion === 'DRAFT' && isAdminPreviewRole) {
       return siteSettings.cmsDraft || published;
     }
     return published || siteSettings.cmsDraft;
-  }, [siteSettings.cmsPublished, siteSettings.cmsDraft, siteSettings.cmsActiveVersion, user?.role]);
+  }, [siteSettings.cmsPublished, siteSettings.cmsDraft, siteSettings.cmsActiveVersion, user?.role, isAdminSurface]);
 
   useEffect(() => {
     // Velocity Protocol: Ensure the browser environment is primed for high-speed discovery

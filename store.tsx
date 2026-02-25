@@ -923,7 +923,7 @@ interface AppContextType {
   setIsSearchOpen: (b: boolean) => void;
   siteSettings: SiteSettings;
   setSiteSettings: (s: SiteSettings) => void;
-  updateSettings: (data: Partial<SiteSettings> & { smtpSettings?: any, logisticsConfig?: any }) => Promise<void>;
+  updateSettings: (data: Partial<SiteSettings> & { smtpSettings?: any, logisticsConfig?: any }) => Promise<boolean>;
   dbStatus: 'MYSQL' | 'FALLBACK' | 'OFFLINE';
   logs: any[];
   trafficData: any[];
@@ -1466,7 +1466,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateSettings = async (data: any) => {
-    if (!IS_PROD) return;
+    if (!IS_PROD) return true;
 
     const source = (data && typeof data === 'object') ? data : {};
     const hasOwn = (key: string) => Object.prototype.hasOwnProperty.call(source, key);
@@ -1537,6 +1537,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const storage = String(result.storage || '').toLowerCase();
         setDbStatus(storage === 'mysql' ? 'MYSQL' : 'FALLBACK');
         emitToast(storage === 'mysql' ? 'Settings saved to MySQL.' : 'Settings saved in fallback storage.', 'success');
+        return true;
       } else {
         const backendMessage = String(result?.message || '').trim();
         const normalizedError = backendMessage.toUpperCase();
@@ -1553,11 +1554,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           payloadKeys: Object.keys(payload),
           result
         });
+        return false;
       }
     } catch (e) {
       setDbStatus('FALLBACK');
       emitToast('Network error while saving settings. Please retry.', 'error');
       console.error('SETTING_SYNC_FAILURE:', e);
+      return false;
     }
   };
 

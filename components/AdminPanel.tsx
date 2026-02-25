@@ -1123,6 +1123,8 @@ export const AdminPanel = () => {
   const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [cmsCategoryTab, setCmsCategoryTab] = useState<CmsCategoryTab>('all');
   const [invoiceActionKey, setInvoiceActionKey] = useState<string | null>(null);
+  const [themeAdvancedOpen, setThemeAdvancedOpen] = useState(false);
+  const [themeSaveIntent, setThemeSaveIntent] = useState<'draft' | 'publish' | null>(null);
   const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
@@ -1850,17 +1852,90 @@ export const AdminPanel = () => {
     return true;
   };
 
+  const validateThemeSettingsOnly = () => {
+    const theme = siteSettings.cmsDraft.themeSettings;
+    const baseSize = Number(theme.typography?.baseSize);
+    const headingScale = Number(theme.typography?.headingScale);
+    const radius = Number(theme.borderRadius);
+    const shadow = Number(theme.shadowIntensity);
+    const lowStock = Number(theme.lowStockThreshold);
+
+    if (!Number.isFinite(baseSize) || baseSize < 12 || baseSize > 20) {
+      showToast('Theme base size must be between 12 and 20.', 'error');
+      return false;
+    }
+    if (!Number.isFinite(headingScale) || headingScale < 0.8 || headingScale > 1.6) {
+      showToast('Theme heading scale must be between 0.8 and 1.6.', 'error');
+      return false;
+    }
+    if (!Number.isFinite(radius) || radius < 8 || radius > 40) {
+      showToast('Theme radius must be between 8 and 40.', 'error');
+      return false;
+    }
+    if (!Number.isFinite(shadow) || shadow < 0 || shadow > 100) {
+      showToast('Theme shadow must be between 0 and 100.', 'error');
+      return false;
+    }
+    if (!Number.isFinite(lowStock) || lowStock < 0 || lowStock > 50) {
+      showToast('Low stock threshold must be between 0 and 50.', 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const persistThemeSettings = async (publish = false) => {
+    if (!canManageCms) {
+      showToast('Viewer role cannot edit Theme settings.', 'error');
+      return;
+    }
+    if (!validateThemeSettingsOnly()) return;
+
+    const nextThemeSettings = JSON.parse(JSON.stringify(siteSettings.cmsDraft.themeSettings));
+    const nextDraft = {
+      ...siteSettings.cmsDraft,
+      themeSettings: nextThemeSettings
+    };
+
+    setThemeSaveIntent(publish ? 'publish' : 'draft');
+    try {
+      const ok = await updateSettings({
+        cmsDraft: nextDraft,
+        cmsMode: publish ? 'PUBLISH' : 'DRAFT',
+        cmsAction: publish ? 'PUBLISH' : 'SAVE_DRAFT'
+      } as any);
+      if (!ok) return;
+
+      const nextRevision = {
+        id: `rev_${Math.random().toString(36).slice(2, 10)}`,
+        mode: publish ? 'PUBLISHED' as const : 'DRAFT' as const,
+        timestamp: new Date().toISOString(),
+        adminUser: user?.email || 'admin@splaro.co',
+        payload: nextDraft
+      };
+      setSiteSettings({
+        ...siteSettings,
+        cmsDraft: nextDraft,
+        ...(publish ? { cmsPublished: nextDraft, cmsActiveVersion: 'PUBLISHED' as const } : { cmsActiveVersion: 'DRAFT' as const }),
+        cmsRevisions: [nextRevision, ...(siteSettings.cmsRevisions || [])].slice(0, 10)
+      });
+      showToast(publish ? 'Theme published.' : 'Theme draft saved.', 'success');
+    } finally {
+      setThemeSaveIntent(null);
+    }
+  };
+
   const persistCmsDraft = async () => {
     if (!canManageCms) {
       showToast('Viewer role cannot edit CMS.', 'error');
       return;
     }
     if (!validateCmsDraft()) return;
-    await updateSettings({
+    const ok = await updateSettings({
       cmsDraft: siteSettings.cmsDraft,
       cmsMode: 'DRAFT',
       cmsAction: 'SAVE_DRAFT'
     } as any);
+    if (!ok) return;
     const nextRevision = {
       id: `rev_${Math.random().toString(36).slice(2, 10)}`,
       mode: 'DRAFT' as const,
@@ -1882,11 +1957,12 @@ export const AdminPanel = () => {
       return;
     }
     if (!validateCmsDraft()) return;
-    await updateSettings({
+    const ok = await updateSettings({
       cmsDraft: siteSettings.cmsDraft,
       cmsMode: 'PUBLISH',
       cmsAction: 'PUBLISH'
     } as any);
+    if (!ok) return;
     const nextRevision = {
       id: `rev_${Math.random().toString(36).slice(2, 10)}`,
       mode: 'PUBLISHED' as const,
@@ -3517,7 +3593,7 @@ export const AdminPanel = () => {
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                <GlassCard className="p-8 md:p-10 space-y-8">
+                <GlassCard className="p-6 md:p-8 space-y-6 max-h-[78vh] overflow-y-auto pr-2">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
@@ -3526,6 +3602,23 @@ export const AdminPanel = () => {
                     <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">
                       Role: {adminRole}
                     </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <PrimaryButton
+                      className="w-full h-12 text-[10px]"
+                      isLoading={themeSaveIntent === 'draft'}
+                      onClick={() => persistThemeSettings(false)}
+                    >
+                      SAVE THEME DRAFT
+                    </PrimaryButton>
+                    <PrimaryButton
+                      className="w-full h-12 text-[10px]"
+                      isLoading={themeSaveIntent === 'publish'}
+                      onClick={() => persistThemeSettings(true)}
+                    >
+                      PUBLISH THEME
+                    </PrimaryButton>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -3575,104 +3668,115 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Base Size</label>
-                      <input
-                        type="number"
-                        min={12}
-                        max={20}
-                        value={siteSettings.cmsDraft.themeSettings.typography.baseSize}
-                        onChange={(e) => updateThemeSettingsField('typography.baseSize', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Heading Scale</label>
-                      <input
-                        type="number"
-                        min={0.8}
-                        max={1.6}
-                        step={0.05}
-                        value={siteSettings.cmsDraft.themeSettings.typography.headingScale}
-                        onChange={(e) => updateThemeSettingsField('typography.headingScale', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Radius</label>
-                      <input
-                        type="number"
-                        min={8}
-                        max={40}
-                        value={siteSettings.cmsDraft.themeSettings.borderRadius}
-                        onChange={(e) => updateThemeSettingsField('borderRadius', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Shadow</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={siteSettings.cmsDraft.themeSettings.shadowIntensity}
-                        onChange={(e) => updateThemeSettingsField('shadowIntensity', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
-                      />
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setThemeAdvancedOpen((prev) => !prev)}
+                    className="w-full h-11 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 hover:text-white hover:border-cyan-400/50 transition-all flex items-center justify-center gap-2"
+                  >
+                    {themeAdvancedOpen ? 'Hide Advanced Controls' : 'Show Advanced Controls'}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${themeAdvancedOpen ? 'rotate-180' : ''}`} />
+                  </button>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="flex items-center gap-3 text-xs text-zinc-300">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(siteSettings.cmsDraft.themeSettings.reduceGlow)}
-                        onChange={(e) => updateThemeSettingsField('reduceGlow', e.target.checked)}
-                      />
-                      Reduce glow
-                    </label>
-                    <label className="flex items-center gap-3 text-xs text-zinc-300">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(siteSettings.cmsDraft.themeSettings.premiumMinimalMode)}
-                        onChange={(e) => updateThemeSettingsField('premiumMinimalMode', e.target.checked)}
-                      />
-                      Premium minimal mode
-                    </label>
-                    <label className="flex items-center gap-3 text-xs text-zinc-300 col-span-2">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(siteSettings.cmsDraft.themeSettings.enableUrgencyUI)}
-                        onChange={(e) => updateThemeSettingsField('enableUrgencyUI', e.target.checked)}
-                      />
-                      Enable stock urgency labels
-                    </label>
-                  </div>
+                  <AnimatePresence initial={false}>
+                    {themeAdvancedOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-6 overflow-hidden"
+                      >
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Base Size</label>
+                            <input
+                              type="number"
+                              min={12}
+                              max={20}
+                              value={siteSettings.cmsDraft.themeSettings.typography.baseSize}
+                              onChange={(e) => updateThemeSettingsField('typography.baseSize', Number(e.target.value))}
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Heading Scale</label>
+                            <input
+                              type="number"
+                              min={0.8}
+                              max={1.6}
+                              step={0.05}
+                              value={siteSettings.cmsDraft.themeSettings.typography.headingScale}
+                              onChange={(e) => updateThemeSettingsField('typography.headingScale', Number(e.target.value))}
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Radius</label>
+                            <input
+                              type="number"
+                              min={8}
+                              max={40}
+                              value={siteSettings.cmsDraft.themeSettings.borderRadius}
+                              onChange={(e) => updateThemeSettingsField('borderRadius', Number(e.target.value))}
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Shadow</label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={siteSettings.cmsDraft.themeSettings.shadowIntensity}
+                              onChange={(e) => updateThemeSettingsField('shadowIntensity', Number(e.target.value))}
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            />
+                          </div>
+                        </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Low Stock Threshold</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={50}
-                      value={siteSettings.cmsDraft.themeSettings.lowStockThreshold}
-                      onChange={(e) => updateThemeSettingsField('lowStockThreshold', Number(e.target.value))}
-                      className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
-                    />
-                    <p className="text-[10px] text-zinc-500">
-                      Show “Low stock” only when stock is known and at or below this value.
-                    </p>
-                  </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <label className="flex items-center gap-3 text-xs text-zinc-300">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(siteSettings.cmsDraft.themeSettings.reduceGlow)}
+                              onChange={(e) => updateThemeSettingsField('reduceGlow', e.target.checked)}
+                            />
+                            Reduce glow
+                          </label>
+                          <label className="flex items-center gap-3 text-xs text-zinc-300">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(siteSettings.cmsDraft.themeSettings.premiumMinimalMode)}
+                              onChange={(e) => updateThemeSettingsField('premiumMinimalMode', e.target.checked)}
+                            />
+                            Premium minimal mode
+                          </label>
+                          <label className="flex items-center gap-3 text-xs text-zinc-300 col-span-2">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(siteSettings.cmsDraft.themeSettings.enableUrgencyUI)}
+                              onChange={(e) => updateThemeSettingsField('enableUrgencyUI', e.target.checked)}
+                            />
+                            Enable stock urgency labels
+                          </label>
+                        </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <PrimaryButton className="w-full h-12 text-[10px]" onClick={persistCmsDraft}>
-                      SAVE THEME DRAFT
-                    </PrimaryButton>
-                    <PrimaryButton className="w-full h-12 text-[10px]" onClick={publishCmsDraft}>
-                      PUBLISH THEME
-                    </PrimaryButton>
-                  </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Low Stock Threshold</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={siteSettings.cmsDraft.themeSettings.lowStockThreshold}
+                            onChange={(e) => updateThemeSettingsField('lowStockThreshold', Number(e.target.value))}
+                            className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          />
+                          <p className="text-[10px] text-zinc-500">
+                            Show “Low stock” only when stock is known and at or below this value.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </GlassCard>
 
                 <GlassCard className="p-8 md:p-10 space-y-8">
