@@ -431,6 +431,243 @@ function get_env_source_label() {
     return $base !== '' ? $base : $source;
 }
 
+function splaro_normalize_path_string($path) {
+    $raw = trim((string)$path);
+    if ($raw === '') return '';
+    $normalized = str_replace(['\\', '//'], ['/', '/'], $raw);
+    return rtrim($normalized, '/');
+}
+
+function splaro_path_is_child_of($path, $parent) {
+    $p = splaro_normalize_path_string($path);
+    $r = splaro_normalize_path_string($parent);
+    if ($p === '' || $r === '') return false;
+    if ($p === $r) return true;
+    return strpos($p . '/', $r . '/') === 0;
+}
+
+function splaro_is_admin_bundle_dir($dirPath) {
+    $dir = splaro_normalize_path_string((string)$dirPath);
+    if ($dir === '' || !is_dir($dir)) return false;
+    return is_file($dir . '/index.html') && is_file($dir . '/api/index.php');
+}
+
+function splaro_copy_directory_tree($sourceDir, $targetDir, $maxEntries = 20000) {
+    $source = splaro_normalize_path_string((string)$sourceDir);
+    $target = splaro_normalize_path_string((string)$targetDir);
+    $result = [
+        'files_copied' => 0,
+        'dirs_created' => 0,
+        'errors' => []
+    ];
+
+    if ($source === '' || $target === '' || !is_dir($source)) {
+        $result['errors'][] = 'INVALID_SOURCE_OR_TARGET';
+        return $result;
+    }
+
+    if (!is_dir($target)) {
+        if (!@mkdir($target, 0755, true) && !is_dir($target)) {
+            $result['errors'][] = 'TARGET_MKDIR_FAILED';
+            return $result;
+        }
+        @chmod($target, 0755);
+        $result['dirs_created']++;
+    }
+
+    $max = (int)$maxEntries;
+    if ($max < 100) $max = 100;
+    if ($max > 100000) $max = 100000;
+
+    $sourceLen = strlen($source);
+    $entries = 0;
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        $entries++;
+        if ($entries > $max) {
+            $result['errors'][] = 'MAX_ENTRIES_EXCEEDED';
+            break;
+        }
+
+        $itemPath = splaro_normalize_path_string((string)$item->getPathname());
+        if ($itemPath === '' || !splaro_path_is_child_of($itemPath, $source)) {
+            continue;
+        }
+
+        $relativePath = ltrim(substr($itemPath, $sourceLen), '/');
+        if ($relativePath === '') continue;
+
+        $targetPath = $target . '/' . $relativePath;
+        if ($item->isDir()) {
+            if (!is_dir($targetPath)) {
+                if (!@mkdir($targetPath, 0755, true) && !is_dir($targetPath)) {
+                    $result['errors'][] = 'DIR_CREATE_FAILED:' . splaro_clip_text($targetPath, 220);
+                    continue;
+                }
+                $result['dirs_created']++;
+            }
+            @chmod($targetPath, 0755);
+            continue;
+        }
+
+        if ($item->isFile()) {
+            $targetParent = dirname($targetPath);
+            if (!is_dir($targetParent) && !@mkdir($targetParent, 0755, true) && !is_dir($targetParent)) {
+                $result['errors'][] = 'PARENT_DIR_CREATE_FAILED:' . splaro_clip_text($targetParent, 220);
+                continue;
+            }
+
+            if (!@copy($itemPath, $targetPath)) {
+                $result['errors'][] = 'COPY_FAILED:' . splaro_clip_text($targetPath, 220);
+                continue;
+            }
+            @chmod($targetPath, 0644);
+            $result['files_copied']++;
+        }
+    }
+
+    return $result;
+}
+
+function maybe_repair_admin_subdomain_bundle() {
+    $enabled = splaro_env_bool('ADMIN_SUBDOMAIN_SELF_HEAL_ENABLED', true);
+    if (!$enabled) {
+        return;
+    }
+
+    $ttl = (int)env_or_default('ADMIN_SUBDOMAIN_SELF_HEAL_TTL_SECONDS', 300);
+    if ($ttl < 60) $ttl = 60;
+    if ($ttl > 3600) $ttl = 3600;
+
+    $cacheKey = md5(__DIR__ . '|admin_subdomain_self_heal_v2');
+    $cacheFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_admin_subdomain_heal_{$cacheKey}.json";
+    $now = time();
+    if (is_file($cacheFile)) {
+        $raw = @file_get_contents($cacheFile);
+        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        $lastAttempt = (int)($decoded['attempt_at'] ?? 0);
+        if ($lastAttempt > 0 && ($now - $lastAttempt) < $ttl) {
+            return;
+        }
+    }
+
+    $writeCache = static function ($payload) use ($cacheFile, $now) {
+        $data = is_array($payload) ? $payload : [];
+        $data['attempt_at'] = $now;
+        @file_put_contents($cacheFile, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    };
+
+    try {
+        $apiDir = splaro_normalize_path_string(__DIR__);
+        $webRoot = splaro_normalize_path_string(dirname($apiDir));
+        if ($apiDir === '' || $webRoot === '') {
+            $writeCache(['ok' => false, 'reason' => 'PATH_RESOLVE_FAILED']);
+            return;
+        }
+
+        $sourceCandidates = [];
+        $sourceCandidates[] = $webRoot . '/admin';
+        $sourceCandidates[] = $webRoot . '/public_html/admin';
+        $sourceCandidates[] = dirname($webRoot) . '/public_html/admin';
+
+        $sourceBundle = '';
+        foreach (array_values(array_unique($sourceCandidates)) as $candidate) {
+            if (splaro_is_admin_bundle_dir($candidate)) {
+                $sourceBundle = splaro_normalize_path_string($candidate);
+                break;
+            }
+        }
+
+        if ($sourceBundle === '') {
+            splaro_integration_trace('admin_subdomain.repair.source_missing', [
+                'web_root' => $webRoot
+            ], 'WARNING');
+            $writeCache(['ok' => false, 'reason' => 'SOURCE_BUNDLE_NOT_FOUND']);
+            return;
+        }
+
+        $targetCandidates = [];
+        $configuredRoot = splaro_normalize_path_string((string)env_or_default('ADMIN_SUBDOMAIN_ROOT', ''));
+        if ($configuredRoot !== '') {
+            $targetCandidates[] = $configuredRoot;
+        }
+
+        $domainsRoot = splaro_normalize_path_string(dirname(dirname($webRoot)));
+        if ($domainsRoot !== '') {
+            $targetCandidates[] = $domainsRoot . '/admin.splaro.co/public_html';
+        }
+        $targetCandidates[] = '/home/u134578371/domains/admin.splaro.co/public_html';
+
+        $targetsTouched = 0;
+        $copySummaries = [];
+        $sourceReal = splaro_normalize_path_string((string)(realpath($sourceBundle) ?: $sourceBundle));
+        $placeholderFiles = ['default.php', 'index2.php', 'index.default.php'];
+
+        foreach (array_values(array_unique($targetCandidates)) as $targetPathRaw) {
+            $targetPath = splaro_normalize_path_string($targetPathRaw);
+            if ($targetPath === '') {
+                continue;
+            }
+            if ($targetPath === $sourceReal || splaro_path_is_child_of($targetPath, $sourceReal)) {
+                continue;
+            }
+
+            $targetParent = splaro_normalize_path_string(dirname($targetPath));
+            if ($targetParent === '' || (!is_dir($targetParent) && !@mkdir($targetParent, 0755, true))) {
+                continue;
+            }
+            if (!is_dir($targetPath) && !@mkdir($targetPath, 0755, true) && !is_dir($targetPath)) {
+                continue;
+            }
+
+            foreach ($placeholderFiles as $placeholder) {
+                $placeholderPath = $targetPath . '/' . $placeholder;
+                if (is_file($placeholderPath)) {
+                    @unlink($placeholderPath);
+                }
+            }
+
+            $copyResult = splaro_copy_directory_tree($sourceBundle, $targetPath, 20000);
+            $copySummaries[] = [
+                'target' => $targetPath,
+                'files_copied' => (int)($copyResult['files_copied'] ?? 0),
+                'dirs_created' => (int)($copyResult['dirs_created'] ?? 0),
+                'errors' => (int)(is_array($copyResult['errors'] ?? null) ? count($copyResult['errors']) : 0)
+            ];
+
+            if ((int)($copyResult['files_copied'] ?? 0) > 0 && splaro_is_admin_bundle_dir($targetPath)) {
+                $targetsTouched++;
+                @chmod($targetPath, 0755);
+            }
+        }
+
+        splaro_integration_trace('admin_subdomain.repair.attempt', [
+            'source' => $sourceBundle,
+            'targets_touched' => $targetsTouched,
+            'summaries' => $copySummaries
+        ], $targetsTouched > 0 ? 'INFO' : 'WARNING');
+
+        $writeCache([
+            'ok' => $targetsTouched > 0,
+            'targets_touched' => $targetsTouched,
+            'source' => $sourceBundle
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin_subdomain.repair', $e, [], 'WARNING');
+        $writeCache([
+            'ok' => false,
+            'reason' => 'EXCEPTION'
+        ]);
+    }
+}
+
+maybe_repair_admin_subdomain_bundle();
+
 $db = get_db_connection();
 if (!$db) {
     $bootstrapError = $GLOBALS['SPLARO_DB_BOOTSTRAP_ERROR'] ?? ["message" => "DATABASE_CONNECTION_FAILED"];
