@@ -230,6 +230,7 @@ export interface InvoiceSettings {
   footerText: string;
   policyText: string;
   showProductImages: boolean;
+  showOrderId: boolean;
   showTax: boolean;
   taxRate: number;
   showDiscount: boolean;

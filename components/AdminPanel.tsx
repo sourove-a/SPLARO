@@ -3597,6 +3597,7 @@ export const AdminPanel = () => {
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     {[
                       { key: 'showProductImages', label: 'Product Images' },
+                      { key: 'showOrderId', label: 'Show Order ID' },
                       { key: 'showTax', label: 'Show Tax' },
                       { key: 'showDiscount', label: 'Show Discount' },
                       { key: 'showShipping', label: 'Show Shipping' },

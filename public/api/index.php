@@ -2464,6 +2464,7 @@ function invoice_default_settings() {
         'footerText' => 'SPLARO • Luxury Footwear & Bags • www.splaro.co',
         'policyText' => 'For support and returns, please contact support@splaro.co.',
         'showProductImages' => true,
+        'showOrderId' => false,
         'showTax' => false,
         'taxRate' => 0,
         'showDiscount' => true,
@@ -2481,6 +2482,26 @@ function invoice_valid_color($value, $fallback) {
         return strtoupper($candidate);
     }
     return $fallback;
+}
+
+function invoice_hex_to_rgba($hex, $alpha, $fallback) {
+    $candidate = trim((string)$hex);
+    if (!preg_match('/^#([0-9a-fA-F]{6})$/', $candidate, $matches)) {
+        return $fallback;
+    }
+
+    $normalizedAlpha = (float)$alpha;
+    if ($normalizedAlpha < 0) $normalizedAlpha = 0;
+    if ($normalizedAlpha > 1) $normalizedAlpha = 1;
+
+    $hexValue = $matches[1];
+    $r = hexdec(substr($hexValue, 0, 2));
+    $g = hexdec(substr($hexValue, 2, 2));
+    $b = hexdec(substr($hexValue, 4, 2));
+    $alphaText = rtrim(rtrim(number_format($normalizedAlpha, 3, '.', ''), '0'), '.');
+    if ($alphaText === '') $alphaText = '0';
+
+    return "rgba($r,$g,$b,$alphaText)";
 }
 
 function invoice_theme_from_cms_bundle($cmsBundle, $fallbackTheme) {
@@ -2584,6 +2605,7 @@ function invoice_normalize_settings($raw, $siteSettingsRow = null) {
         'footerText' => trim((string)($input['footerText'] ?? $base['footerText'])),
         'policyText' => trim((string)($input['policyText'] ?? $base['policyText'])),
         'showProductImages' => isset($input['showProductImages']) ? (bool)$input['showProductImages'] : (bool)$base['showProductImages'],
+        'showOrderId' => isset($input['showOrderId']) ? (bool)$input['showOrderId'] : (bool)$base['showOrderId'],
         'showTax' => isset($input['showTax']) ? (bool)$input['showTax'] : (bool)$base['showTax'],
         'taxRate' => $taxRate,
         'showDiscount' => isset($input['showDiscount']) ? (bool)$input['showDiscount'] : (bool)$base['showDiscount'],
@@ -2684,13 +2706,38 @@ function invoice_currency($amount) {
 
 function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $documentLabel, $totals) {
     $theme = $settings['theme'];
+    $themePrimary = invoice_valid_color($theme['primaryColor'] ?? '', '#0A0C12');
+    $themeAccent = invoice_valid_color($theme['accentColor'] ?? '', '#41DCFF');
+    $themeBackground = invoice_valid_color($theme['backgroundColor'] ?? '', '#F4F7FF');
+    $themeHeader = invoice_valid_color($theme['tableHeaderColor'] ?? '', '#111827');
+    $themeButton = invoice_valid_color($theme['buttonColor'] ?? '', '#2563EB');
+    $primaryGlow = invoice_hex_to_rgba($themePrimary, 0.34, 'rgba(10,12,18,0.34)');
+    $primarySoft = invoice_hex_to_rgba($themePrimary, 0.16, 'rgba(10,12,18,0.16)');
+    $accentGlow = invoice_hex_to_rgba($themeAccent, 0.26, 'rgba(65,220,255,0.26)');
+    $accentSoft = invoice_hex_to_rgba($themeAccent, 0.14, 'rgba(65,220,255,0.14)');
+    $headerOverlayOne = invoice_hex_to_rgba($themeAccent, 0.28, 'rgba(65,220,255,0.28)');
+    $headerOverlayTwo = invoice_hex_to_rgba($themePrimary, 0.32, 'rgba(10,12,18,0.32)');
+    $tableHeaderBorder = invoice_hex_to_rgba($themeHeader, 0.34, 'rgba(17,24,39,0.34)');
+    $totalPanelBorder = invoice_hex_to_rgba($themeButton, 0.35, 'rgba(37,99,235,0.35)');
     $paymentStatus = invoice_payment_status($orderRow);
     $statusColor = $paymentStatus === 'PAID'
         ? '#16A34A'
         : ($paymentStatus === 'PENDING' ? '#D97706' : '#2563EB');
     $logoUrl = trim((string)($settings['logoUrl'] ?? ''));
-    $siteName = trim((string)($orderRow['site_name'] ?? 'SPLARO'));
+    $siteName = trim((string)($orderRow['site_name'] ?? ($settings['siteName'] ?? 'SPLARO')));
     if ($siteName === '') $siteName = 'SPLARO';
+    $showOrderId = !empty($settings['showOrderId']);
+    $orderReferenceRaw = trim((string)($orderRow['order_no'] ?? $orderRow['id'] ?? ''));
+    $orderReferenceLabel = !empty($orderRow['order_no']) ? 'Order Ref:' : 'Order ID:';
+    $dateCellAlign = $showOrderId ? 'right' : 'left';
+    $issuedAt = date('d M Y • H:i');
+    $orderMetaCell = '';
+    if ($showOrderId && $orderReferenceRaw !== '') {
+        $orderMetaCell = "<td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;\">"
+            . "<span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">" . invoice_escape($orderReferenceLabel) . "</span>"
+            . "<span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($orderReferenceRaw) . "</span>"
+            . "</td>";
+    }
 
     $itemsRows = '';
     $showImages = !empty($settings['showProductImages']);
@@ -2726,8 +2773,8 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
     }
 
     $logoBlock = $logoUrl !== ''
-        ? "<img src=\"" . invoice_escape($logoUrl) . "\" alt=\"SPLARO\" style=\"height:38px;max-width:140px;object-fit:contain;display:block;\" />"
-        : "<div style=\"font-size:34px;font-weight:900;line-height:1;color:#0F172A;\">SPLARO</div>";
+        ? "<img src=\"" . invoice_escape($logoUrl) . "\" alt=\"" . invoice_escape($siteName) . "\" style=\"height:38px;max-width:160px;object-fit:contain;display:block;\" />"
+        : "<div style=\"font-size:36px;font-weight:900;line-height:1;letter-spacing:-0.03em;color:#F8FAFC;\">" . invoice_escape($siteName) . "</div>";
 
     $footerText = invoice_escape((string)($settings['footerText'] ?? ''));
     $policyText = invoice_escape((string)($settings['policyText'] ?? ''));
@@ -2740,17 +2787,19 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>" . invoice_escape($serial) . "</title>
 </head>
-<body style=\"margin:0;padding:20px;background:#EEF2FF;font-family:Inter,Arial,Helvetica,sans-serif;color:#0F172A;\">
-  <div style=\"max-width:820px;margin:0 auto;background:" . invoice_escape($theme['backgroundColor']) . ";border:1px solid #DBE1F0;border-radius:18px;overflow:hidden;\">
-    <div style=\"padding:24px 26px;background:linear-gradient(140deg," . invoice_escape($theme['primaryColor']) . ",#111827 72%);color:#F8FAFC;\">
-      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">
+<body style=\"margin:0;padding:24px;background:radial-gradient(circle at 8% 8%," . invoice_escape($accentGlow) . ",transparent 36%),radial-gradient(circle at 90% 4%," . invoice_escape($primarySoft) . ",transparent 42%),linear-gradient(160deg,#E5ECFF 0%,#EEF3FF 48%,#E0E8FF 100%);font-family:'Inter','Segoe UI',Arial,sans-serif;color:#0F172A;\">
+  <div style=\"max-width:860px;margin:0 auto;background:" . invoice_escape($themeBackground) . ";border:1px solid " . invoice_escape($primarySoft) . ";border-radius:24px;overflow:hidden;box-shadow:0 34px 75px " . invoice_escape($primaryGlow) . ";\">
+    <div style=\"position:relative;padding:30px;background:linear-gradient(132deg," . invoice_escape($themePrimary) . " 0%,#060B1A 48%," . invoice_escape($themeAccent) . " 150%);color:#F8FAFC;\">
+      <div style=\"position:absolute;inset:0;background:radial-gradient(circle at 84% 16%," . invoice_escape($headerOverlayOne) . ",transparent 42%),radial-gradient(circle at 12% 88%," . invoice_escape($headerOverlayTwo) . ",transparent 48%);pointer-events:none;\"></div>
+      <div style=\"position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent 0%," . invoice_escape($themeAccent) . " 50%,transparent 100%);opacity:0.9;\"></div>
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"position:relative;z-index:1;\">
         <tr>
           <td style=\"vertical-align:top;width:50%;\">" . $logoBlock . "
-            <div style=\"margin-top:10px;font-size:12px;font-weight:700;letter-spacing:0.06em;color:#BFDBFE;\">Luxury Footwear &amp; Bags</div>
+            <div style=\"margin-top:10px;font-size:12px;font-weight:800;letter-spacing:0.08em;color:#D7EEFF;text-transform:uppercase;\">Luxury Footwear &amp; Bags</div>
           </td>
           <td style=\"vertical-align:top;text-align:right;\">
             <div style=\"font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#93C5FD;\">$documentLabel</div>
-            <div style=\"font-size:34px;font-weight:900;line-height:1.15;margin-top:8px;\">" . invoice_escape($serial) . "</div>
+            <div style=\"font-size:46px;font-weight:900;line-height:1.06;margin-top:8px;letter-spacing:-0.03em;text-shadow:0 10px 26px " . invoice_escape($primaryGlow) . ";\">" . invoice_escape($serial) . "</div>
             <div style=\"margin-top:10px;\">
               <span style=\"display:inline-block;padding:7px 12px;border-radius:999px;background:" . $statusColor . ";color:#fff;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;\">$paymentStatus</span>
             </div>
@@ -2778,20 +2827,17 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
 
       <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"margin-bottom:22px;\">
         <tr>
-          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;\">
-            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Order ID:</span>
-            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($orderRow['id'] ?? '') . "</span>
-          </td>
-          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;text-align:right;\">
-            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Date:</span>
-            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape(date('Y-m-d H:i')) . "</span>
+          " . $orderMetaCell . "
+          <td style=\"padding:10px 12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;text-align:" . invoice_escape($dateCellAlign) . ";\">
+            <span style=\"font-size:12px;color:#64748B;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;\">Issued:</span>
+            <span style=\"font-size:14px;color:#0F172A;font-weight:800;margin-left:8px;\">" . invoice_escape($issuedAt) . "</span>
           </td>
         </tr>
       </table>
 
-      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;\">
+      <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;\">
         <thead>
-          <tr style=\"background:" . invoice_escape($theme['tableHeaderColor']) . ";\">
+          <tr style=\"background:" . invoice_escape($themeHeader) . ";box-shadow:inset 0 -1px 0 " . invoice_escape($tableHeaderBorder) . ";\">
             <th style=\"padding:12px 10px;width:72px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:left;\">Image</th>
             <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:left;\">Product</th>
             <th style=\"padding:12px 10px;color:#F8FAFC;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;text-align:center;\">Qty</th>
@@ -2811,14 +2857,14 @@ function invoice_build_html($orderRow, $items, $settings, $serial, $typeCode, $d
             </div>
           </td>
           <td style=\"width:50%;vertical-align:top;padding-left:12px;\">
-            <div style=\"padding:14px 16px;border-radius:12px;background:#F8FAFC;border:1px solid #E2E8F0;\">
+            <div style=\"padding:14px 16px;border-radius:12px;background:linear-gradient(160deg,#FFFFFF 0%,#F8FBFF 100%);border:1px solid " . invoice_escape($totalPanelBorder) . ";\">
               <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">
                 <tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Subtotal</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['subtotal']) . "</td></tr>"
                   . (!empty($settings['showDiscount']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Discount</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">-" . invoice_currency($totals['discount']) . "</td></tr>" : '') .
                   (!empty($settings['showShipping']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Shipping</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['shipping']) . "</td></tr>" : '') .
                   (!empty($settings['showTax']) ? "<tr><td style=\"padding:4px 0;color:#475569;font-size:13px;\">Tax</td><td style=\"padding:4px 0;color:#0F172A;font-size:13px;text-align:right;font-weight:700;\">" . invoice_currency($totals['tax']) . "</td></tr>" : '') .
                 "<tr><td colspan=\"2\" style=\"padding-top:8px;border-bottom:1px solid #CBD5E1;\"></td></tr>
-                <tr><td style=\"padding-top:10px;color:#0F172A;font-size:16px;font-weight:900;letter-spacing:0.03em;text-transform:uppercase;\">Grand Total</td><td style=\"padding-top:10px;color:" . invoice_escape($theme['buttonColor']) . ";font-size:20px;text-align:right;font-weight:900;\">" . invoice_currency($totals['grand']) . "</td></tr>
+                <tr><td style=\"padding-top:10px;color:#0F172A;font-size:16px;font-weight:900;letter-spacing:0.03em;text-transform:uppercase;\">Grand Total</td><td style=\"padding-top:10px;color:" . invoice_escape($themeButton) . ";font-size:30px;text-align:right;font-weight:900;letter-spacing:-0.02em;text-shadow:0 8px 18px " . invoice_escape($accentSoft) . ";\">" . invoice_currency($totals['grand']) . "</td></tr>
               </table>
             </div>
           </td>
@@ -2839,7 +2885,12 @@ function invoice_build_plain_text($orderRow, $items, $serial, $totals, $label, $
     $lines = [];
     $lines[] = "SPLARO {$label}";
     $lines[] = "Serial: {$serial}";
-    $lines[] = "Order: " . (string)($orderRow['id'] ?? '');
+    if (!empty($settings['showOrderId'])) {
+        $reference = trim((string)($orderRow['order_no'] ?? $orderRow['id'] ?? ''));
+        if ($reference !== '') {
+            $lines[] = "Order: " . $reference;
+        }
+    }
     $lines[] = "Date: " . date('Y-m-d H:i');
     $lines[] = "Customer: " . (string)($orderRow['customer_name'] ?? '');
     $lines[] = "Email: " . (string)($orderRow['customer_email'] ?? '');
