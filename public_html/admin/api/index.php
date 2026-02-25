@@ -13665,29 +13665,18 @@ function find_user_for_recovery($db, $identifier) {
     }
 
     $emailCandidate = strtolower($raw);
-    if (filter_var($emailCandidate, FILTER_VALIDATE_EMAIL)) {
-        $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1");
-        $stmt->execute([$emailCandidate]);
-        $user = $stmt->fetch();
-        if ($user) {
-            return ['user' => $user, 'type' => 'email', 'normalized' => $emailCandidate];
-        }
+    if (!filter_var($emailCandidate, FILTER_VALIDATE_EMAIL)) {
+        return ['user' => null, 'type' => '', 'normalized' => $emailCandidate];
     }
 
-    $phoneLocal = normalize_recovery_phone_local($raw);
-    if ($phoneLocal !== '') {
-        $variants = array_values(array_unique([$phoneLocal, '88' . $phoneLocal]));
-        $placeholders = implode(',', array_fill(0, count($variants), '?'));
-        $phoneExpr = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '(', ''), ')', ''), '+', '')";
-        $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE {$phoneExpr} IN ({$placeholders}) LIMIT 1");
-        $stmt->execute($variants);
-        $user = $stmt->fetch();
-        if ($user) {
-            return ['user' => $user, 'type' => 'phone', 'normalized' => $phoneLocal];
-        }
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1");
+    $stmt->execute([$emailCandidate]);
+    $user = $stmt->fetch();
+    if ($user) {
+        return ['user' => $user, 'type' => 'email', 'normalized' => $emailCandidate];
     }
 
-    return ['user' => null, 'type' => '', 'normalized' => $raw];
+    return ['user' => null, 'type' => 'email', 'normalized' => $emailCandidate];
 }
 
 // 5.1 PASSWORD RECOVERY PROTOCOL (GENERATE OTP)
@@ -13699,12 +13688,13 @@ if ($method === 'POST' && $action === 'forgot_password') {
 
     $input = json_decode(file_get_contents('php://input'), true);
     $identifier = trim((string)($input['identifier'] ?? ($input['email'] ?? '')));
-    if ($identifier === '') {
-        echo json_encode(["status" => "error", "message" => "INVALID_IDENTITY"]);
+    $emailCandidate = strtolower($identifier);
+    if (!filter_var($emailCandidate, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
         exit;
     }
 
-    $lookup = find_user_for_recovery($db, $identifier);
+    $lookup = find_user_for_recovery($db, $emailCandidate);
     $user = is_array($lookup['user'] ?? null) ? $lookup['user'] : null;
     if ($user) {
         $otp = random_int(100000, 999999);
@@ -13803,12 +13793,13 @@ if ($method === 'POST' && $action === 'reset_password') {
     $identifier = trim((string)($input['identifier'] ?? ($input['email'] ?? '')));
     $otp = trim((string)($input['otp'] ?? ''));
     $new_password = (string)($input['password'] ?? '');
-    if ($identifier === '' || $otp === '' || strlen($new_password) < 6) {
+    $emailCandidate = strtolower($identifier);
+    if (!filter_var($emailCandidate, FILTER_VALIDATE_EMAIL) || $otp === '' || strlen($new_password) < 6) {
         echo json_encode(["status" => "error", "message" => "INVALID_RESET_REQUEST"]);
         exit;
     }
 
-    $lookup = find_user_for_recovery($db, $identifier);
+    $lookup = find_user_for_recovery($db, $emailCandidate);
     $candidate = is_array($lookup['user'] ?? null) ? $lookup['user'] : null;
     if (!$candidate) {
         echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);

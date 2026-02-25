@@ -149,7 +149,6 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
   const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   const isPhone = (val: string) => /^(?:\+?88)?01[3-9]\d{8}$/.test(val.trim());
-  const isRecoveryIdentifier = (val: string) => isEmail(val) || isPhone(val);
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -166,8 +165,8 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       }
     } else {
       if (authMode === 'forgot') {
-        if (!isRecoveryIdentifier(formData.identifier)) {
-          newErrors.identifier = "Valid Email or Phone Required";
+        if (!isEmail(formData.identifier)) {
+          newErrors.identifier = "Valid Email Required";
         }
       } else if (!isEmail(formData.identifier)) {
         newErrors.identifier = "Scientific Email ID Required";
@@ -367,9 +366,11 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         } catch (e) {
           const message = e instanceof Error ? e.message : '';
           if (message === 'IDENTITY_NOT_FOUND') {
-            setErrors({ identifier: 'No account found with this email/phone' });
+            setErrors({ identifier: 'No account found with this email' });
           } else if (message === 'INVALID_IDENTITY') {
-            setErrors({ identifier: 'Enter a valid email or phone number' });
+            setErrors({ identifier: 'Enter a valid email address' });
+          } else if (message === 'INVALID_EMAIL') {
+            setErrors({ identifier: 'Enter a valid email address' });
           } else if (message === 'RATE_LIMIT_EXCEEDED') {
             setErrors({ identifier: 'Too many attempts. Try again after 1 minute' });
           } else if (message === 'RECOVERY_DELIVERY_FAILED') {
@@ -662,13 +663,13 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               </>
             ) : (
               <LuxuryFloatingInput
-                label={authMode === 'forgot' ? 'Email or Phone' : 'Scientific Email ID'}
+                label={authMode === 'forgot' ? 'Email Address' : 'Scientific Email ID'}
                 value={formData.identifier}
                 onChange={v => setFormData({ ...formData, identifier: v })}
                 icon={getIdentityIcon()}
                 error={errors.identifier}
-                isValid={authMode === 'forgot' ? isRecoveryIdentifier(formData.identifier) : isEmail(formData.identifier)}
-                placeholder={authMode === 'forgot' ? 'name@email.com or 01XXXXXXXXX' : 'name@email.com'}
+                isValid={isEmail(formData.identifier)}
+                placeholder="name@email.com"
               />
             )}
 
