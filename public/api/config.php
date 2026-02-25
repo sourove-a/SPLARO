@@ -606,6 +606,12 @@ define('HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD', splaro_env_int('HEALTH_QUEUE_HI
 define('HEALTH_PROBE_STALE_MINUTES', splaro_env_int('HEALTH_PROBE_STALE_MINUTES', 45, 5, 1440));
 define('HEALTH_SHEETS_PROBE_RETRIES', splaro_env_int('HEALTH_SHEETS_PROBE_RETRIES', 2, 1, 3));
 
+// Enterprise admin/security controls
+define('ADMIN_IP_ALLOWLIST_ENFORCED', splaro_env_bool(['ADMIN_IP_ALLOWLIST_ENFORCED', 'IP_ALLOWLIST_ENFORCED'], false));
+define('ADMIN_API_KEY_PREFIX', trim((string)env_or_default('ADMIN_API_KEY_PREFIX', 'splaro_live')));
+define('ABANDONED_CART_MINUTES', splaro_env_int('ABANDONED_CART_MINUTES', 30, 5, 10080));
+define('EXPORT_MAX_ROWS', splaro_env_int('EXPORT_MAX_ROWS', 5000, 100, 50000));
+
 /**
  * Establish Security Handshake with MySQL Database
  */

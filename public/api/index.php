@@ -633,6 +633,49 @@ function ensure_index($db, $table, $indexName, $indexSql) {
     }
 }
 
+function ensure_unique_index_when_clean($db, $table, $indexName, $columnName) {
+    try {
+        $idx = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?");
+        $idx->execute([$table, $indexName]);
+        if ((int)$idx->fetchColumn() > 0) {
+            return true;
+        }
+
+        $column = trim((string)$columnName);
+        if ($column === '') {
+            return false;
+        }
+
+        $dupSql = "SELECT {$column} AS col_value, COUNT(*) AS c
+                   FROM {$table}
+                   WHERE {$column} IS NOT NULL AND {$column} <> ''
+                   GROUP BY {$column}
+                   HAVING COUNT(*) > 1
+                   LIMIT 1";
+        $dup = $db->query($dupSql)->fetch();
+        if ($dup) {
+            splaro_structured_log('schema.unique_index_skipped_duplicates', [
+                'table' => (string)$table,
+                'index_name' => (string)$indexName,
+                'column' => (string)$column,
+                'sample_value' => splaro_clip_text((string)($dup['col_value'] ?? ''), 120),
+                'sample_count' => (int)($dup['c'] ?? 0)
+            ], 'WARN');
+            return false;
+        }
+
+        $db->exec("CREATE UNIQUE INDEX {$indexName} ON {$table}({$column})");
+        return true;
+    } catch (Throwable $e) {
+        splaro_log_exception('schema.ensure_unique_index_when_clean', $e, [
+            'table' => (string)$table,
+            'index_name' => (string)$indexName,
+            'column' => (string)$columnName
+        ], 'WARNING');
+        return false;
+    }
+}
+
 function safe_query_all($db, $sql, $params = []) {
     $applySelectTimeoutHint = static function ($query) {
         $query = (string)$query;
@@ -1168,6 +1211,88 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'product_variants', "CREATE TABLE IF NOT EXISTS `product_variants` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `product_id` varchar(50) NOT NULL,
+      `variant_sku` varchar(120) NOT NULL,
+      `attributes_json` longtext DEFAULT NULL,
+      `price_delta` decimal(12,2) NOT NULL DEFAULT 0.00,
+      `stock` int(11) NOT NULL DEFAULT 0,
+      `status` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+      `sort_order` int(11) NOT NULL DEFAULT 0,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      `deleted_at` datetime DEFAULT NULL,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_product_variants_sku` (`variant_sku`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'stock_movements', "CREATE TABLE IF NOT EXISTS `stock_movements` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `product_id` varchar(50) NOT NULL,
+      `variant_id` bigint(20) unsigned DEFAULT NULL,
+      `movement_type` varchar(30) NOT NULL DEFAULT 'ADJUSTMENT',
+      `delta_qty` int(11) NOT NULL,
+      `stock_before` int(11) DEFAULT NULL,
+      `stock_after` int(11) DEFAULT NULL,
+      `reason` varchar(191) DEFAULT NULL,
+      `reference_type` varchar(60) DEFAULT NULL,
+      `reference_id` varchar(100) DEFAULT NULL,
+      `actor_id` varchar(80) DEFAULT NULL,
+      `ip_address` varchar(45) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'abandoned_carts', "CREATE TABLE IF NOT EXISTS `abandoned_carts` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `session_id` varchar(100) NOT NULL,
+      `user_id` varchar(50) DEFAULT NULL,
+      `email` varchar(255) DEFAULT NULL,
+      `phone` varchar(50) DEFAULT NULL,
+      `cart_hash` char(64) NOT NULL,
+      `items_json` longtext NOT NULL,
+      `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+      `currency` varchar(10) NOT NULL DEFAULT 'BDT',
+      `status` varchar(20) NOT NULL DEFAULT 'ABANDONED',
+      `last_activity_at` datetime NOT NULL,
+      `recovered_order_id` varchar(50) DEFAULT NULL,
+      `notes` text DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_abandoned_carts_hash` (`cart_hash`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_api_keys', "CREATE TABLE IF NOT EXISTS `admin_api_keys` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `key_name` varchar(120) NOT NULL,
+      `key_prefix` varchar(32) NOT NULL,
+      `key_hash` char(64) NOT NULL,
+      `scopes_json` longtext DEFAULT NULL,
+      `created_by` varchar(80) DEFAULT NULL,
+      `last_used_at` datetime DEFAULT NULL,
+      `last_used_ip` varchar(45) DEFAULT NULL,
+      `expires_at` datetime DEFAULT NULL,
+      `revoked_at` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_admin_api_keys_hash` (`key_hash`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'admin_ip_allowlist', "CREATE TABLE IF NOT EXISTS `admin_ip_allowlist` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `cidr` varchar(120) NOT NULL,
+      `label` varchar(120) DEFAULT NULL,
+      `is_active` tinyint(1) NOT NULL DEFAULT 1,
+      `created_by` varchar(80) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `uniq_admin_ip_allowlist_cidr` (`cidr`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_table($db, 'user_events', "CREATE TABLE IF NOT EXISTS `user_events` (
       `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
       `user_id` varchar(50) NOT NULL,
@@ -1451,6 +1576,8 @@ function ensure_core_schema($db) {
     ensure_index($db, 'products', 'idx_products_category_type', 'CREATE INDEX idx_products_category_type ON products(category, type)');
     ensure_index($db, 'products', 'idx_products_status_created', 'CREATE INDEX idx_products_status_created ON products(status, created_at)');
     ensure_index($db, 'products', 'idx_products_stock_status', 'CREATE INDEX idx_products_stock_status ON products(stock, status)');
+    ensure_unique_index_when_clean($db, 'products', 'uniq_products_slug', 'slug');
+    ensure_unique_index_when_clean($db, 'products', 'uniq_products_sku', 'sku');
     ensure_index($db, 'product_images', 'idx_product_images_product', 'CREATE INDEX idx_product_images_product ON product_images(product_id)');
     ensure_index($db, 'product_images', 'idx_product_images_sort', 'CREATE INDEX idx_product_images_sort ON product_images(product_id, sort_order)');
     ensure_index($db, 'order_items', 'idx_order_items_order', 'CREATE INDEX idx_order_items_order ON order_items(order_id)');
@@ -1464,6 +1591,16 @@ function ensure_core_schema($db) {
     ensure_index($db, 'cancellations', 'idx_cancellations_order_status_created', 'CREATE INDEX idx_cancellations_order_status_created ON cancellations(order_id, status, created_at)');
     ensure_index($db, 'cancellations', 'idx_cancellations_user_created', 'CREATE INDEX idx_cancellations_user_created ON cancellations(user_id, created_at)');
     ensure_index($db, 'admin_user_notes', 'idx_admin_user_notes_user_created', 'CREATE INDEX idx_admin_user_notes_user_created ON admin_user_notes(user_id, created_at)');
+    ensure_index($db, 'product_variants', 'idx_product_variants_product_status_updated', 'CREATE INDEX idx_product_variants_product_status_updated ON product_variants(product_id, status, updated_at)');
+    ensure_index($db, 'product_variants', 'idx_product_variants_product_created', 'CREATE INDEX idx_product_variants_product_created ON product_variants(product_id, created_at)');
+    ensure_index($db, 'stock_movements', 'idx_stock_movements_product_created', 'CREATE INDEX idx_stock_movements_product_created ON stock_movements(product_id, created_at)');
+    ensure_index($db, 'stock_movements', 'idx_stock_movements_variant_created', 'CREATE INDEX idx_stock_movements_variant_created ON stock_movements(variant_id, created_at)');
+    ensure_index($db, 'abandoned_carts', 'idx_abandoned_carts_status_activity', 'CREATE INDEX idx_abandoned_carts_status_activity ON abandoned_carts(status, last_activity_at)');
+    ensure_index($db, 'abandoned_carts', 'idx_abandoned_carts_user_activity', 'CREATE INDEX idx_abandoned_carts_user_activity ON abandoned_carts(user_id, last_activity_at)');
+    ensure_index($db, 'abandoned_carts', 'idx_abandoned_carts_session_activity', 'CREATE INDEX idx_abandoned_carts_session_activity ON abandoned_carts(session_id, last_activity_at)');
+    ensure_index($db, 'admin_api_keys', 'idx_admin_api_keys_revoked_expires', 'CREATE INDEX idx_admin_api_keys_revoked_expires ON admin_api_keys(revoked_at, expires_at)');
+    ensure_index($db, 'admin_api_keys', 'idx_admin_api_keys_last_used', 'CREATE INDEX idx_admin_api_keys_last_used ON admin_api_keys(last_used_at)');
+    ensure_index($db, 'admin_ip_allowlist', 'idx_admin_ip_allowlist_active_updated', 'CREATE INDEX idx_admin_ip_allowlist_active_updated ON admin_ip_allowlist(is_active, updated_at)');
     ensure_index($db, 'user_events', 'idx_user_events_user_created', 'CREATE INDEX idx_user_events_user_created ON user_events(user_id, created_at)');
     ensure_index($db, 'user_events', 'idx_user_events_type_created', 'CREATE INDEX idx_user_events_type_created ON user_events(event_type, created_at)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
@@ -1520,6 +1657,26 @@ function maybe_ensure_core_schema($db) {
 }
 
 maybe_ensure_core_schema($db);
+
+function maybe_seed_admin_rbac_defaults($db) {
+    if (!($db instanceof PDO)) {
+        return;
+    }
+    $ttl = 43200; // 12h
+    $cacheKey = md5(DB_HOST . '|' . DB_NAME . '|rbac_seed_v1');
+    $cacheFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_rbac_seed_{$cacheKey}.json";
+    $now = time();
+    if (is_file($cacheFile)) {
+        $payload = json_decode((string)@file_get_contents($cacheFile), true);
+        if (is_array($payload) && isset($payload['checked_at']) && ($now - (int)$payload['checked_at']) < $ttl) {
+            return;
+        }
+    }
+    seed_admin_rbac_defaults($db);
+    @file_put_contents($cacheFile, json_encode(['checked_at' => $now]), LOCK_EX);
+}
+
+maybe_seed_admin_rbac_defaults($db);
 
 // Backward-compatible hot migration for deployments where schema cache skipped new tables.
 ensure_table($db, 'sync_queue', "CREATE TABLE IF NOT EXISTS `sync_queue` (
@@ -1690,6 +1847,95 @@ ensure_column($db, 'campaigns', 'created_by', 'varchar(80) DEFAULT NULL');
 ensure_column($db, 'campaigns', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 ensure_column($db, 'campaign_logs', 'subscription_id', 'bigint(20) unsigned DEFAULT NULL');
 ensure_column($db, 'campaign_logs', 'clicked_at', 'datetime DEFAULT NULL');
+ensure_table($db, 'product_variants', "CREATE TABLE IF NOT EXISTS `product_variants` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` varchar(50) NOT NULL,
+  `variant_sku` varchar(120) NOT NULL,
+  `attributes_json` longtext DEFAULT NULL,
+  `price_delta` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `stock` int(11) NOT NULL DEFAULT 0,
+  `status` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_product_variants_sku` (`variant_sku`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'stock_movements', "CREATE TABLE IF NOT EXISTS `stock_movements` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` varchar(50) NOT NULL,
+  `variant_id` bigint(20) unsigned DEFAULT NULL,
+  `movement_type` varchar(30) NOT NULL DEFAULT 'ADJUSTMENT',
+  `delta_qty` int(11) NOT NULL,
+  `stock_before` int(11) DEFAULT NULL,
+  `stock_after` int(11) DEFAULT NULL,
+  `reason` varchar(191) DEFAULT NULL,
+  `reference_type` varchar(60) DEFAULT NULL,
+  `reference_id` varchar(100) DEFAULT NULL,
+  `actor_id` varchar(80) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'abandoned_carts', "CREATE TABLE IF NOT EXISTS `abandoned_carts` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `session_id` varchar(100) NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `cart_hash` char(64) NOT NULL,
+  `items_json` longtext NOT NULL,
+  `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `currency` varchar(10) NOT NULL DEFAULT 'BDT',
+  `status` varchar(20) NOT NULL DEFAULT 'ABANDONED',
+  `last_activity_at` datetime NOT NULL,
+  `recovered_order_id` varchar(50) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_abandoned_carts_hash` (`cart_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'admin_api_keys', "CREATE TABLE IF NOT EXISTS `admin_api_keys` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `key_name` varchar(120) NOT NULL,
+  `key_prefix` varchar(32) NOT NULL,
+  `key_hash` char(64) NOT NULL,
+  `scopes_json` longtext DEFAULT NULL,
+  `created_by` varchar(80) DEFAULT NULL,
+  `last_used_at` datetime DEFAULT NULL,
+  `last_used_ip` varchar(45) DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_admin_api_keys_hash` (`key_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'admin_ip_allowlist', "CREATE TABLE IF NOT EXISTS `admin_ip_allowlist` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `cidr` varchar(120) NOT NULL,
+  `label` varchar(120) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_admin_ip_allowlist_cidr` (`cidr`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_index($db, 'product_variants', 'idx_product_variants_product_status_updated', 'CREATE INDEX idx_product_variants_product_status_updated ON product_variants(product_id, status, updated_at)');
+ensure_index($db, 'product_variants', 'idx_product_variants_product_created', 'CREATE INDEX idx_product_variants_product_created ON product_variants(product_id, created_at)');
+ensure_index($db, 'stock_movements', 'idx_stock_movements_product_created', 'CREATE INDEX idx_stock_movements_product_created ON stock_movements(product_id, created_at)');
+ensure_index($db, 'stock_movements', 'idx_stock_movements_variant_created', 'CREATE INDEX idx_stock_movements_variant_created ON stock_movements(variant_id, created_at)');
+ensure_index($db, 'abandoned_carts', 'idx_abandoned_carts_status_activity', 'CREATE INDEX idx_abandoned_carts_status_activity ON abandoned_carts(status, last_activity_at)');
+ensure_index($db, 'abandoned_carts', 'idx_abandoned_carts_user_activity', 'CREATE INDEX idx_abandoned_carts_user_activity ON abandoned_carts(user_id, last_activity_at)');
+ensure_index($db, 'abandoned_carts', 'idx_abandoned_carts_session_activity', 'CREATE INDEX idx_abandoned_carts_session_activity ON abandoned_carts(session_id, last_activity_at)');
+ensure_index($db, 'admin_api_keys', 'idx_admin_api_keys_revoked_expires', 'CREATE INDEX idx_admin_api_keys_revoked_expires ON admin_api_keys(revoked_at, expires_at)');
+ensure_index($db, 'admin_api_keys', 'idx_admin_api_keys_last_used', 'CREATE INDEX idx_admin_api_keys_last_used ON admin_api_keys(last_used_at)');
+ensure_index($db, 'admin_ip_allowlist', 'idx_admin_ip_allowlist_active_updated', 'CREATE INDEX idx_admin_ip_allowlist_active_updated ON admin_ip_allowlist(is_active, updated_at)');
+ensure_unique_index_when_clean($db, 'products', 'uniq_products_slug', 'slug');
+ensure_unique_index_when_clean($db, 'products', 'uniq_products_sku', 'sku');
 
 function load_smtp_settings($db) {
     $settings = [
@@ -3038,7 +3284,11 @@ function enforce_global_request_guard($method, $action, $requestAuthUser = null)
         exit;
     }
 
-    $heavyActions = ['sync', 'process_sync_queue', 'sync_queue_status', 'health_probe', 'health_events', 'system_errors', 'recover_dead_queue'];
+    $heavyActions = [
+        'sync', 'process_sync_queue', 'sync_queue_status', 'health_probe', 'health_events', 'system_errors',
+        'recover_dead_queue', 'admin_audit_logs', 'admin_export_products', 'admin_export_orders',
+        'admin_export_customers', 'admin_abandoned_carts', 'admin_stock_movements'
+    ];
     if (in_array($action, $heavyActions, true)) {
         $heavyMax = defined('HEAVY_READ_RATE_LIMIT_MAX') ? (int)HEAVY_READ_RATE_LIMIT_MAX : 40;
         if (is_rate_limited('heavy_' . $action, $heavyMax, $windowSeconds)) {
@@ -3223,6 +3473,274 @@ function log_audit_event($db, $actorId, $action, $entityType, $entityId = null, 
             'entity_type' => (string)$entityType,
             'entity_id' => $entityId !== null ? (string)$entityId : null
         ]);
+    }
+}
+
+function csv_escape_value($value) {
+    if ($value === null) return '';
+    if (is_bool($value)) return $value ? '1' : '0';
+    if (!is_scalar($value)) {
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($encoded)) {
+            $encoded = '';
+        }
+        $value = $encoded;
+    }
+    $raw = (string)$value;
+    $escaped = str_replace('"', '""', $raw);
+    if (strpos($escaped, ',') !== false || strpos($escaped, "\n") !== false || strpos($escaped, "\r") !== false || strpos($escaped, '"') !== false) {
+        return '"' . $escaped . '"';
+    }
+    return $escaped;
+}
+
+function emit_csv_download($filename, array $headers, array $rows) {
+    if (!headers_sent()) {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9._-]/', '-', (string)$filename) . '"');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    }
+    echo implode(',', array_map('csv_escape_value', $headers)) . "\n";
+    foreach ($rows as $row) {
+        $line = [];
+        foreach ($headers as $headerName) {
+            $line[] = csv_escape_value($row[$headerName] ?? '');
+        }
+        echo implode(',', $line) . "\n";
+    }
+}
+
+function get_request_ip() {
+    $forwardedFor = trim((string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+    if ($forwardedFor !== '') {
+        $parts = explode(',', $forwardedFor);
+        foreach ($parts as $part) {
+            $ip = trim((string)$part);
+            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+    }
+    $remote = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($remote !== '' && filter_var($remote, FILTER_VALIDATE_IP)) {
+        return $remote;
+    }
+    return 'UNKNOWN';
+}
+
+function ip_matches_cidr($ip, $cidr) {
+    $ipValue = trim((string)$ip);
+    $cidrValue = trim((string)$cidr);
+    if ($ipValue === '' || $cidrValue === '') {
+        return false;
+    }
+
+    if (strpos($cidrValue, '/') === false) {
+        return hash_equals($cidrValue, $ipValue);
+    }
+
+    [$range, $bitsRaw] = explode('/', $cidrValue, 2);
+    $bits = (int)$bitsRaw;
+    $rangeBin = @inet_pton($range);
+    $ipBin = @inet_pton($ipValue);
+    if ($rangeBin === false || $ipBin === false || strlen($rangeBin) !== strlen($ipBin)) {
+        return false;
+    }
+    $maxBits = strlen($rangeBin) * 8;
+    if ($bits < 0) $bits = 0;
+    if ($bits > $maxBits) $bits = $maxBits;
+
+    $bytes = intdiv($bits, 8);
+    $remainder = $bits % 8;
+    if ($bytes > 0 && substr($rangeBin, 0, $bytes) !== substr($ipBin, 0, $bytes)) {
+        return false;
+    }
+    if ($remainder === 0) {
+        return true;
+    }
+    $mask = (0xFF << (8 - $remainder)) & 0xFF;
+    return ((ord($rangeBin[$bytes]) & $mask) === (ord($ipBin[$bytes]) & $mask));
+}
+
+function is_valid_ip_or_cidr($value) {
+    $cidrValue = trim((string)$value);
+    if ($cidrValue === '') {
+        return false;
+    }
+    if (strpos($cidrValue, '/') === false) {
+        return filter_var($cidrValue, FILTER_VALIDATE_IP) !== false;
+    }
+    [$range, $bitsRaw] = explode('/', $cidrValue, 2);
+    if (filter_var($range, FILTER_VALIDATE_IP) === false) {
+        return false;
+    }
+    if (!preg_match('/^\d+$/', (string)$bitsRaw)) {
+        return false;
+    }
+    $bits = (int)$bitsRaw;
+    $rangeBin = @inet_pton($range);
+    if ($rangeBin === false) {
+        return false;
+    }
+    $maxBits = strlen($rangeBin) * 8;
+    return $bits >= 0 && $bits <= $maxBits;
+}
+
+function normalize_admin_scopes($scopesRaw) {
+    $scopes = [];
+    if (is_string($scopesRaw)) {
+        $scopesRaw = preg_split('/[\s,]+/', $scopesRaw);
+    }
+    if (is_array($scopesRaw)) {
+        foreach ($scopesRaw as $scope) {
+            $value = strtolower(trim((string)$scope));
+            if ($value === '') continue;
+            $value = preg_replace('/[^a-z0-9_.:-]/', '', $value);
+            if ($value === '') continue;
+            $scopes[$value] = true;
+        }
+    }
+    return array_values(array_keys($scopes));
+}
+
+function admin_api_key_hash($rawKey) {
+    return hash_hmac('sha256', (string)$rawKey, (string)APP_AUTH_SECRET);
+}
+
+function authenticate_admin_api_key($rawKey) {
+    $key = trim((string)$rawKey);
+    if ($key === '') {
+        return false;
+    }
+    $db = $GLOBALS['SPLARO_DB_CONNECTION'] ?? null;
+    if (!($db instanceof PDO)) {
+        return false;
+    }
+    $hash = admin_api_key_hash($key);
+    try {
+        $stmt = $db->prepare("SELECT id, revoked_at, expires_at FROM admin_api_keys WHERE key_hash = ? LIMIT 1");
+        $stmt->execute([$hash]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return false;
+        }
+        if (!empty($row['revoked_at'])) {
+            return false;
+        }
+        if (!empty($row['expires_at']) && strtotime((string)$row['expires_at']) !== false && strtotime((string)$row['expires_at']) < time()) {
+            return false;
+        }
+        $touch = $db->prepare("UPDATE admin_api_keys SET last_used_at = NOW(), last_used_ip = ? WHERE id = ?");
+        $touch->execute([get_request_ip(), (int)$row['id']]);
+        return true;
+    } catch (Throwable $e) {
+        splaro_log_exception('admin_api_key.authenticate', $e, [], 'WARNING');
+        return false;
+    }
+}
+
+function admin_ip_allowlist_is_allowed($db, $ip) {
+    if (!($db instanceof PDO)) {
+        return true;
+    }
+    try {
+        $rows = safe_query_all($db, "SELECT cidr FROM admin_ip_allowlist WHERE is_active = 1 ORDER BY id ASC");
+        if (empty($rows)) {
+            return true;
+        }
+        foreach ($rows as $row) {
+            $cidr = trim((string)($row['cidr'] ?? ''));
+            if ($cidr === '') continue;
+            if (ip_matches_cidr($ip, $cidr)) {
+                return true;
+            }
+        }
+        return false;
+    } catch (Throwable $e) {
+        splaro_log_exception('admin_ip_allowlist.check', $e, ['ip' => (string)$ip], 'WARNING');
+        return true;
+    }
+}
+
+function record_stock_movement($db, $productId, $variantId, $movementType, $deltaQty, $stockBefore, $stockAfter, $reason = '', $referenceType = '', $referenceId = '', $actorId = null) {
+    if (!($db instanceof PDO)) {
+        return false;
+    }
+    try {
+        $stmt = $db->prepare("INSERT INTO stock_movements (product_id, variant_id, movement_type, delta_qty, stock_before, stock_after, reason, reference_type, reference_id, actor_id, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([
+            (string)$productId,
+            $variantId !== null ? (int)$variantId : null,
+            splaro_clip_text(strtoupper((string)$movementType), 30),
+            (int)$deltaQty,
+            $stockBefore !== null ? (int)$stockBefore : null,
+            $stockAfter !== null ? (int)$stockAfter : null,
+            splaro_clip_text((string)$reason, 191),
+            splaro_clip_text((string)$referenceType, 60),
+            splaro_clip_text((string)$referenceId, 100),
+            $actorId !== null ? (string)$actorId : null,
+            get_request_ip()
+        ]);
+        return true;
+    } catch (Throwable $e) {
+        splaro_log_exception('stock_movement.insert', $e, [
+            'product_id' => (string)$productId,
+            'variant_id' => $variantId !== null ? (int)$variantId : null
+        ], 'WARNING');
+        return false;
+    }
+}
+
+function seed_admin_rbac_defaults($db) {
+    if (!($db instanceof PDO)) {
+        return;
+    }
+    try {
+        $roles = [
+            ['SUPER_ADMIN', 'Super Admin', 'Full unrestricted access'],
+            ['ADMIN', 'Admin', 'Operational admin access'],
+            ['EDITOR', 'Editor', 'Catalog + content editor'],
+            ['VIEWER', 'Viewer', 'Read-only visibility']
+        ];
+        $roleStmt = $db->prepare("INSERT IGNORE INTO admin_roles (id, name, description, created_at) VALUES (?, ?, ?, NOW())");
+        foreach ($roles as $roleRow) {
+            $roleStmt->execute([$roleRow[0], $roleRow[1], $roleRow[2]]);
+        }
+
+        $permissions = [
+            ['orders.view', 'View orders'],
+            ['orders.manage', 'Manage order lifecycle'],
+            ['catalog.view', 'View product catalog'],
+            ['catalog.manage', 'Manage products and variants'],
+            ['customers.view', 'View customers'],
+            ['customers.manage', 'Manage customer records'],
+            ['campaigns.manage', 'Manage campaigns'],
+            ['reports.view', 'View analytics and reports'],
+            ['settings.manage', 'Manage store settings'],
+            ['health.view', 'View system health'],
+            ['security.manage', 'Manage security settings and keys'],
+            ['exports.manage', 'Export/import data']
+        ];
+        $permStmt = $db->prepare("INSERT IGNORE INTO admin_permissions (id, label, created_at) VALUES (?, ?, NOW())");
+        foreach ($permissions as $permissionRow) {
+            $permStmt->execute([$permissionRow[0], $permissionRow[1]]);
+        }
+
+        $defaultRolePermissions = [
+            'SUPER_ADMIN' => array_map(function ($row) { return (string)$row[0]; }, $permissions),
+            'ADMIN' => ['orders.view', 'orders.manage', 'catalog.view', 'catalog.manage', 'customers.view', 'customers.manage', 'campaigns.manage', 'reports.view', 'settings.manage', 'health.view', 'exports.manage'],
+            'EDITOR' => ['catalog.view', 'catalog.manage', 'customers.view', 'campaigns.manage', 'reports.view', 'exports.manage'],
+            'VIEWER' => ['orders.view', 'catalog.view', 'customers.view', 'reports.view', 'health.view']
+        ];
+
+        $linkStmt = $db->prepare("INSERT IGNORE INTO admin_role_permissions (role_id, permission_id, created_at) VALUES (?, ?, NOW())");
+        foreach ($defaultRolePermissions as $roleId => $rolePermissions) {
+            foreach ($rolePermissions as $permissionId) {
+                $linkStmt->execute([(string)$roleId, (string)$permissionId]);
+            }
+        }
+    } catch (Throwable $e) {
+        splaro_log_exception('rbac.seed_defaults', $e, [], 'WARNING');
     }
 }
 
@@ -3554,7 +4072,7 @@ function get_admin_role($authUser) {
 }
 
 function can_edit_cms_role($role) {
-    return in_array(strtoupper((string)$role), ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true);
+    return in_array(strtoupper((string)$role), ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true);
 }
 
 function is_strong_password($password) {
@@ -3715,13 +4233,16 @@ function get_authenticated_user_from_request() {
 }
 
 function is_admin_authenticated($authUser) {
-    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         return true;
     }
 
     $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
     if ($adminKeyHeader !== '') {
         if (ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $adminKeyHeader)) {
+            return true;
+        }
+        if (authenticate_admin_api_key($adminKeyHeader)) {
             return true;
         }
     }
@@ -3734,6 +4255,19 @@ function require_admin_access($authUser) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "ADMIN_ACCESS_REQUIRED"]);
         exit;
+    }
+    if (ADMIN_IP_ALLOWLIST_ENFORCED) {
+        $requestIp = get_request_ip();
+        $db = $GLOBALS['SPLARO_DB_CONNECTION'] ?? null;
+        if ($requestIp === 'UNKNOWN' || !admin_ip_allowlist_is_allowed($db, $requestIp)) {
+            splaro_record_system_error('ADMIN_SECURITY', 'ERROR', 'Admin access denied by IP allowlist.', [
+                'ip' => $requestIp,
+                'action' => (string)($_GET['action'] ?? '')
+            ]);
+            http_response_code(403);
+            echo json_encode(["status" => "error", "message" => "ADMIN_IP_NOT_ALLOWED"]);
+            exit;
+        }
     }
 }
 
@@ -6057,7 +6591,7 @@ function require_campaign_write_access($authUser) {
     require_admin_access($authUser);
     if (is_array($authUser)) {
         $role = strtoupper((string)get_admin_role($authUser));
-        if (!in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        if (!in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
             http_response_code(403);
             echo json_encode(["status" => "error", "message" => "CAMPAIGN_WRITE_ACCESS_REQUIRED"]);
             exit;
@@ -8374,7 +8908,7 @@ if ($method === 'POST' && $action === 'admin_user_role') {
         echo json_encode(["status" => "error", "message" => "USER_ID_AND_ROLE_REQUIRED"]);
         exit;
     }
-    $allowedRoles = ['USER', 'VIEWER', 'EDITOR', 'ADMIN', 'SUPER_ADMIN'];
+    $allowedRoles = ['USER', 'VIEWER', 'EDITOR', 'ADMIN', 'OWNER', 'SUPER_ADMIN'];
     if (!in_array($nextRole, $allowedRoles, true)) {
         echo json_encode(["status" => "error", "message" => "INVALID_ROLE"]);
         exit;
@@ -8402,6 +8936,1738 @@ if ($method === 'POST' && $action === 'admin_user_role') {
             "role" => $nextRole
         ]
     ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_permission_matrix') {
+    require_admin_access($requestAuthUser);
+    try {
+        $roles = safe_query_all($db, "SELECT id, name, description, created_at FROM admin_roles ORDER BY FIELD(id, 'SUPER_ADMIN', 'ADMIN', 'EDITOR', 'VIEWER'), id ASC");
+        $permissions = safe_query_all($db, "SELECT id, label, created_at FROM admin_permissions ORDER BY id ASC");
+        $links = safe_query_all($db, "SELECT role_id, permission_id FROM admin_role_permissions");
+
+        $matrix = [];
+        foreach ($roles as $roleRow) {
+            $roleId = (string)($roleRow['id'] ?? '');
+            if ($roleId === '') continue;
+            $matrix[$roleId] = [];
+        }
+        foreach ($links as $linkRow) {
+            $roleId = (string)($linkRow['role_id'] ?? '');
+            $permissionId = (string)($linkRow['permission_id'] ?? '');
+            if ($roleId === '' || $permissionId === '') continue;
+            if (!isset($matrix[$roleId])) {
+                $matrix[$roleId] = [];
+            }
+            $matrix[$roleId][] = $permissionId;
+        }
+        foreach ($matrix as $roleId => $permissionIds) {
+            $unique = array_values(array_unique(array_map('strval', $permissionIds)));
+            sort($unique, SORT_STRING);
+            $matrix[$roleId] = $unique;
+        }
+
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "roles" => array_map(function ($role) {
+                    return [
+                        "id" => (string)($role['id'] ?? ''),
+                        "name" => (string)($role['name'] ?? ''),
+                        "description" => (string)($role['description'] ?? ''),
+                        "createdAt" => (string)($role['created_at'] ?? '')
+                    ];
+                }, $roles),
+                "permissions" => array_map(function ($permission) {
+                    return [
+                        "id" => (string)($permission['id'] ?? ''),
+                        "label" => (string)($permission['label'] ?? ''),
+                        "createdAt" => (string)($permission['created_at'] ?? '')
+                    ];
+                }, $permissions),
+                "matrix" => $matrix
+            ]
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.permission_matrix.get', $e);
+        echo json_encode(["status" => "error", "message" => "PERMISSION_MATRIX_FETCH_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_permission_matrix_update') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "PERMISSION_UPDATE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.permission_matrix_update.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $roleId = strtoupper(trim((string)($input['roleId'] ?? $input['role_id'] ?? '')));
+    $permissionIdsRaw = $input['permissionIds'] ?? ($input['permission_ids'] ?? []);
+    if ($roleId === '') {
+        echo json_encode(["status" => "error", "message" => "ROLE_ID_REQUIRED"]);
+        exit;
+    }
+    if (!is_array($permissionIdsRaw)) {
+        echo json_encode(["status" => "error", "message" => "PERMISSION_IDS_REQUIRED"]);
+        exit;
+    }
+
+    $permissionIds = [];
+    foreach ($permissionIdsRaw as $permissionIdRaw) {
+        $permissionId = strtolower(trim((string)$permissionIdRaw));
+        if ($permissionId === '') continue;
+        $permissionIds[$permissionId] = true;
+    }
+    $permissionIds = array_values(array_keys($permissionIds));
+
+    try {
+        $roleStmt = $db->prepare("SELECT id FROM admin_roles WHERE id = ? LIMIT 1");
+        $roleStmt->execute([$roleId]);
+        $roleRow = $roleStmt->fetch();
+        if (!$roleRow) {
+            echo json_encode(["status" => "error", "message" => "ROLE_NOT_FOUND"]);
+            exit;
+        }
+
+        $validPermissionIds = [];
+        if (!empty($permissionIds)) {
+            $in = implode(',', array_fill(0, count($permissionIds), '?'));
+            $permissionRows = safe_query_all($db, "SELECT id FROM admin_permissions WHERE id IN ({$in})", $permissionIds);
+            foreach ($permissionRows as $permissionRow) {
+                $validPermissionIds[] = (string)($permissionRow['id'] ?? '');
+            }
+            sort($validPermissionIds, SORT_STRING);
+            sort($permissionIds, SORT_STRING);
+            if ($validPermissionIds !== $permissionIds) {
+                echo json_encode(["status" => "error", "message" => "INVALID_PERMISSION_IDS"]);
+                exit;
+            }
+        }
+
+        $db->beginTransaction();
+        $beforeRows = safe_query_all($db, "SELECT permission_id FROM admin_role_permissions WHERE role_id = ?", [$roleId]);
+        $beforeIds = [];
+        foreach ($beforeRows as $beforeRow) {
+            $beforeIds[] = (string)($beforeRow['permission_id'] ?? '');
+        }
+        sort($beforeIds, SORT_STRING);
+
+        $db->prepare("DELETE FROM admin_role_permissions WHERE role_id = ?")->execute([$roleId]);
+        if (!empty($permissionIds)) {
+            $insert = $db->prepare("INSERT INTO admin_role_permissions (role_id, permission_id, created_at) VALUES (?, ?, NOW())");
+            foreach ($permissionIds as $permissionId) {
+                $insert->execute([$roleId, $permissionId]);
+            }
+        }
+        $db->commit();
+
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_PERMISSION_MATRIX_UPDATE', "Permissions updated for role {$roleId}", $actor, $ip);
+        log_audit_event(
+            $db,
+            $actor,
+            'RBAC_PERMISSION_MATRIX_UPDATED',
+            'ADMIN_ROLE',
+            $roleId,
+            ['permissionIds' => $beforeIds],
+            ['permissionIds' => $permissionIds],
+            $ip
+        );
+
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "roleId" => $roleId,
+                "permissionIds" => $permissionIds
+            ]
+        ]);
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('admin.permission_matrix.update', $e, [
+            'role_id' => (string)$roleId
+        ]);
+        echo json_encode(["status" => "error", "message" => "PERMISSION_MATRIX_UPDATE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_api_keys') {
+    require_admin_access($requestAuthUser);
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "API_KEY_VIEW_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $search = trim((string)($_GET['search'] ?? ''));
+    $activeFilter = trim((string)($_GET['active'] ?? ''));
+
+    $where = [];
+    $params = [];
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(key_name LIKE ? OR key_prefix LIKE ? OR created_by LIKE ? OR last_used_ip LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if ($activeFilter !== '') {
+        $active = filter_var($activeFilter, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($active !== null) {
+            if ($active) {
+                $where[] = "revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())";
+            } else {
+                $where[] = "(revoked_at IS NOT NULL OR (expires_at IS NOT NULL AND expires_at <= NOW()))";
+            }
+        }
+    }
+    $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+    $total = safe_query_count($db, "SELECT COUNT(*) FROM admin_api_keys {$whereSql}", $params);
+    $rows = safe_query_all(
+        $db,
+        "SELECT id, key_name, key_prefix, scopes_json, created_by, last_used_at, last_used_ip, expires_at, revoked_at, created_at, updated_at
+         FROM admin_api_keys
+         {$whereSql}
+         ORDER BY id DESC
+         LIMIT {$limit} OFFSET {$offset}",
+        $params
+    );
+
+    $items = [];
+    foreach ($rows as $row) {
+        $scopes = safe_json_decode_assoc($row['scopes_json'] ?? '[]', []);
+        if (!is_array($scopes)) $scopes = [];
+        $isExpired = !empty($row['expires_at']) && strtotime((string)$row['expires_at']) !== false && strtotime((string)$row['expires_at']) <= time();
+        $items[] = [
+            "id" => (int)($row['id'] ?? 0),
+            "keyName" => (string)($row['key_name'] ?? ''),
+            "keyPrefix" => (string)($row['key_prefix'] ?? ''),
+            "scopes" => array_values(array_map('strval', $scopes)),
+            "createdBy" => (string)($row['created_by'] ?? ''),
+            "lastUsedAt" => $row['last_used_at'] ?? null,
+            "lastUsedIp" => (string)($row['last_used_ip'] ?? ''),
+            "expiresAt" => $row['expires_at'] ?? null,
+            "revokedAt" => $row['revoked_at'] ?? null,
+            "isActive" => empty($row['revoked_at']) && !$isExpired,
+            "createdAt" => (string)($row['created_at'] ?? ''),
+            "updatedAt" => (string)($row['updated_at'] ?? '')
+        ];
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $items,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "total" => $total
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_api_key_create') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "API_KEY_CREATE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.api_key_create.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $keyName = splaro_clip_text(trim((string)($input['keyName'] ?? $input['key_name'] ?? '')), 120);
+    if ($keyName === '') {
+        echo json_encode(["status" => "error", "message" => "KEY_NAME_REQUIRED"]);
+        exit;
+    }
+    $scopes = normalize_admin_scopes($input['scopes'] ?? []);
+
+    $expiresAtRaw = trim((string)($input['expiresAt'] ?? $input['expires_at'] ?? ''));
+    $expiresAt = null;
+    if ($expiresAtRaw !== '') {
+        $expiresTs = strtotime($expiresAtRaw);
+        if ($expiresTs === false) {
+            echo json_encode(["status" => "error", "message" => "INVALID_EXPIRES_AT"]);
+            exit;
+        }
+        if ($expiresTs <= time()) {
+            echo json_encode(["status" => "error", "message" => "EXPIRES_AT_MUST_BE_FUTURE"]);
+            exit;
+        }
+        $expiresAt = date('Y-m-d H:i:s', $expiresTs);
+    }
+
+    $scopesJson = json_encode($scopes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($scopesJson)) {
+        splaro_integration_trace('admin.api_key_create.scopes_encode_failed', [
+            'json_error' => json_last_error_msg(),
+            'scope_count' => count($scopes)
+        ], 'ERROR');
+        echo json_encode(["status" => "error", "message" => "INVALID_SCOPES"]);
+        exit;
+    }
+
+    try {
+        $entropy = bin2hex(random_bytes(24));
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.api_key_create.random_bytes', $e);
+        $entropy = bin2hex(openssl_random_pseudo_bytes(24));
+    }
+    $rawApiKey = ADMIN_API_KEY_PREFIX . '_' . $entropy;
+    $keyPrefix = substr($rawApiKey, 0, 32);
+    $keyHash = admin_api_key_hash($rawApiKey);
+
+    try {
+        $stmt = $db->prepare("INSERT INTO admin_api_keys (key_name, key_prefix, key_hash, scopes_json, created_by, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $stmt->execute([
+            $keyName,
+            $keyPrefix,
+            $keyHash,
+            $scopesJson,
+            $actor,
+            $expiresAt
+        ]);
+        $keyId = (int)$db->lastInsertId();
+
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_API_KEY_CREATED', "Admin API key {$keyId} created", $actor, $ip);
+        log_audit_event(
+            $db,
+            $actor,
+            'ADMIN_API_KEY_CREATED',
+            'ADMIN_API_KEY',
+            (string)$keyId,
+            null,
+            [
+                'keyName' => $keyName,
+                'keyPrefix' => $keyPrefix,
+                'scopes' => $scopes,
+                'expiresAt' => $expiresAt
+            ],
+            $ip
+        );
+
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "id" => $keyId,
+                "keyName" => $keyName,
+                "keyPrefix" => $keyPrefix,
+                "scopes" => $scopes,
+                "expiresAt" => $expiresAt,
+                "apiKey" => $rawApiKey
+            ]
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.api_key_create', $e, ['key_name' => (string)$keyName]);
+        echo json_encode(["status" => "error", "message" => "API_KEY_CREATE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_api_key_revoke') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "API_KEY_REVOKE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.api_key_revoke.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $keyId = (int)($input['id'] ?? $input['keyId'] ?? 0);
+    if ($keyId <= 0) {
+        echo json_encode(["status" => "error", "message" => "KEY_ID_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $lookup = $db->prepare("SELECT id, revoked_at FROM admin_api_keys WHERE id = ? LIMIT 1");
+        $lookup->execute([$keyId]);
+        $row = $lookup->fetch();
+        if (!$row) {
+            echo json_encode(["status" => "error", "message" => "API_KEY_NOT_FOUND"]);
+            exit;
+        }
+
+        if (!empty($row['revoked_at'])) {
+            echo json_encode(["status" => "success", "message" => "ALREADY_REVOKED"]);
+            exit;
+        }
+
+        $db->prepare("UPDATE admin_api_keys SET revoked_at = NOW(), updated_at = NOW() WHERE id = ?")->execute([$keyId]);
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_API_KEY_REVOKED', "Admin API key {$keyId} revoked", $actor, $ip);
+        log_audit_event(
+            $db,
+            $actor,
+            'ADMIN_API_KEY_REVOKED',
+            'ADMIN_API_KEY',
+            (string)$keyId,
+            ['revokedAt' => null],
+            ['revokedAt' => date('Y-m-d H:i:s')],
+            $ip
+        );
+
+        echo json_encode(["status" => "success", "message" => "API_KEY_REVOKED"]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.api_key_revoke', $e, ['id' => $keyId]);
+        echo json_encode(["status" => "error", "message" => "API_KEY_REVOKE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_ip_allowlist') {
+    require_admin_access($requestAuthUser);
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_VIEW_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $rows = safe_query_all(
+            $db,
+            "SELECT id, cidr, label, is_active, created_by, created_at, updated_at
+             FROM admin_ip_allowlist
+             ORDER BY is_active DESC, updated_at DESC, id DESC"
+        );
+        $requestIp = get_request_ip();
+        $allowed = admin_ip_allowlist_is_allowed($db, $requestIp);
+        echo json_encode([
+            "status" => "success",
+            "data" => array_map(function ($row) {
+                return [
+                    "id" => (int)($row['id'] ?? 0),
+                    "cidr" => (string)($row['cidr'] ?? ''),
+                    "label" => (string)($row['label'] ?? ''),
+                    "isActive" => (int)($row['is_active'] ?? 0) === 1,
+                    "createdBy" => (string)($row['created_by'] ?? ''),
+                    "createdAt" => (string)($row['created_at'] ?? ''),
+                    "updatedAt" => (string)($row['updated_at'] ?? '')
+                ];
+            }, $rows),
+            "meta" => [
+                "requestIp" => $requestIp,
+                "requestAllowed" => $allowed
+            ]
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.ip_allowlist.get', $e);
+        echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_FETCH_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_ip_allowlist_upsert') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_UPDATE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.ip_allowlist_upsert.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $id = (int)($input['id'] ?? 0);
+    $cidr = trim((string)($input['cidr'] ?? ''));
+    $label = splaro_clip_text(trim((string)($input['label'] ?? '')), 120);
+    $isActiveInput = $input['isActive'] ?? ($input['is_active'] ?? true);
+    $isActive = filter_var($isActiveInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($isActive === null) $isActive = true;
+
+    if ($cidr === '' || !is_valid_ip_or_cidr($cidr)) {
+        echo json_encode(["status" => "error", "message" => "VALID_CIDR_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        if ($id > 0) {
+            $beforeStmt = $db->prepare("SELECT id, cidr, label, is_active FROM admin_ip_allowlist WHERE id = ? LIMIT 1");
+            $beforeStmt->execute([$id]);
+            $before = $beforeStmt->fetch();
+            if (!$before) {
+                echo json_encode(["status" => "error", "message" => "ALLOWLIST_ENTRY_NOT_FOUND"]);
+                exit;
+            }
+
+            $stmt = $db->prepare("UPDATE admin_ip_allowlist SET cidr = ?, label = ?, is_active = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$cidr, $label !== '' ? $label : null, $isActive ? 1 : 0, $id]);
+            $entryId = $id;
+
+            log_audit_event(
+                $db,
+                $actor,
+                'ADMIN_IP_ALLOWLIST_UPDATED',
+                'ADMIN_IP_ALLOWLIST',
+                (string)$entryId,
+                [
+                    'cidr' => (string)($before['cidr'] ?? ''),
+                    'label' => (string)($before['label'] ?? ''),
+                    'isActive' => (int)($before['is_active'] ?? 0) === 1
+                ],
+                [
+                    'cidr' => $cidr,
+                    'label' => $label,
+                    'isActive' => (bool)$isActive
+                ],
+                get_request_ip()
+            );
+        } else {
+            $stmt = $db->prepare("INSERT INTO admin_ip_allowlist (cidr, label, is_active, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+            $stmt->execute([$cidr, $label !== '' ? $label : null, $isActive ? 1 : 0, $actor]);
+            $entryId = (int)$db->lastInsertId();
+
+            log_audit_event(
+                $db,
+                $actor,
+                'ADMIN_IP_ALLOWLIST_CREATED',
+                'ADMIN_IP_ALLOWLIST',
+                (string)$entryId,
+                null,
+                [
+                    'cidr' => $cidr,
+                    'label' => $label,
+                    'isActive' => (bool)$isActive
+                ],
+                get_request_ip()
+            );
+        }
+
+        log_system_event($db, 'ADMIN_IP_ALLOWLIST_UPSERT', "Admin IP allowlist entry {$entryId} upserted", $actor, get_request_ip());
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "id" => $entryId,
+                "cidr" => $cidr,
+                "label" => $label,
+                "isActive" => (bool)$isActive
+            ]
+        ]);
+    } catch (Throwable $e) {
+        $code = strtoupper((string)$e->getCode());
+        $message = strtolower((string)$e->getMessage());
+        if ($code === '23000' || strpos($message, 'duplicate') !== false) {
+            echo json_encode(["status" => "error", "message" => "ALLOWLIST_ENTRY_DUPLICATE"]);
+        } else {
+            splaro_log_exception('admin.ip_allowlist.upsert', $e, ['id' => $id, 'cidr' => $cidr]);
+            echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_UPSERT_FAILED"]);
+        }
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_ip_allowlist_delete') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
+        echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_DELETE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.ip_allowlist_delete.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $id = (int)($input['id'] ?? 0);
+    if ($id <= 0) {
+        echo json_encode(["status" => "error", "message" => "ALLOWLIST_ID_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $beforeStmt = $db->prepare("SELECT id, cidr, label, is_active FROM admin_ip_allowlist WHERE id = ? LIMIT 1");
+        $beforeStmt->execute([$id]);
+        $before = $beforeStmt->fetch();
+        if (!$before) {
+            echo json_encode(["status" => "error", "message" => "ALLOWLIST_ENTRY_NOT_FOUND"]);
+            exit;
+        }
+
+        $db->prepare("DELETE FROM admin_ip_allowlist WHERE id = ?")->execute([$id]);
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_IP_ALLOWLIST_DELETED', "Admin IP allowlist entry {$id} deleted", $actor, $ip);
+        log_audit_event(
+            $db,
+            $actor,
+            'ADMIN_IP_ALLOWLIST_DELETED',
+            'ADMIN_IP_ALLOWLIST',
+            (string)$id,
+            [
+                'cidr' => (string)($before['cidr'] ?? ''),
+                'label' => (string)($before['label'] ?? ''),
+                'isActive' => (int)($before['is_active'] ?? 0) === 1
+            ],
+            null,
+            $ip
+        );
+
+        echo json_encode(["status" => "success", "message" => "ALLOWLIST_ENTRY_DELETED"]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.ip_allowlist.delete', $e, ['id' => $id]);
+        echo json_encode(["status" => "error", "message" => "IP_ALLOWLIST_DELETE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_stock_movements') {
+    require_admin_access($requestAuthUser);
+    $pagination = admin_parse_pagination_params(30, 200);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $search = trim((string)($_GET['search'] ?? ''));
+    $productId = trim((string)($_GET['productId'] ?? $_GET['product_id'] ?? ''));
+    $variantId = (int)($_GET['variantId'] ?? $_GET['variant_id'] ?? 0);
+    $movementType = strtoupper(trim((string)($_GET['movementType'] ?? $_GET['movement_type'] ?? '')));
+
+    $where = [];
+    $params = [];
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(sm.product_id LIKE ? OR p.name LIKE ? OR sm.reason LIKE ? OR sm.reference_id LIKE ? OR sm.actor_id LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if ($productId !== '') {
+        $where[] = "sm.product_id = ?";
+        $params[] = $productId;
+    }
+    if ($variantId > 0) {
+        $where[] = "sm.variant_id = ?";
+        $params[] = $variantId;
+    }
+    if ($movementType !== '') {
+        $where[] = "UPPER(sm.movement_type) = ?";
+        $params[] = $movementType;
+    }
+    $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+    $total = safe_query_count(
+        $db,
+        "SELECT COUNT(*)
+         FROM stock_movements sm
+         LEFT JOIN products p ON p.id = sm.product_id
+         LEFT JOIN product_variants pv ON pv.id = sm.variant_id
+         {$whereSql}",
+        $params
+    );
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            sm.id,
+            sm.product_id,
+            p.name AS product_name,
+            sm.variant_id,
+            pv.variant_sku,
+            sm.movement_type,
+            sm.delta_qty,
+            sm.stock_before,
+            sm.stock_after,
+            sm.reason,
+            sm.reference_type,
+            sm.reference_id,
+            sm.actor_id,
+            sm.ip_address,
+            sm.created_at
+         FROM stock_movements sm
+         LEFT JOIN products p ON p.id = sm.product_id
+         LEFT JOIN product_variants pv ON pv.id = sm.variant_id
+         {$whereSql}
+         ORDER BY sm.id DESC
+         LIMIT {$limit} OFFSET {$offset}",
+        $params
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "data" => array_map(function ($row) {
+            return [
+                "id" => (int)($row['id'] ?? 0),
+                "productId" => (string)($row['product_id'] ?? ''),
+                "productName" => (string)($row['product_name'] ?? ''),
+                "variantId" => !empty($row['variant_id']) ? (int)$row['variant_id'] : null,
+                "variantSku" => (string)($row['variant_sku'] ?? ''),
+                "movementType" => (string)($row['movement_type'] ?? ''),
+                "deltaQty" => (int)($row['delta_qty'] ?? 0),
+                "stockBefore" => isset($row['stock_before']) ? (int)$row['stock_before'] : null,
+                "stockAfter" => isset($row['stock_after']) ? (int)$row['stock_after'] : null,
+                "reason" => (string)($row['reason'] ?? ''),
+                "referenceType" => (string)($row['reference_type'] ?? ''),
+                "referenceId" => (string)($row['reference_id'] ?? ''),
+                "actorId" => (string)($row['actor_id'] ?? ''),
+                "ipAddress" => (string)($row['ip_address'] ?? ''),
+                "createdAt" => (string)($row['created_at'] ?? '')
+            ];
+        }, $rows),
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "total" => $total
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_stock_adjust') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        echo json_encode(["status" => "error", "message" => "STOCK_ADJUST_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.stock_adjust.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $productId = trim((string)($input['productId'] ?? $input['product_id'] ?? ''));
+    $variantId = (int)($input['variantId'] ?? $input['variant_id'] ?? 0);
+    $deltaQtyRaw = $input['deltaQty'] ?? $input['delta_qty'] ?? null;
+    $stockAfterRaw = $input['stockAfter'] ?? $input['stock_after'] ?? null;
+    $reason = splaro_clip_text(trim((string)($input['reason'] ?? 'Manual stock adjustment')), 191);
+
+    if ($productId === '' && $variantId <= 0) {
+        echo json_encode(["status" => "error", "message" => "PRODUCT_OR_VARIANT_REQUIRED"]);
+        exit;
+    }
+    if ($deltaQtyRaw === null && $stockAfterRaw === null) {
+        echo json_encode(["status" => "error", "message" => "DELTA_OR_STOCK_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $db->beginTransaction();
+        $stockBefore = 0;
+        $stockAfter = 0;
+        $deltaQty = 0;
+        $resolvedProductId = $productId;
+        $resolvedVariantId = $variantId > 0 ? $variantId : null;
+
+        if ($variantId > 0) {
+            $variantStmt = $db->prepare("SELECT id, product_id, stock FROM product_variants WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+            $variantStmt->execute([$variantId]);
+            $variant = $variantStmt->fetch();
+            if (!$variant) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "VARIANT_NOT_FOUND"]);
+                exit;
+            }
+            $resolvedProductId = (string)($variant['product_id'] ?? '');
+            $stockBefore = (int)($variant['stock'] ?? 0);
+            if ($deltaQtyRaw !== null) {
+                $deltaQty = (int)$deltaQtyRaw;
+                $stockAfter = $stockBefore + $deltaQty;
+            } else {
+                $stockAfter = (int)$stockAfterRaw;
+                $deltaQty = $stockAfter - $stockBefore;
+            }
+            if ($stockAfter < 0) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "NEGATIVE_STOCK_NOT_ALLOWED"]);
+                exit;
+            }
+            $db->prepare("UPDATE product_variants SET stock = ?, updated_at = NOW() WHERE id = ?")->execute([$stockAfter, $variantId]);
+        } else {
+            $productStmt = $db->prepare("SELECT id, stock FROM products WHERE id = ? LIMIT 1");
+            $productStmt->execute([$productId]);
+            $productRow = $productStmt->fetch();
+            if (!$productRow) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "PRODUCT_NOT_FOUND"]);
+                exit;
+            }
+            $stockBefore = (int)($productRow['stock'] ?? 0);
+            if ($deltaQtyRaw !== null) {
+                $deltaQty = (int)$deltaQtyRaw;
+                $stockAfter = $stockBefore + $deltaQty;
+            } else {
+                $stockAfter = (int)$stockAfterRaw;
+                $deltaQty = $stockAfter - $stockBefore;
+            }
+            if ($stockAfter < 0) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "NEGATIVE_STOCK_NOT_ALLOWED"]);
+                exit;
+            }
+            $db->prepare("UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?")->execute([$stockAfter, $productId]);
+        }
+
+        $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $movementOk = record_stock_movement(
+            $db,
+            $resolvedProductId,
+            $resolvedVariantId,
+            'ADJUSTMENT',
+            $deltaQty,
+            $stockBefore,
+            $stockAfter,
+            $reason,
+            'ADMIN',
+            (string)($resolvedVariantId !== null ? $resolvedVariantId : $resolvedProductId),
+            $actorId
+        );
+        $db->commit();
+
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_STOCK_ADJUST', "Stock adjusted for product {$resolvedProductId}", $actorId, $ip);
+        log_audit_event(
+            $db,
+            $actorId,
+            'STOCK_ADJUSTED',
+            $resolvedVariantId !== null ? 'PRODUCT_VARIANT' : 'PRODUCT',
+            (string)($resolvedVariantId !== null ? $resolvedVariantId : $resolvedProductId),
+            ['stock' => $stockBefore],
+            ['stock' => $stockAfter, 'deltaQty' => $deltaQty, 'reason' => $reason],
+            $ip
+        );
+
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "productId" => $resolvedProductId,
+                "variantId" => $resolvedVariantId,
+                "stockBefore" => $stockBefore,
+                "stockAfter" => $stockAfter,
+                "deltaQty" => $deltaQty,
+                "movementLogged" => $movementOk
+            ]
+        ]);
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('admin.stock_adjust', $e, [
+            'product_id' => (string)$productId,
+            'variant_id' => $variantId > 0 ? $variantId : null
+        ]);
+        echo json_encode(["status" => "error", "message" => "STOCK_ADJUST_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_product_variants') {
+    require_admin_access($requestAuthUser);
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $productId = trim((string)($_GET['productId'] ?? $_GET['product_id'] ?? ''));
+    $search = trim((string)($_GET['search'] ?? ''));
+    $status = strtoupper(trim((string)($_GET['status'] ?? '')));
+
+    $where = ["pv.deleted_at IS NULL"];
+    $params = [];
+    if ($productId !== '') {
+        $where[] = "pv.product_id = ?";
+        $params[] = $productId;
+    }
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(pv.variant_sku LIKE ? OR p.name LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if ($status !== '') {
+        $where[] = "UPPER(pv.status) = ?";
+        $params[] = $status;
+    }
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
+
+    $total = safe_query_count(
+        $db,
+        "SELECT COUNT(*)
+         FROM product_variants pv
+         INNER JOIN products p ON p.id = pv.product_id
+         {$whereSql}",
+        $params
+    );
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            pv.id,
+            pv.product_id,
+            pv.variant_sku,
+            pv.attributes_json,
+            pv.price_delta,
+            pv.stock,
+            pv.status,
+            pv.sort_order,
+            pv.created_at,
+            pv.updated_at,
+            p.name AS product_name
+         FROM product_variants pv
+         INNER JOIN products p ON p.id = pv.product_id
+         {$whereSql}
+         ORDER BY pv.updated_at DESC, pv.id DESC
+         LIMIT {$limit} OFFSET {$offset}",
+        $params
+    );
+
+    $data = [];
+    foreach ($rows as $row) {
+        $attributes = safe_json_decode_assoc($row['attributes_json'] ?? '[]', []);
+        $data[] = [
+            'id' => (int)($row['id'] ?? 0),
+            'productId' => (string)($row['product_id'] ?? ''),
+            'productName' => (string)($row['product_name'] ?? ''),
+            'variantSku' => (string)($row['variant_sku'] ?? ''),
+            'attributes' => is_array($attributes) ? $attributes : [],
+            'priceDelta' => (float)($row['price_delta'] ?? 0),
+            'stock' => (int)($row['stock'] ?? 0),
+            'status' => (string)($row['status'] ?? 'ACTIVE'),
+            'sortOrder' => (int)($row['sort_order'] ?? 0),
+            'createdAt' => (string)($row['created_at'] ?? ''),
+            'updatedAt' => (string)($row['updated_at'] ?? '')
+        ];
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $data,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "total" => $total
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_product_variant_upsert') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        echo json_encode(["status" => "error", "message" => "VARIANT_WRITE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.variant_upsert.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $variantId = (int)($input['id'] ?? 0);
+    $productId = trim((string)($input['productId'] ?? $input['product_id'] ?? ''));
+    $variantSku = splaro_clip_text(trim((string)($input['variantSku'] ?? $input['variant_sku'] ?? '')), 120);
+    $status = strtoupper(trim((string)($input['status'] ?? 'ACTIVE')));
+    if (!in_array($status, ['ACTIVE', 'INACTIVE'], true)) {
+        $status = 'ACTIVE';
+    }
+    $sortOrder = (int)($input['sortOrder'] ?? $input['sort_order'] ?? 0);
+    $priceDelta = (float)($input['priceDelta'] ?? $input['price_delta'] ?? 0);
+    $stock = (int)($input['stock'] ?? 0);
+    if ($stock < 0) $stock = 0;
+
+    if ($productId === '' || $variantSku === '') {
+        echo json_encode(["status" => "error", "message" => "PRODUCT_AND_SKU_REQUIRED"]);
+        exit;
+    }
+
+    $attributesRaw = $input['attributes'] ?? ($input['attributes_json'] ?? []);
+    if (is_string($attributesRaw)) {
+        $decodedAttrs = json_decode($attributesRaw, true);
+        if ($decodedAttrs === null && json_last_error() !== JSON_ERROR_NONE) {
+            splaro_integration_trace('admin.variant_upsert.attributes_decode_failed', [
+                'json_error' => json_last_error_msg()
+            ], 'ERROR');
+            echo json_encode(["status" => "error", "message" => "INVALID_ATTRIBUTES"]);
+            exit;
+        }
+        $attributesRaw = $decodedAttrs;
+    }
+    if (!is_array($attributesRaw)) {
+        $attributesRaw = [];
+    }
+    $attributesJson = json_encode($attributesRaw, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($attributesJson)) {
+        splaro_integration_trace('admin.variant_upsert.attributes_encode_failed', [
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
+        echo json_encode(["status" => "error", "message" => "INVALID_ATTRIBUTES"]);
+        exit;
+    }
+
+    try {
+        $productStmt = $db->prepare("SELECT id FROM products WHERE id = ? LIMIT 1");
+        $productStmt->execute([$productId]);
+        if (!$productStmt->fetch()) {
+            echo json_encode(["status" => "error", "message" => "PRODUCT_NOT_FOUND"]);
+            exit;
+        }
+
+        $db->beginTransaction();
+        $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $ip = get_request_ip();
+
+        if ($variantId > 0) {
+            $existingStmt = $db->prepare("SELECT id, product_id, variant_sku, attributes_json, price_delta, stock, status, sort_order FROM product_variants WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+            $existingStmt->execute([$variantId]);
+            $existing = $existingStmt->fetch();
+            if (!$existing) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "VARIANT_NOT_FOUND"]);
+                exit;
+            }
+
+            $dupStmt = $db->prepare("SELECT id FROM product_variants WHERE variant_sku = ? AND id <> ? AND deleted_at IS NULL LIMIT 1");
+            $dupStmt->execute([$variantSku, $variantId]);
+            if ($dupStmt->fetch()) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "VARIANT_SKU_ALREADY_EXISTS"]);
+                exit;
+            }
+
+            $db->prepare("UPDATE product_variants SET product_id = ?, variant_sku = ?, attributes_json = ?, price_delta = ?, stock = ?, status = ?, sort_order = ?, updated_at = NOW() WHERE id = ?")
+               ->execute([$productId, $variantSku, $attributesJson, $priceDelta, $stock, $status, $sortOrder, $variantId]);
+
+            if ((int)($existing['stock'] ?? 0) !== $stock) {
+                $deltaQty = $stock - (int)($existing['stock'] ?? 0);
+                record_stock_movement(
+                    $db,
+                    $productId,
+                    $variantId,
+                    'ADJUSTMENT',
+                    $deltaQty,
+                    (int)($existing['stock'] ?? 0),
+                    $stock,
+                    'Variant stock upsert adjustment',
+                    'VARIANT',
+                    (string)$variantId,
+                    $actorId
+                );
+            }
+
+            log_audit_event(
+                $db,
+                $actorId,
+                'PRODUCT_VARIANT_UPDATED',
+                'PRODUCT_VARIANT',
+                (string)$variantId,
+                [
+                    'variantSku' => (string)($existing['variant_sku'] ?? ''),
+                    'priceDelta' => (float)($existing['price_delta'] ?? 0),
+                    'stock' => (int)($existing['stock'] ?? 0),
+                    'status' => (string)($existing['status'] ?? 'ACTIVE'),
+                    'sortOrder' => (int)($existing['sort_order'] ?? 0)
+                ],
+                [
+                    'variantSku' => $variantSku,
+                    'priceDelta' => $priceDelta,
+                    'stock' => $stock,
+                    'status' => $status,
+                    'sortOrder' => $sortOrder
+                ],
+                $ip
+            );
+            $resultId = $variantId;
+        } else {
+            $dupStmt = $db->prepare("SELECT id FROM product_variants WHERE variant_sku = ? AND deleted_at IS NULL LIMIT 1");
+            $dupStmt->execute([$variantSku]);
+            if ($dupStmt->fetch()) {
+                if ($db->inTransaction()) $db->rollBack();
+                echo json_encode(["status" => "error", "message" => "VARIANT_SKU_ALREADY_EXISTS"]);
+                exit;
+            }
+
+            $db->prepare("INSERT INTO product_variants (product_id, variant_sku, attributes_json, price_delta, stock, status, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())")
+               ->execute([$productId, $variantSku, $attributesJson, $priceDelta, $stock, $status, $sortOrder]);
+            $resultId = (int)$db->lastInsertId();
+
+            if ($stock !== 0) {
+                record_stock_movement(
+                    $db,
+                    $productId,
+                    $resultId,
+                    'INITIAL',
+                    $stock,
+                    0,
+                    $stock,
+                    'Variant created with initial stock',
+                    'VARIANT',
+                    (string)$resultId,
+                    $actorId
+                );
+            }
+
+            log_audit_event(
+                $db,
+                $actorId,
+                'PRODUCT_VARIANT_CREATED',
+                'PRODUCT_VARIANT',
+                (string)$resultId,
+                null,
+                [
+                    'variantSku' => $variantSku,
+                    'priceDelta' => $priceDelta,
+                    'stock' => $stock,
+                    'status' => $status,
+                    'sortOrder' => $sortOrder
+                ],
+                $ip
+            );
+        }
+
+        $db->commit();
+        log_system_event($db, 'ADMIN_PRODUCT_VARIANT_UPSERT', "Variant {$resultId} upserted", $actorId, $ip);
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "id" => $resultId,
+                "productId" => $productId,
+                "variantSku" => $variantSku,
+                "attributes" => $attributesRaw,
+                "priceDelta" => $priceDelta,
+                "stock" => $stock,
+                "status" => $status,
+                "sortOrder" => $sortOrder
+            ]
+        ]);
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('admin.variant_upsert', $e, [
+            'variant_id' => $variantId > 0 ? $variantId : null,
+            'product_id' => $productId
+        ]);
+        echo json_encode(["status" => "error", "message" => "VARIANT_UPSERT_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_product_variant_delete') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        echo json_encode(["status" => "error", "message" => "VARIANT_DELETE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.variant_delete.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $variantId = (int)($input['id'] ?? 0);
+    if ($variantId <= 0) {
+        echo json_encode(["status" => "error", "message" => "VARIANT_ID_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $beforeStmt = $db->prepare("SELECT id, product_id, variant_sku, status FROM product_variants WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+        $beforeStmt->execute([$variantId]);
+        $before = $beforeStmt->fetch();
+        if (!$before) {
+            echo json_encode(["status" => "error", "message" => "VARIANT_NOT_FOUND"]);
+            exit;
+        }
+        $db->prepare("UPDATE product_variants SET deleted_at = NOW(), status = 'INACTIVE', updated_at = NOW() WHERE id = ?")->execute([$variantId]);
+
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_PRODUCT_VARIANT_DELETED', "Variant {$variantId} soft-deleted", $actor, $ip);
+        log_audit_event(
+            $db,
+            $actor,
+            'PRODUCT_VARIANT_DELETED',
+            'PRODUCT_VARIANT',
+            (string)$variantId,
+            [
+                'status' => (string)($before['status'] ?? 'ACTIVE'),
+                'deleted' => false
+            ],
+            [
+                'status' => 'INACTIVE',
+                'deleted' => true
+            ],
+            $ip
+        );
+        echo json_encode(["status" => "success", "message" => "VARIANT_DELETED"]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.variant_delete', $e, ['id' => $variantId]);
+        echo json_encode(["status" => "error", "message" => "VARIANT_DELETE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_abandoned_carts') {
+    require_admin_access($requestAuthUser);
+    $pagination = admin_parse_pagination_params(20, 100);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $status = strtoupper(trim((string)($_GET['status'] ?? '')));
+    $search = trim((string)($_GET['search'] ?? ''));
+
+    $where = [];
+    $params = [];
+    if ($status !== '') {
+        $where[] = "UPPER(ac.status) = ?";
+        $params[] = $status;
+    }
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(ac.session_id LIKE ? OR ac.user_id LIKE ? OR ac.email LIKE ? OR ac.phone LIKE ? OR ac.recovered_order_id LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+    $total = safe_query_count($db, "SELECT COUNT(*) FROM abandoned_carts ac {$whereSql}", $params);
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            ac.id,
+            ac.session_id,
+            ac.user_id,
+            ac.email,
+            ac.phone,
+            ac.cart_hash,
+            ac.items_json,
+            ac.subtotal,
+            ac.currency,
+            ac.status,
+            ac.last_activity_at,
+            ac.recovered_order_id,
+            ac.notes,
+            ac.created_at,
+            ac.updated_at
+         FROM abandoned_carts ac
+         {$whereSql}
+         ORDER BY ac.last_activity_at DESC, ac.id DESC
+         LIMIT {$limit} OFFSET {$offset}",
+        $params
+    );
+
+    $data = [];
+    foreach ($rows as $row) {
+        $items = safe_json_decode_assoc($row['items_json'] ?? '[]', []);
+        $data[] = [
+            "id" => (int)($row['id'] ?? 0),
+            "sessionId" => (string)($row['session_id'] ?? ''),
+            "userId" => (string)($row['user_id'] ?? ''),
+            "email" => (string)($row['email'] ?? ''),
+            "phone" => (string)($row['phone'] ?? ''),
+            "cartHash" => (string)($row['cart_hash'] ?? ''),
+            "items" => is_array($items) ? $items : [],
+            "subtotal" => (float)($row['subtotal'] ?? 0),
+            "currency" => (string)($row['currency'] ?? 'BDT'),
+            "status" => (string)($row['status'] ?? 'ABANDONED'),
+            "lastActivityAt" => (string)($row['last_activity_at'] ?? ''),
+            "recoveredOrderId" => (string)($row['recovered_order_id'] ?? ''),
+            "notes" => (string)($row['notes'] ?? ''),
+            "createdAt" => (string)($row['created_at'] ?? ''),
+            "updatedAt" => (string)($row['updated_at'] ?? '')
+        ];
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $data,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "total" => $total
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'upsert_abandoned_cart') {
+    if (is_rate_limited('upsert_abandoned_cart_' . get_request_ip(), 80, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('abandoned_cart.upsert.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $sessionId = trim((string)($input['sessionId'] ?? $input['session_id'] ?? resolve_session_id()));
+    if ($sessionId === '') {
+        try {
+            $sessionId = 'sess_' . bin2hex(random_bytes(8));
+        } catch (Throwable $e) {
+            splaro_log_exception('abandoned_cart.session_id.generate', $e, [], 'WARNING');
+            $sessionId = 'sess_' . uniqid('', true);
+        }
+    }
+
+    $authUserId = is_array($requestAuthUser) ? (string)($requestAuthUser['id'] ?? '') : '';
+    $userId = trim((string)($input['userId'] ?? $input['user_id'] ?? $authUserId));
+    $email = trim((string)($input['email'] ?? ''));
+    $phone = trim((string)($input['phone'] ?? ''));
+    $currency = strtoupper(trim((string)($input['currency'] ?? 'BDT')));
+    if ($currency === '') $currency = 'BDT';
+    $status = strtoupper(trim((string)($input['status'] ?? 'ABANDONED')));
+    if (!in_array($status, ['ACTIVE', 'ABANDONED', 'RECOVERED', 'RESOLVED'], true)) {
+        $status = 'ABANDONED';
+    }
+    $items = $input['items'] ?? [];
+    if (!is_array($items)) $items = [];
+    $subtotal = isset($input['subtotal']) ? (float)$input['subtotal'] : 0.0;
+    $notes = splaro_clip_text(trim((string)($input['notes'] ?? '')), 1000);
+
+    $itemsJson = json_encode($items, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($itemsJson)) {
+        splaro_integration_trace('abandoned_cart.upsert.items_encode_failed', [
+            'json_error' => json_last_error_msg(),
+            'item_count' => count($items)
+        ], 'ERROR');
+        echo json_encode(["status" => "error", "message" => "INVALID_ITEMS_PAYLOAD"]);
+        exit;
+    }
+
+    $cartHash = hash('sha256', implode('|', [
+        $sessionId,
+        $userId,
+        strtolower($email),
+        $itemsJson
+    ]));
+    $lastActivityAt = date('Y-m-d H:i:s');
+    $recoveredOrderId = trim((string)($input['recoveredOrderId'] ?? $input['recovered_order_id'] ?? ''));
+
+    try {
+        $existingStmt = $db->prepare("SELECT id, status FROM abandoned_carts WHERE cart_hash = ? LIMIT 1");
+        $existingStmt->execute([$cartHash]);
+        $existing = $existingStmt->fetch();
+
+        if ($existing) {
+            $db->prepare("UPDATE abandoned_carts
+                SET session_id = ?, user_id = ?, email = ?, phone = ?, items_json = ?, subtotal = ?, currency = ?, status = ?, last_activity_at = ?, recovered_order_id = ?, notes = ?, updated_at = NOW()
+                WHERE id = ?")
+               ->execute([
+                   $sessionId,
+                   $userId !== '' ? $userId : null,
+                   $email !== '' ? $email : null,
+                   $phone !== '' ? $phone : null,
+                   $itemsJson,
+                   $subtotal,
+                   $currency,
+                   $status,
+                   $lastActivityAt,
+                   $recoveredOrderId !== '' ? $recoveredOrderId : null,
+                   $notes !== '' ? $notes : null,
+                   (int)$existing['id']
+               ]);
+            $recordId = (int)$existing['id'];
+        } else {
+            $db->prepare("INSERT INTO abandoned_carts (session_id, user_id, email, phone, cart_hash, items_json, subtotal, currency, status, last_activity_at, recovered_order_id, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())")
+               ->execute([
+                   $sessionId,
+                   $userId !== '' ? $userId : null,
+                   $email !== '' ? $email : null,
+                   $phone !== '' ? $phone : null,
+                   $cartHash,
+                   $itemsJson,
+                   $subtotal,
+                   $currency,
+                   $status,
+                   $lastActivityAt,
+                   $recoveredOrderId !== '' ? $recoveredOrderId : null,
+                   $notes !== '' ? $notes : null
+               ]);
+            $recordId = (int)$db->lastInsertId();
+        }
+
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "id" => $recordId,
+                "sessionId" => $sessionId,
+                "status" => $status,
+                "lastActivityAt" => $lastActivityAt
+            ]
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('abandoned_cart.upsert', $e, [
+            'session_id' => (string)$sessionId,
+            'user_id' => (string)$userId
+        ]);
+        echo json_encode(["status" => "error", "message" => "ABANDONED_CART_UPSERT_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_abandoned_cart_resolve') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+
+    $rawBody = file_get_contents('php://input');
+    $input = json_decode((string)$rawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('admin.abandoned_cart_resolve.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text((string)$rawBody, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
+    $id = (int)($input['id'] ?? 0);
+    $recoveredOrderId = trim((string)($input['recoveredOrderId'] ?? $input['recovered_order_id'] ?? ''));
+    $notes = splaro_clip_text(trim((string)($input['notes'] ?? '')), 1000);
+    if ($id <= 0) {
+        echo json_encode(["status" => "error", "message" => "ABANDONED_CART_ID_REQUIRED"]);
+        exit;
+    }
+
+    try {
+        $beforeStmt = $db->prepare("SELECT id, status, recovered_order_id, notes FROM abandoned_carts WHERE id = ? LIMIT 1");
+        $beforeStmt->execute([$id]);
+        $before = $beforeStmt->fetch();
+        if (!$before) {
+            echo json_encode(["status" => "error", "message" => "ABANDONED_CART_NOT_FOUND"]);
+            exit;
+        }
+
+        $nextStatus = $recoveredOrderId !== '' ? 'RECOVERED' : 'RESOLVED';
+        $db->prepare("UPDATE abandoned_carts SET status = ?, recovered_order_id = ?, notes = ?, updated_at = NOW() WHERE id = ?")
+           ->execute([
+               $nextStatus,
+               $recoveredOrderId !== '' ? $recoveredOrderId : null,
+               $notes !== '' ? $notes : null,
+               $id
+           ]);
+
+        $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+        $ip = get_request_ip();
+        log_system_event($db, 'ADMIN_ABANDONED_CART_RESOLVE', "Abandoned cart {$id} marked {$nextStatus}", $actor, $ip);
+        log_audit_event(
+            $db,
+            $actor,
+            'ABANDONED_CART_STATUS_UPDATED',
+            'ABANDONED_CART',
+            (string)$id,
+            [
+                'status' => (string)($before['status'] ?? ''),
+                'recoveredOrderId' => (string)($before['recovered_order_id'] ?? ''),
+                'notes' => (string)($before['notes'] ?? '')
+            ],
+            [
+                'status' => $nextStatus,
+                'recoveredOrderId' => $recoveredOrderId,
+                'notes' => $notes
+            ],
+            $ip
+        );
+
+        echo json_encode([
+            "status" => "success",
+            "data" => [
+                "id" => $id,
+                "status" => $nextStatus,
+                "recoveredOrderId" => $recoveredOrderId
+            ]
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('admin.abandoned_cart_resolve', $e, ['id' => $id]);
+        echo json_encode(["status" => "error", "message" => "ABANDONED_CART_RESOLVE_FAILED"]);
+    }
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_audit_logs') {
+    require_admin_access($requestAuthUser);
+    $pagination = admin_parse_pagination_params(50, 200);
+    $limit = (int)$pagination['limit'];
+    $offset = (int)$pagination['offset'];
+    $actorId = trim((string)($_GET['actorId'] ?? $_GET['actor_id'] ?? ''));
+    $actionFilter = trim((string)($_GET['eventAction'] ?? $_GET['action_name'] ?? ''));
+    $entityType = strtoupper(trim((string)($_GET['entityType'] ?? $_GET['entity_type'] ?? '')));
+    $search = trim((string)($_GET['search'] ?? ''));
+    $dateFrom = trim((string)($_GET['date_from'] ?? ''));
+    $dateTo = trim((string)($_GET['date_to'] ?? ''));
+
+    $where = [];
+    $params = [];
+    if ($actorId !== '') {
+        $where[] = "al.actor_id = ?";
+        $params[] = $actorId;
+    }
+    if ($actionFilter !== '') {
+        $where[] = "al.action = ?";
+        $params[] = $actionFilter;
+    }
+    if ($entityType !== '') {
+        $where[] = "UPPER(al.entity_type) = ?";
+        $params[] = $entityType;
+    }
+    if ($search !== '') {
+        $wild = '%' . $search . '%';
+        $where[] = "(al.actor_id LIKE ? OR al.action LIKE ? OR al.entity_type LIKE ? OR al.entity_id LIKE ?)";
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+        $params[] = $wild;
+    }
+    if ($dateFrom !== '') {
+        $where[] = "al.created_at >= ?";
+        $params[] = $dateFrom . ' 00:00:00';
+    }
+    if ($dateTo !== '') {
+        $where[] = "al.created_at <= ?";
+        $params[] = $dateTo . ' 23:59:59';
+    }
+    $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+    $total = safe_query_count($db, "SELECT COUNT(*) FROM audit_logs al {$whereSql}", $params);
+    $rows = safe_query_all(
+        $db,
+        "SELECT id, actor_id, action, entity_type, entity_id, before_json, after_json, ip_address, created_at
+         FROM audit_logs al
+         {$whereSql}
+         ORDER BY id DESC
+         LIMIT {$limit} OFFSET {$offset}",
+        $params
+    );
+
+    $data = [];
+    foreach ($rows as $row) {
+        $before = safe_json_decode_assoc($row['before_json'] ?? null, []);
+        $after = safe_json_decode_assoc($row['after_json'] ?? null, []);
+        $data[] = [
+            "id" => (int)($row['id'] ?? 0),
+            "actorId" => (string)($row['actor_id'] ?? ''),
+            "action" => (string)($row['action'] ?? ''),
+            "entityType" => (string)($row['entity_type'] ?? ''),
+            "entityId" => (string)($row['entity_id'] ?? ''),
+            "before" => is_array($before) ? $before : [],
+            "after" => is_array($after) ? $after : [],
+            "ipAddress" => (string)($row['ip_address'] ?? ''),
+            "createdAt" => (string)($row['created_at'] ?? '')
+        ];
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "data" => $data,
+        "meta" => [
+            "page" => (int)$pagination['page'],
+            "limit" => $limit,
+            "total" => $total
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_export_products') {
+    require_admin_access($requestAuthUser);
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $limit = (int)($_GET['limit'] ?? EXPORT_MAX_ROWS);
+    if ($limit < 1) $limit = 1;
+    if ($limit > EXPORT_MAX_ROWS) $limit = EXPORT_MAX_ROWS;
+    $rows = safe_query_all(
+        $db,
+        "SELECT id, name, slug, brand, category, type, price, discount_price, stock, sku, barcode, status, featured, created_at, updated_at
+         FROM products
+         ORDER BY updated_at DESC
+         LIMIT {$limit}"
+    );
+
+    emit_csv_download('products_export_' . date('Ymd_His') . '.csv', [
+        'id', 'name', 'slug', 'brand', 'category', 'type', 'price', 'discount_price', 'stock', 'sku', 'barcode', 'status', 'featured', 'created_at', 'updated_at'
+    ], $rows);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_export_orders') {
+    require_admin_access($requestAuthUser);
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $limit = (int)($_GET['limit'] ?? EXPORT_MAX_ROWS);
+    if ($limit < 1) $limit = 1;
+    if ($limit > EXPORT_MAX_ROWS) $limit = EXPORT_MAX_ROWS;
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            o.id,
+            o.order_no,
+            o.user_id,
+            o.customer_name,
+            o.customer_email,
+            o.phone,
+            o.total,
+            o.status,
+            o.payment_method,
+            o.payment_status,
+            o.tracking_number,
+            o.created_at,
+            o.updated_at,
+            (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS items_count
+         FROM orders o
+         ORDER BY o.created_at DESC
+         LIMIT {$limit}"
+    );
+
+    emit_csv_download('orders_export_' . date('Ymd_His') . '.csv', [
+        'id', 'order_no', 'user_id', 'customer_name', 'customer_email', 'phone', 'total', 'status', 'payment_method', 'payment_status', 'tracking_number', 'items_count', 'created_at', 'updated_at'
+    ], $rows);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'admin_export_customers') {
+    require_admin_access($requestAuthUser);
+    $adminRole = get_admin_role($requestAuthUser);
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    $limit = (int)($_GET['limit'] ?? EXPORT_MAX_ROWS);
+    if ($limit < 1) $limit = 1;
+    if ($limit > EXPORT_MAX_ROWS) $limit = EXPORT_MAX_ROWS;
+    $rows = safe_query_all(
+        $db,
+        "SELECT
+            u.id,
+            u.name,
+            u.email,
+            u.phone,
+            u.role,
+            u.is_blocked,
+            u.created_at,
+            u.updated_at,
+            COALESCE((SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id), 0) AS total_orders,
+            COALESCE((SELECT SUM(o.total) FROM orders o WHERE o.user_id = u.id), 0) AS lifetime_value
+         FROM users u
+         WHERE u.deleted_at IS NULL
+         ORDER BY u.created_at DESC
+         LIMIT {$limit}"
+    );
+
+    emit_csv_download('customers_export_' . date('Ymd_His') . '.csv', [
+        'id', 'name', 'email', 'phone', 'role', 'is_blocked', 'total_orders', 'lifetime_value', 'created_at', 'updated_at'
+    ], $rows);
     exit;
 }
 
@@ -9478,7 +11744,7 @@ if ($method === 'POST' && $action === 'sync_products') {
                 sub_category_slug = VALUES(sub_category_slug),
                 product_url = VALUES(product_url)");
 
-        $existingStmt = $db->prepare("SELECT id, price, status, image FROM products WHERE id = ? LIMIT 1");
+        $existingStmt = $db->prepare("SELECT id, price, status, image, stock FROM products WHERE id = ? LIMIT 1");
         $slugLookupStmt = $db->prepare("SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1");
         $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
         $insertImageStmt = $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -9517,6 +11783,10 @@ if ($method === 'POST' && $action === 'sync_products') {
             $subCategorySlug = $subCategory !== '' ? slugify_text($p['subCategorySlug'] ?? $p['sub_category_slug'] ?? $subCategory) : null;
             $status = strtoupper((string)($p['status'] ?? 'PUBLISHED')) === 'DRAFT' ? 'DRAFT' : 'PUBLISHED';
             $hideWhenOutOfStock = !empty($p['hideWhenOutOfStock']) ? 1 : 0;
+            $incomingStock = isset($p['stock']) ? (int)$p['stock'] : 50;
+            if ($incomingStock < 0) {
+                $incomingStock = 0;
+            }
 
             $galleryImages = [];
             if (is_array($p['galleryImages'] ?? null)) {
@@ -9617,7 +11887,7 @@ if ($method === 'POST' && $action === 'sync_products') {
                 ($p['featured'] ?? false) ? 1 : 0,
                 $p['sku'] ?? null,
                 $p['barcode'] ?? null,
-                $p['stock'] ?? 50,
+                $incomingStock,
                 isset($p['lowStockThreshold']) && $p['lowStockThreshold'] !== '' ? max(0, (int)$p['lowStockThreshold']) : (isset($p['low_stock_threshold']) && $p['low_stock_threshold'] !== '' ? max(0, (int)$p['low_stock_threshold']) : null),
                 $status,
                 $hideWhenOutOfStock,
@@ -9661,6 +11931,32 @@ if ($method === 'POST' && $action === 'sync_products') {
                 if ((int)($existing['price'] ?? 0) !== (int)$p['price']) {
                     audit_log_insert($db, $actorId, 'PRICE_CHANGED', 'PRODUCT', $productId, ['price' => (int)($existing['price'] ?? 0)], ['price' => (int)$p['price']], $ipAddress);
                 }
+                if ((int)($existing['stock'] ?? 0) !== (int)$incomingStock) {
+                    $deltaQty = (int)$incomingStock - (int)($existing['stock'] ?? 0);
+                    record_stock_movement(
+                        $db,
+                        $productId,
+                        null,
+                        'ADJUSTMENT',
+                        $deltaQty,
+                        (int)($existing['stock'] ?? 0),
+                        (int)$incomingStock,
+                        'Product sync stock update',
+                        'PRODUCT_SYNC',
+                        $productId,
+                        $actorId
+                    );
+                    audit_log_insert(
+                        $db,
+                        $actorId,
+                        'STOCK_CHANGED',
+                        'PRODUCT',
+                        $productId,
+                        ['stock' => (int)($existing['stock'] ?? 0)],
+                        ['stock' => (int)$incomingStock, 'deltaQty' => $deltaQty],
+                        $ipAddress
+                    );
+                }
                 if (strtoupper((string)($existing['status'] ?? 'PUBLISHED')) !== $status) {
                     audit_log_insert($db, $actorId, $status === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED', 'PRODUCT', $productId, ['status' => (string)($existing['status'] ?? 'PUBLISHED')], ['status' => $status], $ipAddress);
                 }
@@ -9672,6 +11968,21 @@ if ($method === 'POST' && $action === 'sync_products') {
                     'status' => $status,
                     'slug' => $productSlug
                 ], $ipAddress);
+                if ($incomingStock !== 0) {
+                    record_stock_movement(
+                        $db,
+                        $productId,
+                        null,
+                        'INITIAL',
+                        (int)$incomingStock,
+                        0,
+                        (int)$incomingStock,
+                        'Product sync initial stock',
+                        'PRODUCT_SYNC',
+                        $productId,
+                        $actorId
+                    );
+                }
             }
         }
 
@@ -9860,10 +12171,10 @@ if ($method === 'POST' && $action === 'signup') {
     }
 
     $role = strtoupper(trim((string)($input['role'] ?? 'USER')));
-    if (!in_array($role, ['USER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (!in_array($role, ['USER', 'ADMIN', 'OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $role = 'USER';
     }
-    if (in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
         if (ADMIN_KEY === '' || !hash_equals(ADMIN_KEY, $adminKeyHeader)) {
             $role = 'USER';
@@ -9914,12 +12225,12 @@ if ($method === 'POST' && $action === 'signup') {
         }
         $existingRole = strtoupper((string)($existing['role'] ?? 'USER'));
         $persistRole = $existingRole;
-        if ($isAdminIdentity || in_array($existingRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        if ($isAdminIdentity || in_array($existingRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
             $persistRole = in_array($role, ['SUPER_ADMIN', 'EDITOR', 'VIEWER'], true) ? $role : $existingRole;
-            if (!in_array($persistRole, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            if (!in_array($persistRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
                 $persistRole = 'ADMIN';
             }
-        } elseif (in_array($role, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        } elseif (in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
             $persistRole = $role;
         } elseif (in_array($existingRole, ['USER'], true)) {
             $persistRole = 'USER';
@@ -11500,7 +13811,7 @@ if ($method === 'POST' && $action === 'update_order_metadata') {
 if ($method === 'POST' && $action === 'generate_invoice_document') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['ADMIN', 'SUPER_ADMIN'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN'], true)) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "INVOICE_ADMIN_REQUIRED"]);
         exit;

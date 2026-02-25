@@ -42,7 +42,11 @@ CREATE TABLE IF NOT EXISTS `products` (
   `sub_category` varchar(100) DEFAULT NULL,
   `sub_category_slug` varchar(120) DEFAULT NULL,
   `product_url` text DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_products_slug` (`slug`),
+  UNIQUE KEY `uniq_products_sku` (`sku`),
+  KEY `idx_products_status_category` (`status`, `category`),
+  KEY `idx_products_category_status` (`category`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `product_images` (
@@ -76,7 +80,10 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `admin_notes` text DEFAULT NULL,
   `customer_comment` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_orders_user_created` (`user_id`, `created_at`),
+  KEY `idx_orders_status_created` (`status`, `created_at`),
+  KEY `idx_orders_email_created` (`customer_email`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 3. IDENTITY VAULT (USERS)
@@ -260,6 +267,98 @@ CREATE TABLE IF NOT EXISTS `admin_user_notes` (
   KEY `idx_admin_user_notes_user_created` (`user_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `product_variants` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` varchar(50) NOT NULL,
+  `variant_sku` varchar(120) NOT NULL,
+  `attributes_json` longtext DEFAULT NULL,
+  `price_delta` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `stock` int(11) NOT NULL DEFAULT 0,
+  `status` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_product_variants_sku` (`variant_sku`),
+  KEY `idx_product_variants_product_status_updated` (`product_id`, `status`, `updated_at`),
+  KEY `idx_product_variants_product_created` (`product_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `stock_movements` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` varchar(50) NOT NULL,
+  `variant_id` bigint(20) unsigned DEFAULT NULL,
+  `movement_type` varchar(30) NOT NULL DEFAULT 'ADJUSTMENT',
+  `delta_qty` int(11) NOT NULL,
+  `stock_before` int(11) DEFAULT NULL,
+  `stock_after` int(11) DEFAULT NULL,
+  `reason` varchar(191) DEFAULT NULL,
+  `reference_type` varchar(60) DEFAULT NULL,
+  `reference_id` varchar(100) DEFAULT NULL,
+  `actor_id` varchar(80) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_stock_movements_product_created` (`product_id`, `created_at`),
+  KEY `idx_stock_movements_variant_created` (`variant_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `abandoned_carts` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `session_id` varchar(100) NOT NULL,
+  `user_id` varchar(50) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `cart_hash` char(64) NOT NULL,
+  `items_json` longtext NOT NULL,
+  `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `currency` varchar(10) NOT NULL DEFAULT 'BDT',
+  `status` varchar(20) NOT NULL DEFAULT 'ABANDONED',
+  `last_activity_at` datetime NOT NULL,
+  `recovered_order_id` varchar(50) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_abandoned_carts_hash` (`cart_hash`),
+  KEY `idx_abandoned_carts_status_activity` (`status`, `last_activity_at`),
+  KEY `idx_abandoned_carts_user_activity` (`user_id`, `last_activity_at`),
+  KEY `idx_abandoned_carts_session_activity` (`session_id`, `last_activity_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_api_keys` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `key_name` varchar(120) NOT NULL,
+  `key_prefix` varchar(32) NOT NULL,
+  `key_hash` char(64) NOT NULL,
+  `scopes_json` longtext DEFAULT NULL,
+  `created_by` varchar(80) DEFAULT NULL,
+  `last_used_at` datetime DEFAULT NULL,
+  `last_used_ip` varchar(45) DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_admin_api_keys_hash` (`key_hash`),
+  KEY `idx_admin_api_keys_revoked_expires` (`revoked_at`, `expires_at`),
+  KEY `idx_admin_api_keys_last_used` (`last_used_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_ip_allowlist` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `cidr` varchar(120) NOT NULL,
+  `label` varchar(120) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` varchar(80) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_admin_ip_allowlist_cidr` (`cidr`),
+  KEY `idx_admin_ip_allowlist_active_updated` (`is_active`, `updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `user_events` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` varchar(50) NOT NULL,
@@ -300,6 +399,21 @@ CREATE TABLE IF NOT EXISTS `system_logs` (
   `ip_address` varchar(45) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `audit_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `actor_id` varchar(50) DEFAULT NULL,
+  `action` varchar(100) NOT NULL,
+  `entity_type` varchar(100) NOT NULL,
+  `entity_id` varchar(100) DEFAULT NULL,
+  `before_json` longtext DEFAULT NULL,
+  `after_json` longtext DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_logs_actor_created` (`actor_id`, `created_at`),
+  KEY `idx_audit_logs_action_entity_created` (`action`, `entity_type`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 6. COLLECTOR TRAFFIC HEARTBEAT
