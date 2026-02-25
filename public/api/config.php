@@ -304,6 +304,16 @@ function parse_origin_host($origin) {
     return is_array($parts) ? strtolower((string)($parts['host'] ?? '')) : '';
 }
 
+function add_allowed_origin(array &$origins, $origin) {
+    $origin = trim((string)$origin);
+    if ($origin === '') {
+        return;
+    }
+    if (!in_array($origin, $origins, true)) {
+        $origins[] = $origin;
+    }
+}
+
 function build_allowed_origins() {
     $originsEnv = env_first(['CORS_ALLOWED_ORIGINS', 'APP_ALLOWED_ORIGINS'], '');
     $origins = [];
@@ -312,17 +322,20 @@ function build_allowed_origins() {
     }
 
     $appOrigin = env_or_default('APP_ORIGIN', '');
-    if ($appOrigin !== '' && !in_array($appOrigin, $origins, true)) {
-        $origins[] = $appOrigin;
+    if ($appOrigin !== '') {
+        add_allowed_origin($origins, $appOrigin);
     }
 
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? '';
     if ($host !== '') {
         $sameOrigin = $scheme . '://' . $host;
-        if (!in_array($sameOrigin, $origins, true)) {
-            $origins[] = $sameOrigin;
-        }
+        add_allowed_origin($origins, $sameOrigin);
+    }
+
+    // Default SPLARO production origins as safe fallback even if env is incomplete.
+    foreach (['https://splaro.co', 'https://www.splaro.co', 'https://admin.splaro.co'] as $origin) {
+        add_allowed_origin($origins, $origin);
     }
 
     return $origins;
@@ -351,6 +364,7 @@ function apply_cors_headers() {
     header('Vary: Origin');
     header("Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS");
     header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Key, X-Requested-With, X-CSRF-Token");
+    header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Max-Age: 600");
     header("Content-Type: application/json");
 

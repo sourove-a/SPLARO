@@ -3724,6 +3724,21 @@ function generate_csrf_token() {
     return base64url_encode(random_bytes(24));
 }
 
+function csrf_cookie_domain() {
+    $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? '')));
+    if ($host === '') {
+        return '';
+    }
+    $host = preg_replace('/:\d+$/', '', $host);
+    if ($host === '' || $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP)) {
+        return '';
+    }
+    if ($host === 'splaro.co' || str_ends_with($host, '.splaro.co')) {
+        return '.splaro.co';
+    }
+    return '';
+}
+
 function set_csrf_cookie($token) {
     $params = [
         'expires' => time() + (30 * 24 * 60 * 60),
@@ -3732,6 +3747,10 @@ function set_csrf_cookie($token) {
         'httponly' => false,
         'samesite' => 'Lax'
     ];
+    $cookieDomain = csrf_cookie_domain();
+    if ($cookieDomain !== '') {
+        $params['domain'] = $cookieDomain;
+    }
     setcookie('splaro_csrf', (string)$token, $params);
 }
 

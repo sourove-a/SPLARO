@@ -75,6 +75,20 @@ const normalizeSlides = (raw: any, fallback: any[] = INITIAL_SLIDES): any[] => {
   return Array.isArray(fallback) ? fallback.map((item) => ({ ...item })) : [];
 };
 
+const resolveSettingsErrorMessage = (rawMessage: unknown, httpStatus?: number): string => {
+  const code = String(rawMessage || '').trim().toUpperCase();
+  if (code === 'ADMIN_ACCESS_REQUIRED') return 'Admin login required. Please sign in again.';
+  if (code === 'ROLE_FORBIDDEN_VIEWER') return 'Viewer role cannot change settings.';
+  if (code === 'ROLE_FORBIDDEN_EDITOR_PROTOCOL') return 'Staff/Editor cannot change protocol settings.';
+  if (code === 'CMS_ROLE_FORBIDDEN') return 'This role cannot update CMS content.';
+  if (code === 'CSRF_INVALID' || code === 'CSRF_REQUIRED') return 'Session expired. Please login again and retry.';
+  if (code === 'DATABASE_CONNECTION_FAILED') return 'Database is unreachable right now. Please retry shortly.';
+  if (code === 'DATABASE_ENV_NOT_CONFIGURED') return 'Database configuration is missing on server.';
+  if (code !== '') return code.replace(/_/g, ' ');
+  if (typeof httpStatus === 'number' && httpStatus > 0) return `Request failed (HTTP ${httpStatus}).`;
+  return 'Settings update failed.';
+};
+
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'n1',
@@ -1436,18 +1450,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         const result = await res.json().catch(() => ({}));
 
-        if (result.status === 'success') {
+        if (res.ok && result.status === 'success') {
           const storage = String(result.storage || '').toLowerCase();
           setDbStatus(storage === 'mysql' ? 'MYSQL' : 'FALLBACK');
           emitToast(storage === 'mysql' ? 'Settings saved to MySQL.' : 'Settings saved in fallback storage.', 'success');
         } else {
-          setDbStatus('FALLBACK');
-          emitToast('Storage is in fallback mode. Changes saved locally.', 'info');
-          console.error('SETTING_SYNC_ERROR:', result);
+          const backendMessage = String(result?.message || '').trim();
+          const normalizedError = backendMessage.toUpperCase();
+          if (normalizedError === 'DATABASE_CONNECTION_FAILED' || normalizedError === 'DATABASE_ENV_NOT_CONFIGURED') {
+            setDbStatus('FALLBACK');
+          }
+          emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
+          console.error('SETTING_SYNC_ERROR:', {
+            httpStatus: res.status,
+            message: backendMessage,
+            result
+          });
         }
       } catch (e) {
         setDbStatus('FALLBACK');
-        emitToast('Could not reach database. Running in fallback mode.', 'error');
+        emitToast('Network error while saving settings. Please retry.', 'error');
         console.error('SETTING_SYNC_FAILURE:', e);
       }
     }

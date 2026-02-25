@@ -24,12 +24,35 @@ export const isAdminSubdomainHost = (): boolean => {
 
 const normalizeBase = (raw: string): string => raw.replace(/\/+$/, '');
 
+const normalizeConfiguredApi = (configuredBase: string): string => {
+  if (configuredBase.endsWith('/api/index.php')) return configuredBase;
+  if (configuredBase.endsWith('/api')) return `${configuredBase}/index.php`;
+  return `${configuredBase}/api/index.php`;
+};
+
 export const getPhpApiNode = (): string => {
   const configured = normalizeBase(String(import.meta.env.VITE_API_BASE_URL || '').trim());
-  if (configured !== '') {
-    if (configured.endsWith('/api/index.php')) return configured;
-    if (configured.endsWith('/api')) return `${configured}/index.php`;
-    return `${configured}/api/index.php`;
+  if (configured === '') {
+    return '/api/index.php';
   }
-  return '/api/index.php';
+
+  const resolved = normalizeConfiguredApi(configured);
+  if (typeof window === 'undefined') {
+    return resolved;
+  }
+
+  const allowCrossOriginApi = String(import.meta.env.VITE_ALLOW_CROSS_ORIGIN_API || '').trim().toLowerCase() === 'true';
+  if (!allowCrossOriginApi && isAdminSubdomainHost()) {
+    try {
+      const resolvedUrl = new URL(resolved, window.location.origin);
+      if (resolvedUrl.origin !== window.location.origin) {
+        // Safety fallback for admin panel: keep API same-origin unless explicitly allowed.
+        return '/api/index.php';
+      }
+    } catch {
+      return '/api/index.php';
+    }
+  }
+
+  return resolved;
 };
