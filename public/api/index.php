@@ -647,7 +647,7 @@ function maybe_repair_admin_subdomain_bundle($forceRun = false) {
         ];
     }
 
-    $ttl = (int)env_or_default('ADMIN_SUBDOMAIN_SELF_HEAL_TTL_SECONDS', 300);
+    $ttl = (int)env_or_default('ADMIN_SUBDOMAIN_SELF_HEAL_TTL_SECONDS', 3600);
     if ($ttl < 60) $ttl = 60;
     if ($ttl > 3600) $ttl = 3600;
 
@@ -5140,6 +5140,7 @@ maybe_ensure_admin_account($db);
 enforce_global_request_guard($method, $action, $requestAuthUser);
 
 if ($method === 'GET' && $action === 'admin_subdomain_repair_status') {
+    require_admin_access($requestAuthUser);
     $statusPayload = splaro_read_admin_subdomain_repair_status();
     echo json_encode([
         "status" => "success",
@@ -5149,6 +5150,10 @@ if ($method === 'GET' && $action === 'admin_subdomain_repair_status') {
 }
 
 if (($method === 'GET' || $method === 'POST') && $action === 'admin_subdomain_repair') {
+    require_admin_access($requestAuthUser);
+    if ($method === 'POST') {
+        require_csrf_token();
+    }
     $repairResult = maybe_repair_admin_subdomain_bundle(true);
     $httpCode = !empty($repairResult['ok']) ? 200 : 207;
     http_response_code($httpCode);
