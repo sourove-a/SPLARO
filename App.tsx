@@ -560,6 +560,10 @@ const AppContent = () => {
   const adminDomain = isAdminSubdomainHost();
   const hasAdminIdentity = isAdminRole(user?.role);
   const storefrontIdentityPath = user ? '/user_dashboard' : '/login';
+  const currentPath = location.pathname.toLowerCase();
+  const isAdminPanelPath = currentPath === '/admin_dashboard' || currentPath === '/admin' || currentPath.startsWith('/admin/');
+  const isAdminAuthPath = currentPath === '/sourove-admin' || currentPath === '/login';
+  const isAdminSurface = adminDomain && (isAdminPanelPath || isAdminAuthPath);
   const isDark = theme === 'DARK';
   const activeCmsBundle = useMemo(() => {
     const published = siteSettings.cmsPublished || siteSettings.cmsDraft;
@@ -727,8 +731,11 @@ const AppContent = () => {
 
   const featuredProducts = products.filter(p => p.featured);
 
-  const showNav = view !== View.ORDER_SUCCESS && view !== View.LOGIN && view !== View.SIGNUP;
+  const showNav = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.LOGIN && view !== View.SIGNUP;
   const showMobileBar = showNav && view !== View.CHECKOUT;
+  const showSubscriptionPrompt = !isAdminSurface;
+  const showWhatsAppFab = !isAdminSurface && view !== View.ORDER_SUCCESS;
+  const showFooter = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.CHECKOUT;
 
   return (
     <div className={`min-h-screen selection:bg-cyan-500/30 overflow-x-hidden`}>
@@ -757,7 +764,7 @@ const AppContent = () => {
           </button>
         </div>
       ) : (
-        <main className={MOBILE_CONTENT_SAFE_CLASS}>
+        <main className={isAdminSurface ? '' : MOBILE_CONTENT_SAFE_CLASS}>
           <Routes location={location}>
             {adminDomain ? (
               <>
@@ -832,10 +839,10 @@ const AppContent = () => {
         </main>
       )}
 
-      <SubscriptionPrompt />
+      {showSubscriptionPrompt && <SubscriptionPrompt />}
 
       {/* Global Controls & Redesigned WhatsApp Orb */}
-      {view !== View.ORDER_SUCCESS && (
+      {showWhatsAppFab && (
         <div
           className="fixed right-4 sm:right-6 lg:right-12 whatsapp-fab-wrapper z-[105] flex flex-col gap-4 items-end"
         >
@@ -872,7 +879,7 @@ const AppContent = () => {
       )}
 
 
-      {view !== View.ORDER_SUCCESS && view !== View.CHECKOUT && (
+      {showFooter && (
         <Footer />
       )}
     </div>
