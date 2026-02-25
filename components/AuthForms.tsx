@@ -9,7 +9,7 @@ import { useApp } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { useEffect } from 'react';
-import { getPhpApiNode, shouldUsePhpApi } from '../lib/runtime';
+import { getPhpApiNode, isAdminSubdomainHost, shouldUsePhpApi } from '../lib/runtime';
 import { isAdminRole } from '../lib/roles';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
@@ -22,6 +22,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   const { setUser, registerUser, syncRegistry, users, siteSettings } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const adminDomain = isAdminSubdomainHost();
   const isSignupPath = location.pathname.includes('signup');
   const isLoginPath = location.pathname.includes('login') || location.pathname === '/sourove-admin';
   const initialMode: AuthMode = forcedMode ?? (isSignupPath ? 'signup' : 'login');
@@ -201,7 +202,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             }
             setUser(normalizedUser);
             setStatus('success');
-            setTimeout(() => navigate(isAdminRole(normalizedUser.role) ? '/admin_dashboard' : '/'), 1000);
+            const targetPath = isAdminRole(normalizedUser.role)
+              ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+              : '/';
+            setTimeout(() => navigate(targetPath), 1000);
             return;
           }
           if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
@@ -210,7 +214,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             if (localUser && String((localUser as any).password || '') === formData.password) {
               setUser(localUser);
               setStatus('success');
-              setTimeout(() => navigate(isAdminRole(localUser.role) ? '/admin_dashboard' : '/'), 1000);
+              const targetPath = isAdminRole(localUser.role)
+                ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+                : '/';
+              setTimeout(() => navigate(targetPath), 1000);
               return;
             }
           }
@@ -226,7 +233,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
           if (localUser && String((localUser as any).password || '') === formData.password) {
             setUser(localUser);
             setStatus('success');
-            setTimeout(() => navigate(isAdminRole(localUser.role) ? '/admin_dashboard' : '/'), 1000);
+            const targetPath = isAdminRole(localUser.role)
+              ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+              : '/';
+            setTimeout(() => navigate(targetPath), 1000);
             return;
           }
         }

@@ -558,6 +558,8 @@ const AppContent = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const adminDomain = isAdminSubdomainHost();
+  const hasAdminIdentity = isAdminRole(user?.role);
+  const storefrontIdentityPath = user ? '/user_dashboard' : '/login';
   const isDark = theme === 'DARK';
   const activeCmsBundle = useMemo(() => {
     const published = siteSettings.cmsPublished || siteSettings.cmsDraft;
@@ -638,30 +640,36 @@ const AppContent = () => {
         navigate('/sourove-admin');
         return;
       }
-      if (user && !isAdminRole(user.role) && p !== 'sourove-admin') {
+      if (user && !hasAdminIdentity && p !== 'sourove-admin') {
         navigate('/sourove-admin');
         return;
       }
-      if (user && isAdminRole(user.role) && !isAdminRoute) {
+      if (user && hasAdminIdentity && !isAdminRoute) {
         navigate('/admin_dashboard');
         return;
       }
     }
 
-    // IDENTITY SEPARATION PROTOCOL: Enforcement Guard
-    if (!user && isAdminRoute) {
-      navigate('/sourove-admin');
-      return;
+    // Storefront must never expose admin routes.
+    if (!adminDomain) {
+      if (p === 'sourove-admin') {
+        navigate('/login');
+        return;
+      }
+      if (isAdminRoute) {
+        navigate(storefrontIdentityPath);
+        return;
+      }
     }
 
     if (user) {
-      if (isAdminRole(user.role) && p === 'user_dashboard') {
+      if (adminDomain && hasAdminIdentity && p === 'user_dashboard') {
         navigate('/admin_dashboard');
-      } else if (!isAdminRole(user.role) && (isAdminRoute || p === 'sourove-admin')) {
-        navigate('/user_dashboard');
+      } else if (adminDomain && !hasAdminIdentity && (isAdminRoute || p === 'sourove-admin')) {
+        navigate(storefrontIdentityPath);
       }
     }
-  }, [location.pathname, user, navigate, adminDomain]);
+  }, [location.pathname, user, navigate, adminDomain, hasAdminIdentity, storefrontIdentityPath]);
 
   useEffect(() => {
     document.body.classList.toggle('dark', isDark);
@@ -790,24 +798,24 @@ const AppContent = () => {
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/login" element={<LoginForm />} />
-                <Route path="/sourove-admin" element={<LoginForm />} />
+                <Route path="/sourove-admin" element={<Navigate to="/login" replace />} />
                 <Route path="/signup" element={<SignupForm />} />
                 <Route path="/user_dashboard" element={<UserDashboard />} />
-                <Route path="/admin_dashboard" element={<AdminPanel />} />
-                <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
-                <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
-                <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
-                <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
-                <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
-                <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
-                <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
-                <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
-                <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
-                <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
-                <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
-                <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
-                <Route path="/admin/campaigns/:id/logs" element={<AdminCampaignLogsPage />} />
-                <Route path="/admin/search" element={<AdminSearchPage />} />
+                <Route path="/admin_dashboard" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/users" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/products" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/orders" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/coupons" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/reports" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/settings" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/system" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/system-health" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/campaigns" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/campaigns/new" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/campaigns/:id" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/campaigns/:id/logs" element={<Navigate to={storefrontIdentityPath} replace />} />
+                <Route path="/admin/search" element={<Navigate to={storefrontIdentityPath} replace />} />
                 <Route path="/order_success" element={<OrderSuccessView />} />
                 <Route path="/story" element={<StoryPage />} />
                 <Route path="/support" element={<SupportPage />} />
@@ -817,6 +825,7 @@ const AppContent = () => {
                 <Route path="/order-tracking" element={<OrderTrackingPage />} />
                 <Route path="/refund-policy" element={<RefundPolicyPage />} />
                 <Route path="/debug/mobile" element={<MobileDebugPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </>
             )}
           </Routes>

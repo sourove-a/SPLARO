@@ -5,6 +5,7 @@ import { Home, Search, ShoppingBag, User } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
 import { isAdminRole } from '../lib/roles';
+import { isAdminSubdomainHost } from '../lib/runtime';
 
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -13,12 +14,13 @@ export const MobileTabBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const hasAdminAccess = isAdminRole(user?.role);
+  const allowAdminPanel = hasAdminAccess && isAdminSubdomainHost();
 
   const navItems = [
     { icon: Home, view: View.HOME, label: 'VAULT' },
     { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
     { icon: Search, view: View.SHOP, label: 'DISCOVER' },
-    { icon: User, view: user ? (hasAdminAccess ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, label: user ? 'IDENTITY' : 'SIGNUP' }
+    { icon: User, view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, label: user ? 'IDENTITY' : 'SIGNUP' }
   ];
 
   const getIsActive = (item: any) => {
