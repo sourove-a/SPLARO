@@ -31,4 +31,9 @@ if [ -f "$PUBLIC_DIR/.htaccess" ]; then
   cp "$PUBLIC_DIR/.htaccess" "$TARGET_DIR/.htaccess"
 fi
 
+if [ -f "$PUBLIC_DIR/index.php" ]; then
+  echo "[prepare-public-html] copying index.php fallback..."
+  cp "$PUBLIC_DIR/index.php" "$TARGET_DIR/index.php"
+fi
+
 echo "[prepare-public-html] done: $TARGET_DIR"

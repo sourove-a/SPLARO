@@ -5,13 +5,14 @@ AddType application/manifest+json .webmanifest
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  DirectoryIndex index.php index.html
 
   # Force HTTPS Handshake
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  RewriteRule ^index\.html$ / [R=302,L]
+  RewriteRule ^index\.html$ /index.php [R=302,L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
+  RewriteRule . /index.php [L]
 </IfModule>
