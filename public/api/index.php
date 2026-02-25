@@ -2856,8 +2856,13 @@ if ($method === 'GET' && $action === 'sync') {
 
     $products = [];
     if (!$isAdmin && $method === 'GET' && $action === 'sync') {
-        // Light sync for regular users: just active products with essential fields
-        $products = $db->query("SELECT id, name, slug, brand, brand_slug, price, discount_price, discount_starts_at, discount_ends_at, image, main_image_id, category, category_slug, sub_category, sub_category_slug, type, description, sizes, colors, color_variants, materials, tags, featured, sku, barcode, stock, low_stock_threshold, status, hide_when_out_of_stock, weight, dimensions, variations, additional_images, size_chart_image, discount_percentage, product_url FROM products WHERE status = 'PUBLISHED' LIMIT 200")->fetchAll();
+        // Light sync for regular users: keep schema-tolerant query for legacy databases.
+        $statusColumnExists = column_exists($db, 'products', 'status');
+        if ($statusColumnExists) {
+            $products = safe_query_all($db, "SELECT * FROM products WHERE status = 'PUBLISHED' LIMIT 200");
+        } else {
+            $products = safe_query_all($db, "SELECT * FROM products LIMIT 200");
+        }
     } else {
         $products = $db->query("SELECT * FROM products")->fetchAll();
     }
