@@ -20,6 +20,7 @@ import { useApp } from '../store';
 import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant, User } from '../types';
 import { buildProductRoute, resolveUniqueSlug, slugifyValue } from '../lib/productRoute';
 import { canWriteCms, canWriteProtocols, isAdminRole, normalizeRole } from '../lib/roles';
+import { getPhpApiNode } from '../lib/runtime';
 import { CampaignForm } from './CampaignForm';
 import { SystemHealthPanel } from './SystemHealthPanel';
 
@@ -182,7 +183,7 @@ const ProductModal: React.FC<{
   onClose: () => void;
   onSave: (p: Product) => void;
 }> = ({ product, onClose, onSave }) => {
-  const API_NODE = '/api/index.php';
+  const API_NODE = getPhpApiNode();
   const [formData, setFormData] = useState<Partial<Product>>(product || {
     id: '',
     name: '',
@@ -1174,7 +1175,7 @@ export const AdminPanel = () => {
     });
   }, [user?.id, user?.name, user?.phone]);
 
-  const API_NODE = '/api/index.php';
+  const API_NODE = getPhpApiNode();
   const getAuthHeaders = (json = false): Record<string, string> => {
     const headers: Record<string, string> = {};
     if (json) headers['Content-Type'] = 'application/json';

@@ -22,6 +22,7 @@ import { PrimaryButton, GlassCard } from './components/LiquidGlass';
 import { SubscriptionPrompt } from './components/SubscriptionPrompt';
 import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
 import { canWriteCms, isAdminRole } from './lib/roles';
+import { isAdminSubdomainHost } from './lib/runtime';
 import {
   AdminCampaignsPage,
   AdminCampaignDetailPage,
@@ -556,6 +557,7 @@ const AppContent = () => {
   const { view, setView, products, theme, setTheme, selectedProduct, siteSettings, user } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const adminDomain = isAdminSubdomainHost();
   const isDark = theme === 'DARK';
   const activeCmsBundle = useMemo(() => {
     const published = siteSettings.cmsPublished || siteSettings.cmsDraft;
@@ -629,6 +631,22 @@ const AppContent = () => {
     if (view !== targetView) setView(targetView);
 
     const isAdminRoute = p === 'admin' || p === 'admin_dashboard' || p.startsWith('admin/');
+    const isAdminEntryRoute = p === 'sourove-admin' || p === 'login';
+
+    if (adminDomain) {
+      if (!user && !isAdminEntryRoute) {
+        navigate('/sourove-admin');
+        return;
+      }
+      if (user && !isAdminRole(user.role) && p !== 'sourove-admin') {
+        navigate('/sourove-admin');
+        return;
+      }
+      if (user && isAdminRole(user.role) && !isAdminRoute) {
+        navigate('/admin_dashboard');
+        return;
+      }
+    }
 
     // IDENTITY SEPARATION PROTOCOL: Enforcement Guard
     if (!user && isAdminRoute) {
@@ -643,7 +661,7 @@ const AppContent = () => {
         navigate('/user_dashboard');
       }
     }
-  }, [location.pathname, user, navigate]);
+  }, [location.pathname, user, navigate, adminDomain]);
 
   useEffect(() => {
     document.body.classList.toggle('dark', isDark);
@@ -733,42 +751,74 @@ const AppContent = () => {
       ) : (
         <main className={MOBILE_CONTENT_SAFE_CLASS}>
           <Routes location={location}>
-            <Route path="/" element={<HomeView />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/search" element={<Navigate to="/shop" replace />} />
-            <Route path="/detail" element={<ProductDetailPage />} />
-            <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<ProductDetailPage />} />
-            <Route path="/product/:id" element={<ProductDetailPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/login" element={<LoginForm />} />
-            <Route path="/sourove-admin" element={<LoginForm />} />
-            <Route path="/signup" element={<SignupForm />} />
-            <Route path="/user_dashboard" element={<UserDashboard />} />
-            <Route path="/admin_dashboard" element={<AdminPanel />} />
-            <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
-            <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
-            <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
-            <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
-            <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
-            <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
-            <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
-            <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
-            <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
-            <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
-            <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
-            <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
-            <Route path="/admin/campaigns/:id/logs" element={<AdminCampaignLogsPage />} />
-            <Route path="/admin/search" element={<AdminSearchPage />} />
-            <Route path="/order_success" element={<OrderSuccessView />} />
-            <Route path="/story" element={<StoryPage />} />
-            <Route path="/support" element={<SupportPage />} />
-            <Route path="/manifest" element={<ManifestPage />} />
-            <Route path="/privacy" element={<PrivacyPolicyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/order-tracking" element={<OrderTrackingPage />} />
-            <Route path="/refund-policy" element={<RefundPolicyPage />} />
-            <Route path="/debug/mobile" element={<MobileDebugPage />} />
+            {adminDomain ? (
+              <>
+                <Route
+                  path="/"
+                  element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
+                />
+                <Route path="/sourove-admin" element={<LoginForm />} />
+                <Route path="/login" element={<Navigate to="/sourove-admin" replace />} />
+                <Route path="/admin_dashboard" element={<AdminPanel />} />
+                <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
+                <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
+                <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
+                <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
+                <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
+                <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
+                <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
+                <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
+                <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
+                <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
+                <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
+                <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
+                <Route path="/admin/campaigns/:id/logs" element={<AdminCampaignLogsPage />} />
+                <Route path="/admin/search" element={<AdminSearchPage />} />
+                <Route
+                  path="*"
+                  element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
+                />
+              </>
+            ) : (
+              <>
+                <Route path="/" element={<HomeView />} />
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/search" element={<Navigate to="/shop" replace />} />
+                <Route path="/detail" element={<ProductDetailPage />} />
+                <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<ProductDetailPage />} />
+                <Route path="/product/:id" element={<ProductDetailPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/login" element={<LoginForm />} />
+                <Route path="/sourove-admin" element={<LoginForm />} />
+                <Route path="/signup" element={<SignupForm />} />
+                <Route path="/user_dashboard" element={<UserDashboard />} />
+                <Route path="/admin_dashboard" element={<AdminPanel />} />
+                <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
+                <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
+                <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
+                <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
+                <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
+                <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
+                <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
+                <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
+                <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
+                <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
+                <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
+                <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
+                <Route path="/admin/campaigns/:id/logs" element={<AdminCampaignLogsPage />} />
+                <Route path="/admin/search" element={<AdminSearchPage />} />
+                <Route path="/order_success" element={<OrderSuccessView />} />
+                <Route path="/story" element={<StoryPage />} />
+                <Route path="/support" element={<SupportPage />} />
+                <Route path="/manifest" element={<ManifestPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/order-tracking" element={<OrderTrackingPage />} />
+                <Route path="/refund-policy" element={<RefundPolicyPage />} />
+                <Route path="/debug/mobile" element={<MobileDebugPage />} />
+              </>
+            )}
           </Routes>
         </main>
       )}

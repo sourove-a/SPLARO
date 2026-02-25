@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, X } from 'lucide-react';
 import { useApp } from '../store';
+import { getPhpApiNode } from '../lib/runtime';
 
-const API_NODE = '/api/index.php';
+const API_NODE = getPhpApiNode();
 const DISMISS_KEY = 'splaro-push-soft-dismissed';
 
 function toBase64Url(bytes: ArrayBuffer | null): string {

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCcw, Send, Clock3, Eye } from 'lucide-react';
 import { useApp } from '../store';
 import { canWriteCms } from '../lib/roles';
+import { getPhpApiNode } from '../lib/runtime';
 
 type CampaignRow = {
   id: number;
@@ -26,7 +27,7 @@ type CampaignLogRow = {
   created_at?: string;
 };
 
-const API_NODE = '/api/index.php';
+const API_NODE = getPhpApiNode();
 
 function readCsrfToken(): string {
   if (typeof document === 'undefined') return '';

@@ -16,7 +16,7 @@ import {
   CmsRevision,
   InvoiceSettings
 } from './types';
-import { shouldUsePhpApi } from './lib/runtime';
+import { getPhpApiNode, shouldUsePhpApi } from './lib/runtime';
 import { isAdminRole } from './lib/roles';
 
 
@@ -1011,7 +1011,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // SYNC CORE: PRODUCTION HANDSHAKE
   const IS_PROD = shouldUsePhpApi();
-  const API_NODE = '/api/index.php';
+  const API_NODE = getPhpApiNode();
   const getAuthToken = () => {
     try {
       return localStorage.getItem('splaro-auth-token') || '';

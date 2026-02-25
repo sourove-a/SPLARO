@@ -50,6 +50,26 @@ From this repository root run:
 
 Then upload the full contents of `public_html/` to Hostinger `public_html` (overwrite existing files).
 
+### Admin Subdomain Protocol (`admin.splaro.co`)
+Target path: `/home/u134578371/domains/splaro.co/public_html/admin`
+
+1. In Hostinger hPanel, set the subdomain document root to:
+   `/home/u134578371/domains/splaro.co/public_html/admin`
+2. Build and package admin deployment files:
+   ```bash
+   npm run build:admin:hostinger
+   ```
+3. Upload full contents of local `public_html/admin/` to server folder:
+   `/home/u134578371/domains/splaro.co/public_html/admin`
+4. Confirm these files exist on server:
+   - `index.html`
+   - `index.php`
+   - `.htaccess`
+   - `api/index.php`
+5. Verify:
+   - `https://admin.splaro.co/` loads admin login/dashboard
+   - `https://admin.splaro.co/api/index.php?action=health` returns JSON (with admin auth)
+
 ### Protocol A: Institutional Build
 Before deployment, you must generate the static production reveal:
 ```bash

@@ -14,6 +14,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { GlassCard, PrimaryButton } from './LiquidGlass';
+import { getPhpApiNode } from '../lib/runtime';
 
 type HealthServiceStatus = 'OK' | 'WARNING' | 'DOWN';
 type ProbeName = 'db' | 'telegram' | 'sheets' | 'queue' | 'orders' | 'auth';
@@ -54,7 +55,7 @@ type SystemErrorRow = {
   created_at: string;
 };
 
-const API_NODE = '/api/index.php';
+const API_NODE = getPhpApiNode();
 
 const getAuthHeaders = (json = false): Record<string, string> => {
   const headers: Record<string, string> = {};

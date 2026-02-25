@@ -9,7 +9,7 @@ import { useApp } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { useEffect } from 'react';
-import { shouldUsePhpApi } from '../lib/runtime';
+import { getPhpApiNode, shouldUsePhpApi } from '../lib/runtime';
 import { isAdminRole } from '../lib/roles';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
@@ -182,7 +182,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     setStatus('loading');
 
     const IS_PROD = shouldUsePhpApi();
-    const API_NODE = '/api/index.php';
+    const API_NODE = getPhpApiNode();
 
     if (authMode === 'login') {
       try {

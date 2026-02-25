@@ -1508,7 +1508,9 @@ function ensure_core_schema($db) {
     ensure_column($db, 'products', 'sub_category_slug', 'varchar(120) DEFAULT NULL');
     ensure_column($db, 'products', 'product_url', 'text DEFAULT NULL');
     ensure_column($db, 'products', 'created_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP');
+    ensure_column($db, 'products', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 
+    ensure_column($db, 'orders', 'order_no', 'varchar(50) DEFAULT NULL');
     ensure_column($db, 'orders', 'district', 'varchar(100) DEFAULT NULL');
     ensure_column($db, 'orders', 'thana', 'varchar(100) DEFAULT NULL');
     ensure_column($db, 'orders', 'tracking_number', 'varchar(100) DEFAULT NULL');
@@ -1562,6 +1564,7 @@ function ensure_core_schema($db) {
     ensure_index($db, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
     ensure_index($db, 'orders', 'idx_orders_created_at', 'CREATE INDEX idx_orders_created_at ON orders(created_at)');
     ensure_index($db, 'orders', 'idx_orders_status', 'CREATE INDEX idx_orders_status ON orders(status)');
+    ensure_index($db, 'orders', 'idx_orders_status_created_at', 'CREATE INDEX idx_orders_status_created_at ON orders(status, created_at)');
     ensure_index($db, 'orders', 'idx_orders_user_created', 'CREATE INDEX idx_orders_user_created ON orders(user_id, created_at)');
     ensure_index($db, 'orders', 'idx_orders_email_created', 'CREATE INDEX idx_orders_email_created ON orders(customer_email, created_at)');
     ensure_index($db, 'orders', 'idx_orders_tracking_number', 'CREATE INDEX idx_orders_tracking_number ON orders(tracking_number)');
@@ -1573,9 +1576,17 @@ function ensure_core_schema($db) {
     ensure_index($db, 'products', 'idx_products_category_slug', 'CREATE INDEX idx_products_category_slug ON products(category_slug)');
     ensure_index($db, 'products', 'idx_products_sub_category_slug', 'CREATE INDEX idx_products_sub_category_slug ON products(sub_category_slug)');
     ensure_index($db, 'products', 'idx_products_status', 'CREATE INDEX idx_products_status ON products(status)');
+    ensure_index($db, 'products', 'idx_products_updated_at', 'CREATE INDEX idx_products_updated_at ON products(updated_at)');
+    ensure_index($db, 'products', 'idx_products_status_category', 'CREATE INDEX idx_products_status_category ON products(status, category)');
     ensure_index($db, 'products', 'idx_products_category_type', 'CREATE INDEX idx_products_category_type ON products(category, type)');
     ensure_index($db, 'products', 'idx_products_status_created', 'CREATE INDEX idx_products_status_created ON products(status, created_at)');
     ensure_index($db, 'products', 'idx_products_stock_status', 'CREATE INDEX idx_products_stock_status ON products(stock, status)');
+    try {
+        $db->exec("UPDATE orders SET order_no = id WHERE (order_no IS NULL OR order_no = '') AND id IS NOT NULL");
+    } catch (Exception $e) {
+        splaro_log_exception('schema.backfill.order_no', $e, [], 'WARNING');
+    }
+    ensure_unique_index_when_clean($db, 'orders', 'uniq_orders_order_no', 'order_no');
     ensure_unique_index_when_clean($db, 'products', 'uniq_products_slug', 'slug');
     ensure_unique_index_when_clean($db, 'products', 'uniq_products_sku', 'sku');
     ensure_index($db, 'product_images', 'idx_product_images_product', 'CREATE INDEX idx_product_images_product ON product_images(product_id)');
@@ -1640,7 +1651,7 @@ function maybe_ensure_core_schema($db) {
     if ($ttl < 60) $ttl = 60;
     if ($ttl > 86400) $ttl = 86400;
 
-    $cacheKey = md5(DB_HOST . '|' . DB_NAME . '|' . DB_PORT);
+    $cacheKey = md5(DB_HOST . '|' . DB_NAME . '|' . DB_PORT . '|schema_v20260225_1');
     $cacheFile = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . "splaro_schema_check_{$cacheKey}.json";
     $now = time();
 
@@ -3699,6 +3710,7 @@ function seed_admin_rbac_defaults($db) {
         $roles = [
             ['SUPER_ADMIN', 'Super Admin', 'Full unrestricted access'],
             ['ADMIN', 'Admin', 'Operational admin access'],
+            ['STAFF', 'Staff', 'Operational staff access for orders/catalog/campaigns'],
             ['EDITOR', 'Editor', 'Catalog + content editor'],
             ['VIEWER', 'Viewer', 'Read-only visibility']
         ];
@@ -3729,6 +3741,7 @@ function seed_admin_rbac_defaults($db) {
         $defaultRolePermissions = [
             'SUPER_ADMIN' => array_map(function ($row) { return (string)$row[0]; }, $permissions),
             'ADMIN' => ['orders.view', 'orders.manage', 'catalog.view', 'catalog.manage', 'customers.view', 'customers.manage', 'campaigns.manage', 'reports.view', 'settings.manage', 'health.view', 'exports.manage'],
+            'STAFF' => ['orders.view', 'orders.manage', 'catalog.view', 'catalog.manage', 'customers.view', 'campaigns.manage', 'reports.view', 'exports.manage'],
             'EDITOR' => ['catalog.view', 'catalog.manage', 'customers.view', 'campaigns.manage', 'reports.view', 'exports.manage'],
             'VIEWER' => ['orders.view', 'catalog.view', 'customers.view', 'reports.view', 'health.view']
         ];
@@ -4065,6 +4078,7 @@ function get_admin_role($authUser) {
         return 'ADMIN';
     }
     if ($role === 'OWNER') return 'OWNER';
+    if ($role === 'STAFF') return 'STAFF';
     if ($role === 'ADMIN') return 'ADMIN';
     if ($role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
     if ($role === 'EDITOR') return 'EDITOR';
@@ -4072,8 +4086,17 @@ function get_admin_role($authUser) {
     return $role;
 }
 
+function admin_role_bucket($role) {
+    $normalized = strtoupper(trim((string)$role));
+    if ($normalized === 'OWNER') return 'OWNER';
+    if (in_array($normalized, ['ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF'], true)) return 'STAFF';
+    if ($normalized === 'VIEWER') return 'VIEWER';
+    return 'USER';
+}
+
 function can_edit_cms_role($role) {
-    return in_array(strtoupper((string)$role), ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true);
+    $bucket = admin_role_bucket($role);
+    return in_array($bucket, ['OWNER', 'STAFF'], true);
 }
 
 function is_strong_password($password) {
@@ -4092,6 +4115,32 @@ function generate_public_user_id() {
         $randomPart = strtoupper(substr(sha1(uniqid((string)mt_rand(), true)), 0, 10));
     }
     return "USR-{$datePart}-{$randomPart}";
+}
+
+function generate_order_reference($db) {
+    $attempt = 0;
+    while ($attempt < 8) {
+        $attempt++;
+        try {
+            $suffix = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+        } catch (Exception $e) {
+            splaro_log_exception('order.reference.random_bytes', $e, ['attempt' => $attempt], 'WARNING');
+            $suffix = strtoupper(substr(sha1(uniqid((string)$attempt, true)), 0, 8));
+        }
+        $candidate = 'ORD-' . gmdate('Ymd') . '-' . $suffix;
+        try {
+            $stmt = $db->prepare("SELECT id FROM orders WHERE order_no = ? LIMIT 1");
+            $stmt->execute([$candidate]);
+            if (!$stmt->fetch()) {
+                return $candidate;
+            }
+        } catch (Exception $e) {
+            splaro_log_exception('order.reference.lookup', $e, ['candidate' => $candidate], 'WARNING');
+            return $candidate;
+        }
+    }
+
+    return 'ORD-' . gmdate('YmdHis') . '-' . strtoupper(substr(sha1(uniqid('', true)), 0, 6));
 }
 
 function resolve_session_id() {
@@ -4234,7 +4283,7 @@ function get_authenticated_user_from_request() {
 }
 
 function is_admin_authenticated($authUser) {
-    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         return true;
     }
 
@@ -6722,8 +6771,8 @@ function read_request_json_payload($stage = 'request.payload') {
 function require_campaign_write_access($authUser) {
     require_admin_access($authUser);
     if (is_array($authUser)) {
-        $role = strtoupper((string)get_admin_role($authUser));
-        if (!in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+        $roleBucket = admin_role_bucket(get_admin_role($authUser));
+        if (!in_array($roleBucket, ['OWNER', 'STAFF'], true)) {
             http_response_code(403);
             echo json_encode(["status" => "error", "message" => "CAMPAIGN_WRITE_ACCESS_REQUIRED"]);
             exit;
@@ -8093,15 +8142,30 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                     $callbackMessage = 'Invalid status action';
                     $reply = '<b>Invalid action.</b>';
                 } else {
-                    $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                    $stmt->execute([$statusLabel, $orderId]);
-                    $orderExists = $stmt->rowCount() > 0;
-                    if (!$orderExists) {
-                        $existsStmt = $db->prepare("SELECT id FROM orders WHERE id = ? LIMIT 1");
-                        $existsStmt->execute([$orderId]);
-                        $orderExists = (bool)$existsStmt->fetch();
-                    }
+                    $beforeStmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
+                    $beforeStmt->execute([$orderId]);
+                    $beforeOrder = $beforeStmt->fetch();
+                    $orderExists = (bool)$beforeOrder;
                     if ($orderExists) {
+                        try {
+                            $db->beginTransaction();
+                            $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+                            $stmt->execute([$statusLabel, $orderId]);
+                            admin_write_order_status_history(
+                                $db,
+                                $orderId,
+                                (string)($beforeOrder['status'] ?? ''),
+                                $statusLabel,
+                                'Status updated via Telegram callback',
+                                ['id' => 'telegram_bot', 'role' => 'SYSTEM']
+                            );
+                            $db->commit();
+                        } catch (Exception $e) {
+                            if ($db->inTransaction()) {
+                                $db->rollBack();
+                            }
+                            throw $e;
+                        }
                         sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
                         log_system_event(
                             $db,
@@ -8236,15 +8300,30 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
             if ($orderId === '' || $statusLabel === '') {
                 $reply = "<b>Usage:</b> /setstatus {order_id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}";
             } else {
-                $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                $stmt->execute([$statusLabel, $orderId]);
-                $orderExists = $stmt->rowCount() > 0;
-                if (!$orderExists) {
-                    $existsStmt = $db->prepare("SELECT id FROM orders WHERE id = ? LIMIT 1");
-                    $existsStmt->execute([$orderId]);
-                    $orderExists = (bool)$existsStmt->fetch();
-                }
+                $beforeStmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
+                $beforeStmt->execute([$orderId]);
+                $beforeOrder = $beforeStmt->fetch();
+                $orderExists = (bool)$beforeOrder;
                 if ($orderExists) {
+                    try {
+                        $db->beginTransaction();
+                        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+                        $stmt->execute([$statusLabel, $orderId]);
+                        admin_write_order_status_history(
+                            $db,
+                            $orderId,
+                            (string)($beforeOrder['status'] ?? ''),
+                            $statusLabel,
+                            'Status updated via Telegram command',
+                            ['id' => 'telegram_bot', 'role' => 'SYSTEM']
+                        );
+                        $db->commit();
+                    } catch (Exception $e) {
+                        if ($db->inTransaction()) {
+                            $db->rollBack();
+                        }
+                        throw $e;
+                    }
                     sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
                     log_system_event(
                         $db,
@@ -9213,7 +9292,7 @@ if ($method === 'POST' && $action === 'admin_user_role') {
         echo json_encode(["status" => "error", "message" => "USER_ID_AND_ROLE_REQUIRED"]);
         exit;
     }
-    $allowedRoles = ['USER', 'VIEWER', 'EDITOR', 'ADMIN', 'OWNER', 'SUPER_ADMIN'];
+    $allowedRoles = ['USER', 'VIEWER', 'STAFF', 'EDITOR', 'ADMIN', 'OWNER', 'SUPER_ADMIN'];
     if (!in_array($nextRole, $allowedRoles, true)) {
         echo json_encode(["status" => "error", "message" => "INVALID_ROLE"]);
         exit;
@@ -9265,7 +9344,7 @@ if ($method === 'POST' && $action === 'admin_user_role') {
 if ($method === 'GET' && $action === 'admin_permission_matrix') {
     require_admin_access($requestAuthUser);
     try {
-        $roles = safe_query_all($db, "SELECT id, name, description, created_at FROM admin_roles ORDER BY FIELD(id, 'SUPER_ADMIN', 'ADMIN', 'EDITOR', 'VIEWER'), id ASC");
+        $roles = safe_query_all($db, "SELECT id, name, description, created_at FROM admin_roles ORDER BY FIELD(id, 'SUPER_ADMIN', 'ADMIN', 'STAFF', 'EDITOR', 'VIEWER'), id ASC");
         $permissions = safe_query_all($db, "SELECT id, label, created_at FROM admin_permissions ORDER BY id ASC");
         $links = safe_query_all($db, "SELECT role_id, permission_id FROM admin_role_permissions");
 
@@ -10013,7 +10092,7 @@ if ($method === 'POST' && $action === 'admin_stock_adjust') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF'], true)) {
         echo json_encode(["status" => "error", "message" => "STOCK_ADJUST_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10247,7 +10326,7 @@ if ($method === 'POST' && $action === 'admin_product_variant_upsert') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF'], true)) {
         echo json_encode(["status" => "error", "message" => "VARIANT_WRITE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10458,7 +10537,7 @@ if ($method === 'POST' && $action === 'admin_product_variant_delete') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF'], true)) {
         echo json_encode(["status" => "error", "message" => "VARIANT_DELETE_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10897,7 +10976,7 @@ if ($method === 'GET' && $action === 'admin_audit_logs') {
 if ($method === 'GET' && $action === 'admin_export_products') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF'], true)) {
         echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10922,7 +11001,7 @@ if ($method === 'GET' && $action === 'admin_export_products') {
 if ($method === 'GET' && $action === 'admin_export_orders') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF', 'VIEWER'], true)) {
         echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
         exit;
     }
@@ -10961,7 +11040,7 @@ if ($method === 'GET' && $action === 'admin_export_orders') {
 if ($method === 'GET' && $action === 'admin_export_customers') {
     require_admin_access($requestAuthUser);
     $adminRole = get_admin_role($requestAuthUser);
-    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (is_array($requestAuthUser) && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'STAFF', 'VIEWER'], true)) {
         echo json_encode(["status" => "error", "message" => "EXPORT_ACCESS_REQUIRED"]);
         exit;
     }
@@ -11563,11 +11642,22 @@ if ($method === 'POST' && $action === 'create_order') {
 
     $orderId = trim((string)($input['id'] ?? ''));
     if ($orderId === '') {
-        $orderId = 'SPL-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+        try {
+            $orderId = 'SPL-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+        } catch (Exception $e) {
+            splaro_log_exception('order.id.random_bytes', $e, [], 'WARNING');
+            $orderId = 'SPL-' . strtoupper(substr(sha1(uniqid('', true)), 0, 8));
+        }
+    }
+    $orderNo = trim((string)($input['orderNo'] ?? ($input['order_no'] ?? '')));
+    if ($orderNo === '') {
+        $orderNo = generate_order_reference($db);
     }
     $input['id'] = $orderId;
+    $input['order_no'] = $orderNo;
     splaro_integration_trace('order.handler.validated', [
         'order_id' => $orderId,
+        'order_no' => $orderNo,
         'customer_email' => (string)($input['customerEmail'] ?? ''),
         'items_count' => is_array($input['items'] ?? null) ? count($input['items']) : 0
     ]);
@@ -11586,9 +11676,10 @@ if ($method === 'POST' && $action === 'create_order') {
         splaro_integration_trace('order.db.insert.begin', ['order_id' => $orderId]);
         $db->beginTransaction();
         $initialStatus = admin_normalize_order_status($input['status'] ?? 'Pending');
-        $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO orders (id, order_no, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $orderId,
+            $orderNo,
             $resolvedUserId,
             $input['customerName'],
             $input['customerEmail'],
@@ -11606,26 +11697,68 @@ if ($method === 'POST' && $action === 'create_order') {
         ]);
 
         $parsedItems = invoice_parse_items($input['items'] ?? []);
+        $productQuantities = [];
         if (!empty($parsedItems)) {
             $itemInsert = $db->prepare("INSERT INTO order_items (order_id, product_id, product_name, product_slug, brand, category, variant_size, variant_color, quantity, unit_price, line_total, product_url, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             foreach ($parsedItems as $index => $item) {
                 $rawItem = isset($input['items'][$index]) && is_array($input['items'][$index]) ? $input['items'][$index] : [];
                 $rawProduct = isset($rawItem['product']) && is_array($rawItem['product']) ? $rawItem['product'] : [];
+                $productId = trim((string)($rawProduct['id'] ?? ''));
+                $quantity = max(1, (int)($item['quantity'] ?? 1));
                 $itemInsert->execute([
                     $orderId,
-                    (string)($rawProduct['id'] ?? ''),
+                    $productId,
                     (string)($item['name'] ?? 'Product'),
                     (string)($rawProduct['productSlug'] ?? $rawProduct['slug'] ?? ''),
                     (string)($rawProduct['brand'] ?? ''),
                     (string)($rawProduct['category'] ?? ''),
                     (string)($item['size'] ?? ''),
                     (string)($item['color'] ?? ''),
-                    (int)($item['quantity'] ?? 1),
+                    $quantity,
                     (float)($item['unitPrice'] ?? 0),
                     (float)($item['lineTotal'] ?? 0),
                     (string)($item['productUrl'] ?? ''),
                     (string)($item['imageUrl'] ?? '')
                 ]);
+                if ($productId !== '') {
+                    $productQuantities[$productId] = (int)($productQuantities[$productId] ?? 0) + $quantity;
+                }
+            }
+        }
+
+        if (!empty($productQuantities)) {
+            $stockReadStmt = $db->prepare("SELECT stock FROM products WHERE id = ? LIMIT 1 FOR UPDATE");
+            $stockWriteStmt = $db->prepare("UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?");
+            foreach ($productQuantities as $productId => $qtyNeeded) {
+                $stockReadStmt->execute([(string)$productId]);
+                $stockRow = $stockReadStmt->fetch();
+                if (!$stockRow) {
+                    splaro_integration_trace('order.stock.product_missing', [
+                        'order_id' => (string)$orderId,
+                        'product_id' => (string)$productId
+                    ], 'WARNING');
+                    continue;
+                }
+
+                $stockBefore = (int)($stockRow['stock'] ?? 0);
+                if ($stockBefore < (int)$qtyNeeded) {
+                    throw new RuntimeException('INSUFFICIENT_STOCK_FOR_PRODUCT_' . $productId);
+                }
+                $stockAfter = $stockBefore - (int)$qtyNeeded;
+                $stockWriteStmt->execute([$stockAfter, (string)$productId]);
+                record_stock_movement(
+                    $db,
+                    (string)$productId,
+                    null,
+                    'ORDER_DECREMENT',
+                    (int)$qtyNeeded * -1,
+                    $stockBefore,
+                    $stockAfter,
+                    'Stock reserved on order create',
+                    'ORDER',
+                    (string)$orderId,
+                    (string)($requestAuthUser['id'] ?? null)
+                );
             }
         }
 
@@ -11645,8 +11778,15 @@ if ($method === 'POST' && $action === 'create_order') {
         }
         error_log("SPLARO_ORDER_CREATE_FAILURE: " . $e->getMessage());
         splaro_log_exception('order.db.insert', $e, ['order_id' => $orderId]);
-        http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "ORDER_CREATE_FAILED"]);
+        $message = 'ORDER_CREATE_FAILED';
+        $statusCode = 500;
+        $rawError = (string)$e->getMessage();
+        if (strpos($rawError, 'INSUFFICIENT_STOCK_FOR_PRODUCT_') === 0) {
+            $message = 'INSUFFICIENT_STOCK';
+            $statusCode = 409;
+        }
+        http_response_code($statusCode);
+        echo json_encode(["status" => "error", "message" => $message]);
         exit;
     }
 
@@ -11844,6 +11984,8 @@ if ($method === 'POST' && $action === 'create_order') {
 
     echo json_encode([
         "status" => "success",
+        "order_id" => (string)$orderId,
+        "order_no" => (string)$orderNo,
         "message" => $customerMail ? "INVOICE_DISPATCHED" : "ORDER_PLACED_EMAIL_PENDING",
         "email" => ["admin" => false, "customer" => $customerMail],
         "integrations" => [
@@ -11861,6 +12003,7 @@ if ($method === 'POST' && $action === 'create_order') {
 // 2.1 LOGISTICS UPDATE PROTOCOL
 if ($method === 'POST' && $action === 'update_order_status') {
     require_admin_access($requestAuthUser);
+    require_csrf_token();
     $rawInput = file_get_contents('php://input');
     $input = json_decode((string)$rawInput, true);
     if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
@@ -12492,10 +12635,10 @@ if ($method === 'POST' && $action === 'signup') {
     }
 
     $role = strtoupper(trim((string)($input['role'] ?? 'USER')));
-    if (!in_array($role, ['USER', 'ADMIN', 'OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (!in_array($role, ['USER', 'STAFF', 'ADMIN', 'OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $role = 'USER';
     }
-    if (in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+    if (in_array($role, ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
         $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
         if (ADMIN_KEY === '' || !hash_equals(ADMIN_KEY, $adminKeyHeader)) {
             $role = 'USER';
@@ -12507,7 +12650,7 @@ if ($method === 'POST' && $action === 'signup') {
     if ($isAdminIdentity) {
         if ($isOwnerIdentity) {
             $role = 'OWNER';
-        } elseif (!in_array($role, ['OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        } elseif (!in_array($role, ['OWNER', 'SUPER_ADMIN', 'EDITOR', 'STAFF', 'VIEWER'], true)) {
             $role = 'ADMIN';
         }
     }
@@ -12549,16 +12692,16 @@ if ($method === 'POST' && $action === 'signup') {
         }
         $existingRole = strtoupper((string)($existing['role'] ?? 'USER'));
         $persistRole = $existingRole;
-        if ($isAdminIdentity || in_array($existingRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        if ($isAdminIdentity || in_array($existingRole, ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
             if ($isOwnerIdentity || $existingRole === 'OWNER') {
                 $persistRole = 'OWNER';
             } else {
-                $persistRole = in_array($role, ['OWNER', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true) ? $role : $existingRole;
+                $persistRole = in_array($role, ['OWNER', 'SUPER_ADMIN', 'EDITOR', 'STAFF', 'VIEWER'], true) ? $role : $existingRole;
             }
-            if (!in_array($persistRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            if (!in_array($persistRole, ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
                 $persistRole = $isOwnerIdentity ? 'OWNER' : 'ADMIN';
             }
-        } elseif (in_array($role, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+        } elseif (in_array($role, ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
             $persistRole = $role;
         } elseif (in_array($existingRole, ['USER'], true)) {
             $persistRole = 'USER';
@@ -13652,7 +13795,7 @@ if ($method === 'POST' && $action === 'update_settings') {
         exit;
     }
 
-    if ($adminRole === 'EDITOR' && $hasSensitivePayload) {
+    if (in_array($adminRole, ['EDITOR', 'STAFF'], true) && $hasSensitivePayload) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "ROLE_FORBIDDEN_EDITOR_PROTOCOL"]);
         exit;

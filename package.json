@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:admin:hostinger": "bash scripts/prepare-admin-public-html.sh",
     "start": "node server.mjs",
     "start:hostinger": "node server.mjs",
     "preview": "vite preview",

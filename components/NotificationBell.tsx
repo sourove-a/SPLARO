@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bell, ChevronLeft, ChevronRight, RefreshCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
+import { getPhpApiNode } from '../lib/runtime';
 
 type NotificationItem = {
   id: number;
@@ -21,7 +22,7 @@ type NotificationMeta = {
   unread: number;
 };
 
-const API_NODE = '/api/index.php';
+const API_NODE = getPhpApiNode();
 
 function readCsrfToken(): string {
   if (typeof document === 'undefined') return '';
