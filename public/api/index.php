@@ -312,6 +312,28 @@ function ensure_index($db, $table, $indexName, $indexSql) {
     }
 }
 
+function safe_query_all($db, $sql, $params = []) {
+    try {
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log('SPLARO_SAFE_QUERY_FAILED: ' . $e->getMessage() . ' | SQL=' . $sql);
+        return [];
+    }
+}
+
+function safe_query_count($db, $sql, $params = []) {
+    try {
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        error_log('SPLARO_SAFE_COUNT_FAILED: ' . $e->getMessage() . ' | SQL=' . $sql);
+        return 0;
+    }
+}
+
 function column_exists($db, $table, $column) {
     try {
         $stmt = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?");
@@ -2942,7 +2964,20 @@ if ($method === 'GET' && $action === 'sync') {
 
     if ($isAdmin) {
         // Opportunistic background drain for pending sheet sync jobs.
-        $syncQueueProcess = process_sync_queue($db, 5, false);
+        try {
+            $syncQueueProcess = process_sync_queue($db, 5, false);
+        } catch (Exception $e) {
+            error_log('SPLARO_SYNC_QUEUE_PROCESS_FAILED: ' . $e->getMessage());
+            $syncQueueProcess = [
+                'processed' => 0,
+                'success' => 0,
+                'failed' => 0,
+                'retried' => 0,
+                'dead' => 0,
+                'paused' => true,
+                'reason' => 'SYNC_QUEUE_PROCESS_FAILED'
+            ];
+        }
 
         $page = max(1, (int)($_GET['page'] ?? 1));
         $pageSize = (int)($_GET['pageSize'] ?? 30);
@@ -2969,13 +3004,8 @@ if ($method === 'GET' && $action === 'sync') {
         }
         $orderWhereSql = $orderWhere ? ('WHERE ' . implode(' AND ', $orderWhere)) : '';
 
-        $countStmt = $db->prepare("SELECT COUNT(*) FROM orders {$orderWhereSql}");
-        $countStmt->execute($orderParams);
-        $orderCount = (int)$countStmt->fetchColumn();
-
-        $ordersStmt = $db->prepare("SELECT * FROM orders {$orderWhereSql} ORDER BY created_at DESC LIMIT {$pageSize} OFFSET {$offset}");
-        $ordersStmt->execute($orderParams);
-        $orders = $ordersStmt->fetchAll();
+        $orderCount = safe_query_count($db, "SELECT COUNT(*) FROM orders {$orderWhereSql}", $orderParams);
+        $orders = safe_query_all($db, "SELECT * FROM orders {$orderWhereSql} ORDER BY created_at DESC LIMIT {$pageSize} OFFSET {$offset}", $orderParams);
 
         $usersPage = max(1, (int)($_GET['usersPage'] ?? $page));
         $usersPageSize = (int)($_GET['usersPageSize'] ?? $pageSize);
@@ -2992,16 +3022,11 @@ if ($method === 'GET' && $action === 'sync') {
             $userParams = [$userWild, $userWild, $userWild];
         }
 
-        $userCountStmt = $db->prepare("SELECT COUNT(*) FROM users {$userWhereSql}");
-        $userCountStmt->execute($userParams);
-        $userCount = (int)$userCountStmt->fetchColumn();
+        $userCount = safe_query_count($db, "SELECT COUNT(*) FROM users {$userWhereSql}", $userParams);
+        $users = safe_query_all($db, "SELECT id, name, email, phone, address, profile_image, role, created_at FROM users {$userWhereSql} ORDER BY created_at DESC LIMIT {$usersPageSize} OFFSET {$usersOffset}", $userParams);
 
-        $usersStmt = $db->prepare("SELECT id, name, email, phone, address, profile_image, role, created_at FROM users {$userWhereSql} ORDER BY created_at DESC LIMIT {$usersPageSize} OFFSET {$usersOffset}");
-        $usersStmt->execute($userParams);
-        $users = $usersStmt->fetchAll();
-
-        $logs = $db->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll();
-        $traffic = $db->query("SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC")->fetchAll();
+        $logs = safe_query_all($db, "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50");
+        $traffic = safe_query_all($db, "SELECT * FROM traffic_metrics WHERE last_active > DATE_SUB(NOW(), INTERVAL 5 MINUTE) ORDER BY last_active DESC");
         $meta = [
             'orders' => [
                 'page' => $page,
