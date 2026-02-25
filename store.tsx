@@ -17,6 +17,7 @@ import {
   InvoiceSettings
 } from './types';
 import { shouldUsePhpApi } from './lib/runtime';
+import { isAdminRole } from './lib/roles';
 
 
 const INITIAL_SLIDES = [
@@ -24,6 +25,55 @@ const INITIAL_SLIDES = [
   { img: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=1600', title: 'Jordan Retro', subtitle: 'Heritage Elite', tags: ['RED', 'OG'] },
   { img: 'https://images.unsplash.com/photo-1518002171953-a080ee817e1f?q=80&w=1600', title: 'Adidas Pulse', subtitle: 'Performance', tags: ['WHITE', 'BOOST'] }
 ];
+
+const normalizeSlides = (raw: any, fallback: any[] = INITIAL_SLIDES): any[] => {
+  const input = Array.isArray(raw) ? raw : [];
+  const normalized = input
+    .map((slide: any, index: number) => {
+      if (typeof slide === 'string') {
+        const src = slide.trim();
+        if (!src) return null;
+        return {
+          img: src,
+          title: `Slide ${index + 1}`,
+          subtitle: 'Institutional Archive',
+          tag: 'NEW',
+          tags: ['NEW']
+        };
+      }
+      if (!slide || typeof slide !== 'object') return null;
+      const img = String(
+        slide.img ||
+        slide.image ||
+        slide.imageUrl ||
+        slide.url ||
+        slide.src ||
+        ''
+      ).trim();
+      if (!img) return null;
+      const title = String(slide.title || slide.name || slide.headline || `Slide ${index + 1}`).trim();
+      const subtitle = String(slide.subtitle || slide.subTitle || slide.description || 'Institutional Archive').trim();
+      const tagsFromArray = Array.isArray(slide.tags)
+        ? slide.tags.map((t: any) => String(t || '').trim()).filter(Boolean)
+        : [];
+      const tag = String(slide.tag || tagsFromArray[0] || 'NEW').trim() || 'NEW';
+      const tags = tagsFromArray.length > 0 ? tagsFromArray : [tag];
+      return {
+        ...slide,
+        img,
+        title: title || `Slide ${index + 1}`,
+        subtitle: subtitle || 'Institutional Archive',
+        tag,
+        tags
+      };
+    })
+    .filter(Boolean);
+
+  if (normalized.length > 0) {
+    return normalized;
+  }
+  return Array.isArray(fallback) ? fallback.map((item) => ({ ...item })) : [];
+};
 
 const INITIAL_PRODUCTS: Product[] = [
   {
@@ -868,7 +918,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [users, setUsers] = useState<User[]>(loadFromStorage('splaro-registered-users', []));
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [lastSeenOrderTime, setLastSeenOrderTime] = useState<string>(loadFromStorage('splaro-last-seen-order', new Date().toISOString()));
-  const [slides, setSlides] = useState<any[]>(loadFromStorage('splaro-slides', INITIAL_SLIDES));
+  const [slides, setSlides] = useState<any[]>(normalizeSlides(loadFromStorage('splaro-slides', INITIAL_SLIDES), INITIAL_SLIDES));
   const [logs, setLogs] = useState<any[]>([]);
   const [trafficData, setTrafficData] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -1099,7 +1149,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (Array.isArray(result.data.users)) {
           const mappedUsers = result.data.users.map((u: any) => normalizeUserPayload(u));
-          if (mappedUsers.length > 0 || user?.role === 'ADMIN') {
+          if (mappedUsers.length > 0 || isAdminRole(user?.role)) {
             setUsers(mappedUsers);
           } else if (user) {
             // Keep the active identity in local state for non-admin sync responses
@@ -1133,7 +1183,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
           if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
           if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
-          if (s.hero_slides && Array.isArray(s.hero_slides)) setSlides(s.hero_slides);
+          if (Array.isArray(s.hero_slides)) {
+            setSlides((prev) => normalizeSlides(s.hero_slides, prev.length > 0 ? prev : INITIAL_SLIDES));
+          }
         }
         if (Array.isArray(result.data.logs)) setLogs(result.data.logs);
         if (Array.isArray(result.data.traffic)) setTrafficData(result.data.traffic);

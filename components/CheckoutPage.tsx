@@ -107,7 +107,7 @@ const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any
 
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, addOrder, user, discounts } = useApp();
+  const { cart, addOrder, user, discounts, logisticsConfig } = useApp();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const [submitError, setSubmitError] = useState('');
@@ -170,7 +170,21 @@ export const CheckoutPage: React.FC = () => {
     return appliedDiscount.value;
   }, [appliedDiscount, subtotal]);
 
-  const shippingFee = formData.district === 'Dhaka' ? 90 : 140;
+  const metroShippingFee = useMemo(() => {
+    const raw = Number(logisticsConfig?.metro);
+    return Number.isFinite(raw) && raw >= 0 ? raw : 90;
+  }, [logisticsConfig?.metro]);
+
+  const regionalShippingFee = useMemo(() => {
+    const raw = Number(logisticsConfig?.regional);
+    return Number.isFinite(raw) && raw >= 0 ? raw : 140;
+  }, [logisticsConfig?.regional]);
+
+  const shippingFee = useMemo(() => {
+    const district = String(formData.district || '').trim();
+    if (!district) return 0;
+    return district.toLowerCase() === 'dhaka' ? metroShippingFee : regionalShippingFee;
+  }, [formData.district, metroShippingFee, regionalShippingFee]);
   const finalTotal = subtotal + shippingFee - discountAmount;
 
 
