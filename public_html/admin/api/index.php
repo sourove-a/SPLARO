@@ -2957,7 +2957,16 @@ function invoice_allocate_serial($db, $settings, $typeCode) {
             $insert->execute([$counterKey]);
             $number = 0;
         } else {
-            $number = ((int)$counterRow['current_number']) + 1;
+            $currentNumber = (int)($counterRow['current_number'] ?? 0);
+            $number = $currentNumber + 1;
+            if ($currentNumber > 0) {
+                $docCountStmt = $db->prepare("SELECT COUNT(*) FROM invoice_documents WHERE doc_type = ?");
+                $docCountStmt->execute([$type]);
+                $existingTypeDocs = (int)$docCountStmt->fetchColumn();
+                if ($existingTypeDocs === 0) {
+                    $number = 0;
+                }
+            }
             $update = $db->prepare("UPDATE invoice_counters SET current_number = ?, updated_at = NOW() WHERE counter_key = ?");
             $update->execute([$number, $counterKey]);
         }
