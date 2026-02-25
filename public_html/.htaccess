@@ -16,6 +16,9 @@ DirectoryIndex index.php index.html
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # Emergency fallback: prevent /admin directory 403 on main domain.
+  RewriteRule ^admin/?$ /sourove-admin [R=302,L]
+
   RewriteRule ^index\.html$ /index.php [R=302,L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
