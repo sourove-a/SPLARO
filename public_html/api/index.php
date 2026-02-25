@@ -5042,6 +5042,9 @@ function is_owner_identity_email($email, $db = null) {
     if ($normalized === '') {
         return false;
     }
+    if (hash_equals('admin@splaro.co', $normalized)) {
+        return true;
+    }
     return hash_equals(owner_login_email($db), $normalized);
 }
 
