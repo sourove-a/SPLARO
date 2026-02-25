@@ -3285,8 +3285,15 @@ export const AdminPanel = () => {
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">৳</span>
                         <input
                           type="number"
-                          value={logisticsConfig?.metro || 0}
-                          onChange={e => setLogisticsConfig({ ...logisticsConfig, metro: Number(e.target.value) })}
+                          min={0}
+                          value={Number.isFinite(Number(logisticsConfig?.metro)) ? Number(logisticsConfig?.metro) : 0}
+                          onChange={e => {
+                            const nextValue = Number(e.target.value);
+                            setLogisticsConfig({
+                              ...logisticsConfig,
+                              metro: Number.isFinite(nextValue) && nextValue >= 0 ? Math.round(nextValue) : 0
+                            });
+                          }}
                           className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-base outline-none bg-white/5 text-white"
                         />
                       </div>
@@ -3297,8 +3304,15 @@ export const AdminPanel = () => {
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40 font-bold">৳</span>
                         <input
                           type="number"
-                          value={logisticsConfig?.regional || 0}
-                          onChange={e => setLogisticsConfig({ ...logisticsConfig, regional: Number(e.target.value) })}
+                          min={0}
+                          value={Number.isFinite(Number(logisticsConfig?.regional)) ? Number(logisticsConfig?.regional) : 0}
+                          onChange={e => {
+                            const nextValue = Number(e.target.value);
+                            setLogisticsConfig({
+                              ...logisticsConfig,
+                              regional: Number.isFinite(nextValue) && nextValue >= 0 ? Math.round(nextValue) : 0
+                            });
+                          }}
                           className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-base outline-none bg-white/5 text-white"
                         />
                       </div>

@@ -581,6 +581,45 @@ const parseOptionalNonNegativeInt = (value: unknown): number | undefined => {
   return Math.max(0, Math.floor(parsed));
 };
 
+const normalizeLogisticsConfig = (
+  raw: any,
+  fallback: { metro: number; regional: number } = { metro: 90, regional: 140 }
+): { metro: number; regional: number } => {
+  const baseMetro = parseOptionalNonNegativeInt(fallback?.metro) ?? 90;
+  const baseRegional = parseOptionalNonNegativeInt(fallback?.regional) ?? 140;
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const pick = (...candidates: any[]): number | undefined => {
+    for (const candidate of candidates) {
+      const parsed = parseOptionalNonNegativeInt(candidate);
+      if (parsed !== undefined) return parsed;
+    }
+    return undefined;
+  };
+
+  const metro = pick(
+    input.metro,
+    input.dhaka,
+    input.metropolitan,
+    input.inside,
+    input.insideDhaka,
+    input.metro_fee,
+    input.metroFee
+  );
+  const regional = pick(
+    input.regional,
+    input.outside,
+    input.outsideDhaka,
+    input.outside_dhaka,
+    input.regional_fee,
+    input.regionalFee
+  );
+
+  return {
+    metro: metro ?? baseMetro,
+    regional: regional ?? baseRegional
+  };
+};
+
 const normalizeThemeSettings = (raw: any): ThemeSettings => {
   const base = {
     ...DEFAULT_THEME_SETTINGS,
@@ -937,7 +976,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [trafficData, setTrafficData] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [smtpSettings, setSmtpSettings] = useState(loadFromStorage('splaro-smtp', { host: 'smtp.hostinger.com', port: '465', user: 'info@splaro.co', pass: '' }));
-  const [logisticsConfig, setLogisticsConfig] = useState(loadFromStorage('splaro-logistics', { metro: 90, regional: 140 }));
+  const [logisticsConfig, setLogisticsConfig] = useState(
+    normalizeLogisticsConfig(loadFromStorage('splaro-logistics', { metro: 90, regional: 140 }))
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(
@@ -987,7 +1028,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [smtpSettings]);
 
   useEffect(() => {
-    localStorage.setItem('splaro-logistics', JSON.stringify(logisticsConfig));
+    localStorage.setItem('splaro-logistics', JSON.stringify(normalizeLogisticsConfig(logisticsConfig)));
   }, [logisticsConfig]);
 
   useEffect(() => {
@@ -1195,8 +1236,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             cmsRevisions: s.cms_revisions || undefined,
             cmsActiveVersion: s.cms_active_version || undefined
           }));
-          if (s.smtp_settings) setSmtpSettings({ ...smtpSettings, ...s.smtp_settings });
-          if (s.logistics_config) setLogisticsConfig({ ...logisticsConfig, ...s.logistics_config });
+          if (s.smtp_settings && typeof s.smtp_settings === 'object') {
+            setSmtpSettings((prev: any) => ({ ...prev, ...s.smtp_settings }));
+          }
+          if (Object.prototype.hasOwnProperty.call(s, 'logistics_config')) {
+            setLogisticsConfig((prev: any) => normalizeLogisticsConfig(s.logistics_config, normalizeLogisticsConfig(prev)));
+          }
           if (Array.isArray(s.hero_slides)) {
             setSlides((prev) => normalizeSlides(s.hero_slides, prev.length > 0 ? prev : INITIAL_SLIDES));
           }
@@ -1460,7 +1505,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         payload.smtpSettings = source.smtpSettings ?? smtpSettings;
       }
       if (hasOwn('logisticsConfig')) {
-        payload.logisticsConfig = source.logisticsConfig ?? logisticsConfig;
+        payload.logisticsConfig = normalizeLogisticsConfig(source.logisticsConfig ?? logisticsConfig, normalizeLogisticsConfig(logisticsConfig));
       }
       if (hasOwn('slides')) {
         payload.slides = source.slides ?? slides;

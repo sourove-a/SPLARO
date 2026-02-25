@@ -4208,6 +4208,41 @@ function safe_json_decode_assoc($raw, $default = []) {
     return is_array($decoded) ? $decoded : (is_array($default) ? $default : []);
 }
 
+function normalize_logistics_config($raw, $fallback = null) {
+    $base = [
+        'metro' => 90,
+        'regional' => 140
+    ];
+
+    if (is_array($fallback)) {
+        $fallbackMetro = isset($fallback['metro']) ? (int)$fallback['metro'] : $base['metro'];
+        $fallbackRegional = isset($fallback['regional']) ? (int)$fallback['regional'] : $base['regional'];
+        if ($fallbackMetro >= 0) $base['metro'] = $fallbackMetro;
+        if ($fallbackRegional >= 0) $base['regional'] = $fallbackRegional;
+    }
+
+    $input = is_array($raw) ? $raw : [];
+    $pick = static function (array $source, array $keys) {
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $source)) continue;
+            if ($source[$key] === null || $source[$key] === '') continue;
+            if (!is_numeric($source[$key])) continue;
+            $value = (int)$source[$key];
+            if ($value < 0) continue;
+            return $value;
+        }
+        return null;
+    };
+
+    $metro = $pick($input, ['metro', 'dhaka', 'metropolitan', 'inside', 'insideDhaka', 'metro_fee', 'metroFee']);
+    $regional = $pick($input, ['regional', 'outside', 'outsideDhaka', 'outside_dhaka', 'regional_fee', 'regionalFee']);
+
+    return [
+        'metro' => $metro !== null ? $metro : $base['metro'],
+        'regional' => $regional !== null ? $regional : $base['regional']
+    ];
+}
+
 function slugify_text($text) {
     $text = strtolower(trim((string)$text));
     $text = preg_replace("/[^\\p{L}\\p{N}\\s\\-._~!$&'()*+,;=:@]+/u", '', $text);
@@ -8957,7 +8992,7 @@ if ($method === 'GET' && $action === 'sync') {
     $settings = $db->query("SELECT {$settingsSelectFields} FROM site_settings LIMIT 1")->fetch();
     if ($settings) {
         $settings['smtp_settings'] = json_decode($settings['smtp_settings'] ?? '[]', true);
-        $settings['logistics_config'] = json_decode($settings['logistics_config'] ?? '[]', true);
+        $settings['logistics_config'] = normalize_logistics_config(json_decode($settings['logistics_config'] ?? '[]', true));
         $settings['hero_slides'] = json_decode($settings['hero_slides'] ?? '[]', true);
         $settings['content_pages'] = json_decode($settings['content_pages'] ?? '{}', true);
         $settings['story_posts'] = json_decode($settings['story_posts'] ?? '[]', true);
@@ -14318,6 +14353,7 @@ if ($method === 'POST' && $action === 'update_settings') {
         'maintenanceMode',
         'smtpSettings',
         'logisticsConfig',
+        'logistics_config',
         'invoiceSettings',
         'invoice_settings',
         'slides',
@@ -14439,6 +14475,17 @@ if ($method === 'POST' && $action === 'update_settings') {
             $mergedSmtpSettings['from'] = (string)($mergedSmtpSettings['user'] ?? '');
         }
 
+        $currentLogisticsConfig = normalize_logistics_config(
+            safe_json_decode_assoc($existingSettingsRow['logistics_config'] ?? '{}', [])
+        );
+        $incomingLogisticsConfig = null;
+        if (array_key_exists('logisticsConfig', $input)) {
+            $incomingLogisticsConfig = $input['logisticsConfig'];
+        } elseif (array_key_exists('logistics_config', $input)) {
+            $incomingLogisticsConfig = $input['logistics_config'];
+        }
+        $nextLogisticsConfig = normalize_logistics_config($incomingLogisticsConfig, $currentLogisticsConfig);
+
         $incomingCmsDraft = $input['cmsDraft'] ?? null;
         if (!is_array($incomingCmsDraft) && isset($input['themeSettings'])) {
             $incomingCmsDraft = [
@@ -14528,7 +14575,7 @@ if ($method === 'POST' && $action === 'update_settings') {
             $input['instagramLink'] ?? ($existingSettingsRow['instagram_link'] ?? ''),
             isset($input['maintenanceMode']) ? ($input['maintenanceMode'] ? 1 : 0) : (isset($existingSettingsRow['maintenance_mode']) ? ((int)$existingSettingsRow['maintenance_mode']) : 0),
             json_encode($mergedSmtpSettings),
-            json_encode($input['logisticsConfig'] ?? safe_json_decode_assoc($existingSettingsRow['logistics_config'] ?? '{}', []))
+            json_encode($nextLogisticsConfig)
         ];
 
         if (column_exists($db, 'site_settings', 'hero_slides')) {
