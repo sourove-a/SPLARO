@@ -404,6 +404,33 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    // Backfill columns for legacy products schema on older Hostinger databases.
+    ensure_column($db, 'products', 'slug', "varchar(255) DEFAULT NULL");
+    ensure_column($db, 'products', 'brand_slug', "varchar(120) DEFAULT NULL");
+    ensure_column($db, 'products', 'discount_price', "int(11) DEFAULT NULL");
+    ensure_column($db, 'products', 'discount_starts_at', "datetime DEFAULT NULL");
+    ensure_column($db, 'products', 'discount_ends_at', "datetime DEFAULT NULL");
+    ensure_column($db, 'products', 'main_image_id', "varchar(80) DEFAULT NULL");
+    ensure_column($db, 'products', 'category_slug', "varchar(120) DEFAULT NULL");
+    ensure_column($db, 'products', 'color_variants', "longtext DEFAULT NULL");
+    ensure_column($db, 'products', 'materials', "longtext DEFAULT NULL");
+    ensure_column($db, 'products', 'tags', "longtext DEFAULT NULL");
+    ensure_column($db, 'products', 'sku', "varchar(100) DEFAULT NULL");
+    ensure_column($db, 'products', 'barcode', "varchar(120) DEFAULT NULL");
+    ensure_column($db, 'products', 'stock', "int(11) DEFAULT 50");
+    ensure_column($db, 'products', 'low_stock_threshold', "int(11) DEFAULT NULL");
+    ensure_column($db, 'products', 'status', "varchar(20) DEFAULT 'PUBLISHED'");
+    ensure_column($db, 'products', 'hide_when_out_of_stock', "tinyint(1) DEFAULT 0");
+    ensure_column($db, 'products', 'weight', "varchar(50) DEFAULT NULL");
+    ensure_column($db, 'products', 'dimensions', "longtext DEFAULT NULL");
+    ensure_column($db, 'products', 'variations', "longtext DEFAULT NULL");
+    ensure_column($db, 'products', 'additional_images', "longtext DEFAULT NULL");
+    ensure_column($db, 'products', 'size_chart_image', "text DEFAULT NULL");
+    ensure_column($db, 'products', 'discount_percentage', "int(11) DEFAULT NULL");
+    ensure_column($db, 'products', 'sub_category', "varchar(100) DEFAULT NULL");
+    ensure_column($db, 'products', 'sub_category_slug', "varchar(120) DEFAULT NULL");
+    ensure_column($db, 'products', 'product_url', "text DEFAULT NULL");
+
     ensure_table($db, 'product_images', "CREATE TABLE IF NOT EXISTS `product_images` (
       `id` varchar(80) NOT NULL,
       `product_id` varchar(50) NOT NULL,
