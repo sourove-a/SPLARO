@@ -281,6 +281,24 @@ function splaro_env_bool($keysOrKey, $default = false) {
     return filter_var($raw, FILTER_VALIDATE_BOOLEAN);
 }
 
+function splaro_log_config_exception($stage, $exception, $context = []) {
+    if (!($exception instanceof Throwable)) {
+        error_log('SPLARO_CONFIG_EXCEPTION {"stage":"' . addslashes((string)$stage) . '","message":"INVALID_EXCEPTION_OBJECT"}');
+        return;
+    }
+    $payload = is_array($context) ? $context : ['value' => $context];
+    $payload['stage'] = (string)$stage;
+    $payload['error_message'] = (string)$exception->getMessage();
+    $payload['error_file'] = (string)$exception->getFile();
+    $payload['error_line'] = (int)$exception->getLine();
+    $payload['stack_trace'] = substr((string)$exception->getTraceAsString(), 0, 1600);
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($json) || $json === '') {
+        $json = '{"stage":"CONFIG_EXCEPTION_LOG_ENCODING_FAILED"}';
+    }
+    error_log('SPLARO_CONFIG_EXCEPTION ' . $json);
+}
+
 function parse_origin_host($origin) {
     $parts = parse_url((string)$origin);
     return is_array($parts) ? strtolower((string)($parts['host'] ?? '')) : '';
@@ -540,9 +558,28 @@ define('APP_AUTH_SECRET', $appAuthSecret);
 
 // 3. TELEGRAM COMMAND CENTER (NEVER EXPOSE TO CLIENT)
 define('TELEGRAM_BOT_TOKEN', env_or_default('TELEGRAM_BOT_TOKEN', ''));
-define('TELEGRAM_ADMIN_CHAT_ID', env_or_default('TELEGRAM_CHAT_ID', ''));
+$telegramAllowlistRaw = trim((string)env_first(
+    ['TELEGRAM_ADMIN_ALLOWLIST_IDS', 'TELEGRAM_CHAT_ALLOWLIST_IDS', 'TELEGRAM_CHAT_ID'],
+    env_or_default('TELEGRAM_CHAT_ID', '')
+));
+$telegramPrimaryChatId = '';
+if ($telegramAllowlistRaw !== '') {
+    $telegramAllowlistParts = preg_split('/[\s,]+/', $telegramAllowlistRaw);
+    if (is_array($telegramAllowlistParts)) {
+        foreach ($telegramAllowlistParts as $allowlistedChatId) {
+            $normalizedChatId = trim((string)$allowlistedChatId);
+            if ($normalizedChatId !== '') {
+                $telegramPrimaryChatId = $normalizedChatId;
+                break;
+            }
+        }
+    }
+}
+define('TELEGRAM_ADMIN_CHAT_ALLOWLIST_RAW', $telegramAllowlistRaw);
+define('TELEGRAM_ADMIN_CHAT_ID', $telegramPrimaryChatId);
 define('TELEGRAM_WEBHOOK_SECRET', env_or_default('TELEGRAM_WEBHOOK_SECRET', ''));
 define('TELEGRAM_ENABLED', TELEGRAM_BOT_TOKEN !== '' && TELEGRAM_ADMIN_CHAT_ID !== '');
+define('TELEGRAM_MAX_RETRIES', splaro_env_int('TELEGRAM_MAX_RETRIES', 3, 1, 10));
 
 // 4. GOOGLE SHEETS BRIDGE
 define('GOOGLE_SHEETS_WEBHOOK_URL', env_or_default('GOOGLE_SHEETS_WEBHOOK_URL', ''));
@@ -649,23 +686,23 @@ function get_db_connection() {
         try {
             $pdo->exec("SET SESSION innodb_lock_wait_timeout = " . (int)DB_LOCK_WAIT_TIMEOUT_SECONDS);
         } catch (\Throwable $e) {
-            // Best-effort only.
+            splaro_log_config_exception('db.connection.session.innodb_lock_wait_timeout', $e);
         }
         try {
             $pdo->exec("SET SESSION wait_timeout = " . (int)DB_IDLE_TIMEOUT_SECONDS);
             $pdo->exec("SET SESSION interactive_timeout = " . (int)DB_IDLE_TIMEOUT_SECONDS);
         } catch (\Throwable $e) {
-            // Best-effort only.
+            splaro_log_config_exception('db.connection.session.wait_timeout', $e);
         }
         try {
             $pdo->exec("SET SESSION MAX_EXECUTION_TIME = " . (int)DB_QUERY_TIMEOUT_MS);
         } catch (\Throwable $e) {
-            // MariaDB compatibility fallback.
+            splaro_log_config_exception('db.connection.session.max_execution_time', $e);
             try {
                 $seconds = ((int)DB_QUERY_TIMEOUT_MS) / 1000;
                 $pdo->exec("SET SESSION max_statement_time = " . number_format($seconds, 3, '.', ''));
             } catch (\Throwable $ignored) {
-                // Best-effort only.
+                splaro_log_config_exception('db.connection.session.max_statement_time', $ignored);
             }
         }
     };
@@ -714,6 +751,11 @@ function get_db_connection() {
                     $lastSqlState = (string)$e->getCode();
                     $lastPasswordSource = $candidateSource;
                     $isTransient = $isTransientDbError($lastSqlState, $lastError);
+                    splaro_log_config_exception('db.connection.connect', $e, [
+                        'host' => (string)$host,
+                        'password_source' => (string)$candidateSource,
+                        'attempt' => (int)$attempt
+                    ]);
                     error_log("SPLARO_DB_CONNECTION_ERROR[{$host}|{$candidateSource}|attempt={$attempt}]: " . $lastError);
                     if (!$isTransient || $attempt > $maxRetries) {
                         break;

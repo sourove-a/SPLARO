@@ -75,7 +75,7 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
             }
         }
     } catch (Exception $e) {
-        // keep static fallback settings
+        splaro_log_exception('mail.smtp_settings_load', $e);
     }
 
     $smtpHost = trim((string)($smtpSettings['host'] ?? ''));
@@ -165,6 +165,10 @@ function send_institutional_email($to, $subject, $body, $altBody = '', $isHtml =
         return true;
     } catch (Exception $e) {
         error_log("SPLARO_MAIL_FAILURE: " . $mail->ErrorInfo . " | Exception: " . $e->getMessage());
+        splaro_log_exception('mail.send.primary', $e, [
+            'to' => splaro_clip_text((string)$to, 120),
+            'subject' => splaro_clip_text((string)$subject, 120)
+        ]);
 
         // Last-resort fallback: native PHP mail() on shared hosting
         if (function_exists('mail')) {
@@ -213,8 +217,88 @@ function splaro_structured_log($event, $context = [], $level = 'INFO') {
     if (is_string($json) && $json !== '') {
         error_log('SPLARO_LOG ' . $json);
     } else {
-        error_log('SPLARO_LOG {"event":"LOG_ENCODING_FAILED"}');
+        error_log('SPLARO_LOG {"event":"LOG_ENCODING_FAILED","json_error":"' . addslashes((string)json_last_error_msg()) . '"}');
     }
+}
+
+function splaro_clip_text($value, $max = 300) {
+    if (!is_scalar($value) && $value !== null) {
+        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($encoded)) {
+            splaro_integration_trace('utils.clip_text.encode_failed', [
+                'json_error' => json_last_error_msg()
+            ], 'ERROR');
+            $encoded = '[unencodable]';
+        }
+        $value = $encoded;
+    }
+    $text = trim((string)$value);
+    if ($text === '') {
+        return '';
+    }
+    $limit = (int)$max;
+    if ($limit < 50) $limit = 50;
+    if (function_exists('mb_substr') && mb_strlen($text, 'UTF-8') > $limit) {
+        return mb_substr($text, 0, $limit, 'UTF-8') . '…';
+    }
+    if (strlen($text) > $limit) {
+        return substr($text, 0, $limit) . '…';
+    }
+    return $text;
+}
+
+function splaro_request_trace_id() {
+    static $traceId = null;
+    if (is_string($traceId) && $traceId !== '') {
+        return $traceId;
+    }
+
+    $headerTrace = trim((string)($_SERVER['HTTP_X_REQUEST_ID'] ?? ''));
+    if ($headerTrace === '') {
+        $headerTrace = trim((string)($_SERVER['HTTP_X_TRACE_ID'] ?? ''));
+    }
+    if ($headerTrace !== '') {
+        $traceId = preg_replace('/[^A-Za-z0-9._:-]/', '', $headerTrace);
+        if ($traceId !== '') {
+            $GLOBALS['SPLARO_TRACE_ID'] = $traceId;
+            return $traceId;
+        }
+    }
+
+    try {
+        $traceId = 'splaro_' . bin2hex(random_bytes(8));
+    } catch (Throwable $e) {
+        splaro_log_exception('request.trace_id.random_bytes', $e);
+        $traceId = 'splaro_' . uniqid('', true);
+    }
+    $GLOBALS['SPLARO_TRACE_ID'] = $traceId;
+    return $traceId;
+}
+
+function splaro_integration_trace($stage, $context = [], $level = 'DEBUG') {
+    $enabled = splaro_env_bool('INTEGRATION_TRACE_ENABLED', true);
+    if (!$enabled) {
+        return;
+    }
+
+    $payload = is_array($context) ? $context : ['value' => $context];
+    $payload['trace_id'] = splaro_request_trace_id();
+    $payload['action'] = (string)($_GET['action'] ?? '');
+    $payload['method'] = (string)($_SERVER['REQUEST_METHOD'] ?? '');
+    splaro_structured_log('integration.' . (string)$stage, $payload, $level);
+}
+
+function splaro_log_exception($stage, $exception, $context = [], $level = 'ERROR') {
+    if (!($exception instanceof Throwable)) {
+        splaro_integration_trace($stage . '.exception_invalid', ['exception' => (string)$exception], $level);
+        return;
+    }
+    $payload = is_array($context) ? $context : ['value' => $context];
+    $payload['error_message'] = $exception->getMessage();
+    $payload['error_file'] = $exception->getFile();
+    $payload['error_line'] = $exception->getLine();
+    $payload['stack_trace'] = splaro_clip_text($exception->getTraceAsString(), 1200);
+    splaro_integration_trace($stage . '.exception', $payload, $level);
 }
 
 register_shutdown_function(function () use ($method, $action, $__splaroRequestStartedAt) {
@@ -336,7 +420,9 @@ function ensure_table($db, $table, $createSql) {
             $db->exec($createSql);
         }
     } catch (Exception $e) {
-        // continue with best effort
+        splaro_log_exception('schema.ensure_table', $e, [
+            'table' => (string)$table
+        ], 'WARNING');
     }
 }
 
@@ -349,6 +435,10 @@ function ensure_column($db, $table, $column, $definition) {
         }
     } catch (Exception $e) {
         error_log("SPLARO_SCHEMA_WARNING: ensure_column failed for {$table}.{$column} -> " . $e->getMessage());
+        splaro_log_exception('schema.ensure_column', $e, [
+            'table' => (string)$table,
+            'column' => (string)$column
+        ], 'WARNING');
     }
 }
 
@@ -361,6 +451,10 @@ function ensure_index($db, $table, $indexName, $indexSql) {
         }
     } catch (Exception $e) {
         error_log("SPLARO_SCHEMA_WARNING: ensure_index failed for {$table}.{$indexName} -> " . $e->getMessage());
+        splaro_log_exception('schema.ensure_index', $e, [
+            'table' => (string)$table,
+            'index_name' => (string)$indexName
+        ], 'WARNING');
     }
 }
 
@@ -418,6 +512,10 @@ function safe_query_all($db, $sql, $params = []) {
                 continue;
             }
             error_log('SPLARO_SAFE_QUERY_FAILED: ' . $message . ' | SQL=' . $querySql);
+            splaro_log_exception('db.safe_query_all', $e, [
+                'attempt' => (int)$attempt,
+                'query_preview' => splaro_clip_text((string)$querySql, 240)
+            ]);
             return [];
         }
     }
@@ -477,6 +575,10 @@ function safe_query_count($db, $sql, $params = []) {
                 continue;
             }
             error_log('SPLARO_SAFE_COUNT_FAILED: ' . $message . ' | SQL=' . $querySql);
+            splaro_log_exception('db.safe_query_count', $e, [
+                'attempt' => (int)$attempt,
+                'query_preview' => splaro_clip_text((string)$querySql, 240)
+            ]);
             return 0;
         }
     }
@@ -489,6 +591,10 @@ function column_exists($db, $table, $column) {
         return ((int)$stmt->fetchColumn()) > 0;
     } catch (Exception $e) {
         error_log("SPLARO_SCHEMA_WARNING: column_exists failed for {$table}.{$column} -> " . $e->getMessage());
+        splaro_log_exception('schema.column_exists', $e, [
+            'table' => (string)$table,
+            'column' => (string)$column
+        ], 'WARNING');
         return false;
     }
 }
@@ -512,6 +618,9 @@ function get_table_columns_cached($db, $table) {
         }
     } catch (Exception $e) {
         error_log("SPLARO_SCHEMA_WARNING: get_table_columns failed for {$table} -> " . $e->getMessage());
+        splaro_log_exception('schema.get_table_columns_cached', $e, [
+            'table' => (string)$table
+        ], 'WARNING');
     }
     $cache[$key] = $columns;
     return $columns;
@@ -927,7 +1036,7 @@ function ensure_core_schema($db) {
     try {
         $db->exec("INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co')");
     } catch (Exception $e) {
-        // ignore
+        splaro_log_exception('schema.ensure_core_schema', $e, [], 'WARNING');
     }
 }
 
@@ -1054,7 +1163,7 @@ function load_smtp_settings($db) {
             }
         }
     } catch (Exception $e) {
-        // fall back to constants
+        splaro_log_exception('smtp.settings.load', $e, [], 'WARNING');
     }
 
     // Environment variables must win over DB values when provided,
@@ -1543,6 +1652,7 @@ function invoice_generate_pdf_file($html, $plainText, $targetPath) {
         }
     } catch (Exception $e) {
         error_log('SPLARO_INVOICE_DOMPDF_FAILED: ' . $e->getMessage());
+        splaro_log_exception('invoice.pdf.dompdf', $e, ['target_path' => (string)$targetPath], 'WARNING');
     }
 
     try {
@@ -1554,6 +1664,7 @@ function invoice_generate_pdf_file($html, $plainText, $targetPath) {
         }
     } catch (Exception $e) {
         error_log('SPLARO_INVOICE_MPDF_FAILED: ' . $e->getMessage());
+        splaro_log_exception('invoice.pdf.mpdf', $e, ['target_path' => (string)$targetPath], 'WARNING');
     }
 
     return invoice_generate_basic_pdf($plainText, $targetPath);
@@ -1588,6 +1699,7 @@ function invoice_allocate_serial($db, $settings, $typeCode) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
+        splaro_log_exception('invoice.serial.allocate', $e, ['type_code' => (string)$typeCode]);
         throw $e;
     }
 
@@ -1750,9 +1862,18 @@ function telegram_escape_html($value) {
 
 function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
     $url = "https://api.telegram.org/bot" . TELEGRAM_BOT_TOKEN . "/" . ltrim((string)$endpoint, '/');
+    splaro_integration_trace('telegram.http.prepare', [
+        'endpoint' => (string)$endpoint,
+        'timeout_seconds' => (int)$timeoutSeconds,
+        'payload_keys' => is_array($payload) ? array_keys($payload) : []
+    ]);
     $jsonPayload = json_encode($payload);
 
     if ($jsonPayload === false) {
+        splaro_integration_trace('telegram.http.json_encode_failed', [
+            'endpoint' => (string)$endpoint,
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
         return [false, 0, 'JSON_ENCODE_FAILED'];
     }
 
@@ -1772,10 +1893,26 @@ function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
             CURLOPT_LOW_SPEED_TIME => $timeoutSeconds,
         ]);
 
+        splaro_integration_trace('telegram.http.curl.before_exec', [
+            'endpoint' => (string)$endpoint,
+            'connect_timeout_seconds' => (int)$connectTimeout,
+            'timeout_seconds' => (int)$timeoutSeconds
+        ]);
         $responseBody = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = curl_errno($ch);
         $curlError = curl_error($ch);
+        $sslVerifyResult = defined('CURLINFO_SSL_VERIFYRESULT') ? curl_getinfo($ch, CURLINFO_SSL_VERIFYRESULT) : null;
         curl_close($ch);
+
+        splaro_integration_trace('telegram.http.curl.after_exec', [
+            'endpoint' => (string)$endpoint,
+            'http_code' => (int)$httpCode,
+            'curl_errno' => (int)$curlErrNo,
+            'curl_error' => (string)$curlError,
+            'ssl_verify_result' => $sslVerifyResult,
+            'response_preview' => splaro_clip_text($responseBody, 300)
+        ], ($responseBody === false || $httpCode < 200 || $httpCode >= 300) ? 'ERROR' : 'INFO');
 
         if ($responseBody === false) {
             return [false, $httpCode, $curlError ?: 'CURL_REQUEST_FAILED'];
@@ -1794,6 +1931,10 @@ function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
         ]
     ]);
 
+    splaro_integration_trace('telegram.http.stream.before_exec', [
+        'endpoint' => (string)$endpoint,
+        'timeout_seconds' => (int)$timeoutSeconds
+    ]);
     $responseBody = @file_get_contents($url, false, $context);
     $responseHeaders = function_exists('http_get_last_response_headers')
         ? http_get_last_response_headers()
@@ -1802,6 +1943,13 @@ function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
     if (!empty($responseHeaders[0]) && preg_match('/\s(\d{3})\s/', $responseHeaders[0], $m)) {
         $httpCode = (int)$m[1];
     }
+
+    splaro_integration_trace('telegram.http.stream.after_exec', [
+        'endpoint' => (string)$endpoint,
+        'http_code' => (int)$httpCode,
+        'response_preview' => splaro_clip_text($responseBody, 300),
+        'headers_preview' => splaro_clip_text(json_encode($responseHeaders), 300)
+    ], ($responseBody === false || $httpCode < 200 || $httpCode >= 300) ? 'ERROR' : 'INFO');
 
     if ($responseBody === false) {
         return [false, $httpCode, 'STREAM_REQUEST_FAILED'];
@@ -1812,11 +1960,13 @@ function telegram_api_request($endpoint, $payload, $timeoutSeconds = 5) {
 
 function send_telegram_message($text, $targetChatId = null, $options = []) {
     if (!TELEGRAM_ENABLED) {
+        splaro_integration_trace('telegram.send.skipped', ['reason' => 'TELEGRAM_DISABLED'], 'WARNING');
         return false;
     }
 
-    $chatId = $targetChatId ?: TELEGRAM_ADMIN_CHAT_ID;
+    $chatId = $targetChatId ?: telegram_primary_admin_chat_id();
     if (!$chatId) {
+        splaro_integration_trace('telegram.send.skipped', ['reason' => 'CHAT_ID_MISSING'], 'WARNING');
         return false;
     }
 
@@ -1842,12 +1992,48 @@ function send_telegram_message($text, $targetChatId = null, $options = []) {
 
     while ($attempt < $maxAttempts) {
         $attempt++;
+        splaro_integration_trace('telegram.send.attempt', [
+            'attempt' => (int)$attempt,
+            'max_attempts' => (int)$maxAttempts,
+            'chat_id_preview' => splaro_clip_text((string)$chatId, 40),
+            'text_preview' => splaro_clip_text((string)$text, 180)
+        ]);
 
         [$response, $httpCode, $requestError] = telegram_api_request('sendMessage', $payload, 5);
 
-        if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+        $responseDecoded = null;
+        if ($response !== false && is_string($response) && $response !== '') {
+            $responseDecoded = json_decode($response, true);
+            if ($responseDecoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                splaro_integration_trace('telegram.send.response_decode_failed', [
+                    'attempt' => (int)$attempt,
+                    'http_code' => (int)$httpCode,
+                    'json_error' => json_last_error_msg(),
+                    'response_preview' => splaro_clip_text($response, 300)
+                ], 'ERROR');
+            }
+        }
+
+        $telegramOk = true;
+        if (is_array($responseDecoded) && array_key_exists('ok', $responseDecoded)) {
+            $telegramOk = (bool)$responseDecoded['ok'];
+        }
+        if ($response !== false && $httpCode >= 200 && $httpCode < 300 && $telegramOk) {
+            splaro_integration_trace('telegram.send.success', [
+                'attempt' => (int)$attempt,
+                'http_code' => (int)$httpCode,
+                'response_preview' => splaro_clip_text($response, 300)
+            ]);
             return true;
         }
+
+        splaro_integration_trace('telegram.send.failed_attempt', [
+            'attempt' => (int)$attempt,
+            'http_code' => (int)$httpCode,
+            'request_error' => (string)$requestError,
+            'telegram_ok' => (bool)$telegramOk,
+            'response_preview' => splaro_clip_text($response, 300)
+        ], 'ERROR');
 
         if ($attempt >= $maxAttempts) {
             error_log("SPLARO_TELEGRAM_FAILURE: HTTP {$httpCode}; ERROR {$requestError}; RESPONSE {$response}");
@@ -1871,8 +2057,274 @@ function telegram_order_summary($order) {
     return "<b>Order:</b> {$id}\n<b>Name:</b> {$name}\n<b>Phone:</b> {$phone}\n<b>Status:</b> {$status}\n<b>Total:</b> ৳{$total}\n<b>Time:</b> {$created}";
 }
 
+function telegram_admin_chat_allowlist() {
+    static $allowlist = null;
+    if (is_array($allowlist)) {
+        return $allowlist;
+    }
+
+    $rawParts = [];
+    if (defined('TELEGRAM_ADMIN_CHAT_ALLOWLIST_RAW')) {
+        $rawParts[] = (string)TELEGRAM_ADMIN_CHAT_ALLOWLIST_RAW;
+    }
+    if (defined('TELEGRAM_ADMIN_CHAT_ID')) {
+        $rawParts[] = (string)TELEGRAM_ADMIN_CHAT_ID;
+    }
+
+    $resolved = [];
+    foreach ($rawParts as $raw) {
+        $parts = preg_split('/[\s,]+/', trim((string)$raw));
+        if (!is_array($parts)) {
+            continue;
+        }
+        foreach ($parts as $part) {
+            $candidate = trim((string)$part);
+            if ($candidate === '') {
+                continue;
+            }
+            if (!in_array($candidate, $resolved, true)) {
+                $resolved[] = $candidate;
+            }
+        }
+    }
+    $allowlist = $resolved;
+    return $allowlist;
+}
+
+function telegram_primary_admin_chat_id() {
+    $allowlist = telegram_admin_chat_allowlist();
+    return (string)($allowlist[0] ?? '');
+}
+
 function is_telegram_admin_chat($chatId) {
-    return (string)$chatId === (string)TELEGRAM_ADMIN_CHAT_ID;
+    $chat = trim((string)$chatId);
+    if ($chat === '') {
+        return false;
+    }
+    foreach (telegram_admin_chat_allowlist() as $allowlistedId) {
+        if (hash_equals((string)$allowlistedId, $chat)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function telegram_order_status_key_to_label($statusKey) {
+    $map = [
+        'PENDING' => 'Pending',
+        'PROCESSING' => 'Processing',
+        'SHIPPED' => 'Shipped',
+        'DELIVERED' => 'Delivered',
+        'CANCELLED' => 'Cancelled',
+    ];
+    $normalized = strtoupper(trim((string)$statusKey));
+    return $map[$normalized] ?? '';
+}
+
+function telegram_order_action_keyboard($orderId) {
+    $id = trim((string)$orderId);
+    if ($id === '') {
+        return [];
+    }
+    return [
+        'inline_keyboard' => [
+            [
+                ['text' => 'Processing', 'callback_data' => "ordst|{$id}|PROCESSING"],
+                ['text' => 'Shipped', 'callback_data' => "ordst|{$id}|SHIPPED"]
+            ],
+            [
+                ['text' => 'Delivered', 'callback_data' => "ordst|{$id}|DELIVERED"],
+                ['text' => 'Cancel', 'callback_data' => "ordst|{$id}|CANCELLED"]
+            ],
+            [
+                ['text' => 'Refresh', 'callback_data' => "ordrf|{$id}"],
+                ['text' => 'Back', 'callback_data' => 'menu|home']
+            ]
+        ]
+    ];
+}
+
+function telegram_main_inline_keyboard() {
+    return [
+        'inline_keyboard' => [
+            [
+                ['text' => 'Orders', 'callback_data' => 'ordpg|1|5'],
+                ['text' => 'Health', 'callback_data' => 'sys|health']
+            ],
+            [
+                ['text' => 'Refresh', 'callback_data' => 'menu|home']
+            ]
+        ]
+    ];
+}
+
+function telegram_orders_pagination_keyboard($page, $limit, $hasNext) {
+    $currentPage = max(1, (int)$page);
+    $pageLimit = max(1, min(10, (int)$limit));
+    $navRow = [];
+    if ($currentPage > 1) {
+        $navRow[] = ['text' => 'Prev', 'callback_data' => 'ordpg|' . ($currentPage - 1) . '|' . $pageLimit];
+    }
+    if ($hasNext) {
+        $navRow[] = ['text' => 'Next', 'callback_data' => 'ordpg|' . ($currentPage + 1) . '|' . $pageLimit];
+    }
+    $rows = [];
+    if (!empty($navRow)) {
+        $rows[] = $navRow;
+    }
+    $rows[] = [
+        ['text' => 'Refresh', 'callback_data' => 'ordpg|' . $currentPage . '|' . $pageLimit],
+        ['text' => 'Back', 'callback_data' => 'menu|home']
+    ];
+    return ['inline_keyboard' => $rows];
+}
+
+function telegram_compact_order_message($title, $orderId, $customerName, $phone, $total, $statusLabel, $createdAt = '') {
+    $lines = [
+        '<b>' . telegram_escape_html($title) . '</b>',
+        '#' . telegram_escape_html($orderId) . ' • ৳' . telegram_escape_html($total),
+        telegram_escape_html($customerName) . ' • ' . telegram_escape_html($phone),
+        'Status: ' . telegram_escape_html($statusLabel)
+    ];
+    if ($createdAt !== '') {
+        $lines[] = 'Time: ' . telegram_escape_html($createdAt);
+    }
+    return implode("\n", $lines);
+}
+
+function telegram_compact_signup_message($userId, $name, $email, $phone, $createdAt = '') {
+    $lines = [
+        '<b>✅ New Signup</b>',
+        '#' . telegram_escape_html($userId),
+        telegram_escape_html($name),
+        telegram_escape_html($email),
+        telegram_escape_html($phone)
+    ];
+    if ($createdAt !== '') {
+        $lines[] = 'Time: ' . telegram_escape_html($createdAt);
+    }
+    return implode("\n", $lines);
+}
+
+function telegram_load_order_details($db, $orderId) {
+    $id = trim((string)$orderId);
+    if ($id === '') {
+        return [
+            'ok' => false,
+            'text' => '<b>Order ID required.</b>',
+            'options' => ['reply_markup' => telegram_main_inline_keyboard()]
+        ];
+    }
+
+    $selectFields = build_select_fields($db, 'orders', [
+        'id', 'customer_name', 'phone', 'status', 'total', 'created_at', 'address', 'district', 'thana'
+    ]);
+    $stmt = $db->prepare("SELECT {$selectFields} FROM orders WHERE id = ? LIMIT 1");
+    $stmt->execute([$id]);
+    $order = $stmt->fetch();
+    if (!$order) {
+        return [
+            'ok' => false,
+            'text' => '<b>Order not found:</b> ' . telegram_escape_html($id),
+            'options' => ['reply_markup' => telegram_main_inline_keyboard()]
+        ];
+    }
+
+    $text = telegram_compact_order_message(
+        'Order Details',
+        (string)($order['id'] ?? ''),
+        (string)($order['customer_name'] ?? 'N/A'),
+        (string)($order['phone'] ?? 'N/A'),
+        (string)($order['total'] ?? '0'),
+        (string)($order['status'] ?? 'Pending'),
+        (string)($order['created_at'] ?? '')
+    ) . "\n"
+        . 'Area: ' . telegram_escape_html(($order['district'] ?? '') . ' / ' . ($order['thana'] ?? ''))
+        . "\n"
+        . 'Address: ' . telegram_escape_html((string)($order['address'] ?? 'N/A'));
+
+    return [
+        'ok' => true,
+        'text' => $text,
+        'options' => ['reply_markup' => telegram_order_action_keyboard($id)]
+    ];
+}
+
+function telegram_build_orders_page($db, $page = 1, $limit = 5) {
+    $currentPage = max(1, (int)$page);
+    $pageLimit = max(1, min(10, (int)$limit));
+    $offset = ($currentPage - 1) * $pageLimit;
+    $fetchLimit = $pageLimit + 1;
+
+    $stmt = $db->prepare("SELECT id, customer_name, phone, total, status, created_at FROM orders ORDER BY created_at DESC LIMIT ? OFFSET ?");
+    $stmt->bindValue(1, $fetchLimit, PDO::PARAM_INT);
+    $stmt->bindValue(2, $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $rows = $stmt->fetchAll();
+    if (!is_array($rows)) {
+        $rows = [];
+    }
+
+    $hasNext = count($rows) > $pageLimit;
+    if ($hasNext) {
+        array_pop($rows);
+    }
+
+    if (empty($rows)) {
+        return [
+            'text' => '<b>No orders found.</b>',
+            'options' => ['reply_markup' => telegram_orders_pagination_keyboard($currentPage, $pageLimit, false)]
+        ];
+    }
+
+    $lines = ['<b>Orders Page ' . $currentPage . '</b>'];
+    $inlineRows = [];
+    foreach ($rows as $row) {
+        $id = (string)($row['id'] ?? '');
+        $lines[] = '• #' . telegram_escape_html($id)
+            . ' | ' . telegram_escape_html((string)($row['status'] ?? 'Pending'))
+            . ' | ৳' . telegram_escape_html((string)($row['total'] ?? '0'));
+        if ($id !== '') {
+            $inlineRows[] = [
+                ['text' => '#' . $id . ' details', 'callback_data' => 'ordrf|' . $id]
+            ];
+        }
+    }
+
+    $paginationKeyboard = telegram_orders_pagination_keyboard($currentPage, $pageLimit, $hasNext);
+    foreach (($paginationKeyboard['inline_keyboard'] ?? []) as $row) {
+        $inlineRows[] = $row;
+    }
+
+    return [
+        'text' => implode("\n", $lines),
+        'options' => ['reply_markup' => ['inline_keyboard' => $inlineRows]]
+    ];
+}
+
+function telegram_answer_callback_query($callbackQueryId, $text = '', $showAlert = false) {
+    $id = trim((string)$callbackQueryId);
+    if ($id === '') {
+        return false;
+    }
+    $payload = [
+        'callback_query_id' => $id,
+        'show_alert' => (bool)$showAlert
+    ];
+    $text = trim((string)$text);
+    if ($text !== '') {
+        $payload['text'] = splaro_clip_text($text, 180);
+    }
+    [$response, $httpCode, $requestError] = telegram_api_request('answerCallbackQuery', $payload, 5);
+    if ($response === false || $httpCode < 200 || $httpCode >= 300) {
+        splaro_integration_trace('telegram.callback.answer_failed', [
+            'http_code' => (int)$httpCode,
+            'request_error' => (string)$requestError,
+            'callback_query_id_preview' => splaro_clip_text($id, 32)
+        ], 'ERROR');
+        return false;
+    }
+    return true;
 }
 
 function telegram_admin_command_definitions() {
@@ -2163,7 +2615,9 @@ function log_system_event($db, $eventType, $description, $userId = null, $ip = n
             $ip !== null ? (string)$ip : ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN')
         ]);
     } catch (Exception $e) {
-        // best-effort logging only
+        splaro_log_exception('system_log.insert', $e, [
+            'event_type' => (string)$eventType
+        ]);
     }
 }
 
@@ -2172,18 +2626,44 @@ function log_audit_event($db, $actorId, $action, $entityType, $entityId = null, 
         return;
     }
     try {
+        $beforeJson = null;
+        if ($before !== null) {
+            $beforeJson = json_encode($before);
+            if (!is_string($beforeJson)) {
+                splaro_integration_trace('audit.before_encode_failed', [
+                    'action' => (string)$action,
+                    'json_error' => json_last_error_msg()
+                ], 'ERROR');
+                $beforeJson = null;
+            }
+        }
+        $afterJson = null;
+        if ($after !== null) {
+            $afterJson = json_encode($after);
+            if (!is_string($afterJson)) {
+                splaro_integration_trace('audit.after_encode_failed', [
+                    'action' => (string)$action,
+                    'json_error' => json_last_error_msg()
+                ], 'ERROR');
+                $afterJson = null;
+            }
+        }
         $stmt = $db->prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, before_json, after_json, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $actorId !== null ? (string)$actorId : null,
             (string)$action,
             (string)$entityType,
             $entityId !== null ? (string)$entityId : null,
-            $before !== null ? json_encode($before) : null,
-            $after !== null ? json_encode($after) : null,
+            $beforeJson,
+            $afterJson,
             $ip !== null ? (string)$ip : ($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN')
         ]);
     } catch (Exception $e) {
-        // best-effort logging only
+        splaro_log_exception('audit_log.insert', $e, [
+            'action' => (string)$action,
+            'entity_type' => (string)$entityType,
+            'entity_id' => $entityId !== null ? (string)$entityId : null
+        ]);
     }
 }
 
@@ -2195,6 +2675,12 @@ function safe_json_decode_assoc($raw, $default = []) {
         return is_array($default) ? $default : [];
     }
     $decoded = json_decode($raw, true);
+    if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('json.decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'raw_preview' => splaro_clip_text($raw, 200)
+        ], 'ERROR');
+    }
     return is_array($decoded) ? $decoded : (is_array($default) ? $default : []);
 }
 
@@ -2444,6 +2930,7 @@ function cms_upsert_page_section($db, $sectionKey, $draftJson, $publishedJson, $
         ]);
     } catch (Exception $e) {
         error_log('SPLARO_CMS_SECTION_UPSERT_FAILED: ' . $e->getMessage());
+        splaro_log_exception('cms.section.upsert', $e, ['section_key' => (string)$sectionKey], 'WARNING');
     }
 }
 
@@ -2458,6 +2945,7 @@ function cms_record_revision($db, $sectionKey, $mode, $payload, $actorId) {
         ]);
     } catch (Exception $e) {
         error_log('SPLARO_CMS_REVISION_WRITE_FAILED: ' . $e->getMessage());
+        splaro_log_exception('cms.revision.record', $e, ['section_key' => (string)$sectionKey], 'WARNING');
     }
 }
 
@@ -2522,6 +3010,7 @@ function generate_public_user_id() {
     try {
         $randomPart = strtoupper(substr(bin2hex(random_bytes(5)), 0, 10));
     } catch (Exception $e) {
+        splaro_log_exception('user.id.random_bytes', $e, [], 'WARNING');
         $randomPart = strtoupper(substr(sha1(uniqid((string)mt_rand(), true)), 0, 10));
     }
     return "USR-{$datePart}-{$randomPart}";
@@ -2549,7 +3038,9 @@ function clear_user_sessions($db, $userId, $exceptSessionId = null) {
         $stmt = $db->prepare("DELETE FROM traffic_metrics WHERE user_id = ?");
         $stmt->execute([(string)$userId]);
     } catch (Exception $e) {
-        // best-effort cleanup only
+        splaro_log_exception('user.sessions.clear', $e, [
+            'user_id' => (string)$userId
+        ], 'WARNING');
     }
 }
 
@@ -2574,7 +3065,15 @@ function issue_auth_token($user) {
         'exp' => time() + (12 * 60 * 60)
     ];
 
-    $payloadEncoded = base64url_encode(json_encode($payload));
+    $payloadJson = json_encode($payload);
+    if (!is_string($payloadJson) || $payloadJson === '') {
+        splaro_integration_trace('auth.issue_token.payload_encode_failed', [
+            'json_error' => json_last_error_msg(),
+            'user_id' => (string)($user['id'] ?? '')
+        ], 'ERROR');
+        return '';
+    }
+    $payloadEncoded = base64url_encode($payloadJson);
     $signature = base64url_encode(hash_hmac('sha256', $payloadEncoded, APP_AUTH_SECRET, true));
     return $payloadEncoded . '.' . $signature;
 }
@@ -2602,6 +3101,12 @@ function get_authenticated_user_from_request() {
 
     $payloadJson = base64url_decode($payloadEncoded);
     $payload = json_decode($payloadJson, true);
+    if ($payload === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('auth.token.payload_decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'token_preview' => splaro_clip_text($payloadEncoded, 80)
+        ], 'ERROR');
+    }
     if (!is_array($payload)) {
         return null;
     }
@@ -2625,6 +3130,7 @@ function get_authenticated_user_from_request() {
         $stmt->execute([$uid]);
         $row = $stmt->fetch();
     } catch (Exception $e) {
+        splaro_log_exception('auth.user_lookup', $e, ['user_id' => (string)$uid]);
         return null;
     }
 
@@ -2778,6 +3284,9 @@ function ensure_admin_identity_account($db) {
             }
         } catch (Exception $e) {
             error_log("SPLARO_ADMIN_AUTOSEED_FAILURE({$email}): " . $e->getMessage());
+            splaro_log_exception('admin.autoseed.identity', $e, [
+                'email' => (string)$email
+            ]);
         }
     }
 
@@ -2787,6 +3296,9 @@ function ensure_admin_identity_account($db) {
         $demote->execute([$primaryEmail]);
     } catch (Exception $e) {
         error_log("SPLARO_ADMIN_STRICT_DEMOTE_FAILURE: " . $e->getMessage());
+        splaro_log_exception('admin.autoseed.strict_demote', $e, [
+            'primary_email' => (string)$primaryEmail
+        ]);
     }
 }
 
@@ -2815,9 +3327,13 @@ $requestAuthUser = get_authenticated_user_from_request();
 maybe_ensure_admin_account($db);
 enforce_global_request_guard($method, $action, $requestAuthUser);
 
-function get_sync_queue_summary($db) {
+function get_queue_summary($db, $mode = 'SHEETS') {
+    $normalizedMode = strtoupper(trim((string)$mode));
+    $isTelegram = $normalizedMode === 'TELEGRAM';
+    $whereSql = $isTelegram ? "sync_type LIKE 'TELEGRAM_%'" : "sync_type NOT LIKE 'TELEGRAM_%'";
+    $enabled = $isTelegram ? TELEGRAM_ENABLED : (GOOGLE_SHEETS_WEBHOOK_URL !== '');
     $summary = [
-        'enabled' => GOOGLE_SHEETS_WEBHOOK_URL !== '',
+        'enabled' => $enabled,
         'pending' => 0,
         'retry' => 0,
         'processing' => 0,
@@ -2826,12 +3342,12 @@ function get_sync_queue_summary($db) {
         'lastFailure' => null,
     ];
 
-    if (!$db || !$summary['enabled']) {
+    if (!$db || !$enabled) {
         return $summary;
     }
 
     try {
-        $rows = $db->query("SELECT status, COUNT(*) AS total FROM sync_queue GROUP BY status")->fetchAll();
+        $rows = $db->query("SELECT status, COUNT(*) AS total FROM sync_queue WHERE {$whereSql} GROUP BY status")->fetchAll();
         foreach ($rows as $row) {
             $status = strtoupper((string)($row['status'] ?? ''));
             $total = (int)($row['total'] ?? 0);
@@ -2842,11 +3358,11 @@ function get_sync_queue_summary($db) {
             if ($status === 'DEAD') $summary['dead'] = $total;
         }
     } catch (Exception $e) {
-        // no-op
+        splaro_log_exception('queue.summary.status_counts', $e, ['mode' => $normalizedMode]);
     }
 
     try {
-        $stmt = $db->query("SELECT id, sync_type, last_http_code, last_error, updated_at FROM sync_queue WHERE status = 'DEAD' ORDER BY id DESC LIMIT 1");
+        $stmt = $db->query("SELECT id, sync_type, last_http_code, last_error, updated_at FROM sync_queue WHERE {$whereSql} AND status = 'DEAD' ORDER BY id DESC LIMIT 1");
         $lastFailure = $stmt->fetch();
         if ($lastFailure) {
             $summary['lastFailure'] = [
@@ -2858,14 +3374,22 @@ function get_sync_queue_summary($db) {
             ];
         }
     } catch (Exception $e) {
-        // no-op
+        splaro_log_exception('queue.summary.last_failure', $e, ['mode' => $normalizedMode]);
     }
 
-    if (function_exists('get_sheets_circuit_state')) {
+    if (!$isTelegram && function_exists('get_sheets_circuit_state')) {
         $summary['circuit'] = get_sheets_circuit_state();
     }
 
     return $summary;
+}
+
+function get_sync_queue_summary($db) {
+    return get_queue_summary($db, 'SHEETS');
+}
+
+function get_telegram_queue_summary($db) {
+    return get_queue_summary($db, 'TELEGRAM');
 }
 
 function get_db_runtime_metrics($db) {
@@ -2892,7 +3416,7 @@ function get_db_runtime_metrics($db) {
             if ($key === 'aborted_connects') $metrics['aborted_connects'] = $value;
         }
     } catch (Throwable $e) {
-        // Shared hosting may deny SHOW STATUS; keep null values.
+        splaro_log_exception('health.db.runtime_metrics', $e, [], 'WARNING');
     }
 
     return $metrics;
@@ -2911,6 +3435,7 @@ if ($method === 'GET' && $action === 'health') {
     } catch (Throwable $e) {
         $dbPingError = (string)$e->getMessage();
         $dbPingOk = false;
+        splaro_log_exception('health.db.ping', $e, [], 'WARNING');
     }
     $dbLatencyMs = (int)round((microtime(true) - $pingStartedAt) * 1000);
 
@@ -2947,6 +3472,12 @@ if ($method === 'GET' && $action === 'health') {
             "apiMaxExecutionSeconds" => (int)API_MAX_EXECUTION_SECONDS,
             "sheetsTimeoutSeconds" => (int)GOOGLE_SHEETS_TIMEOUT_SECONDS
         ],
+        "telegram" => [
+            "enabled" => TELEGRAM_ENABLED,
+            "allowlist_count" => count(telegram_admin_chat_allowlist()),
+            "primary_chat_id_preview" => splaro_clip_text(telegram_primary_admin_chat_id(), 32),
+            "queue" => get_telegram_queue_summary($db)
+        ],
         "sheets" => get_sync_queue_summary($db)
     ]);
     exit;
@@ -2954,6 +3485,7 @@ if ($method === 'GET' && $action === 'health') {
 
 if ($method === 'POST' && $action === 'telegram_webhook') {
     if (!TELEGRAM_ENABLED) {
+        splaro_integration_trace('telegram.webhook.disabled', [], 'WARNING');
         echo json_encode(["ok" => false, "message" => "TELEGRAM_DISABLED"]);
         exit;
     }
@@ -2961,23 +3493,45 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
     if (TELEGRAM_WEBHOOK_SECRET !== '') {
         $headerSecret = $_SERVER['HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'] ?? '';
         if (!hash_equals(TELEGRAM_WEBHOOK_SECRET, $headerSecret)) {
+            splaro_integration_trace('telegram.webhook.secret_mismatch', [
+                'header_present' => $headerSecret !== '',
+                'remote_ip' => (string)($_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN')
+            ], 'ERROR');
             http_response_code(403);
             echo json_encode(["ok" => false, "message" => "WEBHOOK_FORBIDDEN"]);
             exit;
         }
     }
 
-    $update = json_decode(file_get_contents('php://input'), true);
+    $rawUpdateBody = file_get_contents('php://input');
+    $update = json_decode((string)$rawUpdateBody, true);
+    if ($update === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('telegram.webhook.payload_decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($rawUpdateBody, 300)
+        ], 'ERROR');
+    }
     if (!is_array($update)) {
         echo json_encode(["ok" => true]);
         exit;
     }
 
-    $message = $update['message'] ?? $update['edited_message'] ?? null;
-    $chatId = $message['chat']['id'] ?? null;
-    $text = trim($message['text'] ?? '');
+    splaro_integration_trace('telegram.webhook.received', [
+        'update_keys' => array_keys($update),
+        'update_id' => (string)($update['update_id'] ?? '')
+    ]);
 
-    if (!$chatId || $text === '') {
+    $callbackQuery = isset($update['callback_query']) && is_array($update['callback_query']) ? $update['callback_query'] : null;
+    $message = $update['message'] ?? $update['edited_message'] ?? null;
+    $chatId = null;
+    if ($callbackQuery) {
+        $chatId = $callbackQuery['message']['chat']['id'] ?? ($callbackQuery['from']['id'] ?? null);
+    } else {
+        $chatId = $message['chat']['id'] ?? null;
+    }
+
+    if (!$chatId) {
+        splaro_integration_trace('telegram.webhook.skipped', ['reason' => 'CHAT_ID_MISSING'], 'WARNING');
         echo json_encode(["ok" => true]);
         exit;
     }
@@ -2985,122 +3539,233 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
     telegram_register_bot_commands_once();
 
     if (!is_telegram_admin_chat($chatId)) {
+        splaro_integration_trace('telegram.webhook.unauthorized_chat', [
+            'chat_id_preview' => splaro_clip_text((string)$chatId, 40),
+            'allowlist_count' => count(telegram_admin_chat_allowlist())
+        ], 'WARNING');
+        log_system_event($db, 'TELEGRAM_UNAUTHORIZED', 'Unauthorized Telegram chat blocked: ' . splaro_clip_text((string)$chatId, 40), null, $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
         send_telegram_message("<b>Unauthorized access blocked.</b>", $chatId);
+        if ($callbackQuery) {
+            telegram_answer_callback_query($callbackQuery['id'] ?? '', 'Unauthorized', true);
+        }
         echo json_encode(["ok" => true]);
         exit;
     }
 
-    $parts = preg_split('/\s+/', $text);
-    $command = strtolower($parts[0] ?? '');
-    $reply = '';
-    $replyOptions = [];
+    try {
+        if ($callbackQuery) {
+            $callbackId = (string)($callbackQuery['id'] ?? '');
+            $callbackData = trim((string)($callbackQuery['data'] ?? ''));
+            $parts = explode('|', $callbackData);
+            $callbackAction = strtolower(trim((string)($parts[0] ?? '')));
+            $callbackMessage = '';
+            $reply = '';
+            $replyOptions = ['reply_markup' => telegram_main_inline_keyboard()];
 
-    if ($command === '/start' || $command === '/help' || $command === '/commands') {
-        $reply = telegram_admin_help_text();
-        $replyOptions['reply_markup'] = telegram_quick_keyboard();
-    } elseif ($command === '/health') {
-        $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
-        $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
-        $reply = "<b>SPLARO Health</b>\n"
-            . "Orders: {$orderCount}\n"
-            . "Users: {$userCount}\n"
-            . "Server Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
-    } elseif ($command === '/orders') {
-        $limit = isset($parts[1]) ? (int)$parts[1] : 5;
-        if ($limit < 1) $limit = 5;
-        if ($limit > 20) $limit = 20;
-        $rows = $db->query("SELECT id, customer_name, phone, total, status, created_at FROM orders ORDER BY created_at DESC LIMIT {$limit}")->fetchAll();
-        if (!$rows) {
-            $reply = "<b>No orders found.</b>";
-        } else {
-            $lines = ["<b>Latest {$limit} Orders</b>"];
-            foreach ($rows as $row) {
-                $lines[] = "• <b>" . telegram_escape_html($row['id']) . "</b> | "
-                    . telegram_escape_html($row['status']) . " | ৳"
-                    . telegram_escape_html($row['total']) . " | "
-                    . telegram_escape_html($row['customer_name']);
-            }
-            $reply = implode("\n", $lines);
-        }
-    } elseif ($command === '/order') {
-        $orderId = $parts[1] ?? '';
-        if ($orderId === '') {
-            $reply = "<b>Usage:</b> /order {order_id}";
-        } else {
-            $telegramOrderSelectFields = build_select_fields($db, 'orders', [
-                'id', 'customer_name', 'phone', 'status', 'total', 'created_at', 'address', 'district', 'thana'
-            ]);
-            $stmt = $db->prepare("SELECT {$telegramOrderSelectFields} FROM orders WHERE id = ? LIMIT 1");
-            $stmt->execute([$orderId]);
-            $order = $stmt->fetch();
-            if (!$order) {
-                $reply = "<b>Order not found:</b> " . telegram_escape_html($orderId);
+            if ($callbackAction === 'ordst') {
+                $orderId = trim((string)($parts[1] ?? ''));
+                $statusLabel = telegram_order_status_key_to_label($parts[2] ?? '');
+                if ($orderId === '' || $statusLabel === '') {
+                    $callbackMessage = 'Invalid status action';
+                    $reply = '<b>Invalid action.</b>';
+                } else {
+                    $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$statusLabel, $orderId]);
+                    $orderExists = $stmt->rowCount() > 0;
+                    if (!$orderExists) {
+                        $existsStmt = $db->prepare("SELECT id FROM orders WHERE id = ? LIMIT 1");
+                        $existsStmt->execute([$orderId]);
+                        $orderExists = (bool)$existsStmt->fetch();
+                    }
+                    if ($orderExists) {
+                        sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
+                        log_system_event(
+                            $db,
+                            'TELEGRAM_ADMIN_STATUS_UPDATE',
+                            "Order {$orderId} status updated to {$statusLabel} via Telegram callback.",
+                            null,
+                            $_SERVER['REMOTE_ADDR'] ?? 'TELEGRAM_WEBHOOK'
+                        );
+                        $callbackMessage = "Updated: {$statusLabel}";
+                        $detail = telegram_load_order_details($db, $orderId);
+                        $reply = "<b>Status updated.</b> #" . telegram_escape_html($orderId) . " -> " . telegram_escape_html($statusLabel) . "\n\n" . $detail['text'];
+                        $replyOptions = is_array($detail['options'] ?? null) ? $detail['options'] : ['reply_markup' => telegram_order_action_keyboard($orderId)];
+                    } else {
+                        $callbackMessage = 'Order not found';
+                        $reply = "<b>Order not found:</b> " . telegram_escape_html($orderId);
+                    }
+                }
+            } elseif ($callbackAction === 'ordrf') {
+                $orderId = trim((string)($parts[1] ?? ''));
+                $detail = telegram_load_order_details($db, $orderId);
+                $callbackMessage = $detail['ok'] ? 'Order refreshed' : 'Order unavailable';
+                $reply = $detail['text'];
+                $replyOptions = is_array($detail['options'] ?? null) ? $detail['options'] : ['reply_markup' => telegram_main_inline_keyboard()];
+            } elseif ($callbackAction === 'ordpg') {
+                $page = (int)($parts[1] ?? 1);
+                $limit = (int)($parts[2] ?? 5);
+                $ordersPage = telegram_build_orders_page($db, $page, $limit);
+                $callbackMessage = 'Orders refreshed';
+                $reply = (string)($ordersPage['text'] ?? '<b>No orders found.</b>');
+                $replyOptions = is_array($ordersPage['options'] ?? null) ? $ordersPage['options'] : ['reply_markup' => telegram_main_inline_keyboard()];
+            } elseif ($callbackAction === 'menu') {
+                $callbackMessage = 'Menu opened';
+                $reply = telegram_admin_help_text();
+                $replyOptions = ['reply_markup' => telegram_main_inline_keyboard()];
+            } elseif ($callbackAction === 'sys' && strtolower(trim((string)($parts[1] ?? ''))) === 'health') {
+                $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+                $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+                $telegramQueue = get_telegram_queue_summary($db);
+                $reply = "<b>SPLARO Health</b>\n"
+                    . "Orders: {$orderCount}\n"
+                    . "Users: {$userCount}\n"
+                    . "Telegram Queue: P{$telegramQueue['pending']} R{$telegramQueue['retry']} D{$telegramQueue['dead']}\n"
+                    . "Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
+                $replyOptions = ['reply_markup' => telegram_main_inline_keyboard()];
+                $callbackMessage = 'Health refreshed';
             } else {
-                $reply = "<b>Order Details</b>\n" . telegram_order_summary($order)
-                    . "\n<b>Address:</b> " . telegram_escape_html($order['address'] ?? 'N/A')
-                    . "\n<b>District/Thana:</b> " . telegram_escape_html(($order['district'] ?? '') . " / " . ($order['thana'] ?? ''));
+                $callbackMessage = 'Unknown action';
+                $reply = "<b>Unknown action.</b>\nUse /help.";
             }
-        }
-    } elseif ($command === '/setstatus') {
-        $orderId = $parts[1] ?? '';
-        $statusKey = strtoupper($parts[2] ?? '');
-        $allowedStatuses = [
-            'PENDING' => 'Pending',
-            'PROCESSING' => 'Processing',
-            'SHIPPED' => 'Shipped',
-            'DELIVERED' => 'Delivered',
-            'CANCELLED' => 'Cancelled'
-        ];
 
-        if ($orderId === '' || !isset($allowedStatuses[$statusKey])) {
-            $reply = "<b>Usage:</b> /setstatus {order_id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}";
-        } else {
-            $newStatus = $allowedStatuses[$statusKey];
-            $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
-            $stmt->execute([$newStatus, $orderId]);
-            if ($stmt->rowCount() > 0) {
-                sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $newStatus]);
-                $ip = $_SERVER['REMOTE_ADDR'] ?? 'TELEGRAM_WEBHOOK';
-                $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-                    ->execute(['TELEGRAM_ADMIN_STATUS_UPDATE', "Order {$orderId} status updated to {$newStatus} via Telegram bot.", $ip]);
-                $reply = "<b>Order status updated.</b>\nOrder: " . telegram_escape_html($orderId) . "\nStatus: " . telegram_escape_html($newStatus);
+            telegram_answer_callback_query($callbackId, $callbackMessage, false);
+            if ($reply !== '') {
+                if ($callbackAction === 'ordst') {
+                    $statusCallbackQueued = queue_telegram_message(
+                        $reply,
+                        (string)$chatId,
+                        $replyOptions,
+                        'ORDER_STATUS_CALLBACK',
+                        ['callback_data' => (string)$callbackData]
+                    );
+                    splaro_integration_trace('telegram.callback.status_queue_result', [
+                        'queued' => (bool)$statusCallbackQueued,
+                        'callback_data' => splaro_clip_text((string)$callbackData, 80)
+                    ], $statusCallbackQueued ? 'INFO' : 'ERROR');
+                    if (!$statusCallbackQueued) {
+                        send_telegram_message($reply, $chatId, $replyOptions);
+                    }
+                } else {
+                    send_telegram_message($reply, $chatId, $replyOptions);
+                }
+            }
+            echo json_encode(["ok" => true]);
+            exit;
+        }
+
+        $text = trim((string)($message['text'] ?? ''));
+        if ($text === '') {
+            echo json_encode(["ok" => true]);
+            exit;
+        }
+
+        $parts = preg_split('/\s+/', $text);
+        $command = strtolower($parts[0] ?? '');
+        $reply = '';
+        $replyOptions = [];
+
+        if ($command === '/start' || $command === '/help' || $command === '/commands') {
+            $reply = telegram_admin_help_text();
+            $replyOptions['reply_markup'] = telegram_quick_keyboard();
+        } elseif ($command === '/health') {
+            $orderCount = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+            $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+            $telegramQueue = get_telegram_queue_summary($db);
+            $reply = "<b>SPLARO Health</b>\n"
+                . "Orders: {$orderCount}\n"
+                . "Users: {$userCount}\n"
+                . "Telegram Queue: P{$telegramQueue['pending']} R{$telegramQueue['retry']} D{$telegramQueue['dead']}\n"
+                . "Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
+            $replyOptions['reply_markup'] = telegram_main_inline_keyboard();
+        } elseif ($command === '/orders') {
+            $limit = isset($parts[1]) ? (int)$parts[1] : 5;
+            $page = isset($parts[2]) ? (int)$parts[2] : 1;
+            $ordersPage = telegram_build_orders_page($db, $page, $limit);
+            $reply = (string)($ordersPage['text'] ?? '<b>No orders found.</b>');
+            $replyOptions = is_array($ordersPage['options'] ?? null) ? $ordersPage['options'] : ['reply_markup' => telegram_main_inline_keyboard()];
+        } elseif ($command === '/order') {
+            $orderId = trim((string)($parts[1] ?? ''));
+            $detail = telegram_load_order_details($db, $orderId);
+            $reply = $detail['text'];
+            $replyOptions = is_array($detail['options'] ?? null) ? $detail['options'] : ['reply_markup' => telegram_main_inline_keyboard()];
+        } elseif ($command === '/setstatus') {
+            $orderId = trim((string)($parts[1] ?? ''));
+            $statusLabel = telegram_order_status_key_to_label($parts[2] ?? '');
+            if ($orderId === '' || $statusLabel === '') {
+                $reply = "<b>Usage:</b> /setstatus {order_id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}";
             } else {
-                $reply = "<b>Order not found:</b> " . telegram_escape_html($orderId);
+                $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$statusLabel, $orderId]);
+                $orderExists = $stmt->rowCount() > 0;
+                if (!$orderExists) {
+                    $existsStmt = $db->prepare("SELECT id FROM orders WHERE id = ? LIMIT 1");
+                    $existsStmt->execute([$orderId]);
+                    $orderExists = (bool)$existsStmt->fetch();
+                }
+                if ($orderExists) {
+                    sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
+                    log_system_event(
+                        $db,
+                        'TELEGRAM_ADMIN_STATUS_UPDATE',
+                        "Order {$orderId} status updated to {$statusLabel} via Telegram command.",
+                        null,
+                        $_SERVER['REMOTE_ADDR'] ?? 'TELEGRAM_WEBHOOK'
+                    );
+                    $reply = "<b>Status updated.</b>\n#" . telegram_escape_html($orderId) . " -> " . telegram_escape_html($statusLabel);
+                    $replyOptions['reply_markup'] = telegram_order_action_keyboard($orderId);
+                } else {
+                    $reply = "<b>Order not found:</b> " . telegram_escape_html($orderId);
+                }
             }
-        }
-    } elseif ($command === '/users') {
-        $limit = isset($parts[1]) ? (int)$parts[1] : 5;
-        if ($limit < 1) $limit = 5;
-        if ($limit > 20) $limit = 20;
-        $rows = $db->query("SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT {$limit}")->fetchAll();
-        if (!$rows) {
-            $reply = "<b>No users found.</b>";
-        } else {
-            $lines = ["<b>Latest {$limit} Users</b>"];
-            foreach ($rows as $row) {
-                $lines[] = "• <b>" . telegram_escape_html($row['name']) . "</b> | "
-                    . telegram_escape_html($row['role']) . " | "
-                    . telegram_escape_html($row['email']);
+        } elseif ($command === '/users') {
+            $limit = isset($parts[1]) ? (int)$parts[1] : 5;
+            if ($limit < 1) $limit = 5;
+            if ($limit > 10) $limit = 10;
+            $stmt = $db->prepare("SELECT id, name, email, role FROM users ORDER BY created_at DESC LIMIT ?");
+            $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+            if (!$rows) {
+                $reply = "<b>No users found.</b>";
+            } else {
+                $lines = ["<b>Users ({$limit})</b>"];
+                foreach ($rows as $row) {
+                    $lines[] = '• ' . telegram_escape_html((string)($row['name'] ?? 'N/A'))
+                        . ' | ' . telegram_escape_html((string)($row['role'] ?? 'USER'));
+                }
+                $reply = implode("\n", $lines);
             }
-            $reply = implode("\n", $lines);
-        }
-    } elseif ($command === '/maintenance') {
-        $mode = strtolower($parts[1] ?? '');
-        if ($mode !== 'on' && $mode !== 'off') {
-            $reply = "<b>Usage:</b> /maintenance {on|off}";
+            $replyOptions['reply_markup'] = telegram_main_inline_keyboard();
+        } elseif ($command === '/maintenance') {
+            $mode = strtolower(trim((string)($parts[1] ?? '')));
+            if ($mode !== 'on' && $mode !== 'off') {
+                $reply = "<b>Usage:</b> /maintenance {on|off}";
+            } else {
+                $maintenance = $mode === 'on' ? 1 : 0;
+                $stmt = $db->prepare("UPDATE site_settings SET maintenance_mode = ? WHERE id = 1");
+                $stmt->execute([$maintenance]);
+                $reply = "<b>Maintenance:</b> " . telegram_escape_html(strtoupper($mode));
+            }
+            $replyOptions['reply_markup'] = telegram_main_inline_keyboard();
         } else {
-            $maintenance = $mode === 'on' ? 1 : 0;
-            $stmt = $db->prepare("UPDATE site_settings SET maintenance_mode = ? WHERE id = 1");
-            $stmt->execute([$maintenance]);
-            $reply = "<b>Maintenance mode updated:</b> " . telegram_escape_html(strtoupper($mode));
+            $reply = "<b>Unknown command.</b>\nUse /help.";
+            $replyOptions['reply_markup'] = telegram_main_inline_keyboard();
         }
-    } else {
-        $reply = "<b>Unknown command.</b>\nUse /help to view available commands.";
+
+        send_telegram_message($reply, $chatId, $replyOptions);
+        echo json_encode(["ok" => true]);
+        exit;
+    } catch (Throwable $e) {
+        splaro_log_exception('telegram.webhook.handler', $e, [
+            'chat_id_preview' => splaro_clip_text((string)$chatId, 40),
+            'update_keys' => array_keys($update)
+        ]);
+        send_telegram_message("<b>Action failed.</b>\nPlease retry or run /health.", $chatId, [
+            'reply_markup' => telegram_main_inline_keyboard()
+        ]);
+        echo json_encode(["ok" => false, "message" => "WEBHOOK_HANDLER_FAILED"]);
+        exit;
     }
-
-    send_telegram_message($reply, $chatId, $replyOptions);
-    echo json_encode(["ok" => true]);
-    exit;
 }
 
 
@@ -3156,6 +3821,7 @@ if ($method === 'GET' && $action === 'sync') {
                 }
             } catch (Exception $e) {
                 error_log('SPLARO_CMS_SECTION_READ_FAILED: ' . $e->getMessage());
+                splaro_log_exception('cms.section.read', $e, ['section_key' => 'storefront_cms'], 'WARNING');
             }
             cms_cache_write([
                 'cms_draft' => $cmsDraft,
@@ -3329,6 +3995,7 @@ if ($method === 'GET' && $action === 'sync') {
         }
     } catch (Exception $e) {
         error_log('SPLARO_PRODUCT_IMAGE_SYNC_READ_FAILED: ' . $e->getMessage());
+        splaro_log_exception('sync.product_images.read', $e, [], 'WARNING');
     }
 
     $orders = [];
@@ -3338,19 +4005,34 @@ if ($method === 'GET' && $action === 'sync') {
     $meta = [];
 
     if ($isAdmin) {
-        // Opportunistic background drain for pending sheet sync jobs.
+        // Opportunistic background drain for pending integration jobs.
         try {
-            $syncQueueProcess = process_sync_queue($db, 5, false);
+            $syncQueueProcess = [
+                'telegram' => process_telegram_queue($db, 10),
+                'sheets' => process_sync_queue($db, 5, false)
+            ];
         } catch (Exception $e) {
             error_log('SPLARO_SYNC_QUEUE_PROCESS_FAILED: ' . $e->getMessage());
+            splaro_log_exception('sheets.queue.process.opportunistic_admin_sync', $e);
             $syncQueueProcess = [
-                'processed' => 0,
-                'success' => 0,
-                'failed' => 0,
-                'retried' => 0,
-                'dead' => 0,
-                'paused' => true,
-                'reason' => 'SYNC_QUEUE_PROCESS_FAILED'
+                'telegram' => [
+                    'processed' => 0,
+                    'success' => 0,
+                    'failed' => 0,
+                    'retried' => 0,
+                    'dead' => 0,
+                    'paused' => true,
+                    'reason' => 'SYNC_QUEUE_PROCESS_FAILED'
+                ],
+                'sheets' => [
+                    'processed' => 0,
+                    'success' => 0,
+                    'failed' => 0,
+                    'retried' => 0,
+                    'dead' => 0,
+                    'paused' => true,
+                    'reason' => 'SYNC_QUEUE_PROCESS_FAILED'
+                ]
             ];
         }
 
@@ -3430,7 +4112,10 @@ if ($method === 'GET' && $action === 'sync') {
                 'count' => $userCount
             ],
             'syncQueue' => $syncQueueProcess,
-            'syncQueueSummary' => get_sync_queue_summary($db)
+            'syncQueueSummary' => [
+                'telegram' => get_telegram_queue_summary($db),
+                'sheets' => get_sync_queue_summary($db)
+            ]
         ];
     } elseif ($isUser && !empty($requestAuthUser['email'])) {
         $userOrderSelectFields = build_select_fields($db, 'orders', [
@@ -3472,24 +4157,48 @@ if ($method === 'GET' && $action === 'sync') {
 
 // 2. ORDER DEPLOYMENT PROTOCOL
 if ($method === 'POST' && $action === 'create_order') {
+    splaro_integration_trace('order.handler.start', [
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN',
+        'auth_user_id' => (string)($requestAuthUser['id'] ?? ''),
+        'auth_user_email' => (string)($requestAuthUser['email'] ?? '')
+    ]);
+
     if (is_rate_limited('create_order', 10, 60)) {
+        splaro_integration_trace('order.handler.rate_limited', ['window_seconds' => 60, 'limit' => 10], 'WARNING');
         echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
         exit;
     }
 
-    $input = json_decode(file_get_contents('php://input'), true);
-    
+    $orderRawBody = file_get_contents('php://input');
+    splaro_integration_trace('order.handler.payload_read', [
+        'bytes' => is_string($orderRawBody) ? strlen($orderRawBody) : 0
+    ]);
+    $input = json_decode((string)$orderRawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('order.handler.payload_decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($orderRawBody, 300)
+        ], 'ERROR');
+    }
+
     if (!$input) {
+        splaro_integration_trace('order.handler.invalid_payload', [
+            'reason' => 'EMPTY_OR_INVALID_JSON',
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($orderRawBody, 300)
+        ], 'ERROR');
         echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
         exit;
     }
 
     if (!empty(trim($input['website'] ?? ''))) {
+        splaro_integration_trace('order.handler.honeypot_blocked', [], 'WARNING');
         echo json_encode(["status" => "error", "message" => "SPAM_BLOCKED"]);
         exit;
     }
 
     if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+        splaro_integration_trace('order.handler.auth_missing', [], 'WARNING');
         http_response_code(401);
         echo json_encode(["status" => "error", "message" => "SIGNUP_REQUIRED"]);
         exit;
@@ -3508,8 +4217,24 @@ if ($method === 'POST' && $action === 'create_order') {
         $orderId = 'SPL-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
     }
     $input['id'] = $orderId;
+    splaro_integration_trace('order.handler.validated', [
+        'order_id' => $orderId,
+        'customer_email' => (string)($input['customerEmail'] ?? ''),
+        'items_count' => is_array($input['items'] ?? null) ? count($input['items']) : 0
+    ]);
+
+    $orderItemsJson = json_encode($input['items'] ?? []);
+    if (!is_string($orderItemsJson)) {
+        splaro_integration_trace('order.handler.items_encode_failed', [
+            'order_id' => $orderId,
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
+        echo json_encode(["status" => "error", "message" => "INVALID_ORDER_ITEMS"]);
+        exit;
+    }
 
     try {
+        splaro_integration_trace('order.db.insert.begin', ['order_id' => $orderId]);
         $db->beginTransaction();
         $stmt = $db->prepare("INSERT INTO orders (id, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
@@ -3521,7 +4246,7 @@ if ($method === 'POST' && $action === 'create_order') {
             $input['district'] ?? '',
             $input['thana'] ?? '',
             $input['address'],
-            json_encode($input['items']),
+            $orderItemsJson,
             $input['total'],
             $input['status'] ?? 'Pending',
             $input['customerComment'] ?? null,
@@ -3530,11 +4255,13 @@ if ($method === 'POST' && $action === 'create_order') {
             $input['discountCode'] ?? null
         ]);
         $db->commit();
+        splaro_integration_trace('order.db.insert.committed', ['order_id' => $orderId]);
     } catch (Exception $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
         error_log("SPLARO_ORDER_CREATE_FAILURE: " . $e->getMessage());
+        splaro_log_exception('order.db.insert', $e, ['order_id' => $orderId]);
         http_response_code(500);
         echo json_encode(["status" => "error", "message" => "ORDER_CREATE_FAILED"]);
         exit;
@@ -3589,23 +4316,40 @@ if ($method === 'POST' && $action === 'create_order') {
         'items' => $input['items'] ?? [],
         'total' => (int)($input['total'] ?? 0)
     ];
-    sync_to_sheets('ORDER', $orderSyncPayload);
+    splaro_integration_trace('order.integration.sync_trigger', [
+        'order_id' => $orderId,
+        'payload_keys' => array_keys($orderSyncPayload)
+    ]);
+    $orderSyncQueued = sync_to_sheets('ORDER', $orderSyncPayload);
+    splaro_integration_trace('order.integration.sync_trigger_result', [
+        'order_id' => $orderId,
+        'queued' => (bool)$orderSyncQueued
+    ]);
 
-    $telegramOrderMessage = "<b>🛒 New Order</b>\n"
-        . "<b>Order ID:</b> " . telegram_escape_html($input['id']) . "\n"
-        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
-        . "<b>Name:</b> " . telegram_escape_html($input['customerName']) . "\n"
-        . "<b>Phone:</b> " . telegram_escape_html($input['phone']) . "\n"
-        . "<b>Email:</b> " . telegram_escape_html($input['customerEmail']) . "\n"
-        . "<b>District/Thana:</b> " . telegram_escape_html(($input['district'] ?? '') . " / " . ($input['thana'] ?? '')) . "\n"
-        . "<b>Address:</b> " . telegram_escape_html($input['address']) . "\n"
-        . "<b>Product:</b> " . telegram_escape_html($productName) . "\n"
-        . "<b>Product URL:</b> " . telegram_escape_html($productUrlRaw ?: 'N/A') . "\n"
-        . "<b>Image URL:</b> " . telegram_escape_html($imageUrl) . "\n"
-        . "<b>Quantity:</b> " . telegram_escape_html($totalQuantity) . "\n"
-        . "<b>Notes:</b> " . telegram_escape_html($notes) . "\n"
-        . "<b>Status:</b> PENDING";
-    send_telegram_message($telegramOrderMessage);
+    $telegramOrderMessage = telegram_compact_order_message(
+        '🛒 New Order',
+        (string)$orderId,
+        (string)($input['customerName'] ?? 'N/A'),
+        (string)($input['phone'] ?? 'N/A'),
+        (string)($input['total'] ?? '0'),
+        (string)($input['status'] ?? 'Pending'),
+        date('Y-m-d H:i:s')
+    );
+    $telegramOrderOptions = [
+        'reply_markup' => telegram_order_action_keyboard($orderId)
+    ];
+    splaro_integration_trace('order.integration.telegram_queue_trigger', ['order_id' => $orderId]);
+    $telegramOrderQueued = queue_telegram_message(
+        $telegramOrderMessage,
+        null,
+        $telegramOrderOptions,
+        'ORDER_CREATED',
+        ['order_id' => $orderId, 'customer_email' => (string)($input['customerEmail'] ?? '')]
+    );
+    splaro_integration_trace('order.integration.telegram_queue_result', [
+        'order_id' => $orderId,
+        'queued' => (bool)$telegramOrderQueued
+    ], $telegramOrderQueued ? 'INFO' : 'ERROR');
 
     // CONSTRUCT LUXURY HTML INVOICE
     $items_html = '';
@@ -3700,7 +4444,11 @@ if ($method === 'POST' && $action === 'create_order') {
     echo json_encode([
         "status" => "success",
         "message" => ($adminMail && $customerMail) ? "INVOICE_DISPATCHED" : "ORDER_PLACED_EMAIL_PENDING",
-        "email" => ["admin" => $adminMail, "customer" => $customerMail]
+        "email" => ["admin" => $adminMail, "customer" => $customerMail],
+        "integrations" => [
+            "sheets" => ["queued" => (bool)$orderSyncQueued],
+            "telegram" => ["queued" => (bool)$telegramOrderQueued]
+        ]
     ]);
     exit;
 }
@@ -3708,32 +4456,85 @@ if ($method === 'POST' && $action === 'create_order') {
 // 2.1 LOGISTICS UPDATE PROTOCOL
 if ($method === 'POST' && $action === 'update_order_status') {
     require_admin_access($requestAuthUser);
-    $input = json_decode(file_get_contents('php://input'), true);
-    
+    $rawInput = file_get_contents('php://input');
+    $input = json_decode((string)$rawInput, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('order.status_update.payload_decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($rawInput, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+
     if (!isset($input['id']) || !isset($input['status'])) {
         echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
         exit;
     }
 
-    $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
-    $stmt->execute([$input['status'], $input['id']]);
+    $orderId = trim((string)$input['id']);
+    $statusLabel = trim((string)$input['status']);
+    if ($orderId === '' || $statusLabel === '') {
+        echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
+        exit;
+    }
 
-    // SYNC TO GOOGLE SHEETS
-    sync_to_sheets('UPDATE_STATUS', $input);
+    try {
+        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$statusLabel, $orderId]);
+        if ($stmt->rowCount() < 1) {
+            $existsStmt = $db->prepare("SELECT id FROM orders WHERE id = ? LIMIT 1");
+            $existsStmt->execute([$orderId]);
+            if (!$existsStmt->fetch()) {
+                echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+                exit;
+            }
+        }
 
-    // Log the event
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-       ->execute(['LOGISTICS_UPDATE', "Order " . $input['id'] . " status updated to " . $input['status'], $ip]);
+        sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
 
-    $telegramStatusMessage = "<b>📦 Order Status Updated</b>\n"
-        . "<b>Order ID:</b> " . telegram_escape_html($input['id']) . "\n"
-        . "<b>New Status:</b> " . telegram_escape_html($input['status']) . "\n"
-        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s'));
-    send_telegram_message($telegramStatusMessage);
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        log_system_event($db, 'LOGISTICS_UPDATE', "Order {$orderId} status updated to {$statusLabel}", $requestAuthUser['id'] ?? null, $ip);
 
-    echo json_encode(["status" => "success", "message" => "STATUS_SYNCHRONIZED"]);
-    exit;
+        $telegramStatusMessage = telegram_compact_order_message(
+            '📦 Order Status Updated',
+            (string)$orderId,
+            (string)($input['customerName'] ?? 'N/A'),
+            (string)($input['phone'] ?? 'N/A'),
+            (string)($input['total'] ?? '0'),
+            (string)$statusLabel,
+            date('Y-m-d H:i:s')
+        );
+        $telegramStatusQueued = queue_telegram_message(
+            $telegramStatusMessage,
+            null,
+            ['reply_markup' => telegram_order_action_keyboard($orderId)],
+            'ORDER_STATUS_UPDATED',
+            ['order_id' => (string)$orderId, 'status' => (string)$statusLabel]
+        );
+        splaro_integration_trace('order.status_update.telegram_queue_result', [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel,
+            'queued' => (bool)$telegramStatusQueued
+        ], $telegramStatusQueued ? 'INFO' : 'ERROR');
+
+        echo json_encode([
+            "status" => "success",
+            "message" => "STATUS_SYNCHRONIZED",
+            "telegram" => ["queued" => (bool)$telegramStatusQueued]
+        ]);
+        exit;
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.handler', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "STATUS_UPDATE_FAILED"]);
+        exit;
+    }
 }
 
 // 2.2 REGISTRY ERASURE PROTOCOL
@@ -4018,6 +4819,7 @@ if ($method === 'POST' && $action === 'sync_products') {
             $db->rollBack();
         }
         error_log("SPLARO_PRODUCT_SYNC_FAILURE: " . $e->getMessage());
+        splaro_log_exception('products.sync', $e);
         echo json_encode(["status" => "error", "message" => "PRODUCT_SYNC_FAILED"]);
     }
     exit;
@@ -4105,6 +4907,7 @@ if ($method === 'POST' && $action === 'upload_product_image') {
         ]);
     } catch (Exception $e) {
         error_log("SPLARO_IMAGE_UPLOAD_FAILED: " . $e->getMessage());
+        splaro_log_exception('products.image_upload', $e);
         echo json_encode(["status" => "error", "message" => "IMAGE_UPLOAD_FAILED"]);
     }
     exit;
@@ -4112,24 +4915,47 @@ if ($method === 'POST' && $action === 'upload_product_image') {
 
 // 4. IDENTITY AUTHENTICATION (SIGNUP / SOCIAL SYNC)
 if ($method === 'POST' && $action === 'signup') {
+    splaro_integration_trace('signup.handler.start', [
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+    ]);
+
     if (is_rate_limited('signup', 8, 60)) {
+        splaro_integration_trace('signup.handler.rate_limited', ['window_seconds' => 60, 'limit' => 8], 'WARNING');
         echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
         exit;
     }
 
-    $input = json_decode(file_get_contents('php://input'), true);
+    $signupRawBody = file_get_contents('php://input');
+    splaro_integration_trace('signup.handler.payload_read', [
+        'bytes' => is_string($signupRawBody) ? strlen($signupRawBody) : 0
+    ]);
+    $input = json_decode((string)$signupRawBody, true);
+    if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('signup.handler.payload_decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($signupRawBody, 300)
+        ], 'ERROR');
+    }
     if (!is_array($input)) {
+        splaro_integration_trace('signup.handler.invalid_payload', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($signupRawBody, 300)
+        ], 'ERROR');
         echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
         exit;
     }
 
     if (!empty(trim($input['website'] ?? ''))) {
+        splaro_integration_trace('signup.handler.honeypot_blocked', [], 'WARNING');
         echo json_encode(["status" => "error", "message" => "SPAM_BLOCKED"]);
         exit;
     }
 
     $email = strtolower(trim($input['email'] ?? ''));
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        splaro_integration_trace('signup.handler.invalid_email', [
+            'email_preview' => splaro_clip_text($email, 120)
+        ], 'WARNING');
         echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
         exit;
     }
@@ -4186,6 +5012,11 @@ if ($method === 'POST' && $action === 'signup') {
     if ($id === '') {
         $id = generate_public_user_id();
     }
+    splaro_integration_trace('signup.handler.validated', [
+        'user_id' => $id,
+        'email' => $email,
+        'has_google_sub' => isset($input['google_sub'])
+    ]);
 
     $usersHasDefaultShipping = column_exists($db, 'users', 'default_shipping_address');
     $usersHasNotificationEmail = column_exists($db, 'users', 'notification_email');
@@ -4274,9 +5105,19 @@ if ($method === 'POST' && $action === 'signup') {
         $safeExisting = sanitize_user_payload($existing);
         $token = issue_auth_token($safeExisting);
         if (isset($input['google_sub'])) {
-            sync_to_sheets('SIGNUP', $safeExisting);
+            splaro_integration_trace('signup.integration.sync_trigger_existing_google', [
+                'user_id' => (string)($safeExisting['id'] ?? '')
+            ]);
+            $signupSyncExisting = sync_to_sheets('SIGNUP', $safeExisting);
+            splaro_integration_trace('signup.integration.sync_result_existing_google', [
+                'user_id' => (string)($safeExisting['id'] ?? ''),
+                'queued' => (bool)$signupSyncExisting
+            ], $signupSyncExisting ? 'INFO' : 'ERROR');
         }
         $csrfToken = refresh_csrf_token();
+        splaro_integration_trace('signup.handler.success_existing', [
+            'user_id' => (string)($safeExisting['id'] ?? '')
+        ]);
         echo json_encode(["status" => "success", "user" => $safeExisting, "token" => $token, "csrf_token" => $csrfToken]);
         exit;
     }
@@ -4349,9 +5190,13 @@ if ($method === 'POST' && $action === 'signup') {
         'created_at' => date('c')
     ]);
     $token = issue_auth_token($userPayload);
+    splaro_integration_trace('signup.db.insert.committed', [
+        'user_id' => $id,
+        'email' => $email
+    ]);
 
     // SYNC TO GOOGLE SHEETS (normalized payload for stable header mapping)
-    sync_to_sheets('SIGNUP', [
+    $signupSyncPayload = [
         'user_id' => (string)$id,
         'created_at' => date('c'),
         'name' => (string)$name,
@@ -4365,7 +5210,16 @@ if ($method === 'POST' && $action === 'signup') {
         // compatibility fields for old script variants
         'id' => (string)$id,
         'role' => (string)$role
+    ];
+    splaro_integration_trace('signup.integration.sync_trigger', [
+        'user_id' => $id,
+        'payload_keys' => array_keys($signupSyncPayload)
     ]);
+    $signupSyncQueued = sync_to_sheets('SIGNUP', $signupSyncPayload);
+    splaro_integration_trace('signup.integration.sync_result', [
+        'user_id' => $id,
+        'queued' => (bool)$signupSyncQueued
+    ], $signupSyncQueued ? 'INFO' : 'ERROR');
 
     // TRIGGER EMAIL NOTIFICATION (SIGNUP)
     $subject = "New Signup: " . $name;
@@ -4392,13 +5246,30 @@ Phone: " . $phone;
       </div>
     </div>";
     $welcomeMail = smtp_send_mail($db, $email, $welcomeSubject, $welcomeBody, true);
-    $telegramSignupMessage = "<b>✅ New Signup</b>\n"
-        . "<b>User ID:</b> " . telegram_escape_html($id) . "\n"
-        . "<b>Time:</b> " . telegram_escape_html(date('Y-m-d H:i:s')) . "\n"
-        . "<b>Name:</b> " . telegram_escape_html($name) . "\n"
-        . "<b>Email:</b> " . telegram_escape_html($email) . "\n"
-        . "<b>Phone:</b> " . telegram_escape_html($phone);
-    send_telegram_message($telegramSignupMessage);
+    $telegramSignupMessage = telegram_compact_signup_message(
+        (string)$id,
+        (string)$name,
+        (string)$email,
+        (string)$phone,
+        date('Y-m-d H:i:s')
+    );
+    $telegramSignupOptions = [
+        'reply_markup' => telegram_main_inline_keyboard()
+    ];
+    splaro_integration_trace('signup.integration.telegram_queue_trigger', [
+        'user_id' => $id
+    ]);
+    $telegramSignupQueued = queue_telegram_message(
+        $telegramSignupMessage,
+        null,
+        $telegramSignupOptions,
+        'SIGNUP_CREATED',
+        ['user_id' => (string)$id, 'email' => (string)$email]
+    );
+    splaro_integration_trace('signup.integration.telegram_queue_result', [
+        'user_id' => $id,
+        'queued' => (bool)$telegramSignupQueued
+    ], $telegramSignupQueued ? 'INFO' : 'ERROR');
 
     $csrfToken = refresh_csrf_token();
     echo json_encode([
@@ -4406,7 +5277,11 @@ Phone: " . $phone;
         "user" => $userPayload,
         "token" => $token,
         "csrf_token" => $csrfToken,
-        "email" => ["admin" => $adminMail, "welcome" => $welcomeMail]
+        "email" => ["admin" => $adminMail, "welcome" => $welcomeMail],
+        "integrations" => [
+            "sheets" => ["queued" => (bool)$signupSyncQueued],
+            "telegram" => ["queued" => (bool)$telegramSignupQueued]
+        ]
     ]);
     exit;
 }
@@ -4766,7 +5641,9 @@ if ($method === 'POST' && $action === 'login') {
                 $user = $reloaded;
             }
         } catch (Exception $e) {
-            // continue with available user object
+            splaro_log_exception('login.reset_force_relogin', $e, [
+                'user_id' => (string)($user['id'] ?? '')
+            ], 'WARNING');
         }
 
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
@@ -4925,6 +5802,9 @@ if ($method === 'GET' && $action === 'user_sessions') {
         $sessionRows = $stmt->fetchAll() ?: [];
     } catch (Exception $e) {
         $sessionRows = [];
+        splaro_log_exception('user_sessions.read', $e, [
+            'user_id' => (string)($requestAuthUser['id'] ?? '')
+        ], 'WARNING');
     }
 
     $currentSession = resolve_session_id();
@@ -5276,6 +6156,7 @@ if ($method === 'POST' && $action === 'update_settings') {
                 $db->exec("ALTER TABLE `site_settings` ADD COLUMN `hero_slides` longtext DEFAULT NULL");
             } catch (Exception $e) {
                 error_log("SPLARO_SCHEMA_WARNING: failed to add hero_slides dynamically -> " . $e->getMessage());
+                splaro_log_exception('settings.schema.add_hero_slides', $e, [], 'WARNING');
             }
         }
         if (!column_exists($db, 'site_settings', 'content_pages')) {
@@ -5283,6 +6164,7 @@ if ($method === 'POST' && $action === 'update_settings') {
                 $db->exec("ALTER TABLE `site_settings` ADD COLUMN `content_pages` longtext DEFAULT NULL");
             } catch (Exception $e) {
                 error_log("SPLARO_SCHEMA_WARNING: failed to add content_pages dynamically -> " . $e->getMessage());
+                splaro_log_exception('settings.schema.add_content_pages', $e, [], 'WARNING');
             }
         }
         if (!column_exists($db, 'site_settings', 'story_posts')) {
@@ -5290,6 +6172,7 @@ if ($method === 'POST' && $action === 'update_settings') {
                 $db->exec("ALTER TABLE `site_settings` ADD COLUMN `story_posts` longtext DEFAULT NULL");
             } catch (Exception $e) {
                 error_log("SPLARO_SCHEMA_WARNING: failed to add story_posts dynamically -> " . $e->getMessage());
+                splaro_log_exception('settings.schema.add_story_posts', $e, [], 'WARNING');
             }
         }
         if (!column_exists($db, 'site_settings', 'settings_json')) {
@@ -5297,6 +6180,7 @@ if ($method === 'POST' && $action === 'update_settings') {
                 $db->exec("ALTER TABLE `site_settings` ADD COLUMN `settings_json` longtext DEFAULT NULL");
             } catch (Exception $e) {
                 error_log("SPLARO_SCHEMA_WARNING: failed to add settings_json dynamically -> " . $e->getMessage());
+                splaro_log_exception('settings.schema.add_settings_json', $e, [], 'WARNING');
             }
         }
 
@@ -5506,6 +6390,7 @@ if ($method === 'POST' && $action === 'update_settings') {
             "cms_revisions" => $nextCmsRevisions
         ]);
     } catch (PDOException $e) {
+        splaro_log_exception('settings.update', $e, ['admin_role' => (string)$adminRole]);
         echo json_encode(["status" => "error", "message" => "PROTOCOL_ERROR: " . $e->getMessage()]);
     }
     exit;
@@ -5548,24 +6433,47 @@ if ($method === 'GET' && $action === 'sync_queue_status') {
     require_admin_access($requestAuthUser);
     echo json_encode([
         "status" => "success",
-        "queue" => get_sync_queue_summary($db)
+        "queue" => [
+            "telegram" => get_telegram_queue_summary($db),
+            "sheets" => get_sync_queue_summary($db)
+        ]
     ]);
     exit;
 }
 
 if ($method === 'POST' && $action === 'process_sync_queue') {
     require_admin_access($requestAuthUser);
-    $payload = json_decode(file_get_contents('php://input'), true);
+    $payloadRaw = file_get_contents('php://input');
+    $payload = json_decode((string)$payloadRaw, true);
+    if ($payload === null && json_last_error() !== JSON_ERROR_NONE) {
+        splaro_integration_trace('queue.process.payload_decode_failed', [
+            'json_error' => json_last_error_msg(),
+            'body_preview' => splaro_clip_text($payloadRaw, 300)
+        ], 'ERROR');
+    }
+    if (!is_array($payload)) {
+        $payload = [];
+    }
     $limit = (int)($payload['limit'] ?? ($_GET['limit'] ?? 20));
     if ($limit < 1) $limit = 1;
     if ($limit > 100) $limit = 100;
     $force = !empty($payload['force']) || (($_GET['force'] ?? '') === '1');
+    $telegramLimit = (int)($payload['telegram_limit'] ?? $limit);
+    if ($telegramLimit < 1) $telegramLimit = 1;
+    if ($telegramLimit > 100) $telegramLimit = 100;
 
-    $result = process_sync_queue($db, $limit, $force);
+    $telegramResult = process_telegram_queue($db, $telegramLimit);
+    $sheetsResult = process_sync_queue($db, $limit, $force);
     echo json_encode([
         "status" => "success",
-        "result" => $result,
-        "queue" => get_sync_queue_summary($db)
+        "result" => [
+            "telegram" => $telegramResult,
+            "sheets" => $sheetsResult
+        ],
+        "queue" => [
+            "telegram" => get_telegram_queue_summary($db),
+            "sheets" => get_sync_queue_summary($db)
+        ]
     ]);
     exit;
 }
@@ -5664,6 +6572,10 @@ if ($method === 'POST' && $action === 'generate_invoice_document') {
         $document = invoice_create_document($db, $orderRow, $invoiceSettings, $typeCode, $createdBy, $sendRequested);
     } catch (Exception $e) {
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        splaro_log_exception('invoice.generate_document', $e, [
+            'order_id' => (string)$orderId,
+            'type_code' => (string)$typeCode
+        ]);
         log_system_event($db, 'INVOICE_FAILED', 'Invoice generation failed for order ' . $orderId . ': ' . $e->getMessage(), $createdBy, $ip);
         log_audit_event(
             $db,
@@ -5897,12 +6809,25 @@ function build_sheets_payload($type, $data) {
 
 function perform_sheets_sync_request($type, $data) {
     $webhookUrl = GOOGLE_SHEETS_WEBHOOK_URL;
+    splaro_integration_trace('sheets.http.prepare', [
+        'type' => (string)$type,
+        'webhook_configured' => $webhookUrl !== '',
+        'timeout_seconds' => (int)GOOGLE_SHEETS_TIMEOUT_SECONDS
+    ]);
     if ($webhookUrl === '') {
+        splaro_integration_trace('sheets.http.skipped', [
+            'type' => (string)$type,
+            'reason' => 'WEBHOOK_NOT_CONFIGURED'
+        ], 'WARNING');
         return [false, 0, 'WEBHOOK_NOT_CONFIGURED', ''];
     }
 
     $jsonBody = json_encode(build_sheets_payload($type, $data));
     if (!is_string($jsonBody) || $jsonBody === '') {
+        splaro_integration_trace('sheets.http.json_encode_failed', [
+            'type' => (string)$type,
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
         return [false, 0, 'INVALID_PAYLOAD', ''];
     }
 
@@ -5938,10 +6863,37 @@ function perform_sheets_sync_request($type, $data) {
             CURLOPT_LOW_SPEED_TIME => $timeout,
         ]);
 
+        splaro_integration_trace('sheets.http.curl.before_exec', [
+            'type' => (string)$type,
+            'connect_timeout_seconds' => (int)$connectTimeout,
+            'timeout_seconds' => (int)$timeout,
+            'payload_bytes' => strlen($jsonBody)
+        ]);
         $response = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErrNo = curl_errno($ch);
         $curlError = (string)curl_error($ch);
+        $sslVerifyResult = defined('CURLINFO_SSL_VERIFYRESULT') ? curl_getinfo($ch, CURLINFO_SSL_VERIFYRESULT) : null;
         curl_close($ch);
+
+        splaro_integration_trace('sheets.http.curl.after_exec', [
+            'type' => (string)$type,
+            'http_code' => (int)$httpCode,
+            'curl_errno' => (int)$curlErrNo,
+            'curl_error' => (string)$curlError,
+            'ssl_verify_result' => $sslVerifyResult,
+            'response_preview' => splaro_clip_text($response, 300)
+        ], ($response === false || $httpCode < 200 || $httpCode >= 400) ? 'ERROR' : 'INFO');
+        if (is_string($response) && trim($response) !== '') {
+            $decoded = json_decode($response, true);
+            if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+                splaro_integration_trace('sheets.http.response_decode_failed', [
+                    'type' => (string)$type,
+                    'json_error' => json_last_error_msg(),
+                    'response_preview' => splaro_clip_text($response, 300)
+                ], 'ERROR');
+            }
+        }
 
         if ($response !== false && (($httpCode >= 200 && $httpCode < 300) || ($httpCode >= 300 && $httpCode < 400))) {
             return [true, $httpCode, '', (string)$response];
@@ -5962,6 +6914,11 @@ function perform_sheets_sync_request($type, $data) {
         ],
     ]);
 
+    splaro_integration_trace('sheets.http.stream.before_exec', [
+        'type' => (string)$type,
+        'timeout_seconds' => (int)$timeout,
+        'payload_bytes' => strlen($jsonBody)
+    ]);
     $response = @file_get_contents($webhookUrl, false, $context);
     $responseHeaders = function_exists('http_get_last_response_headers')
         ? @http_get_last_response_headers()
@@ -5976,6 +6933,23 @@ function perform_sheets_sync_request($type, $data) {
         }
     }
 
+    splaro_integration_trace('sheets.http.stream.after_exec', [
+        'type' => (string)$type,
+        'http_code' => (int)$httpCode,
+        'response_preview' => splaro_clip_text($response, 300),
+        'headers_preview' => splaro_clip_text(json_encode($responseHeaders), 300)
+    ], ($response === false || $httpCode < 200 || $httpCode >= 400) ? 'ERROR' : 'INFO');
+    if (is_string($response) && trim($response) !== '') {
+        $decoded = json_decode($response, true);
+        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+            splaro_integration_trace('sheets.http.response_decode_failed', [
+                'type' => (string)$type,
+                'json_error' => json_last_error_msg(),
+                'response_preview' => splaro_clip_text($response, 300)
+            ], 'ERROR');
+        }
+    }
+
     if ($response !== false && (($httpCode >= 200 && $httpCode < 300) || ($httpCode >= 300 && $httpCode < 400))) {
         return [true, $httpCode, '', (string)$response];
     }
@@ -5985,8 +6959,295 @@ function perform_sheets_sync_request($type, $data) {
     return [false, $httpCode, 'HTTP_' . $httpCode, (string)$response];
 }
 
+function telegram_queue_sync_type() {
+    return 'TELEGRAM_SEND';
+}
+
+function is_telegram_queue_sync_type($syncType) {
+    $type = strtoupper(trim((string)$syncType));
+    return $type === telegram_queue_sync_type() || strpos($type, 'TELEGRAM_') === 0;
+}
+
+function enqueue_telegram_message_job($db, $text, $targetChatId = null, $options = [], $eventType = 'GENERIC', $context = []) {
+    if (!$db) {
+        splaro_integration_trace('telegram.queue.insert.skipped', ['reason' => 'DB_UNAVAILABLE'], 'WARNING');
+        return 0;
+    }
+    if (!TELEGRAM_ENABLED) {
+        splaro_integration_trace('telegram.queue.insert.skipped', ['reason' => 'TELEGRAM_DISABLED'], 'WARNING');
+        return 0;
+    }
+
+    $chatId = trim((string)($targetChatId ?: telegram_primary_admin_chat_id()));
+    if ($chatId === '') {
+        splaro_integration_trace('telegram.queue.insert.skipped', ['reason' => 'CHAT_ID_MISSING'], 'ERROR');
+        return 0;
+    }
+
+    $maxAttempts = defined('TELEGRAM_MAX_RETRIES') ? (int)TELEGRAM_MAX_RETRIES : 3;
+    if ($maxAttempts < 1) $maxAttempts = 1;
+    if ($maxAttempts > 10) $maxAttempts = 10;
+
+    $payload = [
+        'chat_id' => $chatId,
+        'text' => (string)$text,
+        'options' => is_array($options) ? $options : [],
+        'event_type' => (string)$eventType,
+        'context' => is_array($context) ? $context : ['value' => $context],
+        'queued_at' => date('c'),
+    ];
+    $payloadJson = json_encode($payload);
+    if (!is_string($payloadJson) || $payloadJson === '') {
+        splaro_integration_trace('telegram.queue.insert.payload_encode_failed', [
+            'event_type' => (string)$eventType,
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
+        return 0;
+    }
+
+    $stmt = $db->prepare("INSERT INTO sync_queue (sync_type, payload_json, status, attempts, max_attempts, next_attempt_at) VALUES (?, ?, 'PENDING', 0, ?, NOW())");
+    $stmt->execute([telegram_queue_sync_type(), $payloadJson, $maxAttempts]);
+    $queueId = (int)$db->lastInsertId();
+    splaro_integration_trace('telegram.queue.insert.success', [
+        'queue_id' => $queueId,
+        'event_type' => (string)$eventType,
+        'max_attempts' => $maxAttempts,
+        'chat_id_preview' => splaro_clip_text($chatId, 40)
+    ]);
+    return $queueId;
+}
+
+function queue_telegram_message($text, $targetChatId = null, $options = [], $eventType = 'GENERIC', $context = []) {
+    global $db;
+    $queuedId = 0;
+    if (isset($db) && $db) {
+        try {
+            $queuedId = enqueue_telegram_message_job($db, $text, $targetChatId, $options, $eventType, $context);
+        } catch (Exception $e) {
+            $queuedId = 0;
+            splaro_log_exception('telegram.queue.insert', $e, [
+                'event_type' => (string)$eventType
+            ]);
+        }
+    }
+
+    if ($queuedId > 0) {
+        schedule_sync_queue_drain($db);
+        return true;
+    }
+
+    splaro_integration_trace('telegram.queue.insert.deferred', [
+        'event_type' => (string)$eventType,
+        'reason' => isset($db) && $db ? 'QUEUE_INSERT_FAILED' : 'DB_UNAVAILABLE'
+    ], 'ERROR');
+    return false;
+}
+
+function perform_telegram_queue_request($payload) {
+    if (!is_array($payload)) {
+        return [false, 0, 'INVALID_PAYLOAD_SHAPE', ''];
+    }
+
+    $chatId = trim((string)($payload['chat_id'] ?? ''));
+    $text = (string)($payload['text'] ?? '');
+    if ($chatId === '' || $text === '') {
+        return [false, 0, 'INVALID_TELEGRAM_PAYLOAD', ''];
+    }
+
+    $sendPayload = [
+        'chat_id' => $chatId,
+        'text' => $text,
+        'parse_mode' => 'HTML',
+        'disable_web_page_preview' => true
+    ];
+    $options = $payload['options'] ?? [];
+    if (is_array($options)) {
+        foreach ($options as $key => $value) {
+            if ($key === 'chat_id' || $key === 'text') {
+                continue;
+            }
+            $sendPayload[$key] = $value;
+        }
+    }
+
+    [$response, $httpCode, $requestError] = telegram_api_request('sendMessage', $sendPayload, 5);
+    $responseDecoded = null;
+    if ($response !== false && is_string($response) && $response !== '') {
+        $responseDecoded = json_decode($response, true);
+        if ($responseDecoded === null && json_last_error() !== JSON_ERROR_NONE) {
+            splaro_integration_trace('telegram.queue.delivery.response_decode_failed', [
+                'http_code' => (int)$httpCode,
+                'json_error' => json_last_error_msg(),
+                'response_preview' => splaro_clip_text($response, 300)
+            ], 'ERROR');
+        }
+    }
+
+    $telegramOk = true;
+    $telegramDescription = '';
+    if (is_array($responseDecoded) && array_key_exists('ok', $responseDecoded)) {
+        $telegramOk = (bool)$responseDecoded['ok'];
+        $telegramDescription = (string)($responseDecoded['description'] ?? '');
+    }
+
+    if ($response !== false && $httpCode >= 200 && $httpCode < 300 && $telegramOk) {
+        return [true, $httpCode, '', (string)$response];
+    }
+
+    $errorMessage = trim((string)$requestError);
+    if ($errorMessage === '' && $telegramDescription !== '') {
+        $errorMessage = $telegramDescription;
+    }
+    if ($errorMessage === '') {
+        $errorMessage = 'TELEGRAM_SEND_FAILED';
+    }
+    return [false, (int)$httpCode, $errorMessage, is_string($response) ? $response : ''];
+}
+
+function process_telegram_queue($db, $limit = 20) {
+    $result = [
+        'processed' => 0,
+        'success' => 0,
+        'failed' => 0,
+        'retried' => 0,
+        'dead' => 0,
+        'paused' => false,
+        'reason' => '',
+    ];
+    splaro_integration_trace('telegram.queue.process.start', [
+        'limit' => (int)$limit,
+        'db_available' => (bool)$db,
+        'telegram_enabled' => TELEGRAM_ENABLED
+    ]);
+
+    if (!$db) {
+        $result['paused'] = true;
+        $result['reason'] = 'DB_UNAVAILABLE';
+        return $result;
+    }
+    if (!TELEGRAM_ENABLED) {
+        $result['paused'] = true;
+        $result['reason'] = 'TELEGRAM_DISABLED';
+        return $result;
+    }
+
+    $limit = (int)$limit;
+    if ($limit < 1) $limit = 1;
+    if ($limit > 100) $limit = 100;
+
+    try {
+        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE sync_type = ? AND status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
+        $stmt->bindValue(1, telegram_queue_sync_type(), PDO::PARAM_STR);
+        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $jobs = $stmt->fetchAll();
+    } catch (Exception $e) {
+        $result['paused'] = true;
+        $result['reason'] = 'QUEUE_READ_FAILED';
+        splaro_log_exception('telegram.queue.process.read', $e);
+        return $result;
+    }
+
+    foreach ($jobs as $job) {
+        $jobId = (int)($job['id'] ?? 0);
+        if ($jobId <= 0) {
+            continue;
+        }
+
+        $claim = $db->prepare("UPDATE sync_queue SET status = 'PROCESSING', attempts = attempts + 1, locked_at = NOW() WHERE id = ? AND status IN ('PENDING', 'RETRY')");
+        $claim->execute([$jobId]);
+        if ($claim->rowCount() < 1) {
+            continue;
+        }
+
+        $result['processed']++;
+        $attemptsNow = ((int)($job['attempts'] ?? 0)) + 1;
+        $maxAttempts = (int)($job['max_attempts'] ?? 0);
+        if ($maxAttempts < 1) $maxAttempts = 1;
+        if ($maxAttempts > 10) $maxAttempts = 10;
+
+        $payloadRaw = (string)($job['payload_json'] ?? '');
+        $payload = json_decode($payloadRaw, true);
+        if (!is_array($payload)) {
+            $decodeError = json_last_error() !== JSON_ERROR_NONE ? json_last_error_msg() : 'INVALID_JSON_SHAPE';
+            $dead = $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = 0, locked_at = NULL WHERE id = ?");
+            $dead->execute(['INVALID_PAYLOAD_JSON: ' . $decodeError, $jobId]);
+            $result['failed']++;
+            $result['dead']++;
+            splaro_integration_trace('telegram.queue.job.payload_decode_failed', [
+                'job_id' => $jobId,
+                'json_error' => $decodeError,
+                'payload_preview' => splaro_clip_text($payloadRaw, 300)
+            ], 'ERROR');
+            continue;
+        }
+
+        splaro_integration_trace('telegram.queue.job.dispatch', [
+            'job_id' => $jobId,
+            'attempt' => $attemptsNow,
+            'max_attempts' => $maxAttempts,
+            'event_type' => (string)($payload['event_type'] ?? '')
+        ]);
+        [$ok, $httpCode, $error, $response] = perform_telegram_queue_request($payload);
+        splaro_integration_trace('telegram.queue.job.result', [
+            'job_id' => $jobId,
+            'ok' => (bool)$ok,
+            'http_code' => (int)$httpCode,
+            'error' => (string)$error,
+            'response_preview' => splaro_clip_text($response, 300)
+        ], $ok ? 'INFO' : 'ERROR');
+
+        if ($ok) {
+            $done = $db->prepare("UPDATE sync_queue SET status = 'SUCCESS', last_error = NULL, last_http_code = ?, locked_at = NULL, next_attempt_at = NOW() WHERE id = ?");
+            $done->execute([(int)$httpCode, $jobId]);
+            $result['success']++;
+            continue;
+        }
+
+        $result['failed']++;
+        $lastError = $error !== '' ? $error : 'TELEGRAM_SEND_FAILED';
+
+        if ($attemptsNow >= $maxAttempts) {
+            $dead = $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = ?, locked_at = NULL WHERE id = ?");
+            $dead->execute([$lastError, (int)$httpCode, $jobId]);
+            $result['dead']++;
+            try {
+                $log = $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)");
+                $log->execute([
+                    'TELEGRAM_DELIVERY_FAILED',
+                    "Dead-letter telegram job {$jobId} failed after {$attemptsNow} attempts: {$lastError}",
+                    $_SERVER['REMOTE_ADDR'] ?? 'SERVER'
+                ]);
+            } catch (Exception $e) {
+                splaro_log_exception('telegram.queue.dead_log_write', $e, ['job_id' => $jobId]);
+            }
+        } else {
+            $delay = calculate_sync_retry_delay($attemptsNow);
+            $retry = $db->prepare("UPDATE sync_queue SET status = 'RETRY', last_error = ?, last_http_code = ?, locked_at = NULL, next_attempt_at = DATE_ADD(NOW(), INTERVAL ? SECOND) WHERE id = ?");
+            $retry->bindValue(1, $lastError, PDO::PARAM_STR);
+            $retry->bindValue(2, (int)$httpCode, PDO::PARAM_INT);
+            $retry->bindValue(3, (int)$delay, PDO::PARAM_INT);
+            $retry->bindValue(4, $jobId, PDO::PARAM_INT);
+            $retry->execute();
+            $result['retried']++;
+        }
+    }
+
+    splaro_integration_trace('telegram.queue.process.done', $result);
+    return $result;
+}
+
 function enqueue_sync_job($db, $type, $data) {
+    splaro_integration_trace('sheets.queue.insert.begin', [
+        'type' => (string)$type,
+        'db_available' => (bool)$db,
+        'webhook_configured' => GOOGLE_SHEETS_WEBHOOK_URL !== ''
+    ]);
     if (!$db || GOOGLE_SHEETS_WEBHOOK_URL === '') {
+        splaro_integration_trace('sheets.queue.insert.skipped', [
+            'type' => (string)$type,
+            'reason' => !$db ? 'DB_UNAVAILABLE' : 'WEBHOOK_NOT_CONFIGURED'
+        ], 'WARNING');
         return 0;
     }
 
@@ -5996,12 +7257,22 @@ function enqueue_sync_job($db, $type, $data) {
 
     $payloadJson = json_encode(is_array($data) ? $data : ['value' => $data]);
     if (!is_string($payloadJson) || $payloadJson === '') {
+        splaro_integration_trace('sheets.queue.insert.payload_encode_failed', [
+            'type' => (string)$type,
+            'json_error' => json_last_error_msg()
+        ], 'ERROR');
         return 0;
     }
 
     $stmt = $db->prepare("INSERT INTO sync_queue (sync_type, payload_json, status, attempts, max_attempts, next_attempt_at) VALUES (?, ?, 'PENDING', 0, ?, NOW())");
     $stmt->execute([(string)$type, $payloadJson, $maxAttempts]);
-    return (int)$db->lastInsertId();
+    $queueId = (int)$db->lastInsertId();
+    splaro_integration_trace('sheets.queue.insert.success', [
+        'type' => (string)$type,
+        'queue_id' => $queueId,
+        'max_attempts' => (int)$maxAttempts
+    ]);
+    return $queueId;
 }
 
 function calculate_sync_retry_delay($attemptNumber) {
@@ -6014,6 +7285,11 @@ function calculate_sync_retry_delay($attemptNumber) {
 }
 
 function process_sync_queue($db, $limit = 20, $force = false) {
+    splaro_integration_trace('sheets.queue.process.start', [
+        'db_available' => (bool)$db,
+        'limit' => (int)$limit,
+        'force' => (bool)$force
+    ]);
     $result = [
         'processed' => 0,
         'success' => 0,
@@ -6027,12 +7303,14 @@ function process_sync_queue($db, $limit = 20, $force = false) {
     if (!$db) {
         $result['paused'] = true;
         $result['reason'] = 'DB_UNAVAILABLE';
+        splaro_integration_trace('sheets.queue.process.paused', ['reason' => $result['reason']], 'WARNING');
         return $result;
     }
 
     if (GOOGLE_SHEETS_WEBHOOK_URL === '') {
         $result['paused'] = true;
         $result['reason'] = 'WEBHOOK_NOT_CONFIGURED';
+        splaro_integration_trace('sheets.queue.process.paused', ['reason' => $result['reason']], 'WARNING');
         return $result;
     }
 
@@ -6045,19 +7323,31 @@ function process_sync_queue($db, $limit = 20, $force = false) {
         $result['paused'] = true;
         $result['reason'] = 'CIRCUIT_OPEN';
         $result['circuit'] = $circuit;
+        splaro_integration_trace('sheets.queue.process.paused', [
+            'reason' => $result['reason'],
+            'circuit' => $circuit
+        ], 'WARNING');
         return $result;
     }
 
     try {
-        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
+        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE sync_type NOT LIKE 'TELEGRAM_%' AND status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
         $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->execute();
         $jobs = $stmt->fetchAll();
     } catch (Exception $e) {
         $result['paused'] = true;
         $result['reason'] = 'QUEUE_READ_FAILED';
+        splaro_log_exception('sheets.queue.process.read', $e, [
+            'reason' => $result['reason'],
+            'limit' => (int)$limit
+        ]);
         return $result;
     }
+
+    splaro_integration_trace('sheets.queue.process.jobs_loaded', [
+        'count' => is_array($jobs) ? count($jobs) : 0
+    ]);
 
     foreach ($jobs as $job) {
         $jobId = (int)($job['id'] ?? 0);
@@ -6066,6 +7356,7 @@ function process_sync_queue($db, $limit = 20, $force = false) {
         $claim = $db->prepare("UPDATE sync_queue SET status = 'PROCESSING', attempts = attempts + 1, locked_at = NOW() WHERE id = ? AND status IN ('PENDING', 'RETRY')");
         $claim->execute([$jobId]);
         if ($claim->rowCount() < 1) {
+            splaro_integration_trace('sheets.queue.job.claim_skipped', ['job_id' => $jobId], 'WARNING');
             continue;
         }
 
@@ -6074,9 +7365,23 @@ function process_sync_queue($db, $limit = 20, $force = false) {
         $maxAttempts = (int)($job['max_attempts'] ?? 0);
         if ($maxAttempts < 1) $maxAttempts = 1;
         $syncType = (string)($job['sync_type'] ?? '');
+        splaro_integration_trace('sheets.queue.job.claimed', [
+            'job_id' => $jobId,
+            'sync_type' => $syncType,
+            'attempt' => (int)$attemptsNow,
+            'max_attempts' => (int)$maxAttempts
+        ]);
 
         $decoded = json_decode((string)($job['payload_json'] ?? ''), true);
         if (!is_array($decoded)) {
+            $payloadJsonRaw = (string)($job['payload_json'] ?? '');
+            $decodeError = json_last_error() !== JSON_ERROR_NONE ? json_last_error_msg() : 'INVALID_JSON_SHAPE';
+            splaro_integration_trace('sheets.queue.job.payload_decode_failed', [
+                'job_id' => $jobId,
+                'sync_type' => $syncType,
+                'json_error' => $decodeError,
+                'payload_preview' => splaro_clip_text($payloadJsonRaw, 300)
+            ], 'ERROR');
             $dead = $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = 0, locked_at = NULL WHERE id = ?");
             $dead->execute(['INVALID_PAYLOAD_JSON', $jobId]);
             $result['failed']++;
@@ -6084,12 +7389,29 @@ function process_sync_queue($db, $limit = 20, $force = false) {
             continue;
         }
 
+        splaro_integration_trace('sheets.queue.job.http_dispatch', [
+            'job_id' => $jobId,
+            'sync_type' => $syncType
+        ]);
         [$ok, $httpCode, $error, $response] = perform_sheets_sync_request($syncType, $decoded);
+        splaro_integration_trace('sheets.queue.job.http_result', [
+            'job_id' => $jobId,
+            'sync_type' => $syncType,
+            'ok' => (bool)$ok,
+            'http_code' => (int)$httpCode,
+            'error' => (string)$error,
+            'response_preview' => splaro_clip_text($response, 300)
+        ], $ok ? 'INFO' : 'ERROR');
         if ($ok) {
             close_sheets_circuit();
             $done = $db->prepare("UPDATE sync_queue SET status = 'SUCCESS', last_error = NULL, last_http_code = ?, locked_at = NULL, next_attempt_at = NOW() WHERE id = ?");
             $done->execute([$httpCode, $jobId]);
             $result['success']++;
+            splaro_integration_trace('sheets.queue.job.success', [
+                'job_id' => $jobId,
+                'sync_type' => $syncType,
+                'http_code' => (int)$httpCode
+            ]);
             continue;
         }
 
@@ -6104,12 +7426,26 @@ function process_sync_queue($db, $limit = 20, $force = false) {
             || strpos($lastError, 'TIMEOUT') !== false;
         if ($shouldOpenCircuit) {
             open_sheets_circuit($lastError, (int)$httpCode);
+            splaro_integration_trace('sheets.queue.circuit.opened', [
+                'job_id' => $jobId,
+                'sync_type' => $syncType,
+                'http_code' => (int)$httpCode,
+                'error' => (string)$lastError
+            ], 'WARNING');
         }
 
         if ($attemptsNow >= $maxAttempts) {
             $dead = $db->prepare("UPDATE sync_queue SET status = 'DEAD', last_error = ?, last_http_code = ?, locked_at = NULL WHERE id = ?");
             $dead->execute([$lastError, $httpCode, $jobId]);
             $result['dead']++;
+            splaro_integration_trace('sheets.queue.job.dead', [
+                'job_id' => $jobId,
+                'sync_type' => $syncType,
+                'attempts' => (int)$attemptsNow,
+                'max_attempts' => (int)$maxAttempts,
+                'http_code' => (int)$httpCode,
+                'error' => (string)$lastError
+            ], 'ERROR');
 
             try {
                 $log = $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)");
@@ -6119,7 +7455,10 @@ function process_sync_queue($db, $limit = 20, $force = false) {
                     $_SERVER['REMOTE_ADDR'] ?? 'SERVER'
                 ]);
             } catch (Exception $e) {
-                // no-op
+                splaro_log_exception('sheets.queue.dead_log_write', $e, [
+                    'job_id' => $jobId,
+                    'sync_type' => $syncType
+                ]);
             }
         } else {
             $delay = calculate_sync_retry_delay($attemptsNow);
@@ -6130,9 +7469,18 @@ function process_sync_queue($db, $limit = 20, $force = false) {
             $retry->bindValue(4, $jobId, PDO::PARAM_INT);
             $retry->execute();
             $result['retried']++;
+            splaro_integration_trace('sheets.queue.job.retry_scheduled', [
+                'job_id' => $jobId,
+                'sync_type' => $syncType,
+                'attempt' => (int)$attemptsNow,
+                'next_delay_seconds' => (int)$delay,
+                'http_code' => (int)$httpCode,
+                'error' => (string)$lastError
+            ], 'WARNING');
         }
     }
 
+    splaro_integration_trace('sheets.queue.process.done', $result);
     return $result;
 }
 
@@ -6149,14 +7497,28 @@ function schedule_sync_queue_drain($db) {
                 @fastcgi_finish_request();
             }
         } catch (Exception $e) {
-            // no-op
+            splaro_log_exception('sheets.queue.shutdown.fastcgi_finish_request', $e);
         }
-        process_sync_queue($db, 5, false);
+        splaro_integration_trace('telegram.queue.shutdown.drain_start', ['limit' => 10]);
+        $telegramDrainResult = process_telegram_queue($db, 10);
+        splaro_integration_trace('telegram.queue.shutdown.drain_done', $telegramDrainResult);
+        splaro_integration_trace('sheets.queue.shutdown.drain_start', ['limit' => 5]);
+        $drainResult = process_sync_queue($db, 5, false);
+        splaro_integration_trace('sheets.queue.shutdown.drain_done', $drainResult);
     });
 }
 
 function sync_to_sheets($type, $data) {
+    splaro_integration_trace('sheets.trigger.start', [
+        'type' => (string)$type,
+        'webhook_configured' => GOOGLE_SHEETS_WEBHOOK_URL !== '',
+        'db_available' => isset($GLOBALS['SPLARO_DB_CONNECTION']) && $GLOBALS['SPLARO_DB_CONNECTION'] instanceof PDO
+    ]);
     if (GOOGLE_SHEETS_WEBHOOK_URL === '') {
+        splaro_integration_trace('sheets.trigger.skipped', [
+            'type' => (string)$type,
+            'reason' => 'WEBHOOK_NOT_CONFIGURED'
+        ], 'WARNING');
         return false;
     }
 
@@ -6167,10 +7529,17 @@ function sync_to_sheets($type, $data) {
             $queued = enqueue_sync_job($db, $type, $data);
         } catch (Exception $e) {
             $queued = 0;
+            splaro_log_exception('sheets.trigger.enqueue', $e, [
+                'type' => (string)$type
+            ]);
         }
     }
 
     if ($queued > 0) {
+        splaro_integration_trace('sheets.trigger.queued', [
+            'type' => (string)$type,
+            'queue_id' => (int)$queued
+        ]);
         schedule_sync_queue_drain($db);
         return true;
     }
@@ -6178,6 +7547,10 @@ function sync_to_sheets($type, $data) {
     // Never block core services on external sheet connectivity.
     // If queue insert fails, record and continue without direct network call.
     error_log("SPLARO_SHEETS_SYNC_DEFERRED: type={$type}; reason=QUEUE_INSERT_UNAVAILABLE");
+    splaro_integration_trace('sheets.trigger.deferred', [
+        'type' => (string)$type,
+        'reason' => 'QUEUE_INSERT_UNAVAILABLE'
+    ], 'ERROR');
     return false;
 }
 
