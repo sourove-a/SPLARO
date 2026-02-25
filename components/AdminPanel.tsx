@@ -20,10 +20,11 @@ import { useApp } from '../store';
 import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant } from '../types';
 import { buildProductRoute, resolveUniqueSlug, slugifyValue } from '../lib/productRoute';
 import { CampaignForm } from './CampaignForm';
+import { SystemHealthPanel } from './SystemHealthPanel';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
-const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'SYNC', 'SETTINGS', 'PAGES', 'STORY', 'TRAFFIC', 'CAMPAIGNS'] as const;
+const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'HEALTH', 'SYNC', 'SETTINGS', 'PAGES', 'STORY', 'TRAFFIC', 'CAMPAIGNS'] as const;
 type AdminTab = typeof ADMIN_TABS[number];
 type CmsCategoryTab = 'all' | 'shoes' | 'bags';
 
@@ -104,6 +105,75 @@ type FinanceExpense = {
   category: string;
   date: string;
   createdAt: string;
+};
+
+type AdminCustomerStats = {
+  totalOrders: number;
+  lifetimeValue: number;
+  totalRefunds: number;
+  refundAmount: number;
+  totalCancellations: number;
+  totalPayments: number;
+  deliveredShipments: number;
+  lastOrderId: string;
+  lastOrderDate: string | null;
+  lastOrderStatus: string;
+};
+
+type AdminUserRecord = User & {
+  isBlocked?: boolean;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  totalOrders?: number;
+  lifetimeValue?: number;
+  lastOrderAt?: string | null;
+};
+
+type AdminOrderRecord = Order & {
+  orderNo?: string;
+  itemCount?: number;
+  updatedAt?: string;
+};
+
+type AdminPurchasedProduct = {
+  productId: string;
+  productName: string;
+  imageUrl: string;
+  totalQuantity: number;
+  totalSpent: number;
+  lastPurchasedAt: string | null;
+};
+
+type AdminCustomerAddress = {
+  id: string;
+  label: string;
+  recipientName: string;
+  phone: string;
+  district: string;
+  thana: string;
+  addressLine: string;
+  postalCode: string;
+  isDefault: boolean;
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AdminCustomerActivity = {
+  id: string;
+  type: string;
+  referenceId: string;
+  details: string;
+  createdAt: string;
+};
+
+type AdminCustomerProfile = {
+  user: AdminUserRecord;
+  stats: AdminCustomerStats;
+  purchasedProducts: AdminPurchasedProduct[];
+  addresses: AdminCustomerAddress[];
+  orders: AdminOrderRecord[];
+  activity: AdminCustomerActivity[];
 };
 
 const ProductModal: React.FC<{
@@ -1051,6 +1121,40 @@ export const AdminPanel = () => {
   const [toast, setToast] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [cmsCategoryTab, setCmsCategoryTab] = useState<CmsCategoryTab>('all');
   const [invoiceActionKey, setInvoiceActionKey] = useState<string | null>(null);
+  const [adminUsers, setAdminUsers] = useState<AdminUserRecord[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState('');
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPageSize] = useState(20);
+  const [userStatusFilter, setUserStatusFilter] = useState<'ALL' | 'ACTIVE' | 'BLOCKED' | 'ADMIN' | 'USER'>('ALL');
+  const [adminUsersMeta, setAdminUsersMeta] = useState<{ page: number; limit: number; hasMore: boolean; count: number | null }>({
+    page: 1,
+    limit: 20,
+    hasMore: false,
+    count: null
+  });
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedCustomerProfile, setSelectedCustomerProfile] = useState<AdminCustomerProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [customerOrders, setCustomerOrders] = useState<AdminOrderRecord[]>([]);
+  const [customerOrdersPage, setCustomerOrdersPage] = useState(1);
+  const [customerOrdersMeta, setCustomerOrdersMeta] = useState<{ page: number; limit: number; hasMore: boolean }>({
+    page: 1,
+    limit: 20,
+    hasMore: false
+  });
+  const [customerOrdersLoading, setCustomerOrdersLoading] = useState(false);
+  const [customerActivity, setCustomerActivity] = useState<AdminCustomerActivity[]>([]);
+  const [customerActivityPage, setCustomerActivityPage] = useState(1);
+  const [customerActivityMeta, setCustomerActivityMeta] = useState<{ page: number; limit: number; hasMore: boolean }>({
+    page: 1,
+    limit: 20,
+    hasMore: false
+  });
+  const [customerActivityLoading, setCustomerActivityLoading] = useState(false);
+  const [customerNoteDraft, setCustomerNoteDraft] = useState('');
+  const [customerNoteSaving, setCustomerNoteSaving] = useState(false);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
@@ -1068,6 +1172,372 @@ export const AdminPanel = () => {
     if (adminKey) headers['X-Admin-Key'] = adminKey;
     if (csrfTokenMatch?.[1]) headers['X-CSRF-Token'] = decodeURIComponent(csrfTokenMatch[1]);
     return headers;
+  };
+
+  const normalizeAdminUserRecord = (raw: any): AdminUserRecord => ({
+    id: String(raw?.id || ''),
+    name: String(raw?.name || 'Unknown User'),
+    email: String(raw?.email || ''),
+    phone: String(raw?.phone || ''),
+    address: String(raw?.address || ''),
+    profileImage: String(raw?.profileImage || raw?.profile_image || ''),
+    role: String(raw?.role || 'USER').toUpperCase() as User['role'],
+    createdAt: String(raw?.createdAt || raw?.created_at || ''),
+    defaultShippingAddress: String(raw?.defaultShippingAddress || raw?.default_shipping_address || ''),
+    notificationEmail: raw?.notificationEmail ?? raw?.notification_email ?? true,
+    notificationSms: raw?.notificationSms ?? raw?.notification_sms ?? false,
+    preferredLanguage: String(raw?.preferredLanguage || raw?.preferred_language || 'EN'),
+    twoFactorEnabled: Boolean(raw?.twoFactorEnabled ?? raw?.two_factor_enabled),
+    isBlocked: Boolean(raw?.isBlocked ?? raw?.is_blocked),
+    emailVerified: Boolean(raw?.emailVerified ?? raw?.email_verified),
+    phoneVerified: Boolean(raw?.phoneVerified ?? raw?.phone_verified),
+    totalOrders: Number(raw?.totalOrders ?? raw?.total_orders ?? 0),
+    lifetimeValue: Number(raw?.lifetimeValue ?? raw?.lifetime_value ?? 0),
+    lastOrderAt: raw?.lastOrderAt || raw?.last_order_at || null
+  });
+
+  const normalizeAdminOrderRecord = (raw: any): AdminOrderRecord => ({
+    id: String(raw?.id || ''),
+    orderNo: String(raw?.orderNo || raw?.order_no || raw?.id || ''),
+    userId: String(raw?.userId || raw?.user_id || ''),
+    customerName: String(raw?.customerName || raw?.customer_name || ''),
+    customerEmail: String(raw?.customerEmail || raw?.customer_email || ''),
+    phone: String(raw?.phone || ''),
+    district: String(raw?.district || ''),
+    thana: String(raw?.thana || ''),
+    address: String(raw?.address || ''),
+    status: String(raw?.status || 'Pending') as OrderStatus,
+    trackingNumber: String(raw?.trackingNumber || raw?.tracking_number || ''),
+    adminNotes: String(raw?.adminNotes || raw?.admin_notes || ''),
+    customerComment: String(raw?.customerComment || raw?.customer_comment || ''),
+    total: Number(raw?.total || 0),
+    shippingFee: Number(raw?.shippingFee ?? raw?.shipping_fee ?? 0),
+    discountAmount: Number(raw?.discountAmount ?? raw?.discount_amount ?? 0),
+    discountCode: String(raw?.discountCode || raw?.discount_code || ''),
+    itemCount: Number(raw?.itemCount ?? raw?.item_count ?? 0),
+    createdAt: String(raw?.createdAt || raw?.created_at || ''),
+    updatedAt: String(raw?.updatedAt || raw?.updated_at || ''),
+    items: Array.isArray(raw?.items) ? raw.items : []
+  });
+
+  const fetchAdminUsers = async () => {
+    setUsersLoading(true);
+    setUsersError('');
+    try {
+      const params = new URLSearchParams({
+        action: 'admin_users',
+        page: String(usersPage),
+        limit: String(usersPageSize),
+        search: searchQuery.trim()
+      });
+      if (userStatusFilter !== 'ALL') {
+        params.set('status', userStatusFilter);
+      }
+      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Failed to load users.');
+      }
+      const records = Array.isArray(result?.data)
+        ? result.data.map((row: any) => normalizeAdminUserRecord(row))
+        : [];
+      setAdminUsers(records);
+      setAdminUsersMeta({
+        page: Number(result?.meta?.page || usersPage),
+        limit: Number(result?.meta?.limit || usersPageSize),
+        hasMore: Boolean(result?.meta?.hasMore),
+        count: Number.isFinite(Number(result?.meta?.count)) ? Number(result?.meta?.count) : null
+      });
+    } catch (error: any) {
+      const message = error?.message || 'Unable to load customers.';
+      setUsersError(message);
+      setAdminUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const fetchCustomerOrders = async (userId: string, page = 1, append = false) => {
+    setCustomerOrdersLoading(true);
+    try {
+      const params = new URLSearchParams({
+        action: 'admin_user_orders',
+        id: userId,
+        page: String(page),
+        limit: '20'
+      });
+      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Failed to load user orders.');
+      }
+      const rows = Array.isArray(result?.data)
+        ? result.data.map((row: any) => normalizeAdminOrderRecord(row))
+        : [];
+      setCustomerOrders((prev) => append ? [...prev, ...rows] : rows);
+      setCustomerOrdersMeta({
+        page: Number(result?.meta?.page || page),
+        limit: Number(result?.meta?.limit || 20),
+        hasMore: Boolean(result?.meta?.hasMore)
+      });
+      setCustomerOrdersPage(Number(result?.meta?.page || page));
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to load user orders.', 'error');
+    } finally {
+      setCustomerOrdersLoading(false);
+    }
+  };
+
+  const fetchCustomerActivity = async (userId: string, page = 1, append = false) => {
+    setCustomerActivityLoading(true);
+    try {
+      const params = new URLSearchParams({
+        action: 'admin_user_activity',
+        id: userId,
+        page: String(page),
+        limit: '20'
+      });
+      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Failed to load user activity.');
+      }
+      const rows = Array.isArray(result?.data)
+        ? result.data.map((event: any) => ({
+          id: String(event?.id || ''),
+          type: String(event?.type || 'EVENT'),
+          referenceId: String(event?.referenceId || event?.reference_id || ''),
+          details: String(event?.details || ''),
+          createdAt: String(event?.createdAt || event?.created_at || '')
+        }))
+        : [];
+      setCustomerActivity((prev) => append ? [...prev, ...rows] : rows);
+      setCustomerActivityMeta({
+        page: Number(result?.meta?.page || page),
+        limit: Number(result?.meta?.limit || 20),
+        hasMore: Boolean(result?.meta?.hasMore)
+      });
+      setCustomerActivityPage(Number(result?.meta?.page || page));
+    } catch (error: any) {
+      showToast(error?.message || 'Unable to load activity feed.', 'error');
+    } finally {
+      setCustomerActivityLoading(false);
+    }
+  };
+
+  const openCustomerProfile = async (userId: string) => {
+    setSelectedCustomerId(userId);
+    setSelectedCustomerProfile(null);
+    setProfileError('');
+    setProfileLoading(true);
+    setCustomerOrders([]);
+    setCustomerActivity([]);
+    setCustomerOrdersMeta({ page: 1, limit: 20, hasMore: false });
+    setCustomerActivityMeta({ page: 1, limit: 20, hasMore: false });
+    setCustomerOrdersPage(1);
+    setCustomerActivityPage(1);
+    setCustomerNoteDraft('');
+
+    try {
+      const profileRes = await fetch(`${API_NODE}?${new URLSearchParams({ action: 'admin_user_profile', id: userId }).toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const profileResult = await profileRes.json().catch(() => ({}));
+      if (!profileRes.ok || profileResult?.status !== 'success') {
+        throw new Error(profileResult?.message || 'Failed to load customer profile.');
+      }
+
+      const payload = profileResult?.data || {};
+      const profile: AdminCustomerProfile = {
+        user: normalizeAdminUserRecord(payload?.user || {}),
+        stats: {
+          totalOrders: Number(payload?.stats?.totalOrders || 0),
+          lifetimeValue: Number(payload?.stats?.lifetimeValue || 0),
+          totalRefunds: Number(payload?.stats?.totalRefunds || 0),
+          refundAmount: Number(payload?.stats?.refundAmount || 0),
+          totalCancellations: Number(payload?.stats?.totalCancellations || 0),
+          totalPayments: Number(payload?.stats?.totalPayments || 0),
+          deliveredShipments: Number(payload?.stats?.deliveredShipments || 0),
+          lastOrderId: String(payload?.stats?.lastOrderId || ''),
+          lastOrderDate: payload?.stats?.lastOrderDate || null,
+          lastOrderStatus: String(payload?.stats?.lastOrderStatus || '')
+        },
+        purchasedProducts: Array.isArray(payload?.purchasedProducts)
+          ? payload.purchasedProducts.map((row: any) => ({
+            productId: String(row?.productId || ''),
+            productName: String(row?.productName || ''),
+            imageUrl: String(row?.imageUrl || ''),
+            totalQuantity: Number(row?.totalQuantity || 0),
+            totalSpent: Number(row?.totalSpent || 0),
+            lastPurchasedAt: row?.lastPurchasedAt || null
+          }))
+          : [],
+        addresses: Array.isArray(payload?.addresses)
+          ? payload.addresses.map((row: any) => ({
+            id: String(row?.id || ''),
+            label: String(row?.label || 'Address'),
+            recipientName: String(row?.recipientName || ''),
+            phone: String(row?.phone || ''),
+            district: String(row?.district || ''),
+            thana: String(row?.thana || ''),
+            addressLine: String(row?.addressLine || ''),
+            postalCode: String(row?.postalCode || ''),
+            isDefault: Boolean(row?.isDefault),
+            isVerified: Boolean(row?.isVerified),
+            createdAt: String(row?.createdAt || ''),
+            updatedAt: String(row?.updatedAt || '')
+          }))
+          : [],
+        orders: Array.isArray(payload?.recentOrders)
+          ? payload.recentOrders.map((row: any) => normalizeAdminOrderRecord(row))
+          : [],
+        activity: []
+      };
+      setSelectedCustomerProfile(profile);
+      await Promise.all([
+        fetchCustomerOrders(userId, 1, false),
+        fetchCustomerActivity(userId, 1, false)
+      ]);
+    } catch (error: any) {
+      setProfileError(error?.message || 'Unable to load customer profile.');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const closeCustomerProfile = () => {
+    setSelectedCustomerId(null);
+    setSelectedCustomerProfile(null);
+    setProfileError('');
+    setCustomerOrders([]);
+    setCustomerActivity([]);
+    setCustomerNoteDraft('');
+  };
+
+  const saveCustomerNote = async () => {
+    if (!selectedCustomerId) return;
+    const note = customerNoteDraft.trim();
+    if (!note) {
+      showToast('Note লিখে save করো।', 'error');
+      return;
+    }
+    setCustomerNoteSaving(true);
+    try {
+      const res = await fetch(`${API_NODE}?action=admin_user_note`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          id: selectedCustomerId,
+          note
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Failed to save note.');
+      }
+      setCustomerNoteDraft('');
+      showToast('Admin note saved.', 'success');
+      await fetchCustomerActivity(selectedCustomerId, 1, false);
+    } catch (error: any) {
+      showToast(error?.message || 'Note save failed.', 'error');
+    } finally {
+      setCustomerNoteSaving(false);
+    }
+  };
+
+  const toggleCustomerBlocked = async (record: AdminUserRecord) => {
+    try {
+      const res = await fetch(`${API_NODE}?action=admin_user_block`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          id: record.id,
+          blocked: !record.isBlocked
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Failed to update user block status.');
+      }
+      setAdminUsers((prev) => prev.map((u) => (
+        u.id === record.id
+          ? { ...u, isBlocked: !record.isBlocked }
+          : u
+      )));
+      if (selectedCustomerProfile?.user?.id === record.id) {
+        setSelectedCustomerProfile({
+          ...selectedCustomerProfile,
+          user: {
+            ...selectedCustomerProfile.user,
+            isBlocked: !record.isBlocked
+          }
+        });
+      }
+      showToast(!record.isBlocked ? 'User blocked.' : 'User unblocked.', 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'User status update failed.', 'error');
+    }
+  };
+
+  const updateCustomerRole = async (record: AdminUserRecord, role: User['role']) => {
+    if (!record.id) return;
+    try {
+      const res = await fetch(`${API_NODE}?action=admin_user_role`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          id: record.id,
+          role
+        })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(result?.message || 'Failed to update role.');
+      }
+      setAdminUsers((prev) => prev.map((u) => (u.id === record.id ? { ...u, role } : u)));
+      if (selectedCustomerProfile?.user?.id === record.id) {
+        setSelectedCustomerProfile({
+          ...selectedCustomerProfile,
+          user: { ...selectedCustomerProfile.user, role }
+        });
+      }
+      showToast(`Role updated to ${role}.`, 'success');
+    } catch (error: any) {
+      showToast(error?.message || 'Role update failed.', 'error');
+    }
+  };
+
+  const exportCustomerOrdersCsv = () => {
+    if (!selectedCustomerProfile) return;
+    const rows = (customerOrders.length > 0 ? customerOrders : selectedCustomerProfile.orders) || [];
+    const csvLines = ['order_id,order_no,status,total,shipping,discount,created_at'];
+    rows.forEach((order) => {
+      const safeOrderNo = `"${String(order.orderNo || order.id).replace(/"/g, '""')}"`;
+      csvLines.push([
+        order.id,
+        safeOrderNo,
+        String(order.status || ''),
+        String(order.total || 0),
+        String(order.shippingFee || 0),
+        String(order.discountAmount || 0),
+        String(order.createdAt || '')
+      ].join(','));
+    });
+    const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `customer-orders-${selectedCustomerProfile.user.id}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
   };
 
   const updateInvoiceSettingsField = (patch: any) => {
@@ -1620,6 +2090,18 @@ export const AdminPanel = () => {
     return () => window.removeEventListener('splaro-toast', handler as EventListener);
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'USERS') return;
+    const timer = window.setTimeout(() => {
+      fetchAdminUsers();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, usersPage, usersPageSize, userStatusFilter, searchQuery]);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [searchQuery, userStatusFilter]);
+
 
 
   return (
@@ -1636,6 +2118,7 @@ export const AdminPanel = () => {
           <SidebarItem icon={Tag} label="Discounts" active={activeTab === 'DISCOUNTS'} onClick={() => switchTab('DISCOUNTS')} />
           <SidebarItem icon={Users} label="Client Base" active={activeTab === 'USERS'} onClick={() => switchTab('USERS')} />
           <SidebarItem icon={DollarSign} label="Financials" active={activeTab === 'FINANCE'} onClick={() => switchTab('FINANCE')} />
+          <SidebarItem icon={Activity} label="System Health" active={activeTab === 'HEALTH'} onClick={() => switchTab('HEALTH')} />
           <SidebarItem icon={Database} label="Registry Sync" active={activeTab === 'SYNC'} onClick={() => switchTab('SYNC')} />
           <SidebarItem icon={Settings} label="Protocols" active={activeTab === 'SETTINGS'} onClick={() => switchTab('SETTINGS')} />
           <SidebarItem icon={FileText} label="Pages CMS" active={activeTab === 'PAGES'} onClick={() => switchTab('PAGES')} />
@@ -3369,6 +3852,12 @@ export const AdminPanel = () => {
                   </GlassCard>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'HEALTH' && (
+            <motion.div key="health" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+              <SystemHealthPanel />
             </motion.div>
           )}
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Added ArrowRight to imports to fix line 103 error
 import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone } from 'lucide-react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider, useApp } from './store';
 import { View } from './types';
 import { Navbar, SplaroLogo } from './components/Navbar';
@@ -752,6 +753,7 @@ const AppContent = () => {
             <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
             <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
             <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
+            <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
             <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
             <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
             <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
@@ -817,12 +819,26 @@ const AppContent = () => {
   );
 };
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false
+    },
+    mutations: {
+      retry: 0
+    }
+  }
+});
+
 const App = () => (
   <BrowserRouter>
-    <AppProvider>
-      <ScrollToTop />
-      <AppContent />
-    </AppProvider>
+    <QueryClientProvider client={queryClient}>
+      <AppProvider>
+        <ScrollToTop />
+        <AppContent />
+      </AppProvider>
+    </QueryClientProvider>
   </BrowserRouter>
 );
 

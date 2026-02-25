@@ -247,6 +247,91 @@ function splaro_clip_text($value, $max = 300) {
     return $text;
 }
 
+function splaro_redact_sensitive_text($value) {
+    $text = (string)$value;
+    if ($text === '') {
+        return '';
+    }
+
+    $text = (string)preg_replace('/bot\d{6,}:[A-Za-z0-9_-]{20,}/', '[REDACTED_BOT_TOKEN]', $text);
+    $text = (string)preg_replace('/Bearer\s+[A-Za-z0-9\-._~+\/]+=*/i', 'Bearer [REDACTED]', $text);
+    $text = (string)preg_replace('/(password|pass|token|secret|authorization)\s*[:=]\s*["\']?[^"\',\s]{4,}/i', '$1=[REDACTED]', $text);
+
+    $rawSecrets = [
+        (string)TELEGRAM_BOT_TOKEN,
+        (string)GOOGLE_SHEETS_WEBHOOK_SECRET,
+        (string)PUSH_VAPID_PRIVATE_KEY,
+        (string)env_or_default('DB_PASSWORD', ''),
+        (string)env_or_default('DB_PASS', ''),
+        (string)env_or_default('MYSQL_PASSWORD', '')
+    ];
+    foreach ($rawSecrets as $secret) {
+        $secret = trim((string)$secret);
+        if ($secret === '' || strlen($secret) < 6) {
+            continue;
+        }
+        $text = str_replace($secret, '[REDACTED]', $text);
+    }
+
+    return $text;
+}
+
+function splaro_redact_sensitive_context($value, $depth = 0) {
+    if ($depth > 8) {
+        return '[MAX_DEPTH_REACHED]';
+    }
+    if (is_array($value)) {
+        $out = [];
+        foreach ($value as $k => $v) {
+            $key = (string)$k;
+            if (preg_match('/(token|secret|password|authorization|cookie|key|otp)/i', $key)) {
+                $out[$key] = '[REDACTED]';
+                continue;
+            }
+            $out[$key] = splaro_redact_sensitive_context($v, $depth + 1);
+        }
+        return $out;
+    }
+    if (is_object($value)) {
+        return splaro_redact_sensitive_context((array)$value, $depth + 1);
+    }
+    if (is_string($value)) {
+        return splaro_redact_sensitive_text($value);
+    }
+    return $value;
+}
+
+function splaro_record_system_error($service, $level, $message, $context = []) {
+    $db = $GLOBALS['SPLARO_DB_CONNECTION'] ?? null;
+    if (!($db instanceof PDO)) {
+        return false;
+    }
+
+    $serviceSafe = splaro_clip_text((string)$service, 80);
+    $levelSafe = strtoupper(splaro_clip_text((string)$level, 20));
+    $messageSafe = splaro_clip_text(splaro_redact_sensitive_text((string)$message), 1200);
+    $contextSafe = splaro_redact_sensitive_context(is_array($context) ? $context : ['value' => $context]);
+    $contextJson = json_encode($contextSafe, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($contextJson)) {
+        $contextJson = json_encode([
+            'message' => 'CONTEXT_ENCODE_FAILED',
+            'json_error' => json_last_error_msg()
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($contextJson)) {
+            $contextJson = '{}';
+        }
+    }
+
+    try {
+        $stmt = $db->prepare("INSERT INTO system_errors (service, level, message, context_json, created_at) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->execute([$serviceSafe, $levelSafe, $messageSafe, $contextJson]);
+        return true;
+    } catch (Throwable $e) {
+        error_log('SPLARO_SYSTEM_ERROR_LOG_WRITE_FAILED: ' . splaro_redact_sensitive_text((string)$e->getMessage()));
+        return false;
+    }
+}
+
 function splaro_request_trace_id() {
     static $traceId = null;
     if (is_string($traceId) && $traceId !== '') {
@@ -293,12 +378,18 @@ function splaro_log_exception($stage, $exception, $context = [], $level = 'ERROR
         splaro_integration_trace($stage . '.exception_invalid', ['exception' => (string)$exception], $level);
         return;
     }
-    $payload = is_array($context) ? $context : ['value' => $context];
-    $payload['error_message'] = $exception->getMessage();
+    $payload = splaro_redact_sensitive_context(is_array($context) ? $context : ['value' => $context]);
+    $payload['error_message'] = splaro_redact_sensitive_text((string)$exception->getMessage());
     $payload['error_file'] = $exception->getFile();
     $payload['error_line'] = $exception->getLine();
-    $payload['stack_trace'] = splaro_clip_text($exception->getTraceAsString(), 1200);
+    $payload['stack_trace'] = splaro_clip_text(splaro_redact_sensitive_text($exception->getTraceAsString()), 1200);
     splaro_integration_trace($stage . '.exception', $payload, $level);
+    splaro_record_system_error(
+        (string)$stage,
+        strtoupper((string)$level),
+        (string)$payload['error_message'],
+        $payload
+    );
 }
 
 register_shutdown_function(function () use ($method, $action, $__splaroRequestStartedAt) {
@@ -362,10 +453,31 @@ if (!$db) {
         exit;
     }
 
+    $fallbackAdminHeader = trim((string)($_SERVER['HTTP_X_ADMIN_KEY'] ?? ''));
+    $fallbackAdminAllowed = ($fallbackAdminHeader !== '' && ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $fallbackAdminHeader));
+    $healthActions = ['health', 'health_probe', 'health_events', 'system_errors'];
+    if (in_array($action, $healthActions, true) && !$fallbackAdminAllowed) {
+        http_response_code(403);
+        echo json_encode([
+            "status" => "error",
+            "message" => "ADMIN_ACCESS_REQUIRED",
+            "storage" => "fallback"
+        ]);
+        exit;
+    }
+
     if ($method === 'GET' && $action === 'health') {
+        $diskRoot = __DIR__;
+        $diskTotal = @disk_total_space($diskRoot);
+        $diskFree = @disk_free_space($diskRoot);
+        $diskUsedPercent = null;
+        if (is_numeric($diskTotal) && is_numeric($diskFree) && (float)$diskTotal > 0) {
+            $diskUsedPercent = round((((float)$diskTotal - (float)$diskFree) / (float)$diskTotal) * 100, 2);
+        }
         echo json_encode([
             "status" => "success",
             "service" => "SPLARO_API",
+            "timestamp" => date('c'),
             "time" => date('c'),
             "mode" => "DEGRADED",
             "storage" => "fallback",
@@ -374,7 +486,55 @@ if (!$db) {
             "dbName" => DB_NAME,
             "envSource" => get_env_source_label(),
             "dbPasswordSource" => (string)($GLOBALS['SPLARO_DB_PASSWORD_SOURCE'] ?? ''),
-            "db" => $safeDbStatus
+            "db" => $safeDbStatus,
+            "server" => [
+                "php_version" => PHP_VERSION,
+                "sapi" => PHP_SAPI,
+                "memory_limit" => (string)ini_get('memory_limit'),
+                "max_execution_time" => (int)ini_get('max_execution_time')
+            ],
+            "disk" => [
+                "path" => $diskRoot,
+                "total_bytes" => is_numeric($diskTotal) ? (float)$diskTotal : null,
+                "free_bytes" => is_numeric($diskFree) ? (float)$diskFree : null,
+                "used_percent" => $diskUsedPercent
+            ],
+            "services" => [
+                "db" => [
+                    "status" => "DOWN",
+                    "latency_ms" => null,
+                    "last_checked_at" => date('c'),
+                    "error" => (string)($safeDbStatus['message'] ?? 'DATABASE_CONNECTION_FAILED'),
+                    "next_action" => health_recommended_action('db', (string)($safeDbStatus['message'] ?? 'DATABASE_CONNECTION_FAILED'))
+                ]
+            ],
+            "health_events" => [],
+            "recent_errors" => []
+        ]);
+        exit;
+    }
+
+    if ($method === 'POST' && $action === 'health_probe') {
+        http_response_code(503);
+        echo json_encode([
+            "status" => "error",
+            "message" => "DATABASE_CONNECTION_FAILED",
+            "result" => [
+                "probe" => health_normalize_probe((string)($_GET['probe'] ?? '')),
+                "status" => "FAIL",
+                "latency_ms" => 0,
+                "error" => "DATABASE_CONNECTION_FAILED",
+                "checked_at" => date('c')
+            ]
+        ]);
+        exit;
+    }
+
+    if ($method === 'GET' && ($action === 'health_events' || $action === 'system_errors')) {
+        echo json_encode([
+            "status" => "success",
+            "events" => [],
+            "errors" => []
         ]);
         exit;
     }
@@ -803,6 +963,26 @@ function ensure_core_schema($db) {
       `event_description` text NOT NULL,
       `user_id` varchar(50) DEFAULT NULL,
       `ip_address` varchar(45) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'system_errors', "CREATE TABLE IF NOT EXISTS `system_errors` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `service` varchar(80) NOT NULL,
+      `level` varchar(20) NOT NULL DEFAULT 'ERROR',
+      `message` text NOT NULL,
+      `context_json` longtext DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'health_events', "CREATE TABLE IF NOT EXISTS `health_events` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `probe` varchar(40) NOT NULL,
+      `status` varchar(20) NOT NULL,
+      `latency_ms` int(11) DEFAULT NULL,
+      `error` text DEFAULT NULL,
       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -1273,6 +1453,10 @@ function ensure_core_schema($db) {
     ensure_index($db, 'user_events', 'idx_user_events_user_created', 'CREATE INDEX idx_user_events_user_created ON user_events(user_id, created_at)');
     ensure_index($db, 'user_events', 'idx_user_events_type_created', 'CREATE INDEX idx_user_events_type_created ON user_events(event_type, created_at)');
     ensure_index($db, 'system_logs', 'idx_system_logs_created_at', 'CREATE INDEX idx_system_logs_created_at ON system_logs(created_at)');
+    ensure_index($db, 'system_errors', 'idx_system_errors_service_created', 'CREATE INDEX idx_system_errors_service_created ON system_errors(service, created_at)');
+    ensure_index($db, 'system_errors', 'idx_system_errors_level_created', 'CREATE INDEX idx_system_errors_level_created ON system_errors(level, created_at)');
+    ensure_index($db, 'health_events', 'idx_health_events_probe_created', 'CREATE INDEX idx_health_events_probe_created ON health_events(probe, created_at)');
+    ensure_index($db, 'health_events', 'idx_health_events_status_created', 'CREATE INDEX idx_health_events_status_created ON health_events(status, created_at)');
     ensure_index($db, 'audit_logs', 'idx_audit_logs_created_at', 'CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)');
     ensure_index($db, 'audit_logs', 'idx_audit_logs_entity', 'CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id)');
     ensure_index($db, 'support_tickets', 'idx_support_tickets_created_at', 'CREATE INDEX idx_support_tickets_created_at ON support_tickets(created_at)');
@@ -1447,6 +1631,24 @@ ensure_table($db, 'campaign_logs', "CREATE TABLE IF NOT EXISTS `campaign_logs` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'system_errors', "CREATE TABLE IF NOT EXISTS `system_errors` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `service` varchar(80) NOT NULL,
+  `level` varchar(20) NOT NULL DEFAULT 'ERROR',
+  `message` text NOT NULL,
+  `context_json` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'health_events', "CREATE TABLE IF NOT EXISTS `health_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `probe` varchar(40) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `latency_ms` int(11) DEFAULT NULL,
+  `error` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 ensure_index($db, 'push_subscriptions', 'uniq_push_subscriptions_endpoint_hash', 'CREATE UNIQUE INDEX uniq_push_subscriptions_endpoint_hash ON push_subscriptions(endpoint_hash)');
 ensure_index($db, 'push_subscriptions', 'idx_push_subscriptions_user_active', 'CREATE INDEX idx_push_subscriptions_user_active ON push_subscriptions(user_id, is_active)');
 ensure_index($db, 'notifications', 'idx_notifications_user_created', 'CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at)');
@@ -1454,6 +1656,10 @@ ensure_index($db, 'notifications', 'idx_notifications_user_read_created', 'CREAT
 ensure_index($db, 'campaigns', 'idx_campaigns_status_scheduled', 'CREATE INDEX idx_campaigns_status_scheduled ON campaigns(status, scheduled_at)');
 ensure_index($db, 'campaign_logs', 'idx_campaign_logs_campaign_status_sent', 'CREATE INDEX idx_campaign_logs_campaign_status_sent ON campaign_logs(campaign_id, status, sent_at)');
 ensure_index($db, 'campaign_logs', 'idx_campaign_logs_subscription_created', 'CREATE INDEX idx_campaign_logs_subscription_created ON campaign_logs(subscription_id, created_at)');
+ensure_index($db, 'system_errors', 'idx_system_errors_service_created', 'CREATE INDEX idx_system_errors_service_created ON system_errors(service, created_at)');
+ensure_index($db, 'system_errors', 'idx_system_errors_level_created', 'CREATE INDEX idx_system_errors_level_created ON system_errors(level, created_at)');
+ensure_index($db, 'health_events', 'idx_health_events_probe_created', 'CREATE INDEX idx_health_events_probe_created ON health_events(probe, created_at)');
+ensure_index($db, 'health_events', 'idx_health_events_status_created', 'CREATE INDEX idx_health_events_status_created ON health_events(status, created_at)');
 ensure_column($db, 'push_subscriptions', 'endpoint_hash', 'char(64) DEFAULT NULL');
 ensure_column($db, 'push_subscriptions', 'failure_count', 'int(11) NOT NULL DEFAULT 0');
 ensure_column($db, 'push_subscriptions', 'last_http_code', 'int(11) DEFAULT NULL');
@@ -2818,7 +3024,7 @@ function enforce_global_request_guard($method, $action, $requestAuthUser = null)
         exit;
     }
 
-    $heavyActions = ['sync', 'process_sync_queue', 'sync_queue_status'];
+    $heavyActions = ['sync', 'process_sync_queue', 'sync_queue_status', 'health_probe', 'health_events', 'system_errors'];
     if (in_array($action, $heavyActions, true)) {
         $heavyMax = defined('HEAVY_READ_RATE_LIMIT_MAX') ? (int)HEAVY_READ_RATE_LIMIT_MAX : 40;
         if (is_rate_limited('heavy_' . $action, $heavyMax, $windowSeconds)) {
@@ -4017,6 +4223,447 @@ function get_db_runtime_metrics($db) {
     return $metrics;
 }
 
+function health_normalize_probe($probe) {
+    $normalized = strtolower(trim((string)$probe));
+    $aliases = [
+        'database' => 'db',
+        'tele' => 'telegram',
+        'google_sheets' => 'sheets',
+        'sheet' => 'sheets',
+        'order' => 'orders',
+        'authentication' => 'auth',
+        'queue_worker' => 'queue'
+    ];
+    if (isset($aliases[$normalized])) {
+        $normalized = $aliases[$normalized];
+    }
+    $allowed = ['db', 'telegram', 'sheets', 'queue', 'orders', 'auth'];
+    return in_array($normalized, $allowed, true) ? $normalized : '';
+}
+
+function health_recommended_action($service, $error = '', $context = []) {
+    $serviceKey = strtoupper(trim((string)$service));
+    $errorText = strtoupper((string)$error);
+    if ($serviceKey === 'DB') {
+        if (strpos($errorText, 'ABORTED_CONNECTS') !== false) {
+            return 'DB aborted_connects rising fast. Check credentials, bot traffic, and connection reuse.';
+        }
+        return 'Validate DB credentials/host, reduce connection churn, and verify MySQL process limits.';
+    }
+    if ($serviceKey === 'TELEGRAM') {
+        return 'Verify bot token, admin allowlist, webhook secret, and Telegram API reachability.';
+    }
+    if ($serviceKey === 'SHEETS') {
+        return 'Check Apps Script URL/secret, circuit state, and sheet permissions for the service account.';
+    }
+    if ($serviceKey === 'QUEUE') {
+        return 'Queue dead/retry increased. Inspect sync_queue last_error and drain worker with low batch.';
+    }
+    if ($serviceKey === 'ORDERS') {
+        return 'Orders API probe failed. Validate orders table health, write permissions, and payload validation logs.';
+    }
+    if ($serviceKey === 'AUTH') {
+        return 'Auth probe failed. Validate users table, JWT secret consistency, and token validation path.';
+    }
+    if ($serviceKey === 'PUSH') {
+        return 'Push failures detected. Check VAPID keys, inactive endpoints, and queue dead-letter reasons.';
+    }
+    return 'Inspect recent system_errors context and retry probe.';
+}
+
+function health_record_event($db, $probe, $status, $latencyMs, $error = '') {
+    if (!$db) {
+        return false;
+    }
+    $probeSafe = health_normalize_probe($probe);
+    if ($probeSafe === '') {
+        $probeSafe = splaro_clip_text((string)$probe, 40);
+    }
+    $statusSafe = strtoupper(trim((string)$status));
+    if (!in_array($statusSafe, ['PASS', 'FAIL', 'WARNING'], true)) {
+        $statusSafe = 'FAIL';
+    }
+    $latencySafe = max(0, (int)$latencyMs);
+    $errorSafe = splaro_clip_text(splaro_redact_sensitive_text((string)$error), 1200);
+
+    try {
+        $stmt = $db->prepare("INSERT INTO health_events (probe, status, latency_ms, error, created_at) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->execute([$probeSafe, $statusSafe, $latencySafe, $errorSafe]);
+        return true;
+    } catch (Throwable $e) {
+        splaro_log_exception('health.events.insert', $e, [
+            'probe' => (string)$probeSafe,
+            'status' => (string)$statusSafe
+        ], 'WARNING');
+        return false;
+    }
+}
+
+function health_fetch_events($db, $limit = 50, $probe = '') {
+    if (!$db) {
+        return [];
+    }
+    $max = max(1, min((int)$limit, 200));
+    $probeSafe = health_normalize_probe($probe);
+    $sql = "SELECT id, probe, status, latency_ms, error, created_at FROM health_events";
+    $params = [];
+    if ($probeSafe !== '') {
+        $sql .= " WHERE probe = ?";
+        $params[] = $probeSafe;
+    }
+    $sql .= " ORDER BY id DESC LIMIT " . $max;
+
+    try {
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'id' => (int)($row['id'] ?? 0),
+                'probe' => (string)($row['probe'] ?? ''),
+                'status' => strtoupper((string)($row['status'] ?? '')),
+                'latency_ms' => isset($row['latency_ms']) ? (int)$row['latency_ms'] : null,
+                'error' => (string)($row['error'] ?? ''),
+                'created_at' => (string)($row['created_at'] ?? '')
+            ];
+        }
+        return $out;
+    } catch (Throwable $e) {
+        splaro_log_exception('health.events.list', $e, ['probe' => $probeSafe], 'WARNING');
+        return [];
+    }
+}
+
+function health_fetch_system_errors($db, $limit = 50, $service = '', $level = '') {
+    if (!$db) {
+        return [];
+    }
+    $max = max(1, min((int)$limit, 200));
+    $serviceSafe = trim((string)$service);
+    $levelSafe = strtoupper(trim((string)$level));
+    $where = [];
+    $params = [];
+    if ($serviceSafe !== '') {
+        $where[] = 'service = ?';
+        $params[] = splaro_clip_text($serviceSafe, 80);
+    }
+    if ($levelSafe !== '') {
+        $where[] = 'level = ?';
+        $params[] = splaro_clip_text($levelSafe, 20);
+    }
+    $sql = "SELECT id, service, level, message, context_json, created_at FROM system_errors";
+    if (!empty($where)) {
+        $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+    $sql .= ' ORDER BY id DESC LIMIT ' . $max;
+
+    try {
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+        $out = [];
+        foreach ($rows as $row) {
+            $contextJson = (string)($row['context_json'] ?? '');
+            $decodedContext = json_decode($contextJson, true);
+            if (!is_array($decodedContext)) {
+                $decodedContext = [];
+            }
+            $out[] = [
+                'id' => (int)($row['id'] ?? 0),
+                'service' => (string)($row['service'] ?? ''),
+                'level' => strtoupper((string)($row['level'] ?? 'ERROR')),
+                'message' => (string)($row['message'] ?? ''),
+                'context_json' => $contextJson,
+                'context' => $decodedContext,
+                'created_at' => (string)($row['created_at'] ?? '')
+            ];
+        }
+        return $out;
+    } catch (Throwable $e) {
+        splaro_log_exception('health.system_errors.list', $e, [
+            'service' => $serviceSafe,
+            'level' => $levelSafe
+        ], 'WARNING');
+        return [];
+    }
+}
+
+function health_fetch_recent_db_errors($db, $limit = 20) {
+    $rows = health_fetch_system_errors($db, $limit);
+    if (!empty($rows)) {
+        return $rows;
+    }
+    if (!$db) {
+        return [];
+    }
+    $max = max(1, min((int)$limit, 100));
+    try {
+        $stmt = $db->query("SELECT id, event_type, event_description, created_at FROM system_logs ORDER BY id DESC LIMIT {$max}");
+        $logs = $stmt->fetchAll();
+        $out = [];
+        foreach ($logs as $row) {
+            $eventType = strtoupper((string)($row['event_type'] ?? ''));
+            $desc = (string)($row['event_description'] ?? '');
+            if (
+                strpos($eventType, 'ERROR') === false &&
+                strpos($eventType, 'FAIL') === false &&
+                strpos($eventType, 'DEAD') === false &&
+                strpos(strtoupper($desc), 'ERROR') === false &&
+                strpos(strtoupper($desc), 'FAIL') === false
+            ) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int)($row['id'] ?? 0),
+                'service' => (string)$eventType,
+                'level' => 'ERROR',
+                'message' => $desc,
+                'context_json' => '{}',
+                'context' => [],
+                'created_at' => (string)($row['created_at'] ?? '')
+            ];
+        }
+        return $out;
+    } catch (Throwable $e) {
+        splaro_log_exception('health.system_logs.errors.list', $e, [], 'WARNING');
+        return [];
+    }
+}
+
+function health_latest_probe_map($db) {
+    $map = [];
+    foreach (['db', 'orders', 'auth', 'queue', 'telegram', 'sheets'] as $probe) {
+        $map[$probe] = null;
+    }
+    if (!$db) {
+        return $map;
+    }
+    try {
+        $stmt = $db->query("SELECT id, probe, status, latency_ms, error, created_at FROM health_events ORDER BY id DESC LIMIT 400");
+        $rows = $stmt->fetchAll();
+        foreach ($rows as $row) {
+            $probe = health_normalize_probe((string)($row['probe'] ?? ''));
+            if ($probe === '' || isset($map[$probe]) && $map[$probe] !== null) {
+                continue;
+            }
+            $map[$probe] = [
+                'id' => (int)($row['id'] ?? 0),
+                'probe' => $probe,
+                'status' => strtoupper((string)($row['status'] ?? 'FAIL')),
+                'latency_ms' => isset($row['latency_ms']) ? (int)$row['latency_ms'] : null,
+                'error' => (string)($row['error'] ?? ''),
+                'created_at' => (string)($row['created_at'] ?? '')
+            ];
+        }
+    } catch (Throwable $e) {
+        splaro_log_exception('health.events.latest_map', $e, [], 'WARNING');
+    }
+    return $map;
+}
+
+function health_alert_rate_limited($bucket, $windowSeconds = 300) {
+    $seconds = max(60, min((int)$windowSeconds, 3600));
+    $key = md5('health_alert|' . (string)$bucket);
+    $file = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'splaro_health_alert_' . $key . '.json';
+    $now = time();
+    $payload = ['last_sent_at' => 0];
+    if (is_file($file)) {
+        $parsed = json_decode((string)@file_get_contents($file), true);
+        if (is_array($parsed)) {
+            $payload = array_merge($payload, $parsed);
+        }
+    }
+    $last = (int)($payload['last_sent_at'] ?? 0);
+    if ($last > 0 && ($now - $last) < $seconds) {
+        return true;
+    }
+    $payload['last_sent_at'] = $now;
+    @file_put_contents($file, json_encode($payload), LOCK_EX);
+    return false;
+}
+
+function health_maybe_send_telegram_alert($service, $severity, $message, $context = []) {
+    if (!TELEGRAM_ENABLED) {
+        return false;
+    }
+    $serviceSafe = strtoupper(splaro_clip_text((string)$service, 40));
+    $severitySafe = strtoupper(splaro_clip_text((string)$severity, 20));
+    $messageSafe = splaro_clip_text(splaro_redact_sensitive_text((string)$message), 350);
+    $alertKey = md5($serviceSafe . '|' . $severitySafe . '|' . $messageSafe);
+    if (health_alert_rate_limited($alertKey, (int)HEALTH_ALERT_RATE_LIMIT_SECONDS)) {
+        return false;
+    }
+    $text = "<b>Health Alert</b>\n"
+        . "Service: " . telegram_escape_html($serviceSafe) . "\n"
+        . "Severity: " . telegram_escape_html($severitySafe) . "\n"
+        . "Message: " . telegram_escape_html($messageSafe) . "\n"
+        . "Time: " . telegram_escape_html(date('Y-m-d H:i:s'));
+    $sent = send_telegram_message($text);
+    if (!$sent) {
+        splaro_record_system_error('HEALTH_ALERT', 'ERROR', 'Failed to send Telegram health alert.', [
+            'service' => $serviceSafe,
+            'severity' => $severitySafe,
+            'message' => $messageSafe
+        ]);
+    }
+    return (bool)$sent;
+}
+
+function health_probe_status_card($statusRaw) {
+    $status = strtoupper((string)$statusRaw);
+    if ($status === 'PASS' || $status === 'OK') {
+        return 'OK';
+    }
+    if ($status === 'WARNING' || $status === 'WARN') {
+        return 'WARNING';
+    }
+    return 'DOWN';
+}
+
+function run_health_probe($db, $probe, $requestAuthUser = null) {
+    $probeKey = health_normalize_probe($probe);
+    $startedAt = microtime(true);
+    $result = [
+        'probe' => $probeKey !== '' ? $probeKey : strtolower(trim((string)$probe)),
+        'status' => 'FAIL',
+        'latency_ms' => 0,
+        'error' => '',
+        'checked_at' => date('c'),
+        'details' => []
+    ];
+
+    if ($probeKey === '') {
+        $result['error'] = 'INVALID_PROBE';
+        $result['latency_ms'] = (int)round((microtime(true) - $startedAt) * 1000);
+        health_record_event($db, 'invalid', 'FAIL', $result['latency_ms'], $result['error']);
+        return $result;
+    }
+
+    try {
+        if ($probeKey === 'db') {
+            $q = $db->query('SELECT 1');
+            $q->fetchColumn();
+            $result['status'] = 'PASS';
+            $result['details'] = [
+                'db_host' => (string)($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
+                'connect_timeout_seconds' => (int)DB_CONNECT_TIMEOUT_SECONDS,
+                'query_timeout_ms' => (int)DB_QUERY_TIMEOUT_MS
+            ];
+        } elseif ($probeKey === 'telegram') {
+            if (!TELEGRAM_ENABLED) {
+                throw new RuntimeException('TELEGRAM_DISABLED');
+            }
+            $actor = is_array($requestAuthUser) ? ((string)($requestAuthUser['email'] ?? $requestAuthUser['id'] ?? 'ADMIN')) : 'ADMIN_KEY';
+            $text = "<b>Health Probe</b>\nService: TELEGRAM\nBy: " . telegram_escape_html($actor) . "\nTime: " . telegram_escape_html(date('Y-m-d H:i:s'));
+            $sent = send_telegram_message($text);
+            if (!$sent) {
+                throw new RuntimeException('TELEGRAM_SEND_FAILED');
+            }
+            $result['status'] = 'PASS';
+            $result['details'] = ['sent' => true];
+        } elseif ($probeKey === 'sheets') {
+            if (trim((string)GOOGLE_SHEETS_WEBHOOK_URL) === '') {
+                throw new RuntimeException('SHEETS_DISABLED');
+            }
+            [$ok, $httpCode, $error, $response] = perform_sheets_sync_request('HEALTH_PROBE', [
+                'probe' => 'sheets',
+                'checked_at' => date('c'),
+                'source' => 'admin_system_health'
+            ]);
+            if (!$ok) {
+                throw new RuntimeException(trim((string)$error) !== '' ? (string)$error : ('SHEETS_HTTP_' . (int)$httpCode));
+            }
+            $result['status'] = 'PASS';
+            $result['details'] = [
+                'http_code' => (int)$httpCode,
+                'response_ok' => is_array($response) ? (bool)($response['ok'] ?? true) : true
+            ];
+        } elseif ($probeKey === 'queue') {
+            $before = [
+                'telegram' => get_telegram_queue_summary($db),
+                'push' => get_push_queue_summary($db),
+                'sheets' => get_sync_queue_summary($db)
+            ];
+            $campaignResult = process_due_campaigns($db, 2);
+            $telegramResult = process_telegram_queue($db, 2);
+            $pushResult = process_push_queue($db, 5);
+            $sheetsResult = process_sync_queue($db, 2, false);
+            $after = [
+                'telegram' => get_telegram_queue_summary($db),
+                'push' => get_push_queue_summary($db),
+                'sheets' => get_sync_queue_summary($db)
+            ];
+            $deadBefore = (int)($before['telegram']['dead'] ?? 0) + (int)($before['push']['dead'] ?? 0) + (int)($before['sheets']['dead'] ?? 0);
+            $deadAfter = (int)($after['telegram']['dead'] ?? 0) + (int)($after['push']['dead'] ?? 0) + (int)($after['sheets']['dead'] ?? 0);
+            if ($deadAfter > $deadBefore) {
+                throw new RuntimeException('QUEUE_DEAD_COUNT_INCREASED');
+            }
+            $result['status'] = 'PASS';
+            $result['details'] = [
+                'campaigns' => $campaignResult,
+                'telegram' => $telegramResult,
+                'push' => $pushResult,
+                'sheets' => $sheetsResult,
+                'dead_before' => $deadBefore,
+                'dead_after' => $deadAfter
+            ];
+        } elseif ($probeKey === 'orders') {
+            $count = (int)$db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+            $latest = $db->query("SELECT id, status, created_at FROM orders ORDER BY created_at DESC LIMIT 1")->fetch();
+            $result['status'] = 'PASS';
+            $result['details'] = [
+                'orders_total' => $count,
+                'latest_order_id' => (string)($latest['id'] ?? ''),
+                'latest_order_status' => (string)($latest['status'] ?? '')
+            ];
+        } elseif ($probeKey === 'auth') {
+            $row = $db->query("SELECT id, email, role, last_password_change_at FROM users ORDER BY created_at DESC LIMIT 1")->fetch();
+            if (!$row) {
+                throw new RuntimeException('AUTH_NO_USERS_FOUND');
+            }
+            $pwdAt = !empty($row['last_password_change_at']) ? strtotime((string)$row['last_password_change_at']) : null;
+            $token = issue_auth_token([
+                'id' => (string)($row['id'] ?? ''),
+                'email' => strtolower((string)($row['email'] ?? '')),
+                'role' => strtoupper((string)($row['role'] ?? 'USER')),
+                'pwd_at' => $pwdAt ?: null
+            ]);
+            if (trim((string)$token) === '') {
+                throw new RuntimeException('AUTH_TOKEN_GENERATION_FAILED');
+            }
+            $validated = validate_auth_token((string)$token);
+            if (!is_array($validated) || (string)($validated['id'] ?? '') !== (string)($row['id'] ?? '')) {
+                throw new RuntimeException('AUTH_TOKEN_VALIDATION_FAILED');
+            }
+            $result['status'] = 'PASS';
+            $result['details'] = [
+                'user_id' => (string)($row['id'] ?? ''),
+                'role' => strtoupper((string)($row['role'] ?? 'USER'))
+            ];
+        }
+    } catch (Throwable $e) {
+        $result['status'] = 'FAIL';
+        $result['error'] = splaro_clip_text(splaro_redact_sensitive_text($e->getMessage()), 500);
+        $result['details'] = [
+            'recommended_action' => health_recommended_action($probeKey, $result['error'])
+        ];
+        splaro_log_exception('health.probe.' . $probeKey, $e, [], 'ERROR');
+        splaro_record_system_error('HEALTH_' . strtoupper($probeKey), 'ERROR', $result['error'], [
+            'probe' => $probeKey,
+            'recommended_action' => health_recommended_action($probeKey, $result['error'])
+        ]);
+        health_maybe_send_telegram_alert(strtoupper($probeKey), 'DOWN', $result['error'], [
+            'probe' => $probeKey
+        ]);
+    }
+
+    $result['latency_ms'] = (int)round((microtime(true) - $startedAt) * 1000);
+    $result['checked_at'] = date('c');
+    health_record_event($db, $probeKey, $result['status'], $result['latency_ms'], $result['error']);
+    return $result;
+}
+
 function push_queue_sync_type() {
     return 'PUSH_SEND';
 }
@@ -5108,23 +5755,63 @@ function require_campaign_write_access($authUser) {
 }
 
 if ($method === 'GET' && $action === 'health') {
+    require_admin_access($requestAuthUser);
+
     $dbPingOk = false;
     $dbLatencyMs = null;
     $dbPingError = '';
+    $ordersOk = false;
+    $ordersError = '';
+    $ordersLatencyMs = 0;
+    $authOk = false;
+    $authError = '';
+    $authLatencyMs = 0;
     $activePushSubscriptions = 0;
     $scheduledCampaigns = 0;
     $dbRuntimeMetrics = get_db_runtime_metrics($db);
+    $latestProbeMap = health_latest_probe_map($db);
+    $checkedAt = date('c');
+
     $pingStartedAt = microtime(true);
     try {
         $pingStmt = $db->query('SELECT 1');
         $pingStmt->fetchColumn();
         $dbPingOk = true;
     } catch (Throwable $e) {
-        $dbPingError = (string)$e->getMessage();
+        $dbPingError = splaro_redact_sensitive_text((string)$e->getMessage());
         $dbPingOk = false;
         splaro_log_exception('health.db.ping', $e, [], 'WARNING');
     }
     $dbLatencyMs = (int)round((microtime(true) - $pingStartedAt) * 1000);
+
+    $ordersStartedAt = microtime(true);
+    try {
+        $db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
+        $ordersOk = true;
+    } catch (Throwable $e) {
+        $ordersOk = false;
+        $ordersError = splaro_redact_sensitive_text((string)$e->getMessage());
+        splaro_log_exception('health.orders.ping', $e, [], 'WARNING');
+    }
+    $ordersLatencyMs = (int)round((microtime(true) - $ordersStartedAt) * 1000);
+
+    $authStartedAt = microtime(true);
+    try {
+        $userCount = (int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        if ($userCount < 1) {
+            throw new RuntimeException('AUTH_NO_USERS_FOUND');
+        }
+        if (trim((string)APP_AUTH_SECRET) === '') {
+            throw new RuntimeException('APP_AUTH_SECRET_MISSING');
+        }
+        $authOk = true;
+    } catch (Throwable $e) {
+        $authOk = false;
+        $authError = splaro_redact_sensitive_text((string)$e->getMessage());
+        splaro_log_exception('health.auth.ping', $e, [], 'WARNING');
+    }
+    $authLatencyMs = (int)round((microtime(true) - $authStartedAt) * 1000);
+
     try {
         $activePushSubscriptions = (int)$db->query("SELECT COUNT(*) FROM push_subscriptions WHERE is_active = 1")->fetchColumn();
     } catch (Throwable $e) {
@@ -5136,11 +5823,159 @@ if ($method === 'GET' && $action === 'health') {
         splaro_log_exception('health.push.scheduled_campaigns', $e, [], 'WARNING');
     }
 
+    $telegramQueue = get_telegram_queue_summary($db);
+    $pushQueue = get_push_queue_summary($db);
+    $sheetsQueue = get_sync_queue_summary($db);
+    $queueDead = (int)($telegramQueue['dead'] ?? 0) + (int)($pushQueue['dead'] ?? 0) + (int)($sheetsQueue['dead'] ?? 0);
+    $queueRetry = (int)($telegramQueue['retry'] ?? 0) + (int)($pushQueue['retry'] ?? 0) + (int)($sheetsQueue['retry'] ?? 0);
+    $queuePending = (int)($telegramQueue['pending'] ?? 0) + (int)($pushQueue['pending'] ?? 0) + (int)($sheetsQueue['pending'] ?? 0);
+
+    $queueStatus = 'OK';
+    $queueError = '';
+    if ($queueDead > 0) {
+        $queueStatus = 'DOWN';
+        $queueError = 'QUEUE_DEAD_JOBS_PRESENT';
+    } elseif ($queueRetry > 0 || $queuePending > 250) {
+        $queueStatus = 'WARNING';
+        $queueError = $queueRetry > 0 ? 'QUEUE_RETRY_JOBS_PRESENT' : 'QUEUE_PENDING_BACKLOG_HIGH';
+    }
+
+    $telegramStatus = TELEGRAM_ENABLED ? 'OK' : 'WARNING';
+    $telegramError = '';
+    if (!TELEGRAM_ENABLED) {
+        $telegramError = 'TELEGRAM_DISABLED';
+    } elseif ((int)($telegramQueue['dead'] ?? 0) > 0) {
+        $telegramStatus = 'DOWN';
+        $telegramError = 'TELEGRAM_QUEUE_DEAD_PRESENT';
+    } elseif ((int)($telegramQueue['retry'] ?? 0) > 0) {
+        $telegramStatus = 'WARNING';
+        $telegramError = 'TELEGRAM_QUEUE_RETRY_PRESENT';
+    }
+
+    $sheetsCircuit = is_array($sheetsQueue['circuit'] ?? null) ? $sheetsQueue['circuit'] : ['open' => false];
+    $sheetsEnabled = trim((string)GOOGLE_SHEETS_WEBHOOK_URL) !== '';
+    $sheetsStatus = $sheetsEnabled ? 'OK' : 'WARNING';
+    $sheetsError = '';
+    if (!$sheetsEnabled) {
+        $sheetsError = 'SHEETS_DISABLED';
+    } elseif (!empty($sheetsCircuit['open'])) {
+        $sheetsStatus = 'DOWN';
+        $sheetsError = (string)($sheetsCircuit['last_error'] ?? 'SHEETS_CIRCUIT_OPEN');
+    } elseif ((int)($sheetsQueue['dead'] ?? 0) > 0) {
+        $sheetsStatus = 'DOWN';
+        $sheetsError = 'SHEETS_QUEUE_DEAD_PRESENT';
+    } elseif ((int)($sheetsQueue['retry'] ?? 0) > 0) {
+        $sheetsStatus = 'WARNING';
+        $sheetsError = 'SHEETS_QUEUE_RETRY_PRESENT';
+    }
+
+    $pushStatus = PUSH_ENABLED ? 'OK' : 'WARNING';
+    $pushError = '';
+    if (!PUSH_ENABLED) {
+        $pushError = 'PUSH_DISABLED';
+    } elseif ((int)($pushQueue['dead'] ?? 0) > 0) {
+        $pushStatus = 'DOWN';
+        $pushError = 'PUSH_QUEUE_DEAD_PRESENT';
+    } elseif ((int)($pushQueue['retry'] ?? 0) > 0 || $activePushSubscriptions < 1) {
+        $pushStatus = 'WARNING';
+        $pushError = $activePushSubscriptions < 1 ? 'NO_ACTIVE_PUSH_SUBSCRIPTIONS' : 'PUSH_QUEUE_RETRY_PRESENT';
+    }
+
+    $services = [
+        'db' => [
+            'status' => $dbPingOk ? (($dbLatencyMs > 2500) ? 'WARNING' : 'OK') : 'DOWN',
+            'latency_ms' => $dbLatencyMs,
+            'last_checked_at' => $checkedAt,
+            'error' => $dbPingOk ? '' : $dbPingError,
+            'next_action' => $dbPingOk ? '' : health_recommended_action('db', $dbPingError)
+        ],
+        'orders_api' => [
+            'status' => $ordersOk ? (($ordersLatencyMs > 2500) ? 'WARNING' : 'OK') : 'DOWN',
+            'latency_ms' => $ordersLatencyMs,
+            'last_checked_at' => $checkedAt,
+            'error' => $ordersOk ? '' : $ordersError,
+            'next_action' => $ordersOk ? '' : health_recommended_action('orders', $ordersError)
+        ],
+        'auth_api' => [
+            'status' => $authOk ? (($authLatencyMs > 2500) ? 'WARNING' : 'OK') : 'DOWN',
+            'latency_ms' => $authLatencyMs,
+            'last_checked_at' => $checkedAt,
+            'error' => $authOk ? '' : $authError,
+            'next_action' => $authOk ? '' : health_recommended_action('auth', $authError)
+        ],
+        'queue' => [
+            'status' => $queueStatus,
+            'latency_ms' => null,
+            'last_checked_at' => $checkedAt,
+            'error' => $queueError,
+            'next_action' => $queueStatus === 'OK' ? '' : health_recommended_action('queue', $queueError)
+        ],
+        'telegram' => [
+            'status' => $telegramStatus,
+            'latency_ms' => isset($latestProbeMap['telegram']['latency_ms']) ? (int)$latestProbeMap['telegram']['latency_ms'] : null,
+            'last_checked_at' => (string)($latestProbeMap['telegram']['created_at'] ?? $checkedAt),
+            'error' => $telegramError !== '' ? $telegramError : (string)($latestProbeMap['telegram']['error'] ?? ''),
+            'next_action' => $telegramStatus === 'OK' ? '' : health_recommended_action('telegram', $telegramError)
+        ],
+        'sheets' => [
+            'status' => $sheetsStatus,
+            'latency_ms' => isset($latestProbeMap['sheets']['latency_ms']) ? (int)$latestProbeMap['sheets']['latency_ms'] : null,
+            'last_checked_at' => (string)($latestProbeMap['sheets']['created_at'] ?? $checkedAt),
+            'error' => $sheetsError !== '' ? $sheetsError : (string)($latestProbeMap['sheets']['error'] ?? ''),
+            'next_action' => $sheetsStatus === 'OK' ? '' : health_recommended_action('sheets', $sheetsError)
+        ],
+        'push' => [
+            'status' => $pushStatus,
+            'latency_ms' => null,
+            'last_checked_at' => $checkedAt,
+            'error' => $pushError,
+            'next_action' => $pushStatus === 'OK' ? '' : health_recommended_action('push', $pushError)
+        ]
+    ];
+
+    $mode = 'NORMAL';
+    foreach ($services as $service) {
+        if ((string)($service['status'] ?? '') === 'DOWN') {
+            $mode = 'DEGRADED';
+            break;
+        }
+    }
+    if ($mode === 'NORMAL') {
+        foreach ($services as $service) {
+            if ((string)($service['status'] ?? '') === 'WARNING') {
+                $mode = 'DEGRADED';
+                break;
+            }
+        }
+    }
+
+    $diskRoot = __DIR__;
+    $diskTotal = @disk_total_space($diskRoot);
+    $diskFree = @disk_free_space($diskRoot);
+    $diskUsedPercent = null;
+    if (is_numeric($diskTotal) && is_numeric($diskFree) && (float)$diskTotal > 0) {
+        $diskUsedPercent = round((((float)$diskTotal - (float)$diskFree) / (float)$diskTotal) * 100, 2);
+    }
+
+    if (!$dbPingOk) {
+        health_maybe_send_telegram_alert('DB', 'DOWN', $dbPingError !== '' ? $dbPingError : 'DB_PING_FAILED');
+    }
+    if ((int)($dbRuntimeMetrics['threads_connected'] ?? 0) > (int)HEALTH_DB_THREADS_WARN_THRESHOLD) {
+        health_maybe_send_telegram_alert('DB', 'WARNING', 'threads_connected above threshold');
+    }
+    if ((int)($dbRuntimeMetrics['aborted_connects'] ?? 0) > (int)HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD) {
+        health_maybe_send_telegram_alert('DB', 'WARNING', 'aborted_connects above threshold');
+    }
+    if ($queueDead >= (int)HEALTH_QUEUE_DEAD_WARN_THRESHOLD) {
+        health_maybe_send_telegram_alert('QUEUE', 'WARNING', 'dead queue count increased');
+    }
+
     echo json_encode([
         "status" => "success",
         "service" => "SPLARO_API",
-        "time" => date('c'),
-        "mode" => $dbPingOk ? "NORMAL" : "DEGRADED",
+        "timestamp" => $checkedAt,
+        "time" => $checkedAt,
+        "mode" => $mode,
         "telegram_enabled" => TELEGRAM_ENABLED,
         "storage" => "mysql",
         "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
@@ -5165,23 +6000,97 @@ if ($method === 'GET' && $action === 'health') {
             "mode" => "php-request-cache",
             "runtime" => $dbRuntimeMetrics
         ],
-        "timeouts" => [
-            "apiMaxExecutionSeconds" => (int)API_MAX_EXECUTION_SECONDS,
-            "sheetsTimeoutSeconds" => (int)GOOGLE_SHEETS_TIMEOUT_SECONDS
+        "queue" => [
+            "totals" => [
+                "pending" => $queuePending,
+                "retry" => $queueRetry,
+                "dead" => $queueDead
+            ],
+            "telegram" => $telegramQueue,
+            "push" => $pushQueue,
+            "sheets" => $sheetsQueue
         ],
         "telegram" => [
             "enabled" => TELEGRAM_ENABLED,
             "allowlist_count" => count(telegram_admin_chat_allowlist()),
             "primary_chat_id_preview" => splaro_clip_text(telegram_primary_admin_chat_id(), 32),
-            "queue" => get_telegram_queue_summary($db)
+            "queue" => $telegramQueue,
+            "last_probe" => $latestProbeMap['telegram']
+        ],
+        "sheets" => [
+            "enabled" => $sheetsEnabled,
+            "queue" => $sheetsQueue,
+            "circuit" => $sheetsCircuit,
+            "last_probe" => $latestProbeMap['sheets']
         ],
         "push" => [
             "enabled" => PUSH_ENABLED,
             "active_subscriptions" => (int)$activePushSubscriptions,
             "scheduled_campaigns" => (int)$scheduledCampaigns,
-            "queue" => get_push_queue_summary($db)
+            "queue" => $pushQueue
         ],
-        "sheets" => get_sync_queue_summary($db)
+        "services" => $services,
+        "timeouts" => [
+            "apiMaxExecutionSeconds" => (int)API_MAX_EXECUTION_SECONDS,
+            "sheetsTimeoutSeconds" => (int)GOOGLE_SHEETS_TIMEOUT_SECONDS
+        ],
+        "server" => [
+            "php_version" => PHP_VERSION,
+            "sapi" => PHP_SAPI,
+            "memory_limit" => (string)ini_get('memory_limit'),
+            "max_execution_time" => (int)ini_get('max_execution_time'),
+            "post_max_size" => (string)ini_get('post_max_size'),
+            "upload_max_filesize" => (string)ini_get('upload_max_filesize')
+        ],
+        "disk" => [
+            "path" => $diskRoot,
+            "total_bytes" => is_numeric($diskTotal) ? (float)$diskTotal : null,
+            "free_bytes" => is_numeric($diskFree) ? (float)$diskFree : null,
+            "used_percent" => $diskUsedPercent
+        ],
+        "health_events" => health_fetch_events($db, 20),
+        "recent_errors" => health_fetch_recent_db_errors($db, 20)
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'health_probe') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    [$payload] = read_request_json_payload('health.probe.payload');
+    $probe = health_normalize_probe((string)($payload['probe'] ?? ''));
+    if ($probe === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "INVALID_PROBE"]);
+        exit;
+    }
+    $result = run_health_probe($db, $probe, $requestAuthUser);
+    echo json_encode([
+        "status" => "success",
+        "result" => $result
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'health_events') {
+    require_admin_access($requestAuthUser);
+    $limit = (int)($_GET['limit'] ?? 50);
+    $probe = (string)($_GET['probe'] ?? '');
+    echo json_encode([
+        "status" => "success",
+        "events" => health_fetch_events($db, $limit, $probe)
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'system_errors') {
+    require_admin_access($requestAuthUser);
+    $limit = (int)($_GET['limit'] ?? 50);
+    $service = trim((string)($_GET['service'] ?? ''));
+    $level = strtoupper(trim((string)($_GET['level'] ?? '')));
+    echo json_encode([
+        "status" => "success",
+        "errors" => health_fetch_system_errors($db, $limit, $service, $level)
     ]);
     exit;
 }
@@ -7061,6 +7970,100 @@ if ($method === 'POST' && $action === 'admin_user_note') {
     exit;
 }
 
+if ($method === 'POST' && $action === 'admin_user_block') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $userId = trim((string)($input['id'] ?? $input['userId'] ?? ''));
+    if ($userId === '') {
+        echo json_encode(["status" => "error", "message" => "USER_ID_REQUIRED"]);
+        exit;
+    }
+    $blockedInput = $input['blocked'] ?? $input['isBlocked'] ?? null;
+    $blocked = filter_var($blockedInput, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if ($blocked === null) {
+        echo json_encode(["status" => "error", "message" => "BLOCKED_FLAG_REQUIRED"]);
+        exit;
+    }
+    $user = admin_fetch_user_or_fail($db, $userId);
+    if (!column_exists($db, 'users', 'is_blocked')) {
+        echo json_encode(["status" => "error", "message" => "USER_BLOCK_FIELD_MISSING"]);
+        exit;
+    }
+    $update = $db->prepare("UPDATE users SET is_blocked = ?, updated_at = NOW() WHERE id = ?");
+    $update->execute([$blocked ? 1 : 0, $userId]);
+    $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'ADMIN_USER_BLOCK_TOGGLE', "User {$userId} block status set to " . ($blocked ? 'BLOCKED' : 'ACTIVE'), $actor, $ip);
+    log_audit_event(
+        $db,
+        $actor,
+        $blocked ? 'USER_BLOCKED' : 'USER_UNBLOCKED',
+        'USER',
+        $userId,
+        ['isBlocked' => ((int)($user['is_blocked'] ?? 0) === 1)],
+        ['isBlocked' => $blocked],
+        $ip
+    );
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            "id" => $userId,
+            "isBlocked" => $blocked
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'admin_user_role') {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $userId = trim((string)($input['id'] ?? $input['userId'] ?? ''));
+    $nextRole = strtoupper(trim((string)($input['role'] ?? '')));
+    if ($userId === '' || $nextRole === '') {
+        echo json_encode(["status" => "error", "message" => "USER_ID_AND_ROLE_REQUIRED"]);
+        exit;
+    }
+    $allowedRoles = ['USER', 'VIEWER', 'EDITOR', 'ADMIN', 'SUPER_ADMIN'];
+    if (!in_array($nextRole, $allowedRoles, true)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_ROLE"]);
+        exit;
+    }
+    $user = admin_fetch_user_or_fail($db, $userId);
+    $update = $db->prepare("UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?");
+    $update->execute([$nextRole, $userId]);
+    $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'ADMIN_USER_ROLE_UPDATE', "User {$userId} role updated to {$nextRole}", $actor, $ip);
+    log_audit_event(
+        $db,
+        $actor,
+        'USER_ROLE_UPDATED',
+        'USER',
+        $userId,
+        ['role' => strtoupper((string)($user['role'] ?? 'USER'))],
+        ['role' => $nextRole],
+        $ip
+    );
+    echo json_encode([
+        "status" => "success",
+        "data" => [
+            "id" => $userId,
+            "role" => $nextRole
+        ]
+    ]);
+    exit;
+}
+
 if ($method === 'GET' && $action === 'admin_user_profile') {
     require_admin_access($requestAuthUser);
     $userId = trim((string)($_GET['id'] ?? $_GET['userId'] ?? ''));
@@ -7758,7 +8761,7 @@ if ($method === 'POST' && $action === 'create_order') {
         'image_url' => (string)$imageUrl,
         'quantity' => (int)$totalQuantity,
         'notes' => (string)$notes,
-        'status' => (string)($input['status'] ?? 'PENDING'),
+        'status' => (string)($initialStatus ?? admin_normalize_order_status($input['status'] ?? 'Pending')),
         // compatibility fields for old script variants
         'id' => $orderId,
         'customerName' => (string)($input['customerName'] ?? ''),
@@ -7949,23 +8952,34 @@ if ($method === 'POST' && $action === 'update_order_status') {
     }
 
     $orderId = trim((string)$input['id']);
-    $statusLabel = trim((string)$input['status']);
+    $statusLabel = admin_normalize_order_status($input['status'] ?? '');
+    $statusNote = trim((string)($input['note'] ?? ''));
     if ($orderId === '' || $statusLabel === '') {
         echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
         exit;
     }
 
     try {
+        $beforeStmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
+        $beforeStmt->execute([$orderId]);
+        $beforeRow = $beforeStmt->fetch();
+        if (!$beforeRow) {
+            echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+            exit;
+        }
+
+        $db->beginTransaction();
         $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
         $stmt->execute([$statusLabel, $orderId]);
-        if ($stmt->rowCount() < 1) {
-            $existsStmt = $db->prepare("SELECT id FROM orders WHERE id = ? LIMIT 1");
-            $existsStmt->execute([$orderId]);
-            if (!$existsStmt->fetch()) {
-                echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
-                exit;
-            }
-        }
+        admin_write_order_status_history(
+            $db,
+            $orderId,
+            (string)($beforeRow['status'] ?? ''),
+            $statusLabel,
+            $statusNote !== '' ? $statusNote : 'Status updated from admin panel',
+            $requestAuthUser
+        );
+        $db->commit();
 
         sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
 
@@ -8021,6 +9035,9 @@ if ($method === 'POST' && $action === 'update_order_status') {
         ]);
         exit;
     } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         splaro_log_exception('order.status_update.handler', $e, [
             'order_id' => (string)$orderId,
             'status' => (string)$statusLabel
@@ -8034,16 +9051,33 @@ if ($method === 'POST' && $action === 'update_order_status') {
 // 2.2 REGISTRY ERASURE PROTOCOL
 if ($method === 'POST' && $action === 'delete_order') {
     require_admin_access($requestAuthUser);
+    require_csrf_token();
     $input = json_decode(file_get_contents('php://input'), true);
     if (isset($input['id'])) {
-        $stmt = $db->prepare("DELETE FROM orders WHERE id = ?");
-        $stmt->execute([$input['id']]);
+        $orderId = (string)$input['id'];
+        if (column_exists($db, 'orders', 'deleted_at')) {
+            $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$orderId]);
+        } else {
+            $stmt = $db->prepare("DELETE FROM orders WHERE id = ?");
+            $stmt->execute([$orderId]);
+        }
         sync_to_sheets('DELETE_ORDER', $input);
 
         // Security Protocol: Log the erasure
-        $ip = $_SERVER['REMOTE_ADDR'];
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
         $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-           ->execute(['REGISTRY_ERASURE', "Order " . $input['id'] . " was purged from the archive.", $ip]);
+           ->execute(['REGISTRY_ERASURE', "Order " . $orderId . " was removed from active registry.", $ip]);
+        log_audit_event(
+            $db,
+            (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key'),
+            'ORDER_DELETED',
+            'ORDER',
+            $orderId,
+            null,
+            ['softDelete' => column_exists($db, 'orders', 'deleted_at')],
+            $ip
+        );
 
         echo json_encode(["status" => "success"]);
     }
@@ -9911,16 +10945,33 @@ if ($method === 'POST' && $action === 'update_settings') {
 // 5.3 IDENTITY ERASURE PROTOCOL
 if ($method === 'POST' && $action === 'delete_user') {
     require_admin_access($requestAuthUser);
+    require_csrf_token();
     $input = json_decode(file_get_contents('php://input'), true);
     if (isset($input['id'])) {
-        $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
-        $stmt->execute([$input['id']]);
+        $targetUserId = (string)$input['id'];
+        if (column_exists($db, 'users', 'deleted_at')) {
+            $stmt = $db->prepare("UPDATE users SET deleted_at = NOW(), is_blocked = 1, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$targetUserId]);
+        } else {
+            $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$targetUserId]);
+        }
         sync_to_sheets('DELETE_USER', $input);
 
         // Security Protocol: Log the identity termination
-        $ip = $_SERVER['REMOTE_ADDR'];
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
         $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-           ->execute(['IDENTITY_TERMINATION', "Identity record " . $input['id'] . " was purged from registry.", $ip]);
+           ->execute(['IDENTITY_TERMINATION', "Identity record " . $targetUserId . " was removed from active registry.", $ip]);
+        log_audit_event(
+            $db,
+            (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key'),
+            'USER_DELETED',
+            'USER',
+            $targetUserId,
+            null,
+            ['softDelete' => column_exists($db, 'users', 'deleted_at')],
+            $ip
+        );
 
         echo json_encode(["status" => "success"]);
     }

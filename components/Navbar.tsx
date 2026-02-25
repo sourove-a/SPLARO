@@ -145,6 +145,7 @@ export const Navbar: React.FC = () => {
     if (path === '/admin/reports') return 'REPORTS';
     if (path === '/admin/settings') return 'SETTINGS';
     if (path === '/admin/system') return 'SYSTEM';
+    if (path === '/admin/system-health') return 'SYSTEM HEALTH';
     if (path === '/order_success') return 'ORDER SUCCESS';
     if (path === '/story') return 'STORY';
     if (path === '/support') return 'SUPPORT';

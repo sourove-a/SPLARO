@@ -206,5 +206,31 @@ CREATE TABLE IF NOT EXISTS `campaign_logs` (
   KEY `idx_campaign_logs_subscription_created` (`subscription_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 11. HEALTH PROBE EVENTS
+CREATE TABLE IF NOT EXISTS `health_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `probe` varchar(40) NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `latency_ms` int(11) DEFAULT NULL,
+  `error` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_health_events_probe_created` (`probe`, `created_at`),
+  KEY `idx_health_events_status_created` (`status`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12. SYSTEM ERROR FEED
+CREATE TABLE IF NOT EXISTS `system_errors` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `service` varchar(80) NOT NULL,
+  `level` varchar(20) NOT NULL DEFAULT 'ERROR',
+  `message` text NOT NULL,
+  `context_json` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_system_errors_service_created` (`service`, `created_at`),
+  KEY `idx_system_errors_level_created` (`level`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- INITIALIZE SETTINGS & ADMIN
 INSERT IGNORE INTO `site_settings` (`id`, `site_name`, `support_email`) VALUES (1, 'Splaro', 'info@splaro.co');

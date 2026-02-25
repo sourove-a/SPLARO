@@ -596,6 +596,12 @@ define('PUSH_MAX_RETRIES', splaro_env_int('PUSH_MAX_RETRIES', 3, 1, 3));
 define('PUSH_BATCH_LIMIT', splaro_env_int('PUSH_BATCH_LIMIT', 25, 1, 200));
 define('PUSH_ENABLED', PUSH_VAPID_PUBLIC_KEY !== '' && PUSH_VAPID_PRIVATE_KEY !== '');
 
+// Health monitoring thresholds (Hostinger-friendly defaults)
+define('HEALTH_ALERT_RATE_LIMIT_SECONDS', splaro_env_int('HEALTH_ALERT_RATE_LIMIT_SECONDS', 300, 60, 3600));
+define('HEALTH_DB_THREADS_WARN_THRESHOLD', splaro_env_int('HEALTH_DB_THREADS_WARN_THRESHOLD', 80, 10, 500));
+define('HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD', splaro_env_int('HEALTH_DB_ABORTED_CONNECTS_WARN_THRESHOLD', 50, 1, 10000));
+define('HEALTH_QUEUE_DEAD_WARN_THRESHOLD', splaro_env_int('HEALTH_QUEUE_DEAD_WARN_THRESHOLD', 1, 1, 1000));
+
 /**
  * Establish Security Handshake with MySQL Database
  */
