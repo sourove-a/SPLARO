@@ -5808,24 +5808,16 @@ function issue_auth_token($user) {
     return $payloadEncoded . '.' . $signature;
 }
 
-function get_authenticated_user_from_request() {
-    if (APP_AUTH_SECRET === '') {
-        return null;
-    }
-
-    $token = '';
-    $authHeader = get_header_value('Authorization');
-    if (is_string($authHeader) && stripos($authHeader, 'Bearer ') === 0) {
-        $token = trim(substr($authHeader, 7));
-    }
-    if ($token === '') {
-        $token = trim((string)($_COOKIE['splaro_auth'] ?? ''));
-    }
+function resolve_authenticated_user_from_token($token) {
+    $token = trim((string)$token);
     if ($token === '' || strpos($token, '.') === false) {
         return null;
     }
 
     [$payloadEncoded, $signature] = explode('.', $token, 2);
+    if ($payloadEncoded === '' || $signature === '') {
+        return null;
+    }
     $expectedSignature = base64url_encode(hash_hmac('sha256', $payloadEncoded, APP_AUTH_SECRET, true));
     if (!hash_equals($expectedSignature, $signature)) {
         return null;
@@ -5891,6 +5883,35 @@ function get_authenticated_user_from_request() {
         'email' => $resolvedEmail,
         'role' => $resolvedRole
     ];
+}
+
+function get_authenticated_user_from_request() {
+    if (APP_AUTH_SECRET === '') {
+        return null;
+    }
+
+    $tokenCandidates = [];
+    $authHeader = get_header_value('Authorization');
+    if (is_string($authHeader) && stripos($authHeader, 'Bearer ') === 0) {
+        $token = trim(substr($authHeader, 7));
+        if ($token !== '') {
+            $tokenCandidates[] = $token;
+        }
+    }
+
+    $cookieToken = trim((string)($_COOKIE['splaro_auth'] ?? ''));
+    if ($cookieToken !== '' && !in_array($cookieToken, $tokenCandidates, true)) {
+        $tokenCandidates[] = $cookieToken;
+    }
+
+    foreach ($tokenCandidates as $tokenCandidate) {
+        $resolvedUser = resolve_authenticated_user_from_token($tokenCandidate);
+        if (is_array($resolvedUser) && (string)($resolvedUser['id'] ?? '') !== '') {
+            return $resolvedUser;
+        }
+    }
+
+    return null;
 }
 
 function is_admin_authenticated($authUser) {
