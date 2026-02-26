@@ -1058,8 +1058,8 @@ if (!$db) {
 
     $fallbackAdminHeader = trim((string)($_SERVER['HTTP_X_ADMIN_KEY'] ?? ''));
     $fallbackAdminAllowed = ($fallbackAdminHeader !== '' && ADMIN_KEY !== '' && hash_equals(ADMIN_KEY, $fallbackAdminHeader));
-    $healthActions = ['health', 'health_probe', 'health_events', 'system_errors', 'recover_dead_queue'];
-    if (in_array($action, $healthActions, true) && !$fallbackAdminAllowed) {
+    $healthActionsRequiringAdmin = ['health_probe', 'health_events', 'system_errors', 'recover_dead_queue'];
+    if (in_array($action, $healthActionsRequiringAdmin, true) && !$fallbackAdminAllowed) {
         http_response_code(403);
         echo json_encode([
             "status" => "error",
