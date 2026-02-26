@@ -70,10 +70,17 @@ const getAuthHeaders = (json = false): Record<string, string> => {
 };
 
 const fetchHealth = async (): Promise<HealthPayload> => {
-  const res = await fetch(`${API_NODE}?action=health`, { headers: getAuthHeaders() });
+  const res = await fetch(`${API_NODE}?action=health`, {
+    headers: getAuthHeaders(),
+    credentials: 'same-origin'
+  });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.status !== 'success') {
-    throw new Error(String(json?.message || 'Health endpoint unavailable'));
+    const rawMessage = String(json?.message || 'HEALTH_ENDPOINT_UNAVAILABLE');
+    if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
+      throw new Error('ADMIN_SESSION_EXPIRED');
+    }
+    throw new Error(rawMessage);
   }
   return json as HealthPayload;
 };
@@ -465,7 +472,12 @@ export const SystemHealthPanel: React.FC = () => {
         <GlassCard className="p-4 border border-rose-500/30">
           <div className="flex items-center gap-2 text-rose-300 text-sm">
             <AlertTriangle className="w-4 h-4" />
-            Backend health endpoint unreachable. Showing stale/last-known data.
+            {(() => {
+              const message = String((healthQuery.error as Error)?.message || 'HEALTH_ENDPOINT_UNAVAILABLE');
+              if (message === 'ADMIN_SESSION_EXPIRED') return 'Admin session expired. Sign in again to load live health data.';
+              if (message === 'RATE_LIMIT_EXCEEDED' || message === 'GLOBAL_RATE_LIMIT_EXCEEDED') return 'Health requests are being rate-limited. Wait 1 minute and retry.';
+              return `Health endpoint failed (${message}). Showing stale/last-known data.`;
+            })()}
           </div>
         </GlassCard>
       )}

@@ -8615,6 +8615,7 @@ function require_campaign_write_access($authUser) {
 
 if ($method === 'GET' && $action === 'health') {
     require_admin_access($requestAuthUser);
+    try {
 
     $dbPingOk = false;
     $dbLatencyMs = null;
@@ -8768,7 +8769,9 @@ if ($method === 'GET' && $action === 'health') {
     $queueState = $queueStateLoader();
     $queueGlobal = is_array($queueState['global'] ?? null) ? $queueState['global'] : [];
     $needsQueueAutoRecovery = ((int)($queueGlobal['dead_recent_transient'] ?? 0) > 0) || ((int)($queueGlobal['retry'] ?? 0) > 0);
-    if ($needsQueueAutoRecovery) {
+    $healthAutoRecoverRequested = (string)($_GET['auto_recover'] ?? '') === '1';
+    $healthAutoRecoveryEnabled = (bool)HEALTH_AUTO_RECOVERY_ENABLED || $healthAutoRecoverRequested;
+    if ($needsQueueAutoRecovery && $healthAutoRecoveryEnabled) {
         if (health_alert_rate_limited('queue_auto_recover', 90)) {
             $queueAutoRecovery['throttled'] = true;
         } else {
@@ -8801,6 +8804,8 @@ if ($method === 'GET' && $action === 'health') {
             }
             $queueState = $queueStateLoader();
         }
+    } elseif ($needsQueueAutoRecovery) {
+        $queueAutoRecovery['throttled'] = true;
     }
 
     $telegramQueue = is_array($queueState['telegram'] ?? null) ? $queueState['telegram'] : [];
@@ -9182,6 +9187,84 @@ if ($method === 'GET' && $action === 'health') {
         "recent_errors" => health_fetch_recent_db_errors($db, 20)
     ]);
     exit;
+    } catch (Throwable $e) {
+        splaro_log_exception('health.endpoint', $e, [], 'ERROR');
+        $checkedAt = date('c');
+        $fallbackError = splaro_redact_sensitive_text((string)$e->getMessage());
+        echo json_encode([
+            "status" => "success",
+            "service" => "SPLARO_API",
+            "timestamp" => $checkedAt,
+            "time" => $checkedAt,
+            "mode" => "DEGRADED",
+            "storage" => "mysql",
+            "dbHost" => ($GLOBALS['SPLARO_DB_CONNECTED_HOST'] ?? DB_HOST),
+            "dbName" => DB_NAME,
+            "services" => [
+                "db" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ],
+                "orders_api" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ],
+                "auth_api" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ],
+                "queue" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ],
+                "telegram" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ],
+                "sheets" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ],
+                "push" => [
+                    "status" => "WARNING",
+                    "latency_ms" => null,
+                    "last_checked_at" => $checkedAt,
+                    "error" => "HEALTH_RUNTIME_EXCEPTION",
+                    "next_action" => "Run check and inspect system_errors."
+                ]
+            ],
+            "health_events" => [],
+            "recent_errors" => [
+                [
+                    "id" => 0,
+                    "service" => "HEALTH",
+                    "level" => "ERROR",
+                    "message" => "HEALTH_ENDPOINT_RUNTIME_EXCEPTION",
+                    "context_json" => json_encode(["error" => $fallbackError]),
+                    "created_at" => $checkedAt
+                ]
+            ]
+        ]);
+        exit;
+    }
 }
 
 if ($method === 'POST' && $action === 'health_probe') {
