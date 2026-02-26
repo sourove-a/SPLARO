@@ -672,6 +672,7 @@
             }
 
             function isRootHydrated() {
+                if (window.__SPLARO_APP_BOOTED === true) return true;
                 var root = document.getElementById('root');
                 if (!root) return false;
                 if (root.childElementCount === 0) return false;

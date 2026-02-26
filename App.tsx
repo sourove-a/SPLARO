@@ -595,6 +595,9 @@ const AppContent = () => {
   useEffect(() => {
     // Velocity Protocol: Ensure the browser environment is primed for high-speed discovery
     console.log('SPLARO_ARCHIVE: Institutional Terminal Initialized.');
+    if (typeof window !== 'undefined') {
+      (window as any).__SPLARO_APP_BOOTED = true;
+    }
   }, []);
 
   useEffect(() => {

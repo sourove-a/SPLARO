@@ -30,6 +30,18 @@ if [ -d "$TARGET_DIR/admin" ]; then
   rm -rf "$TARGET_DIR/admin"
 fi
 
+# Keep admin asset compatibility aligned with storefront bundles so stale cache
+# clients on admin subdomain can still load older hashed files.
+MAIN_ASSETS_DIR="$ROOT_DIR/public_html/assets"
+ADMIN_ASSETS_DIR="$TARGET_DIR/assets"
+if [ -d "$MAIN_ASSETS_DIR" ] && [ -d "$ADMIN_ASSETS_DIR" ]; then
+  echo "[prepare-admin-public-html] mirroring storefront asset compatibility set..."
+  find "$MAIN_ASSETS_DIR" -maxdepth 1 -type f \( -name 'index-*.js' -o -name 'index-*.css' \) -print0 | while IFS= read -r -d '' file; do
+    base="$(basename "$file")"
+    cp -f "$file" "$ADMIN_ASSETS_DIR/$base"
+  done
+fi
+
 echo "[prepare-admin-public-html] copying php api..."
 mkdir -p "$TARGET_DIR/api"
 cp -R "$PUBLIC_DIR/api"/. "$TARGET_DIR/api"/
