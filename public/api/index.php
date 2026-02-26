@@ -5843,16 +5843,29 @@ function get_authenticated_user_from_request() {
         return null;
     }
 
+    $resolvedEmail = strtolower((string)($row['email'] ?? ($payload['email'] ?? '')));
+    $resolvedRole = strtoupper((string)($row['role'] ?? ($payload['role'] ?? 'USER')));
+    if (is_owner_identity_email($resolvedEmail, $db)) {
+        $resolvedRole = 'OWNER';
+    }
+
     return [
         'id' => (string)($row['id'] ?? ''),
-        'email' => strtolower((string)($row['email'] ?? ($payload['email'] ?? ''))),
-        'role' => strtoupper((string)($row['role'] ?? ($payload['role'] ?? 'USER')))
+        'email' => $resolvedEmail,
+        'role' => $resolvedRole
     ];
 }
 
 function is_admin_authenticated($authUser) {
-    if (is_array($authUser) && in_array(strtoupper((string)($authUser['role'] ?? '')), ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
-        return true;
+    if (is_array($authUser)) {
+        $role = strtoupper((string)($authUser['role'] ?? ''));
+        $email = strtolower(trim((string)($authUser['email'] ?? '')));
+        if (is_owner_identity_email($email, $GLOBALS['SPLARO_DB_CONNECTION'] ?? null)) {
+            return true;
+        }
+        if (in_array($role, ['OWNER', 'STAFF', 'ADMIN', 'SUPER_ADMIN', 'EDITOR', 'VIEWER'], true)) {
+            return true;
+        }
     }
 
     $adminKeyHeader = trim((string)get_header_value('X-Admin-Key'));
