@@ -75,6 +75,17 @@ export const ProductDetailPage: React.FC = () => {
     if (fromGallery.length > 0) return fromGallery;
     return [product.image, ...(product.additionalImages || [])].filter((img) => !!img);
   }, [product]);
+  const supportInquiryUrl = useMemo(() => {
+    if (!product) return '';
+    const rawNumber = String(siteSettings.whatsappNumber || siteSettings.supportPhone || '+8801905010205');
+    const phone = rawNumber.replace(/[^\d]/g, '') || '8801905010205';
+    const productLabel = product.name || 'this product';
+    const currentUrl = typeof window !== 'undefined'
+      ? window.location.href
+      : `https://splaro.co/product/${slugifyValue(product.brandSlug || product.brand || 'brand')}/${slugifyValue(product.categorySlug || product.category || 'category')}/${slugifyValue(product.productSlug || product.id || product.name || 'product')}`;
+    const message = encodeURIComponent(`Hi, I have a question about ${productLabel}. Product link: ${currentUrl}`);
+    return `https://wa.me/${phone}?text=${message}`;
+  }, [product, siteSettings.whatsappNumber, siteSettings.supportPhone]);
 
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || 'Free Size');
@@ -123,6 +134,17 @@ export const ProductDetailPage: React.FC = () => {
       : Math.max(0, currentIndex - 1);
     setActiveImg(galleryImages[nextIndex] || activeImg);
   }, [activeImg, galleryImages]);
+  const handleAskQuestion = useCallback(() => {
+    if (supportInquiryUrl) {
+      window.open(supportInquiryUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigate('/support');
+  }, [supportInquiryUrl, navigate]);
+  const handleOpenActiveImage = useCallback(() => {
+    if (!activeImg) return;
+    window.open(activeImg, '_blank', 'noopener,noreferrer');
+  }, [activeImg]);
 
   if (!product) return (
     <div className="pt-40 text-center">
@@ -183,7 +205,11 @@ export const ProductDetailPage: React.FC = () => {
                 onHorizontalSwipe={handleImageSwipe}
               />
               <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="min-h-12 min-w-12 p-3 sm:p-4 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-white">
+                <button
+                  type="button"
+                  onClick={handleOpenActiveImage}
+                  className="min-h-12 min-w-12 p-3 sm:p-4 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-white"
+                >
                   <Eye className="w-5 h-5" />
                 </button>
               </div>
@@ -193,7 +219,11 @@ export const ProductDetailPage: React.FC = () => {
 
         {/* Right: Product Info */}
         <div className="lg:w-2/5 flex flex-col min-w-0">
-          <button className="flex items-center gap-2 text-[10px] font-black text-white/40 hover:text-cyan-400 uppercase tracking-widest mb-4">
+          <button
+            type="button"
+            onClick={handleAskQuestion}
+            className="flex items-center gap-2 text-[10px] font-black text-white/40 hover:text-cyan-400 uppercase tracking-widest mb-4"
+          >
             <HelpCircle className="w-4 h-4" /> Ask a Question
           </button>
 

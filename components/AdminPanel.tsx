@@ -1540,6 +1540,7 @@ export const AdminPanel = () => {
   const [orderFilter, setOrderFilter] = useState('All Orders');
   const [brandFilter, setBrandFilter] = useState('All Brands');
   const [analyticsWindow, setAnalyticsWindow] = useState<'LIVE' | '7D' | '30D'>('LIVE');
+  const [analyticsChartMode, setAnalyticsChartMode] = useState<'REVENUE' | 'ROTATION'>('REVENUE');
   const [financeRange, setFinanceRange] = useState<'7D' | '30D' | 'ALL'>('30D');
   const [expenseForm, setExpenseForm] = useState({ label: '', amount: '', category: 'Operations', date: new Date().toISOString().slice(0, 10) });
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(() => {
@@ -2795,6 +2796,15 @@ export const AdminPanel = () => {
   }, [products, brandFilter, searchQuery]);
 
   const chartSeries = useMemo(() => {
+    if (analyticsChartMode === 'ROTATION') {
+      if (analyticsWindow === '7D') {
+        return [54, 56, 60, 63, 61, 67, 70, 69, 66, 68, 71, 73];
+      }
+      if (analyticsWindow === '30D') {
+        return [48, 51, 55, 58, 60, 63, 65, 67, 70, 72, 74, 76];
+      }
+      return [42, 47, 50, 55, 58, 62, 61, 66, 69, 72, 74, 78];
+    }
     if (analyticsWindow === '7D') {
       return [52, 63, 71, 66, 74, 82, 78, 75, 69, 73, 77, 81];
     }
@@ -2802,7 +2812,7 @@ export const AdminPanel = () => {
       return [45, 58, 62, 69, 73, 76, 84, 88, 92, 95, 101, 108];
     }
     return [40, 70, 45, 90, 65, 85, 55, 100, 80, 95, 75, 110];
-  }, [analyticsWindow]);
+  }, [analyticsWindow, analyticsChartMode]);
 
   const toAmount = (value: unknown) => {
     const n = Number(value);
@@ -3652,19 +3662,45 @@ export const AdminPanel = () => {
                   <div className="flex justify-between items-center mb-12">
                     <h3 className="text-2xl font-black uppercase italic tracking-tighter">Strategic Archive Performance</h3>
                     <div className="p-2 liquid-glass rounded-2xl flex gap-2">
-                      <button className="px-6 py-2 bg-blue-600 rounded-xl text-[9px] font-black uppercase tracking-widest">Revenue Velocity</button>
-                      <button className="px-6 py-2 hover:bg-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest text-zinc-500">Asset Rotation</button>
+                      <button
+                        type="button"
+                        onClick={() => setAnalyticsChartMode('REVENUE')}
+                        aria-pressed={analyticsChartMode === 'REVENUE'}
+                        className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                          analyticsChartMode === 'REVENUE'
+                            ? 'bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.28)]'
+                            : 'hover:bg-white/5 text-zinc-500'
+                        }`}
+                      >
+                        Revenue Velocity
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnalyticsChartMode('ROTATION')}
+                        aria-pressed={analyticsChartMode === 'ROTATION'}
+                        className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                          analyticsChartMode === 'ROTATION'
+                            ? 'bg-emerald-600 text-white shadow-[0_10px_24px_rgba(16,185,129,0.28)]'
+                            : 'hover:bg-white/5 text-zinc-500'
+                        }`}
+                      >
+                        Asset Rotation
+                      </button>
                     </div>
                   </div>
                   <div className="h-80 flex items-end gap-3 px-4">
-                    {[50, 80, 45, 90, 60, 110, 75, 130, 95, 150, 120, 180].map((h, i) => (
+                    {chartSeries.map((h, i) => (
                       <motion.div
                         key={i}
                         initial={{ height: 0 }} animate={{ height: `${(h / 180) * 100}%` }}
-                        className="flex-1 bg-gradient-to-t from-blue-600/10 via-blue-500/40 to-cyan-400 rounded-t-xl group relative"
+                        className={`flex-1 rounded-t-xl group relative ${
+                          analyticsChartMode === 'REVENUE'
+                            ? 'bg-gradient-to-t from-blue-600/10 via-blue-500/40 to-cyan-400'
+                            : 'bg-gradient-to-t from-emerald-600/10 via-emerald-500/40 to-lime-300'
+                        }`}
                       >
                         <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#0A0C12] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-cyan-400 whitespace-nowrap shadow-2xl">
-                          ৳{(h * 10).toLocaleString()}k
+                          {analyticsChartMode === 'REVENUE' ? `৳${(h * 10).toLocaleString()}k` : `${h}%`}
                         </div>
                       </motion.div>
                     ))}
