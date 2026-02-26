@@ -1420,6 +1420,24 @@ function column_exists($db, $table, $column) {
     }
 }
 
+function splaro_is_unknown_column_error($error, $column = '') {
+    if (!$error instanceof Throwable) {
+        return false;
+    }
+    $message = strtolower((string)$error->getMessage());
+    $code = strtoupper(trim((string)$error->getCode()));
+    if ($code !== '42S22' && strpos($message, 'unknown column') === false) {
+        return false;
+    }
+    $target = strtolower(trim((string)$column));
+    if ($target === '') {
+        return true;
+    }
+    return strpos($message, "'" . $target . "'") !== false
+        || strpos($message, '`' . $target . '`') !== false
+        || strpos($message, ' ' . $target . ' ') !== false;
+}
+
 function get_table_columns_cached($db, $table) {
     static $cache = [];
     $key = strtolower((string)$table);
@@ -6026,9 +6044,20 @@ function admin_update_order_status_row($db, $orderId, $statusDb) {
         throw new RuntimeException('DB_UNAVAILABLE');
     }
     if (column_exists($db, 'orders', 'updated_at')) {
-        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $stmt->execute([(string)$statusDb, (string)$orderId]);
-        return;
+        try {
+            $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([(string)$statusDb, (string)$orderId]);
+            return;
+        } catch (Throwable $e) {
+            if (!splaro_is_unknown_column_error($e, 'updated_at')) {
+                throw $e;
+            }
+            splaro_integration_trace('order.status_update.updated_at_missing_fallback', [
+                'order_id' => (string)$orderId,
+                'status' => (string)$statusDb,
+                'error' => splaro_clip_text((string)$e->getMessage(), 220)
+            ], 'WARNING');
+        }
     }
     $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
     $stmt->execute([(string)$statusDb, (string)$orderId]);
