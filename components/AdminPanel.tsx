@@ -20,7 +20,7 @@ import { useApp } from '../store';
 import { View, OrderStatus, Product, DiscountCode, Order, ProductImage, ProductColorVariant, User } from '../types';
 import { buildProductRoute, resolveUniqueSlug, slugifyValue } from '../lib/productRoute';
 import { canWriteCms, canWriteProtocols, isAdminRole, normalizeRole } from '../lib/roles';
-import { getPhpApiNode } from '../lib/runtime';
+import { getPhpApiNode, getStorefrontOrigin } from '../lib/runtime';
 import { CampaignForm } from './CampaignForm';
 import { SystemHealthPanel } from './SystemHealthPanel';
 
@@ -186,6 +186,20 @@ type OrderShipmentSnapshot = {
   source: 'BOOKING' | 'TRACK' | 'SYNC';
 };
 
+const normalizeToPublicStorefrontUrl = (rawUrl: string, storefrontOrigin: string = getStorefrontOrigin()): string => {
+  const source = String(rawUrl || '').trim();
+  if (!source) return '';
+  try {
+    const parsed = new URL(source, storefrontOrigin);
+    if (parsed.hostname.toLowerCase().startsWith('admin.')) {
+      parsed.hostname = parsed.hostname.replace(/^admin\./i, '');
+    }
+    return parsed.toString();
+  } catch {
+    return source;
+  }
+};
+
 const ProductModal: React.FC<{
   product?: Product | null;
   onClose: () => void;
@@ -265,7 +279,7 @@ const ProductModal: React.FC<{
   }, [formData.colorVariants, formData.colors]);
 
   const slugify = slugifyValue;
-  const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://splaro.co';
+  const appOrigin = getStorefrontOrigin();
   const resolvedBrandSlug = slugify(formData.brandSlug || formData.brand || 'brand');
   const resolvedCategorySlug = slugify(formData.categorySlug || formData.category || 'category');
   const resolvedProductSlug = slugify(formData.productSlug || formData.id || formData.name || 'product');
@@ -1793,7 +1807,7 @@ export const AdminPanel = () => {
       categorySlug: demo.categorySlug,
       productSlug: demo.productSlug
     });
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const origin = getStorefrontOrigin();
     return {
       ...demo,
       liveUrl: origin ? `${origin}${route}` : route
@@ -5416,14 +5430,16 @@ export const AdminPanel = () => {
                   .map((img) => img.url);
 
                 const finalId = editingProduct?.id || uniqueSlug;
-                const generatedLiveUrl = `${window.location.origin}${buildProductRoute({
+                const generatedLiveUrl = `${getStorefrontOrigin()}${buildProductRoute({
                   ...p,
                   brandSlug,
                   categorySlug,
                   productSlug: uniqueSlug
                 })}`;
                 const customLiveUrl = String(p.liveUrl || '').trim();
-                const liveUrl = customLiveUrl !== '' ? customLiveUrl : generatedLiveUrl;
+                const liveUrl = customLiveUrl !== ''
+                  ? normalizeToPublicStorefrontUrl(customLiveUrl)
+                  : generatedLiveUrl;
 
                 const finalProduct = {
                   ...p,

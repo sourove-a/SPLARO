@@ -22,6 +22,31 @@ export const isAdminSubdomainHost = (): boolean => {
   return false;
 };
 
+export const getStorefrontOrigin = (): string => {
+  const configured = normalizeBase(String(import.meta.env.VITE_STOREFRONT_ORIGIN || '').trim());
+  if (configured !== '') {
+    return configured;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'https://splaro.co';
+  }
+
+  const protocol = window.location.protocol || 'https:';
+  const host = String(window.location.hostname || '').toLowerCase();
+  if (!host) return 'https://splaro.co';
+
+  if (host === 'admin.splaro.co') {
+    return `${protocol}//splaro.co`;
+  }
+
+  if (host.startsWith('admin.')) {
+    return `${protocol}//${host.replace(/^admin\./, '')}`;
+  }
+
+  return window.location.origin;
+};
+
 const normalizeBase = (raw: string): string => raw.replace(/\/+$/, '');
 
 const normalizeConfiguredApi = (configuredBase: string): string => {
