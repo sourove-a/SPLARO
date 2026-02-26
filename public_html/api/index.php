@@ -4204,6 +4204,41 @@ function refresh_csrf_token() {
     return $token;
 }
 
+function set_auth_token_cookie($token) {
+    $token = trim((string)$token);
+    if ($token === '') {
+        return;
+    }
+
+    $params = [
+        'expires' => time() + (12 * 60 * 60),
+        'path' => '/',
+        'secure' => is_https_request(),
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ];
+    $cookieDomain = csrf_cookie_domain();
+    if ($cookieDomain !== '') {
+        $params['domain'] = $cookieDomain;
+    }
+    setcookie('splaro_auth', $token, $params);
+}
+
+function clear_auth_token_cookie() {
+    $params = [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'secure' => is_https_request(),
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ];
+    $cookieDomain = csrf_cookie_domain();
+    if ($cookieDomain !== '') {
+        $params['domain'] = $cookieDomain;
+    }
+    setcookie('splaro_auth', '', $params);
+}
+
 function read_csrf_token_from_cookie() {
     return trim((string)($_COOKIE['splaro_csrf'] ?? ''));
 }
@@ -5778,12 +5813,14 @@ function get_authenticated_user_from_request() {
         return null;
     }
 
+    $token = '';
     $authHeader = get_header_value('Authorization');
-    if (!is_string($authHeader) || stripos($authHeader, 'Bearer ') !== 0) {
-        return null;
+    if (is_string($authHeader) && stripos($authHeader, 'Bearer ') === 0) {
+        $token = trim(substr($authHeader, 7));
     }
-
-    $token = trim(substr($authHeader, 7));
+    if ($token === '') {
+        $token = trim((string)($_COOKIE['splaro_auth'] ?? ''));
+    }
     if ($token === '' || strpos($token, '.') === false) {
         return null;
     }
@@ -5879,6 +5916,14 @@ function is_admin_authenticated($authUser) {
     }
 
     return false;
+}
+
+function issue_auth_token_for_client($user) {
+    $token = issue_auth_token($user);
+    if (trim((string)$token) !== '') {
+        set_auth_token_cookie($token);
+    }
+    return $token;
 }
 
 function require_admin_access($authUser) {
@@ -15766,7 +15811,7 @@ if ($method === 'POST' && $action === 'signup') {
         $refetch->execute([$existing['id']]);
         $existing = $refetch->fetch();
         $safeExisting = sanitize_user_payload($existing);
-        $token = issue_auth_token($safeExisting);
+        $token = issue_auth_token_for_client($safeExisting);
         if (isset($input['google_sub'])) {
             splaro_integration_trace('signup.integration.sync_trigger_existing_google', [
                 'user_id' => (string)($safeExisting['id'] ?? '')
@@ -15857,7 +15902,7 @@ if ($method === 'POST' && $action === 'signup') {
         'role' => $role,
         'created_at' => date('c')
     ]);
-    $token = issue_auth_token($userPayload);
+    $token = issue_auth_token_for_client($userPayload);
     splaro_integration_trace('signup.db.insert.committed', [
         'user_id' => $id,
         'email' => $email
@@ -16189,7 +16234,7 @@ if ($method === 'POST' && $action === 'verify_email_otp') {
     );
 
     $safeUser = sanitize_user_payload($reloadedUser);
-    $token = issue_auth_token($safeUser);
+    $token = issue_auth_token_for_client($safeUser);
     $csrfToken = refresh_csrf_token();
     echo json_encode([
         "status" => "success",
@@ -16457,6 +16502,7 @@ if ($method === 'POST' && $action === 'change_password') {
 
     if ($logoutAllSessions) {
         clear_user_sessions($db, $user['id']);
+        clear_auth_token_cookie();
         echo json_encode([
             "status" => "success",
             "message" => "PASSWORD_UPDATED",
@@ -16467,7 +16513,7 @@ if ($method === 'POST' && $action === 'change_password') {
     }
 
     $safeUser = sanitize_user_payload($updatedUser);
-    $token = issue_auth_token($safeUser);
+    $token = issue_auth_token_for_client($safeUser);
     $csrfToken = refresh_csrf_token();
     echo json_encode([
         "status" => "success",
@@ -16582,7 +16628,7 @@ if ($method === 'POST' && $action === 'login') {
         log_system_event($db, 'IDENTITY_VALIDATION', 'Login Successful for ' . ($user['name'] ?? 'Unknown'), $user['id'] ?? null, $ip);
 
         $safeUser = sanitize_user_payload($user);
-        $token = issue_auth_token($safeUser);
+        $token = issue_auth_token_for_client($safeUser);
         $csrfToken = refresh_csrf_token();
         echo json_encode(["status" => "success", "user" => $safeUser, "token" => $token, "csrf_token" => $csrfToken]);
     } else {
@@ -16668,7 +16714,7 @@ if ($method === 'POST' && $action === 'update_profile') {
     $updatedStmt->execute([$targetUserId]);
     $updatedUser = $updatedStmt->fetch();
     $safeUser = sanitize_user_payload($updatedUser ?: []);
-    $token = issue_auth_token($safeUser);
+    $token = issue_auth_token_for_client($safeUser);
 
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
     log_system_event($db, 'PROFILE_UPDATE', 'Identity profile was updated.', $targetUserId, $ip);
@@ -16783,6 +16829,7 @@ if ($method === 'POST' && $action === 'logout_all_sessions') {
     } else {
         clear_user_sessions($db, (string)$requestAuthUser['id']);
         $db->prepare("UPDATE users SET force_relogin = 1 WHERE id = ?")->execute([(string)$requestAuthUser['id']]);
+        clear_auth_token_cookie();
     }
 
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
@@ -16920,7 +16967,7 @@ if ($method === 'POST' && $action === 'update_preferences') {
     $updatedStmt->execute([(string)$requestAuthUser['id']]);
     $updatedUser = $updatedStmt->fetch();
     $safeUser = sanitize_user_payload($updatedUser ?: []);
-    $token = issue_auth_token($safeUser);
+    $token = issue_auth_token_for_client($safeUser);
 
     $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
     log_system_event($db, 'PREFERENCES_UPDATED', 'Account preferences updated.', (string)$requestAuthUser['id'], $ip);
