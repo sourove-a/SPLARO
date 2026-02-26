@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
-import { View } from '../types';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 
 import { BANGLADESH_DATA } from '../bangladeshData';
@@ -109,6 +108,7 @@ const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any
 export const CheckoutPage: React.FC = () => {
   const { cart, addOrder, user, discounts, logisticsConfig } = useApp();
   const navigate = useNavigate();
+  const ADDRESS_MIN_LENGTH = 6;
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const [submitError, setSubmitError] = useState('');
   const [discountInput, setDiscountInput] = useState('');
@@ -205,16 +205,19 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
+  const clearFieldError = (field: string) => {
+    if (!errors[field]) return;
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
     const newErrors: Record<string, string> = {};
-
-    if (!user) {
-      setSubmitError('Order করতে আগে signup/login করুন।');
-      navigate('/signup');
-      return;
-    }
 
     if (!formData.fullName.trim()) newErrors.fullName = "Name required";
     if (!formData.email.trim() || !formData.email.includes('@')) newErrors.email = "Valid email required";
@@ -222,7 +225,9 @@ export const CheckoutPage: React.FC = () => {
     if (phoneError) newErrors.phone = phoneError;
     if (!formData.district) newErrors.district = "District required";
     if (!formData.thana) newErrors.thana = "Area required";
-    if (!formData.address || formData.address.length < 10) newErrors.address = "Detailed address required";
+    if (!formData.address.trim() || formData.address.trim().length < ADDRESS_MIN_LENGTH) {
+      newErrors.address = "Detailed address required";
+    }
 
 
     if (Object.keys(newErrors).length > 0) {
@@ -272,19 +277,6 @@ export const CheckoutPage: React.FC = () => {
     setTimeout(() => navigate(`/order_success?invoice=${invoiceQuery}`), 2000);
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen pt-48 flex flex-col items-center justify-center p-8 bg-[#050505] text-white text-center">
-        <h2 className="text-4xl font-black italic uppercase tracking-tighter mb-6">SIGNUP REQUIRED</h2>
-        <p className="text-white/50 text-sm uppercase tracking-widest mb-10">Order করতে আগে account create/login করুন</p>
-        <div className="flex gap-4">
-          <PrimaryButton onClick={() => navigate('/signup')} className="px-10 py-5 text-[10px]">SIGN UP</PrimaryButton>
-          <button onClick={() => navigate('/login')} className="px-10 py-5 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-400 transition-all">LOG IN</button>
-        </div>
-      </div>
-    );
-  }
-
   if (cart.length === 0 && status !== 'success') {
     return (
       <div className="min-h-screen pt-48 flex flex-col items-center justify-center p-8 bg-[#050505]">
@@ -326,7 +318,10 @@ export const CheckoutPage: React.FC = () => {
                 <LuxuryFloatingInput
                   label="Full Name"
                   value={formData.fullName}
-                  onChange={v => setFormData({ ...formData, fullName: v })}
+                  onChange={v => {
+                    setFormData({ ...formData, fullName: v });
+                    clearFieldError('fullName');
+                  }}
                   icon={<User className="w-5 h-5" />}
                   error={errors.fullName}
                   placeholder="Enter your full name"
@@ -335,7 +330,10 @@ export const CheckoutPage: React.FC = () => {
                 <LuxuryFloatingInput
                   label="Email Address"
                   value={formData.email}
-                  onChange={v => setFormData({ ...formData, email: v })}
+                  onChange={v => {
+                    setFormData({ ...formData, email: v });
+                    clearFieldError('email');
+                  }}
                   icon={<Mail className="w-5 h-5" />}
                   error={errors.email}
                   placeholder="email@example.com"
@@ -359,7 +357,11 @@ export const CheckoutPage: React.FC = () => {
                   label="District"
                   value={formData.district}
                   options={districts}
-                  onChange={(v: string) => setFormData({ ...formData, district: v, thana: '' })}
+                  onChange={(v: string) => {
+                    setFormData({ ...formData, district: v, thana: '' });
+                    clearFieldError('district');
+                    clearFieldError('thana');
+                  }}
                   icon={MapPin}
                   error={errors.district}
                 />
@@ -367,7 +369,10 @@ export const CheckoutPage: React.FC = () => {
                   label="Thana"
                   value={formData.thana}
                   options={thanas}
-                  onChange={(v: string) => setFormData({ ...formData, thana: v })}
+                  onChange={(v: string) => {
+                    setFormData({ ...formData, thana: v });
+                    clearFieldError('thana');
+                  }}
                   icon={Globe}
                   error={errors.thana}
                 />
@@ -376,7 +381,13 @@ export const CheckoutPage: React.FC = () => {
               <LuxuryFloatingInput
                 label="Shipping Address"
                 value={formData.address}
-                onChange={v => setFormData({ ...formData, address: v })}
+                onChange={v => {
+                  setFormData({ ...formData, address: v });
+                  const normalized = v.trim();
+                  if (normalized.length >= ADDRESS_MIN_LENGTH) {
+                    clearFieldError('address');
+                  }
+                }}
                 icon={<MapPin className="w-5 h-5" />}
                 error={errors.address}
                 placeholder="House, Road, Apartment Details"

@@ -14445,19 +14445,45 @@ if ($method === 'POST' && $action === 'create_order') {
         exit;
     }
 
-    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
-        splaro_integration_trace('order.handler.auth_missing', [], 'WARNING');
-        http_response_code(401);
-        echo json_encode(["status" => "error", "message" => "SIGNUP_REQUIRED"]);
-        exit;
-    }
-
-    $resolvedUserId = $input['userId'] ?? null;
+    $resolvedUserId = null;
     if (is_array($requestAuthUser) && !empty($requestAuthUser['id'])) {
         $resolvedUserId = $requestAuthUser['id'];
         if (empty($input['customerEmail'])) {
             $input['customerEmail'] = $requestAuthUser['email'];
         }
+        splaro_integration_trace('order.handler.authenticated_checkout', [
+            'auth_user_id' => (string)$resolvedUserId
+        ]);
+    } else {
+        // Guest checkout is allowed; ignore any client-supplied userId to prevent spoofing.
+        if (!empty($input['userId'])) {
+            splaro_integration_trace('order.handler.guest_user_id_ignored', [
+                'provided_user_id' => splaro_clip_text((string)$input['userId'], 80)
+            ], 'WARNING');
+        }
+        splaro_integration_trace('order.handler.guest_checkout', [], 'INFO');
+    }
+
+    $customerName = trim((string)($input['customerName'] ?? ''));
+    $customerEmail = trim((string)($input['customerEmail'] ?? ''));
+    $customerPhone = trim((string)($input['phone'] ?? ''));
+    $customerAddress = trim((string)($input['address'] ?? ''));
+    if (
+        $customerName === ''
+        || $customerEmail === ''
+        || !filter_var($customerEmail, FILTER_VALIDATE_EMAIL)
+        || $customerPhone === ''
+        || $customerAddress === ''
+    ) {
+        splaro_integration_trace('order.handler.missing_required_fields', [
+            'customer_name' => $customerName !== '',
+            'customer_email_valid' => filter_var($customerEmail, FILTER_VALIDATE_EMAIL) !== false,
+            'customer_phone' => $customerPhone !== '',
+            'customer_address' => $customerAddress !== ''
+        ], 'WARNING');
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "MISSING_REQUIRED_FIELDS"]);
+        exit;
     }
 
     $orderId = trim((string)($input['id'] ?? ''));

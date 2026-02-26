@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, GlassCard } from './LiquidGlass';
 
 export const CartPage: React.FC = () => {
-  const { cart, removeFromCart, user } = useApp();
+  const { cart, removeFromCart } = useApp();
   const navigate = useNavigate();
 
   const subtotal = useMemo(() => cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0), [cart]);
@@ -92,13 +92,6 @@ export const CartPage: React.FC = () => {
 
               <PrimaryButton
                 onClick={() => {
-                  if (!user) {
-                    window.dispatchEvent(new CustomEvent('splaro-toast', {
-                      detail: { message: 'Order করতে আগে signup/login করুন।', tone: 'info' }
-                    }));
-                    navigate('/signup');
-                    return;
-                  }
                   navigate('/checkout');
                 }}
                 className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(0,212,255,0.25)] hover:shadow-[0_0_60px_rgba(0,212,255,0.45)]"

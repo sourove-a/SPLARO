@@ -912,7 +912,8 @@ function normalizeOrderPayload(input, authUser) {
 
   return {
     id: orderId,
-    user_id: authUser?.id || input.userId || null,
+    // Never trust client-provided userId when request is unauthenticated.
+    user_id: authUser?.id || null,
     customer_name: String(input.customerName || '').trim(),
     customer_email: normalizeEmail(input.customerEmail || authUser?.email || ''),
     phone: String(input.phone || '').trim(),
@@ -1518,11 +1519,6 @@ async function handleCreateOrder(req, res, storage, authUser) {
   const limitKey = `create_order:${ip}`;
   if (checkRateLimit(limitKey, 10, 60_000)) {
     handleError(res, 429, 'RATE_LIMIT_EXCEEDED');
-    return;
-  }
-
-  if (!authUser?.id) {
-    handleError(res, 401, 'SIGNUP_REQUIRED');
     return;
   }
 
