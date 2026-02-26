@@ -1564,10 +1564,20 @@ const ProductModal: React.FC<{
           <button onClick={onClose} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white">Cancel</button>
           <PrimaryButton
             onClick={() => {
-              if (!formData.name || !formData.price) {
+              const trimmedName = String(formData.name || '').trim();
+              const requestedCustomSlug = String(formData.productSlug || formData.id || '').trim();
+              if (!trimmedName || !formData.price) {
                 if (typeof window !== 'undefined') {
                   window.dispatchEvent(new CustomEvent('splaro-toast', {
-                    detail: { tone: 'error', message: 'Name and price are required.' }
+                    detail: { tone: 'error', message: 'Product name and price are required.' }
+                  }));
+                }
+                return;
+              }
+              if (!requestedCustomSlug) {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('splaro-toast', {
+                    detail: { tone: 'error', message: 'Custom link (product slug) is required.' }
                   }));
                 }
                 return;
@@ -1689,6 +1699,7 @@ export const AdminPanel = () => {
     phone: String(user?.phone || '')
   });
   const [adminProfileSaving, setAdminProfileSaving] = useState(false);
+  const [productAutoSeeded, setProductAutoSeeded] = useState(false);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
@@ -1736,6 +1747,51 @@ export const AdminPanel = () => {
     lifetimeValue: Number(raw?.lifetimeValue ?? raw?.lifetime_value ?? 0),
     lastOrderAt: raw?.lastOrderAt || raw?.last_order_at || null
   });
+
+  const createDemoVaultProduct = (): Product => {
+    const productSlug = 'splaro-demo-vault-sneaker';
+    const demo: Product = {
+      id: productSlug,
+      slug: productSlug,
+      productSlug,
+      name: 'Splaro Demo Vault Sneaker',
+      brand: 'Splaro',
+      brandSlug: 'splaro',
+      price: 4900,
+      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200',
+      category: 'Shoes',
+      categorySlug: 'shoes',
+      subCategory: 'Sneakers',
+      subCategorySlug: 'sneakers',
+      type: 'Unisex',
+      description: {
+        EN: 'Demo product for vault inventory verification.',
+        BN: 'Vault Inventory যাচাই করার জন্য ডেমো প্রোডাক্ট।'
+      },
+      sizes: ['40', '41', '42', '43'],
+      colors: ['Black'],
+      colorVariants: [{ name: 'Black', hex: '#111827', material: 'Synthetic' }],
+      materials: ['Synthetic'],
+      tags: ['New Arrival'],
+      featured: true,
+      sku: 'SP-DEMO-VLT-01',
+      stock: 25,
+      status: 'PUBLISHED',
+      hideWhenOutOfStock: false
+    };
+
+    const route = buildProductRoute({
+      ...demo,
+      brandSlug: demo.brandSlug,
+      categorySlug: demo.categorySlug,
+      productSlug: demo.productSlug
+    });
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return {
+      ...demo,
+      liveUrl: origin ? `${origin}${route}` : route
+    };
+  };
 
   const normalizeAdminOrderStatusValue = (statusRaw: unknown): OrderStatus => {
     const normalized = String(statusRaw || '').trim().toUpperCase();
@@ -2888,6 +2944,15 @@ export const AdminPanel = () => {
     return result;
   }, [products, brandFilter, searchQuery]);
 
+  useEffect(() => {
+    if (activeTab !== 'PRODUCTS') return;
+    if (products.length > 0) return;
+    if (productAutoSeeded) return;
+    addOrUpdateProduct(createDemoVaultProduct());
+    setProductAutoSeeded(true);
+    showToast('Demo product auto-added to Vault Inventory.', 'info');
+  }, [activeTab, products.length, productAutoSeeded]);
+
   const chartSeries = useMemo(() => {
     if (analyticsChartMode === 'ROTATION') {
       if (analyticsWindow === '7D') {
@@ -3525,6 +3590,39 @@ export const AdminPanel = () => {
                           </td>
                         </tr>
                       ))}
+                      {filteredProducts.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-14 text-center">
+                            <p className="text-[11px] font-black uppercase tracking-[0.35em] text-zinc-500">
+                              No Products Showing
+                            </p>
+                            <p className="text-[10px] text-zinc-600 mt-2">
+                              Try clearing search or add a demo product now.
+                            </p>
+                            <div className="mt-5 flex flex-wrap justify-center gap-3">
+                              {searchQuery && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchQuery('')}
+                                  className="px-4 py-2 rounded-xl border border-white/15 text-zinc-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-white/5"
+                                >
+                                  Clear Search
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  addOrUpdateProduct(createDemoVaultProduct());
+                                  showToast('Demo product added to Vault Inventory.', 'success');
+                                }}
+                                className="px-4 py-2 rounded-xl border border-cyan-500/45 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                              >
+                                Add Demo Product
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

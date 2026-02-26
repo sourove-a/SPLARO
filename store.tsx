@@ -382,6 +382,42 @@ const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
+const FALLBACK_DEMO_PRODUCT: Product = {
+  id: 'splaro-demo-vault-01',
+  slug: 'splaro-demo-vault-01',
+  productSlug: 'splaro-demo-vault-01',
+  name: 'Splaro Demo Vault Sneaker',
+  brand: 'Splaro',
+  brandSlug: 'splaro',
+  price: 4900,
+  image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200',
+  category: 'Shoes',
+  categorySlug: 'shoes',
+  subCategory: 'Sneakers',
+  subCategorySlug: 'sneakers',
+  type: 'Unisex',
+  description: {
+    EN: 'Demo fallback product. Use this to verify Add Product, Vault Inventory, and product route flow.',
+    BN: 'ডেমো ফলব্যাক প্রোডাক্ট। Add Product, Vault Inventory এবং product route কাজ করছে কি না যাচাই করতে ব্যবহার করুন।'
+  },
+  sizes: ['40', '41', '42', '43'],
+  colors: ['Black'],
+  colorVariants: [{ name: 'Black', hex: '#111827', material: 'Synthetic' }],
+  materials: ['Synthetic'],
+  tags: ['New Arrival'],
+  featured: true,
+  sku: 'SP-DEMO-01',
+  stock: 25,
+  status: 'PUBLISHED',
+  hideWhenOutOfStock: false,
+  liveUrl: '/product/splaro/shoes/splaro-demo-vault-01'
+};
+
+const FALLBACK_SEED_PRODUCTS: Product[] = [
+  FALLBACK_DEMO_PRODUCT,
+  ...INITIAL_PRODUCTS.filter((item) => item.id !== FALLBACK_DEMO_PRODUCT.id)
+];
+
 
 
 
@@ -991,7 +1027,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [language, setLanguage] = useState<Language>(loadFromStorage('splaro-language', 'EN'));
   const [theme, setTheme] = useState<Theme>(loadFromStorage('splaro-theme', 'DARK'));
   const [cart, setCart] = useState<any[]>(loadFromStorage('splaro-cart', []));
-  const [products, setProducts] = useState<Product[]>(loadFromStorage('splaro-products', INITIAL_PRODUCTS));
+  const [products, setProducts] = useState<Product[]>(loadFromStorage('splaro-products', FALLBACK_SEED_PRODUCTS));
   const [orders, setOrders] = useState<Order[]>(loadFromStorage('splaro-orders', []));
   const [user, setUser] = useState<User | null>(loadFromStorage('splaro-user', null));
   const [discounts, setDiscounts] = useState<DiscountCode[]>(loadFromStorage('splaro-discounts', INITIAL_DISCOUNTS));
@@ -1184,10 +1220,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDbStatus(isMysql ? 'MYSQL' : 'FALLBACK');
 
         if (!isMysql) {
+          setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
           return;
         }
 
-        if (result.data.products?.length > 0) {
+        if (Array.isArray(result.data.products)) {
           const mappedProducts = result.data.products.map((p: any) => {
             const safeStock = parseOptionalNonNegativeInt(p?.stock);
             const safeLowStockThreshold = parseOptionalNonNegativeInt(p?.lowStockThreshold ?? p?.low_stock_threshold);
@@ -1197,7 +1234,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               lowStockThreshold: safeLowStockThreshold
             };
           });
-          setProducts(mappedProducts);
+          if (mappedProducts.length > 0) {
+            setProducts(mappedProducts);
+          } else {
+            setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
+          }
         }
         if (result.data.logs?.length > 0) setLogs(result.data.logs);
         if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
@@ -1284,9 +1325,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(result.data.traffic)) setTrafficData(result.data.traffic);
       } else {
         setDbStatus('FALLBACK');
+        setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
       }
     } catch (e) {
       setDbStatus('FALLBACK');
+      setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
       console.warn('ARCHIVAL_SYNC_BYPASS: Operative terminal logic initialized locally.');
     }
   };
@@ -1298,6 +1341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return () => clearInterval(interval);
     } else {
       setDbStatus('FALLBACK');
+      setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
     }
   }, [IS_PROD]);
 
