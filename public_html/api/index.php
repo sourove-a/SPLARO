@@ -5207,6 +5207,18 @@ function admin_normalize_order_status($status) {
     return $map[$normalized] ?? (trim((string)$status) !== '' ? trim((string)$status) : 'Pending');
 }
 
+function admin_order_status_db_value($status) {
+    $label = admin_normalize_order_status($status);
+    $map = [
+        'Pending' => 'PENDING',
+        'Processing' => 'PROCESSING',
+        'Shipped' => 'SHIPPED',
+        'Delivered' => 'DELIVERED',
+        'Cancelled' => 'CANCELLED',
+    ];
+    return $map[$label] ?? strtoupper(trim((string)$status));
+}
+
 function admin_user_order_scope_sql($db, $alias = 'o') {
     $safeAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$alias);
     if ($safeAlias === '') $safeAlias = 'o';
@@ -9009,6 +9021,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
             if ($callbackAction === 'ordst') {
                 $orderId = trim((string)($parts[1] ?? ''));
                 $statusLabel = telegram_order_status_key_to_label($parts[2] ?? '');
+                $statusDb = admin_order_status_db_value($statusLabel);
                 if ($orderId === '' || $statusLabel === '') {
                     $callbackMessage = 'Invalid status action';
                     $reply = '<b>Invalid action.</b>';
@@ -9021,11 +9034,11 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                         try {
                             $db->beginTransaction();
                             $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                            $stmt->execute([$statusLabel, $orderId]);
+                            $stmt->execute([$statusDb, $orderId]);
                             admin_write_order_status_history(
                                 $db,
                                 $orderId,
-                                (string)($beforeOrder['status'] ?? ''),
+                                admin_normalize_order_status((string)($beforeOrder['status'] ?? 'Pending')),
                                 $statusLabel,
                                 'Status updated via Telegram callback',
                                 ['id' => 'telegram_bot', 'role' => 'SYSTEM']
@@ -9168,6 +9181,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
         } elseif ($command === '/setstatus') {
             $orderId = trim((string)($parts[1] ?? ''));
             $statusLabel = telegram_order_status_key_to_label($parts[2] ?? '');
+            $statusDb = admin_order_status_db_value($statusLabel);
             if ($orderId === '' || $statusLabel === '') {
                 $reply = "<b>Usage:</b> /setstatus {order_id} {PENDING|PROCESSING|SHIPPED|DELIVERED|CANCELLED}";
             } else {
@@ -9179,11 +9193,11 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                     try {
                         $db->beginTransaction();
                         $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                        $stmt->execute([$statusLabel, $orderId]);
+                        $stmt->execute([$statusDb, $orderId]);
                         admin_write_order_status_history(
                             $db,
                             $orderId,
-                            (string)($beforeOrder['status'] ?? ''),
+                            admin_normalize_order_status((string)($beforeOrder['status'] ?? 'Pending')),
                             $statusLabel,
                             'Status updated via Telegram command',
                             ['id' => 'telegram_bot', 'role' => 'SYSTEM']
@@ -9578,8 +9592,8 @@ if ($method === 'GET' && $action === 'sync') {
             $orderParams[] = $wild;
         }
         if ($orderStatus !== '') {
-            $orderWhere[] = "status = ?";
-            $orderParams[] = $orderStatus;
+            $orderWhere[] = "UPPER(COALESCE(status, '')) = ?";
+            $orderParams[] = admin_order_status_db_value($orderStatus);
         }
         $orderWhereSql = $orderWhere ? ('WHERE ' . implode(' AND ', $orderWhere)) : '';
 
@@ -9594,6 +9608,10 @@ if ($method === 'GET' && $action === 'sync') {
             "SELECT {$orderSelectFields} FROM orders {$orderWhereSql} ORDER BY created_at DESC LIMIT {$pageSize} OFFSET {$offset}",
             $orderParams
         );
+        foreach ($orders as &$orderRow) {
+            $orderRow['status'] = admin_normalize_order_status($orderRow['status'] ?? 'Pending');
+        }
+        unset($orderRow);
 
         $usersPage = max(1, (int)($_GET['usersPage'] ?? $page));
         $usersPageSize = (int)($_GET['usersPageSize'] ?? $pageSize);
@@ -9649,6 +9667,10 @@ if ($method === 'GET' && $action === 'sync') {
         $stmtOrders = $db->prepare("SELECT {$userOrderSelectFields} FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC LIMIT 200");
         $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
         $orders = $stmtOrders->fetchAll();
+        foreach ($orders as &$orderRow) {
+            $orderRow['status'] = admin_normalize_order_status($orderRow['status'] ?? 'Pending');
+        }
+        unset($orderRow);
 
         // Return the current authenticated identity so frontend sync never wipes user state.
         $selfStmt = $db->prepare("SELECT id, name, email, phone, address, profile_image, role, created_at FROM users WHERE id = ? OR email = ? ORDER BY created_at DESC LIMIT 1");
@@ -12192,6 +12214,7 @@ if ($method === 'POST' && $action === 'admin_order_status') {
     }
     $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
     $nextStatus = admin_normalize_order_status($input['status'] ?? '');
+    $nextStatusDb = admin_order_status_db_value($nextStatus);
     $note = trim((string)($input['note'] ?? ''));
     if ($orderId === '' || $nextStatus === '') {
         echo json_encode(["status" => "error", "message" => "ORDER_ID_AND_STATUS_REQUIRED"]);
@@ -12208,8 +12231,8 @@ if ($method === 'POST' && $action === 'admin_order_status') {
     $db->beginTransaction();
     try {
         $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $update->execute([$nextStatus, $orderId]);
-        admin_write_order_status_history($db, $orderId, (string)($order['status'] ?? ''), $nextStatus, $note !== '' ? $note : 'Updated from admin panel', $requestAuthUser);
+        $update->execute([$nextStatusDb, $orderId]);
+        admin_write_order_status_history($db, $orderId, admin_normalize_order_status((string)($order['status'] ?? 'Pending')), $nextStatus, $note !== '' ? $note : 'Updated from admin panel', $requestAuthUser);
         $db->commit();
     } catch (Exception $e) {
         if ($db->inTransaction()) {
@@ -12226,7 +12249,7 @@ if ($method === 'POST' && $action === 'admin_order_status') {
         'ORDER_STATUS_UPDATED',
         'ORDER',
         $orderId,
-        ['status' => (string)($order['status'] ?? '')],
+        ['status' => admin_normalize_order_status((string)($order['status'] ?? 'Pending'))],
         ['status' => $nextStatus, 'note' => $note],
         $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
     );
@@ -12257,13 +12280,15 @@ if ($method === 'POST' && $action === 'admin_order_cancel') {
         exit;
     }
     $actor = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key');
+    $cancelledStatus = admin_normalize_order_status('Cancelled');
+    $cancelledStatusDb = admin_order_status_db_value($cancelledStatus);
     $db->beginTransaction();
     try {
         $insert = $db->prepare("INSERT INTO cancellations (order_id, user_id, reason, status, created_by) VALUES (?, ?, ?, ?, ?)");
         $insert->execute([$orderId, (string)($order['user_id'] ?? ''), $reason, 'CONFIRMED', $actor]);
-        $update = $db->prepare("UPDATE orders SET status = 'Cancelled', updated_at = NOW() WHERE id = ?");
-        $update->execute([$orderId]);
-        admin_write_order_status_history($db, $orderId, (string)($order['status'] ?? ''), 'Cancelled', $reason, $requestAuthUser);
+        $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+        $update->execute([$cancelledStatusDb, $orderId]);
+        admin_write_order_status_history($db, $orderId, admin_normalize_order_status((string)($order['status'] ?? 'Pending')), $cancelledStatus, $reason, $requestAuthUser);
         $db->commit();
     } catch (Exception $e) {
         if ($db->inTransaction()) {
@@ -12274,7 +12299,7 @@ if ($method === 'POST' && $action === 'admin_order_cancel') {
         echo json_encode(["status" => "error", "message" => "ORDER_CANCEL_FAILED"]);
         exit;
     }
-    log_audit_event($db, $actor, 'ORDER_CANCELLED', 'ORDER', $orderId, ['status' => (string)($order['status'] ?? '')], ['status' => 'Cancelled', 'reason' => $reason], $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
+    log_audit_event($db, $actor, 'ORDER_CANCELLED', 'ORDER', $orderId, ['status' => admin_normalize_order_status((string)($order['status'] ?? 'Pending'))], ['status' => $cancelledStatus, 'reason' => $reason], $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN');
     echo json_encode(["status" => "success", "message" => "ORDER_CANCELLED"]);
     exit;
 }
@@ -12547,6 +12572,7 @@ if ($method === 'POST' && $action === 'create_order') {
         splaro_integration_trace('order.db.insert.begin', ['order_id' => $orderId]);
         $db->beginTransaction();
         $initialStatus = admin_normalize_order_status($input['status'] ?? 'Pending');
+        $initialStatusDb = admin_order_status_db_value($initialStatus);
         $stmt = $db->prepare("INSERT INTO orders (id, order_no, user_id, customer_name, customer_email, phone, district, thana, address, items, total, status, customer_comment, shipping_fee, discount_amount, discount_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $orderId,
@@ -12560,7 +12586,7 @@ if ($method === 'POST' && $action === 'create_order') {
             $input['address'],
             $orderItemsJson,
             $input['total'],
-            $initialStatus,
+            $initialStatusDb,
             $input['customerComment'] ?? null,
             isset($input['shippingFee']) ? (int)$input['shippingFee'] : null,
             isset($input['discountAmount']) ? (int)$input['discountAmount'] : 0,
@@ -12988,6 +13014,7 @@ if ($method === 'POST' && $action === 'update_order_status') {
 
     $orderId = trim((string)$input['id']);
     $statusLabel = admin_normalize_order_status($input['status'] ?? '');
+    $statusDb = admin_order_status_db_value($statusLabel);
     $statusNote = trim((string)($input['note'] ?? ''));
     if ($orderId === '' || $statusLabel === '') {
         echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
@@ -13005,11 +13032,11 @@ if ($method === 'POST' && $action === 'update_order_status') {
 
         $db->beginTransaction();
         $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $stmt->execute([$statusLabel, $orderId]);
+        $stmt->execute([$statusDb, $orderId]);
         admin_write_order_status_history(
             $db,
             $orderId,
-            (string)($beforeRow['status'] ?? ''),
+            admin_normalize_order_status((string)($beforeRow['status'] ?? 'Pending')),
             $statusLabel,
             $statusNote !== '' ? $statusNote : 'Status updated from admin panel',
             $requestAuthUser

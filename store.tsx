@@ -89,6 +89,16 @@ const resolveSettingsErrorMessage = (rawMessage: unknown, httpStatus?: number): 
   return 'Settings update failed.';
 };
 
+const normalizeOrderStatusValue = (statusRaw: unknown): OrderStatus => {
+  const normalized = String(statusRaw || '').trim().toUpperCase();
+  if (normalized === 'PENDING') return 'Pending';
+  if (normalized === 'PROCESSING' || normalized === 'CONFIRMED') return 'Processing';
+  if (normalized === 'SHIPPED') return 'Shipped';
+  if (normalized === 'DELIVERED') return 'Delivered';
+  if (normalized === 'CANCELLED' || normalized === 'CANCELED') return 'Cancelled';
+  return 'Pending';
+};
+
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: 'n1',
@@ -1202,6 +1212,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               thana: o.thana,
               items: items,
               createdAt: o.created_at,
+              status: normalizeOrderStatusValue(o.status),
               trackingNumber: o.trackingNumber ?? o.tracking_number ?? '',
               adminNotes: o.adminNotes ?? o.admin_notes ?? '',
               customerComment: o.customerComment ?? o.customer_comment ?? '',
@@ -1413,17 +1424,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    const previousStatus = orders.find((o) => o.id === orderId)?.status ?? null;
     // Optimistic Update
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    setOrders(prev => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+
+    if (!IS_PROD) return;
 
     try {
-      await fetch(`${API_NODE}?action=update_order_status`, {
+      const res = await fetch(`${API_NODE}?action=update_order_status`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ id: orderId, status })
       });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        throw new Error(String(result?.message || 'ORDER_STATUS_UPDATE_FAILED'));
+      }
+
+      const persistedStatus = normalizeOrderStatusValue(result?.order?.status ?? status);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: persistedStatus } : o));
     } catch (error) {
       console.error('Logistics Sync Failure:', error);
+      if (previousStatus) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: previousStatus } : o));
+      }
+      emitToast(resolveSettingsErrorMessage((error as any)?.message), 'error');
     }
   };
 

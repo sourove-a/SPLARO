@@ -1654,6 +1654,16 @@ export const AdminPanel = () => {
     lastOrderAt: raw?.lastOrderAt || raw?.last_order_at || null
   });
 
+  const normalizeAdminOrderStatusValue = (statusRaw: unknown): OrderStatus => {
+    const normalized = String(statusRaw || '').trim().toUpperCase();
+    if (normalized === 'PENDING') return 'Pending';
+    if (normalized === 'PROCESSING' || normalized === 'CONFIRMED') return 'Processing';
+    if (normalized === 'SHIPPED') return 'Shipped';
+    if (normalized === 'DELIVERED') return 'Delivered';
+    if (normalized === 'CANCELLED' || normalized === 'CANCELED') return 'Cancelled';
+    return 'Pending';
+  };
+
   const normalizeAdminOrderRecord = (raw: any): AdminOrderRecord => ({
     id: String(raw?.id || ''),
     orderNo: String(raw?.orderNo || raw?.order_no || raw?.id || ''),
@@ -1664,7 +1674,7 @@ export const AdminPanel = () => {
     district: String(raw?.district || ''),
     thana: String(raw?.thana || ''),
     address: String(raw?.address || ''),
-    status: String(raw?.status || 'Pending') as OrderStatus,
+    status: normalizeAdminOrderStatusValue(raw?.status),
     trackingNumber: String(raw?.trackingNumber || raw?.tracking_number || ''),
     adminNotes: String(raw?.adminNotes || raw?.admin_notes || ''),
     customerComment: String(raw?.customerComment || raw?.customer_comment || ''),
