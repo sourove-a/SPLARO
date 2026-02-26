@@ -231,6 +231,7 @@ const ProductModal: React.FC<{
   const [colorHexInput, setColorHexInput] = useState('#111827');
   const [colorMaterialInput, setColorMaterialInput] = useState('');
   const [galleryUrlInput, setGalleryUrlInput] = useState('');
+  const [galleryBulkInput, setGalleryBulkInput] = useState('');
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
   const [draggingGalleryId, setDraggingGalleryId] = useState<string | null>(null);
@@ -387,26 +388,47 @@ const ProductModal: React.FC<{
   const addGalleryImageByUrl = (url: string) => {
     const cleanUrl = url.trim();
     if (!cleanUrl) return;
+    addGalleryImagesByUrls([cleanUrl]);
+    setGalleryUrlInput('');
+  };
+
+  const addGalleryImagesByUrls = (rawUrls: string[]) => {
+    const incomingUrls = rawUrls
+      .map((value) => String(value || '').trim())
+      .filter((value) => value !== '');
+    if (incomingUrls.length === 0) return;
     setFormData((prev) => {
       const gallery = normalizeGallery(prev.galleryImages, prev.image || '');
-      if (gallery.some((img) => img.url === cleanUrl)) return prev;
-      const nextItem: ProductImage = {
-        id: `img_${Math.random().toString(36).slice(2, 10)}`,
-        url: cleanUrl,
-        altText: String(prev.name || ''),
-        sortOrder: gallery.length,
-        isMain: gallery.length === 0
-      };
-      const nextGallery = [...gallery, nextItem];
-      const main = nextGallery.find((img) => img.isMain) || nextGallery[0];
+      const nextGallery = [...gallery];
+      for (const url of incomingUrls) {
+        if (nextGallery.some((img) => img.url === url)) continue;
+        nextGallery.push({
+          id: `img_${Math.random().toString(36).slice(2, 10)}`,
+          url,
+          altText: String(prev.name || ''),
+          sortOrder: nextGallery.length,
+          isMain: nextGallery.length === 0
+        });
+      }
+      const normalized = nextGallery.map((img, idx) => ({ ...img, sortOrder: idx }));
+      const main = normalized.find((img) => img.isMain) || normalized[0];
       return {
         ...prev,
-        image: main?.url || cleanUrl,
+        image: main?.url || prev.image || incomingUrls[0],
         mainImageId: main?.id,
-        galleryImages: nextGallery
+        galleryImages: normalized
       };
     });
-    setGalleryUrlInput('');
+  };
+
+  const addGalleryImagesFromBulkInput = () => {
+    const urls = galleryBulkInput
+      .split(/[\n,]+/g)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    if (urls.length === 0) return;
+    addGalleryImagesByUrls(urls);
+    setGalleryBulkInput('');
   };
 
   const normalizeHex = (rawHex: string): string => {
@@ -694,33 +716,49 @@ const ProductModal: React.FC<{
 
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Media Gallery</h3>
-                <p className="text-[10px] text-zinc-400 font-bold">1 main image + gallery images (recommended 3-4).</p>
+                <p className="text-[10px] text-zinc-400 font-bold">WooCommerce style: 1 main image + gallery images (recommended 4-5).</p>
                 <div className="space-y-3">
                   <LuxuryFloatingInput
                     label="Main Image URL"
                     value={formData.image || ''}
                     onChange={v => {
                       const nextUrl = v.trim();
-                      const gallery = normalizeGallery(formData.galleryImages, nextUrl);
-                      if (gallery.length === 0 && nextUrl) {
-                        gallery.push({
-                          id: `img_${Math.random().toString(36).slice(2, 10)}`,
+                      setFormData((prev) => {
+                        const gallery = normalizeGallery(prev.galleryImages, prev.image || '');
+                        if (!nextUrl) {
+                          const fallbackMain = gallery.find((img) => img.isMain) || gallery[0];
+                          return {
+                            ...prev,
+                            image: fallbackMain?.url || '',
+                            mainImageId: fallbackMain?.id,
+                            galleryImages: gallery
+                          };
+                        }
+                        const matched = gallery.find((img) => img.url === nextUrl);
+                        if (matched) {
+                          const nextGallery = gallery.map((img) => ({ ...img, isMain: img.id === matched.id }));
+                          return {
+                            ...prev,
+                            image: nextUrl,
+                            mainImageId: matched.id,
+                            galleryImages: nextGallery
+                          };
+                        }
+                        const mainId = `img_${Math.random().toString(36).slice(2, 10)}`;
+                        const main: ProductImage = {
+                          id: mainId,
                           url: nextUrl,
-                          altText: String(formData.name || ''),
+                          altText: String(prev.name || ''),
                           sortOrder: 0,
                           isMain: true
-                        });
-                      }
-                      const nextGallery = gallery.map((img, idx) => ({
-                        ...img,
-                        isMain: idx === 0 ? true : img.isMain
-                      }));
-                      const main = nextGallery.find((img) => img.isMain) || nextGallery[0];
-                      setFormData({
-                        ...formData,
-                        image: nextUrl,
-                        mainImageId: main?.id,
-                        galleryImages: nextGallery
+                        };
+                        const nextGallery = [main, ...gallery.map((img, idx) => ({ ...img, isMain: false, sortOrder: idx + 1 }))];
+                        return {
+                          ...prev,
+                          image: nextUrl,
+                          mainImageId: mainId,
+                          galleryImages: nextGallery
+                        };
                       });
                     }}
                     placeholder="https://..."
@@ -771,6 +809,12 @@ const ProductModal: React.FC<{
                     <input
                       value={galleryUrlInput}
                       onChange={(e) => setGalleryUrlInput(e.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          addGalleryImageByUrl(galleryUrlInput);
+                        }
+                      }}
                       placeholder="Add gallery image URL"
                       className="flex-1 h-12 rounded-xl border border-white/20 bg-[#0f1624] px-4 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
                     />
@@ -792,16 +836,37 @@ const ProductModal: React.FC<{
                           const files = Array.from(e.target.files || []);
                           if (files.length === 0) return;
                           setIsUploadingGallery(true);
+                          const uploadedUrls: string[] = [];
                           for (const file of files) {
                             const result = await uploadImageFile(file);
                             if (result?.url) {
-                              addGalleryImageByUrl(result.url);
+                              uploadedUrls.push(result.url);
                             }
                           }
                           setIsUploadingGallery(false);
+                          if (uploadedUrls.length > 0) {
+                            addGalleryImagesByUrls(uploadedUrls);
+                          }
+                          e.currentTarget.value = '';
                         }}
                       />
                     </label>
+                  </div>
+                  <div className="space-y-2">
+                    <textarea
+                      value={galleryBulkInput}
+                      onChange={(e) => setGalleryBulkInput(e.target.value)}
+                      placeholder="Add multiple gallery image URLs (one per line or comma separated)"
+                      rows={3}
+                      className="w-full rounded-xl border border-white/20 bg-[#0f1624] px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 resize-y"
+                    />
+                    <button
+                      type="button"
+                      onClick={addGalleryImagesFromBulkInput}
+                      className="px-4 h-10 rounded-xl border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                    >
+                      Add Multiple URLs
+                    </button>
                   </div>
                   <p className="text-[10px] text-zinc-500">Drag করে reorder করতে পারবে, সাথে up/down controls ও থাকবে.</p>
                 </div>
