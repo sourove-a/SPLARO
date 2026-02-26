@@ -38,6 +38,11 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     signupName: '',
     signupPhone: ''
   });
+  const [showPass, setShowPass] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
+  const [googleButtonState, setGoogleButtonState] = useState<'idle' | 'ready' | 'missing' | 'unavailable'>('idle');
   const buildDisplayNameFromEmail = (email: string) => {
     const base = email.split('@')[0] || '';
     const cleaned = base
@@ -99,13 +104,6 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       setEmailVerificationPending(false);
     }
   }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode, emailVerificationPending]);
-
-
-  const [showPass, setShowPass] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
-  const [googleButtonState, setGoogleButtonState] = useState<'idle' | 'ready' | 'missing' | 'unavailable'>('idle');
   const googleClientId = String(
     import.meta.env.VITE_GOOGLE_CLIENT_ID ||
     siteSettings.googleClientId ||
