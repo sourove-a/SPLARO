@@ -17,6 +17,8 @@ find "$TARGET_DIR" -mindepth 1 \
   ! -name '.env' \
   ! -name '.env.local' \
   ! -name '.env.production' \
+  ! -path "$TARGET_DIR/assets" \
+  ! -path "$TARGET_DIR/assets/*" \
   -exec rm -rf {} +
 
 echo "[prepare-public-html] copying dist files..."
