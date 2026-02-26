@@ -243,6 +243,10 @@ const ProductModal: React.FC<{
     stock: '',
     image: ''
   });
+  const [autoSlugFromName, setAutoSlugFromName] = useState<boolean>(() => {
+    const initialSlug = String(product?.productSlug || product?.id || '').trim();
+    return initialSlug === '';
+  });
 
   const sizeSetsByCategory: Record<string, string[]> = {
     shoes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
@@ -697,13 +701,35 @@ const ProductModal: React.FC<{
 
   const handleNameChange = (name: string) => {
     const generated = slugify(name);
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       name,
-      id: generated || formData.id,
-      productSlug: generated || formData.productSlug
-    });
+      ...(autoSlugFromName
+        ? {
+            id: generated || prev.id || prev.productSlug,
+            productSlug: generated || prev.productSlug || prev.id
+          }
+        : {})
+    }));
   };
+
+  const CollapsibleBox: React.FC<{
+    title: string;
+    hint?: string;
+    defaultOpen?: boolean;
+    children: React.ReactNode;
+  }> = ({ title, hint, defaultOpen = false, children }) => (
+    <details open={defaultOpen} className="rounded-[28px] border border-white/10 bg-[#0f1624]/70 overflow-hidden group">
+      <summary className="list-none cursor-pointer px-6 py-5 flex items-center justify-between gap-4">
+        <div>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">{title}</h3>
+          {hint ? <p className="text-[9px] text-zinc-500 font-semibold mt-1">{hint}</p> : null}
+        </div>
+        <ChevronDown className="w-4 h-4 text-zinc-400 transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="px-6 pb-6">{children}</div>
+    </details>
+  );
 
   const toggleSize = (size: string) => {
     const current = formData.sizes || [];
@@ -722,7 +748,7 @@ const ProductModal: React.FC<{
     >
       <motion.div
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-[96vw] 2xl:max-w-[1720px] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)]"
+        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[96vh] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)] flex flex-col"
       >
         <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
           <div className="flex items-center gap-6">
@@ -741,7 +767,7 @@ const ProductModal: React.FC<{
           </button>
         </div>
 
-        <div className="p-8 md:p-10 max-h-[82vh] overflow-y-scroll custom-scrollbar">
+        <div className="p-8 md:p-10 overflow-y-auto custom-scrollbar flex-1 min-h-0">
           <div className="sticky top-0 z-20 flex justify-end mb-4 pointer-events-none">
             <span className="px-3 py-1 rounded-full border border-cyan-400/25 bg-[#09162b]/80 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/80">
               Scroll for more
@@ -751,11 +777,46 @@ const ProductModal: React.FC<{
 
             {/* Left Column: Basic Info & Specs */}
             <div className="space-y-12">
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Identity & Category</h3>
+              <CollapsibleBox title="Identity & Category" hint="Name, brand, category, visibility" defaultOpen>
+                <div className="space-y-6">
                 <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={handleNameChange} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
                 <div className="space-y-2">
-                  <LuxuryFloatingInput label="Product URL Slug (Custom Link)" value={formData.productSlug || formData.id || ''} onChange={v => setFormData({ ...formData, id: slugify(v), productSlug: slugify(v) })} placeholder="nike-air-max" icon={<Globe className="w-5 h-5" />} />
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[9px] text-zinc-400 font-semibold uppercase tracking-[0.14em]">SEO URL Link</p>
+                    <label className="inline-flex items-center gap-2 text-[9px] uppercase tracking-[0.14em] text-zinc-400 font-semibold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoSlugFromName}
+                        onChange={(e) => setAutoSlugFromName(e.target.checked)}
+                      />
+                      Auto from product name
+                    </label>
+                  </div>
+                  <LuxuryFloatingInput
+                    label="Product URL Slug (Custom Link)"
+                    value={formData.productSlug || formData.id || ''}
+                    onChange={v => {
+                      const nextSlug = slugify(v);
+                      setAutoSlugFromName(false);
+                      setFormData({ ...formData, id: nextSlug, productSlug: nextSlug });
+                    }}
+                    placeholder="nike-air-max"
+                    icon={<Globe className="w-5 h-5" />}
+                  />
+                  <div className="flex gap-2 px-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const generated = slugify(formData.name || '');
+                        if (!generated) return;
+                        setAutoSlugFromName(true);
+                        setFormData({ ...formData, id: generated, productSlug: generated });
+                      }}
+                      className="px-3 py-1.5 rounded-lg border border-cyan-500/35 text-cyan-300 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                    >
+                      Use Name As Slug
+                    </button>
+                  </div>
                   <p className="px-6 text-[8px] font-black text-cyan-500/50 uppercase tracking-[0.2em]">
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
                   </p>
@@ -837,9 +898,10 @@ const ProductModal: React.FC<{
                   </button>
                 </div>
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Structural Specs</h3>
+              <CollapsibleBox title="Structural Specs" hint="SKU, weight, dimensions">
+                <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <LuxuryFloatingInput label="SKU Protocol" value={formData.sku || ''} onChange={v => setFormData({ ...formData, sku: v })} placeholder="SP-XXXXXX" icon={<Box className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Static Weight" value={formData.weight || ''} onChange={v => setFormData({ ...formData, weight: v })} placeholder="0.8kg" icon={<Thermometer className="w-5 h-5" />} />
@@ -850,12 +912,13 @@ const ProductModal: React.FC<{
                   <LuxuryFloatingInput label="Height" value={formData.dimensions?.h || ''} onChange={v => setFormData({ ...formData, dimensions: { ...formData.dimensions!, h: v } })} placeholder="12cm" />
                 </div>
               </div>
+              </CollapsibleBox>
             </div>
 
             {/* Middle Column: Finances & Media */}
             <div className="space-y-12">
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Pricing & Stock</h3>
+              <CollapsibleBox title="Pricing & Stock" hint="Price, discount, stock, status" defaultOpen>
+                <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <LuxuryFloatingInput label="Asset Value (৳)" type="number" value={formData.price?.toString() || ''} onChange={v => setFormData({ ...formData, price: Number(v) })} placeholder="0.00" icon={<DollarSign className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Discount %" type="number" value={formData.discountPercentage?.toString() || ''} onChange={v => setFormData({ ...formData, discountPercentage: Number(v) })} placeholder="0" icon={<Tag className="w-5 h-5" />} />
@@ -910,10 +973,11 @@ const ProductModal: React.FC<{
                   Hide product when out of stock
                 </label>
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500">Media Gallery</h3>
+              <CollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
+                <div className="space-y-6">
+                <div className="flex items-center justify-between">
                   <span className="px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[9px] font-black uppercase tracking-[0.16em]">
                     {galleryImagesForUi.length} image{galleryImagesForUi.length === 1 ? '' : 's'}
                   </span>
@@ -1132,9 +1196,10 @@ const ProductModal: React.FC<{
 
                 <LuxuryFloatingInput label="Size Chart Image URL" value={formData.sizeChartImage || ''} onChange={v => setFormData({ ...formData, sizeChartImage: v })} placeholder="Sizing image URL" icon={<Maximize className="w-5 h-5" />} />
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Product Tags</h3>
+              <CollapsibleBox title="Product Tags" hint="Quick product badges">
+                <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   {['New Arrival', 'Best Seller', 'On Sale'].map(tag => (
                     <button
@@ -1153,12 +1218,13 @@ const ProductModal: React.FC<{
                   </button>
                 </div>
               </div>
+              </CollapsibleBox>
             </div>
 
             {/* Right Column: Descriptions & Variations */}
             <div className="space-y-12">
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Attributes (Size/Color/Gender)</h3>
+              <CollapsibleBox title="Attributes (Size/Color/Gender)" hint="Size options by category">
+                <div className="space-y-6">
                 <p className="text-[10px] text-zinc-500 font-semibold">Size সেট category অনুযায়ী load হবে: {sizeSetKey === 'bags' ? 'Bags' : 'Shoes'}.</p>
                 <div className="grid grid-cols-4 gap-3">
                   {activeSizeOptions.map(size => (
@@ -1172,9 +1238,10 @@ const ProductModal: React.FC<{
                   ))}
                 </div>
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Descriptions (EN/BN)</h3>
+              <CollapsibleBox title="Descriptions (EN/BN)" hint="Product details in both languages" defaultOpen>
+                <div className="space-y-6">
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
                   <textarea
@@ -1194,9 +1261,10 @@ const ProductModal: React.FC<{
                   />
                 </div>
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Material Options</h3>
+              <CollapsibleBox title="Material Options">
+                <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   {availableMaterials.map(m => (
                     <button
@@ -1212,8 +1280,9 @@ const ProductModal: React.FC<{
                   ))}
                 </div>
               </div>
-              <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">SEO + Links</h3>
+              </CollapsibleBox>
+              <CollapsibleBox title="SEO + Links" hint="Custom slug, metadata, canonical URL" defaultOpen>
+                <div className="space-y-4">
                 <LuxuryFloatingInput
                   label="Meta Title Manifest"
                   value={formData.seoTitle || formData.name || ''}
@@ -1225,7 +1294,11 @@ const ProductModal: React.FC<{
                   <LuxuryFloatingInput
                     label="Product Slug"
                     value={formData.productSlug || formData.id || ''}
-                    onChange={v => setFormData({ ...formData, productSlug: slugify(v), id: slugify(v) })}
+                    onChange={v => {
+                      const nextSlug = slugify(v);
+                      setAutoSlugFromName(false);
+                      setFormData({ ...formData, productSlug: nextSlug, id: nextSlug });
+                    }}
                     placeholder="gucchi001"
                     icon={<Globe className="w-5 h-5" />}
                   />
@@ -1253,13 +1326,20 @@ const ProductModal: React.FC<{
                     icon={<Layers className="w-5 h-5" />}
                   />
                 </div>
+                <LuxuryFloatingInput
+                  label="Custom Canonical URL (Optional)"
+                  value={formData.liveUrl || ''}
+                  onChange={v => setFormData({ ...formData, liveUrl: v })}
+                  placeholder="https://splaro.co/product/brand/category/product-name"
+                  icon={<Globe className="w-5 h-5" />}
+                />
                 <div className="p-4 rounded-xl border border-white/15 bg-[#0f1624]">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-[0.18em] font-black mb-2">Live URL Preview</p>
-                  <p className="text-xs text-cyan-300 break-all font-semibold">{liveProductUrl}</p>
+                  <p className="text-xs text-cyan-300 break-all font-semibold">{formData.liveUrl || liveProductUrl}</p>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(liveProductUrl);
+                      navigator.clipboard.writeText(formData.liveUrl || liveProductUrl);
                       window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
                     }}
                     className="mt-3 px-3 py-2 rounded-lg border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
@@ -1277,9 +1357,10 @@ const ProductModal: React.FC<{
                   />
                 </div>
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Variation Intelligence</h3>
+              <CollapsibleBox title="Variation Intelligence" hint="Color variants and swatches">
+                <div className="space-y-4">
                 <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <input
@@ -1336,9 +1417,10 @@ const ProductModal: React.FC<{
                   )}
                 </div>
               </div>
+              </CollapsibleBox>
 
-              <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">WooCommerce Variant Matrix</h3>
+              <CollapsibleBox title="WooCommerce Variant Matrix" hint="Manual rows + auto generated variants">
+                <div className="space-y-4">
                 <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -1472,12 +1554,13 @@ const ProductModal: React.FC<{
                   </div>
                 </div>
               </div>
+              </CollapsibleBox>
             </div>
           </div>
         </div>
 
 
-        <div className="p-10 border-t border-white/5 flex gap-6 bg-white/[0.02]">
+        <div className="p-6 md:p-8 border-t border-white/5 flex gap-4 md:gap-6 bg-[#0A0C12]/95 backdrop-blur-xl shrink-0">
           <button onClick={onClose} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white">Cancel</button>
           <PrimaryButton
             onClick={() => {
@@ -5228,12 +5311,14 @@ export const AdminPanel = () => {
                   .map((img) => img.url);
 
                 const finalId = editingProduct?.id || uniqueSlug;
-                const liveUrl = `${window.location.origin}${buildProductRoute({
+                const generatedLiveUrl = `${window.location.origin}${buildProductRoute({
                   ...p,
                   brandSlug,
                   categorySlug,
                   productSlug: uniqueSlug
                 })}`;
+                const customLiveUrl = String(p.liveUrl || '').trim();
+                const liveUrl = customLiveUrl !== '' ? customLiveUrl : generatedLiveUrl;
 
                 const finalProduct = {
                   ...p,
