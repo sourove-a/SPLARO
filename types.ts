@@ -109,6 +109,8 @@ export interface User {
   address?: string;
   profileImage?: string;
   role: 'USER' | 'OWNER' | 'ADMIN' | 'SUPER_ADMIN' | 'EDITOR' | 'VIEWER';
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
   defaultShippingAddress?: string;
   notificationEmail?: boolean;
   notificationSms?: boolean;

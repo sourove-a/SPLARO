@@ -95,12 +95,16 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         identifier: prev.identifier || 'admin@splaro.co'
       }));
     }
-  }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode]);
+    if (authMode !== 'login' && emailVerificationPending) {
+      setEmailVerificationPending(false);
+    }
+  }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode, emailVerificationPending]);
 
 
   const [showPass, setShowPass] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
   const [googleButtonState, setGoogleButtonState] = useState<'idle' | 'ready' | 'missing' | 'unavailable'>('idle');
   const googleClientId = String(
     import.meta.env.VITE_GOOGLE_CLIENT_ID ||
@@ -130,6 +134,12 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     ...(raw || {}),
     profileImage: raw?.profile_image || raw?.profileImage || '',
     createdAt: raw?.created_at || raw?.createdAt || new Date().toISOString(),
+    emailVerified: typeof raw?.email_verified === 'boolean'
+      ? raw.email_verified
+      : (typeof raw?.emailVerified === 'boolean' ? raw.emailVerified : (Number(raw?.email_verified ?? 0) === 1)),
+    phoneVerified: typeof raw?.phone_verified === 'boolean'
+      ? raw.phone_verified
+      : (typeof raw?.phoneVerified === 'boolean' ? raw.phoneVerified : (Number(raw?.phone_verified ?? 0) === 1)),
     defaultShippingAddress: raw?.default_shipping_address ?? raw?.defaultShippingAddress ?? '',
     notificationEmail: typeof raw?.notification_email === 'boolean'
       ? raw.notification_email
@@ -153,6 +163,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     e.preventDefault();
     setErrors({});
     const newErrors: Record<string, string> = {};
+    const isLoginOtpStep = authMode === 'login' && emailVerificationPending;
 
     if (authMode === 'signup') {
       if (!isEmail(formData.email)) newErrors.email = "Email Identity Mandatory *";
@@ -173,8 +184,14 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       }
     }
 
-    if (authMode !== 'forgot' && authMode !== 'signup') {
-      if (formData.password.length < 6) newErrors.password = "Minimum 6 Characters";
+    if (authMode === 'login') {
+      if (isLoginOtpStep) {
+        if (!/^\d{6}$/.test(formData.otp.trim())) {
+          newErrors.otp = "Enter 6-digit OTP";
+        }
+      } else if (formData.password.length < 6) {
+        newErrors.password = "Minimum 6 Characters";
+      }
     }
 
 
@@ -192,6 +209,46 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
     if (authMode === 'login') {
       try {
+        if (isLoginOtpStep) {
+          if (!IS_PROD) {
+            setEmailVerificationPending(false);
+            setStatus('idle');
+            return;
+          }
+
+          const verifyRes = await fetch(`${API_NODE}?action=verify_email_otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: formData.identifier, otp: formData.otp })
+          });
+          const verifyResult = await verifyRes.json();
+          if (verifyResult.status === 'success' && verifyResult.user) {
+            const normalizedUser = normalizeApiUser(verifyResult.user);
+            persistAuthToken(verifyResult.token);
+            if (isAdminRole(normalizedUser.role) && adminDomain && formData.password) {
+              persistAdminKey(formData.password);
+            }
+            setEmailVerificationPending(false);
+            setUser(normalizedUser);
+            setStatus('success');
+            const targetPath = isAdminRole(normalizedUser.role)
+              ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+              : '/';
+            setTimeout(() => navigate(targetPath), 1000);
+            return;
+          }
+
+          const verifyMessage = String(verifyResult?.message || 'INVALID_CODE_OR_EXPIRED');
+          if (verifyMessage === 'EMAIL_ALREADY_VERIFIED') {
+            setEmailVerificationPending(false);
+            setErrors({ identifier: 'Email already verified. Login with password.' });
+            setStatus('error');
+            setTimeout(() => setStatus('idle'), 3000);
+            return;
+          }
+          throw new Error(verifyMessage);
+        }
+
         if (IS_PROD) {
           const res = await fetch(`${API_NODE}?action=login`, {
             method: 'POST',
@@ -205,12 +262,31 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             if (isAdminRole(normalizedUser.role) && adminDomain) {
               persistAdminKey(formData.password);
             }
+            setEmailVerificationPending(false);
             setUser(normalizedUser);
             setStatus('success');
             const targetPath = isAdminRole(normalizedUser.role)
               ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
               : '/';
             setTimeout(() => navigate(targetPath), 1000);
+            return;
+          }
+          if (result.message === 'EMAIL_VERIFICATION_REQUIRED') {
+            setEmailVerificationPending(true);
+            setStatus('idle');
+            if (String(result.delivery || '') === 'FAILED') {
+              setErrors({ otp: 'OTP delivery failed. Use Resend OTP.' });
+            } else {
+              setErrors({ otp: 'Email OTP sent. Enter 6-digit code.' });
+            }
+            window.dispatchEvent(new CustomEvent('splaro-toast', {
+              detail: {
+                message: String(result.delivery || '') === 'FAILED'
+                  ? 'Email OTP delivery failed. Click resend.'
+                  : 'Verification OTP sent to your email.',
+                tone: String(result.delivery || '') === 'FAILED' ? 'error' : 'info'
+              }
+            }));
             return;
           }
           if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
@@ -248,7 +324,18 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
         throw new Error('INVALID_CREDENTIALS');
       } catch (e) {
-        setErrors({ identifier: 'Invalid Credentials', password: 'Check identity or access code' });
+        const message = e instanceof Error ? e.message : '';
+        if (isLoginOtpStep) {
+          if (message === 'INVALID_VERIFICATION_REQUEST') {
+            setErrors({ otp: 'Enter valid email and 6-digit OTP.' });
+          } else if (message === 'RATE_LIMIT_EXCEEDED') {
+            setErrors({ otp: 'Too many OTP attempts. Wait a minute.' });
+          } else {
+            setErrors({ otp: 'Invalid or expired OTP.' });
+          }
+        } else {
+          setErrors({ identifier: 'Invalid Credentials', password: 'Check identity or access code' });
+        }
         setStatus('error');
         setTimeout(() => setStatus('idle'), 3000);
       }
@@ -417,7 +504,43 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         }
       }
     }
-  };  // Google Identity Payload Decoder
+  };
+
+  const handleResendEmailOtp = async () => {
+    const email = formData.identifier.trim().toLowerCase();
+    if (!isEmail(email)) {
+      setErrors({ identifier: 'Enter a valid email first.' });
+      return;
+    }
+    try {
+      const res = await fetch(`${getPhpApiNode()}?action=request_email_verification_otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (result.status !== 'success') {
+        throw new Error(String(result.message || 'EMAIL_OTP_DELIVERY_FAILED'));
+      }
+      window.dispatchEvent(new CustomEvent('splaro-toast', {
+        detail: {
+          message: result.message === 'EMAIL_ALREADY_VERIFIED'
+            ? 'Email already verified. Login now.'
+            : 'Verification OTP resent to your email.',
+          tone: 'success'
+        }
+      }));
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      if (message === 'RATE_LIMIT_EXCEEDED') {
+        setErrors({ otp: 'Too many requests. Try after 1 minute.' });
+      } else {
+        setErrors({ otp: 'OTP resend failed. Try again.' });
+      }
+    }
+  };
+
+  // Google Identity Payload Decoder
   const decodeJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -729,6 +852,27 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                       placeholder="••••••••"
                     />
                   </div>
+                ) : emailVerificationPending ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                    <LuxuryFloatingInput
+                      label="Email Verification OTP"
+                      value={formData.otp}
+                      onChange={v => setFormData({ ...formData, otp: v.replace(/[^\d]/g, '').slice(0, 6) })}
+                      icon={<KeyRound className="w-5 h-5" />}
+                      error={errors.otp}
+                      placeholder="6-digit code"
+                    />
+                    <div className="flex items-center justify-between gap-4 text-[10px] uppercase tracking-wider">
+                      <p className="text-white/50">Check your email inbox for OTP</p>
+                      <button
+                        type="button"
+                        onClick={handleResendEmailOtp}
+                        className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
+                      >
+                        Resend OTP
+                      </button>
+                    </div>
+                  </motion.div>
                 ) : (
                   <LuxuryFloatingInput
                     label="Password"
@@ -746,7 +890,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                   />
                 )}
 
-                {authMode === 'login' && (
+                {authMode === 'login' && !emailVerificationPending && (
                   <div className="flex justify-end mt-[-1rem]">
                     <button
                       type="button"
@@ -773,7 +917,13 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                 isLoading={status === 'loading'}
                 className="w-full h-16 text-[11px] uppercase tracking-[0.4em]"
               >
-                {authMode === 'login' ? 'Sign In' : authMode === 'signup' ? 'Create Account' : recoveryStep === 'email' ? 'Send OTP Code' : 'Override Password'}
+                {authMode === 'login'
+                  ? (emailVerificationPending ? 'Verify Email OTP' : 'Sign In')
+                  : authMode === 'signup'
+                    ? 'Create Account'
+                    : recoveryStep === 'email'
+                      ? 'Send OTP Code'
+                      : 'Override Password'}
                 {!status.includes('loading') && <Sparkles className="w-4 h-4 ml-3" />}
               </PrimaryButton>
 

@@ -1469,7 +1469,8 @@ function users_sensitive_select_fields($db) {
         'password', 'role', 'reset_code', 'reset_expiry', 'created_at',
         'last_password_change_at', 'force_relogin', 'two_factor_enabled',
         'two_factor_secret', 'notification_email', 'notification_sms',
-        'preferred_language', 'default_shipping_address'
+        'preferred_language', 'default_shipping_address',
+        'email_verified', 'phone_verified', 'email_verify_code', 'email_verify_expiry'
     ]);
 }
 
@@ -2154,6 +2155,8 @@ function ensure_core_schema($db) {
     ensure_column($db, 'users', 'is_blocked', 'tinyint(1) NOT NULL DEFAULT 0');
     ensure_column($db, 'users', 'email_verified', 'tinyint(1) NOT NULL DEFAULT 0');
     ensure_column($db, 'users', 'phone_verified', 'tinyint(1) NOT NULL DEFAULT 0');
+    ensure_column($db, 'users', 'email_verify_code', 'varchar(10) DEFAULT NULL');
+    ensure_column($db, 'users', 'email_verify_expiry', 'datetime DEFAULT NULL');
     ensure_column($db, 'users', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
     ensure_column($db, 'users', 'deleted_at', 'datetime DEFAULT NULL');
 
@@ -5346,6 +5349,8 @@ function sanitize_user_payload($user) {
         'address' => $user['address'] ?? '',
         'profile_image' => $user['profile_image'] ?? '',
         'role' => $effectiveRole,
+        'email_verified' => isset($user['email_verified']) ? ((int)$user['email_verified'] === 1) : false,
+        'phone_verified' => isset($user['phone_verified']) ? ((int)$user['phone_verified'] === 1) : false,
         'default_shipping_address' => $user['default_shipping_address'] ?? '',
         'notification_email' => isset($user['notification_email']) ? ((int)$user['notification_email'] === 1) : true,
         'notification_sms' => isset($user['notification_sms']) ? ((int)$user['notification_sms'] === 1) : false,
@@ -5421,6 +5426,7 @@ function ensure_admin_identity_account($db) {
     $emails = resolve_admin_login_emails($db);
     $primaryEmail = owner_login_email($db);
     $adminHash = null; // Only compute if we actually need to insert/update
+    $hasEmailVerified = column_exists($db, 'users', 'email_verified');
 
     foreach ($emails as $email) {
         $roleToApply = is_owner_identity_email($email, $db) ? 'OWNER' : 'ADMIN';
@@ -5441,26 +5447,51 @@ function ensure_admin_identity_account($db) {
 
                 if ($needsUpdate) {
                     if ($adminHash === null) $adminHash = password_hash($secret, PASSWORD_DEFAULT);
-                    $update = $db->prepare("UPDATE users SET role = ?, password = ? WHERE id = ?");
-                    $update->execute([$roleToApply, $adminHash, $existing['id']]);
+                    if ($hasEmailVerified) {
+                        $update = $db->prepare("UPDATE users SET role = ?, password = ?, email_verified = CASE WHEN ? = 'OWNER' THEN 1 ELSE email_verified END WHERE id = ?");
+                        $update->execute([$roleToApply, $adminHash, $roleToApply, $existing['id']]);
+                    } else {
+                        $update = $db->prepare("UPDATE users SET role = ?, password = ? WHERE id = ?");
+                        $update->execute([$roleToApply, $adminHash, $existing['id']]);
+                    }
                 } else {
-                    $updateRole = $db->prepare("UPDATE users SET role = ? WHERE id = ?");
-                    $updateRole->execute([$roleToApply, $existing['id']]);
+                    if ($hasEmailVerified) {
+                        $updateRole = $db->prepare("UPDATE users SET role = ?, email_verified = CASE WHEN ? = 'OWNER' THEN 1 ELSE email_verified END WHERE id = ?");
+                        $updateRole->execute([$roleToApply, $roleToApply, $existing['id']]);
+                    } else {
+                        $updateRole = $db->prepare("UPDATE users SET role = ? WHERE id = ?");
+                        $updateRole->execute([$roleToApply, $existing['id']]);
+                    }
                 }
             } else {
                 if ($adminHash === null) $adminHash = password_hash($secret, PASSWORD_DEFAULT);
                 $newId = 'admin_' . bin2hex(random_bytes(4));
-                $insert = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $insert->execute([
-                    $newId,
-                    $roleToApply === 'OWNER' ? 'Splaro Owner' : 'Splaro Admin',
-                    $email,
-                    '01700000000',
-                    null,
-                    null,
-                    $adminHash,
-                    $roleToApply
-                ]);
+                if ($hasEmailVerified) {
+                    $insert = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $insert->execute([
+                        $newId,
+                        $roleToApply === 'OWNER' ? 'Splaro Owner' : 'Splaro Admin',
+                        $email,
+                        '01700000000',
+                        null,
+                        null,
+                        $adminHash,
+                        $roleToApply,
+                        $roleToApply === 'OWNER' ? 1 : 0
+                    ]);
+                } else {
+                    $insert = $db->prepare("INSERT INTO users (id, name, email, phone, address, profile_image, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    $insert->execute([
+                        $newId,
+                        $roleToApply === 'OWNER' ? 'Splaro Owner' : 'Splaro Admin',
+                        $email,
+                        '01700000000',
+                        null,
+                        null,
+                        $adminHash,
+                        $roleToApply
+                    ]);
+                }
             }
         } catch (Exception $e) {
             error_log("SPLARO_ADMIN_AUTOSEED_FAILURE({$email}): " . $e->getMessage());
@@ -13663,6 +13694,7 @@ if ($method === 'POST' && $action === 'signup') {
     $usersHasTwoFactorEnabled = column_exists($db, 'users', 'two_factor_enabled');
     $usersHasForceRelogin = column_exists($db, 'users', 'force_relogin');
     $usersHasLastPasswordChange = column_exists($db, 'users', 'last_password_change_at');
+    $usersHasEmailVerified = column_exists($db, 'users', 'email_verified');
 
     $userSelectFields = users_sensitive_select_fields($db);
     $check = $db->prepare("SELECT {$userSelectFields} FROM users WHERE email = ?");
@@ -13705,6 +13737,7 @@ if ($method === 'POST' && $action === 'signup') {
         $notificationEmail = array_key_exists('notificationEmail', $input) ? (!empty($input['notificationEmail']) ? 1 : 0) : (int)($existing['notification_email'] ?? 1);
         $notificationSms = array_key_exists('notificationSms', $input) ? (!empty($input['notificationSms']) ? 1 : 0) : (int)($existing['notification_sms'] ?? 0);
         $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? ($existing['default_shipping_address'] ?? '')));
+        $emailVerifiedTarget = ($isOwnerIdentity || isset($input['google_sub'])) ? 1 : (int)($existing['email_verified'] ?? 0);
 
         $updateParts = [
             "name = ?",
@@ -13736,6 +13769,10 @@ if ($method === 'POST' && $action === 'signup') {
         if ($usersHasPreferredLanguage) {
             $updateParts[] = "preferred_language = ?";
             $updateValues[] = $preferredLanguage;
+        }
+        if ($usersHasEmailVerified) {
+            $updateParts[] = "email_verified = ?";
+            $updateValues[] = $emailVerifiedTarget;
         }
 
         $updateValues[] = $existing['id'];
@@ -13771,6 +13808,7 @@ if ($method === 'POST' && $action === 'signup') {
     $defaultShippingAddress = trim((string)($input['defaultShippingAddress'] ?? $address));
     $notificationEmail = array_key_exists('notificationEmail', $input) ? (!empty($input['notificationEmail']) ? 1 : 0) : 1;
     $notificationSms = array_key_exists('notificationSms', $input) ? (!empty($input['notificationSms']) ? 1 : 0) : 0;
+    $emailVerifiedTarget = ($isOwnerIdentity || isset($input['google_sub'])) ? 1 : 0;
     $nowIso = date('Y-m-d H:i:s');
 
     $insertColumns = ['id', 'name', 'email', 'phone', 'address', 'profile_image', 'password', 'role'];
@@ -13800,6 +13838,10 @@ if ($method === 'POST' && $action === 'signup') {
     if ($usersHasPreferredLanguage) {
         $insertColumns[] = 'preferred_language';
         $insertValues[] = $preferredLanguage;
+    }
+    if ($usersHasEmailVerified) {
+        $insertColumns[] = 'email_verified';
+        $insertValues[] = $emailVerifiedTarget;
     }
     if ($usersHasTwoFactorEnabled) {
         $insertColumns[] = 'two_factor_enabled';
@@ -13848,7 +13890,7 @@ if ($method === 'POST' && $action === 'signup') {
         'thana' => (string)($input['thana'] ?? ''),
         'address' => (string)$address,
         'source' => 'web',
-        'verified' => false,
+        'verified' => $emailVerifiedTarget === 1,
         // compatibility fields for old script variants
         'id' => (string)$id,
         'role' => (string)$role
@@ -14041,6 +14083,138 @@ function find_user_for_recovery($db, $identifier) {
     }
 
     return ['user' => null, 'type' => 'email', 'normalized' => $emailCandidate];
+}
+
+function issue_email_verification_otp($db, $user, $context = 'LOGIN') {
+    $userId = trim((string)($user['id'] ?? ''));
+    $targetEmail = strtolower(trim((string)($user['email'] ?? '')));
+    if ($userId === '' || !filter_var($targetEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['ok' => false, 'message' => 'INVALID_EMAIL'];
+    }
+
+    $otp = random_int(100000, 999999);
+    $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+    $update = $db->prepare("UPDATE users SET email_verify_code = ?, email_verify_expiry = ? WHERE id = ?");
+    $update->execute([$otp, $expiry, $userId]);
+
+    $subject = "SPLARO Email Verification OTP";
+    $message = "Your SPLARO email verification code is: " . $otp . "
+
+This OTP will expire in 15 minutes.";
+    $sent = smtp_send_mail($db, $targetEmail, $subject, nl2br($message), true);
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    if ($sent) {
+        log_system_event($db, 'EMAIL_VERIFICATION_OTP_ISSUED', "Email verification OTP issued for user {$userId} ({$context})", $userId, $ip);
+        return ['ok' => true, 'message' => 'EMAIL_VERIFICATION_OTP_SENT', 'channel' => 'EMAIL'];
+    }
+
+    log_system_event($db, 'EMAIL_VERIFICATION_OTP_FAILED', "Failed to deliver email verification OTP for user {$userId} ({$context})", $userId, $ip);
+    return ['ok' => false, 'message' => 'EMAIL_OTP_DELIVERY_FAILED'];
+}
+
+if ($method === 'POST' && $action === 'request_email_verification_otp') {
+    if (is_rate_limited('request_email_verification_otp', 8, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $identifier = strtolower(trim((string)($input['identifier'] ?? ($input['email'] ?? ''))));
+    if (!filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_EMAIL"]);
+        exit;
+    }
+
+    $userSelectFields = users_sensitive_select_fields($db);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1");
+    $stmt->execute([$identifier]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        echo json_encode(["status" => "error", "message" => "IDENTITY_NOT_FOUND"]);
+        exit;
+    }
+
+    if ((int)($user['email_verified'] ?? 0) === 1) {
+        echo json_encode(["status" => "success", "message" => "EMAIL_ALREADY_VERIFIED"]);
+        exit;
+    }
+
+    $issue = issue_email_verification_otp($db, $user, 'MANUAL_REQUEST');
+    if (!empty($issue['ok'])) {
+        echo json_encode([
+            "status" => "success",
+            "message" => (string)($issue['message'] ?? 'EMAIL_VERIFICATION_OTP_SENT'),
+            "channel" => (string)($issue['channel'] ?? 'EMAIL')
+        ]);
+    } else {
+        echo json_encode(["status" => "error", "message" => (string)($issue['message'] ?? 'EMAIL_OTP_DELIVERY_FAILED')]);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'verify_email_otp') {
+    if (is_rate_limited('verify_email_otp', 10, 60)) {
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    $identifier = strtolower(trim((string)($input['identifier'] ?? ($input['email'] ?? ''))));
+    $otp = trim((string)($input['otp'] ?? ''));
+    if (!filter_var($identifier, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $otp)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_VERIFICATION_REQUEST"]);
+        exit;
+    }
+
+    $userSelectFields = users_sensitive_select_fields($db);
+    $stmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1");
+    $stmt->execute([$identifier]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);
+        exit;
+    }
+
+    if ((int)($user['email_verified'] ?? 0) === 1) {
+        echo json_encode(["status" => "success", "message" => "EMAIL_ALREADY_VERIFIED"]);
+        exit;
+    }
+
+    $verifyStmt = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? AND email_verify_code = ? AND email_verify_expiry > NOW() LIMIT 1");
+    $verifyStmt->execute([(string)$user['id'], $otp]);
+    $verifiedUser = $verifyStmt->fetch();
+    if (!$verifiedUser) {
+        echo json_encode(["status" => "error", "message" => "INVALID_CODE_OR_EXPIRED"]);
+        exit;
+    }
+
+    $update = $db->prepare("UPDATE users SET email_verified = 1, email_verify_code = NULL, email_verify_expiry = NULL, updated_at = NOW() WHERE id = ?");
+    $update->execute([(string)$verifiedUser['id']]);
+
+    $reload = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
+    $reload->execute([(string)$verifiedUser['id']]);
+    $reloadedUser = $reload->fetch() ?: $verifiedUser;
+
+    log_system_event(
+        $db,
+        'EMAIL_VERIFIED',
+        "Email verification completed for user " . (string)($reloadedUser['id'] ?? ''),
+        (string)($reloadedUser['id'] ?? ''),
+        $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
+    );
+
+    $safeUser = sanitize_user_payload($reloadedUser);
+    $token = issue_auth_token($safeUser);
+    $csrfToken = refresh_csrf_token();
+    echo json_encode([
+        "status" => "success",
+        "message" => "EMAIL_VERIFIED",
+        "user" => $safeUser,
+        "token" => $token,
+        "csrf_token" => $csrfToken
+    ]);
+    exit;
 }
 
 // 5.1 PASSWORD RECOVERY PROTOCOL (GENERATE OTP)
@@ -14371,6 +14545,40 @@ if ($method === 'POST' && $action === 'login') {
     }
 
     if ($user && $isAuthenticated) {
+        $emailVerified = (int)($user['email_verified'] ?? 0) === 1;
+        if (!$emailVerified && is_owner_identity_email((string)($user['email'] ?? ''), $db)) {
+            try {
+                $db->prepare("UPDATE users SET email_verified = 1, email_verify_code = NULL, email_verify_expiry = NULL WHERE id = ?")
+                    ->execute([(string)$user['id']]);
+                $emailVerified = true;
+                $reloadOwner = $db->prepare("SELECT {$userSelectFields} FROM users WHERE id = ? LIMIT 1");
+                $reloadOwner->execute([(string)$user['id']]);
+                $ownerRow = $reloadOwner->fetch();
+                if ($ownerRow) {
+                    $user = $ownerRow;
+                }
+            } catch (Exception $e) {
+                splaro_log_exception('login.owner_auto_verify', $e, [
+                    'user_id' => (string)($user['id'] ?? '')
+                ], 'WARNING');
+            }
+        }
+
+        if (!$emailVerified) {
+            $issue = issue_email_verification_otp($db, $user, 'LOGIN_BLOCK');
+            $response = [
+                "status" => "error",
+                "message" => "EMAIL_VERIFICATION_REQUIRED",
+                "channel" => "EMAIL"
+            ];
+            if (empty($issue['ok'])) {
+                $response['delivery'] = 'FAILED';
+                $response['delivery_message'] = (string)($issue['message'] ?? 'EMAIL_OTP_DELIVERY_FAILED');
+            }
+            echo json_encode($response);
+            exit;
+        }
+
         try {
             $resetForceRelogin = $db->prepare("UPDATE users SET force_relogin = 0 WHERE id = ?");
             $resetForceRelogin->execute([$user['id']]);

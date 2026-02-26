@@ -1142,6 +1142,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ...(raw || {}),
     profileImage: raw?.profile_image || raw?.profileImage || '',
     createdAt: raw?.created_at || raw?.createdAt || new Date().toISOString(),
+    emailVerified: typeof raw?.email_verified === 'boolean'
+      ? raw.email_verified
+      : (typeof raw?.emailVerified === 'boolean' ? raw.emailVerified : (Number(raw?.email_verified ?? 0) === 1)),
+    phoneVerified: typeof raw?.phone_verified === 'boolean'
+      ? raw.phone_verified
+      : (typeof raw?.phoneVerified === 'boolean' ? raw.phoneVerified : (Number(raw?.phone_verified ?? 0) === 1)),
     defaultShippingAddress: raw?.default_shipping_address ?? raw?.defaultShippingAddress ?? '',
     notificationEmail: typeof raw?.notification_email === 'boolean'
       ? raw.notification_email
