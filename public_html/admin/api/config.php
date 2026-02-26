@@ -707,10 +707,8 @@ function get_db_connection() {
         return null;
     }
 
-    $hostFallbackRaw = trim((string)env_or_default('DB_HOST_FALLBACK', ''));
-    $allowHostFallback = $hostFallbackRaw === ''
-        ? in_array(DB_HOST, ['127.0.0.1', 'localhost'], true)
-        : filter_var($hostFallbackRaw, FILTER_VALIDATE_BOOLEAN);
+    // Keep host fallback opt-in to avoid extra failed connection attempts.
+    $allowHostFallback = splaro_env_bool('DB_HOST_FALLBACK', false);
     $hostCandidates = [DB_HOST];
     if ($allowHostFallback) {
         if (DB_HOST === '127.0.0.1') {
