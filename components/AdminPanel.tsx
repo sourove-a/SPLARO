@@ -304,6 +304,16 @@ const ProductModal: React.FC<{
     }];
   };
 
+  const galleryImagesForUi = useMemo(
+    () => normalizeGallery(formData.galleryImages, formData.image || ''),
+    [formData.galleryImages, formData.image]
+  );
+
+  const emitProductToast = (tone: 'success' | 'error' | 'info', message: string) => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone, message } }));
+  };
+
   const parseVariationSizes = (raw: unknown): string[] => {
     const values = Array.isArray(raw)
       ? raw
@@ -453,11 +463,13 @@ const ProductModal: React.FC<{
       .map((value) => String(value || '').trim())
       .filter((value) => value !== '');
     if (incomingUrls.length === 0) return;
+    let addedCount = 0;
     setFormData((prev) => {
       const gallery = normalizeGallery(prev.galleryImages, prev.image || '');
       const nextGallery = [...gallery];
       for (const url of incomingUrls) {
         if (nextGallery.some((img) => img.url === url)) continue;
+        addedCount += 1;
         nextGallery.push({
           id: `img_${Math.random().toString(36).slice(2, 10)}`,
           url,
@@ -475,6 +487,11 @@ const ProductModal: React.FC<{
         galleryImages: normalized
       };
     });
+    if (addedCount === 0) {
+      emitProductToast('info', 'All selected gallery images are already added.');
+      return;
+    }
+    emitProductToast('success', `${addedCount} gallery image${addedCount > 1 ? 's' : ''} added.`);
   };
 
   const addGalleryImagesFromBulkInput = () => {
@@ -895,7 +912,12 @@ const ProductModal: React.FC<{
               </div>
 
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">Media Gallery</h3>
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500">Media Gallery</h3>
+                  <span className="px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[9px] font-black uppercase tracking-[0.16em]">
+                    {galleryImagesForUi.length} image{galleryImagesForUi.length === 1 ? '' : 's'}
+                  </span>
+                </div>
                 <p className="text-[10px] text-zinc-400 font-bold">WooCommerce style: 1 main image + gallery images (recommended 4-5).</p>
                 <div className="space-y-3">
                   <LuxuryFloatingInput
@@ -1049,10 +1071,38 @@ const ProductModal: React.FC<{
                     </button>
                   </div>
                   <p className="text-[10px] text-zinc-500">Drag করে reorder করতে পারবে, সাথে up/down controls ও থাকবে.</p>
+                  {galleryImagesForUi.length > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-[#0f1624] p-3 space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-400">
+                        Quick Preview (top {Math.min(galleryImagesForUi.length, 5)})
+                      </p>
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {galleryImagesForUi.slice(0, 5).map((img) => (
+                          <div key={`quick-${img.id}`} className="relative shrink-0">
+                            <img
+                              src={img.url}
+                              alt={img.altText || 'Product image'}
+                              className="w-14 h-14 rounded-lg object-cover border border-white/20"
+                            />
+                            {img.isMain && (
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-cyan-500 text-black text-[8px] font-black uppercase tracking-[0.1em]">
+                                Main
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        {galleryImagesForUi.length > 5 && (
+                          <div className="w-14 h-14 rounded-lg border border-white/20 bg-white/[0.03] text-zinc-300 text-[10px] font-black flex items-center justify-center shrink-0">
+                            +{galleryImagesForUi.length - 5}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-                  {normalizeGallery(formData.galleryImages, formData.image || '').map((img, index) => (
+                  {galleryImagesForUi.map((img, index) => (
                     <div
                       key={img.id}
                       draggable
