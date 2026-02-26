@@ -552,6 +552,153 @@
 
 <body class="dark">
     <div id="root"></div>
+    <script>
+        (function () {
+            var BOOT_TIMEOUT_MS = 8000;
+            var FALLBACK_ID = 'splaro-boot-fallback';
+
+            function createFallback(reason) {
+                if (document.getElementById(FALLBACK_ID)) return;
+
+                var root = document.getElementById('root');
+                if (!root) return;
+
+                var box = document.createElement('div');
+                box.id = FALLBACK_ID;
+                box.style.minHeight = '100vh';
+                box.style.display = 'flex';
+                box.style.alignItems = 'center';
+                box.style.justifyContent = 'center';
+                box.style.background = '#050d1a';
+                box.style.color = '#e8f4ff';
+                box.style.padding = '24px';
+                box.style.fontFamily = 'Inter, sans-serif';
+                box.style.position = 'relative';
+                box.style.zIndex = '9999';
+
+                var panel = document.createElement('div');
+                panel.style.maxWidth = '540px';
+                panel.style.width = '100%';
+                panel.style.border = '1px solid rgba(148,222,255,0.35)';
+                panel.style.borderRadius = '18px';
+                panel.style.padding = '22px';
+                panel.style.background = 'rgba(9,22,41,0.86)';
+                panel.style.boxShadow = '0 20px 50px rgba(0,0,0,0.45)';
+
+                var title = document.createElement('h2');
+                title.textContent = 'SPLARO client reload required';
+                title.style.margin = '0 0 10px';
+                title.style.fontSize = '20px';
+                title.style.fontWeight = '800';
+
+                var text = document.createElement('p');
+                text.textContent = 'The app bundle did not initialize correctly. Clear stale cache and reload.';
+                text.style.margin = '0 0 14px';
+                text.style.fontSize = '13px';
+                text.style.lineHeight = '1.5';
+                text.style.color = 'rgba(227,236,250,0.82)';
+
+                var meta = document.createElement('p');
+                meta.textContent = 'Signal: ' + reason;
+                meta.style.margin = '0 0 16px';
+                meta.style.fontSize = '11px';
+                meta.style.letterSpacing = '0.08em';
+                meta.style.textTransform = 'uppercase';
+                meta.style.color = 'rgba(111,224,255,0.78)';
+
+                var row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.gap = '10px';
+                row.style.flexWrap = 'wrap';
+
+                var hardReloadBtn = document.createElement('button');
+                hardReloadBtn.type = 'button';
+                hardReloadBtn.textContent = 'Clear Cache + Reload';
+                hardReloadBtn.style.height = '40px';
+                hardReloadBtn.style.padding = '0 16px';
+                hardReloadBtn.style.borderRadius = '999px';
+                hardReloadBtn.style.border = '1px solid rgba(111,224,255,0.5)';
+                hardReloadBtn.style.background = 'rgba(31,144,255,0.28)';
+                hardReloadBtn.style.color = '#eaffff';
+                hardReloadBtn.style.cursor = 'pointer';
+                hardReloadBtn.onclick = function () {
+                    var cleanup = [];
+                    if ('serviceWorker' in navigator) {
+                        cleanup.push(
+                            navigator.serviceWorker.getRegistrations().then(function (regs) {
+                                return Promise.all(regs.map(function (reg) { return reg.unregister(); }));
+                            })
+                        );
+                    }
+                    if ('caches' in window) {
+                        cleanup.push(
+                            caches.keys().then(function (keys) {
+                                return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+                            })
+                        );
+                    }
+                    Promise.all(cleanup).finally(function () {
+                        try {
+                            localStorage.removeItem('splaro-push-soft-dismissed');
+                            sessionStorage.clear();
+                        } catch (_) { }
+                        window.location.reload();
+                    });
+                };
+
+                var refreshBtn = document.createElement('button');
+                refreshBtn.type = 'button';
+                refreshBtn.textContent = 'Reload Now';
+                refreshBtn.style.height = '40px';
+                refreshBtn.style.padding = '0 16px';
+                refreshBtn.style.borderRadius = '999px';
+                refreshBtn.style.border = '1px solid rgba(255,255,255,0.28)';
+                refreshBtn.style.background = 'transparent';
+                refreshBtn.style.color = '#eaf4ff';
+                refreshBtn.style.cursor = 'pointer';
+                refreshBtn.onclick = function () {
+                    window.location.reload();
+                };
+
+                row.appendChild(hardReloadBtn);
+                row.appendChild(refreshBtn);
+
+                panel.appendChild(title);
+                panel.appendChild(text);
+                panel.appendChild(meta);
+                panel.appendChild(row);
+                box.appendChild(panel);
+
+                if (root.childNodes.length === 0) {
+                    root.appendChild(box);
+                }
+            }
+
+            function isRootHydrated() {
+                var root = document.getElementById('root');
+                if (!root) return false;
+                if (root.childElementCount === 0) return false;
+                return root.textContent.trim().length > 0 || root.querySelector('*') !== null;
+            }
+
+            window.addEventListener('error', function (event) {
+                var target = event && event.target;
+                if (target && target.tagName === 'SCRIPT') {
+                    createFallback('SCRIPT_LOAD_FAILED');
+                }
+            }, true);
+
+            window.addEventListener('unhandledrejection', function () {
+                window.setTimeout(function () {
+                    if (!isRootHydrated()) createFallback('RUNTIME_REJECTION');
+                }, 200);
+            });
+
+            window.setTimeout(function () {
+                if (!isRootHydrated()) createFallback('BOOT_TIMEOUT');
+            }, BOOT_TIMEOUT_MS);
+        })();
+    </script>
 </body>
 
 </html>
