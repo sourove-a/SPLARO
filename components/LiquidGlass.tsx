@@ -46,6 +46,7 @@ export const LuxuryFloatingInput: React.FC<{
   label: string;
   value: string;
   onChange: (val: string) => void;
+  onBlur?: () => void;
   icon?: React.ReactNode;
   type?: string;
   error?: string;
@@ -53,7 +54,7 @@ export const LuxuryFloatingInput: React.FC<{
   suffix?: React.ReactNode;
   placeholder?: string;
   autoComplete?: string;
-}> = ({ label, value, onChange, icon, type = "text", error, isValid, suffix, placeholder, autoComplete = "off" }) => {
+}> = ({ label, value, onChange, onBlur, icon, type = "text", error, isValid, suffix, placeholder, autoComplete = "off" }) => {
   const [focused, setFocused] = useState(false);
   const isFilled = value.length > 0;
   const inputMode =
@@ -97,7 +98,10 @@ export const LuxuryFloatingInput: React.FC<{
             inputMode={inputMode}
             autoComplete={autoComplete}
             onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onBlur={() => {
+              setFocused(false);
+              onBlur?.();
+            }}
             onChange={(e) => onChange(e.target.value)}
             placeholder={focused && !isFilled ? placeholder : ""}
             className="luxury-input-field w-full h-full bg-transparent px-5 pt-7 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 text-white font-semibold text-[15px] md:text-base tracking-[0.01em] placeholder:text-[#9BB0CC] transition-all relative z-10 pointer-events-auto appearance-none shadow-none"

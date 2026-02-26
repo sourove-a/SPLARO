@@ -284,6 +284,7 @@ const ProductModal: React.FC<{
   const resolvedCategorySlug = slugify(formData.categorySlug || formData.category || 'category');
   const resolvedProductSlug = slugify(formData.productSlug || formData.id || formData.name || 'product');
   const liveProductUrl = `${appOrigin}/product/${resolvedBrandSlug}/${resolvedCategorySlug}/${resolvedProductSlug}`;
+  const previewLiveUrl = normalizeToPublicStorefrontUrl(formData.liveUrl || liveProductUrl, appOrigin);
 
   const normalizeGallery = (raw: unknown, fallbackMainUrl: string): ProductImage[] => {
     const fromRaw = Array.isArray(raw) ? raw : [];
@@ -1379,16 +1380,22 @@ const ProductModal: React.FC<{
                   label="Custom Canonical URL (Optional)"
                   value={formData.liveUrl || ''}
                   onChange={v => setFormData({ ...formData, liveUrl: v })}
+                  onBlur={() => {
+                    const normalized = normalizeToPublicStorefrontUrl(formData.liveUrl || '', appOrigin);
+                    if (normalized !== (formData.liveUrl || '')) {
+                      setFormData((prev) => ({ ...prev, liveUrl: normalized }));
+                    }
+                  }}
                   placeholder="https://splaro.co/product/brand/category/product-name"
                   icon={<Globe className="w-5 h-5" />}
                 />
                 <div className="p-4 rounded-xl border border-white/15 bg-[#0f1624]">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-[0.18em] font-black mb-2">Live URL Preview</p>
-                  <p className="text-xs text-cyan-300 break-all font-semibold">{formData.liveUrl || liveProductUrl}</p>
+                  <p className="text-xs text-cyan-300 break-all font-semibold">{previewLiveUrl}</p>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(formData.liveUrl || liveProductUrl);
+                      navigator.clipboard.writeText(previewLiveUrl);
                       window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
                     }}
                     className="mt-3 px-3 py-2 rounded-lg border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
@@ -5430,12 +5437,14 @@ export const AdminPanel = () => {
                   .map((img) => img.url);
 
                 const finalId = editingProduct?.id || uniqueSlug;
-                const generatedLiveUrl = `${getStorefrontOrigin()}${buildProductRoute({
-                  ...p,
-                  brandSlug,
-                  categorySlug,
-                  productSlug: uniqueSlug
-                })}`;
+                const generatedLiveUrl = normalizeToPublicStorefrontUrl(
+                  `${getStorefrontOrigin()}${buildProductRoute({
+                    ...p,
+                    brandSlug,
+                    categorySlug,
+                    productSlug: uniqueSlug
+                  })}`
+                );
                 const customLiveUrl = String(p.liveUrl || '').trim();
                 const liveUrl = customLiveUrl !== ''
                   ? normalizeToPublicStorefrontUrl(customLiveUrl)
