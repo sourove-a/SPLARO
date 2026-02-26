@@ -235,6 +235,14 @@ const ProductModal: React.FC<{
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
   const [draggingGalleryId, setDraggingGalleryId] = useState<string | null>(null);
+  const [variationDraft, setVariationDraft] = useState({
+    color: '',
+    sizes: '',
+    sku: '',
+    price: '',
+    stock: '',
+    image: ''
+  });
 
   const sizeSetsByCategory: Record<string, string[]> = {
     shoes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
@@ -246,6 +254,11 @@ const ProductModal: React.FC<{
   const availableMaterials = ['Leather', 'Synthetic', 'Mesh', 'Canvas', 'Knit', 'Suede'];
   const sizeSetKey = String(formData.categorySlug || formData.category || '').toLowerCase().includes('bag') ? 'bags' : 'shoes';
   const activeSizeOptions = sizeSetsByCategory[sizeSetKey] || sizeSetsByCategory.shoes;
+  const availableVariationColors = useMemo(() => {
+    const fromVariants = Array.isArray(formData.colorVariants) ? formData.colorVariants.map((item) => String(item?.name || '').trim()) : [];
+    const fromColors = Array.isArray(formData.colors) ? formData.colors.map((item) => String(item || '').trim()) : [];
+    return Array.from(new Set([...fromVariants, ...fromColors].filter(Boolean)));
+  }, [formData.colorVariants, formData.colors]);
 
   const slugify = slugifyValue;
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://splaro.co';
@@ -289,6 +302,49 @@ const ProductModal: React.FC<{
       sortOrder: 0,
       isMain: true
     }];
+  };
+
+  const parseVariationSizes = (raw: unknown): string[] => {
+    const values = Array.isArray(raw)
+      ? raw
+      : (typeof raw === 'string' ? raw.split(/[\n,]+/g) : []);
+    return values
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
+  };
+
+  const normalizeProductVariations = (raw: unknown): NonNullable<Product['variations']> => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item: any) => {
+        if (!item || typeof item !== 'object') return null;
+        const color = String(item.color || '').trim();
+        if (!color) return null;
+        const sizes = parseVariationSizes(item.sizes);
+        const sku = String(item.sku || '').trim();
+        const image = String(item.image || '').trim();
+        const priceRaw = Number(item.price);
+        const stockRaw = Number(item.stock);
+        return {
+          color,
+          sizes,
+          ...(Number.isFinite(priceRaw) ? { price: priceRaw } : {}),
+          ...(Number.isFinite(stockRaw) ? { stock: Math.max(0, Math.round(stockRaw)) } : {}),
+          ...(sku ? { sku } : {}),
+          ...(image ? { image } : {})
+        };
+      })
+      .filter(Boolean) as NonNullable<Product['variations']>;
+  };
+
+  const variationKey = (color: string, sizes: string[]) => {
+    const normalizedSizes = [...sizes].map((size) => String(size).trim().toLowerCase()).filter(Boolean).sort();
+    return `${String(color).trim().toLowerCase()}::${normalizedSizes.join('|')}`;
+  };
+
+  const skuToken = (value: string) => {
+    const token = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return token.slice(0, 8) || 'VAR';
   };
 
   const getAuthHeaders = (): Record<string, string> => {
@@ -479,6 +535,128 @@ const ProductModal: React.FC<{
     });
   };
 
+  const addManualVariation = () => {
+    const selectedColor = variationDraft.color.trim();
+    if (!selectedColor) {
+      window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'error', message: 'Variation color is required.' } }));
+      return;
+    }
+    const parsedSizes = parseVariationSizes(variationDraft.sizes);
+    const sizes = parsedSizes.length > 0
+      ? parsedSizes
+      : ((Array.isArray(formData.sizes) && formData.sizes.length > 0) ? [String(formData.sizes[0])] : ['Default']);
+    const draftKey = variationKey(selectedColor, sizes);
+    const priceRaw = Number(variationDraft.price);
+    const stockRaw = Number(variationDraft.stock);
+    const payload = {
+      color: selectedColor,
+      sizes,
+      sku: variationDraft.sku.trim() || undefined,
+      price: Number.isFinite(priceRaw) ? priceRaw : undefined,
+      stock: Number.isFinite(stockRaw) ? Math.max(0, Math.round(stockRaw)) : undefined,
+      image: variationDraft.image.trim() || undefined
+    };
+    setFormData((prev) => {
+      const variations = normalizeProductVariations(prev.variations);
+      const next = [...variations];
+      const existingIndex = next.findIndex((item) => variationKey(item.color, item.sizes || []) === draftKey);
+      if (existingIndex >= 0) {
+        next[existingIndex] = {
+          ...next[existingIndex],
+          ...payload
+        };
+      } else {
+        next.push(payload);
+      }
+      return {
+        ...prev,
+        variations: next
+      };
+    });
+    setVariationDraft((prev) => ({
+      ...prev,
+      sizes: '',
+      sku: '',
+      price: '',
+      stock: '',
+      image: ''
+    }));
+  };
+
+  const updateVariationField = (index: number, field: 'color' | 'sizes' | 'sku' | 'price' | 'stock' | 'image', value: string) => {
+    setFormData((prev) => {
+      const variations = normalizeProductVariations(prev.variations);
+      if (index < 0 || index >= variations.length) return prev;
+      const next = [...variations];
+      if (field === 'color') {
+        next[index] = { ...next[index], color: value };
+      } else if (field === 'sizes') {
+        next[index] = { ...next[index], sizes: parseVariationSizes(value) };
+      } else if (field === 'sku') {
+        next[index] = { ...next[index], sku: value.trim() || undefined };
+      } else if (field === 'image') {
+        next[index] = { ...next[index], image: value.trim() || undefined };
+      } else if (field === 'price') {
+        const price = Number(value);
+        next[index] = { ...next[index], price: Number.isFinite(price) ? price : undefined };
+      } else if (field === 'stock') {
+        const stock = Number(value);
+        next[index] = { ...next[index], stock: Number.isFinite(stock) ? Math.max(0, Math.round(stock)) : undefined };
+      }
+      return {
+        ...prev,
+        variations: next
+      };
+    });
+  };
+
+  const removeVariationRow = (index: number) => {
+    setFormData((prev) => {
+      const variations = normalizeProductVariations(prev.variations);
+      if (index < 0 || index >= variations.length) return prev;
+      const next = variations.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        variations: next
+      };
+    });
+  };
+
+  const generateVariationMatrix = () => {
+    setFormData((prev) => {
+      const colors = Array.from(new Set([
+        ...(Array.isArray(prev.colorVariants) ? prev.colorVariants.map((item) => String(item?.name || '').trim()) : []),
+        ...(Array.isArray(prev.colors) ? prev.colors.map((item) => String(item || '').trim()) : [])
+      ].filter(Boolean)));
+      const sizes = Array.isArray(prev.sizes) && prev.sizes.length > 0
+        ? prev.sizes.map((size) => String(size).trim()).filter(Boolean)
+        : ['Default'];
+      if (colors.length === 0 || sizes.length === 0) return prev;
+
+      const baseSku = String(prev.sku || 'SP').toUpperCase().replace(/[^A-Z0-9-]/g, '');
+      const existing = normalizeProductVariations(prev.variations);
+      const byKey = new Map(existing.map((item) => [variationKey(item.color, item.sizes || []), item]));
+      const generated: NonNullable<Product['variations']> = [...existing];
+
+      for (const color of colors) {
+        for (const size of sizes) {
+          const key = variationKey(color, [size]);
+          if (byKey.has(key)) continue;
+          generated.push({
+            color,
+            sizes: [size],
+            sku: `${baseSku}-${skuToken(color)}-${skuToken(size)}`
+          });
+        }
+      }
+
+      return {
+        ...prev,
+        variations: generated
+      };
+    });
+  };
+
   useEffect(() => {
     setFormData((prev) => {
       const normalized = normalizeGallery(prev.galleryImages || (product?.galleryImages || []), prev.image || product?.image || '');
@@ -487,12 +665,14 @@ const ProductModal: React.FC<{
       const colorVariants = Array.isArray(prev.colorVariants)
         ? prev.colorVariants
         : existingColors.map((name) => ({ name, hex: '#111827', material: '' }));
+      const variations = normalizeProductVariations(prev.variations || (product?.variations || []));
       return {
         ...prev,
         galleryImages: normalized,
         image: main?.url || prev.image || '',
         mainImageId: main?.id || prev.mainImageId,
-        colorVariants
+        colorVariants,
+        variations
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1104,6 +1284,142 @@ const ProductModal: React.FC<{
                   {(formData.colorVariants || []).length === 0 && (
                     <p className="text-[10px] text-zinc-500">No color variants added yet.</p>
                   )}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 border-b border-white/10 pb-4">WooCommerce Variant Matrix</h3>
+                <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Color</label>
+                      <select
+                        value={variationDraft.color}
+                        onChange={(e) => setVariationDraft((prev) => ({ ...prev, color: e.target.value }))}
+                        className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      >
+                        <option value="">Select color</option>
+                        {availableVariationColors.map((color) => (
+                          <option key={color} value={color}>{color}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Sizes (comma separated)</label>
+                      <input
+                        value={variationDraft.sizes}
+                        onChange={(e) => setVariationDraft((prev) => ({ ...prev, sizes: e.target.value }))}
+                        placeholder={Array.isArray(formData.sizes) && formData.sizes.length > 0 ? formData.sizes.join(', ') : '40, 41'}
+                        className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input
+                      value={variationDraft.sku}
+                      onChange={(e) => setVariationDraft((prev) => ({ ...prev, sku: e.target.value }))}
+                      placeholder="Variant SKU"
+                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                    />
+                    <input
+                      type="number"
+                      value={variationDraft.price}
+                      onChange={(e) => setVariationDraft((prev) => ({ ...prev, price: e.target.value }))}
+                      placeholder="Price override"
+                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                    />
+                    <input
+                      type="number"
+                      value={variationDraft.stock}
+                      onChange={(e) => setVariationDraft((prev) => ({ ...prev, stock: e.target.value }))}
+                      placeholder="Stock"
+                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                    />
+                  </div>
+
+                  <input
+                    value={variationDraft.image}
+                    onChange={(e) => setVariationDraft((prev) => ({ ...prev, image: e.target.value }))}
+                    placeholder="Variant image URL (optional)"
+                    className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                  />
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={addManualVariation}
+                      className="px-4 h-10 rounded-xl border border-cyan-500/45 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                    >
+                      Add / Update Variant
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateVariationMatrix}
+                      className="px-4 h-10 rounded-xl border border-blue-500/45 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                    >
+                      Auto Generate From Color + Size
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                    {normalizeProductVariations(formData.variations).map((variation, index) => (
+                      <div key={`${variation.color}-${index}`} className="rounded-xl border border-white/15 bg-[#0f1624] p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <input
+                            value={variation.color || ''}
+                            onChange={(e) => updateVariationField(index, 'color', e.target.value)}
+                            placeholder="Color"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                          />
+                          <input
+                            value={Array.isArray(variation.sizes) ? variation.sizes.join(', ') : ''}
+                            onChange={(e) => updateVariationField(index, 'sizes', e.target.value)}
+                            placeholder="Sizes (e.g. 40,41)"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                          />
+                          <input
+                            value={variation.sku || ''}
+                            onChange={(e) => updateVariationField(index, 'sku', e.target.value)}
+                            placeholder="SKU"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <input
+                            type="number"
+                            value={variation.price !== undefined ? String(variation.price) : ''}
+                            onChange={(e) => updateVariationField(index, 'price', e.target.value)}
+                            placeholder="Price override"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                          />
+                          <input
+                            type="number"
+                            value={variation.stock !== undefined ? String(variation.stock) : ''}
+                            onChange={(e) => updateVariationField(index, 'stock', e.target.value)}
+                            placeholder="Stock"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeVariationRow(index)}
+                            className="w-full h-10 rounded-lg border border-rose-500/45 text-rose-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-rose-500/10"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <input
+                          value={variation.image || ''}
+                          onChange={(e) => updateVariationField(index, 'image', e.target.value)}
+                          placeholder="Variant image URL"
+                          className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                        />
+                      </div>
+                    ))}
+                    {normalizeProductVariations(formData.variations).length === 0 && (
+                      <p className="text-[10px] text-zinc-500">No explicit variants yet. Add manually or generate from selected color + size.</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
