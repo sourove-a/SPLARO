@@ -100,6 +100,33 @@ const BentoCard: React.FC<{
   </GlassCard>
 );
 
+const ProductCollapsibleBox: React.FC<{
+  title: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}> = ({ title, hint, defaultOpen = false, children }) => {
+  const [isOpen, setIsOpen] = useState<boolean>(Boolean(defaultOpen));
+
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-[#0f1624]/70 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="w-full text-left px-6 py-5 flex items-center justify-between gap-4"
+        aria-expanded={isOpen}
+      >
+        <div>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">{title}</h3>
+          {hint ? <p className="text-[9px] text-zinc-500 font-semibold mt-1">{hint}</p> : null}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen ? <div className="px-6 pb-6">{children}</div> : null}
+    </div>
+  );
+};
+
 type FinanceExpense = {
   id: string;
   label: string;
@@ -728,24 +755,6 @@ const ProductModal: React.FC<{
     }));
   };
 
-  const CollapsibleBox: React.FC<{
-    title: string;
-    hint?: string;
-    defaultOpen?: boolean;
-    children: React.ReactNode;
-  }> = ({ title, hint, defaultOpen = false, children }) => (
-    <details open={defaultOpen} className="rounded-[28px] border border-white/10 bg-[#0f1624]/70 overflow-hidden group">
-      <summary className="list-none cursor-pointer px-6 py-5 flex items-center justify-between gap-4">
-        <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">{title}</h3>
-          {hint ? <p className="text-[9px] text-zinc-500 font-semibold mt-1">{hint}</p> : null}
-        </div>
-        <ChevronDown className="w-4 h-4 text-zinc-400 transition-transform duration-200 group-open:rotate-180" />
-      </summary>
-      <div className="px-6 pb-6">{children}</div>
-    </details>
-  );
-
   const toggleSize = (size: string) => {
     const current = formData.sizes || [];
     setFormData({ ...formData, sizes: current.includes(size) ? current.filter(s => s !== size) : [...current, size] });
@@ -827,7 +836,7 @@ const ProductModal: React.FC<{
 
             {/* Left Column: Basic Info & Specs */}
             <div className="space-y-12">
-              <CollapsibleBox title="Identity & Category" hint="Name, brand, category, visibility" defaultOpen>
+              <ProductCollapsibleBox title="Identity & Category" hint="Name, brand, category, visibility" defaultOpen>
                 <div className="space-y-6">
                 <LuxuryFloatingInput label="Asset Name" value={formData.name || ''} onChange={handleNameChange} placeholder="e.g. Nike Air Max" icon={<ShoppingBag className="w-5 h-5" />} />
                 <div className="space-y-2">
@@ -948,9 +957,9 @@ const ProductModal: React.FC<{
                   </button>
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="Structural Specs" hint="SKU, weight, dimensions">
+              <ProductCollapsibleBox title="Structural Specs" hint="SKU, weight, dimensions">
                 <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <LuxuryFloatingInput label="SKU Protocol" value={formData.sku || ''} onChange={v => setFormData({ ...formData, sku: v })} placeholder="SP-XXXXXX" icon={<Box className="w-5 h-5" />} />
@@ -962,12 +971,12 @@ const ProductModal: React.FC<{
                   <LuxuryFloatingInput label="Height" value={formData.dimensions?.h || ''} onChange={v => setFormData({ ...formData, dimensions: { ...formData.dimensions!, h: v } })} placeholder="12cm" />
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
             </div>
 
             {/* Middle Column: Finances & Media */}
             <div className="space-y-12">
-              <CollapsibleBox title="Pricing & Stock" hint="Price, discount, stock, status" defaultOpen>
+              <ProductCollapsibleBox title="Pricing & Stock" hint="Price, discount, stock, status" defaultOpen>
                 <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-6">
                   <LuxuryFloatingInput label="Asset Value (৳)" type="number" value={formData.price?.toString() || ''} onChange={v => setFormData({ ...formData, price: Number(v) })} placeholder="0.00" icon={<DollarSign className="w-5 h-5" />} />
@@ -1023,9 +1032,9 @@ const ProductModal: React.FC<{
                   Hide product when out of stock
                 </label>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
+              <ProductCollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
                 <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <span className="px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[9px] font-black uppercase tracking-[0.16em]">
@@ -1246,9 +1255,9 @@ const ProductModal: React.FC<{
 
                 <LuxuryFloatingInput label="Size Chart Image URL" value={formData.sizeChartImage || ''} onChange={v => setFormData({ ...formData, sizeChartImage: v })} placeholder="Sizing image URL" icon={<Maximize className="w-5 h-5" />} />
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="Product Tags" hint="Quick product badges">
+              <ProductCollapsibleBox title="Product Tags" hint="Quick product badges">
                 <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   {['New Arrival', 'Best Seller', 'On Sale'].map(tag => (
@@ -1268,12 +1277,12 @@ const ProductModal: React.FC<{
                   </button>
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
             </div>
 
             {/* Right Column: Descriptions & Variations */}
             <div className="space-y-12">
-              <CollapsibleBox title="Attributes (Size/Color/Gender)" hint="Size options by category">
+              <ProductCollapsibleBox title="Attributes (Size/Color/Gender)" hint="Size options by category" defaultOpen>
                 <div className="space-y-6">
                 <p className="text-[10px] text-zinc-500 font-semibold">Size সেট category অনুযায়ী load হবে: {sizeSetKey === 'bags' ? 'Bags' : 'Shoes'}.</p>
                 <div className="grid grid-cols-4 gap-3">
@@ -1288,9 +1297,9 @@ const ProductModal: React.FC<{
                   ))}
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="Descriptions (EN/BN)" hint="Product details in both languages" defaultOpen>
+              <ProductCollapsibleBox title="Descriptions (EN/BN)" hint="Product details in both languages" defaultOpen>
                 <div className="space-y-6">
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
@@ -1311,9 +1320,9 @@ const ProductModal: React.FC<{
                   />
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="Material Options">
+              <ProductCollapsibleBox title="Material Options">
                 <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   {availableMaterials.map(m => (
@@ -1330,8 +1339,8 @@ const ProductModal: React.FC<{
                   ))}
                 </div>
               </div>
-              </CollapsibleBox>
-              <CollapsibleBox title="SEO + Links" hint="Custom slug, metadata, canonical URL" defaultOpen>
+              </ProductCollapsibleBox>
+              <ProductCollapsibleBox title="SEO + Links" hint="Custom slug, metadata, canonical URL" defaultOpen>
                 <div className="space-y-4">
                 <LuxuryFloatingInput
                   label="Meta Title Manifest"
@@ -1413,9 +1422,9 @@ const ProductModal: React.FC<{
                   />
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="Variation Intelligence" hint="Color variants and swatches">
+              <ProductCollapsibleBox title="Variation Intelligence" hint="Color variants and swatches">
                 <div className="space-y-4">
                 <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1473,9 +1482,9 @@ const ProductModal: React.FC<{
                   )}
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
 
-              <CollapsibleBox title="WooCommerce Variant Matrix" hint="Manual rows + auto generated variants">
+              <ProductCollapsibleBox title="WooCommerce Variant Matrix" hint="Manual rows + auto generated variants">
                 <div className="space-y-4">
                 <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1610,7 +1619,7 @@ const ProductModal: React.FC<{
                   </div>
                 </div>
               </div>
-              </CollapsibleBox>
+              </ProductCollapsibleBox>
             </div>
           </div>
         </div>
