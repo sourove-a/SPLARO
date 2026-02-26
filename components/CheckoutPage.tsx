@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, Phone, User, MapPin, Mail,
@@ -111,6 +111,7 @@ export const CheckoutPage: React.FC = () => {
   const ADDRESS_MIN_LENGTH = 3;
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const [submitError, setSubmitError] = useState('');
+  const submitLockRef = useRef(false);
   const [discountInput, setDiscountInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [discountError, setDiscountError] = useState('');
@@ -219,6 +220,7 @@ export const CheckoutPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current || status === 'processing') return;
     setSubmitError('');
     const newErrors: Record<string, string> = {};
 
@@ -239,46 +241,52 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    submitLockRef.current = true;
     setStatus('processing');
-    await new Promise(r => setTimeout(r, 2200));
+    try {
+      const result = await addOrder({
+        id: `SPL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        userId: user?.id,
+        customerName: formData.fullName,
+        customerEmail: formData.email,
+        phone: formData.phone,
+        items: cart,
+        total: finalTotal,
+        discountAmount,
+        discountCode: appliedDiscount?.code,
+        shippingFee,
+        district: formData.district,
+        thana: formData.thana,
+        address: normalizeAddress(formData.address),
+        customerComment: formData.customerComment,
+        status: 'Pending',
+        createdAt: new Date().toISOString()
+      });
 
-    const result = await addOrder({
-      id: `SPL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-      userId: user?.id,
-      customerName: formData.fullName,
-      customerEmail: formData.email,
-      phone: formData.phone,
-      items: cart,
-      total: finalTotal,
-      discountAmount,
-      discountCode: appliedDiscount?.code,
-      shippingFee,
-      district: formData.district,
-      thana: formData.thana,
-      address: normalizeAddress(formData.address),
-      customerComment: formData.customerComment,
-      status: 'Pending',
-      createdAt: new Date().toISOString()
-    });
-
-    if (!result.ok) {
-      setStatus('idle');
-      if (result.message === 'ORDER_REQUEST_TIMEOUT') {
-        setSubmitError('Server response delayed. Please retry once.');
-      } else {
-        setSubmitError(result.message || 'Order submit failed');
+      if (!result.ok) {
+        submitLockRef.current = false;
+        setStatus('idle');
+        if (result.message === 'ORDER_REQUEST_TIMEOUT') {
+          setSubmitError('Server response delayed. Please retry once.');
+        } else {
+          setSubmitError(result.message || 'Order submit failed');
+        }
+        return;
       }
-      return;
+
+
+      const invoiceSent = result.message === 'INVOICE_DISPATCHED'
+        || result.email?.customer === true
+        || result.invoice?.status === 'SENT';
+      const invoiceQuery = invoiceSent ? 'sent' : 'pending';
+
+      setStatus('success');
+      setTimeout(() => navigate(`/order_success?invoice=${invoiceQuery}`), 2000);
+    } catch {
+      submitLockRef.current = false;
+      setStatus('idle');
+      setSubmitError('Order submit failed. Please retry.');
     }
-
-
-    const invoiceSent = result.message === 'INVOICE_DISPATCHED'
-      || result.email?.customer === true
-      || result.invoice?.status === 'SENT';
-    const invoiceQuery = invoiceSent ? 'sent' : 'pending';
-
-    setStatus('success');
-    setTimeout(() => navigate(`/order_success?invoice=${invoiceQuery}`), 2000);
   };
 
   if (cart.length === 0 && status !== 'success') {

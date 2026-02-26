@@ -230,8 +230,9 @@ const normalizeToPublicStorefrontUrl = (rawUrl: string, storefrontOrigin: string
 const ProductModal: React.FC<{
   product?: Product | null;
   onClose: () => void;
-  onSave: (p: Product) => void;
-}> = ({ product, onClose, onSave }) => {
+  onSave: (p: Product) => Promise<void>;
+  isSaving?: boolean;
+}> = ({ product, onClose, onSave, isSaving = false }) => {
   const API_NODE = getPhpApiNode();
   const [formData, setFormData] = useState<Partial<Product>>(product || {
     id: '',
@@ -765,7 +766,8 @@ const ProductModal: React.FC<{
     setFormData({ ...formData, tags: current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag] });
   };
 
-  const handleSubmitProduct = () => {
+  const handleSubmitProduct = async () => {
+    if (isSaving) return;
     const trimmedName = String(formData.name || '').trim();
     const requestedCustomSlug = String(formData.productSlug || formData.id || '').trim();
     if (!trimmedName || !formData.price) {
@@ -792,7 +794,7 @@ const ProductModal: React.FC<{
       }
       return;
     }
-    onSave(formData as Product);
+    await onSave(formData as Product);
   };
 
   return (
@@ -817,10 +819,10 @@ const ProductModal: React.FC<{
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <PrimaryButton onClick={handleSubmitProduct} className="h-12 px-6 text-[9px] tracking-[0.25em]">
+            <PrimaryButton onClick={handleSubmitProduct} isLoading={isSaving} disabled={isSaving} className="h-12 px-6 text-[9px] tracking-[0.25em]">
               Submit Product
             </PrimaryButton>
-            <button onClick={onClose} className="p-4 rounded-2xl hover:bg-white/5 transition-colors">
+            <button onClick={onClose} disabled={isSaving} className="p-4 rounded-2xl hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -1626,9 +1628,11 @@ const ProductModal: React.FC<{
 
 
         <div className="p-6 md:p-8 border-t border-white/5 flex gap-4 md:gap-6 bg-[#0A0C12]/95 backdrop-blur-xl shrink-0">
-          <button onClick={onClose} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white">Cancel</button>
+          <button onClick={onClose} disabled={isSaving} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">Cancel</button>
           <PrimaryButton
             onClick={handleSubmitProduct}
+            isLoading={isSaving}
+            disabled={isSaving}
             className="flex-[2] h-18 shadow-[0_20px_60px_rgba(37,99,235,0.4)]"
           >
             <Sparkles className="w-5 h-5 mr-3" /> Submit Product
@@ -1737,6 +1741,7 @@ export const AdminPanel = () => {
   });
   const [adminProfileSaving, setAdminProfileSaving] = useState(false);
   const [productAutoSeeded, setProductAutoSeeded] = useState(false);
+  const [isProductSaving, setIsProductSaving] = useState(false);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
@@ -2985,9 +2990,14 @@ export const AdminPanel = () => {
     if (activeTab !== 'PRODUCTS') return;
     if (products.length > 0) return;
     if (productAutoSeeded) return;
-    addOrUpdateProduct(createDemoVaultProduct());
-    setProductAutoSeeded(true);
-    showToast('Demo product auto-added to Vault Inventory.', 'info');
+    void addOrUpdateProduct(createDemoVaultProduct()).then((result) => {
+      if (!result.ok) {
+        showToast('Demo product sync failed. Please retry.', 'error');
+        return;
+      }
+      setProductAutoSeeded(true);
+      showToast('Demo product auto-added to Vault Inventory.', 'info');
+    });
   }, [activeTab, products.length, productAutoSeeded]);
 
   const chartSeries = useMemo(() => {
@@ -3649,8 +3659,13 @@ export const AdminPanel = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  addOrUpdateProduct(createDemoVaultProduct());
-                                  showToast('Demo product added to Vault Inventory.', 'success');
+                                  void addOrUpdateProduct(createDemoVaultProduct()).then((result) => {
+                                    if (!result.ok) {
+                                      showToast(result.message || 'Demo product sync failed.', 'error');
+                                      return;
+                                    }
+                                    showToast('Demo product added to Vault Inventory.', 'success');
+                                  });
                                 }}
                                 className="px-4 py-2 rounded-xl border border-cyan-500/45 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
                               >
@@ -5408,7 +5423,9 @@ export const AdminPanel = () => {
             <ProductModal
               product={editingProduct}
               onClose={() => setIsProductModalOpen(false)}
-              onSave={(p) => {
+              isSaving={isProductSaving}
+              onSave={async (p) => {
+                if (isProductSaving) return;
                 const requestedSlug = slugifyValue(p.productSlug || p.id || p.name) || Math.random().toString(36).substr(2, 6);
                 const takenByOther = products
                   .filter((item) => !(editingProduct && item.id === editingProduct.id))
@@ -5480,8 +5497,21 @@ export const AdminPanel = () => {
                     : Math.max(0, Number(p.lowStockThreshold))
                 };
 
-                addOrUpdateProduct(finalProduct);
-                setIsProductModalOpen(false);
+                setIsProductSaving(true);
+                try {
+                  const saveResult = await addOrUpdateProduct(finalProduct);
+                  if (!saveResult.ok) {
+                    showToast(saveResult.message || 'Product sync failed.', 'error');
+                    return;
+                  }
+                  if (requestedSlug !== uniqueSlug) {
+                    showToast(`Slug adjusted to ${uniqueSlug}.`, 'info');
+                  }
+                  showToast('Product submitted successfully.', 'success');
+                  setIsProductModalOpen(false);
+                } finally {
+                  setIsProductSaving(false);
+                }
               }}
             />
           )}

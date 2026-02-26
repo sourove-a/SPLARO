@@ -941,11 +941,17 @@ type AddOrderResult = {
   };
 };
 
+type ProductSyncResult = {
+  ok: boolean;
+  message?: string;
+  synced?: boolean;
+};
+
 interface AppContextType {
   view: View;
   setView: (v: View) => void;
   products: Product[];
-  addOrUpdateProduct: (p: Product) => void;
+  addOrUpdateProduct: (p: Product) => Promise<ProductSyncResult>;
   deleteProduct: (id: string) => void;
   language: Language;
   setLanguage: (l: Language) => void;
@@ -1377,21 +1383,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [IS_PROD, user, window.location.pathname]);
 
-  const addOrUpdateProduct = (p: Product) => {
+  const addOrUpdateProduct = async (p: Product): Promise<ProductSyncResult> => {
+    let previousProducts: Product[] = [];
+    let nextProducts: Product[] = [];
+
     setProducts(prev => {
+      previousProducts = prev;
       const exists = prev.find(item => item.id === p.id);
-      const newProducts = exists ? prev.map(item => item.id === p.id ? p : item) : [p, ...prev];
-
-      if (IS_PROD) {
-        fetch(`${API_NODE}?action=sync_products`, {
-          method: 'POST',
-          headers: getAuthHeaders(true),
-          body: JSON.stringify(newProducts)
-        });
-      }
-
-      return newProducts;
+      nextProducts = exists ? prev.map(item => item.id === p.id ? p : item) : [p, ...prev];
+      return nextProducts;
     });
+
+    if (!IS_PROD) {
+      return { ok: true, synced: false, message: 'LOCAL_PRODUCT_UPDATED' };
+    }
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = typeof window !== 'undefined'
+      ? window.setTimeout(() => controller?.abort(), 25000)
+      : null;
+
+    try {
+      const res = await fetch(`${API_NODE}?action=sync_products`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ products: nextProducts }),
+        ...(controller ? { signal: controller.signal } : {})
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        const message = String(result?.message || 'PRODUCT_SYNC_FAILED');
+        if (message === 'DATABASE_ENV_NOT_CONFIGURED' || message === 'DATABASE_CONNECTION_FAILED') {
+          setDbStatus('FALLBACK');
+        }
+        setProducts(previousProducts);
+        return { ok: false, synced: false, message };
+      }
+      return {
+        ok: true,
+        synced: true,
+        message: typeof result?.message === 'string' ? result.message : 'PRODUCT_MANIFEST_UPDATED'
+      };
+    } catch (e: any) {
+      setProducts(previousProducts);
+      const message = e?.name === 'AbortError' ? 'PRODUCT_SYNC_TIMEOUT' : 'PRODUCT_SYNC_FAILED';
+      return { ok: false, synced: false, message };
+    } finally {
+      if (timeout !== null && typeof window !== 'undefined') {
+        window.clearTimeout(timeout);
+      }
+    }
   };
 
   const deleteProduct = (id: string) => {
