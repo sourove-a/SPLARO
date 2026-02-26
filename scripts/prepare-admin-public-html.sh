@@ -22,6 +22,12 @@ find "$TARGET_DIR" -mindepth 1 \
 echo "[prepare-admin-public-html] copying dist files..."
 cp -R "$DIST_DIR"/. "$TARGET_DIR"/
 
+# Safety: prevent recursive admin mirror (public/admin -> dist/admin -> target/admin).
+if [ -d "$TARGET_DIR/admin" ]; then
+  echo "[prepare-admin-public-html] removing nested admin mirror..."
+  rm -rf "$TARGET_DIR/admin"
+fi
+
 echo "[prepare-admin-public-html] copying php api..."
 mkdir -p "$TARGET_DIR/api"
 cp -R "$PUBLIC_DIR/api"/. "$TARGET_DIR/api"/

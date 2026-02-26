@@ -741,6 +741,36 @@ const ProductModal: React.FC<{
     setFormData({ ...formData, tags: current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag] });
   };
 
+  const handleSubmitProduct = () => {
+    const trimmedName = String(formData.name || '').trim();
+    const requestedCustomSlug = String(formData.productSlug || formData.id || '').trim();
+    if (!trimmedName || !formData.price) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('splaro-toast', {
+          detail: { tone: 'error', message: 'Product name and price are required.' }
+        }));
+      }
+      return;
+    }
+    if (!requestedCustomSlug) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('splaro-toast', {
+          detail: { tone: 'error', message: 'Custom link (product slug) is required.' }
+        }));
+      }
+      return;
+    }
+    if (!resolvedBrandSlug || !resolvedCategorySlug || !resolvedProductSlug) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('splaro-toast', {
+          detail: { tone: 'error', message: 'Brand slug, category slug, and product slug are required.' }
+        }));
+      }
+      return;
+    }
+    onSave(formData as Product);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -748,7 +778,7 @@ const ProductModal: React.FC<{
     >
       <motion.div
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[96vh] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)] flex flex-col"
+        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)] flex flex-col"
       >
         <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
           <div className="flex items-center gap-6">
@@ -762,9 +792,14 @@ const ProductModal: React.FC<{
               <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400 mt-1">Product Configuration Panel</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-4 rounded-2xl hover:bg-white/5 transition-colors">
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-3">
+            <PrimaryButton onClick={handleSubmitProduct} className="h-12 px-6 text-[9px] tracking-[0.25em]">
+              Submit Product
+            </PrimaryButton>
+            <button onClick={onClose} className="p-4 rounded-2xl hover:bg-white/5 transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="p-8 md:p-10 overflow-y-auto custom-scrollbar flex-1 min-h-0">
@@ -1563,38 +1598,10 @@ const ProductModal: React.FC<{
         <div className="p-6 md:p-8 border-t border-white/5 flex gap-4 md:gap-6 bg-[#0A0C12]/95 backdrop-blur-xl shrink-0">
           <button onClick={onClose} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white">Cancel</button>
           <PrimaryButton
-            onClick={() => {
-              const trimmedName = String(formData.name || '').trim();
-              const requestedCustomSlug = String(formData.productSlug || formData.id || '').trim();
-              if (!trimmedName || !formData.price) {
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('splaro-toast', {
-                    detail: { tone: 'error', message: 'Product name and price are required.' }
-                  }));
-                }
-                return;
-              }
-              if (!requestedCustomSlug) {
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('splaro-toast', {
-                    detail: { tone: 'error', message: 'Custom link (product slug) is required.' }
-                  }));
-                }
-                return;
-              }
-              if (!resolvedBrandSlug || !resolvedCategorySlug || !resolvedProductSlug) {
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('splaro-toast', {
-                    detail: { tone: 'error', message: 'Brand slug, category slug, and product slug are required.' }
-                  }));
-                }
-                return;
-              }
-              onSave(formData as Product);
-            }}
+            onClick={handleSubmitProduct}
             className="flex-[2] h-18 shadow-[0_20px_60px_rgba(37,99,235,0.4)]"
           >
-            <Sparkles className="w-5 h-5 mr-3" /> Save Product
+            <Sparkles className="w-5 h-5 mr-3" /> Submit Product
           </PrimaryButton>
         </div>
       </motion.div>
