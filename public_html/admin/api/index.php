@@ -2159,6 +2159,8 @@ function ensure_core_schema($db) {
     ensure_column($db, 'orders', 'shipping_fee', 'int(11) DEFAULT NULL');
     ensure_column($db, 'orders', 'discount_amount', 'int(11) DEFAULT 0');
     ensure_column($db, 'orders', 'discount_code', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'orders', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    ensure_column($db, 'orders', 'deleted_at', 'datetime DEFAULT NULL');
     ensure_column($db, 'payments', 'validation_ref', 'varchar(120) DEFAULT NULL');
     ensure_column($db, 'payments', 'validated_at', 'datetime DEFAULT NULL');
     ensure_column($db, 'payments', 'idempotency_key', 'varchar(191) DEFAULT NULL');
@@ -2541,6 +2543,8 @@ ensure_table($db, 'integration_logs', "CREATE TABLE IF NOT EXISTS `integration_l
 ensure_column($db, 'orders', 'payment_method', 'varchar(80) DEFAULT NULL');
 ensure_column($db, 'orders', 'payment_status', "varchar(40) DEFAULT 'PENDING'");
 ensure_column($db, 'orders', 'paid_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'orders', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+ensure_column($db, 'orders', 'deleted_at', 'datetime DEFAULT NULL');
 ensure_column($db, 'payments', 'validation_ref', 'varchar(120) DEFAULT NULL');
 ensure_column($db, 'payments', 'validated_at', 'datetime DEFAULT NULL');
 ensure_column($db, 'payments', 'idempotency_key', 'varchar(191) DEFAULT NULL');
@@ -6015,6 +6019,19 @@ function admin_order_status_db_value($status) {
         'Cancelled' => 'CANCELLED',
     ];
     return $map[$label] ?? strtoupper(trim((string)$status));
+}
+
+function admin_update_order_status_row($db, $orderId, $statusDb) {
+    if (!$db) {
+        throw new RuntimeException('DB_UNAVAILABLE');
+    }
+    if (column_exists($db, 'orders', 'updated_at')) {
+        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([(string)$statusDb, (string)$orderId]);
+        return;
+    }
+    $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
+    $stmt->execute([(string)$statusDb, (string)$orderId]);
 }
 
 function admin_user_order_scope_sql($db, $alias = 'o') {
@@ -9922,8 +9939,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                     if ($orderExists) {
                         try {
                             $db->beginTransaction();
-                            $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                            $stmt->execute([$statusDb, $orderId]);
+                            admin_update_order_status_row($db, $orderId, $statusDb);
                             admin_write_order_status_history(
                                 $db,
                                 $orderId,
@@ -10081,8 +10097,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                 if ($orderExists) {
                     try {
                         $db->beginTransaction();
-                        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                        $stmt->execute([$statusDb, $orderId]);
+                        admin_update_order_status_row($db, $orderId, $statusDb);
                         admin_write_order_status_history(
                             $db,
                             $orderId,
@@ -13110,26 +13125,27 @@ if ($method === 'POST' && $action === 'admin_order_status') {
         echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
         exit;
     }
-    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
+    $orderIdInput = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
     $nextStatus = admin_normalize_order_status($input['status'] ?? '');
     $nextStatusDb = admin_order_status_db_value($nextStatus);
     $note = trim((string)($input['note'] ?? ''));
-    if ($orderId === '' || $nextStatus === '') {
+    if ($orderIdInput === '' || $nextStatus === '') {
         echo json_encode(["status" => "error", "message" => "ORDER_ID_AND_STATUS_REQUIRED"]);
         exit;
     }
-    $stmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
-    $stmt->execute([$orderId]);
+    $stmt = $db->prepare("SELECT id, order_no, status FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+    $stmt->execute([$orderIdInput, $orderIdInput]);
     $order = $stmt->fetch();
     if (!$order) {
         http_response_code(404);
         echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
         exit;
     }
+    $orderId = (string)($order['id'] ?? $orderIdInput);
+    $orderNo = (string)($order['order_no'] ?? $orderId);
     $db->beginTransaction();
     try {
-        $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $update->execute([$nextStatusDb, $orderId]);
+        admin_update_order_status_row($db, $orderId, $nextStatusDb);
         admin_write_order_status_history($db, $orderId, admin_normalize_order_status((string)($order['status'] ?? 'Pending')), $nextStatus, $note !== '' ? $note : 'Updated from admin panel', $requestAuthUser);
         $db->commit();
     } catch (Exception $e) {
@@ -13151,7 +13167,15 @@ if ($method === 'POST' && $action === 'admin_order_status') {
         ['status' => $nextStatus, 'note' => $note],
         $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
     );
-    echo json_encode(["status" => "success", "message" => "ORDER_STATUS_UPDATED"]);
+    echo json_encode([
+        "status" => "success",
+        "message" => "ORDER_STATUS_UPDATED",
+        "order" => [
+            "id" => $orderId,
+            "orderNo" => $orderNo,
+            "status" => $nextStatus
+        ]
+    ]);
     exit;
 }
 
@@ -13184,8 +13208,7 @@ if ($method === 'POST' && $action === 'admin_order_cancel') {
     try {
         $insert = $db->prepare("INSERT INTO cancellations (order_id, user_id, reason, status, created_by) VALUES (?, ?, ?, ?, ?)");
         $insert->execute([$orderId, (string)($order['user_id'] ?? ''), $reason, 'CONFIRMED', $actor]);
-        $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $update->execute([$cancelledStatusDb, $orderId]);
+        admin_update_order_status_row($db, $orderId, $cancelledStatusDb);
         admin_write_order_status_history($db, $orderId, admin_normalize_order_status((string)($order['status'] ?? 'Pending')), $cancelledStatus, $reason, $requestAuthUser);
         $db->commit();
     } catch (Exception $e) {
@@ -14638,10 +14661,16 @@ if ($method === 'POST' && $action === 'create_order') {
         'ORDER_CREATED',
         ['order_id' => $orderId, 'customer_email' => (string)($input['customerEmail'] ?? '')]
     );
+    $telegramOrderDelivered = false;
+    if (!$telegramOrderQueued) {
+        // Fallback delivery when queue subsystem is unavailable.
+        $telegramOrderDelivered = send_telegram_message($telegramOrderMessage, null, $telegramOrderOptions);
+    }
     splaro_integration_trace('order.integration.telegram_queue_result', [
         'order_id' => $orderId,
-        'queued' => (bool)$telegramOrderQueued
-    ], $telegramOrderQueued ? 'INFO' : 'ERROR');
+        'queued' => (bool)$telegramOrderQueued,
+        'delivered_direct' => (bool)$telegramOrderDelivered
+    ], ($telegramOrderQueued || $telegramOrderDelivered) ? 'INFO' : 'ERROR');
 
     $pushOrderResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
     try {
@@ -14852,7 +14881,7 @@ if ($method === 'POST' && $action === 'create_order') {
         "invoice" => $invoiceDispatch,
         "integrations" => [
             "sheets" => ["queued" => (bool)$orderSyncQueued],
-            "telegram" => ["queued" => (bool)$telegramOrderQueued],
+            "telegram" => ["queued" => (bool)$telegramOrderQueued, "delivered" => (bool)$telegramOrderDelivered],
             "push" => [
                 "notification_id" => (int)($pushOrderResult['notification_id'] ?? 0),
                 "queued_jobs" => (int)($pushOrderResult['queued_jobs'] ?? 0)
@@ -14884,27 +14913,33 @@ if ($method === 'POST' && $action === 'update_order_status') {
         exit;
     }
 
-    $orderId = trim((string)$input['id']);
+    $orderIdInput = trim((string)$input['id']);
     $statusLabel = admin_normalize_order_status($input['status'] ?? '');
     $statusDb = admin_order_status_db_value($statusLabel);
     $statusNote = trim((string)($input['note'] ?? ''));
-    if ($orderId === '' || $statusLabel === '') {
+    if ($orderIdInput === '' || $statusLabel === '') {
         echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
         exit;
     }
 
+    $resolvedOrder = null;
+    $orderId = $orderIdInput;
+    $orderNo = $orderIdInput;
+
     try {
-        $beforeStmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
-        $beforeStmt->execute([$orderId]);
+        $beforeStmt = $db->prepare("SELECT id, order_no, customer_name, phone, total, status FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+        $beforeStmt->execute([$orderIdInput, $orderIdInput]);
         $beforeRow = $beforeStmt->fetch();
         if (!$beforeRow) {
             echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
             exit;
         }
+        $resolvedOrder = $beforeRow;
+        $orderId = (string)($beforeRow['id'] ?? $orderIdInput);
+        $orderNo = (string)($beforeRow['order_no'] ?? $orderId);
 
         $db->beginTransaction();
-        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $stmt->execute([$statusDb, $orderId]);
+        admin_update_order_status_row($db, $orderId, $statusDb);
         admin_write_order_status_history(
             $db,
             $orderId,
@@ -14914,60 +14949,6 @@ if ($method === 'POST' && $action === 'update_order_status') {
             $requestAuthUser
         );
         $db->commit();
-
-        sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
-
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-        log_system_event($db, 'LOGISTICS_UPDATE', "Order {$orderId} status updated to {$statusLabel}", $requestAuthUser['id'] ?? null, $ip);
-
-        $telegramStatusMessage = telegram_compact_order_message(
-            '📦 Order Status Updated',
-            (string)$orderId,
-            (string)($input['customerName'] ?? 'N/A'),
-            (string)($input['phone'] ?? 'N/A'),
-            (string)($input['total'] ?? '0'),
-            (string)$statusLabel,
-            date('Y-m-d H:i:s')
-        );
-        $telegramStatusQueued = queue_telegram_message(
-            $telegramStatusMessage,
-            null,
-            ['reply_markup' => telegram_order_action_keyboard($orderId)],
-            'ORDER_STATUS_UPDATED',
-            ['order_id' => (string)$orderId, 'status' => (string)$statusLabel]
-        );
-        splaro_integration_trace('order.status_update.telegram_queue_result', [
-            'order_id' => (string)$orderId,
-            'status' => (string)$statusLabel,
-            'queued' => (bool)$telegramStatusQueued
-        ], $telegramStatusQueued ? 'INFO' : 'ERROR');
-
-        $pushStatusResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
-        try {
-            $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
-            splaro_integration_trace('order.status_update.push_queue_result', [
-                'order_id' => (string)$orderId,
-                'status' => (string)$statusLabel,
-                'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
-                'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
-            ]);
-        } catch (Exception $e) {
-            splaro_log_exception('order.status_update.push_queue', $e, [
-                'order_id' => (string)$orderId,
-                'status' => (string)$statusLabel
-            ], 'WARNING');
-        }
-
-        echo json_encode([
-            "status" => "success",
-            "message" => "STATUS_SYNCHRONIZED",
-            "telegram" => ["queued" => (bool)$telegramStatusQueued],
-            "push" => [
-                "notification_id" => (int)($pushStatusResult['notification_id'] ?? 0),
-                "queued_jobs" => (int)($pushStatusResult['queued_jobs'] ?? 0)
-            ]
-        ]);
-        exit;
     } catch (Exception $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
@@ -14980,6 +14961,100 @@ if ($method === 'POST' && $action === 'update_order_status') {
         echo json_encode(["status" => "error", "message" => "STATUS_UPDATE_FAILED"]);
         exit;
     }
+
+    $syncQueued = false;
+    try {
+        $syncQueued = sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'order_no' => $orderNo, 'status' => $statusLabel]);
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.sheets_queue', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'LOGISTICS_UPDATE', "Order {$orderId} status updated to {$statusLabel}", $requestAuthUser['id'] ?? null, $ip);
+
+    $customerName = (string)($resolvedOrder['customer_name'] ?? ($input['customerName'] ?? 'N/A'));
+    $customerPhone = (string)($resolvedOrder['phone'] ?? ($input['phone'] ?? 'N/A'));
+    $orderTotal = (string)($resolvedOrder['total'] ?? ($input['total'] ?? '0'));
+    $telegramStatusMessage = telegram_compact_order_message(
+        '📦 Order Status Updated',
+        (string)$orderId,
+        $customerName,
+        $customerPhone,
+        $orderTotal,
+        (string)$statusLabel,
+        date('Y-m-d H:i:s')
+    );
+    $telegramStatusQueued = false;
+    $telegramStatusDelivered = false;
+    try {
+        $telegramStatusQueued = queue_telegram_message(
+            $telegramStatusMessage,
+            null,
+            ['reply_markup' => telegram_order_action_keyboard($orderId)],
+            'ORDER_STATUS_UPDATED',
+            ['order_id' => (string)$orderId, 'order_no' => (string)$orderNo, 'status' => (string)$statusLabel]
+        );
+        if (!$telegramStatusQueued) {
+            // Fallback delivery when queue subsystem is unavailable.
+            $telegramStatusDelivered = send_telegram_message(
+                $telegramStatusMessage,
+                null,
+                ['reply_markup' => telegram_order_action_keyboard($orderId)]
+            );
+        }
+        splaro_integration_trace('order.status_update.telegram_delivery_result', [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel,
+            'queued' => (bool)$telegramStatusQueued,
+            'delivered_direct' => (bool)$telegramStatusDelivered
+        ], ($telegramStatusQueued || $telegramStatusDelivered) ? 'INFO' : 'ERROR');
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.telegram_queue', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+
+    $pushStatusResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    try {
+        $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
+        splaro_integration_trace('order.status_update.push_queue_result', [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel,
+            'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
+            'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.push_queue', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "STATUS_SYNCHRONIZED",
+        "order" => [
+            "id" => (string)$orderId,
+            "orderNo" => (string)$orderNo,
+            "status" => (string)$statusLabel,
+            "customerName" => $customerName,
+            "phone" => $customerPhone,
+            "total" => is_numeric($orderTotal) ? (float)$orderTotal : $orderTotal
+        ],
+        "integrations" => [
+            "sheets" => ["queued" => (bool)$syncQueued],
+            "telegram" => ["queued" => (bool)$telegramStatusQueued, "delivered" => (bool)$telegramStatusDelivered],
+            "push" => [
+                "notification_id" => (int)($pushStatusResult['notification_id'] ?? 0),
+                "queued_jobs" => (int)($pushStatusResult['queued_jobs'] ?? 0)
+            ]
+        ]
+    ]);
+    exit;
 }
 
 // 2.2 REGISTRY ERASURE PROTOCOL

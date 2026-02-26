@@ -82,6 +82,7 @@ const resolveSettingsErrorMessage = (rawMessage: unknown, httpStatus?: number): 
   if (code === 'ROLE_FORBIDDEN_EDITOR_PROTOCOL') return 'Staff/Editor cannot change protocol settings.';
   if (code === 'CMS_ROLE_FORBIDDEN') return 'This role cannot update CMS content.';
   if (code === 'CSRF_INVALID' || code === 'CSRF_REQUIRED') return 'Session expired. Please login again and retry.';
+  if (code === 'ORDER_REQUEST_TIMEOUT' || code === 'REQUEST_TIMEOUT') return 'Server response delayed. Please retry.';
   if (code === 'DATABASE_CONNECTION_FAILED') return 'Database is unreachable right now. Please retry shortly.';
   if (code === 'DATABASE_ENV_NOT_CONFIGURED') return 'Database configuration is missing on server.';
   if (code !== '') return code.replace(/_/g, ' ');
@@ -1409,11 +1410,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addOrder = async (o: Order): Promise<AddOrderResult> => {
     if (IS_PROD) {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeout = typeof window !== 'undefined'
+        ? window.setTimeout(() => controller?.abort(), 30000)
+        : null;
       try {
         const res = await fetch(`${API_NODE}?action=create_order`, {
           method: 'POST',
           headers: getAuthHeaders(true),
-          body: JSON.stringify(o)
+          body: JSON.stringify(o),
+          ...(controller ? { signal: controller.signal } : {})
         });
         const result = await res.json().catch(() => ({}));
         if (!res.ok || result.status !== 'success') {
@@ -1453,7 +1459,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           invoice: invoiceResult
         };
       } catch (e) {
+        if ((e as any)?.name === 'AbortError') {
+          return { ok: false, message: 'ORDER_REQUEST_TIMEOUT' };
+        }
         return { ok: false, message: 'ORDER_SYNC_FAILED' };
+      } finally {
+        if (timeout !== null && typeof window !== 'undefined') {
+          window.clearTimeout(timeout);
+        }
       }
     }
 
@@ -1480,11 +1493,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!IS_PROD) return;
 
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = typeof window !== 'undefined'
+      ? window.setTimeout(() => controller?.abort(), 12000)
+      : null;
+
     try {
       const res = await fetch(`${API_NODE}?action=update_order_status`, {
         method: 'POST',
         headers: getAuthHeaders(true),
-        body: JSON.stringify({ id: orderId, status })
+        body: JSON.stringify({ id: orderId, status }),
+        ...(controller ? { signal: controller.signal } : {})
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result?.status !== 'success') {
@@ -1498,7 +1517,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (previousStatus) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: previousStatus } : o));
       }
-      emitToast(resolveSettingsErrorMessage((error as any)?.message), 'error');
+      const message = (error as any)?.name === 'AbortError'
+        ? 'REQUEST_TIMEOUT'
+        : (error as any)?.message;
+      emitToast(resolveSettingsErrorMessage(message), 'error');
+    } finally {
+      if (timeout !== null && typeof window !== 'undefined') {
+        window.clearTimeout(timeout);
+      }
     }
   };
 

@@ -1737,6 +1737,24 @@ function ensure_core_schema($db) {
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    ensure_table($db, 'payment_events', "CREATE TABLE IF NOT EXISTS `payment_events` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `order_id` varchar(50) NOT NULL,
+      `provider` varchar(80) NOT NULL,
+      `event_type` varchar(80) NOT NULL,
+      `event_key` varchar(191) DEFAULT NULL,
+      `transaction_ref` varchar(120) DEFAULT NULL,
+      `val_id` varchar(120) DEFAULT NULL,
+      `amount` decimal(12,2) DEFAULT NULL,
+      `currency` varchar(10) DEFAULT 'BDT',
+      `status` varchar(40) DEFAULT NULL,
+      `request_payload_json` longtext DEFAULT NULL,
+      `response_payload_json` longtext DEFAULT NULL,
+      `http_code` int(11) DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     ensure_table($db, 'shipments', "CREATE TABLE IF NOT EXISTS `shipments` (
       `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
       `order_id` varchar(50) NOT NULL,
@@ -1748,6 +1766,21 @@ function ensure_core_schema($db) {
       `delivered_at` datetime DEFAULT NULL,
       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    ensure_table($db, 'integration_logs', "CREATE TABLE IF NOT EXISTS `integration_logs` (
+      `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+      `service` varchar(60) NOT NULL,
+      `event_type` varchar(80) NOT NULL,
+      `status` varchar(20) NOT NULL DEFAULT 'INFO',
+      `reference_type` varchar(60) DEFAULT NULL,
+      `reference_id` varchar(120) DEFAULT NULL,
+      `http_code` int(11) DEFAULT NULL,
+      `error_message` text DEFAULT NULL,
+      `response_preview` text DEFAULT NULL,
+      `meta_json` longtext DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
@@ -2118,11 +2151,27 @@ function ensure_core_schema($db) {
     ensure_column($db, 'orders', 'district', 'varchar(100) DEFAULT NULL');
     ensure_column($db, 'orders', 'thana', 'varchar(100) DEFAULT NULL');
     ensure_column($db, 'orders', 'tracking_number', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'orders', 'payment_method', 'varchar(80) DEFAULT NULL');
+    ensure_column($db, 'orders', 'payment_status', "varchar(40) DEFAULT 'PENDING'");
+    ensure_column($db, 'orders', 'paid_at', 'datetime DEFAULT NULL');
     ensure_column($db, 'orders', 'admin_notes', 'text DEFAULT NULL');
     ensure_column($db, 'orders', 'customer_comment', 'text DEFAULT NULL');
     ensure_column($db, 'orders', 'shipping_fee', 'int(11) DEFAULT NULL');
     ensure_column($db, 'orders', 'discount_amount', 'int(11) DEFAULT 0');
     ensure_column($db, 'orders', 'discount_code', 'varchar(100) DEFAULT NULL');
+    ensure_column($db, 'orders', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    ensure_column($db, 'orders', 'deleted_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'payments', 'validation_ref', 'varchar(120) DEFAULT NULL');
+    ensure_column($db, 'payments', 'validated_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'payments', 'idempotency_key', 'varchar(191) DEFAULT NULL');
+    ensure_column($db, 'shipments', 'provider', 'varchar(80) DEFAULT NULL');
+    ensure_column($db, 'shipments', 'consignment_id', 'varchar(120) DEFAULT NULL');
+    ensure_column($db, 'shipments', 'external_status', 'varchar(120) DEFAULT NULL');
+    ensure_column($db, 'shipments', 'tracking_url', 'text DEFAULT NULL');
+    ensure_column($db, 'shipments', 'timeline_json', 'longtext DEFAULT NULL');
+    ensure_column($db, 'shipments', 'booking_payload_json', 'longtext DEFAULT NULL');
+    ensure_column($db, 'shipments', 'last_synced_at', 'datetime DEFAULT NULL');
+    ensure_column($db, 'shipments', 'last_error', 'text DEFAULT NULL');
 
     ensure_table($db, 'users', "CREATE TABLE IF NOT EXISTS `users` (
       `id` varchar(50) NOT NULL,
@@ -2170,6 +2219,7 @@ function ensure_core_schema($db) {
     ensure_index($db, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
     ensure_index($db, 'orders', 'idx_orders_created_at', 'CREATE INDEX idx_orders_created_at ON orders(created_at)');
     ensure_index($db, 'orders', 'idx_orders_status', 'CREATE INDEX idx_orders_status ON orders(status)');
+    ensure_index($db, 'orders', 'idx_orders_payment_status_created', 'CREATE INDEX idx_orders_payment_status_created ON orders(payment_status, created_at)');
     ensure_index($db, 'orders', 'idx_orders_status_created_at', 'CREATE INDEX idx_orders_status_created_at ON orders(status, created_at)');
     ensure_index($db, 'orders', 'idx_orders_user_created', 'CREATE INDEX idx_orders_user_created ON orders(user_id, created_at)');
     ensure_index($db, 'orders', 'idx_orders_email_created', 'CREATE INDEX idx_orders_email_created ON orders(customer_email, created_at)');
@@ -2202,7 +2252,18 @@ function ensure_core_schema($db) {
     ensure_index($db, 'order_items', 'idx_order_items_order_product_created', 'CREATE INDEX idx_order_items_order_product_created ON order_items(order_id, product_id, created_at)');
     ensure_index($db, 'order_status_history', 'idx_order_status_history_order_created', 'CREATE INDEX idx_order_status_history_order_created ON order_status_history(order_id, created_at)');
     ensure_index($db, 'payments', 'idx_payments_order_status_created', 'CREATE INDEX idx_payments_order_status_created ON payments(order_id, status, created_at)');
+    ensure_index($db, 'payments', 'idx_payments_transaction_ref', 'CREATE INDEX idx_payments_transaction_ref ON payments(transaction_ref)');
+    ensure_index($db, 'payments', 'idx_payments_idempotency_key', 'CREATE INDEX idx_payments_idempotency_key ON payments(idempotency_key)');
+    ensure_unique_index_when_clean($db, 'payments', 'uniq_payments_transaction_ref', 'transaction_ref');
     ensure_index($db, 'shipments', 'idx_shipments_order_status_created', 'CREATE INDEX idx_shipments_order_status_created ON shipments(order_id, status, created_at)');
+    ensure_index($db, 'shipments', 'idx_shipments_consignment_id', 'CREATE INDEX idx_shipments_consignment_id ON shipments(consignment_id)');
+    ensure_unique_index_when_clean($db, 'shipments', 'uniq_shipments_consignment_id', 'consignment_id');
+    ensure_index($db, 'payment_events', 'idx_payment_events_order_created', 'CREATE INDEX idx_payment_events_order_created ON payment_events(order_id, created_at)');
+    ensure_index($db, 'payment_events', 'idx_payment_events_provider_status_created', 'CREATE INDEX idx_payment_events_provider_status_created ON payment_events(provider, status, created_at)');
+    ensure_unique_index_when_clean($db, 'payment_events', 'uniq_payment_events_event_key', 'event_key');
+    ensure_index($db, 'integration_logs', 'idx_integration_logs_service_created', 'CREATE INDEX idx_integration_logs_service_created ON integration_logs(service, created_at)');
+    ensure_index($db, 'integration_logs', 'idx_integration_logs_status_created', 'CREATE INDEX idx_integration_logs_status_created ON integration_logs(status, created_at)');
+    ensure_index($db, 'integration_logs', 'idx_integration_logs_reference', 'CREATE INDEX idx_integration_logs_reference ON integration_logs(reference_type, reference_id)');
     ensure_index($db, 'refunds', 'idx_refunds_order_status_created', 'CREATE INDEX idx_refunds_order_status_created ON refunds(order_id, status, created_at)');
     ensure_index($db, 'refunds', 'idx_refunds_user_created', 'CREATE INDEX idx_refunds_user_created ON refunds(user_id, created_at)');
     ensure_index($db, 'cancellations', 'idx_cancellations_order_status_created', 'CREATE INDEX idx_cancellations_order_status_created ON cancellations(order_id, status, created_at)');
@@ -2448,6 +2509,65 @@ ensure_index($db, 'system_errors', 'idx_system_errors_service_created', 'CREATE 
 ensure_index($db, 'system_errors', 'idx_system_errors_level_created', 'CREATE INDEX idx_system_errors_level_created ON system_errors(level, created_at)');
 ensure_index($db, 'health_events', 'idx_health_events_probe_created', 'CREATE INDEX idx_health_events_probe_created ON health_events(probe, created_at)');
 ensure_index($db, 'health_events', 'idx_health_events_status_created', 'CREATE INDEX idx_health_events_status_created ON health_events(status, created_at)');
+ensure_table($db, 'payment_events', "CREATE TABLE IF NOT EXISTS `payment_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` varchar(50) NOT NULL,
+  `provider` varchar(80) NOT NULL,
+  `event_type` varchar(80) NOT NULL,
+  `event_key` varchar(191) DEFAULT NULL,
+  `transaction_ref` varchar(120) DEFAULT NULL,
+  `val_id` varchar(120) DEFAULT NULL,
+  `amount` decimal(12,2) DEFAULT NULL,
+  `currency` varchar(10) DEFAULT 'BDT',
+  `status` varchar(40) DEFAULT NULL,
+  `request_payload_json` longtext DEFAULT NULL,
+  `response_payload_json` longtext DEFAULT NULL,
+  `http_code` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_table($db, 'integration_logs', "CREATE TABLE IF NOT EXISTS `integration_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `service` varchar(60) NOT NULL,
+  `event_type` varchar(80) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'INFO',
+  `reference_type` varchar(60) DEFAULT NULL,
+  `reference_id` varchar(120) DEFAULT NULL,
+  `http_code` int(11) DEFAULT NULL,
+  `error_message` text DEFAULT NULL,
+  `response_preview` text DEFAULT NULL,
+  `meta_json` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+ensure_column($db, 'orders', 'payment_method', 'varchar(80) DEFAULT NULL');
+ensure_column($db, 'orders', 'payment_status', "varchar(40) DEFAULT 'PENDING'");
+ensure_column($db, 'orders', 'paid_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'orders', 'updated_at', 'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+ensure_column($db, 'orders', 'deleted_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'payments', 'validation_ref', 'varchar(120) DEFAULT NULL');
+ensure_column($db, 'payments', 'validated_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'payments', 'idempotency_key', 'varchar(191) DEFAULT NULL');
+ensure_column($db, 'shipments', 'provider', 'varchar(80) DEFAULT NULL');
+ensure_column($db, 'shipments', 'consignment_id', 'varchar(120) DEFAULT NULL');
+ensure_column($db, 'shipments', 'external_status', 'varchar(120) DEFAULT NULL');
+ensure_column($db, 'shipments', 'tracking_url', 'text DEFAULT NULL');
+ensure_column($db, 'shipments', 'timeline_json', 'longtext DEFAULT NULL');
+ensure_column($db, 'shipments', 'booking_payload_json', 'longtext DEFAULT NULL');
+ensure_column($db, 'shipments', 'last_synced_at', 'datetime DEFAULT NULL');
+ensure_column($db, 'shipments', 'last_error', 'text DEFAULT NULL');
+ensure_index($db, 'orders', 'idx_orders_payment_status_created', 'CREATE INDEX idx_orders_payment_status_created ON orders(payment_status, created_at)');
+ensure_index($db, 'payments', 'idx_payments_transaction_ref', 'CREATE INDEX idx_payments_transaction_ref ON payments(transaction_ref)');
+ensure_index($db, 'payments', 'idx_payments_idempotency_key', 'CREATE INDEX idx_payments_idempotency_key ON payments(idempotency_key)');
+ensure_unique_index_when_clean($db, 'payments', 'uniq_payments_transaction_ref', 'transaction_ref');
+ensure_index($db, 'shipments', 'idx_shipments_consignment_id', 'CREATE INDEX idx_shipments_consignment_id ON shipments(consignment_id)');
+ensure_unique_index_when_clean($db, 'shipments', 'uniq_shipments_consignment_id', 'consignment_id');
+ensure_index($db, 'payment_events', 'idx_payment_events_order_created', 'CREATE INDEX idx_payment_events_order_created ON payment_events(order_id, created_at)');
+ensure_index($db, 'payment_events', 'idx_payment_events_provider_status_created', 'CREATE INDEX idx_payment_events_provider_status_created ON payment_events(provider, status, created_at)');
+ensure_unique_index_when_clean($db, 'payment_events', 'uniq_payment_events_event_key', 'event_key');
+ensure_index($db, 'integration_logs', 'idx_integration_logs_service_created', 'CREATE INDEX idx_integration_logs_service_created ON integration_logs(service, created_at)');
+ensure_index($db, 'integration_logs', 'idx_integration_logs_status_created', 'CREATE INDEX idx_integration_logs_status_created ON integration_logs(status, created_at)');
+ensure_index($db, 'integration_logs', 'idx_integration_logs_reference', 'CREATE INDEX idx_integration_logs_reference ON integration_logs(reference_type, reference_id)');
 ensure_column($db, 'push_subscriptions', 'endpoint_hash', 'char(64) DEFAULT NULL');
 ensure_column($db, 'push_subscriptions', 'failure_count', 'int(11) NOT NULL DEFAULT 0');
 ensure_column($db, 'push_subscriptions', 'last_http_code', 'int(11) DEFAULT NULL');
@@ -4536,6 +4656,674 @@ function normalize_logistics_config($raw, $fallback = null) {
     ];
 }
 
+function splaro_public_origin() {
+    $origin = trim((string)env_or_default('APP_ORIGIN', ''));
+    if ($origin !== '') {
+        return rtrim($origin, '/');
+    }
+    $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return '';
+    }
+    return $scheme . '://' . $host;
+}
+
+function integration_default_settings() {
+    $baseOrigin = splaro_public_origin();
+    $returnBase = $baseOrigin !== '' ? ($baseOrigin . '/api/index.php?action=sslcommerz_return') : '/api/index.php?action=sslcommerz_return';
+    return [
+        'sslcommerz' => [
+            'enabled' => false,
+            'mode' => 'SANDBOX',
+            'store_id' => '',
+            'store_password' => '',
+            'init_url_sandbox' => SSLCOMMERZ_INIT_URL_SANDBOX,
+            'init_url_live' => SSLCOMMERZ_INIT_URL_LIVE,
+            'validation_url_sandbox' => SSLCOMMERZ_VALIDATION_URL_SANDBOX,
+            'validation_url_live' => SSLCOMMERZ_VALIDATION_URL_LIVE,
+            'ipn_url' => $baseOrigin !== '' ? ($baseOrigin . '/api/index.php?action=sslcommerz_ipn') : '/api/index.php?action=sslcommerz_ipn',
+            'success_url' => $returnBase . '&result=success',
+            'fail_url' => $returnBase . '&result=fail',
+            'cancel_url' => $returnBase . '&result=cancel',
+            'global_counter' => true
+        ],
+        'steadfast' => [
+            'enabled' => false,
+            'api_base_url' => 'https://portal.packzy.com/api/v1',
+            'api_key' => '',
+            'api_secret' => '',
+            'api_token' => '',
+            'default_pickup_address' => '',
+            'default_pickup_phone' => '',
+            'default_pickup_name' => 'SPLARO',
+            'create_order_path' => '/create_order',
+            'track_order_path' => '/status_by_cid',
+            'delivery_charge_inside_dhaka' => 90,
+            'delivery_charge_outside_dhaka' => 140
+        ]
+    ];
+}
+
+function integration_mask_secret_value($value) {
+    $raw = trim((string)$value);
+    if ($raw === '') {
+        return '';
+    }
+    $len = strlen($raw);
+    if ($len <= 4) {
+        return str_repeat('*', $len);
+    }
+    return substr($raw, 0, 2) . str_repeat('*', max(2, $len - 4)) . substr($raw, -2);
+}
+
+function normalize_sslcommerz_settings($raw, $fallback = null) {
+    $defaults = integration_default_settings()['sslcommerz'];
+    $base = is_array($fallback) ? array_merge($defaults, $fallback) : $defaults;
+    $input = is_array($raw) ? $raw : [];
+    $boolInput = static function ($value, $default) {
+        if (is_bool($value)) return $value;
+        if (is_numeric($value)) return ((int)$value) === 1;
+        $normalized = strtolower(trim((string)$value));
+        if ($normalized === '') return (bool)$default;
+        return in_array($normalized, ['1', 'true', 'yes', 'on', 'enabled'], true);
+    };
+
+    $mode = strtoupper(trim((string)($input['mode'] ?? $base['mode'] ?? 'SANDBOX')));
+    if (!in_array($mode, ['SANDBOX', 'LIVE'], true)) {
+        $mode = 'SANDBOX';
+    }
+
+    $normalized = [
+        'enabled' => $boolInput($input['enabled'] ?? $base['enabled'], $base['enabled']),
+        'mode' => $mode,
+        'store_id' => trim((string)($input['store_id'] ?? $input['storeId'] ?? $base['store_id'] ?? '')),
+        'store_password' => trim((string)($input['store_password'] ?? $input['storePassword'] ?? $base['store_password'] ?? '')),
+        'init_url_sandbox' => trim((string)($input['init_url_sandbox'] ?? $base['init_url_sandbox'] ?? SSLCOMMERZ_INIT_URL_SANDBOX)),
+        'init_url_live' => trim((string)($input['init_url_live'] ?? $base['init_url_live'] ?? SSLCOMMERZ_INIT_URL_LIVE)),
+        'validation_url_sandbox' => trim((string)($input['validation_url_sandbox'] ?? $base['validation_url_sandbox'] ?? SSLCOMMERZ_VALIDATION_URL_SANDBOX)),
+        'validation_url_live' => trim((string)($input['validation_url_live'] ?? $base['validation_url_live'] ?? SSLCOMMERZ_VALIDATION_URL_LIVE)),
+        'ipn_url' => trim((string)($input['ipn_url'] ?? $input['ipnUrl'] ?? $base['ipn_url'] ?? '')),
+        'success_url' => trim((string)($input['success_url'] ?? $input['successUrl'] ?? $base['success_url'] ?? '')),
+        'fail_url' => trim((string)($input['fail_url'] ?? $input['failUrl'] ?? $base['fail_url'] ?? '')),
+        'cancel_url' => trim((string)($input['cancel_url'] ?? $input['cancelUrl'] ?? $base['cancel_url'] ?? '')),
+        'global_counter' => $boolInput($input['global_counter'] ?? $input['globalCounter'] ?? $base['global_counter'], $base['global_counter']),
+    ];
+
+    foreach (['store_password'] as $secretKey) {
+        $incoming = trim((string)($input[$secretKey] ?? ''));
+        if ($incoming === '' || preg_match('/^[*xX•·●]+$/u', $incoming)) {
+            $normalized[$secretKey] = trim((string)($base[$secretKey] ?? ''));
+        }
+    }
+
+    if ($normalized['ipn_url'] === '') {
+        $normalized['ipn_url'] = ($base['ipn_url'] ?? '');
+    }
+    return $normalized;
+}
+
+function normalize_steadfast_settings($raw, $fallback = null) {
+    $defaults = integration_default_settings()['steadfast'];
+    $base = is_array($fallback) ? array_merge($defaults, $fallback) : $defaults;
+    $input = is_array($raw) ? $raw : [];
+    $boolInput = static function ($value, $default) {
+        if (is_bool($value)) return $value;
+        if (is_numeric($value)) return ((int)$value) === 1;
+        $normalized = strtolower(trim((string)$value));
+        if ($normalized === '') return (bool)$default;
+        return in_array($normalized, ['1', 'true', 'yes', 'on', 'enabled'], true);
+    };
+    $numberInput = static function ($value, $default) {
+        if (!is_numeric($value)) return (int)$default;
+        $v = (int)$value;
+        if ($v < 0) return (int)$default;
+        return $v;
+    };
+
+    $normalized = [
+        'enabled' => $boolInput($input['enabled'] ?? $base['enabled'], $base['enabled']),
+        'api_base_url' => rtrim(trim((string)($input['api_base_url'] ?? $input['apiBaseUrl'] ?? $base['api_base_url'] ?? 'https://portal.packzy.com/api/v1')), '/'),
+        'api_key' => trim((string)($input['api_key'] ?? $input['apiKey'] ?? $base['api_key'] ?? '')),
+        'api_secret' => trim((string)($input['api_secret'] ?? $input['apiSecret'] ?? $base['api_secret'] ?? '')),
+        'api_token' => trim((string)($input['api_token'] ?? $input['apiToken'] ?? $base['api_token'] ?? '')),
+        'default_pickup_address' => trim((string)($input['default_pickup_address'] ?? $input['defaultPickupAddress'] ?? $base['default_pickup_address'] ?? '')),
+        'default_pickup_phone' => trim((string)($input['default_pickup_phone'] ?? $input['defaultPickupPhone'] ?? $base['default_pickup_phone'] ?? '')),
+        'default_pickup_name' => trim((string)($input['default_pickup_name'] ?? $input['defaultPickupName'] ?? $base['default_pickup_name'] ?? 'SPLARO')),
+        'create_order_path' => '/' . ltrim(trim((string)($input['create_order_path'] ?? $input['createOrderPath'] ?? $base['create_order_path'] ?? '/create_order')), '/'),
+        'track_order_path' => '/' . ltrim(trim((string)($input['track_order_path'] ?? $input['trackOrderPath'] ?? $base['track_order_path'] ?? '/status_by_cid')), '/'),
+        'delivery_charge_inside_dhaka' => $numberInput($input['delivery_charge_inside_dhaka'] ?? $input['deliveryChargeInsideDhaka'] ?? $base['delivery_charge_inside_dhaka'], $base['delivery_charge_inside_dhaka']),
+        'delivery_charge_outside_dhaka' => $numberInput($input['delivery_charge_outside_dhaka'] ?? $input['deliveryChargeOutsideDhaka'] ?? $base['delivery_charge_outside_dhaka'], $base['delivery_charge_outside_dhaka']),
+    ];
+
+    foreach (['api_key', 'api_secret', 'api_token'] as $secretKey) {
+        $incoming = trim((string)($input[$secretKey] ?? ''));
+        if ($incoming === '' || preg_match('/^[*xX•·●]+$/u', $incoming)) {
+            $normalized[$secretKey] = trim((string)($base[$secretKey] ?? ''));
+        }
+    }
+
+    return $normalized;
+}
+
+function normalize_integration_settings($raw, $fallback = null) {
+    $defaults = integration_default_settings();
+    $base = is_array($fallback) ? $fallback : [];
+    return [
+        'sslcommerz' => normalize_sslcommerz_settings(
+            is_array($raw) ? ($raw['sslcommerz'] ?? []) : [],
+            is_array($base['sslcommerz'] ?? null) ? $base['sslcommerz'] : $defaults['sslcommerz']
+        ),
+        'steadfast' => normalize_steadfast_settings(
+            is_array($raw) ? ($raw['steadfast'] ?? []) : [],
+            is_array($base['steadfast'] ?? null) ? $base['steadfast'] : $defaults['steadfast']
+        ),
+    ];
+}
+
+function integration_mask_settings_for_output($settings) {
+    $copy = normalize_integration_settings(is_array($settings) ? $settings : []);
+    if (isset($copy['sslcommerz']['store_password'])) {
+        $copy['sslcommerz']['store_password'] = integration_mask_secret_value($copy['sslcommerz']['store_password']);
+    }
+    foreach (['api_key', 'api_secret', 'api_token'] as $key) {
+        if (isset($copy['steadfast'][$key])) {
+            $copy['steadfast'][$key] = integration_mask_secret_value($copy['steadfast'][$key]);
+        }
+    }
+    return $copy;
+}
+
+function load_integration_settings($db, $siteSettingsRow = null) {
+    $row = $siteSettingsRow;
+    if (!is_array($row)) {
+        $settingsSelectFields = site_settings_select_fields($db);
+        $row = $db->query("SELECT {$settingsSelectFields} FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+    }
+    $settingsJson = safe_json_decode_assoc($row['settings_json'] ?? '{}', []);
+    $raw = $settingsJson['integrationSettings']
+        ?? $settingsJson['integration_settings']
+        ?? [
+            'sslcommerz' => $settingsJson['sslcommerz'] ?? [],
+            'steadfast' => $settingsJson['steadfast'] ?? []
+        ];
+    return normalize_integration_settings($raw);
+}
+
+function integration_log_event($db, $service, $eventType, $status = 'INFO', $referenceType = '', $referenceId = '', $httpCode = null, $errorMessage = '', $responsePreview = '', $meta = []) {
+    if (!($db instanceof PDO)) {
+        return;
+    }
+    try {
+        $metaJson = json_encode(is_array($meta) ? $meta : ['value' => $meta]);
+        $stmt = $db->prepare("INSERT INTO integration_logs (service, event_type, status, reference_type, reference_id, http_code, error_message, response_preview, meta_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([
+            strtoupper(trim((string)$service)),
+            trim((string)$eventType),
+            strtoupper(trim((string)$status)) !== '' ? strtoupper(trim((string)$status)) : 'INFO',
+            trim((string)$referenceType) !== '' ? trim((string)$referenceType) : null,
+            trim((string)$referenceId) !== '' ? trim((string)$referenceId) : null,
+            $httpCode !== null ? (int)$httpCode : null,
+            trim((string)$errorMessage) !== '' ? splaro_redact_sensitive_text((string)$errorMessage) : null,
+            trim((string)$responsePreview) !== '' ? splaro_clip_text((string)$responsePreview, 300) : null,
+            is_string($metaJson) ? $metaJson : null
+        ]);
+    } catch (Throwable $e) {
+        splaro_log_exception('integration.log_event', $e, [
+            'service' => (string)$service,
+            'event_type' => (string)$eventType
+        ], 'WARNING');
+    }
+}
+
+function integration_fetch_latest_log($db, $service, $eventType = '') {
+    if (!($db instanceof PDO)) {
+        return null;
+    }
+    try {
+        if ($eventType !== '') {
+            $stmt = $db->prepare("SELECT id, service, event_type, status, reference_type, reference_id, http_code, error_message, response_preview, meta_json, created_at FROM integration_logs WHERE service = ? AND event_type = ? ORDER BY id DESC LIMIT 1");
+            $stmt->execute([strtoupper(trim((string)$service)), trim((string)$eventType)]);
+            return $stmt->fetch() ?: null;
+        }
+        $stmt = $db->prepare("SELECT id, service, event_type, status, reference_type, reference_id, http_code, error_message, response_preview, meta_json, created_at FROM integration_logs WHERE service = ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([strtoupper(trim((string)$service))]);
+        return $stmt->fetch() ?: null;
+    } catch (Throwable $e) {
+        splaro_log_exception('integration.fetch_latest_log', $e, [
+            'service' => (string)$service,
+            'event_type' => (string)$eventType
+        ], 'WARNING');
+        return null;
+    }
+}
+
+function integration_http_request($url, $method = 'POST', $payload = [], $headers = [], $timeoutSeconds = 10, $asForm = false) {
+    $timeout = (int)$timeoutSeconds;
+    if ($timeout < 2) $timeout = 2;
+    if ($timeout > 30) $timeout = 30;
+
+    $requestMethod = strtoupper(trim((string)$method));
+    if (!in_array($requestMethod, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+        $requestMethod = 'POST';
+    }
+
+    $requestHeaders = is_array($headers) ? $headers : [];
+    $body = '';
+    if ($requestMethod !== 'GET') {
+        if ($asForm) {
+            $body = http_build_query(is_array($payload) ? $payload : [], '', '&');
+            $requestHeaders[] = 'Content-Type: application/x-www-form-urlencoded';
+        } else {
+            $body = json_encode(is_array($payload) ? $payload : ['value' => $payload]);
+            if (!is_string($body)) {
+                return [false, 0, 'PAYLOAD_ENCODE_FAILED', '', []];
+            }
+            $requestHeaders[] = 'Content-Type: application/json';
+        }
+    } elseif (is_array($payload) && !empty($payload)) {
+        $query = http_build_query($payload, '', '&');
+        if ($query !== '') {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . $query;
+        }
+    }
+
+    $response = '';
+    $httpCode = 0;
+    $error = '';
+    $responseHeaders = [];
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        $connectTimeout = max(1, min($timeout - 1, 8));
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST => $requestMethod,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => $connectTimeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_NOSIGNAL => 1,
+            CURLOPT_HTTPHEADER => $requestHeaders,
+            CURLOPT_HEADER => true,
+            CURLOPT_TCP_KEEPALIVE => 1,
+        ]);
+        if ($requestMethod !== 'GET') {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+
+        $rawResponse = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $error = (string)curl_error($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $headerSize = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        if (is_string($rawResponse)) {
+            $headerText = substr($rawResponse, 0, $headerSize);
+            $response = substr($rawResponse, $headerSize);
+            $responseHeaders = preg_split("/\r\n|\n|\r/", (string)$headerText) ?: [];
+        }
+        curl_close($ch);
+
+        if ($errno !== 0) {
+            return [false, $httpCode, $error !== '' ? $error : 'CURL_ERROR_' . $errno, $response, $responseHeaders];
+        }
+        $ok = $httpCode >= 200 && $httpCode < 300;
+        return [$ok, $httpCode, $ok ? '' : ('HTTP_' . $httpCode), (string)$response, $responseHeaders];
+    }
+
+    $streamContext = stream_context_create([
+        'http' => [
+            'method' => $requestMethod,
+            'header' => implode("\r\n", $requestHeaders) . "\r\n",
+            'content' => $requestMethod !== 'GET' ? $body : '',
+            'timeout' => $timeout,
+            'ignore_errors' => true
+        ]
+    ]);
+    $streamResponse = @file_get_contents($url, false, $streamContext);
+    $responseHeaders = function_exists('http_get_last_response_headers')
+        ? (http_get_last_response_headers() ?: [])
+        : ($GLOBALS['http_response_header'] ?? []);
+    if (is_array($responseHeaders)) {
+        foreach ($responseHeaders as $line) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', (string)$line, $m)) {
+                $httpCode = (int)$m[1];
+                break;
+            }
+        }
+    }
+    if ($streamResponse === false) {
+        return [false, $httpCode, 'NETWORK_OR_TIMEOUT', '', $responseHeaders];
+    }
+    $ok = $httpCode >= 200 && $httpCode < 300;
+    return [$ok, $httpCode, $ok ? '' : ('HTTP_' . $httpCode), (string)$streamResponse, $responseHeaders];
+}
+
+function sslcommerz_is_enabled($config) {
+    if (!is_array($config)) return false;
+    if (empty($config['enabled'])) return false;
+    return trim((string)($config['store_id'] ?? '')) !== '' && trim((string)($config['store_password'] ?? '')) !== '';
+}
+
+function sslcommerz_mode($config) {
+    $mode = strtoupper(trim((string)($config['mode'] ?? 'SANDBOX')));
+    return $mode === 'LIVE' ? 'LIVE' : 'SANDBOX';
+}
+
+function sslcommerz_init_url($config) {
+    $mode = sslcommerz_mode($config);
+    if ($mode === 'LIVE') {
+        return trim((string)($config['init_url_live'] ?? SSLCOMMERZ_INIT_URL_LIVE));
+    }
+    return trim((string)($config['init_url_sandbox'] ?? SSLCOMMERZ_INIT_URL_SANDBOX));
+}
+
+function sslcommerz_validation_url($config) {
+    $mode = sslcommerz_mode($config);
+    if ($mode === 'LIVE') {
+        return trim((string)($config['validation_url_live'] ?? SSLCOMMERZ_VALIDATION_URL_LIVE));
+    }
+    return trim((string)($config['validation_url_sandbox'] ?? SSLCOMMERZ_VALIDATION_URL_SANDBOX));
+}
+
+function sslcommerz_payment_status_from_gateway($statusRaw) {
+    $status = strtoupper(trim((string)$statusRaw));
+    if (in_array($status, ['VALID', 'VALIDATED', 'SUCCESS', 'PAID'], true)) {
+        return 'PAID';
+    }
+    if (in_array($status, ['FAILED', 'FAIL', 'DECLINED', 'ERROR'], true)) {
+        return 'FAILED';
+    }
+    if (in_array($status, ['CANCELLED', 'CANCELED'], true)) {
+        return 'CANCELED';
+    }
+    if (in_array($status, ['REFUNDED'], true)) {
+        return 'REFUNDED';
+    }
+    return 'PENDING';
+}
+
+function steadfast_is_enabled($config) {
+    if (!is_array($config)) return false;
+    if (empty($config['enabled'])) return false;
+    $hasToken = trim((string)($config['api_token'] ?? '')) !== '';
+    $hasKeySecret = trim((string)($config['api_key'] ?? '')) !== '' && trim((string)($config['api_secret'] ?? '')) !== '';
+    return $hasToken || $hasKeySecret;
+}
+
+function steadfast_build_headers($config) {
+    $headers = ['Accept: application/json'];
+    $token = trim((string)($config['api_token'] ?? ''));
+    if ($token !== '') {
+        $headers[] = 'Authorization: Bearer ' . $token;
+    }
+    $apiKey = trim((string)($config['api_key'] ?? ''));
+    $apiSecret = trim((string)($config['api_secret'] ?? ''));
+    if ($apiKey !== '') {
+        $headers[] = 'Api-Key: ' . $apiKey;
+        $headers[] = 'X-API-KEY: ' . $apiKey;
+    }
+    if ($apiSecret !== '') {
+        $headers[] = 'Secret-Key: ' . $apiSecret;
+        $headers[] = 'X-API-SECRET: ' . $apiSecret;
+    }
+    return $headers;
+}
+
+function payment_event_idempotency_key($provider, $eventType, $transactionRef, $valId, $status, $amount) {
+    $parts = [
+        strtoupper(trim((string)$provider)),
+        strtoupper(trim((string)$eventType)),
+        trim((string)$transactionRef),
+        trim((string)$valId),
+        strtoupper(trim((string)$status)),
+        trim((string)$amount),
+    ];
+    return substr(hash('sha256', implode('|', $parts)), 0, 64);
+}
+
+function record_payment_event($db, $payload = []) {
+    $eventKey = trim((string)($payload['event_key'] ?? ''));
+    if ($eventKey === '') {
+        return ['inserted' => false, 'duplicate' => false, 'id' => 0];
+    }
+    try {
+        $exists = $db->prepare("SELECT id FROM payment_events WHERE event_key = ? LIMIT 1");
+        $exists->execute([$eventKey]);
+        $row = $exists->fetch();
+        if ($row) {
+            return ['inserted' => false, 'duplicate' => true, 'id' => (int)($row['id'] ?? 0)];
+        }
+
+        $stmt = $db->prepare("INSERT INTO payment_events (order_id, provider, event_type, event_key, transaction_ref, val_id, amount, currency, status, request_payload_json, response_payload_json, http_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        $stmt->execute([
+            trim((string)($payload['order_id'] ?? '')),
+            trim((string)($payload['provider'] ?? 'SSLCommerz')),
+            trim((string)($payload['event_type'] ?? 'IPN')),
+            $eventKey,
+            trim((string)($payload['transaction_ref'] ?? '')) !== '' ? trim((string)$payload['transaction_ref']) : null,
+            trim((string)($payload['val_id'] ?? '')) !== '' ? trim((string)$payload['val_id']) : null,
+            isset($payload['amount']) && is_numeric($payload['amount']) ? (float)$payload['amount'] : null,
+            trim((string)($payload['currency'] ?? 'BDT')),
+            trim((string)($payload['status'] ?? 'PENDING')),
+            is_string($payload['request_payload_json'] ?? null) ? $payload['request_payload_json'] : json_encode($payload['request_payload'] ?? []),
+            is_string($payload['response_payload_json'] ?? null) ? $payload['response_payload_json'] : json_encode($payload['response_payload'] ?? []),
+            isset($payload['http_code']) ? (int)$payload['http_code'] : null,
+        ]);
+        return ['inserted' => true, 'duplicate' => false, 'id' => (int)$db->lastInsertId()];
+    } catch (Throwable $e) {
+        splaro_log_exception('payment.event.record', $e, ['provider' => (string)($payload['provider'] ?? '')], 'WARNING');
+        return ['inserted' => false, 'duplicate' => false, 'id' => 0];
+    }
+}
+
+function find_order_for_payment_reference($db, $transactionRef = '', $orderId = '') {
+    $transaction = trim((string)$transactionRef);
+    $oid = trim((string)$orderId);
+    if ($transaction !== '') {
+        $stmt = $db->prepare("SELECT id, order_no, status, payment_status, customer_email, customer_name, phone, total FROM orders WHERE order_no = ? OR id = ? LIMIT 1");
+        $stmt->execute([$transaction, $transaction]);
+        $row = $stmt->fetch();
+        if ($row) return $row;
+    }
+    if ($oid !== '') {
+        $stmt = $db->prepare("SELECT id, order_no, status, payment_status, customer_email, customer_name, phone, total FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+        $stmt->execute([$oid, $oid]);
+        $row = $stmt->fetch();
+        if ($row) return $row;
+    }
+    return null;
+}
+
+function integration_decode_json_or_query($raw) {
+    $text = trim((string)$raw);
+    if ($text === '') {
+        return [];
+    }
+    $decoded = json_decode($text, true);
+    if (is_array($decoded)) {
+        return $decoded;
+    }
+    $queryDecoded = [];
+    parse_str($text, $queryDecoded);
+    return is_array($queryDecoded) ? $queryDecoded : [];
+}
+
+function integration_extract_first_value($source, $paths = []) {
+    if (!is_array($source)) {
+        return null;
+    }
+    foreach ($paths as $path) {
+        $segments = explode('.', (string)$path);
+        $cursor = $source;
+        $found = true;
+        foreach ($segments as $segment) {
+            if (!is_array($cursor) || !array_key_exists($segment, $cursor)) {
+                $found = false;
+                break;
+            }
+            $cursor = $cursor[$segment];
+        }
+        if ($found) {
+            return $cursor;
+        }
+    }
+    return null;
+}
+
+function sslcommerz_extract_gateway_url($payload) {
+    $url = integration_extract_first_value($payload, [
+        'GatewayPageURL',
+        'gatewayPageURL',
+        'gateway_page_url',
+        'data.GatewayPageURL',
+        'data.gatewayPageURL',
+        'data.gateway_page_url'
+    ]);
+    return trim((string)$url);
+}
+
+function sslcommerz_resolve_validation_status($ipnPayload, $validationPayload) {
+    $validationStatus = strtoupper(trim((string)integration_extract_first_value($validationPayload, [
+        'status',
+        'APIConnect',
+        'APIConnectStatus',
+        'element.0.status',
+        'data.status'
+    ])));
+    $ipnStatus = strtoupper(trim((string)integration_extract_first_value($ipnPayload, [
+        'status',
+        'payment_status',
+        'pay_status'
+    ])));
+
+    if ($validationStatus !== '') {
+        if (in_array($validationStatus, ['VALID', 'VALIDATED', 'SUCCESS', 'PAID', 'PROCESSING'], true)) {
+            return 'PAID';
+        }
+        if (in_array($validationStatus, ['FAILED', 'FAIL', 'CANCELLED', 'CANCELED', 'REFUNDED', 'INVALID_TRANSACTION', 'INVALID'], true)) {
+            return sslcommerz_payment_status_from_gateway($validationStatus);
+        }
+    }
+    if ($ipnStatus !== '') {
+        return sslcommerz_payment_status_from_gateway($ipnStatus);
+    }
+    return 'PENDING';
+}
+
+function sslcommerz_upsert_payment_row($db, $orderId, $transactionRef, $status, $amount, $currency, $payload, $validationRef = null, $idempotencyKey = null) {
+    $orderId = trim((string)$orderId);
+    $transactionRef = trim((string)$transactionRef);
+    if ($orderId === '') {
+        return;
+    }
+
+    $payloadJson = json_encode($payload);
+    if (!is_string($payloadJson)) {
+        $payloadJson = '{}';
+    }
+    $currencyCode = strtoupper(trim((string)$currency));
+    if ($currencyCode === '') {
+        $currencyCode = 'BDT';
+    }
+    $normalizedStatus = strtoupper(trim((string)$status));
+    if ($normalizedStatus === '') {
+        $normalizedStatus = 'PENDING';
+    }
+
+    $existing = null;
+    if ($transactionRef !== '') {
+        $findStmt = $db->prepare("SELECT id FROM payments WHERE transaction_ref = ? LIMIT 1");
+        $findStmt->execute([$transactionRef]);
+        $existing = $findStmt->fetch();
+    }
+    if (!$existing) {
+        $findByOrderStmt = $db->prepare("SELECT id FROM payments WHERE order_id = ? ORDER BY id DESC LIMIT 1");
+        $findByOrderStmt->execute([$orderId]);
+        $existing = $findByOrderStmt->fetch();
+    }
+
+    if ($existing) {
+        $updateStmt = $db->prepare("UPDATE payments SET payment_method = 'SSLCommerz', provider = 'SSLCommerz', transaction_ref = ?, amount = ?, currency = ?, status = ?, payload_json = ?, validation_ref = ?, validated_at = NOW(), idempotency_key = ?, updated_at = NOW() WHERE id = ?");
+        $updateStmt->execute([
+            $transactionRef !== '' ? $transactionRef : null,
+            (float)$amount,
+            $currencyCode,
+            $normalizedStatus,
+            $payloadJson,
+            $validationRef !== null && trim((string)$validationRef) !== '' ? trim((string)$validationRef) : null,
+            $idempotencyKey !== null && trim((string)$idempotencyKey) !== '' ? trim((string)$idempotencyKey) : null,
+            (int)$existing['id']
+        ]);
+        return;
+    }
+
+    $insertStmt = $db->prepare("INSERT INTO payments (order_id, payment_method, provider, transaction_ref, amount, currency, status, payload_json, validation_ref, validated_at, idempotency_key, created_at, updated_at) VALUES (?, 'SSLCommerz', 'SSLCommerz', ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), NOW())");
+    $insertStmt->execute([
+        $orderId,
+        $transactionRef !== '' ? $transactionRef : null,
+        (float)$amount,
+        $currencyCode,
+        $normalizedStatus,
+        $payloadJson,
+        $validationRef !== null && trim((string)$validationRef) !== '' ? trim((string)$validationRef) : null,
+        $idempotencyKey !== null && trim((string)$idempotencyKey) !== '' ? trim((string)$idempotencyKey) : null
+    ]);
+}
+
+function steadfast_extract_consignment_id($payload) {
+    $value = integration_extract_first_value($payload, [
+        'consignment_id',
+        'consignmentId',
+        'tracking_code',
+        'tracking_number',
+        'data.consignment_id',
+        'data.consignmentId',
+        'data.tracking_code',
+        'data.tracking_number',
+        'courier.consignment_id'
+    ]);
+    return trim((string)$value);
+}
+
+function steadfast_extract_tracking_url($payload) {
+    $value = integration_extract_first_value($payload, [
+        'tracking_url',
+        'trackingUrl',
+        'data.tracking_url',
+        'data.trackingUrl'
+    ]);
+    return trim((string)$value);
+}
+
+function steadfast_extract_status($payload) {
+    $value = integration_extract_first_value($payload, [
+        'status',
+        'delivery_status',
+        'data.status',
+        'data.delivery_status',
+        'courier.status'
+    ]);
+    return trim((string)$value);
+}
+
+function steadfast_map_order_status($rawStatus, $fallback = 'Processing') {
+    $status = strtoupper(trim((string)$rawStatus));
+    if ($status === '') {
+        return admin_normalize_order_status($fallback);
+    }
+    if (preg_match('/DELIVERED|COMPLETED|RECEIVED/', $status)) {
+        return 'Delivered';
+    }
+    if (preg_match('/CANCEL|FAILED|RETURN|REJECT|HOLD/', $status)) {
+        return 'Cancelled';
+    }
+    if (preg_match('/SHIP|TRANSIT|DISPATCH|PICK/', $status)) {
+        return 'Shipped';
+    }
+    if (preg_match('/PENDING|WAIT|CREATE|BOOK|PROCESS/', $status)) {
+        return 'Processing';
+    }
+    return admin_normalize_order_status($fallback);
+}
+
 function slugify_text($text) {
     $text = strtolower(trim((string)$text));
     $text = preg_replace("/[^\\p{L}\\p{N}\\s\\-._~!$&'()*+,;=:@]+/u", '', $text);
@@ -5149,8 +5937,19 @@ function admin_order_select_fields($db) {
     return build_select_fields($db, 'orders', [
         'id', 'order_no', 'user_id', 'customer_name', 'customer_email', 'phone',
         'district', 'thana', 'address', 'items', 'total', 'status',
+        'payment_method', 'payment_status', 'paid_at',
         'tracking_number', 'admin_notes', 'customer_comment', 'shipping_fee',
         'discount_amount', 'discount_code', 'created_at', 'updated_at', 'deleted_at'
+    ]);
+}
+
+function admin_shipment_select_fields($db) {
+    return build_select_fields($db, 'shipments', [
+        'id', 'order_id', 'carrier', 'provider', 'tracking_number', 'consignment_id',
+        'status', 'external_status', 'tracking_url',
+        'payload_json', 'booking_payload_json', 'timeline_json',
+        'last_synced_at', 'last_error',
+        'shipped_at', 'delivered_at', 'created_at', 'updated_at'
     ]);
 }
 
@@ -5222,6 +6021,19 @@ function admin_order_status_db_value($status) {
     return $map[$label] ?? strtoupper(trim((string)$status));
 }
 
+function admin_update_order_status_row($db, $orderId, $statusDb) {
+    if (!$db) {
+        throw new RuntimeException('DB_UNAVAILABLE');
+    }
+    if (column_exists($db, 'orders', 'updated_at')) {
+        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([(string)$statusDb, (string)$orderId]);
+        return;
+    }
+    $stmt = $db->prepare("UPDATE orders SET status = ? WHERE id = ?");
+    $stmt->execute([(string)$statusDb, (string)$orderId]);
+}
+
 function admin_user_order_scope_sql($db, $alias = 'o') {
     $safeAlias = preg_replace('/[^a-zA-Z0-9_]/', '', (string)$alias);
     if ($safeAlias === '') $safeAlias = 'o';
@@ -5248,6 +6060,9 @@ function admin_normalize_order_row($row) {
         'thana' => (string)($row['thana'] ?? ''),
         'address' => (string)($row['address'] ?? ''),
         'status' => admin_normalize_order_status($row['status'] ?? 'Pending'),
+        'paymentMethod' => (string)($row['payment_method'] ?? ''),
+        'paymentStatus' => strtoupper(trim((string)($row['payment_status'] ?? 'PENDING'))),
+        'paidAt' => $row['paid_at'] ?? null,
         'trackingNumber' => (string)($row['tracking_number'] ?? ''),
         'adminNotes' => (string)($row['admin_notes'] ?? ''),
         'customerComment' => (string)($row['customer_comment'] ?? ''),
@@ -7982,6 +8797,39 @@ if ($method === 'GET' && $action === 'health') {
         $pushError = 'NO_ACTIVE_PUSH_SUBSCRIPTIONS';
     }
 
+    $integrationSettings = load_integration_settings($db);
+    $sslConfig = is_array($integrationSettings['sslcommerz'] ?? null) ? $integrationSettings['sslcommerz'] : [];
+    $steadfastConfig = is_array($integrationSettings['steadfast'] ?? null) ? $integrationSettings['steadfast'] : [];
+    $sslEnabled = sslcommerz_is_enabled($sslConfig);
+    $steadfastEnabled = steadfast_is_enabled($steadfastConfig);
+    $sslLastIpn = integration_fetch_latest_log($db, 'SSLCOMMERZ', 'IPN');
+    $sslLastValidation = integration_fetch_latest_log($db, 'SSLCOMMERZ', 'VALIDATE');
+    $sslLastAny = integration_fetch_latest_log($db, 'SSLCOMMERZ');
+    $steadfastLastBooking = integration_fetch_latest_log($db, 'STEADFAST', 'BOOKING');
+    $steadfastLastTrack = integration_fetch_latest_log($db, 'STEADFAST', 'TRACK');
+    $steadfastLastSync = integration_fetch_latest_log($db, 'STEADFAST', 'SYNC');
+    $steadfastLastAny = integration_fetch_latest_log($db, 'STEADFAST');
+
+    $sslStatus = 'OK';
+    $sslError = '';
+    if ($sslEnabled) {
+        $lastSslState = strtoupper(trim((string)($sslLastAny['status'] ?? '')));
+        if ($lastSslState === 'ERROR') {
+            $sslStatus = 'WARNING';
+            $sslError = trim((string)($sslLastAny['error_message'] ?? 'SSL_LAST_EVENT_ERROR'));
+        }
+    }
+
+    $steadfastStatus = 'OK';
+    $steadfastError = '';
+    if ($steadfastEnabled) {
+        $lastSteadfastState = strtoupper(trim((string)($steadfastLastAny['status'] ?? '')));
+        if (in_array($lastSteadfastState, ['ERROR', 'WARNING'], true)) {
+            $steadfastStatus = 'WARNING';
+            $steadfastError = trim((string)($steadfastLastAny['error_message'] ?? 'STEADFAST_LAST_EVENT_ERROR'));
+        }
+    }
+
     $services = [
         'db' => [
             'status' => $dbPingOk ? (($dbLatencyMs > 2500) ? 'WARNING' : 'OK') : 'DOWN',
@@ -8031,6 +8879,20 @@ if ($method === 'GET' && $action === 'health') {
             'last_checked_at' => $checkedAt,
             'error' => $pushError,
             'next_action' => $pushStatus === 'OK' ? '' : health_recommended_action('push', $pushError)
+        ],
+        'sslcommerz' => [
+            'status' => $sslStatus,
+            'latency_ms' => null,
+            'last_checked_at' => $checkedAt,
+            'error' => $sslError,
+            'next_action' => $sslStatus === 'OK' ? '' : health_recommended_action('sheets', $sslError)
+        ],
+        'steadfast' => [
+            'status' => $steadfastStatus,
+            'latency_ms' => null,
+            'last_checked_at' => $checkedAt,
+            'error' => $steadfastError,
+            'next_action' => $steadfastStatus === 'OK' ? '' : health_recommended_action('queue', $steadfastError)
         ]
     ];
 
@@ -8160,6 +9022,19 @@ if ($method === 'GET' && $action === 'health') {
             "active_subscriptions" => (int)$activePushSubscriptions,
             "scheduled_campaigns" => (int)$scheduledCampaigns,
             "queue" => $pushQueue
+        ],
+        "sslcommerz" => [
+            "enabled" => $sslEnabled,
+            "mode" => sslcommerz_mode($sslConfig),
+            "last_ipn_at" => $sslLastIpn['created_at'] ?? null,
+            "last_validation_result" => strtoupper(trim((string)($sslLastValidation['status'] ?? ($sslLastAny['status'] ?? '')))),
+            "last_error" => trim((string)($sslLastAny['error_message'] ?? ''))
+        ],
+        "steadfast" => [
+            "enabled" => $steadfastEnabled,
+            "last_booking_at" => $steadfastLastBooking['created_at'] ?? null,
+            "last_tracking_sync_at" => $steadfastLastTrack['created_at'] ?? ($steadfastLastSync['created_at'] ?? null),
+            "last_error" => trim((string)($steadfastLastAny['error_message'] ?? ''))
         ],
         "services" => $services,
         "timeouts" => [
@@ -9064,8 +9939,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                     if ($orderExists) {
                         try {
                             $db->beginTransaction();
-                            $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                            $stmt->execute([$statusDb, $orderId]);
+                            admin_update_order_status_row($db, $orderId, $statusDb);
                             admin_write_order_status_history(
                                 $db,
                                 $orderId,
@@ -9223,8 +10097,7 @@ if ($method === 'POST' && $action === 'telegram_webhook') {
                 if ($orderExists) {
                     try {
                         $db->beginTransaction();
-                        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-                        $stmt->execute([$statusDb, $orderId]);
+                        admin_update_order_status_row($db, $orderId, $statusDb);
                         admin_write_order_status_history(
                             $db,
                             $orderId,
@@ -9339,6 +10212,8 @@ if ($method === 'GET' && $action === 'sync') {
         $cmsDraft = cms_normalize_bundle($settingsJson['cmsDraft'] ?? $settingsJson['cms_draft'] ?? []);
         $cmsPublished = cms_normalize_bundle($settingsJson['cmsPublished'] ?? $settingsJson['cms_published'] ?? []);
         $cmsRevisions = cms_normalize_revisions($settingsJson['cmsRevisions'] ?? $settingsJson['cms_revisions'] ?? []);
+        $integrationSettings = load_integration_settings($db, $settings);
+        $settingsJson['integrationSettings'] = $integrationSettings;
         $cmsActiveVersion = strtoupper((string)($settingsJson['cmsActiveVersion'] ?? $settingsJson['cms_active_version'] ?? 'PUBLISHED'));
         if ($cmsActiveVersion !== 'DRAFT') {
             $cmsActiveVersion = 'PUBLISHED';
@@ -9387,6 +10262,7 @@ if ($method === 'GET' && $action === 'sync') {
         $settings['cms_revisions'] = $cmsRevisions;
         $settings['cms_active_version'] = $cmsActiveVersion;
         $settings['cms_bundle'] = $cmsActiveVersion === 'DRAFT' ? $cmsDraft : $cmsPublished;
+        $settings['integration_settings'] = integration_mask_settings_for_output($integrationSettings);
         $settings['settings_json'] = $settingsJson;
 
         if (!$isAdmin) {
@@ -9394,6 +10270,11 @@ if ($method === 'GET' && $action === 'sync') {
             unset($settings['cms_draft']);
             unset($settings['cms_revisions']);
             unset($settings['settings_json']);
+            unset($settings['integration_settings']);
+        } else {
+            if (is_array($settings['settings_json'])) {
+                $settings['settings_json']['integrationSettings'] = $settings['integration_settings'];
+            }
         }
     }
 
@@ -12204,8 +13085,9 @@ if ($method === 'GET' && $action === 'admin_order_detail') {
     }
 
     $timelineRows = safe_query_all($db, "SELECT id, from_status, to_status, note, changed_by, changed_by_role, ip_address, created_at FROM order_status_history WHERE order_id = ? ORDER BY created_at ASC, id ASC", [$orderId]);
-    $paymentsRows = safe_query_all($db, "SELECT id, payment_method, provider, transaction_ref, amount, currency, status, created_at, updated_at FROM payments WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
-    $shipmentsRows = safe_query_all($db, "SELECT id, carrier, tracking_number, status, shipped_at, delivered_at, created_at, updated_at FROM shipments WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
+    $paymentsRows = safe_query_all($db, "SELECT id, payment_method, provider, transaction_ref, amount, currency, status, validation_ref, validated_at, created_at, updated_at FROM payments WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
+    $shipmentFields = admin_shipment_select_fields($db);
+    $shipmentsRows = safe_query_all($db, "SELECT {$shipmentFields} FROM shipments WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
     $refundRows = safe_query_all($db, "SELECT id, amount, reason, status, created_by, created_at, updated_at FROM refunds WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
     $cancelRows = safe_query_all($db, "SELECT id, reason, status, created_by, created_at, updated_at FROM cancellations WHERE order_id = ? ORDER BY created_at DESC", [$orderId]);
 
@@ -12243,26 +13125,27 @@ if ($method === 'POST' && $action === 'admin_order_status') {
         echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
         exit;
     }
-    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
+    $orderIdInput = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
     $nextStatus = admin_normalize_order_status($input['status'] ?? '');
     $nextStatusDb = admin_order_status_db_value($nextStatus);
     $note = trim((string)($input['note'] ?? ''));
-    if ($orderId === '' || $nextStatus === '') {
+    if ($orderIdInput === '' || $nextStatus === '') {
         echo json_encode(["status" => "error", "message" => "ORDER_ID_AND_STATUS_REQUIRED"]);
         exit;
     }
-    $stmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
-    $stmt->execute([$orderId]);
+    $stmt = $db->prepare("SELECT id, order_no, status FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+    $stmt->execute([$orderIdInput, $orderIdInput]);
     $order = $stmt->fetch();
     if (!$order) {
         http_response_code(404);
         echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
         exit;
     }
+    $orderId = (string)($order['id'] ?? $orderIdInput);
+    $orderNo = (string)($order['order_no'] ?? $orderId);
     $db->beginTransaction();
     try {
-        $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $update->execute([$nextStatusDb, $orderId]);
+        admin_update_order_status_row($db, $orderId, $nextStatusDb);
         admin_write_order_status_history($db, $orderId, admin_normalize_order_status((string)($order['status'] ?? 'Pending')), $nextStatus, $note !== '' ? $note : 'Updated from admin panel', $requestAuthUser);
         $db->commit();
     } catch (Exception $e) {
@@ -12284,7 +13167,15 @@ if ($method === 'POST' && $action === 'admin_order_status') {
         ['status' => $nextStatus, 'note' => $note],
         $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
     );
-    echo json_encode(["status" => "success", "message" => "ORDER_STATUS_UPDATED"]);
+    echo json_encode([
+        "status" => "success",
+        "message" => "ORDER_STATUS_UPDATED",
+        "order" => [
+            "id" => $orderId,
+            "orderNo" => $orderNo,
+            "status" => $nextStatus
+        ]
+    ]);
     exit;
 }
 
@@ -12317,8 +13208,7 @@ if ($method === 'POST' && $action === 'admin_order_cancel') {
     try {
         $insert = $db->prepare("INSERT INTO cancellations (order_id, user_id, reason, status, created_by) VALUES (?, ?, ?, ?, ?)");
         $insert->execute([$orderId, (string)($order['user_id'] ?? ''), $reason, 'CONFIRMED', $actor]);
-        $update = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $update->execute([$cancelledStatusDb, $orderId]);
+        admin_update_order_status_row($db, $orderId, $cancelledStatusDb);
         admin_write_order_status_history($db, $orderId, admin_normalize_order_status((string)($order['status'] ?? 'Pending')), $cancelledStatus, $reason, $requestAuthUser);
         $db->commit();
     } catch (Exception $e) {
@@ -12507,6 +13397,980 @@ if ($method === 'GET' && $action === 'admin_reports_refunds') {
          LIMIT {$limit}"
     );
     echo json_encode(["status" => "success", "data" => $rows]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'sslcommerz_init') {
+    if (is_rate_limited('sslcommerz_init', 20, 60)) {
+        http_response_code(429);
+        echo json_encode(["status" => "error", "message" => "RATE_LIMIT_EXCEEDED"]);
+        exit;
+    }
+
+    [$input] = read_request_json_payload('sslcommerz.init.payload');
+    if (!is_array($input)) {
+        $input = [];
+    }
+    $integrationSettings = load_integration_settings($db);
+    $ssl = $integrationSettings['sslcommerz'] ?? [];
+    if (!sslcommerz_is_enabled($ssl)) {
+        http_response_code(503);
+        echo json_encode(["status" => "error", "message" => "SSLCOMMERZ_DISABLED"]);
+        exit;
+    }
+
+    $orderRef = trim((string)($input['order_id'] ?? $input['orderId'] ?? $input['id'] ?? $input['order_no'] ?? $input['orderNo'] ?? ''));
+    if ($orderRef === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+
+    $orderStmt = $db->prepare("SELECT id, order_no, customer_name, customer_email, phone, district, thana, address, total, status, payment_status FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+    $orderStmt->execute([$orderRef, $orderRef]);
+    $orderRow = $orderStmt->fetch();
+    if (!$orderRow) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+
+    $tranId = trim((string)($orderRow['order_no'] ?? $orderRow['id']));
+    if ($tranId === '') {
+        $tranId = trim((string)$orderRow['id']);
+    }
+    $amount = (float)($input['amount'] ?? $orderRow['total'] ?? 0);
+    if ($amount <= 0) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "INVALID_AMOUNT"]);
+        exit;
+    }
+
+    $successUrl = trim((string)($ssl['success_url'] ?? ''));
+    $failUrl = trim((string)($ssl['fail_url'] ?? ''));
+    $cancelUrl = trim((string)($ssl['cancel_url'] ?? ''));
+    $ipnUrl = trim((string)($ssl['ipn_url'] ?? ''));
+    if ($successUrl === '' || $failUrl === '' || $cancelUrl === '' || $ipnUrl === '') {
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "SSLCOMMERZ_URLS_NOT_CONFIGURED"]);
+        exit;
+    }
+
+    $postData = [
+        'store_id' => trim((string)($ssl['store_id'] ?? '')),
+        'store_passwd' => trim((string)($ssl['store_password'] ?? '')),
+        'total_amount' => number_format($amount, 2, '.', ''),
+        'currency' => strtoupper(trim((string)($input['currency'] ?? 'BDT'))),
+        'tran_id' => $tranId,
+        'success_url' => $successUrl,
+        'fail_url' => $failUrl,
+        'cancel_url' => $cancelUrl,
+        'ipn_url' => $ipnUrl,
+        'product_name' => trim((string)($input['product_name'] ?? 'SPLARO Order')),
+        'product_category' => trim((string)($input['product_category'] ?? 'Fashion')),
+        'product_profile' => trim((string)($input['product_profile'] ?? 'general')),
+        'cus_name' => trim((string)($orderRow['customer_name'] ?? 'Customer')),
+        'cus_email' => trim((string)($orderRow['customer_email'] ?? '')),
+        'cus_add1' => trim((string)($orderRow['address'] ?? '')),
+        'cus_city' => trim((string)($orderRow['district'] ?? 'Dhaka')),
+        'cus_state' => trim((string)($orderRow['thana'] ?? '')),
+        'cus_postcode' => trim((string)($input['cus_postcode'] ?? '1200')),
+        'cus_country' => trim((string)($input['cus_country'] ?? 'Bangladesh')),
+        'cus_phone' => trim((string)($orderRow['phone'] ?? '')),
+        'shipping_method' => trim((string)($input['shipping_method'] ?? 'NO')),
+        'num_of_item' => (string)max(1, (int)($input['num_of_item'] ?? 1)),
+        'value_a' => trim((string)$orderRow['id']),
+        'value_b' => trim((string)$orderRow['order_no']),
+        'value_c' => trim((string)($orderRow['customer_email'] ?? ''))
+    ];
+
+    $initUrl = sslcommerz_init_url($ssl);
+    [$ok, $httpCode, $error, $responseBody] = integration_http_request(
+        $initUrl,
+        'POST',
+        $postData,
+        ['Accept: application/json'],
+        (int)SSLCOMMERZ_HTTP_TIMEOUT_SECONDS,
+        true
+    );
+    $decoded = integration_decode_json_or_query($responseBody);
+    $gatewayPageUrl = sslcommerz_extract_gateway_url($decoded);
+
+    if (!$ok || $gatewayPageUrl === '') {
+        integration_log_event(
+            $db,
+            'SSLCOMMERZ',
+            'INIT',
+            'ERROR',
+            'ORDER',
+            (string)$orderRow['id'],
+            $httpCode,
+            $error !== '' ? $error : 'GATEWAY_URL_MISSING',
+            splaro_clip_text($responseBody, 300),
+            ['tran_id' => $tranId]
+        );
+        http_response_code(502);
+        echo json_encode([
+            "status" => "error",
+            "message" => "SSLCOMMERZ_INIT_FAILED",
+            "details" => $error !== '' ? $error : 'GATEWAY_URL_MISSING'
+        ]);
+        exit;
+    }
+
+    $idempotencyKey = payment_event_idempotency_key('SSLCOMMERZ', 'INIT', $tranId, '', 'INITIATED', (string)$amount);
+    try {
+        $db->beginTransaction();
+        sslcommerz_upsert_payment_row(
+            $db,
+            (string)$orderRow['id'],
+            $tranId,
+            'INITIATED',
+            $amount,
+            (string)$postData['currency'],
+            ['init_request' => $postData, 'init_response' => $decoded],
+            null,
+            $idempotencyKey
+        );
+        $orderUpdate = $db->prepare("UPDATE orders SET payment_method = 'SSLCommerz', payment_status = 'PENDING', updated_at = NOW() WHERE id = ?");
+        $orderUpdate->execute([(string)$orderRow['id']]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('sslcommerz.init.persist', $e, ['order_id' => (string)$orderRow['id']]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "PAYMENT_INIT_PERSIST_FAILED"]);
+        exit;
+    }
+
+    integration_log_event(
+        $db,
+        'SSLCOMMERZ',
+        'INIT',
+        'SUCCESS',
+        'ORDER',
+        (string)$orderRow['id'],
+        $httpCode,
+        '',
+        splaro_clip_text($responseBody, 300),
+        ['tran_id' => $tranId]
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "order_id" => (string)$orderRow['id'],
+        "order_no" => (string)($orderRow['order_no'] ?? ''),
+        "tran_id" => $tranId,
+        "gateway_url" => $gatewayPageUrl,
+        "mode" => sslcommerz_mode($ssl)
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'sslcommerz_ipn') {
+    $ipnPayload = $_POST;
+    if (!is_array($ipnPayload) || empty($ipnPayload)) {
+        [$payloadFromBody] = read_request_json_payload('sslcommerz.ipn.payload');
+        if (is_array($payloadFromBody) && !empty($payloadFromBody)) {
+            $ipnPayload = $payloadFromBody;
+        }
+    }
+    if (!is_array($ipnPayload)) {
+        $ipnPayload = [];
+    }
+
+    $integrationSettings = load_integration_settings($db);
+    $ssl = $integrationSettings['sslcommerz'] ?? [];
+    if (!sslcommerz_is_enabled($ssl)) {
+        http_response_code(503);
+        echo json_encode(["status" => "error", "message" => "SSLCOMMERZ_DISABLED"]);
+        exit;
+    }
+
+    $tranId = trim((string)($ipnPayload['tran_id'] ?? $ipnPayload['transaction_id'] ?? $ipnPayload['transaction_ref'] ?? ''));
+    $orderHint = trim((string)($ipnPayload['value_a'] ?? $ipnPayload['order_id'] ?? $ipnPayload['order_no'] ?? ''));
+    if ($tranId === '' && $orderHint === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "TRANSACTION_REFERENCE_REQUIRED"]);
+        exit;
+    }
+
+    $orderRow = find_order_for_payment_reference($db, $tranId, $orderHint);
+    if (!$orderRow) {
+        integration_log_event(
+            $db,
+            'SSLCOMMERZ',
+            'IPN',
+            'ERROR',
+            'ORDER',
+            $tranId !== '' ? $tranId : $orderHint,
+            null,
+            'ORDER_NOT_FOUND_FOR_IPN',
+            splaro_clip_text(json_encode($ipnPayload), 300),
+            ['tran_id' => $tranId, 'order_hint' => $orderHint]
+        );
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+
+    $valId = trim((string)($ipnPayload['val_id'] ?? $ipnPayload['validation_id'] ?? ''));
+    $validationPayload = [];
+    $validationHttpCode = 0;
+    $validationError = '';
+    if ($valId !== '') {
+        $validationQuery = http_build_query([
+            'val_id' => $valId,
+            'store_id' => trim((string)($ssl['store_id'] ?? '')),
+            'store_passwd' => trim((string)($ssl['store_password'] ?? '')),
+            'format' => 'json',
+            'v' => 1
+        ]);
+        $validationUrl = sslcommerz_validation_url($ssl);
+        $validationTarget = $validationUrl . (strpos($validationUrl, '?') === false ? '?' : '&') . $validationQuery;
+        [$validationOk, $validationHttpCode, $validationError, $validationRaw] = integration_http_request(
+            $validationTarget,
+            'GET',
+            [],
+            ['Accept: application/json'],
+            (int)SSLCOMMERZ_HTTP_TIMEOUT_SECONDS
+        );
+        $validationPayload = integration_decode_json_or_query($validationRaw);
+        if (!$validationOk && $validationError === '') {
+            $validationError = 'VALIDATION_HTTP_FAILED';
+        }
+        integration_log_event(
+            $db,
+            'SSLCOMMERZ',
+            'VALIDATE',
+            $validationOk ? 'SUCCESS' : 'ERROR',
+            'ORDER',
+            (string)($orderRow['id'] ?? ''),
+            $validationHttpCode > 0 ? $validationHttpCode : null,
+            $validationOk ? '' : $validationError,
+            splaro_clip_text((string)$validationRaw, 300),
+            ['tran_id' => $tranId, 'val_id' => $valId]
+        );
+    }
+
+    $effectiveTranId = $tranId !== '' ? $tranId : trim((string)($orderRow['order_no'] ?? $orderRow['id']));
+    $paymentStatus = sslcommerz_resolve_validation_status($ipnPayload, $validationPayload);
+    $amountRaw = integration_extract_first_value($validationPayload, ['amount', 'amount_original', 'store_amount']);
+    if ($amountRaw === null || !is_numeric((string)$amountRaw)) {
+        $amountRaw = integration_extract_first_value($ipnPayload, ['amount', 'store_amount']);
+    }
+    $amount = is_numeric((string)$amountRaw) ? (float)$amountRaw : (float)($orderRow['total'] ?? 0);
+    $currency = strtoupper(trim((string)(integration_extract_first_value($validationPayload, ['currency', 'currency_type']) ?? ($ipnPayload['currency'] ?? 'BDT'))));
+    if ($currency === '') {
+        $currency = 'BDT';
+    }
+
+    $eventKey = payment_event_idempotency_key('SSLCOMMERZ', 'IPN', $effectiveTranId, $valId, $paymentStatus, (string)$amount);
+    $recorded = ['inserted' => false, 'duplicate' => false, 'id' => 0];
+    $orderStatusBefore = admin_normalize_order_status((string)($orderRow['status'] ?? 'Pending'));
+    $nextOrderStatus = $orderStatusBefore;
+    if ($paymentStatus === 'PAID' && in_array(strtoupper($orderStatusBefore), ['PENDING', 'PAYMENT PENDING'], true)) {
+        $nextOrderStatus = 'Processing';
+    }
+    $nextOrderStatusDb = admin_order_status_db_value($nextOrderStatus);
+
+    try {
+        $db->beginTransaction();
+        $recorded = record_payment_event($db, [
+            'order_id' => (string)$orderRow['id'],
+            'provider' => 'SSLCommerz',
+            'event_type' => 'IPN',
+            'event_key' => $eventKey,
+            'transaction_ref' => $effectiveTranId,
+            'val_id' => $valId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'status' => $paymentStatus,
+            'request_payload' => $ipnPayload,
+            'response_payload' => $validationPayload,
+            'http_code' => $validationHttpCode > 0 ? $validationHttpCode : null
+        ]);
+
+        if (!$recorded['duplicate']) {
+            sslcommerz_upsert_payment_row(
+                $db,
+                (string)$orderRow['id'],
+                $effectiveTranId,
+                $paymentStatus,
+                $amount,
+                $currency,
+                ['ipn' => $ipnPayload, 'validation' => $validationPayload],
+                $valId !== '' ? $valId : null,
+                $eventKey
+            );
+
+            $updateOrder = $db->prepare("UPDATE orders SET payment_method = 'SSLCommerz', payment_status = ?, paid_at = CASE WHEN ? = 'PAID' THEN COALESCE(paid_at, NOW()) ELSE paid_at END, status = ?, updated_at = NOW() WHERE id = ?");
+            $updateOrder->execute([
+                $paymentStatus,
+                $paymentStatus,
+                $nextOrderStatusDb,
+                (string)$orderRow['id']
+            ]);
+
+            if ($nextOrderStatus !== $orderStatusBefore) {
+                admin_write_order_status_history(
+                    $db,
+                    (string)$orderRow['id'],
+                    $orderStatusBefore,
+                    $nextOrderStatus,
+                    'Payment validated via SSLCommerz IPN',
+                    ['id' => 'sslcommerz_ipn', 'role' => 'SYSTEM', 'email' => 'sslcommerz@system']
+                );
+            }
+        }
+
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('sslcommerz.ipn.persist', $e, [
+            'order_id' => (string)($orderRow['id'] ?? ''),
+            'tran_id' => $effectiveTranId
+        ]);
+        integration_log_event(
+            $db,
+            'SSLCOMMERZ',
+            'IPN',
+            'ERROR',
+            'ORDER',
+            (string)($orderRow['id'] ?? ''),
+            $validationHttpCode > 0 ? $validationHttpCode : null,
+            $e->getMessage(),
+            splaro_clip_text(json_encode($ipnPayload), 300),
+            ['tran_id' => $effectiveTranId]
+        );
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "SSLCOMMERZ_IPN_PROCESS_FAILED"]);
+        exit;
+    }
+
+    $logLevel = $paymentStatus === 'PAID' ? 'SUCCESS' : ($paymentStatus === 'PENDING' ? 'INFO' : 'WARNING');
+    integration_log_event(
+        $db,
+        'SSLCOMMERZ',
+        'IPN',
+        $logLevel,
+        'ORDER',
+        (string)$orderRow['id'],
+        $validationHttpCode > 0 ? $validationHttpCode : null,
+        $validationError,
+        splaro_clip_text(json_encode($validationPayload), 300),
+        [
+            'tran_id' => $effectiveTranId,
+            'payment_status' => $paymentStatus,
+            'duplicate' => (bool)$recorded['duplicate']
+        ]
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "message" => $recorded['duplicate'] ? "IPN_ALREADY_PROCESSED" : "IPN_PROCESSED",
+        "order_id" => (string)$orderRow['id'],
+        "order_no" => (string)($orderRow['order_no'] ?? ''),
+        "transaction_ref" => $effectiveTranId,
+        "payment_status" => $paymentStatus,
+        "duplicate" => (bool)$recorded['duplicate']
+    ]);
+    exit;
+}
+
+if ($method === 'GET' && $action === 'sslcommerz_return') {
+    $result = strtolower(trim((string)($_GET['result'] ?? $_GET['status'] ?? '')));
+    $tranId = trim((string)($_GET['tran_id'] ?? $_GET['transaction_id'] ?? $_GET['order_no'] ?? ''));
+    $origin = splaro_public_origin();
+    if ($origin === '') {
+        $origin = '/';
+    }
+    $path = '/checkout';
+    if (in_array($result, ['success', 'valid', 'paid'], true)) {
+        $path = '/order_success';
+    } elseif (in_array($result, ['cancel', 'cancelled', 'canceled'], true)) {
+        $path = '/checkout';
+        $result = 'cancelled';
+    } else {
+        $result = $result !== '' ? $result : 'pending';
+    }
+
+    $separator = strpos($path, '?') === false ? '?' : '&';
+    $qs = 'payment=' . rawurlencode($result);
+    if ($tranId !== '') {
+        $qs .= '&order_no=' . rawurlencode($tranId);
+    }
+    $redirectTarget = rtrim($origin, '/') . $path . $separator . $qs;
+
+    if (strtolower(trim((string)($_GET['format'] ?? ''))) === 'json') {
+        echo json_encode([
+            "status" => "success",
+            "result" => $result,
+            "order_no" => $tranId,
+            "redirect_url" => $redirectTarget
+        ]);
+        exit;
+    }
+
+    header('Location: ' . $redirectTarget, true, 302);
+    exit;
+}
+
+if ($method === 'POST' && in_array($action, ['admin_shipments_steadfast_create', 'steadfast_create_shipment'], true)) {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $roleBucket = admin_role_bucket(get_admin_role($requestAuthUser));
+    if (!in_array($roleBucket, ['OWNER', 'STAFF'], true)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "SHIPMENT_WRITE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    [$input] = read_request_json_payload('steadfast.create.payload');
+    if (!is_array($input)) {
+        $input = [];
+    }
+    $integrationSettings = load_integration_settings($db);
+    $steadfast = $integrationSettings['steadfast'] ?? [];
+    if (!steadfast_is_enabled($steadfast)) {
+        http_response_code(503);
+        echo json_encode(["status" => "error", "message" => "STEADFAST_DISABLED"]);
+        exit;
+    }
+
+    $orderRef = trim((string)($input['order_id'] ?? $input['orderId'] ?? $input['id'] ?? $input['order_no'] ?? $input['orderNo'] ?? ''));
+    if ($orderRef === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+    $force = !empty($input['force']);
+
+    $orderStmt = $db->prepare("SELECT id, order_no, customer_name, customer_email, phone, district, thana, address, total, status, payment_status, customer_comment FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+    $orderStmt->execute([$orderRef, $orderRef]);
+    $orderRow = $orderStmt->fetch();
+    if (!$orderRow) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+
+    $existingShipmentStmt = $db->prepare("SELECT id, order_id, provider, consignment_id, tracking_number, status, external_status, tracking_url, last_error, created_at, updated_at FROM shipments WHERE order_id = ? ORDER BY id DESC LIMIT 1");
+    $existingShipmentStmt->execute([(string)$orderRow['id']]);
+    $existingShipment = $existingShipmentStmt->fetch();
+    if ($existingShipment && !$force) {
+        $existingCid = trim((string)($existingShipment['consignment_id'] ?? $existingShipment['tracking_number'] ?? ''));
+        if ($existingCid !== '') {
+            echo json_encode([
+                "status" => "success",
+                "message" => "SHIPMENT_ALREADY_EXISTS",
+                "data" => [
+                    "order_id" => (string)$orderRow['id'],
+                    "consignment_id" => $existingCid,
+                    "tracking_url" => (string)($existingShipment['tracking_url'] ?? ''),
+                    "shipment_status" => (string)($existingShipment['status'] ?? 'PENDING')
+                ]
+            ]);
+            exit;
+        }
+    }
+
+    $recipientAddress = trim((string)($orderRow['address'] ?? ''));
+    $district = trim((string)($orderRow['district'] ?? ''));
+    $thana = trim((string)($orderRow['thana'] ?? ''));
+    $fullAddress = trim(implode(', ', array_filter([$recipientAddress, $thana, $district])));
+    if ($fullAddress === '') {
+        $fullAddress = trim((string)($input['recipient_address'] ?? 'Dhaka, Bangladesh'));
+    }
+
+    $bookingPayload = [
+        'invoice' => trim((string)($orderRow['order_no'] ?? $orderRow['id'])),
+        'recipient_name' => trim((string)($orderRow['customer_name'] ?? 'Customer')),
+        'recipient_phone' => trim((string)($orderRow['phone'] ?? '')),
+        'recipient_address' => $fullAddress,
+        'cod_amount' => (float)($orderRow['total'] ?? 0),
+        'note' => trim((string)($orderRow['customer_comment'] ?? ($input['note'] ?? 'SPLARO order delivery'))),
+        'item_description' => trim((string)($input['item_description'] ?? 'SPLARO order')),
+        'pickup_name' => trim((string)($input['pickup_name'] ?? ($steadfast['default_pickup_name'] ?? 'SPLARO'))),
+        'pickup_phone' => trim((string)($input['pickup_phone'] ?? ($steadfast['default_pickup_phone'] ?? ''))),
+        'pickup_address' => trim((string)($input['pickup_address'] ?? ($steadfast['default_pickup_address'] ?? '')))
+    ];
+
+    $baseUrl = rtrim(trim((string)($steadfast['api_base_url'] ?? 'https://portal.packzy.com/api/v1')), '/');
+    $path = trim((string)($steadfast['create_order_path'] ?? '/create_order'));
+    if ($path === '') {
+        $path = '/create_order';
+    }
+    if ($path[0] !== '/') {
+        $path = '/' . $path;
+    }
+    $endpoint = $baseUrl . $path;
+    [$ok, $httpCode, $error, $responseBody] = integration_http_request(
+        $endpoint,
+        'POST',
+        $bookingPayload,
+        steadfast_build_headers($steadfast),
+        (int)STEADFAST_HTTP_TIMEOUT_SECONDS
+    );
+    $decoded = integration_decode_json_or_query($responseBody);
+    $consignmentId = steadfast_extract_consignment_id($decoded);
+    $externalStatus = steadfast_extract_status($decoded);
+    $trackingUrl = steadfast_extract_tracking_url($decoded);
+
+    if (!$ok || $consignmentId === '') {
+        integration_log_event(
+            $db,
+            'STEADFAST',
+            'BOOKING',
+            'ERROR',
+            'ORDER',
+            (string)$orderRow['id'],
+            $httpCode > 0 ? $httpCode : null,
+            $error !== '' ? $error : 'CONSIGNMENT_ID_MISSING',
+            splaro_clip_text($responseBody, 300),
+            ['order_no' => (string)($orderRow['order_no'] ?? '')]
+        );
+        if ($existingShipment) {
+            try {
+                $updateError = $db->prepare("UPDATE shipments SET last_error = ?, updated_at = NOW() WHERE id = ?");
+                $updateError->execute([
+                    $error !== '' ? $error : 'STEADFAST_BOOKING_FAILED',
+                    (int)$existingShipment['id']
+                ]);
+            } catch (Throwable $e) {
+                splaro_log_exception('steadfast.create.update_existing_error', $e, ['order_id' => (string)$orderRow['id']], 'WARNING');
+            }
+        }
+        http_response_code(502);
+        echo json_encode([
+            "status" => "error",
+            "message" => "STEADFAST_BOOKING_FAILED",
+            "details" => $error !== '' ? $error : 'CONSIGNMENT_ID_MISSING'
+        ]);
+        exit;
+    }
+
+    $mappedShipmentStatus = steadfast_map_order_status($externalStatus, 'Processing');
+    try {
+        $db->beginTransaction();
+        if ($existingShipment) {
+            $updateShipment = $db->prepare("UPDATE shipments SET carrier = 'Steadfast', provider = 'STEADFAST', tracking_number = ?, consignment_id = ?, external_status = ?, tracking_url = ?, status = ?, booking_payload_json = ?, payload_json = ?, last_synced_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = ?");
+            $updateShipment->execute([
+                $consignmentId,
+                $consignmentId,
+                $externalStatus !== '' ? $externalStatus : null,
+                $trackingUrl !== '' ? $trackingUrl : null,
+                $mappedShipmentStatus,
+                json_encode($bookingPayload),
+                is_string($responseBody) ? $responseBody : json_encode($decoded),
+                (int)$existingShipment['id']
+            ]);
+        } else {
+            $insertShipment = $db->prepare("INSERT INTO shipments (order_id, carrier, provider, tracking_number, consignment_id, external_status, tracking_url, status, booking_payload_json, payload_json, last_synced_at, created_at, updated_at) VALUES (?, 'Steadfast', 'STEADFAST', ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), NOW())");
+            $insertShipment->execute([
+                (string)$orderRow['id'],
+                $consignmentId,
+                $consignmentId,
+                $externalStatus !== '' ? $externalStatus : null,
+                $trackingUrl !== '' ? $trackingUrl : null,
+                $mappedShipmentStatus,
+                json_encode($bookingPayload),
+                is_string($responseBody) ? $responseBody : json_encode($decoded)
+            ]);
+        }
+
+        $orderUpdate = $db->prepare("UPDATE orders SET tracking_number = ?, updated_at = NOW() WHERE id = ?");
+        $orderUpdate->execute([$consignmentId, (string)$orderRow['id']]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('steadfast.create.persist', $e, ['order_id' => (string)$orderRow['id']]);
+        integration_log_event(
+            $db,
+            'STEADFAST',
+            'BOOKING',
+            'ERROR',
+            'ORDER',
+            (string)$orderRow['id'],
+            $httpCode > 0 ? $httpCode : null,
+            $e->getMessage(),
+            splaro_clip_text($responseBody, 300),
+            ['consignment_id' => $consignmentId]
+        );
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "SHIPMENT_SAVE_FAILED"]);
+        exit;
+    }
+
+    integration_log_event(
+        $db,
+        'STEADFAST',
+        'BOOKING',
+        'SUCCESS',
+        'ORDER',
+        (string)$orderRow['id'],
+        $httpCode > 0 ? $httpCode : null,
+        '',
+        splaro_clip_text($responseBody, 300),
+        ['consignment_id' => $consignmentId]
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "STEADFAST_BOOKED",
+        "data" => [
+            "order_id" => (string)$orderRow['id'],
+            "order_no" => (string)($orderRow['order_no'] ?? ''),
+            "consignment_id" => $consignmentId,
+            "tracking_url" => $trackingUrl,
+            "external_status" => $externalStatus,
+            "shipment_status" => $mappedShipmentStatus
+        ]
+    ]);
+    exit;
+}
+
+if (in_array($method, ['GET', 'POST'], true) && in_array($action, ['admin_shipments_steadfast_track', 'steadfast_track_shipment'], true)) {
+    require_admin_access($requestAuthUser);
+    if ($method === 'POST') {
+        require_csrf_token();
+    }
+    $payload = [];
+    if ($method === 'POST') {
+        [$payload] = read_request_json_payload('steadfast.track.payload');
+        if (!is_array($payload)) {
+            $payload = [];
+        }
+    }
+    $integrationSettings = load_integration_settings($db);
+    $steadfast = $integrationSettings['steadfast'] ?? [];
+    if (!steadfast_is_enabled($steadfast)) {
+        http_response_code(503);
+        echo json_encode(["status" => "error", "message" => "STEADFAST_DISABLED"]);
+        exit;
+    }
+
+    $orderRef = trim((string)($payload['order_id'] ?? $payload['orderId'] ?? $_GET['order_id'] ?? $_GET['orderId'] ?? $_GET['id'] ?? ''));
+    $consignmentRef = trim((string)($payload['consignment_id'] ?? $payload['consignmentId'] ?? $_GET['consignment_id'] ?? $_GET['consignmentId'] ?? ''));
+
+    $shipment = null;
+    if ($consignmentRef !== '') {
+        $stmt = $db->prepare("SELECT id, order_id, consignment_id, tracking_number, status FROM shipments WHERE consignment_id = ? OR tracking_number = ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([$consignmentRef, $consignmentRef]);
+        $shipment = $stmt->fetch();
+    }
+    if (!$shipment && $orderRef !== '') {
+        $stmt = $db->prepare("SELECT id, order_id, consignment_id, tracking_number, status FROM shipments WHERE order_id = ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([$orderRef]);
+        $shipment = $stmt->fetch();
+    }
+    if (!$shipment) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "SHIPMENT_NOT_FOUND"]);
+        exit;
+    }
+
+    $cid = trim((string)($shipment['consignment_id'] ?? $shipment['tracking_number'] ?? ''));
+    if ($cid === '') {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "CONSIGNMENT_ID_REQUIRED"]);
+        exit;
+    }
+
+    $baseUrl = rtrim(trim((string)($steadfast['api_base_url'] ?? 'https://portal.packzy.com/api/v1')), '/');
+    $path = trim((string)($steadfast['track_order_path'] ?? '/status_by_cid'));
+    if ($path === '') {
+        $path = '/status_by_cid';
+    }
+    if ($path[0] !== '/') {
+        $path = '/' . $path;
+    }
+    $endpoint = $baseUrl . $path;
+    $query = http_build_query(['consignment_id' => $cid, 'cid' => $cid]);
+    $trackUrl = $endpoint . (strpos($endpoint, '?') === false ? '?' : '&') . $query;
+    [$ok, $httpCode, $error, $responseBody] = integration_http_request(
+        $trackUrl,
+        'GET',
+        [],
+        steadfast_build_headers($steadfast),
+        (int)STEADFAST_HTTP_TIMEOUT_SECONDS
+    );
+    $decoded = integration_decode_json_or_query($responseBody);
+    $externalStatus = steadfast_extract_status($decoded);
+    $trackingUrl = steadfast_extract_tracking_url($decoded);
+    $nextStatus = steadfast_map_order_status($externalStatus, (string)($shipment['status'] ?? 'Processing'));
+    $timelinePayload = integration_extract_first_value($decoded, ['timeline', 'data.timeline', 'history', 'events']);
+    if (!is_array($timelinePayload)) {
+        $timelinePayload = [];
+    }
+
+    if (!$ok) {
+        try {
+            $updateFail = $db->prepare("UPDATE shipments SET last_error = ?, last_synced_at = NOW(), updated_at = NOW() WHERE id = ?");
+            $updateFail->execute([$error !== '' ? $error : 'TRACKING_HTTP_FAILED', (int)$shipment['id']]);
+        } catch (Throwable $e) {
+            splaro_log_exception('steadfast.track.persist_error', $e, ['shipment_id' => (string)$shipment['id']], 'WARNING');
+        }
+        integration_log_event(
+            $db,
+            'STEADFAST',
+            'TRACK',
+            'ERROR',
+            'SHIPMENT',
+            (string)$shipment['id'],
+            $httpCode > 0 ? $httpCode : null,
+            $error !== '' ? $error : 'TRACKING_HTTP_FAILED',
+            splaro_clip_text($responseBody, 300),
+            ['consignment_id' => $cid]
+        );
+        http_response_code(502);
+        echo json_encode(["status" => "error", "message" => "STEADFAST_TRACK_FAILED"]);
+        exit;
+    }
+
+    $orderStmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
+    $orderStmt->execute([(string)$shipment['order_id']]);
+    $orderRow = $orderStmt->fetch();
+    try {
+        $db->beginTransaction();
+        $updateShipment = $db->prepare("UPDATE shipments SET external_status = ?, tracking_url = ?, status = ?, timeline_json = ?, payload_json = ?, last_synced_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = ?");
+        $updateShipment->execute([
+            $externalStatus !== '' ? $externalStatus : null,
+            $trackingUrl !== '' ? $trackingUrl : null,
+            $nextStatus,
+            json_encode($timelinePayload),
+            is_string($responseBody) ? $responseBody : json_encode($decoded),
+            (int)$shipment['id']
+        ]);
+
+        if ($orderRow) {
+            $orderStatusBefore = admin_normalize_order_status((string)($orderRow['status'] ?? 'Pending'));
+            $orderStatusAfter = $orderStatusBefore;
+            if ($nextStatus === 'Delivered') {
+                $orderStatusAfter = 'Delivered';
+            } elseif ($nextStatus === 'Shipped' && in_array(strtoupper($orderStatusBefore), ['PENDING', 'PROCESSING'], true)) {
+                $orderStatusAfter = 'Shipped';
+            } elseif ($nextStatus === 'Cancelled' && in_array(strtoupper($orderStatusBefore), ['PENDING', 'PROCESSING', 'SHIPPED'], true)) {
+                $orderStatusAfter = 'Cancelled';
+            }
+            $orderStatusAfterDb = admin_order_status_db_value($orderStatusAfter);
+            $orderUpdate = $db->prepare("UPDATE orders SET tracking_number = ?, status = ?, updated_at = NOW() WHERE id = ?");
+            $orderUpdate->execute([$cid, $orderStatusAfterDb, (string)$shipment['order_id']]);
+            if ($orderStatusAfter !== $orderStatusBefore) {
+                admin_write_order_status_history(
+                    $db,
+                    (string)$shipment['order_id'],
+                    $orderStatusBefore,
+                    $orderStatusAfter,
+                    'Steadfast tracking sync update',
+                    ['id' => 'steadfast_sync', 'role' => 'SYSTEM', 'email' => 'steadfast@system']
+                );
+            }
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('steadfast.track.persist', $e, ['shipment_id' => (string)$shipment['id']]);
+        integration_log_event(
+            $db,
+            'STEADFAST',
+            'TRACK',
+            'ERROR',
+            'SHIPMENT',
+            (string)$shipment['id'],
+            $httpCode > 0 ? $httpCode : null,
+            $e->getMessage(),
+            splaro_clip_text($responseBody, 300),
+            ['consignment_id' => $cid]
+        );
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "SHIPMENT_TRACK_PERSIST_FAILED"]);
+        exit;
+    }
+
+    integration_log_event(
+        $db,
+        'STEADFAST',
+        'TRACK',
+        'SUCCESS',
+        'SHIPMENT',
+        (string)$shipment['id'],
+        $httpCode > 0 ? $httpCode : null,
+        '',
+        splaro_clip_text($responseBody, 300),
+        ['consignment_id' => $cid, 'external_status' => $externalStatus, 'mapped_status' => $nextStatus]
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "STEADFAST_TRACK_SYNCED",
+        "data" => [
+            "shipment_id" => (int)$shipment['id'],
+            "order_id" => (string)$shipment['order_id'],
+            "consignment_id" => $cid,
+            "external_status" => $externalStatus,
+            "shipment_status" => $nextStatus,
+            "tracking_url" => $trackingUrl
+        ]
+    ]);
+    exit;
+}
+
+if ($method === 'POST' && in_array($action, ['admin_shipments_steadfast_sync', 'steadfast_sync_shipments'], true)) {
+    require_admin_access($requestAuthUser);
+    require_csrf_token();
+    $roleBucket = admin_role_bucket(get_admin_role($requestAuthUser));
+    if (!in_array($roleBucket, ['OWNER', 'STAFF'], true)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "SHIPMENT_WRITE_ACCESS_REQUIRED"]);
+        exit;
+    }
+
+    [$payload] = read_request_json_payload('steadfast.sync.payload');
+    if (!is_array($payload)) {
+        $payload = [];
+    }
+    $limit = (int)($payload['limit'] ?? $_GET['limit'] ?? 20);
+    if ($limit < 1) $limit = 1;
+    if ($limit > 100) $limit = 100;
+
+    $integrationSettings = load_integration_settings($db);
+    $steadfast = $integrationSettings['steadfast'] ?? [];
+    if (!steadfast_is_enabled($steadfast)) {
+        http_response_code(503);
+        echo json_encode(["status" => "error", "message" => "STEADFAST_DISABLED"]);
+        exit;
+    }
+
+    $rows = safe_query_all(
+        $db,
+        "SELECT id, order_id, consignment_id, tracking_number, status FROM shipments WHERE provider = 'STEADFAST' AND COALESCE(NULLIF(consignment_id, ''), NULLIF(tracking_number, '')) IS NOT NULL ORDER BY COALESCE(last_synced_at, created_at) ASC LIMIT {$limit}"
+    );
+
+    $results = [];
+    $synced = 0;
+    $failed = 0;
+    foreach ($rows as $row) {
+        $shipmentId = (int)($row['id'] ?? 0);
+        $cid = trim((string)($row['consignment_id'] ?? $row['tracking_number'] ?? ''));
+        if ($shipmentId < 1 || $cid === '') {
+            continue;
+        }
+        $_GET['consignment_id'] = $cid;
+        $_GET['order_id'] = (string)($row['order_id'] ?? '');
+
+        $baseUrl = rtrim(trim((string)($steadfast['api_base_url'] ?? 'https://portal.packzy.com/api/v1')), '/');
+        $path = trim((string)($steadfast['track_order_path'] ?? '/status_by_cid'));
+        if ($path === '') $path = '/status_by_cid';
+        if ($path[0] !== '/') $path = '/' . $path;
+        $endpoint = $baseUrl . $path;
+        $query = http_build_query(['consignment_id' => $cid, 'cid' => $cid]);
+        $trackUrl = $endpoint . (strpos($endpoint, '?') === false ? '?' : '&') . $query;
+
+        [$ok, $httpCode, $error, $responseBody] = integration_http_request(
+            $trackUrl,
+            'GET',
+            [],
+            steadfast_build_headers($steadfast),
+            (int)STEADFAST_HTTP_TIMEOUT_SECONDS
+        );
+        $decoded = integration_decode_json_or_query($responseBody);
+        $externalStatus = steadfast_extract_status($decoded);
+        $trackingUrl = steadfast_extract_tracking_url($decoded);
+        $mapped = steadfast_map_order_status($externalStatus, (string)($row['status'] ?? 'Processing'));
+        $timelinePayload = integration_extract_first_value($decoded, ['timeline', 'data.timeline', 'history', 'events']);
+        if (!is_array($timelinePayload)) {
+            $timelinePayload = [];
+        }
+
+        if (!$ok) {
+            $failed++;
+            try {
+                $db->prepare("UPDATE shipments SET last_error = ?, last_synced_at = NOW(), updated_at = NOW() WHERE id = ?")
+                    ->execute([$error !== '' ? $error : 'TRACKING_HTTP_FAILED', $shipmentId]);
+            } catch (Throwable $e) {
+                splaro_log_exception('steadfast.sync.track_fail_update', $e, ['shipment_id' => (string)$shipmentId], 'WARNING');
+            }
+            $results[] = [
+                'shipment_id' => $shipmentId,
+                'consignment_id' => $cid,
+                'status' => 'failed',
+                'error' => $error !== '' ? $error : 'TRACKING_HTTP_FAILED',
+                'http_code' => $httpCode
+            ];
+            continue;
+        }
+
+        try {
+            $db->beginTransaction();
+            $db->prepare("UPDATE shipments SET external_status = ?, tracking_url = ?, status = ?, timeline_json = ?, payload_json = ?, last_synced_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = ?")
+                ->execute([
+                    $externalStatus !== '' ? $externalStatus : null,
+                    $trackingUrl !== '' ? $trackingUrl : null,
+                    $mapped,
+                    json_encode($timelinePayload),
+                    is_string($responseBody) ? $responseBody : json_encode($decoded),
+                    $shipmentId
+                ]);
+            $db->prepare("UPDATE orders SET tracking_number = ?, status = CASE WHEN UPPER(?) = 'DELIVERED' THEN 'DELIVERED' WHEN UPPER(?) = 'SHIPPED' AND UPPER(status) IN ('PENDING','PROCESSING') THEN 'SHIPPED' WHEN UPPER(?) IN ('CANCELLED','CANCELED') AND UPPER(status) IN ('PENDING','PROCESSING','SHIPPED') THEN 'CANCELLED' ELSE status END, updated_at = NOW() WHERE id = ?")
+                ->execute([$cid, $mapped, $mapped, $mapped, (string)($row['order_id'] ?? '')]);
+            $db->commit();
+            $synced++;
+            $results[] = [
+                'shipment_id' => $shipmentId,
+                'consignment_id' => $cid,
+                'status' => 'synced',
+                'external_status' => $externalStatus,
+                'mapped_status' => $mapped,
+                'http_code' => $httpCode
+            ];
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            $failed++;
+            splaro_log_exception('steadfast.sync.persist', $e, ['shipment_id' => (string)$shipmentId], 'WARNING');
+            $results[] = [
+                'shipment_id' => $shipmentId,
+                'consignment_id' => $cid,
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+                'http_code' => $httpCode
+            ];
+        }
+    }
+
+    integration_log_event(
+        $db,
+        'STEADFAST',
+        'SYNC',
+        $failed > 0 ? 'WARNING' : 'SUCCESS',
+        'SHIPMENT_BATCH',
+        (string)count($rows),
+        null,
+        $failed > 0 ? 'Some tracking sync attempts failed' : '',
+        '',
+        ['synced' => $synced, 'failed' => $failed, 'limit' => $limit]
+    );
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "STEADFAST_SYNC_COMPLETED",
+        "data" => [
+            "total" => count($rows),
+            "synced" => $synced,
+            "failed" => $failed,
+            "results" => $results
+        ]
+    ]);
     exit;
 }
 
@@ -12797,10 +14661,16 @@ if ($method === 'POST' && $action === 'create_order') {
         'ORDER_CREATED',
         ['order_id' => $orderId, 'customer_email' => (string)($input['customerEmail'] ?? '')]
     );
+    $telegramOrderDelivered = false;
+    if (!$telegramOrderQueued) {
+        // Fallback delivery when queue subsystem is unavailable.
+        $telegramOrderDelivered = send_telegram_message($telegramOrderMessage, null, $telegramOrderOptions);
+    }
     splaro_integration_trace('order.integration.telegram_queue_result', [
         'order_id' => $orderId,
-        'queued' => (bool)$telegramOrderQueued
-    ], $telegramOrderQueued ? 'INFO' : 'ERROR');
+        'queued' => (bool)$telegramOrderQueued,
+        'delivered_direct' => (bool)$telegramOrderDelivered
+    ], ($telegramOrderQueued || $telegramOrderDelivered) ? 'INFO' : 'ERROR');
 
     $pushOrderResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
     try {
@@ -13011,7 +14881,7 @@ if ($method === 'POST' && $action === 'create_order') {
         "invoice" => $invoiceDispatch,
         "integrations" => [
             "sheets" => ["queued" => (bool)$orderSyncQueued],
-            "telegram" => ["queued" => (bool)$telegramOrderQueued],
+            "telegram" => ["queued" => (bool)$telegramOrderQueued, "delivered" => (bool)$telegramOrderDelivered],
             "push" => [
                 "notification_id" => (int)($pushOrderResult['notification_id'] ?? 0),
                 "queued_jobs" => (int)($pushOrderResult['queued_jobs'] ?? 0)
@@ -13043,27 +14913,33 @@ if ($method === 'POST' && $action === 'update_order_status') {
         exit;
     }
 
-    $orderId = trim((string)$input['id']);
+    $orderIdInput = trim((string)$input['id']);
     $statusLabel = admin_normalize_order_status($input['status'] ?? '');
     $statusDb = admin_order_status_db_value($statusLabel);
     $statusNote = trim((string)($input['note'] ?? ''));
-    if ($orderId === '' || $statusLabel === '') {
+    if ($orderIdInput === '' || $statusLabel === '') {
         echo json_encode(["status" => "error", "message" => "MISSING_PARAMETERS"]);
         exit;
     }
 
+    $resolvedOrder = null;
+    $orderId = $orderIdInput;
+    $orderNo = $orderIdInput;
+
     try {
-        $beforeStmt = $db->prepare("SELECT id, status FROM orders WHERE id = ? LIMIT 1");
-        $beforeStmt->execute([$orderId]);
+        $beforeStmt = $db->prepare("SELECT id, order_no, customer_name, phone, total, status FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+        $beforeStmt->execute([$orderIdInput, $orderIdInput]);
         $beforeRow = $beforeStmt->fetch();
         if (!$beforeRow) {
             echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
             exit;
         }
+        $resolvedOrder = $beforeRow;
+        $orderId = (string)($beforeRow['id'] ?? $orderIdInput);
+        $orderNo = (string)($beforeRow['order_no'] ?? $orderId);
 
         $db->beginTransaction();
-        $stmt = $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?");
-        $stmt->execute([$statusDb, $orderId]);
+        admin_update_order_status_row($db, $orderId, $statusDb);
         admin_write_order_status_history(
             $db,
             $orderId,
@@ -13073,60 +14949,6 @@ if ($method === 'POST' && $action === 'update_order_status') {
             $requestAuthUser
         );
         $db->commit();
-
-        sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'status' => $statusLabel]);
-
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-        log_system_event($db, 'LOGISTICS_UPDATE', "Order {$orderId} status updated to {$statusLabel}", $requestAuthUser['id'] ?? null, $ip);
-
-        $telegramStatusMessage = telegram_compact_order_message(
-            '📦 Order Status Updated',
-            (string)$orderId,
-            (string)($input['customerName'] ?? 'N/A'),
-            (string)($input['phone'] ?? 'N/A'),
-            (string)($input['total'] ?? '0'),
-            (string)$statusLabel,
-            date('Y-m-d H:i:s')
-        );
-        $telegramStatusQueued = queue_telegram_message(
-            $telegramStatusMessage,
-            null,
-            ['reply_markup' => telegram_order_action_keyboard($orderId)],
-            'ORDER_STATUS_UPDATED',
-            ['order_id' => (string)$orderId, 'status' => (string)$statusLabel]
-        );
-        splaro_integration_trace('order.status_update.telegram_queue_result', [
-            'order_id' => (string)$orderId,
-            'status' => (string)$statusLabel,
-            'queued' => (bool)$telegramStatusQueued
-        ], $telegramStatusQueued ? 'INFO' : 'ERROR');
-
-        $pushStatusResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
-        try {
-            $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
-            splaro_integration_trace('order.status_update.push_queue_result', [
-                'order_id' => (string)$orderId,
-                'status' => (string)$statusLabel,
-                'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
-                'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
-            ]);
-        } catch (Exception $e) {
-            splaro_log_exception('order.status_update.push_queue', $e, [
-                'order_id' => (string)$orderId,
-                'status' => (string)$statusLabel
-            ], 'WARNING');
-        }
-
-        echo json_encode([
-            "status" => "success",
-            "message" => "STATUS_SYNCHRONIZED",
-            "telegram" => ["queued" => (bool)$telegramStatusQueued],
-            "push" => [
-                "notification_id" => (int)($pushStatusResult['notification_id'] ?? 0),
-                "queued_jobs" => (int)($pushStatusResult['queued_jobs'] ?? 0)
-            ]
-        ]);
-        exit;
     } catch (Exception $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
@@ -13139,6 +14961,100 @@ if ($method === 'POST' && $action === 'update_order_status') {
         echo json_encode(["status" => "error", "message" => "STATUS_UPDATE_FAILED"]);
         exit;
     }
+
+    $syncQueued = false;
+    try {
+        $syncQueued = sync_to_sheets('UPDATE_STATUS', ['id' => $orderId, 'order_no' => $orderNo, 'status' => $statusLabel]);
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.sheets_queue', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    log_system_event($db, 'LOGISTICS_UPDATE', "Order {$orderId} status updated to {$statusLabel}", $requestAuthUser['id'] ?? null, $ip);
+
+    $customerName = (string)($resolvedOrder['customer_name'] ?? ($input['customerName'] ?? 'N/A'));
+    $customerPhone = (string)($resolvedOrder['phone'] ?? ($input['phone'] ?? 'N/A'));
+    $orderTotal = (string)($resolvedOrder['total'] ?? ($input['total'] ?? '0'));
+    $telegramStatusMessage = telegram_compact_order_message(
+        '📦 Order Status Updated',
+        (string)$orderId,
+        $customerName,
+        $customerPhone,
+        $orderTotal,
+        (string)$statusLabel,
+        date('Y-m-d H:i:s')
+    );
+    $telegramStatusQueued = false;
+    $telegramStatusDelivered = false;
+    try {
+        $telegramStatusQueued = queue_telegram_message(
+            $telegramStatusMessage,
+            null,
+            ['reply_markup' => telegram_order_action_keyboard($orderId)],
+            'ORDER_STATUS_UPDATED',
+            ['order_id' => (string)$orderId, 'order_no' => (string)$orderNo, 'status' => (string)$statusLabel]
+        );
+        if (!$telegramStatusQueued) {
+            // Fallback delivery when queue subsystem is unavailable.
+            $telegramStatusDelivered = send_telegram_message(
+                $telegramStatusMessage,
+                null,
+                ['reply_markup' => telegram_order_action_keyboard($orderId)]
+            );
+        }
+        splaro_integration_trace('order.status_update.telegram_delivery_result', [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel,
+            'queued' => (bool)$telegramStatusQueued,
+            'delivered_direct' => (bool)$telegramStatusDelivered
+        ], ($telegramStatusQueued || $telegramStatusDelivered) ? 'INFO' : 'ERROR');
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.telegram_queue', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+
+    $pushStatusResult = ['notification_id' => 0, 'subscription_count' => 0, 'queued_jobs' => 0];
+    try {
+        $pushStatusResult = queue_order_status_notification($db, (string)$orderId, (string)$statusLabel);
+        splaro_integration_trace('order.status_update.push_queue_result', [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel,
+            'notification_id' => (int)($pushStatusResult['notification_id'] ?? 0),
+            'queued_jobs' => (int)($pushStatusResult['queued_jobs'] ?? 0)
+        ]);
+    } catch (Exception $e) {
+        splaro_log_exception('order.status_update.push_queue', $e, [
+            'order_id' => (string)$orderId,
+            'status' => (string)$statusLabel
+        ], 'WARNING');
+    }
+
+    echo json_encode([
+        "status" => "success",
+        "message" => "STATUS_SYNCHRONIZED",
+        "order" => [
+            "id" => (string)$orderId,
+            "orderNo" => (string)$orderNo,
+            "status" => (string)$statusLabel,
+            "customerName" => $customerName,
+            "phone" => $customerPhone,
+            "total" => is_numeric($orderTotal) ? (float)$orderTotal : $orderTotal
+        ],
+        "integrations" => [
+            "sheets" => ["queued" => (bool)$syncQueued],
+            "telegram" => ["queued" => (bool)$telegramStatusQueued, "delivered" => (bool)$telegramStatusDelivered],
+            "push" => [
+                "notification_id" => (int)($pushStatusResult['notification_id'] ?? 0),
+                "queued_jobs" => (int)($pushStatusResult['queued_jobs'] ?? 0)
+            ]
+        ]
+    ]);
+    exit;
 }
 
 // 2.2 REGISTRY ERASURE PROTOCOL
@@ -15070,7 +16986,15 @@ if ($method === 'POST' && $action === 'update_settings') {
         'invoice_settings',
         'slides',
         'googleClientId',
-        'google_client_id'
+        'google_client_id',
+        'integrationSettings',
+        'integration_settings',
+        'paymentGateways',
+        'payment_gateways',
+        'shippingProviders',
+        'shipping_providers',
+        'sslcommerz',
+        'steadfast'
     ];
     $hasSensitivePayload = false;
     foreach ($sensitiveKeys as $sensitiveKey) {
@@ -15079,6 +17003,14 @@ if ($method === 'POST' && $action === 'update_settings') {
             break;
         }
     }
+    $hasIntegrationPayload = array_key_exists('integrationSettings', $input)
+        || array_key_exists('integration_settings', $input)
+        || array_key_exists('paymentGateways', $input)
+        || array_key_exists('payment_gateways', $input)
+        || array_key_exists('shippingProviders', $input)
+        || array_key_exists('shipping_providers', $input)
+        || array_key_exists('sslcommerz', $input)
+        || array_key_exists('steadfast', $input);
 
     if ($adminRole === 'VIEWER') {
         http_response_code(403);
@@ -15086,15 +17018,26 @@ if ($method === 'POST' && $action === 'update_settings') {
         exit;
     }
 
-    if (in_array($adminRole, ['EDITOR', 'STAFF'], true) && $hasSensitivePayload) {
+    if ($adminRole === 'EDITOR' && $hasSensitivePayload) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "ROLE_FORBIDDEN_EDITOR_PROTOCOL"]);
+        exit;
+    }
+    if ($adminRole === 'STAFF' && $hasSensitivePayload && !$hasIntegrationPayload) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "ROLE_FORBIDDEN_STAFF_PROTOCOL"]);
         exit;
     }
 
     if ($hasCmsPayload && !can_edit_cms_role($adminRole)) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "CMS_ROLE_FORBIDDEN"]);
+        exit;
+    }
+
+    if ($hasIntegrationPayload && !in_array($adminRole, ['OWNER', 'ADMIN', 'SUPER_ADMIN', 'STAFF'], true)) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "INTEGRATION_SETTINGS_ROLE_FORBIDDEN"]);
         exit;
     }
 
@@ -15164,6 +17107,15 @@ if ($method === 'POST' && $action === 'update_settings') {
             $existingSettingsJson['invoiceSettings'] ?? $existingSettingsJson['invoice_settings'] ?? [],
             $existingSettingsRow
         );
+        $currentIntegrationSettings = normalize_integration_settings(
+            $existingSettingsJson['integrationSettings']
+                ?? $existingSettingsJson['integration_settings']
+                ?? [
+                    'sslcommerz' => $existingSettingsJson['sslcommerz'] ?? [],
+                    'steadfast' => $existingSettingsJson['steadfast'] ?? []
+                ],
+            load_integration_settings($db, $existingSettingsRow)
+        );
         $currentCmsDraft = cms_normalize_bundle($existingSettingsJson['cmsDraft'] ?? $existingSettingsJson['cms_draft'] ?? []);
         $currentCmsPublished = cms_normalize_bundle($existingSettingsJson['cmsPublished'] ?? $existingSettingsJson['cms_published'] ?? []);
         $currentCmsRevisions = cms_normalize_revisions($existingSettingsJson['cmsRevisions'] ?? $existingSettingsJson['cms_revisions'] ?? []);
@@ -15197,6 +17149,31 @@ if ($method === 'POST' && $action === 'update_settings') {
             $incomingLogisticsConfig = $input['logistics_config'];
         }
         $nextLogisticsConfig = normalize_logistics_config($incomingLogisticsConfig, $currentLogisticsConfig);
+
+        $incomingIntegrationSettings = null;
+        if (array_key_exists('integrationSettings', $input)) {
+            $incomingIntegrationSettings = $input['integrationSettings'];
+        } elseif (array_key_exists('integration_settings', $input)) {
+            $incomingIntegrationSettings = $input['integration_settings'];
+        } else {
+            $gatewayInput = $input['paymentGateways'] ?? ($input['payment_gateways'] ?? []);
+            $shippingInput = $input['shippingProviders'] ?? ($input['shipping_providers'] ?? []);
+            $sslInput = $input['sslcommerz'] ?? (is_array($gatewayInput) ? ($gatewayInput['sslcommerz'] ?? null) : null);
+            $steadfastInput = $input['steadfast'] ?? (is_array($shippingInput) ? ($shippingInput['steadfast'] ?? null) : null);
+            if ($sslInput !== null || $steadfastInput !== null) {
+                $incomingIntegrationSettings = [
+                    'sslcommerz' => is_array($sslInput) ? $sslInput : [],
+                    'steadfast' => is_array($steadfastInput) ? $steadfastInput : []
+                ];
+            }
+        }
+        $nextIntegrationSettings = $currentIntegrationSettings;
+        if ($hasIntegrationPayload) {
+            $nextIntegrationSettings = normalize_integration_settings(
+                is_array($incomingIntegrationSettings) ? $incomingIntegrationSettings : [],
+                $currentIntegrationSettings
+            );
+        }
 
         $incomingCmsDraft = $input['cmsDraft'] ?? null;
         if (!is_array($incomingCmsDraft) && isset($input['themeSettings'])) {
@@ -15271,6 +17248,11 @@ if ($method === 'POST' && $action === 'update_settings') {
         $nextSettingsJson['cmsPublished'] = $nextCmsPublished;
         $nextSettingsJson['cmsActiveVersion'] = $nextCmsActiveVersion;
         $nextSettingsJson['cmsRevisions'] = $nextCmsRevisions;
+        $nextSettingsJson['integrationSettings'] = $nextIntegrationSettings;
+        $nextSettingsJson['paymentGateways'] = ['sslcommerz' => $nextIntegrationSettings['sslcommerz'] ?? []];
+        $nextSettingsJson['shippingProviders'] = ['steadfast' => $nextIntegrationSettings['steadfast'] ?? []];
+        $nextSettingsJson['sslcommerz'] = $nextIntegrationSettings['sslcommerz'] ?? [];
+        $nextSettingsJson['steadfast'] = $nextIntegrationSettings['steadfast'] ?? [];
         $incomingInvoiceSettings = $input['invoiceSettings'] ?? ($input['invoice_settings'] ?? null);
         if (is_array($incomingInvoiceSettings)) {
             $nextSettingsJson['invoiceSettings'] = invoice_normalize_settings(array_merge($currentInvoiceSettings, $incomingInvoiceSettings), $existingSettingsRow);
@@ -15349,13 +17331,26 @@ if ($method === 'POST' && $action === 'update_settings') {
                 $ip
             );
         }
+        if ($hasIntegrationPayload) {
+            log_audit_event(
+                $db,
+                (string)($requestAuthUser['id'] ?? 'system'),
+                'INTEGRATION_SETTINGS_UPDATED',
+                'SITE_SETTINGS',
+                'integration_settings',
+                ['integrationSettings' => integration_mask_settings_for_output($currentIntegrationSettings)],
+                ['integrationSettings' => integration_mask_settings_for_output($nextIntegrationSettings)],
+                $ip
+            );
+        }
 
         echo json_encode([
             "status" => "success",
             "message" => "CONFIGURATION_ARCHIVED",
             "storage" => "mysql",
             "cms_active_version" => $nextCmsActiveVersion,
-            "cms_revisions" => $nextCmsRevisions
+            "cms_revisions" => $nextCmsRevisions,
+            "integration_settings" => integration_mask_settings_for_output($nextIntegrationSettings)
         ]);
     } catch (PDOException $e) {
         splaro_log_exception('settings.update', $e, ['admin_role' => (string)$adminRole]);

@@ -603,6 +603,14 @@ define('GOOGLE_SHEETS_MAX_RETRIES', splaro_env_int('GOOGLE_SHEETS_MAX_RETRIES', 
 define('GOOGLE_SHEETS_TIMEOUT_SECONDS', splaro_env_int('GOOGLE_SHEETS_TIMEOUT_SECONDS', 8, 2, 30));
 define('GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS', splaro_env_int('GOOGLE_SHEETS_CIRCUIT_BREAK_SECONDS', 600, 30, 3600));
 
+// 4.5 PAYMENT/SHIPPING GATEWAY SAFETY DEFAULTS
+define('SSLCOMMERZ_INIT_URL_SANDBOX', env_or_default('SSLCOMMERZ_INIT_URL_SANDBOX', 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php'));
+define('SSLCOMMERZ_INIT_URL_LIVE', env_or_default('SSLCOMMERZ_INIT_URL_LIVE', 'https://securepay.sslcommerz.com/gwprocess/v4/api.php'));
+define('SSLCOMMERZ_VALIDATION_URL_SANDBOX', env_or_default('SSLCOMMERZ_VALIDATION_URL_SANDBOX', 'https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php'));
+define('SSLCOMMERZ_VALIDATION_URL_LIVE', env_or_default('SSLCOMMERZ_VALIDATION_URL_LIVE', 'https://securepay.sslcommerz.com/validator/api/validationserverAPI.php'));
+define('SSLCOMMERZ_HTTP_TIMEOUT_SECONDS', splaro_env_int('SSLCOMMERZ_HTTP_TIMEOUT_SECONDS', 10, 3, 30));
+define('STEADFAST_HTTP_TIMEOUT_SECONDS', splaro_env_int('STEADFAST_HTTP_TIMEOUT_SECONDS', 10, 3, 30));
+
 // 5. WEB PUSH (VAPID)
 define('PUSH_VAPID_PUBLIC_KEY', trim((string)env_first(['PUSH_VAPID_PUBLIC_KEY', 'VAPID_PUBLIC_KEY'], '')));
 define('PUSH_VAPID_PRIVATE_KEY', trim((string)env_first(['PUSH_VAPID_PRIVATE_KEY', 'VAPID_PRIVATE_KEY'], '')));

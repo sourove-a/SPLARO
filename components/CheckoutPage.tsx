@@ -254,7 +254,11 @@ export const CheckoutPage: React.FC = () => {
 
     if (!result.ok) {
       setStatus('idle');
-      setSubmitError(result.message || 'Order submit failed');
+      if (result.message === 'ORDER_REQUEST_TIMEOUT') {
+        setSubmitError('Server response delayed. Please retry once.');
+      } else {
+        setSubmitError(result.message || 'Order submit failed');
+      }
       return;
     }
 

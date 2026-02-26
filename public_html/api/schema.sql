@@ -97,6 +97,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `is_blocked` tinyint(1) DEFAULT 0,
   `email_verified` tinyint(1) DEFAULT 0,
   `phone_verified` tinyint(1) DEFAULT 0,
+  `email_verify_code` varchar(10) DEFAULT NULL,
+  `email_verify_expiry` datetime DEFAULT NULL,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
