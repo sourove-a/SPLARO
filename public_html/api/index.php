@@ -5914,6 +5914,13 @@ function get_authenticated_user_from_request() {
     return null;
 }
 
+function validate_auth_token($token) {
+    if (APP_AUTH_SECRET === '') {
+        return null;
+    }
+    return resolve_authenticated_user_from_token($token);
+}
+
 function is_admin_authenticated($authUser) {
     if (is_array($authUser)) {
         $role = strtoupper((string)($authUser['role'] ?? ''));
