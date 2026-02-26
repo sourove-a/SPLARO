@@ -26,7 +26,7 @@ export const MobileTabBar: React.FC = () => {
     { icon: Home, view: View.HOME, label: 'VAULT' },
     { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
     { icon: Search, view: View.SHOP, label: 'DISCOVER' },
-    { icon: User, view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.SIGNUP, label: user ? 'IDENTITY' : 'SIGNUP' }
+    { icon: User, view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, label: user ? 'IDENTITY' : 'LOGIN' }
   ];
 
   const getIsActive = (item: any) => {
