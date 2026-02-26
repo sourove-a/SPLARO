@@ -7483,7 +7483,15 @@ function run_health_probe($db, $probe, $requestAuthUser = null) {
             if (trim((string)$token) === '') {
                 throw new RuntimeException('AUTH_TOKEN_GENERATION_FAILED');
             }
-            $validated = validate_auth_token((string)$token);
+            $validated = null;
+            if (function_exists('validate_auth_token')) {
+                $validated = validate_auth_token((string)$token);
+            } elseif (function_exists('resolve_authenticated_user_from_token')) {
+                splaro_integration_trace('health.auth.validate_auth_token_missing_fallback', [
+                    'fallback' => 'resolve_authenticated_user_from_token'
+                ], 'WARNING');
+                $validated = resolve_authenticated_user_from_token((string)$token);
+            }
             if (!is_array($validated) || (string)($validated['id'] ?? '') !== (string)($row['id'] ?? '')) {
                 throw new RuntimeException('AUTH_TOKEN_VALIDATION_FAILED');
             }
@@ -10559,8 +10567,34 @@ if ($method === 'GET' && $action === 'sync') {
                 'campaigns' => $campaignProcess,
                 'telegram' => process_telegram_queue($db, 10),
                 'push' => process_push_queue($db, 10),
-                'sheets' => process_sync_queue($db, (int)ADMIN_SYNC_SHEETS_DRAIN_LIMIT, false)
+                'sheets' => [
+                    'processed' => 0,
+                    'success' => 0,
+                    'failed' => 0,
+                    'retried' => 0,
+                    'dead' => 0,
+                    'paused' => false,
+                    'reason' => '',
+                    'deferred' => false
+                ]
             ];
+            $adminSheetsDrainLimit = (int)ADMIN_SYNC_SHEETS_DRAIN_LIMIT;
+            if ($adminSheetsDrainLimit > 0) {
+                schedule_sync_queue_drain($db, [
+                    'campaign_limit' => 0,
+                    'push_limit' => 0,
+                    'telegram_limit' => 0,
+                    'sheets_limit' => $adminSheetsDrainLimit,
+                    'process_sheets' => true,
+                    'sheets_force' => false
+                ]);
+                $syncQueueProcess['sheets']['deferred'] = true;
+                $syncQueueProcess['sheets']['reason'] = 'SCHEDULED_AFTER_RESPONSE';
+                $syncQueueProcess['sheets']['limit'] = $adminSheetsDrainLimit;
+            } else {
+                $syncQueueProcess['sheets']['paused'] = true;
+                $syncQueueProcess['sheets']['reason'] = 'ADMIN_SYNC_SHEETS_DRAIN_DISABLED';
+            }
         } catch (Exception $e) {
             error_log('SPLARO_SYNC_QUEUE_PROCESS_FAILED: ' . $e->getMessage());
             splaro_log_exception('sheets.queue.process.opportunistic_admin_sync', $e);
@@ -18723,14 +18757,15 @@ function process_sync_queue($db, $limit = 20, $force = false) {
     return $result;
 }
 
-function schedule_sync_queue_drain($db) {
+function schedule_sync_queue_drain($db, $options = []) {
     static $scheduled = false;
     if ($scheduled || !$db) {
         return;
     }
     $scheduled = true;
+    $drainOptions = is_array($options) ? $options : [];
 
-    register_shutdown_function(function() use ($db) {
+    register_shutdown_function(function() use ($db, $drainOptions) {
         try {
             if (function_exists('fastcgi_finish_request')) {
                 @fastcgi_finish_request();
@@ -18738,28 +18773,59 @@ function schedule_sync_queue_drain($db) {
         } catch (Exception $e) {
             splaro_log_exception('sheets.queue.shutdown.fastcgi_finish_request', $e);
         }
-        $campaignLimit = (int)SHUTDOWN_CAMPAIGN_DRAIN_LIMIT;
-        $pushLimit = (int)SHUTDOWN_PUSH_DRAIN_LIMIT;
-        $telegramLimit = (int)SHUTDOWN_TELEGRAM_DRAIN_LIMIT;
-        $sheetsLimit = (int)SHEETS_SHUTDOWN_DRAIN_LIMIT;
+        $campaignLimit = array_key_exists('campaign_limit', $drainOptions)
+            ? (int)$drainOptions['campaign_limit']
+            : (int)SHUTDOWN_CAMPAIGN_DRAIN_LIMIT;
+        $pushLimit = array_key_exists('push_limit', $drainOptions)
+            ? (int)$drainOptions['push_limit']
+            : (int)SHUTDOWN_PUSH_DRAIN_LIMIT;
+        $telegramLimit = array_key_exists('telegram_limit', $drainOptions)
+            ? (int)$drainOptions['telegram_limit']
+            : (int)SHUTDOWN_TELEGRAM_DRAIN_LIMIT;
+        $sheetsLimit = array_key_exists('sheets_limit', $drainOptions)
+            ? (int)$drainOptions['sheets_limit']
+            : (int)SHEETS_SHUTDOWN_DRAIN_LIMIT;
+        $processSheets = array_key_exists('process_sheets', $drainOptions)
+            ? (bool)$drainOptions['process_sheets']
+            : (bool)SHEETS_SHUTDOWN_DRAIN_ENABLED;
+        $sheetsForce = array_key_exists('sheets_force', $drainOptions)
+            ? (bool)$drainOptions['sheets_force']
+            : false;
 
-        splaro_integration_trace('campaign.queue.shutdown.drain_start', ['limit' => $campaignLimit]);
-        $campaignResult = process_due_campaigns($db, $campaignLimit);
-        splaro_integration_trace('campaign.queue.shutdown.drain_done', $campaignResult);
-        splaro_integration_trace('push.queue.shutdown.drain_start', ['limit' => $pushLimit]);
-        $pushDrainResult = process_push_queue($db, $pushLimit);
-        splaro_integration_trace('push.queue.shutdown.drain_done', $pushDrainResult);
-        splaro_integration_trace('telegram.queue.shutdown.drain_start', ['limit' => $telegramLimit]);
-        $telegramDrainResult = process_telegram_queue($db, $telegramLimit);
-        splaro_integration_trace('telegram.queue.shutdown.drain_done', $telegramDrainResult);
+        if ($campaignLimit > 0) {
+            splaro_integration_trace('campaign.queue.shutdown.drain_start', ['limit' => $campaignLimit]);
+            $campaignResult = process_due_campaigns($db, $campaignLimit);
+            splaro_integration_trace('campaign.queue.shutdown.drain_done', $campaignResult);
+        } else {
+            splaro_integration_trace('campaign.queue.shutdown.drain_skipped', ['reason' => 'LIMIT_DISABLED'], 'INFO');
+        }
 
-        if (SHEETS_SHUTDOWN_DRAIN_ENABLED) {
-            splaro_integration_trace('sheets.queue.shutdown.drain_start', ['limit' => $sheetsLimit]);
-            $drainResult = process_sync_queue($db, $sheetsLimit, false);
+        if ($pushLimit > 0) {
+            splaro_integration_trace('push.queue.shutdown.drain_start', ['limit' => $pushLimit]);
+            $pushDrainResult = process_push_queue($db, $pushLimit);
+            splaro_integration_trace('push.queue.shutdown.drain_done', $pushDrainResult);
+        } else {
+            splaro_integration_trace('push.queue.shutdown.drain_skipped', ['reason' => 'LIMIT_DISABLED'], 'INFO');
+        }
+
+        if ($telegramLimit > 0) {
+            splaro_integration_trace('telegram.queue.shutdown.drain_start', ['limit' => $telegramLimit]);
+            $telegramDrainResult = process_telegram_queue($db, $telegramLimit);
+            splaro_integration_trace('telegram.queue.shutdown.drain_done', $telegramDrainResult);
+        } else {
+            splaro_integration_trace('telegram.queue.shutdown.drain_skipped', ['reason' => 'LIMIT_DISABLED'], 'INFO');
+        }
+
+        if ($processSheets && $sheetsLimit > 0) {
+            splaro_integration_trace('sheets.queue.shutdown.drain_start', [
+                'limit' => $sheetsLimit,
+                'force' => $sheetsForce
+            ]);
+            $drainResult = process_sync_queue($db, $sheetsLimit, $sheetsForce);
             splaro_integration_trace('sheets.queue.shutdown.drain_done', $drainResult);
         } else {
             splaro_integration_trace('sheets.queue.shutdown.drain_skipped', [
-                'reason' => 'SHEETS_SHUTDOWN_DRAIN_DISABLED'
+                'reason' => $processSheets ? 'LIMIT_DISABLED' : 'SHEETS_SHUTDOWN_DRAIN_DISABLED'
             ], 'INFO');
         }
     });
