@@ -879,6 +879,21 @@ const normalizeSiteSettings = (raw: any): SiteSettings => {
   };
 };
 
+type AddOrderResult = {
+  ok: boolean;
+  message?: string;
+  orderId?: string;
+  orderNo?: string;
+  email?: { admin?: boolean; customer?: boolean };
+  invoice?: {
+    status?: string;
+    channel?: string;
+    serial?: string | null;
+    downloadUrl?: string | null;
+    error?: string | null;
+  };
+};
+
 interface AppContextType {
   view: View;
   setView: (v: View) => void;
@@ -893,7 +908,7 @@ interface AppContextType {
   addToCart: (item: any) => void;
   removeFromCart: (cartId: string) => void;
   orders: Order[];
-  addOrder: (o: Order) => Promise<{ ok: boolean; message?: string }>;
+  addOrder: (o: Order) => Promise<AddOrderResult>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   updateOrderMetadata: (orderId: string, data: { trackingNumber?: string; adminNotes?: string }) => void;
   deleteOrder: (id: string) => void;
@@ -1331,7 +1346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const addOrder = async (o: Order): Promise<{ ok: boolean; message?: string }> => {
+  const addOrder = async (o: Order): Promise<AddOrderResult> => {
     if (IS_PROD) {
       try {
         const res = await fetch(`${API_NODE}?action=create_order`, {
@@ -1349,6 +1364,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           return { ok: false, message: result.message || 'ORDER_SYNC_FAILED' };
         }
+
+        const emailResult = result && typeof result.email === 'object'
+          ? {
+            admin: Boolean(result.email.admin),
+            customer: Boolean(result.email.customer)
+          }
+          : undefined;
+        const invoiceResult = result && typeof result.invoice === 'object'
+          ? {
+            status: typeof result.invoice.status === 'string' ? result.invoice.status : undefined,
+            channel: typeof result.invoice.channel === 'string' ? result.invoice.channel : undefined,
+            serial: typeof result.invoice.serial === 'string' ? result.invoice.serial : null,
+            downloadUrl: typeof result.invoice.downloadUrl === 'string' ? result.invoice.downloadUrl : null,
+            error: typeof result.invoice.error === 'string' ? result.invoice.error : null
+          }
+          : undefined;
+
+        setOrders(prev => [o, ...prev]);
+        setCart([]);
+        return {
+          ok: true,
+          message: typeof result.message === 'string' ? result.message : undefined,
+          orderId: typeof result.order_id === 'string' ? result.order_id : o.id,
+          orderNo: typeof result.order_no === 'string' ? result.order_no : undefined,
+          email: emailResult,
+          invoice: invoiceResult
+        };
       } catch (e) {
         return { ok: false, message: 'ORDER_SYNC_FAILED' };
       }
@@ -1356,7 +1398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setOrders(prev => [o, ...prev]);
     setCart([]);
-    return { ok: true };
+    return { ok: true, orderId: o.id };
   };
 
   const deleteOrder = (id: string) => {

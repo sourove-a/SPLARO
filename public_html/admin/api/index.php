@@ -12849,9 +12849,101 @@ if ($method === 'POST' && $action === 'create_order') {
         </div>
     </div>";
 
-    // Admin alert is Telegram + Sheets only. Keep customer invoice mail enabled.
-    $adminMail = false;
-    $customerMail = smtp_send_mail($db, $input['customerEmail'], "INVOICE: Your Splaro Order #" . $input['id'], $invoice_body, true);
+    $invoiceDispatch = [
+        "status" => "NOT_ATTEMPTED",
+        "channel" => "",
+        "serial" => null,
+        "downloadUrl" => null,
+        "error" => null
+    ];
+    $customerMail = false;
+    $customerEmail = trim((string)($input['customerEmail'] ?? ''));
+
+    $invoiceOrderSelectFields = build_select_fields($db, 'orders', [
+        'id', 'user_id', 'customer_name', 'customer_email', 'phone', 'district', 'thana',
+        'address', 'items', 'total', 'status', 'tracking_number', 'admin_notes',
+        'customer_comment', 'shipping_fee', 'discount_amount', 'discount_code', 'created_at'
+    ]);
+    $settingsSelectFields = site_settings_select_fields($db);
+    $settingsRow = $db->query("SELECT {$settingsSelectFields} FROM site_settings WHERE id = 1 LIMIT 1")->fetch();
+    $settingsJson = safe_json_decode_assoc($settingsRow['settings_json'] ?? '{}', []);
+    $invoiceSettingsRaw = $settingsJson['invoiceSettings'] ?? ($settingsJson['invoice_settings'] ?? []);
+    $invoiceSettings = invoice_normalize_settings($invoiceSettingsRaw, $settingsRow ?: []);
+    $invoiceType = strtoupper((string)($invoiceSettings['defaultType'] ?? 'INV'));
+
+    if (!empty($invoiceSettings['invoiceEnabled'])) {
+        try {
+            $orderForInvoiceStmt = $db->prepare("SELECT {$invoiceOrderSelectFields} FROM orders WHERE id = ? LIMIT 1");
+            $orderForInvoiceStmt->execute([$orderId]);
+            $orderForInvoice = $orderForInvoiceStmt->fetch();
+            if ($orderForInvoice) {
+                $autoInvoice = invoice_create_document($db, $orderForInvoice, $invoiceSettings, $invoiceType, 'checkout_auto', true);
+                $customerMail = strtoupper((string)($autoInvoice['status'] ?? '')) === 'SENT';
+                $invoiceDispatch = [
+                    "status" => (string)($autoInvoice['status'] ?? 'FAILED'),
+                    "channel" => "INVOICE_DOCUMENT",
+                    "serial" => (string)($autoInvoice['serial'] ?? ''),
+                    "downloadUrl" => (string)($autoInvoice['pdfUrl'] ?? ($autoInvoice['htmlUrl'] ?? '')),
+                    "error" => $autoInvoice['error'] ?? null
+                ];
+            } else {
+                $invoiceDispatch = [
+                    "status" => "FAILED",
+                    "channel" => "INVOICE_DOCUMENT",
+                    "serial" => null,
+                    "downloadUrl" => null,
+                    "error" => "ORDER_NOT_FOUND_FOR_INVOICE"
+                ];
+            }
+        } catch (Throwable $invoiceException) {
+            splaro_log_exception('order.invoice_document.send', $invoiceException, [
+                'order_id' => (string)$orderId
+            ], 'WARNING');
+            $invoiceDispatch = [
+                "status" => "FAILED",
+                "channel" => "INVOICE_DOCUMENT",
+                "serial" => null,
+                "downloadUrl" => null,
+                "error" => "INVOICE_DOCUMENT_SEND_FAILED"
+            ];
+        }
+    }
+
+    if (!$customerMail) {
+        if ($customerEmail !== '' && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+            $customerMail = smtp_send_mail($db, $customerEmail, "INVOICE: Your Splaro Order #" . $input['id'], $invoice_body, true);
+            if (!$customerMail) {
+                usleep(300000);
+                $customerMail = smtp_send_mail($db, $customerEmail, "INVOICE: Your Splaro Order #" . $input['id'], $invoice_body, true);
+            }
+
+            if ($customerMail) {
+                $invoiceDispatch['status'] = 'SENT';
+                $invoiceDispatch['channel'] = !empty($invoiceDispatch['channel']) ? ($invoiceDispatch['channel'] . '+HTML_RETRY') : 'HTML_EMAIL';
+                $invoiceDispatch['error'] = null;
+            } elseif ($invoiceDispatch['status'] === 'NOT_ATTEMPTED') {
+                $invoiceDispatch['status'] = 'FAILED';
+                $invoiceDispatch['channel'] = 'HTML_EMAIL';
+                $invoiceDispatch['error'] = 'SMTP_SEND_FAILED';
+            }
+        } else {
+            if ($invoiceDispatch['status'] === 'NOT_ATTEMPTED') {
+                $invoiceDispatch['status'] = 'FAILED';
+                $invoiceDispatch['channel'] = 'HTML_EMAIL';
+            }
+            $invoiceDispatch['error'] = 'INVALID_CUSTOMER_EMAIL';
+        }
+    }
+
+    if (empty($invoiceDispatch['channel'])) {
+        $invoiceDispatch['channel'] = $customerMail ? 'HTML_EMAIL' : 'NONE';
+    }
+    if ($invoiceDispatch['serial'] === '') {
+        $invoiceDispatch['serial'] = null;
+    }
+    if ($invoiceDispatch['downloadUrl'] === '') {
+        $invoiceDispatch['downloadUrl'] = null;
+    }
 
     echo json_encode([
         "status" => "success",
@@ -12859,6 +12951,7 @@ if ($method === 'POST' && $action === 'create_order') {
         "order_no" => (string)$orderNo,
         "message" => $customerMail ? "INVOICE_DISPATCHED" : "ORDER_PLACED_EMAIL_PENDING",
         "email" => ["admin" => false, "customer" => $customerMail],
+        "invoice" => $invoiceDispatch,
         "integrations" => [
             "sheets" => ["queued" => (bool)$orderSyncQueued],
             "telegram" => ["queued" => (bool)$telegramOrderQueued],

@@ -259,8 +259,13 @@ export const CheckoutPage: React.FC = () => {
     }
 
 
+    const invoiceSent = result.message === 'INVOICE_DISPATCHED'
+      || result.email?.customer === true
+      || result.invoice?.status === 'SENT';
+    const invoiceQuery = invoiceSent ? 'sent' : 'pending';
+
     setStatus('success');
-    setTimeout(() => navigate('/order_success'), 2000);
+    setTimeout(() => navigate(`/order_success?invoice=${invoiceQuery}`), 2000);
   };
 
   if (!user) {

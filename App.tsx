@@ -298,7 +298,14 @@ const HomeView = () => {
 const OrderSuccessView = () => {
   const { orders } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const latestOrder = orders[0];
+  const invoiceState = useMemo(() => {
+    const flag = new URLSearchParams(location.search).get('invoice');
+    if (flag === 'sent') return 'sent';
+    if (flag === 'pending') return 'pending';
+    return 'unknown';
+  }, [location.search]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#050505] relative overflow-hidden">
@@ -342,6 +349,16 @@ const OrderSuccessView = () => {
           SECURED<span className="text-cyan-500">.</span>
         </motion.h1>
         <p className="text-[11px] font-black uppercase tracking-[0.8em] text-cyan-500/60 mb-16 animate-pulse">Asset Deployment Initialized</p>
+        {invoiceState === 'sent' && (
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300 mb-10">
+            Invoice email delivered to your inbox.
+          </p>
+        )}
+        {invoiceState === 'pending' && (
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-300 mb-10">
+            Order saved, invoice email pending. Team will resend shortly.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-16">
           <GlassCard className="p-10 !bg-white/[0.04]">
