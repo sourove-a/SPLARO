@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, Phone, User, MapPin, Mail,
   ShieldCheck, Sparkles, CheckCircle2, AlertCircle,
-  Truck, RotateCcw, Package, Wallet, CreditCard,
+  Truck, RotateCcw, Package, Wallet, CreditCard, Globe,
   Heart, ArrowRight, ChevronDown, Tag, Command, MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -108,7 +108,7 @@ const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any
 export const CheckoutPage: React.FC = () => {
   const { cart, addOrder, user, discounts, logisticsConfig } = useApp();
   const navigate = useNavigate();
-  const ADDRESS_MIN_LENGTH = 6;
+  const ADDRESS_MIN_LENGTH = 3;
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const [submitError, setSubmitError] = useState('');
   const [discountInput, setDiscountInput] = useState('');
@@ -214,6 +214,9 @@ export const CheckoutPage: React.FC = () => {
     });
   };
 
+  const normalizeAddress = (value: string) =>
+    String(value || '').replace(/\s+/g, ' ').trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
@@ -225,7 +228,8 @@ export const CheckoutPage: React.FC = () => {
     if (phoneError) newErrors.phone = phoneError;
     if (!formData.district) newErrors.district = "District required";
     if (!formData.thana) newErrors.thana = "Area required";
-    if (!formData.address.trim() || formData.address.trim().length < ADDRESS_MIN_LENGTH) {
+    const normalizedAddress = normalizeAddress(formData.address);
+    if (!normalizedAddress || normalizedAddress.length < ADDRESS_MIN_LENGTH) {
       newErrors.address = "Detailed address required";
     }
 
@@ -251,7 +255,7 @@ export const CheckoutPage: React.FC = () => {
       shippingFee,
       district: formData.district,
       thana: formData.thana,
-      address: formData.address,
+      address: normalizeAddress(formData.address),
       customerComment: formData.customerComment,
       status: 'Pending',
       createdAt: new Date().toISOString()
@@ -383,8 +387,13 @@ export const CheckoutPage: React.FC = () => {
                 value={formData.address}
                 onChange={v => {
                   setFormData({ ...formData, address: v });
-                  const normalized = v.trim();
-                  if (normalized.length >= ADDRESS_MIN_LENGTH) {
+                  clearFieldError('address');
+                }}
+                onBlur={() => {
+                  const normalized = normalizeAddress(formData.address);
+                  if (!normalized || normalized.length < ADDRESS_MIN_LENGTH) {
+                    setErrors((prev) => ({ ...prev, address: 'Detailed address required' }));
+                  } else {
                     clearFieldError('address');
                   }
                 }}
