@@ -15373,6 +15373,19 @@ if ($method === 'POST' && $action === 'delete_product') {
             exit;
         }
 
+        if (column_exists($db, 'order_items', 'product_id')) {
+            $detachOrderItemsStmt = $db->prepare("UPDATE order_items SET product_id = NULL WHERE product_id = ?");
+            $detachOrderItemsStmt->execute([$productId]);
+        }
+        if (column_exists($db, 'product_variants', 'product_id')) {
+            $deleteVariantsStmt = $db->prepare("DELETE FROM product_variants WHERE product_id = ?");
+            $deleteVariantsStmt->execute([$productId]);
+        }
+        if (column_exists($db, 'stock_movements', 'product_id')) {
+            $deleteMovementsStmt = $db->prepare("DELETE FROM stock_movements WHERE product_id = ?");
+            $deleteMovementsStmt->execute([$productId]);
+        }
+
         $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
         $deleteImagesStmt->execute([$productId]);
 
@@ -15415,7 +15428,13 @@ if ($method === 'POST' && $action === 'sync_products') {
         $payload = json_decode(file_get_contents('php://input'), true);
         $products = $payload['products'] ?? $payload;
         $purgeMissing = !empty($payload['purgeMissing']);
-        $payloadHasProductsArray = is_array($payload) && array_key_exists('products', $payload) && is_array($payload['products']);
+        $payloadIsDirectArray = is_array($payload) && array_is_list($payload);
+        if ($payloadIsDirectArray && !$purgeMissing) {
+            // Backward compatibility: legacy admin clients send only the full products array.
+            // Treat it as a full-manifest sync so removed rows are purged.
+            $purgeMissing = true;
+        }
+        $payloadHasProductsArray = (is_array($payload) && array_key_exists('products', $payload) && is_array($payload['products'])) || $payloadIsDirectArray;
 
         if (!is_array($products)) {
             echo json_encode(["status" => "error", "message" => "INVALID_PRODUCT_PAYLOAD"]);
@@ -15465,7 +15484,14 @@ if ($method === 'POST' && $action === 'sync_products') {
         $existingStmt = $db->prepare("SELECT id, price, status, image, stock FROM products WHERE id = ? LIMIT 1");
         $slugLookupStmt = $db->prepare("SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1");
         $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+        $deleteProductStmt = $db->prepare("DELETE FROM products WHERE id = ?");
         $insertImageStmt = $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $canDetachOrderItems = column_exists($db, 'order_items', 'product_id');
+        $canDeleteVariants = column_exists($db, 'product_variants', 'product_id');
+        $canDeleteMovements = column_exists($db, 'stock_movements', 'product_id');
+        $detachOrderItemsStmt = $canDetachOrderItems ? $db->prepare("UPDATE order_items SET product_id = NULL WHERE product_id = ?") : null;
+        $deleteVariantsStmt = $canDeleteVariants ? $db->prepare("DELETE FROM product_variants WHERE product_id = ?") : null;
+        $deleteMovementsStmt = $canDeleteMovements ? $db->prepare("DELETE FROM stock_movements WHERE product_id = ?") : null;
 
         $db->beginTransaction();
         $incomingIds = [];
@@ -15707,12 +15733,37 @@ if ($method === 'POST' && $action === 'sync_products') {
         if ($purgeMissing) {
             if (!empty($incomingIds)) {
                 $placeholders = implode(',', array_fill(0, count($incomingIds), '?'));
-                $deleteStmt = $db->prepare("DELETE FROM products WHERE id NOT IN ({$placeholders})");
-                $deleteStmt->execute($incomingIds);
-                $cleanupImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id NOT IN ({$placeholders})");
-                $cleanupImagesStmt->execute($incomingIds);
+                $staleStmt = $db->prepare("SELECT id FROM products WHERE id NOT IN ({$placeholders})");
+                $staleStmt->execute($incomingIds);
+                $staleIds = $staleStmt->fetchAll(PDO::FETCH_COLUMN);
+                if (is_array($staleIds)) {
+                    foreach ($staleIds as $staleIdRaw) {
+                        $staleId = trim((string)$staleIdRaw);
+                        if ($staleId === '') continue;
+                        if ($detachOrderItemsStmt) {
+                            $detachOrderItemsStmt->execute([$staleId]);
+                        }
+                        if ($deleteVariantsStmt) {
+                            $deleteVariantsStmt->execute([$staleId]);
+                        }
+                        if ($deleteMovementsStmt) {
+                            $deleteMovementsStmt->execute([$staleId]);
+                        }
+                        $deleteImagesStmt->execute([$staleId]);
+                        $deleteProductStmt->execute([$staleId]);
+                    }
+                }
             } elseif ($payloadHasProductsArray) {
                 // Explicit full-sync payload with empty products means clear the catalog.
+                if ($canDetachOrderItems) {
+                    $db->exec("UPDATE order_items SET product_id = NULL WHERE product_id IS NOT NULL");
+                }
+                if ($canDeleteVariants) {
+                    $db->exec("DELETE FROM product_variants");
+                }
+                if ($canDeleteMovements) {
+                    $db->exec("DELETE FROM stock_movements");
+                }
                 $db->exec("DELETE FROM product_images");
                 $db->exec("DELETE FROM products");
             }
