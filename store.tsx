@@ -1454,7 +1454,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? window.setTimeout(() => controller?.abort(), 25000)
       : null;
 
+    const rollback = (message: string): ProductSyncResult => {
+      if (message === 'DATABASE_ENV_NOT_CONFIGURED' || message === 'DATABASE_CONNECTION_FAILED') {
+        setDbStatus('FALLBACK');
+      }
+      setProducts(previousProducts);
+      return { ok: false, synced: false, message };
+    };
+
     try {
+      const directDeleteRes = await fetch(`${API_NODE}?action=delete_product`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ id }),
+        ...(controller ? { signal: controller.signal } : {})
+      });
+      const directDeleteResult = await directDeleteRes.json().catch(() => ({}));
+      if (directDeleteRes.ok && directDeleteResult?.status === 'success') {
+        return {
+          ok: true,
+          synced: true,
+          message: typeof directDeleteResult?.message === 'string' ? directDeleteResult.message : 'PRODUCT_DELETED'
+        };
+      }
+
+      const directDeleteMessage = String(directDeleteResult?.message || 'PRODUCT_DELETE_FAILED');
+      if (directDeleteMessage === 'PRODUCT_NOT_FOUND') {
+        return { ok: true, synced: true, message: 'PRODUCT_ALREADY_DELETED' };
+      }
+
+      // Backward compatibility for servers that still lack delete_product action.
+      if (directDeleteMessage !== 'ACTION_NOT_RECOGNIZED') {
+        return rollback(directDeleteMessage);
+      }
+
       const res = await fetch(`${API_NODE}?action=sync_products`, {
         method: 'POST',
         headers: getAuthHeaders(true),
@@ -1467,11 +1500,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result?.status !== 'success') {
         const message = String(result?.message || 'PRODUCT_DELETE_SYNC_FAILED');
-        if (message === 'DATABASE_ENV_NOT_CONFIGURED' || message === 'DATABASE_CONNECTION_FAILED') {
-          setDbStatus('FALLBACK');
-        }
-        setProducts(previousProducts);
-        return { ok: false, synced: false, message };
+        return rollback(message);
       }
       return {
         ok: true,
@@ -1479,9 +1508,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         message: typeof result?.message === 'string' ? result.message : 'PRODUCT_MANIFEST_UPDATED'
       };
     } catch (e: any) {
-      setProducts(previousProducts);
       const message = e?.name === 'AbortError' ? 'PRODUCT_DELETE_SYNC_TIMEOUT' : 'PRODUCT_DELETE_SYNC_FAILED';
-      return { ok: false, synced: false, message };
+      return rollback(message);
     } finally {
       if (timeout !== null && typeof window !== 'undefined') {
         window.clearTimeout(timeout);

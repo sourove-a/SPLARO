@@ -15351,6 +15351,63 @@ if ($method === 'POST' && $action === 'delete_order') {
     exit;
 }
 
+// 3. PRODUCT DELETION
+if ($method === 'POST' && $action === 'delete_product') {
+    require_admin_access($requestAuthUser);
+    try {
+        $payload = json_decode(file_get_contents('php://input'), true);
+        $productId = trim((string)($payload['id'] ?? $payload['product_id'] ?? ''));
+        if ($productId === '') {
+            echo json_encode(["status" => "error", "message" => "PRODUCT_ID_REQUIRED"]);
+            exit;
+        }
+
+        $db->beginTransaction();
+        $existingStmt = $db->prepare("SELECT id, name, price, status FROM products WHERE id = ? LIMIT 1");
+        $existingStmt->execute([$productId]);
+        $existing = $existingStmt->fetch();
+
+        if (!$existing) {
+            $db->rollBack();
+            echo json_encode(["status" => "error", "message" => "PRODUCT_NOT_FOUND"]);
+            exit;
+        }
+
+        $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+        $deleteImagesStmt->execute([$productId]);
+
+        $deleteProductStmt = $db->prepare("DELETE FROM products WHERE id = ?");
+        $deleteProductStmt->execute([$productId]);
+
+        $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin');
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+        audit_log_insert(
+            $db,
+            $actorId,
+            'PRODUCT_DELETED',
+            'PRODUCT',
+            $productId,
+            [
+                'name' => (string)($existing['name'] ?? ''),
+                'price' => (int)($existing['price'] ?? 0),
+                'status' => (string)($existing['status'] ?? 'PUBLISHED')
+            ],
+            null,
+            $ipAddress
+        );
+
+        $db->commit();
+        echo json_encode(["status" => "success", "message" => "PRODUCT_DELETED"]);
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        splaro_log_exception('products.delete', $e);
+        echo json_encode(["status" => "error", "message" => "PRODUCT_DELETE_FAILED"]);
+    }
+    exit;
+}
+
 // 3. PRODUCT SYCHRONIZATION
 if ($method === 'POST' && $action === 'sync_products') {
     require_admin_access($requestAuthUser);
