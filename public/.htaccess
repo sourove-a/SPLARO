@@ -8,6 +8,15 @@ DirectoryIndex index.php index.html
   Require all granted
 </IfModule>
 
+<IfModule mod_headers.c>
+  # Prevent stale HTML/manifest/service-worker cache after deployments.
+  <FilesMatch "^(index\.php|index\.html|push-sw\.js|site\.webmanifest)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

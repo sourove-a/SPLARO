@@ -70,6 +70,25 @@ Target path: `/home/u134578371/domains/splaro.co/public_html/admin`
    - `https://admin.splaro.co/` loads admin login/dashboard
    - `https://admin.splaro.co/api/index.php?action=health` returns JSON (with admin auth)
 
+### Emergency Full Reset (Storefront + Admin + API)
+When admin product add/delete or API actions fail, run this one-shot recovery on server SSH:
+
+```bash
+bash scripts/hostinger-reset-all.sh
+```
+
+Optional full smoke test (add/delete) with admin key:
+
+```bash
+ADMIN_KEY='YOUR_ADMIN_KEY' bash scripts/hostinger-reset-all.sh
+```
+
+What it does:
+- redeploys `public_html/` to `/home/u134578371/domains/splaro.co/public_html`
+- redeploys `public_html/admin/` to both admin roots
+- removes Hostinger placeholder files (`default.php`, `index2.php`)
+- probes health endpoints and (optionally) runs live product sync/delete smoke test
+
 ### If `admin.splaro.co` Shows Hostinger "Default page"
 This means subdomain document root is not mapped to the admin deploy folder yet.
 
