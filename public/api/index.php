@@ -15358,6 +15358,7 @@ if ($method === 'POST' && $action === 'sync_products') {
         $payload = json_decode(file_get_contents('php://input'), true);
         $products = $payload['products'] ?? $payload;
         $purgeMissing = !empty($payload['purgeMissing']);
+        $payloadHasProductsArray = is_array($payload) && array_key_exists('products', $payload) && is_array($payload['products']);
 
         if (!is_array($products)) {
             echo json_encode(["status" => "error", "message" => "INVALID_PRODUCT_PAYLOAD"]);
@@ -15646,10 +15647,18 @@ if ($method === 'POST' && $action === 'sync_products') {
             }
         }
 
-        if ($purgeMissing && !empty($incomingIds)) {
-            $placeholders = implode(',', array_fill(0, count($incomingIds), '?'));
-            $deleteStmt = $db->prepare("DELETE FROM products WHERE id NOT IN ({$placeholders})");
-            $deleteStmt->execute($incomingIds);
+        if ($purgeMissing) {
+            if (!empty($incomingIds)) {
+                $placeholders = implode(',', array_fill(0, count($incomingIds), '?'));
+                $deleteStmt = $db->prepare("DELETE FROM products WHERE id NOT IN ({$placeholders})");
+                $deleteStmt->execute($incomingIds);
+                $cleanupImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id NOT IN ({$placeholders})");
+                $cleanupImagesStmt->execute($incomingIds);
+            } elseif ($payloadHasProductsArray) {
+                // Explicit full-sync payload with empty products means clear the catalog.
+                $db->exec("DELETE FROM product_images");
+                $db->exec("DELETE FROM products");
+            }
         }
 
         $db->commit();

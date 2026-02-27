@@ -1742,6 +1742,7 @@ export const AdminPanel = () => {
   const [adminProfileSaving, setAdminProfileSaving] = useState(false);
   const [productAutoSeeded, setProductAutoSeeded] = useState(false);
   const [isProductSaving, setIsProductSaving] = useState(false);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
 
   const showToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, tone });
@@ -3632,7 +3633,26 @@ export const AdminPanel = () => {
                           <td className="p-8">
                             <div className="flex gap-3">
                               <button onClick={() => { setEditingProduct(p); setIsProductModalOpen(true); }} className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-white hover:border-blue-500 transition-all"><Edit className="w-5 h-5" /></button>
-                              <button onClick={() => deleteProduct(p.id)} className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-rose-500 hover:border-rose-500 transition-all"><Trash2 className="w-5 h-5" /></button>
+                              <button
+                                onClick={async () => {
+                                  if (deletingProductId === p.id) return;
+                                  setDeletingProductId(p.id);
+                                  try {
+                                    const result = await deleteProduct(p.id);
+                                    if (!result.ok) {
+                                      showToast(result.message || 'Product delete failed.', 'error');
+                                      return;
+                                    }
+                                    showToast('Product deleted successfully.', 'success');
+                                  } finally {
+                                    setDeletingProductId(null);
+                                  }
+                                }}
+                                disabled={deletingProductId === p.id}
+                                className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-rose-500 hover:border-rose-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
                             </div>
                           </td>
                         </tr>

@@ -952,7 +952,7 @@ interface AppContextType {
   setView: (v: View) => void;
   products: Product[];
   addOrUpdateProduct: (p: Product) => Promise<ProductSyncResult>;
-  deleteProduct: (id: string) => void;
+  deleteProduct: (id: string) => Promise<ProductSyncResult>;
   language: Language;
   setLanguage: (l: Language) => void;
   theme: Theme;
@@ -1435,18 +1435,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string): Promise<ProductSyncResult> => {
+    let previousProducts: Product[] = [];
+    let nextProducts: Product[] = [];
+
     setProducts(prev => {
-      const newProducts = prev.filter(p => p.id !== id);
-      if (IS_PROD) {
-        fetch(`${API_NODE}?action=sync_products`, {
-          method: 'POST',
-          headers: getAuthHeaders(true),
-          body: JSON.stringify(newProducts)
-        });
-      }
-      return newProducts;
+      previousProducts = prev;
+      nextProducts = prev.filter(p => p.id !== id);
+      return nextProducts;
     });
+
+    if (!IS_PROD) {
+      return { ok: true, synced: false, message: 'LOCAL_PRODUCT_DELETED' };
+    }
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = typeof window !== 'undefined'
+      ? window.setTimeout(() => controller?.abort(), 25000)
+      : null;
+
+    try {
+      const res = await fetch(`${API_NODE}?action=sync_products`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({
+          products: nextProducts,
+          purgeMissing: true
+        }),
+        ...(controller ? { signal: controller.signal } : {})
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        const message = String(result?.message || 'PRODUCT_DELETE_SYNC_FAILED');
+        if (message === 'DATABASE_ENV_NOT_CONFIGURED' || message === 'DATABASE_CONNECTION_FAILED') {
+          setDbStatus('FALLBACK');
+        }
+        setProducts(previousProducts);
+        return { ok: false, synced: false, message };
+      }
+      return {
+        ok: true,
+        synced: true,
+        message: typeof result?.message === 'string' ? result.message : 'PRODUCT_MANIFEST_UPDATED'
+      };
+    } catch (e: any) {
+      setProducts(previousProducts);
+      const message = e?.name === 'AbortError' ? 'PRODUCT_DELETE_SYNC_TIMEOUT' : 'PRODUCT_DELETE_SYNC_FAILED';
+      return { ok: false, synced: false, message };
+    } finally {
+      if (timeout !== null && typeof window !== 'undefined') {
+        window.clearTimeout(timeout);
+      }
+    }
   };
 
   const addOrder = async (o: Order): Promise<AddOrderResult> => {
