@@ -1483,8 +1483,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { ok: true, synced: true, message: 'PRODUCT_ALREADY_DELETED' };
       }
 
-      // Backward compatibility for servers that still lack delete_product action.
-      if (directDeleteMessage !== 'ACTION_NOT_RECOGNIZED') {
+      const shouldFallbackToManifestSync = !directDeleteRes.ok
+        || directDeleteMessage === 'ACTION_NOT_RECOGNIZED'
+        || directDeleteMessage === 'PRODUCT_DELETE_FAILED'
+        || directDeleteMessage === 'CSRF_INVALID';
+
+      // Backward compatibility and resilience for mixed deployments / edge blocks.
+      if (!shouldFallbackToManifestSync) {
         return rollback(directDeleteMessage);
       }
 
