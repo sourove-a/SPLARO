@@ -414,10 +414,10 @@ const FALLBACK_DEMO_PRODUCT: Product = {
   liveUrl: '/product/splaro/shoes/splaro-demo-vault-01'
 };
 
-const FALLBACK_SEED_PRODUCTS: Product[] = [
-  FALLBACK_DEMO_PRODUCT,
-  ...INITIAL_PRODUCTS.filter((item) => item.id !== FALLBACK_DEMO_PRODUCT.id)
-];
+const LEGACY_DEMO_PRODUCT_IDS = new Set<string>([
+  'splaro-demo-vault-01'
+]);
+const FALLBACK_SEED_PRODUCTS: Product[] = [];
 
 
 
@@ -1028,13 +1028,21 @@ const loadFromStorage = (key: string, defaultValue: any) => {
   }
 };
 
+const sanitizeProducts = (items: Product[]): Product[] => {
+  if (!Array.isArray(items)) return [];
+  return items.filter((item) => {
+    const id = String(item?.id || '').trim().toLowerCase();
+    return id !== '' && !LEGACY_DEMO_PRODUCT_IDS.has(id);
+  });
+};
+
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [view, setView] = useState<View>(View.HOME);
   const [language, setLanguage] = useState<Language>(loadFromStorage('splaro-language', 'EN'));
   const [theme, setTheme] = useState<Theme>(loadFromStorage('splaro-theme', 'DARK'));
   const [cart, setCart] = useState<any[]>(loadFromStorage('splaro-cart', []));
-  const [products, setProducts] = useState<Product[]>(loadFromStorage('splaro-products', FALLBACK_SEED_PRODUCTS));
+  const [products, setProducts] = useState<Product[]>(() => sanitizeProducts(loadFromStorage('splaro-products', FALLBACK_SEED_PRODUCTS)));
   const [orders, setOrders] = useState<Order[]>(loadFromStorage('splaro-orders', []));
   const [user, setUser] = useState<User | null>(loadFromStorage('splaro-user', null));
   const [discounts, setDiscounts] = useState<DiscountCode[]>(loadFromStorage('splaro-discounts', INITIAL_DISCOUNTS));
@@ -1290,7 +1298,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDbStatus(isMysql ? 'MYSQL' : 'FALLBACK');
 
         if (!isMysql) {
-          setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
+          setProducts((prev) => sanitizeProducts(prev));
           return;
         }
 
@@ -1304,11 +1312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               lowStockThreshold: safeLowStockThreshold
             };
           });
-          if (mappedProducts.length > 0) {
-            setProducts(mappedProducts);
-          } else {
-            setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
-          }
+          setProducts(sanitizeProducts(mappedProducts));
         }
         if (result.data.logs?.length > 0) setLogs(result.data.logs);
         if (result.data.traffic?.length > 0) setTrafficData(result.data.traffic);
@@ -1395,11 +1399,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(result.data.traffic)) setTrafficData(result.data.traffic);
       } else {
         setDbStatus('FALLBACK');
-        setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
+        setProducts((prev) => sanitizeProducts(prev));
       }
     } catch (e) {
       setDbStatus('FALLBACK');
-      setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
+      setProducts((prev) => sanitizeProducts(prev));
       console.warn('ARCHIVAL_SYNC_BYPASS: Operative terminal logic initialized locally.');
     }
   };
@@ -1411,7 +1415,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return () => clearInterval(interval);
     } else {
       setDbStatus('FALLBACK');
-      setProducts((prev) => (Array.isArray(prev) && prev.length > 0 ? prev : FALLBACK_SEED_PRODUCTS));
+      setProducts((prev) => sanitizeProducts(prev));
     }
   }, [IS_PROD]);
 

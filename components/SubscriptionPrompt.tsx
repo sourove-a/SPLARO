@@ -6,7 +6,7 @@ import { getPhpApiNode } from '../lib/runtime';
 const API_NODE = getPhpApiNode();
 const DISMISS_KEY = 'splaro-push-soft-dismissed';
 const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
-  fetchWithCredentials(input, { credentials: 'include', ...init });
+  fetch(input, { credentials: 'include', ...init });
 
 function toBase64Url(bytes: ArrayBuffer | null): string {
   if (!bytes) return '';

@@ -24,7 +24,7 @@ type NotificationMeta = {
 
 const API_NODE = getPhpApiNode();
 const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
-  fetchWithCredentials(input, { credentials: 'include', ...init });
+  fetch(input, { credentials: 'include', ...init });
 
 function readCsrfToken(): string {
   if (typeof document === 'undefined') return '';

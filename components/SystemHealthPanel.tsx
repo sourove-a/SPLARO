@@ -18,7 +18,7 @@ import { getPhpApiNode } from '../lib/runtime';
 
 type HealthServiceStatus = 'OK' | 'WARNING' | 'DOWN';
 type ProbeName = 'db' | 'telegram' | 'sheets' | 'queue' | 'orders' | 'auth';
-type ServiceKey = 'db' | 'orders_api' | 'auth_api' | 'queue' | 'telegram' | 'sheets' | 'push';
+type ServiceKey = string;
 
 type ServiceState = {
   status: HealthServiceStatus;
@@ -57,7 +57,7 @@ type SystemErrorRow = {
 
 const API_NODE = getPhpApiNode();
 const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
-  fetchWithCredentials(input, { credentials: 'include', ...init });
+  fetch(input, { credentials: 'include', ...init });
 
 const getAuthHeaders = (json = false): Record<string, string> => {
   const headers: Record<string, string> = {};
@@ -148,14 +148,24 @@ const statusClass = (status: HealthServiceStatus | 'PASS' | 'FAIL' | 'WARNING') 
   return 'text-rose-400 border-rose-500/30 bg-rose-500/10';
 };
 
-const serviceMeta: Record<ServiceKey, { label: string; icon: any; probe: ProbeName | null }> = {
+const serviceMeta: Record<string, { label: string; icon: any; probe: ProbeName | null }> = {
   db: { label: 'DB', icon: Database, probe: 'db' },
   orders_api: { label: 'Orders API', icon: ShoppingCart, probe: 'orders' },
   auth_api: { label: 'Auth API', icon: ShieldCheck, probe: 'auth' },
   queue: { label: 'Queue', icon: Workflow, probe: 'queue' },
   telegram: { label: 'Telegram', icon: Send, probe: 'telegram' },
   sheets: { label: 'Sheets', icon: Table2, probe: 'sheets' },
-  push: { label: 'Push', icon: Activity, probe: 'queue' }
+  push: { label: 'Push', icon: Activity, probe: 'queue' },
+  sslcommerz: { label: 'SSLCommerz', icon: Activity, probe: null },
+  steadfast: { label: 'Steadfast', icon: Activity, probe: null }
+};
+
+const knownServiceOrder = ['db', 'orders_api', 'auth_api', 'queue', 'telegram', 'sheets', 'push', 'sslcommerz', 'steadfast'];
+
+const serviceLabelFromKey = (key: string): string => {
+  const text = String(key || '').replace(/_/g, ' ').trim();
+  if (!text) return 'Unknown';
+  return text.replace(/\b\w/g, (ch) => ch.toUpperCase());
 };
 
 export const SystemHealthPanel: React.FC = () => {
@@ -215,18 +225,38 @@ export const SystemHealthPanel: React.FC = () => {
   }, [healthQuery.isError, healthQuery.dataUpdatedAt, refreshMs]);
 
   const cards = useMemo(() => {
-    const services = healthQuery.data?.services || ({} as Record<ServiceKey, ServiceState>);
-    return (Object.keys(serviceMeta) as ServiceKey[]).map((key) => {
-      const serviceState = services[key] || {
+    const services = healthQuery.data?.services || ({} as Record<string, ServiceState>);
+    const serviceKeys = Object.keys(services).length > 0
+      ? Object.keys(services)
+      : Object.keys(serviceMeta);
+
+    const rank = (key: string) => {
+      const idx = knownServiceOrder.indexOf(key);
+      return idx === -1 ? 999 : idx;
+    };
+
+    return serviceKeys
+      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+      .map((key) => {
+        const serviceState = services[key] || {
         status: 'WARNING',
         latency_ms: null,
         last_checked_at: '',
         error: 'NO_DATA',
         next_action: 'Run check and inspect system_errors.'
       };
-      return { key, ...serviceMeta[key], state: serviceState };
+      const meta = serviceMeta[key] || { label: serviceLabelFromKey(key), icon: Activity, probe: null };
+      return { key, ...meta, state: serviceState };
     });
   }, [healthQuery.data]);
+
+  const probeOptions = useMemo(() => {
+    const defaults = ['db', 'orders', 'auth', 'queue', 'telegram', 'sheets'];
+    const fromEvents = (eventsQuery.data || [])
+      .map((row) => String(row.probe || '').trim())
+      .filter(Boolean);
+    return Array.from(new Set([...defaults, ...fromEvents]));
+  }, [eventsQuery.data]);
 
   return (
     <div className="space-y-8">
@@ -314,12 +344,9 @@ export const SystemHealthPanel: React.FC = () => {
               className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider"
             >
               <option value="">All probes</option>
-              <option value="db">db</option>
-              <option value="orders">orders</option>
-              <option value="auth">auth</option>
-              <option value="queue">queue</option>
-              <option value="telegram">telegram</option>
-              <option value="sheets">sheets</option>
+              {probeOptions.map((probe) => (
+                <option key={probe} value={probe}>{probe}</option>
+              ))}
             </select>
           </div>
           <div className="max-h-[420px] overflow-auto border border-white/10 rounded-2xl">

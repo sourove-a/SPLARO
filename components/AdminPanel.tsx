@@ -31,7 +31,7 @@ type AdminTab = typeof ADMIN_TABS[number];
 type CmsCategoryTab = 'all' | 'shoes' | 'bags';
 
 const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
-  fetchWithCredentials(input, { credentials: 'include', ...init });
+  fetch(input, { credentials: 'include', ...init });
 
 const isAdminTab = (tab: string): tab is AdminTab => ADMIN_TABS.includes(tab as AdminTab);
 
