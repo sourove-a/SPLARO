@@ -16,7 +16,7 @@ import {
   CmsRevision,
   InvoiceSettings
 } from './types';
-import { getPhpApiNode, shouldUsePhpApi } from './lib/runtime';
+import { getPhpApiNode, getStorefrontOrigin, shouldUsePhpApi } from './lib/runtime';
 import { isAdminRole } from './lib/roles';
 
 
@@ -1176,6 +1176,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return headers;
   };
 
+  const getProductApiCandidates = () => {
+    const candidates = [API_NODE];
+    if (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'admin.splaro.co') {
+      const storefrontApiNode = `${getStorefrontOrigin()}/api/index.php`;
+      if (storefrontApiNode !== '' && storefrontApiNode !== API_NODE) {
+        candidates.push(storefrontApiNode);
+      }
+    }
+    return candidates;
+  };
+
+  const postProductAction = async (
+    action: string,
+    payload: any,
+    signal?: AbortSignal
+  ): Promise<{ ok: boolean; result: any; message: string }> => {
+    const nodes = getProductApiCandidates();
+    let lastMessage = '';
+    let lastResult: any = {};
+
+    for (let i = 0; i < nodes.length; i += 1) {
+      const node = nodes[i];
+      const hasFallback = i < nodes.length - 1;
+      try {
+        const res = await fetch(`${node}?action=${action}`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify(payload),
+          ...(signal ? { signal } : {})
+        });
+        const result = await res.json().catch(() => ({}));
+        const message = String(result?.message || '');
+
+        if (res.ok && result?.status === 'success') {
+          return { ok: true, result, message };
+        }
+
+        lastResult = result;
+        lastMessage = message;
+        const retryable = hasFallback && (
+          !res.ok
+          || message === ''
+          || message === 'INTERNAL_SERVER_ERROR'
+          || message === 'PRODUCT_SYNC_FAILED'
+          || message === 'PRODUCT_DELETE_FAILED'
+          || message === 'ACTION_NOT_RECOGNIZED'
+        );
+        if (retryable) {
+          continue;
+        }
+        return { ok: false, result, message: message || `${action.toUpperCase()}_FAILED` };
+      } catch (error) {
+        if (!hasFallback) {
+          throw error;
+        }
+      }
+    }
+
+    return { ok: false, result: lastResult, message: lastMessage || `${action.toUpperCase()}_FAILED` };
+  };
+
   const emitToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { message, tone } }));
@@ -1404,15 +1465,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       : null;
 
     try {
-      const res = await fetch(`${API_NODE}?action=sync_products`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({ products: nextProducts }),
-        ...(controller ? { signal: controller.signal } : {})
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        const message = String(result?.message || 'PRODUCT_SYNC_FAILED');
+      const attempt = await postProductAction('sync_products', { products: nextProducts }, controller?.signal);
+      if (!attempt.ok) {
+        const message = String(attempt.message || 'PRODUCT_SYNC_FAILED');
         if (message === 'DATABASE_ENV_NOT_CONFIGURED' || message === 'DATABASE_CONNECTION_FAILED') {
           setDbStatus('FALLBACK');
         }
@@ -1422,7 +1477,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return {
         ok: true,
         synced: true,
-        message: typeof result?.message === 'string' ? result.message : 'PRODUCT_MANIFEST_UPDATED'
+        message: typeof attempt.result?.message === 'string' ? attempt.result.message : 'PRODUCT_MANIFEST_UPDATED'
       };
     } catch (e: any) {
       setProducts(previousProducts);
@@ -1463,54 +1518,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      const directDeleteRes = await fetch(`${API_NODE}?action=delete_product`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({ id }),
-        ...(controller ? { signal: controller.signal } : {})
-      });
-      const directDeleteResult = await directDeleteRes.json().catch(() => ({}));
-      if (directDeleteRes.ok && directDeleteResult?.status === 'success') {
+      const directDeleteAttempt = await postProductAction('delete_product', { id }, controller?.signal);
+      if (directDeleteAttempt.ok) {
         return {
           ok: true,
           synced: true,
-          message: typeof directDeleteResult?.message === 'string' ? directDeleteResult.message : 'PRODUCT_DELETED'
+          message: typeof directDeleteAttempt.result?.message === 'string' ? directDeleteAttempt.result.message : 'PRODUCT_DELETED'
         };
       }
 
-      const directDeleteMessage = String(directDeleteResult?.message || 'PRODUCT_DELETE_FAILED');
+      const directDeleteMessage = String(directDeleteAttempt.message || directDeleteAttempt.result?.message || 'PRODUCT_DELETE_FAILED');
       if (directDeleteMessage === 'PRODUCT_NOT_FOUND') {
         return { ok: true, synced: true, message: 'PRODUCT_ALREADY_DELETED' };
       }
 
-      const shouldFallbackToManifestSync = !directDeleteRes.ok
-        || directDeleteMessage === 'ACTION_NOT_RECOGNIZED'
+      const shouldFallbackToManifestSync = directDeleteMessage === 'ACTION_NOT_RECOGNIZED'
         || directDeleteMessage === 'PRODUCT_DELETE_FAILED'
-        || directDeleteMessage === 'CSRF_INVALID';
+        || directDeleteMessage === 'CSRF_INVALID'
+        || directDeleteMessage === 'INTERNAL_SERVER_ERROR';
 
       // Backward compatibility and resilience for mixed deployments / edge blocks.
       if (!shouldFallbackToManifestSync) {
         return rollback(directDeleteMessage);
       }
 
-      const res = await fetch(`${API_NODE}?action=sync_products`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({
-          products: nextProducts,
-          purgeMissing: true
-        }),
-        ...(controller ? { signal: controller.signal } : {})
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        const message = String(result?.message || 'PRODUCT_DELETE_SYNC_FAILED');
+      const syncAttempt = await postProductAction('sync_products', {
+        products: nextProducts,
+        purgeMissing: true
+      }, controller?.signal);
+      if (!syncAttempt.ok) {
+        const message = String(syncAttempt.message || 'PRODUCT_DELETE_SYNC_FAILED');
         return rollback(message);
       }
       return {
         ok: true,
         synced: true,
-        message: typeof result?.message === 'string' ? result.message : 'PRODUCT_MANIFEST_UPDATED'
+        message: typeof syncAttempt.result?.message === 'string' ? syncAttempt.result.message : 'PRODUCT_MANIFEST_UPDATED'
       };
     } catch (e: any) {
       const message = e?.name === 'AbortError' ? 'PRODUCT_DELETE_SYNC_TIMEOUT' : 'PRODUCT_DELETE_SYNC_FAILED';
