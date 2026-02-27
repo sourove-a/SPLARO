@@ -15394,24 +15394,26 @@ if ($method === 'POST' && $action === 'delete_product') {
 
         $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin');
         $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-        audit_log_insert(
-            $db,
-            $actorId,
-            'PRODUCT_DELETED',
-            'PRODUCT',
-            $productId,
-            [
-                'name' => (string)($existing['name'] ?? ''),
-                'price' => (int)($existing['price'] ?? 0),
-                'status' => (string)($existing['status'] ?? 'PUBLISHED')
-            ],
-            null,
-            $ipAddress
-        );
+        if (function_exists('audit_log_insert')) {
+            audit_log_insert(
+                $db,
+                $actorId,
+                'PRODUCT_DELETED',
+                'PRODUCT',
+                $productId,
+                [
+                    'name' => (string)($existing['name'] ?? ''),
+                    'price' => (int)($existing['price'] ?? 0),
+                    'status' => (string)($existing['status'] ?? 'PUBLISHED')
+                ],
+                null,
+                $ipAddress
+            );
+        }
 
         $db->commit();
         echo json_encode(["status" => "success", "message" => "PRODUCT_DELETED"]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
@@ -15666,53 +15668,63 @@ if ($method === 'POST' && $action === 'sync_products') {
             $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin');
             $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
             if ($existing) {
-                audit_log_insert($db, $actorId, 'PRODUCT_UPDATED', 'PRODUCT', $productId, $existing, [
-                    'name' => $p['name'],
-                    'price' => $p['price'],
-                    'status' => $status,
-                    'slug' => $productSlug
-                ], $ipAddress);
-                if ((int)($existing['price'] ?? 0) !== (int)$p['price']) {
+                if (function_exists('audit_log_insert')) {
+                    audit_log_insert($db, $actorId, 'PRODUCT_UPDATED', 'PRODUCT', $productId, $existing, [
+                        'name' => $p['name'],
+                        'price' => $p['price'],
+                        'status' => $status,
+                        'slug' => $productSlug
+                    ], $ipAddress);
+                }
+                if ((int)($existing['price'] ?? 0) !== (int)$p['price'] && function_exists('audit_log_insert')) {
                     audit_log_insert($db, $actorId, 'PRICE_CHANGED', 'PRODUCT', $productId, ['price' => (int)($existing['price'] ?? 0)], ['price' => (int)$p['price']], $ipAddress);
                 }
                 if ((int)($existing['stock'] ?? 0) !== (int)$incomingStock) {
                     $deltaQty = (int)$incomingStock - (int)($existing['stock'] ?? 0);
-                    record_stock_movement(
-                        $db,
-                        $productId,
-                        null,
-                        'ADJUSTMENT',
-                        $deltaQty,
-                        (int)($existing['stock'] ?? 0),
-                        (int)$incomingStock,
-                        'Product sync stock update',
-                        'PRODUCT_SYNC',
-                        $productId,
-                        $actorId
-                    );
-                    audit_log_insert(
-                        $db,
-                        $actorId,
-                        'STOCK_CHANGED',
-                        'PRODUCT',
-                        $productId,
-                        ['stock' => (int)($existing['stock'] ?? 0)],
-                        ['stock' => (int)$incomingStock, 'deltaQty' => $deltaQty],
-                        $ipAddress
-                    );
+                    if (function_exists('record_stock_movement')) {
+                        record_stock_movement(
+                            $db,
+                            $productId,
+                            null,
+                            'ADJUSTMENT',
+                            $deltaQty,
+                            (int)($existing['stock'] ?? 0),
+                            (int)$incomingStock,
+                            'Product sync stock update',
+                            'PRODUCT_SYNC',
+                            $productId,
+                            $actorId
+                        );
+                    }
+                    if (function_exists('audit_log_insert')) {
+                        audit_log_insert(
+                            $db,
+                            $actorId,
+                            'STOCK_CHANGED',
+                            'PRODUCT',
+                            $productId,
+                            ['stock' => (int)($existing['stock'] ?? 0)],
+                            ['stock' => (int)$incomingStock, 'deltaQty' => $deltaQty],
+                            $ipAddress
+                        );
+                    }
                 }
-                if (strtoupper((string)($existing['status'] ?? 'PUBLISHED')) !== $status) {
+                if (strtoupper((string)($existing['status'] ?? 'PUBLISHED')) !== $status && function_exists('audit_log_insert')) {
                     audit_log_insert($db, $actorId, $status === 'PUBLISHED' ? 'PUBLISHED' : 'UNPUBLISHED', 'PRODUCT', $productId, ['status' => (string)($existing['status'] ?? 'PUBLISHED')], ['status' => $status], $ipAddress);
                 }
-                audit_log_insert($db, $actorId, 'IMAGES_UPDATED', 'PRODUCT', $productId, null, ['mainImageId' => $mainImageId, 'count' => count($galleryImages)], $ipAddress);
+                if (function_exists('audit_log_insert')) {
+                    audit_log_insert($db, $actorId, 'IMAGES_UPDATED', 'PRODUCT', $productId, null, ['mainImageId' => $mainImageId, 'count' => count($galleryImages)], $ipAddress);
+                }
             } else {
-                audit_log_insert($db, $actorId, 'PRODUCT_CREATED', 'PRODUCT', $productId, null, [
-                    'name' => $p['name'],
-                    'price' => $p['price'],
-                    'status' => $status,
-                    'slug' => $productSlug
-                ], $ipAddress);
-                if ($incomingStock !== 0) {
+                if (function_exists('audit_log_insert')) {
+                    audit_log_insert($db, $actorId, 'PRODUCT_CREATED', 'PRODUCT', $productId, null, [
+                        'name' => $p['name'],
+                        'price' => $p['price'],
+                        'status' => $status,
+                        'slug' => $productSlug
+                    ], $ipAddress);
+                }
+                if ($incomingStock !== 0 && function_exists('record_stock_movement')) {
                     record_stock_movement(
                         $db,
                         $productId,
@@ -15771,7 +15783,7 @@ if ($method === 'POST' && $action === 'sync_products') {
 
         $db->commit();
         echo json_encode(["status" => "success", "message" => "PRODUCT_MANIFEST_UPDATED"]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }
