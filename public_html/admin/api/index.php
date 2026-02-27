@@ -15319,35 +15319,78 @@ if ($method === 'POST' && $action === 'update_order_status') {
 if ($method === 'POST' && $action === 'delete_order') {
     require_admin_access($requestAuthUser);
     require_csrf_token();
-    $input = json_decode(file_get_contents('php://input'), true);
-    if (isset($input['id'])) {
-        $orderId = (string)$input['id'];
+    [$input] = read_request_json_payload('order.delete.payload');
+    if (!is_array($input)) {
+        echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
+        exit;
+    }
+    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
+    if ($orderId === '') {
+        echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
+        exit;
+    }
+
+    try {
         if (column_exists($db, 'orders', 'deleted_at')) {
-            $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?");
-            $stmt->execute([$orderId]);
+            if (column_exists($db, 'orders', 'updated_at')) {
+                try {
+                    $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$orderId]);
+                } catch (Throwable $e) {
+                    if (!splaro_is_unknown_column_error($e, 'updated_at')) {
+                        throw $e;
+                    }
+                    splaro_integration_trace('order.delete.updated_at_missing_fallback', [
+                        'order_id' => $orderId,
+                        'error' => splaro_clip_text((string)$e->getMessage(), 220)
+                    ], 'WARNING');
+                    $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ?");
+                    $stmt->execute([$orderId]);
+                }
+            } else {
+                $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ?");
+                $stmt->execute([$orderId]);
+            }
         } else {
             $stmt = $db->prepare("DELETE FROM orders WHERE id = ?");
             $stmt->execute([$orderId]);
         }
-        sync_to_sheets('DELETE_ORDER', $input);
-
-        // Security Protocol: Log the erasure
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-        $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
-           ->execute(['REGISTRY_ERASURE', "Order " . $orderId . " was removed from active registry.", $ip]);
-        log_audit_event(
-            $db,
-            (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key'),
-            'ORDER_DELETED',
-            'ORDER',
-            $orderId,
-            null,
-            ['softDelete' => column_exists($db, 'orders', 'deleted_at')],
-            $ip
-        );
-
-        echo json_encode(["status" => "success"]);
+    } catch (Throwable $e) {
+        splaro_log_exception('order.delete.handler', $e, [
+            'order_id' => $orderId
+        ], 'ERROR');
+        splaro_record_system_error('ORDER_DELETE', 'ERROR', (string)$e->getMessage(), [
+            'order_id' => $orderId
+        ]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "ORDER_DELETE_FAILED"]);
+        exit;
     }
+
+    try {
+        sync_to_sheets('DELETE_ORDER', ['id' => $orderId]);
+    } catch (Throwable $e) {
+        splaro_log_exception('order.delete.sheets_queue', $e, [
+            'order_id' => $orderId
+        ], 'WARNING');
+    }
+
+    // Security Protocol: Log the erasure
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    $db->prepare("INSERT INTO system_logs (event_type, event_description, ip_address) VALUES (?, ?, ?)")
+       ->execute(['REGISTRY_ERASURE', "Order " . $orderId . " was removed from active registry.", $ip]);
+    log_audit_event(
+        $db,
+        (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin_key'),
+        'ORDER_DELETED',
+        'ORDER',
+        $orderId,
+        null,
+        ['softDelete' => column_exists($db, 'orders', 'deleted_at')],
+        $ip
+    );
+
+    echo json_encode(["status" => "success", "message" => "ORDER_DELETED"]);
     exit;
 }
 

@@ -1252,6 +1252,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { message, tone } }));
   };
 
+  const ensureCsrfToken = async (): Promise<string> => {
+    const existing = getCsrfToken();
+    if (existing !== '') return existing;
+    if (!IS_PROD) return '';
+
+    try {
+      const res = await fetchWithCredentials(`${API_NODE}?action=csrf`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && result?.status === 'success' && typeof result?.csrf_token === 'string' && result.csrf_token.trim() !== '') {
+        const token = result.csrf_token.trim();
+        if (typeof document !== 'undefined') {
+          document.cookie = `splaro_csrf=${encodeURIComponent(token)}; path=/; max-age=2592000; samesite=lax`;
+        }
+        return token;
+      }
+    } catch {
+      // No-op: caller will use fallback behavior.
+    }
+
+    return getCsrfToken();
+  };
+
   const normalizeUserPayload = (raw: any): User => ({
     ...(raw || {}),
     profileImage: raw?.profile_image || raw?.profileImage || '',
@@ -1639,14 +1663,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteOrder = (id: string) => {
-    setOrders(prev => prev.filter(o => o.id !== id));
-    if (IS_PROD) {
-      fetchWithCredentials(`${API_NODE}?action=delete_order`, {
+    if (!id) return;
+
+    const snapshot = [...orders];
+    setOrders(prev => prev.filter((o) => o.id !== id));
+
+    if (!IS_PROD) return;
+
+    void (async () => {
+      await ensureCsrfToken();
+      const res = await fetchWithCredentials(`${API_NODE}?action=delete_order`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ id })
       });
-    }
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || result?.status !== 'success') {
+        setOrders(snapshot);
+        const backendMessage = String(result?.message || 'ORDER_DELETE_FAILED');
+        emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
+        return;
+      }
+      emitToast('Order removed from registry.', 'success');
+    })().catch((error: any) => {
+      setOrders(snapshot);
+      const message = error?.name === 'AbortError' ? 'REQUEST_TIMEOUT' : (error?.message || 'ORDER_DELETE_FAILED');
+      emitToast(resolveSettingsErrorMessage(message), 'error');
+    });
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
@@ -1662,28 +1705,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       : null;
 
     try {
-      const res = await fetchWithCredentials(`${API_NODE}?action=update_order_status`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({ id: orderId, status }),
-        ...(controller ? { signal: controller.signal } : {})
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        throw new Error(String(result?.message || 'ORDER_STATUS_UPDATE_FAILED'));
+      await ensureCsrfToken();
+
+      const actionCandidates = ['admin_order_status', 'update_order_status'];
+      let persistedStatus: OrderStatus = status;
+      let synced = false;
+      let lastMessage = 'ORDER_STATUS_UPDATE_FAILED';
+      let lastHttpStatus = 0;
+
+      for (const action of actionCandidates) {
+        const res = await fetchWithCredentials(`${API_NODE}?action=${action}`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ id: orderId, status }),
+          ...(controller ? { signal: controller.signal } : {})
+        });
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && result?.status === 'success') {
+          persistedStatus = normalizeOrderStatusValue(result?.order?.status ?? status);
+          synced = true;
+          break;
+        }
+
+        lastHttpStatus = Number(res?.status || 0);
+        lastMessage = String(result?.message || 'ORDER_STATUS_UPDATE_FAILED');
       }
 
-      const persistedStatus = normalizeOrderStatusValue(result?.order?.status ?? status);
+      if (!synced) {
+        throw new Error(`${lastMessage}|${lastHttpStatus}`);
+      }
+
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: persistedStatus } : o));
     } catch (error) {
       console.error('Logistics Sync Failure:', error);
       if (previousStatus) {
         setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: previousStatus } : o));
       }
+      const rawMessage = String((error as any)?.message || '');
+      const [messagePart, statusPart] = rawMessage.split('|');
       const message = (error as any)?.name === 'AbortError'
         ? 'REQUEST_TIMEOUT'
-        : (error as any)?.message;
-      emitToast(resolveSettingsErrorMessage(message), 'error');
+        : (messagePart || rawMessage || 'ORDER_STATUS_UPDATE_FAILED');
+      const httpStatus = Number(statusPart || 0);
+      emitToast(resolveSettingsErrorMessage(message, Number.isFinite(httpStatus) ? httpStatus : undefined), 'error');
     } finally {
       if (timeout !== null && typeof window !== 'undefined') {
         window.clearTimeout(timeout);
@@ -1696,13 +1760,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (IS_PROD) {
       try {
-        await fetchWithCredentials(`${API_NODE}?action=update_order_metadata`, {
+        await ensureCsrfToken();
+        const res = await fetchWithCredentials(`${API_NODE}?action=update_order_metadata`, {
           method: 'POST',
           headers: getAuthHeaders(true),
           body: JSON.stringify({ id: orderId, ...data })
         });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || result?.status !== 'success') {
+          const backendMessage = String(result?.message || 'ORDER_METADATA_UPDATE_FAILED');
+          emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
+        }
       } catch (e) {
         console.error('METADATA_SYNC_FAILURE:', e);
+        emitToast('Metadata update failed. Please retry.', 'error');
       }
     }
   };
