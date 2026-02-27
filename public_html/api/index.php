@@ -8614,7 +8614,6 @@ function require_campaign_write_access($authUser) {
 }
 
 if ($method === 'GET' && $action === 'health') {
-    require_admin_access($requestAuthUser);
     try {
 
     $dbPingOk = false;
@@ -15457,8 +15456,11 @@ if ($method === 'POST' && $action === 'delete_product') {
             $deleteMovementsStmt->execute([$productId]);
         }
 
-        $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
-        $deleteImagesStmt->execute([$productId]);
+        $canDeleteProductImages = column_exists($db, 'product_images', 'product_id');
+        if ($canDeleteProductImages) {
+            $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+            $deleteImagesStmt->execute([$productId]);
+        }
 
         $deleteProductStmt = $db->prepare("DELETE FROM products WHERE id = ?");
         $deleteProductStmt->execute([$productId]);
@@ -15556,9 +15558,19 @@ if ($method === 'POST' && $action === 'sync_products') {
 
         $existingStmt = $db->prepare("SELECT id, price, status, image, stock FROM products WHERE id = ? LIMIT 1");
         $slugLookupStmt = $db->prepare("SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1");
-        $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+        $canManageProductImages = column_exists($db, 'product_images', 'id')
+            && column_exists($db, 'product_images', 'product_id')
+            && column_exists($db, 'product_images', 'url')
+            && column_exists($db, 'product_images', 'alt_text')
+            && column_exists($db, 'product_images', 'sort_order')
+            && column_exists($db, 'product_images', 'is_main')
+            && column_exists($db, 'product_images', 'width')
+            && column_exists($db, 'product_images', 'height');
+        $deleteImagesStmt = $canManageProductImages ? $db->prepare("DELETE FROM product_images WHERE product_id = ?") : null;
         $deleteProductStmt = $db->prepare("DELETE FROM products WHERE id = ?");
-        $insertImageStmt = $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insertImageStmt = $canManageProductImages
+            ? $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            : null;
         $canDetachOrderItems = column_exists($db, 'order_items', 'product_id');
         $canDeleteVariants = column_exists($db, 'product_variants', 'product_id');
         $canDeleteMovements = column_exists($db, 'stock_movements', 'product_id');
@@ -15719,21 +15731,23 @@ if ($method === 'POST' && $action === 'sync_products') {
                 $productUrl
             ]);
 
-            $deleteImagesStmt->execute([$productId]);
-            foreach ($galleryImages as $idx => $img) {
-                $imgId = trim((string)($img['id'] ?? ''));
-                $imgUrl = trim((string)($img['url'] ?? ''));
-                if ($imgId === '' || $imgUrl === '') continue;
-                $insertImageStmt->execute([
-                    $imgId,
-                    $productId,
-                    $imgUrl,
-                    trim((string)($img['altText'] ?? '')) ?: trim((string)($p['name'] ?? '')),
-                    isset($img['sortOrder']) ? (int)$img['sortOrder'] : $idx,
-                    ($mainImageId !== null && (string)$imgId === (string)$mainImageId) ? 1 : (!empty($img['isMain']) ? 1 : 0),
-                    isset($img['width']) && $img['width'] !== null ? (int)$img['width'] : null,
-                    isset($img['height']) && $img['height'] !== null ? (int)$img['height'] : null
-                ]);
+            if ($deleteImagesStmt && $insertImageStmt) {
+                $deleteImagesStmt->execute([$productId]);
+                foreach ($galleryImages as $idx => $img) {
+                    $imgId = trim((string)($img['id'] ?? ''));
+                    $imgUrl = trim((string)($img['url'] ?? ''));
+                    if ($imgId === '' || $imgUrl === '') continue;
+                    $insertImageStmt->execute([
+                        $imgId,
+                        $productId,
+                        $imgUrl,
+                        trim((string)($img['altText'] ?? '')) ?: trim((string)($p['name'] ?? '')),
+                        isset($img['sortOrder']) ? (int)$img['sortOrder'] : $idx,
+                        ($mainImageId !== null && (string)$imgId === (string)$mainImageId) ? 1 : (!empty($img['isMain']) ? 1 : 0),
+                        isset($img['width']) && $img['width'] !== null ? (int)$img['width'] : null,
+                        isset($img['height']) && $img['height'] !== null ? (int)$img['height'] : null
+                    ]);
+                }
             }
 
             $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin');
@@ -15832,7 +15846,9 @@ if ($method === 'POST' && $action === 'sync_products') {
                         if ($deleteMovementsStmt) {
                             $deleteMovementsStmt->execute([$staleId]);
                         }
-                        $deleteImagesStmt->execute([$staleId]);
+                        if ($deleteImagesStmt) {
+                            $deleteImagesStmt->execute([$staleId]);
+                        }
                         $deleteProductStmt->execute([$staleId]);
                     }
                 }
@@ -15847,7 +15863,9 @@ if ($method === 'POST' && $action === 'sync_products') {
                 if ($canDeleteMovements) {
                     $db->exec("DELETE FROM stock_movements");
                 }
-                $db->exec("DELETE FROM product_images");
+                if ($canManageProductImages) {
+                    $db->exec("DELETE FROM product_images");
+                }
                 $db->exec("DELETE FROM products");
             }
         }

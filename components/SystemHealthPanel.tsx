@@ -59,6 +59,102 @@ const API_NODE = getPhpApiNode();
 const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
   fetch(input, { credentials: 'include', ...init });
 
+const normalizeServiceStatus = (raw: unknown): HealthServiceStatus => {
+  const value = String(raw || '').trim().toUpperCase();
+  if (value === 'OK' || value === 'PASS' || value === 'UP' || value === 'SUCCESS') return 'OK';
+  if (value === 'DOWN' || value === 'FAIL' || value === 'ERROR') return 'DOWN';
+  return 'WARNING';
+};
+
+const normalizeServiceState = (input: any, fallbackError = 'NO_DATA', fallbackNextAction = 'Run check and inspect system_errors.'): ServiceState => {
+  if (!input || typeof input !== 'object') {
+    return {
+      status: 'WARNING',
+      latency_ms: null,
+      last_checked_at: '',
+      error: fallbackError,
+      next_action: fallbackNextAction
+    };
+  }
+
+  return {
+    status: normalizeServiceStatus(input.status),
+    latency_ms: Number.isFinite(Number(input.latency_ms)) ? Number(input.latency_ms) : null,
+    last_checked_at: String(input.last_checked_at || input.checked_at || ''),
+    error: String(input.error || ''),
+    next_action: String(input.next_action || fallbackNextAction)
+  };
+};
+
+const normalizeLegacyHealthPayload = (raw: any): HealthPayload => {
+  const timestamp = String(raw?.timestamp || raw?.time || new Date().toISOString());
+  const modeRaw = String(raw?.mode || '').toUpperCase();
+  const mode: 'NORMAL' | 'DEGRADED' = modeRaw === 'NORMAL' ? 'NORMAL' : 'DEGRADED';
+
+  const incomingServices = raw?.services && typeof raw.services === 'object' ? raw.services : {};
+  const services: Record<ServiceKey, ServiceState> = {};
+  Object.entries(incomingServices).forEach(([key, value]) => {
+    services[key] = normalizeServiceState(value);
+  });
+
+  if (Object.keys(services).length === 0) {
+    const dbMessage = String(raw?.db?.message || '');
+    const dbLooksHealthy = String(raw?.storage || '').toLowerCase() === 'mysql' && dbMessage === '';
+    services.db = {
+      status: dbLooksHealthy ? 'OK' : (dbMessage ? 'DOWN' : 'WARNING'),
+      latency_ms: null,
+      last_checked_at: timestamp,
+      error: dbMessage || (dbLooksHealthy ? '' : 'NO_DATA'),
+      next_action: dbLooksHealthy ? '' : 'Run DB probe and inspect system_errors.'
+    };
+
+    const queueDead = Number(raw?.queue?.dead || 0);
+    services.queue = {
+      status: queueDead > 0 ? 'WARNING' : 'OK',
+      latency_ms: null,
+      last_checked_at: timestamp,
+      error: queueDead > 0 ? `${queueDead} dead jobs pending` : '',
+      next_action: queueDead > 0 ? 'Run queue repair and inspect dead jobs.' : ''
+    };
+
+    const telegramEnabled = Boolean(raw?.telegram_enabled || raw?.telegram?.enabled);
+    const telegramError = String(raw?.telegram?.error || '');
+    services.telegram = {
+      status: telegramEnabled ? (telegramError ? 'WARNING' : 'OK') : 'WARNING',
+      latency_ms: null,
+      last_checked_at: timestamp,
+      error: telegramError,
+      next_action: telegramEnabled ? '' : 'Enable Telegram integration in settings.'
+    };
+
+    const sheetsError = String(raw?.sheets?.lastFailure?.error || raw?.sheets?.error || '');
+    const sheetsEnabled = Boolean(raw?.sheets?.enabled || raw?.sheets?.retry || raw?.sheets?.dead || raw?.sheets?.lastFailure);
+    services.sheets = {
+      status: sheetsError ? 'WARNING' : (sheetsEnabled ? 'OK' : 'WARNING'),
+      latency_ms: null,
+      last_checked_at: timestamp,
+      error: sheetsError,
+      next_action: sheetsError ? 'Inspect sync queue and webhook availability.' : ''
+    };
+
+    if (raw?.sslcommerz && typeof raw.sslcommerz === 'object') {
+      services.sslcommerz = normalizeServiceState(raw.sslcommerz, '', '');
+    }
+    if (raw?.steadfast && typeof raw.steadfast === 'object') {
+      services.steadfast = normalizeServiceState(raw.steadfast, '', '');
+    }
+  }
+
+  return {
+    status: 'success',
+    timestamp,
+    mode,
+    services,
+    queue: raw?.queue,
+    recent_errors: Array.isArray(raw?.recent_errors) ? raw.recent_errors : []
+  };
+};
+
 const getAuthHeaders = (json = false): Record<string, string> => {
   const headers: Record<string, string> = {};
   if (json) headers['Content-Type'] = 'application/json';
@@ -83,7 +179,7 @@ const fetchHealth = async (): Promise<HealthPayload> => {
     }
     throw new Error(rawMessage);
   }
-  return json as HealthPayload;
+  return normalizeLegacyHealthPayload(json);
 };
 
 const fetchHealthEvents = async (probe = '', limit = 50): Promise<HealthEventRow[]> => {
@@ -91,6 +187,9 @@ const fetchHealthEvents = async (probe = '', limit = 50): Promise<HealthEventRow
   if (probe) query.set('probe', probe);
   const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, { headers: getAuthHeaders() });
   const json = await res.json().catch(() => ({}));
+  if (res.status === 403 && String(json?.message || '') === 'ADMIN_ACCESS_REQUIRED') {
+    return [];
+  }
   if (!res.ok || json?.status !== 'success') {
     throw new Error(String(json?.message || 'Failed to load health events'));
   }
@@ -103,6 +202,9 @@ const fetchSystemErrors = async (service = '', level = '', limit = 50): Promise<
   if (level) query.set('level', level);
   const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, { headers: getAuthHeaders() });
   const json = await res.json().catch(() => ({}));
+  if (res.status === 403 && String(json?.message || '') === 'ADMIN_ACCESS_REQUIRED') {
+    return [];
+  }
   if (!res.ok || json?.status !== 'success') {
     throw new Error(String(json?.message || 'Failed to load system errors'));
   }

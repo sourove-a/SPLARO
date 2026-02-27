@@ -77,12 +77,14 @@ const normalizeSlides = (raw: any, fallback: any[] = INITIAL_SLIDES): any[] => {
 
 const resolveSettingsErrorMessage = (rawMessage: unknown, httpStatus?: number): string => {
   const code = String(rawMessage || '').trim().toUpperCase();
-  if (code === 'ADMIN_ACCESS_REQUIRED') return 'Admin login required. Please sign in again.';
+  if (code === 'ADMIN_ACCESS_REQUIRED' || code === 'AUTH_REQUIRED') return 'Admin login required. Please sign in again.';
+  if (code === 'INVALID_AUTH_TOKEN' || code === 'TOKEN_EXPIRED') return 'Session expired. Please sign in again.';
   if (code === 'ROLE_FORBIDDEN_VIEWER') return 'Viewer role cannot change settings.';
   if (code === 'ROLE_FORBIDDEN_EDITOR_PROTOCOL') return 'Staff/Editor cannot change protocol settings.';
   if (code === 'CMS_ROLE_FORBIDDEN') return 'This role cannot update CMS content.';
   if (code === 'CSRF_INVALID' || code === 'CSRF_REQUIRED') return 'Session expired. Please login again and retry.';
   if (code === 'ORDER_REQUEST_TIMEOUT' || code === 'REQUEST_TIMEOUT') return 'Server response delayed. Please retry.';
+  if (code === 'DETAILED_ADDRESS_REQUIRED') return 'Detailed address required.';
   if (code === 'DATABASE_CONNECTION_FAILED') return 'Database is unreachable right now. Please retry shortly.';
   if (code === 'DATABASE_ENV_NOT_CONFIGURED') return 'Database configuration is missing on server.';
   if (code !== '') return code.replace(/_/g, ' ');
@@ -415,7 +417,8 @@ const FALLBACK_DEMO_PRODUCT: Product = {
 };
 
 const LEGACY_DEMO_PRODUCT_IDS = new Set<string>([
-  'splaro-demo-vault-01'
+  'splaro-demo-vault-01',
+  'splaro-demo-vault-sneaker'
 ]);
 const FALLBACK_SEED_PRODUCTS: Product[] = [];
 
@@ -1183,6 +1186,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return headers;
   };
+  const ADMIN_AUTH_ERROR_CODES = new Set<string>([
+    'ADMIN_ACCESS_REQUIRED',
+    'AUTH_REQUIRED',
+    'CSRF_INVALID',
+    'CSRF_REQUIRED',
+    'INVALID_AUTH_TOKEN',
+    'TOKEN_EXPIRED',
+    'UNAUTHORIZED'
+  ]);
+  const normalizeBackendMessage = (raw: unknown): string => String(raw || '').trim().toUpperCase();
+  const isAdminAuthError = (rawMessage: unknown, httpStatus?: number): boolean => {
+    const code = normalizeBackendMessage(rawMessage);
+    if (code !== '' && ADMIN_AUTH_ERROR_CODES.has(code)) return true;
+    return httpStatus === 401 || httpStatus === 403;
+  };
+  const hasAdminSession = (): boolean => {
+    if (getAuthToken().trim() !== '' || getAdminKey().trim() !== '') {
+      return true;
+    }
+    if (typeof document !== 'undefined' && /(?:^|;\s*)splaro_auth=/.test(document.cookie || '')) {
+      return true;
+    }
+    return false;
+  };
+  const dispatchAdminAuthRequired = () => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('splaro-admin-auth-required'));
+  };
   const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
     fetch(input, { credentials: 'include', ...init });
 
@@ -1216,8 +1247,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           body: JSON.stringify(payload),
           ...(signal ? { signal } : {})
         });
-        const result = await res.json().catch(() => ({}));
-        const message = String(result?.message || '');
+        const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+        const result = contentType.includes('application/json')
+          ? await res.json().catch(() => ({}))
+          : { message: await res.text().catch(() => '') };
+        const message = String(result?.message || '').trim();
+        const authError = isAdminAuthError(message, res.status);
+
+        if (authError) {
+          dispatchAdminAuthRequired();
+          return { ok: false, result, message: message || 'ADMIN_ACCESS_REQUIRED' };
+        }
 
         if (res.ok && result?.status === 'success') {
           return { ok: true, result, message };
@@ -1362,10 +1402,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               adminNotes: o.adminNotes ?? o.admin_notes ?? '',
               customerComment: o.customerComment ?? o.customer_comment ?? '',
               shippingFee: (o.shipping_fee === null || o.shipping_fee === undefined || o.shipping_fee === '')
-                ? 120
+                ? 0
                 : (() => {
                   const parsed = Number(o.shipping_fee);
-                  return Number.isFinite(parsed) ? parsed : 120;
+                  return Number.isFinite(parsed) ? parsed : 0;
                 })(),
               discountAmount: Number(o.discount_amount || 0),
               discountCode: o.discount_code || undefined,
@@ -1422,11 +1462,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (Array.isArray(result.data.logs)) setLogs(result.data.logs);
         if (Array.isArray(result.data.traffic)) setTrafficData(result.data.traffic);
       } else {
-        setDbStatus('FALLBACK');
+        const backendMessage = String(result?.message || '').trim();
+        if (isAdminAuthError(backendMessage, res.status)) {
+          setDbStatus('OFFLINE');
+          setProducts([]);
+          dispatchAdminAuthRequired();
+          return;
+        }
+        const shouldDowngradeStorage =
+          backendMessage.toUpperCase() === 'DATABASE_ENV_NOT_CONFIGURED'
+          || backendMessage.toUpperCase() === 'DATABASE_CONNECTION_FAILED';
+        if (shouldDowngradeStorage) {
+          setDbStatus('FALLBACK');
+        }
         setProducts((prev) => sanitizeProducts(prev));
       }
     } catch (e) {
-      setDbStatus('FALLBACK');
+      const message = String((e as any)?.message || '').toUpperCase();
+      const shouldDowngradeStorage =
+        message.includes('DATABASE_ENV_NOT_CONFIGURED')
+        || message.includes('DATABASE_CONNECTION_FAILED');
+      if (shouldDowngradeStorage) {
+        setDbStatus('FALLBACK');
+      }
       setProducts((prev) => sanitizeProducts(prev));
       console.warn('ARCHIVAL_SYNC_BYPASS: Operative terminal logic initialized locally.');
     }
@@ -1475,6 +1533,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [IS_PROD, user, window.location.pathname]);
 
   const addOrUpdateProduct = async (p: Product): Promise<ProductSyncResult> => {
+    if (IS_PROD && !hasAdminSession()) {
+      dispatchAdminAuthRequired();
+      return { ok: false, synced: false, message: 'ADMIN_ACCESS_REQUIRED' };
+    }
+
     let previousProducts: Product[] = [];
     let nextProducts: Product[] = [];
 
@@ -1521,6 +1584,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProduct = async (id: string): Promise<ProductSyncResult> => {
+    if (IS_PROD && !hasAdminSession()) {
+      dispatchAdminAuthRequired();
+      return { ok: false, synced: false, message: 'ADMIN_ACCESS_REQUIRED' };
+    }
+
     let previousProducts: Product[] = [];
     let nextProducts: Product[] = [];
 
@@ -1596,6 +1664,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addOrder = async (o: Order): Promise<AddOrderResult> => {
+    const localOrderId = String(o.id || '').trim() || `SPL-LOCAL-${Date.now()}`;
+    const draftOrder: Order = { ...o, id: localOrderId };
+
     if (IS_PROD) {
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const timeout = typeof window !== 'undefined'
@@ -1612,7 +1683,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!res.ok || result.status !== 'success') {
           if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
             setDbStatus('FALLBACK');
-            setOrders(prev => [o, ...prev]);
+            setOrders(prev => [draftOrder, ...prev]);
             setCart([]);
             return { ok: true, message: 'ORDER_STORED_LOCAL_FALLBACK' };
           }
@@ -1635,12 +1706,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           : undefined;
 
-        setOrders(prev => [o, ...prev]);
+        const canonicalOrderId = String(result.order_id || '').trim() || localOrderId;
+        const canonicalOrderNo = String(result.order_no || '').trim();
+        const storedOrder: Order = {
+          ...draftOrder,
+          id: canonicalOrderId,
+          ...(canonicalOrderNo ? ({ orderNo: canonicalOrderNo } as any) : {})
+        };
+
+        setOrders(prev => [storedOrder, ...prev]);
         setCart([]);
         return {
           ok: true,
           message: typeof result.message === 'string' ? result.message : undefined,
-          orderId: typeof result.order_id === 'string' ? result.order_id : o.id,
+          orderId: canonicalOrderId,
           orderNo: typeof result.order_no === 'string' ? result.order_no : undefined,
           email: emailResult,
           invoice: invoiceResult
@@ -1657,9 +1736,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    setOrders(prev => [o, ...prev]);
+    setOrders(prev => [draftOrder, ...prev]);
     setCart([]);
-    return { ok: true, orderId: o.id };
+    return { ok: true, orderId: draftOrder.id };
   };
 
   const deleteOrder = (id: string) => {

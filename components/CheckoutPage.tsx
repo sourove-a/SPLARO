@@ -245,7 +245,7 @@ export const CheckoutPage: React.FC = () => {
     setStatus('processing');
     try {
       const result = await addOrder({
-        id: `SPL-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        id: '',
         userId: user?.id,
         customerName: formData.fullName,
         customerEmail: formData.email,

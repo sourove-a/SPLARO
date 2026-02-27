@@ -447,7 +447,7 @@ const Footer = () => {
   const navigate = useNavigate();
   const { siteSettings } = useApp();
   return (
-    <footer className="relative mt-40 md:mt-60 pb-20 px-3 sm:px-6 md:px-10 lg:px-12 overflow-hidden">
+    <footer className="relative mt-40 md:mt-60 pb-20 px-0 sm:px-4 md:px-10 lg:px-12 overflow-hidden">
       {/* Background Layer with Deep Royal Gradient */}
       <div className="absolute inset-x-0 top-0 bottom-0 bg-gradient-to-b from-[#0a0c12]/50 to-[#050505] -z-10" />
 
@@ -455,10 +455,10 @@ const Footer = () => {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-royal-blue/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="max-w-[1800px] mx-auto">
+      <div className="max-w-[1800px] mx-auto px-2 sm:px-0">
         <BrandMarquee />
 
-        <div className="liquid-glass rounded-[34px] sm:rounded-[40px] md:rounded-[48px] border border-white/10 p-7 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
+        <div className="liquid-glass rounded-[28px] sm:rounded-[40px] md:rounded-[48px] border border-white/10 p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
           {/* Subtle Ribbed Overlay */}
           <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
 
