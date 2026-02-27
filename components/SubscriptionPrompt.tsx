@@ -5,6 +5,8 @@ import { getPhpApiNode } from '../lib/runtime';
 
 const API_NODE = getPhpApiNode();
 const DISMISS_KEY = 'splaro-push-soft-dismissed';
+const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
+  fetchWithCredentials(input, { credentials: 'include', ...init });
 
 function toBase64Url(bytes: ArrayBuffer | null): string {
   if (!bytes) return '';
@@ -48,7 +50,7 @@ function getAuthHeaders(json = false): Record<string, string> {
 }
 
 async function fetchPushPublicKey(): Promise<string> {
-  const res = await fetch(`${API_NODE}?action=push_public_key`, { method: 'GET' });
+  const res = await fetchWithCredentials(`${API_NODE}?action=push_public_key`, { method: 'GET' });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok || payload?.status !== 'success') {
     return '';
@@ -67,7 +69,7 @@ async function syncSubscription(subscription: PushSubscription): Promise<boolean
     }
   };
 
-  const res = await fetch(`${API_NODE}?action=push_subscribe`, {
+  const res = await fetchWithCredentials(`${API_NODE}?action=push_subscribe`, {
     method: 'POST',
     headers: getAuthHeaders(true),
     body: JSON.stringify(body)

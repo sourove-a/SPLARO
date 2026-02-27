@@ -56,6 +56,8 @@ type SystemErrorRow = {
 };
 
 const API_NODE = getPhpApiNode();
+const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
+  fetchWithCredentials(input, { credentials: 'include', ...init });
 
 const getAuthHeaders = (json = false): Record<string, string> => {
   const headers: Record<string, string> = {};
@@ -70,9 +72,8 @@ const getAuthHeaders = (json = false): Record<string, string> => {
 };
 
 const fetchHealth = async (): Promise<HealthPayload> => {
-  const res = await fetch(`${API_NODE}?action=health`, {
-    headers: getAuthHeaders(),
-    credentials: 'same-origin'
+  const res = await fetchWithCredentials(`${API_NODE}?action=health`, {
+    headers: getAuthHeaders()
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.status !== 'success') {
@@ -88,7 +89,7 @@ const fetchHealth = async (): Promise<HealthPayload> => {
 const fetchHealthEvents = async (probe = '', limit = 50): Promise<HealthEventRow[]> => {
   const query = new URLSearchParams({ action: 'health_events', limit: String(limit) });
   if (probe) query.set('probe', probe);
-  const res = await fetch(`${API_NODE}?${query.toString()}`, { headers: getAuthHeaders() });
+  const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, { headers: getAuthHeaders() });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.status !== 'success') {
     throw new Error(String(json?.message || 'Failed to load health events'));
@@ -100,7 +101,7 @@ const fetchSystemErrors = async (service = '', level = '', limit = 50): Promise<
   const query = new URLSearchParams({ action: 'system_errors', limit: String(limit) });
   if (service) query.set('service', service);
   if (level) query.set('level', level);
-  const res = await fetch(`${API_NODE}?${query.toString()}`, { headers: getAuthHeaders() });
+  const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, { headers: getAuthHeaders() });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.status !== 'success') {
     throw new Error(String(json?.message || 'Failed to load system errors'));
@@ -109,7 +110,7 @@ const fetchSystemErrors = async (service = '', level = '', limit = 50): Promise<
 };
 
 const runProbe = async (probe: ProbeName) => {
-  const res = await fetch(`${API_NODE}?action=health_probe`, {
+  const res = await fetchWithCredentials(`${API_NODE}?action=health_probe`, {
     method: 'POST',
     headers: getAuthHeaders(true),
     body: JSON.stringify({ probe })
@@ -122,7 +123,7 @@ const runProbe = async (probe: ProbeName) => {
 };
 
 const recoverDeadQueue = async () => {
-  const res = await fetch(`${API_NODE}?action=recover_dead_queue`, {
+  const res = await fetchWithCredentials(`${API_NODE}?action=recover_dead_queue`, {
     method: 'POST',
     headers: getAuthHeaders(true),
     body: JSON.stringify({ mode: 'ALL', limit: 300, process_after: true })

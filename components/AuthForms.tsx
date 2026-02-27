@@ -216,6 +216,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
           const verifyRes = await fetch(`${API_NODE}?action=verify_email_otp`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: formData.identifier, otp: formData.otp })
           });
@@ -250,6 +251,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         if (IS_PROD) {
           const res = await fetch(`${API_NODE}?action=login`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: formData.identifier, password: formData.password })
           });
@@ -354,6 +356,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         if (IS_PROD) {
           const res = await fetch(`${API_NODE}?action=signup`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newUser)
           });
@@ -419,6 +422,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         try {
           const res = await fetch(`${API_NODE}?action=forgot_password`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               identifier: formData.identifier,
@@ -470,6 +474,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         try {
           const res = await fetch(`${API_NODE}?action=reset_password`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               identifier: formData.identifier,
@@ -513,6 +518,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     try {
       const res = await fetch(`${getPhpApiNode()}?action=request_email_verification_otp`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: email })
       });
@@ -575,8 +581,10 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
 
       const IS_PROD = shouldUsePhpApi();
       if (IS_PROD) {
-        const res = await fetch('/api/index.php?action=signup', {
+        const API_NODE = getPhpApiNode();
+        const res = await fetch(`${API_NODE}?action=signup`, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(googleUser)
         });

@@ -30,6 +30,9 @@ const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'D
 type AdminTab = typeof ADMIN_TABS[number];
 type CmsCategoryTab = 'all' | 'shoes' | 'bags';
 
+const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
+  fetchWithCredentials(input, { credentials: 'include', ...init });
+
 const isAdminTab = (tab: string): tab is AdminTab => ADMIN_TABS.includes(tab as AdminTab);
 
 const SidebarItem: React.FC<{
@@ -418,7 +421,7 @@ const ProductModal: React.FC<{
   const uploadImageFile = async (file: File): Promise<{ url: string; width?: number; height?: number } | null> => {
     const data = new FormData();
     data.append('image', file);
-    const res = await fetch(`${API_NODE}?action=upload_product_image`, {
+    const res = await fetchWithCredentials(`${API_NODE}?action=upload_product_image`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: data
@@ -1883,7 +1886,7 @@ export const AdminPanel = () => {
       if (userStatusFilter !== 'ALL') {
         params.set('status', userStatusFilter);
       }
-      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${params.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json().catch(() => ({}));
@@ -1918,7 +1921,7 @@ export const AdminPanel = () => {
         page: String(page),
         limit: '20'
       });
-      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${params.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json().catch(() => ({}));
@@ -1951,7 +1954,7 @@ export const AdminPanel = () => {
         page: String(page),
         limit: '20'
       });
-      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${params.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json().catch(() => ({}));
@@ -1995,7 +1998,7 @@ export const AdminPanel = () => {
     setCustomerNoteDraft('');
 
     try {
-      const profileRes = await fetch(`${API_NODE}?${new URLSearchParams({ action: 'admin_user_profile', id: userId }).toString()}`, {
+      const profileRes = await fetchWithCredentials(`${API_NODE}?${new URLSearchParams({ action: 'admin_user_profile', id: userId }).toString()}`, {
         headers: getAuthHeaders()
       });
       const profileResult = await profileRes.json().catch(() => ({}));
@@ -2079,7 +2082,7 @@ export const AdminPanel = () => {
     }
     setCustomerNoteSaving(true);
     try {
-      const res = await fetch(`${API_NODE}?action=admin_user_note`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=admin_user_note`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2103,7 +2106,7 @@ export const AdminPanel = () => {
 
   const toggleCustomerBlocked = async (record: AdminUserRecord) => {
     try {
-      const res = await fetch(`${API_NODE}?action=admin_user_block`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=admin_user_block`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2138,7 +2141,7 @@ export const AdminPanel = () => {
   const updateCustomerRole = async (record: AdminUserRecord, role: User['role']) => {
     if (!record.id) return;
     try {
-      const res = await fetch(`${API_NODE}?action=admin_user_role`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=admin_user_role`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2189,7 +2192,7 @@ export const AdminPanel = () => {
 
     setAdminProfileSaving(true);
     try {
-      const res = await fetch(`${API_NODE}?action=update_profile`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=update_profile`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2381,7 +2384,7 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:${type}:${options.send ? 'send' : 'generate'}`;
     setInvoiceActionKey(actionKey);
     try {
-      const res = await fetch(`${API_NODE}?action=generate_invoice_document`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=generate_invoice_document`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2432,7 +2435,7 @@ export const AdminPanel = () => {
         orderId: order.id,
         type: safeType
       });
-      const res = await fetch(`${API_NODE}?${query.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json().catch(() => ({}));
@@ -2488,7 +2491,7 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:ssl:init`;
     setIntegrationActionKey(actionKey);
     try {
-      const res = await fetch(`${API_NODE}?action=sslcommerz_init`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=sslcommerz_init`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2515,7 +2518,7 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:steadfast:create:${force ? 'force' : 'normal'}`;
     setIntegrationActionKey(actionKey);
     try {
-      const res = await fetch(`${API_NODE}?action=admin_shipments_steadfast_create`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=admin_shipments_steadfast_create`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({
@@ -2583,7 +2586,7 @@ export const AdminPanel = () => {
         action: 'admin_shipments_steadfast_track',
         order_id: (order as any).orderNo || order.id
       });
-      const res = await fetch(`${API_NODE}?${query.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json().catch(() => ({}));
@@ -2637,7 +2640,7 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:steadfast:sync`;
     setIntegrationActionKey(actionKey);
     try {
-      const res = await fetch(`${API_NODE}?action=admin_shipments_steadfast_sync`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=admin_shipments_steadfast_sync`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ limit: 20 })

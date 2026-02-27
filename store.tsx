@@ -1175,6 +1175,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return headers;
   };
+  const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
+    fetch(input, { credentials: 'include', ...init });
 
   const getProductApiCandidates = () => {
     const candidates = [API_NODE];
@@ -1200,7 +1202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const node = nodes[i];
       const hasFallback = i < nodes.length - 1;
       try {
-        const res = await fetch(`${node}?action=${action}`, {
+        const res = await fetchWithCredentials(`${node}?action=${action}`, {
           method: 'POST',
           headers: getAuthHeaders(true),
           body: JSON.stringify(payload),
@@ -1278,7 +1280,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         usersPage: '1',
         usersPageSize: '40'
       });
-      const res = await fetch(`${API_NODE}?${query.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, {
         headers: getAuthHeaders()
       });
       const result = await res.json();
@@ -1425,7 +1427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const sendHeartbeat = async () => {
       try {
-        await fetch(`${API_NODE}?action=heartbeat`, {
+        await fetchWithCredentials(`${API_NODE}?action=heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1572,7 +1574,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? window.setTimeout(() => controller?.abort(), 30000)
         : null;
       try {
-        const res = await fetch(`${API_NODE}?action=create_order`, {
+        const res = await fetchWithCredentials(`${API_NODE}?action=create_order`, {
           method: 'POST',
           headers: getAuthHeaders(true),
           body: JSON.stringify(o),
@@ -1635,7 +1637,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteOrder = (id: string) => {
     setOrders(prev => prev.filter(o => o.id !== id));
     if (IS_PROD) {
-      fetch(`${API_NODE}?action=delete_order`, {
+      fetchWithCredentials(`${API_NODE}?action=delete_order`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ id })
@@ -1656,7 +1658,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       : null;
 
     try {
-      const res = await fetch(`${API_NODE}?action=update_order_status`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=update_order_status`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ id: orderId, status }),
@@ -1690,7 +1692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (IS_PROD) {
       try {
-        await fetch(`${API_NODE}?action=update_order_metadata`, {
+        await fetchWithCredentials(`${API_NODE}?action=update_order_metadata`, {
           method: 'POST',
           headers: getAuthHeaders(true),
           body: JSON.stringify({ id: orderId, ...data })
@@ -1734,7 +1736,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteUser = (id: string) => {
     setUsers(prev => prev.filter(u => u.id !== id));
     if (IS_PROD) {
-      fetch(`${API_NODE}?action=delete_user`, {
+      fetchWithCredentials(`${API_NODE}?action=delete_user`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ id })
@@ -1746,7 +1748,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
     if (IS_PROD) {
-      fetch(`${API_NODE}?action=update_profile`, {
+      fetchWithCredentials(`${API_NODE}?action=update_profile`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify(updatedUser)
@@ -1828,7 +1830,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      const res = await fetch(`${API_NODE}?action=update_settings`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=update_settings`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify(payload)
@@ -1869,7 +1871,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const initializeSheets = async () => {
     if (IS_PROD) {
-      const res = await fetch(`${API_NODE}?action=initialize_sheets`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=initialize_sheets`, {
         method: 'POST',
         headers: getAuthHeaders(true)
       });

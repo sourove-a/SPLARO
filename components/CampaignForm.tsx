@@ -28,6 +28,8 @@ type CampaignLogRow = {
 };
 
 const API_NODE = getPhpApiNode();
+const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
+  fetchWithCredentials(input, { credentials: 'include', ...init });
 
 function readCsrfToken(): string {
   if (typeof document === 'undefined') return '';
@@ -109,7 +111,7 @@ export const CampaignForm: React.FC = () => {
         page: String(page),
         page_size: '8'
       });
-      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${params.toString()}`, {
         method: 'GET',
         headers: getAuthHeaders()
       });
@@ -132,7 +134,7 @@ export const CampaignForm: React.FC = () => {
         page: String(page),
         page_size: '10'
       });
-      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${params.toString()}`, {
         method: 'GET',
         headers: getAuthHeaders()
       });
@@ -160,7 +162,7 @@ export const CampaignForm: React.FC = () => {
     if (!canWrite) return;
     setBusy(true);
     try {
-      const res = await fetch(`${API_NODE}?action=campaign_preview`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=campaign_preview`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ target_type: targetType, filters })
@@ -206,7 +208,7 @@ export const CampaignForm: React.FC = () => {
         body.scheduled_at = scheduledAt;
       }
 
-      const res = await fetch(`${API_NODE}?action=campaign_create`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=campaign_create`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify(body)
@@ -236,7 +238,7 @@ export const CampaignForm: React.FC = () => {
     if (!canWrite) return;
     setBusy(true);
     try {
-      const res = await fetch(`${API_NODE}?action=campaign_send`, {
+      const res = await fetchWithCredentials(`${API_NODE}?action=campaign_send`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ campaign_id: campaignId, mode: 'send_now' })

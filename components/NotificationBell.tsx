@@ -23,6 +23,8 @@ type NotificationMeta = {
 };
 
 const API_NODE = getPhpApiNode();
+const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
+  fetchWithCredentials(input, { credentials: 'include', ...init });
 
 function readCsrfToken(): string {
   if (typeof document === 'undefined') return '';
@@ -69,7 +71,7 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
         page: String(targetPage),
         page_size: String(pageSize)
       });
-      const res = await fetch(`${API_NODE}?${params.toString()}`, {
+      const res = await fetchWithCredentials(`${API_NODE}?${params.toString()}`, {
         method: 'GET',
         headers: getAuthHeaders()
       });
@@ -101,7 +103,7 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
     if (!user || id <= 0) return;
     const action = clicked ? 'notifications_click' : 'notifications_read';
     try {
-      await fetch(`${API_NODE}?action=${action}`, {
+      await fetchWithCredentials(`${API_NODE}?action=${action}`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify(clicked ? { id } : { ids: [id] })
