@@ -10739,6 +10739,9 @@ if ($method === 'GET' && $action === 'sync') {
             $orderWhere[] = "UPPER(COALESCE(status, '')) = ?";
             $orderParams[] = admin_order_status_db_value($orderStatus);
         }
+        if (column_exists($db, 'orders', 'deleted_at')) {
+            $orderWhere[] = "(deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')";
+        }
         $orderWhereSql = $orderWhere ? ('WHERE ' . implode(' AND ', $orderWhere)) : '';
 
         $orderCount = safe_query_count($db, "SELECT COUNT(*) FROM orders {$orderWhereSql}", $orderParams);
@@ -10808,7 +10811,11 @@ if ($method === 'GET' && $action === 'sync') {
             'address', 'items', 'total', 'status', 'tracking_number', 'admin_notes',
             'customer_comment', 'shipping_fee', 'discount_amount', 'discount_code', 'created_at'
         ]);
-        $stmtOrders = $db->prepare("SELECT {$userOrderSelectFields} FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC LIMIT 200");
+        $userOrdersWhere = "(user_id = ? OR customer_email = ?)";
+        if (column_exists($db, 'orders', 'deleted_at')) {
+            $userOrdersWhere .= " AND (deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')";
+        }
+        $stmtOrders = $db->prepare("SELECT {$userOrderSelectFields} FROM orders WHERE {$userOrdersWhere} ORDER BY created_at DESC LIMIT 200");
         $stmtOrders->execute([$requestAuthUser['id'] ?: null, $requestAuthUser['email']]);
         $orders = $stmtOrders->fetchAll();
         foreach ($orders as &$orderRow) {
@@ -15324,18 +15331,31 @@ if ($method === 'POST' && $action === 'delete_order') {
         echo json_encode(["status" => "error", "message" => "INVALID_PAYLOAD"]);
         exit;
     }
-    $orderId = trim((string)($input['id'] ?? $input['orderId'] ?? ''));
-    if ($orderId === '') {
+    $orderRef = trim((string)($input['id'] ?? $input['orderId'] ?? $input['orderNo'] ?? ''));
+    if ($orderRef === '') {
         echo json_encode(["status" => "error", "message" => "ORDER_ID_REQUIRED"]);
         exit;
     }
 
+    $orderLookup = $db->prepare("SELECT id, order_no FROM orders WHERE id = ? OR order_no = ? LIMIT 1");
+    $orderLookup->execute([$orderRef, $orderRef]);
+    $orderRow = $orderLookup->fetch();
+    if (!$orderRow) {
+        http_response_code(404);
+        echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+        exit;
+    }
+    $orderId = (string)($orderRow['id'] ?? $orderRef);
+    $orderNo = (string)($orderRow['order_no'] ?? $orderId);
+
     try {
+        $updatedRows = 0;
         if (column_exists($db, 'orders', 'deleted_at')) {
             if (column_exists($db, 'orders', 'updated_at')) {
                 try {
                     $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?");
                     $stmt->execute([$orderId]);
+                    $updatedRows = (int)$stmt->rowCount();
                 } catch (Throwable $e) {
                     if (!splaro_is_unknown_column_error($e, 'updated_at')) {
                         throw $e;
@@ -15346,14 +15366,22 @@ if ($method === 'POST' && $action === 'delete_order') {
                     ], 'WARNING');
                     $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ?");
                     $stmt->execute([$orderId]);
+                    $updatedRows = (int)$stmt->rowCount();
                 }
             } else {
                 $stmt = $db->prepare("UPDATE orders SET deleted_at = NOW() WHERE id = ?");
                 $stmt->execute([$orderId]);
+                $updatedRows = (int)$stmt->rowCount();
             }
         } else {
             $stmt = $db->prepare("DELETE FROM orders WHERE id = ?");
             $stmt->execute([$orderId]);
+            $updatedRows = (int)$stmt->rowCount();
+        }
+        if ($updatedRows < 1) {
+            http_response_code(404);
+            echo json_encode(["status" => "error", "message" => "ORDER_NOT_FOUND"]);
+            exit;
         }
     } catch (Throwable $e) {
         splaro_log_exception('order.delete.handler', $e, [
@@ -15368,7 +15396,7 @@ if ($method === 'POST' && $action === 'delete_order') {
     }
 
     try {
-        sync_to_sheets('DELETE_ORDER', ['id' => $orderId]);
+        sync_to_sheets('DELETE_ORDER', ['id' => $orderId, 'order_no' => $orderNo]);
     } catch (Throwable $e) {
         splaro_log_exception('order.delete.sheets_queue', $e, [
             'order_id' => $orderId
@@ -15429,8 +15457,11 @@ if ($method === 'POST' && $action === 'delete_product') {
             $deleteMovementsStmt->execute([$productId]);
         }
 
-        $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
-        $deleteImagesStmt->execute([$productId]);
+        $canDeleteProductImages = column_exists($db, 'product_images', 'product_id');
+        if ($canDeleteProductImages) {
+            $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+            $deleteImagesStmt->execute([$productId]);
+        }
 
         $deleteProductStmt = $db->prepare("DELETE FROM products WHERE id = ?");
         $deleteProductStmt->execute([$productId]);
@@ -15528,9 +15559,19 @@ if ($method === 'POST' && $action === 'sync_products') {
 
         $existingStmt = $db->prepare("SELECT id, price, status, image, stock FROM products WHERE id = ? LIMIT 1");
         $slugLookupStmt = $db->prepare("SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1");
-        $deleteImagesStmt = $db->prepare("DELETE FROM product_images WHERE product_id = ?");
+        $canManageProductImages = column_exists($db, 'product_images', 'id')
+            && column_exists($db, 'product_images', 'product_id')
+            && column_exists($db, 'product_images', 'url')
+            && column_exists($db, 'product_images', 'alt_text')
+            && column_exists($db, 'product_images', 'sort_order')
+            && column_exists($db, 'product_images', 'is_main')
+            && column_exists($db, 'product_images', 'width')
+            && column_exists($db, 'product_images', 'height');
+        $deleteImagesStmt = $canManageProductImages ? $db->prepare("DELETE FROM product_images WHERE product_id = ?") : null;
         $deleteProductStmt = $db->prepare("DELETE FROM products WHERE id = ?");
-        $insertImageStmt = $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insertImageStmt = $canManageProductImages
+            ? $db->prepare("INSERT INTO product_images (id, product_id, url, alt_text, sort_order, is_main, width, height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            : null;
         $canDetachOrderItems = column_exists($db, 'order_items', 'product_id');
         $canDeleteVariants = column_exists($db, 'product_variants', 'product_id');
         $canDeleteMovements = column_exists($db, 'stock_movements', 'product_id');
@@ -15691,21 +15732,23 @@ if ($method === 'POST' && $action === 'sync_products') {
                 $productUrl
             ]);
 
-            $deleteImagesStmt->execute([$productId]);
-            foreach ($galleryImages as $idx => $img) {
-                $imgId = trim((string)($img['id'] ?? ''));
-                $imgUrl = trim((string)($img['url'] ?? ''));
-                if ($imgId === '' || $imgUrl === '') continue;
-                $insertImageStmt->execute([
-                    $imgId,
-                    $productId,
-                    $imgUrl,
-                    trim((string)($img['altText'] ?? '')) ?: trim((string)($p['name'] ?? '')),
-                    isset($img['sortOrder']) ? (int)$img['sortOrder'] : $idx,
-                    ($mainImageId !== null && (string)$imgId === (string)$mainImageId) ? 1 : (!empty($img['isMain']) ? 1 : 0),
-                    isset($img['width']) && $img['width'] !== null ? (int)$img['width'] : null,
-                    isset($img['height']) && $img['height'] !== null ? (int)$img['height'] : null
-                ]);
+            if ($deleteImagesStmt && $insertImageStmt) {
+                $deleteImagesStmt->execute([$productId]);
+                foreach ($galleryImages as $idx => $img) {
+                    $imgId = trim((string)($img['id'] ?? ''));
+                    $imgUrl = trim((string)($img['url'] ?? ''));
+                    if ($imgId === '' || $imgUrl === '') continue;
+                    $insertImageStmt->execute([
+                        $imgId,
+                        $productId,
+                        $imgUrl,
+                        trim((string)($img['altText'] ?? '')) ?: trim((string)($p['name'] ?? '')),
+                        isset($img['sortOrder']) ? (int)$img['sortOrder'] : $idx,
+                        ($mainImageId !== null && (string)$imgId === (string)$mainImageId) ? 1 : (!empty($img['isMain']) ? 1 : 0),
+                        isset($img['width']) && $img['width'] !== null ? (int)$img['width'] : null,
+                        isset($img['height']) && $img['height'] !== null ? (int)$img['height'] : null
+                    ]);
+                }
             }
 
             $actorId = (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin');
@@ -15804,7 +15847,9 @@ if ($method === 'POST' && $action === 'sync_products') {
                         if ($deleteMovementsStmt) {
                             $deleteMovementsStmt->execute([$staleId]);
                         }
-                        $deleteImagesStmt->execute([$staleId]);
+                        if ($deleteImagesStmt) {
+                            $deleteImagesStmt->execute([$staleId]);
+                        }
                         $deleteProductStmt->execute([$staleId]);
                     }
                 }
@@ -15819,7 +15864,9 @@ if ($method === 'POST' && $action === 'sync_products') {
                 if ($canDeleteMovements) {
                     $db->exec("DELETE FROM stock_movements");
                 }
-                $db->exec("DELETE FROM product_images");
+                if ($canManageProductImages) {
+                    $db->exec("DELETE FROM product_images");
+                }
                 $db->exec("DELETE FROM products");
             }
         }
