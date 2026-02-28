@@ -788,7 +788,7 @@ const normalizeCmsBundle = (raw: any): CmsBundle => {
 const normalizeCmsRevisions = (raw: any): CmsRevision[] => {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((revision: any, index: number) => ({
+    .map((revision: any, index: number): CmsRevision => ({
       id: String(revision?.id || `rev_${index}_${Math.random().toString(36).slice(2, 8)}`),
       mode: revision?.mode === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
       timestamp: String(revision?.timestamp || new Date().toISOString()),
@@ -963,6 +963,7 @@ interface AppContextType {
   cart: any[];
   addToCart: (item: any) => void;
   removeFromCart: (cartId: string) => void;
+  updateCartItemQuantity: (cartId: string, quantity: number) => void;
   orders: Order[];
   addOrder: (o: Order) => Promise<AddOrderResult>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
@@ -1981,6 +1982,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCart(prev => prev.filter(item => item.cartId !== cartId));
   };
 
+  const updateCartItemQuantity = (cartId: string, quantity: number) => {
+    const nextQty = Number.isFinite(quantity) ? Math.max(1, Math.min(99, Math.floor(quantity))) : 1;
+    setCart((prev) =>
+      prev.map((item) => (item.cartId === cartId ? { ...item, quantity: nextQty } : item))
+    );
+  };
+
   const addDiscount = (d: DiscountCode) => {
     setDiscounts(prev => [d, ...prev]);
   };
@@ -2149,7 +2157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const value = useMemo(() => ({
     view, setView, products, addOrUpdateProduct, deleteProduct, language, setLanguage, theme, setTheme,
-    cart, addToCart, removeFromCart, orders, addOrder, updateOrderStatus, deleteOrder, user, setUser,
+    cart, addToCart, removeFromCart, updateCartItemQuantity, orders, addOrder, updateOrderStatus, deleteOrder, user, setUser,
     users, deleteUser, updateUser,
     registerUser: (u: User) => setUsers(prev => [u, ...prev]),
     selectedProduct, setSelectedProduct, discounts, addDiscount, toggleDiscount, deleteDiscount,

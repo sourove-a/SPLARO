@@ -29,7 +29,7 @@ export async function withApiHandler(
         limit: options.rateLimitLimit,
         windowMs: options.rateLimitWindowMs,
       });
-      if (!rate.ok) {
+      if (rate.ok === false) {
         const response = jsonError('RATE_LIMITED', 'Too many requests. Please try again later.', 429);
         response.headers.set('x-ratelimit-remaining', String(rate.remaining));
         response.headers.set('x-ratelimit-reset', String(rate.resetAt));

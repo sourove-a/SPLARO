@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { POST as sendCampaign } from '../send/route';
 
-export async function POST(request: NextRequest, context: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const payload = await request.json().catch(() => ({}));
   const mergedBody = { ...payload, mode: 'now' };
   const proxyReq = new NextRequest(request.url, {

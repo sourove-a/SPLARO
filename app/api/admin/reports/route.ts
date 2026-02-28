@@ -8,7 +8,7 @@ import { toCsv } from '../../../../lib/csv';
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const type = String(req.nextUrl.searchParams.get('type') || 'sales').trim().toLowerCase();
     const format = String(req.nextUrl.searchParams.get('format') || '').trim().toLowerCase();

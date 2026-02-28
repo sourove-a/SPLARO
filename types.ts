@@ -249,6 +249,7 @@ export interface SiteSettings {
   whatsappNumber: string;
   maintenanceMode: boolean;
   logoUrl?: string;
+  slides?: any[];
   cmsPages: {
     manifest: {
       heading: string;

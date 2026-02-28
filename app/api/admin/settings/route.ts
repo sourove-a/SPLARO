@@ -115,7 +115,7 @@ async function sendTelegramTestMessage(): Promise<{ ok: boolean; message: string
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const db = await getDbPool();
     const result = await loadSettings(db);
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   return withApiHandler(request, async ({ request: req, ip }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object') {

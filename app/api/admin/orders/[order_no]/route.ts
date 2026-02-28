@@ -4,12 +4,13 @@ import { getDbPool } from '../../../../../lib/db';
 import { jsonError, jsonSuccess, requireAdmin } from '../../../../../lib/env';
 import { fallbackStore } from '../../../../../lib/fallbackStore';
 
-export async function GET(request: NextRequest, context: { params: { order_no: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ order_no: string }> }) {
   return withApiHandler(request, async ({ request: req }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const orderNo = String(context.params.order_no || '').trim();
+    const orderNo = String(routeParams.order_no || '').trim();
     if (!orderNo) return jsonError('INVALID_ORDER_NO', 'Invalid order number.', 400);
 
     const db = await getDbPool();

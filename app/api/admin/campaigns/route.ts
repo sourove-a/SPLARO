@@ -33,7 +33,7 @@ async function computeTargetCount(db: any, segment: 'ALL_USERS' | 'NEW_SIGNUPS_7
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const { page, pageSize } = parsePagination(req.nextUrl.searchParams);
     const q = String(req.nextUrl.searchParams.get('q') || '').trim();
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withApiHandler(request, async ({ request: req, ip }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const body = await req.json().catch(() => null);
     const normalizedBody = body && typeof body === 'object'

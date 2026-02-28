@@ -8,11 +8,15 @@ import { writeSystemLog } from '../../../lib/log';
 import { orderCreatePayloadSchema } from '../../../lib/validators';
 
 function computeTotals(payload: {
-  items: Array<{ quantity: number; unit_price: number }>;
-  shipping: number;
-  discount: number;
+  items?: Array<{ quantity?: number; unit_price?: number }>;
+  shipping?: number;
+  discount?: number;
 }) {
-  const subtotal = payload.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const subtotal = (payload.items || []).reduce((sum, item) => {
+    const quantity = Number(item.quantity || 0);
+    const unitPrice = Number(item.unit_price || 0);
+    return sum + quantity * unitPrice;
+  }, 0);
   const shipping = Number(payload.shipping || 0);
   const discount = Number(payload.discount || 0);
   const total = Math.max(0, subtotal + shipping - discount);

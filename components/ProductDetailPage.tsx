@@ -9,6 +9,7 @@ import { resolveProductUrgencyState } from '../lib/urgency';
 import { productMatchesRoute, ProductRouteParams, slugifyValue } from '../lib/productRoute';
 import ProductImageZoom from './ProductImageZoom';
 import { OptimizedImage } from './OptimizedImage';
+import { Button } from './ui/button';
 
 const Accordion = ({ title, children }: { title: string; children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -90,7 +91,10 @@ export const ProductDetailPage: React.FC = () => {
 
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState(product?.sizes?.[0] || 'Free Size');
+  const [selectedColor, setSelectedColor] = useState(product?.colors?.[0] || 'Original');
   const [activeImg, setActiveImg] = useState(galleryImages[0] || product?.image || '');
+  const [isAdding, setIsAdding] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
   const urgency = useMemo(
     () =>
       product
@@ -114,6 +118,7 @@ export const ProductDetailPage: React.FC = () => {
     if (product) {
       setActiveImg(galleryImages[0] || product.image);
       setSelectedSize(product.sizes?.[0] || 'Free Size');
+      setSelectedColor(product.colors?.[0] || 'Original');
     }
   }, [product, initialSelected, setSelectedProduct, galleryImages]);
 
@@ -146,6 +151,31 @@ export const ProductDetailPage: React.FC = () => {
     if (!activeImg) return;
     window.open(activeImg, '_blank', 'noopener,noreferrer');
   }, [activeImg]);
+
+  const handleAddToCart = useCallback(
+    (goToCheckout = false) => {
+      if (!product || urgency.outOfStock) return;
+      setIsAdding(true);
+      addToCart({
+        product,
+        quantity,
+        selectedSize: selectedSize || sizeOptions[0],
+        selectedColor: selectedColor || product.colors?.[0] || 'Original'
+      });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('splaro-toast', { detail: { tone: 'success', message: `${product.name} added to cart` } })
+        );
+      }
+      setJustAdded(true);
+      window.setTimeout(() => setIsAdding(false), 380);
+      window.setTimeout(() => setJustAdded(false), 1400);
+      if (goToCheckout) {
+        window.setTimeout(() => navigate('/checkout'), 220);
+      }
+    },
+    [addToCart, navigate, product, quantity, selectedColor, selectedSize, sizeOptions, urgency.outOfStock]
+  );
 
   if (!product) return (
     <div className="pt-40 text-center">
@@ -255,6 +285,33 @@ export const ProductDetailPage: React.FC = () => {
                 </div>
               </div>
 
+              {product.colors?.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Select Color</h3>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{selectedColor}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                    {product.colors.map((color) => {
+                      const active = selectedColor === color;
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => setSelectedColor(color)}
+                          className={`min-h-11 px-3 rounded-xl border text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
+                            active
+                              ? 'bg-cyan-400 text-black border-cyan-300 shadow-[0_0_18px_rgba(65,220,255,0.35)]'
+                              : 'bg-white/[0.03] border-white/15 text-white/80 hover:border-cyan-400/40 hover:text-white'
+                          }`}
+                        >
+                          {color}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Quantity</h3>
@@ -289,46 +346,33 @@ export const ProductDetailPage: React.FC = () => {
               </div>
 
               <div className="space-y-3 pt-1">
-                <button
-                  onClick={() => {
-                    if (urgency.outOfStock) return;
-                    addToCart({
-                      product: product,
-                      quantity,
-                      selectedSize: selectedSize || sizeOptions[0],
-                      selectedColor: (product.colors?.[0] || 'Original')
-                    });
-                  }}
+                <Button
+                  onClick={() => handleAddToCart(false)}
                   disabled={urgency.outOfStock}
-                  className={`w-full h-14 rounded-2xl font-black text-[11px] tracking-[0.22em] uppercase transition-all ${
+                  variant={urgency.outOfStock ? 'secondary' : 'default'}
+                  size="lg"
+                  className={`w-full h-14 rounded-2xl font-black tracking-[0.22em] transition-all ${
                     urgency.outOfStock
-                      ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed border border-white/10'
+                      ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed border border-white/10 hover:bg-zinc-800'
                       : 'bg-gradient-to-r from-cyan-500 to-sky-400 text-white hover:brightness-110 shadow-[0_12px_30px_rgba(56,189,248,0.35)]'
                   }`}
                 >
-                  {urgency.outOfStock ? 'Out Of Stock' : 'Add To Cart'}
-                </button>
+                  {urgency.outOfStock ? 'Out Of Stock' : isAdding ? 'Adding...' : justAdded ? 'Added ✓' : 'Add To Cart'}
+                </Button>
 
-                <button
-                  onClick={() => {
-                    if (urgency.outOfStock) return;
-                    addToCart({
-                      product: product,
-                      quantity,
-                      selectedSize: selectedSize || sizeOptions[0],
-                      selectedColor: (product.colors?.[0] || 'Original')
-                    });
-                    navigate('/checkout');
-                  }}
+                <Button
+                  onClick={() => handleAddToCart(true)}
                   disabled={urgency.outOfStock}
-                  className={`w-full h-14 rounded-2xl font-black text-[11px] tracking-[0.3em] uppercase transition-all ${
+                  variant="secondary"
+                  size="lg"
+                  className={`w-full h-14 rounded-2xl font-black tracking-[0.3em] transition-all ${
                     urgency.outOfStock
-                      ? 'bg-zinc-900 text-zinc-500 border border-white/10 cursor-not-allowed'
+                      ? 'bg-zinc-900 text-zinc-500 border border-white/10 cursor-not-allowed hover:bg-zinc-900'
                       : 'bg-white/12 border border-white/30 text-white hover:bg-cyan-100/25 shadow-[0_18px_36px_rgba(0,0,0,0.28)]'
                   }`}
                 >
                   Buy It Now
-                </button>
+                </Button>
               </div>
             </div>
 

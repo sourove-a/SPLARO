@@ -4,12 +4,13 @@ import { getDbPool } from '../../../../../lib/db';
 import { jsonError, jsonSuccess, requireAdmin } from '../../../../../lib/env';
 import { fallbackStore } from '../../../../../lib/fallbackStore';
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid user id.', 400);
 
     const db = await getDbPool();

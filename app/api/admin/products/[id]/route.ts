@@ -16,12 +16,13 @@ function slugify(input: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid product id.', 400);
 
     const body = await req.json().catch(() => null);
@@ -98,12 +99,13 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   });
 }
 
-export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid product id.', 400);
 
     const db = await getDbPool();

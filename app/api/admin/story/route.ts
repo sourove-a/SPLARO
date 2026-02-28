@@ -36,7 +36,7 @@ function safeParseStory(value: unknown): StoryPost[] {
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const db = await getDbPool();
     if (!db) {
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withApiHandler(request, async ({ request: req, ip }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const body = await req.json().catch(() => null);
     const parsed = storySchema.safeParse(body);

@@ -785,7 +785,7 @@ const AppContent = () => {
 
   return (
     <div className={`min-h-screen selection:bg-cyan-500/30 overflow-x-hidden`}>
-      {showNav && <Navbar theme={theme} setTheme={setTheme} />}
+      {showNav && <Navbar />}
       {showMobileBar && <MobileTabBar />}
 
       {siteSettings.maintenanceMode && !isAdminRole(user?.role) && location.pathname !== '/sourove-admin' ? (

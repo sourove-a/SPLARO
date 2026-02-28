@@ -35,12 +35,13 @@ async function computeTargetCount(db: any, segment: 'ALL_USERS' | 'NEW_SIGNUPS_7
   return Array.isArray(rows) && rows[0] ? Number((rows[0] as any).total || 0) : 0;
 }
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid campaign id.', 400);
 
     const db = await getDbPool();
@@ -67,12 +68,13 @@ export async function GET(request: NextRequest, context: { params: { id: string 
   });
 }
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid campaign id.', 400);
 
     const body = await req.json().catch(() => null);

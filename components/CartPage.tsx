@@ -1,72 +1,96 @@
 import React, { useMemo } from 'react';
-import { ShoppingBag, Trash2, ArrowRight, ShieldCheck, HelpCircle } from 'lucide-react';
+import { ShoppingBag, Trash2, ArrowRight, ShieldCheck, HelpCircle, Minus, Plus } from 'lucide-react';
 import { useApp } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, GlassCard } from './LiquidGlass';
 import { OptimizedImage } from './OptimizedImage';
+import { Button } from './ui/button';
 
 export const CartPage: React.FC = () => {
-  const { cart, removeFromCart } = useApp();
+  const { cart, removeFromCart, updateCartItemQuantity } = useApp();
   const navigate = useNavigate();
 
   const subtotal = useMemo(() => cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0), [cart]);
 
   if (cart.length === 0) {
     return (
-      <div className="pt-40 flex flex-col items-center justify-center min-h-screen text-center p-6 bg-[#050505] text-white">
+      <div className="pt-32 sm:pt-36 flex flex-col items-center justify-center min-h-screen text-center px-4 sm:px-6 pb-24 bg-[#050505] text-white">
         <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-10">
           <ShoppingBag className="w-10 h-10 text-zinc-700" />
         </div>
-        <h2 className="text-5xl font-black tracking-tighter mb-4 uppercase italic">YOUR ARCHIVE IS EMPTY</h2>
+        <h2 className="text-3xl sm:text-5xl font-black tracking-tighter mb-4 uppercase italic">YOUR CART IS EMPTY</h2>
         <p className="text-white/40 text-sm font-bold uppercase tracking-widest mb-10">Discover elite boutique footwear & bags</p>
         <PrimaryButton onClick={() => navigate('/shop')} className="px-12 py-6 text-[10px]">
-          OPEN DISCOVERY VAULT
+          Start Shopping
         </PrimaryButton>
       </div>
     );
   }
 
   return (
-    <div className="pt-28 sm:pt-32 pb-10 sm:pb-16 min-h-screen bg-[#050505] text-white">
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-10 sm:gap-16">
+    <div className="pt-24 sm:pt-32 pb-20 min-h-screen bg-[#050505] text-white">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 lg:gap-16">
         {/* Left: Cart Items List */}
         <div className="lg:col-span-8">
-          <header className="mb-14">
-            <h1 className="text-5xl md:text-8xl font-black tracking-tighter uppercase italic leading-[0.8] mb-6">ARCHIVAL<br /><span className="text-cyan-500">SELECTION.</span></h1>
-            <p className="text-white/20 font-bold uppercase tracking-[0.6em] text-[9px]">{cart.length} EXCLUSIVE UNITS ENCOUNTERED</p>
+          <header className="mb-8 sm:mb-12">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-cyan-500">Cart.</span></h1>
+            <p className="text-white/30 font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[9px]">{cart.length} Selected items</p>
           </header>
 
-          <div className="space-y-8">
+          <div className="space-y-4 sm:space-y-6">
             {cart.map((item) => (
-              <GlassCard key={item.cartId} className="p-8 group">
-                <div className="flex flex-col sm:flex-row items-center gap-8">
-                  <div className="w-32 h-32 rounded-3xl overflow-hidden border border-white/5 bg-zinc-900 shrink-0">
+              <GlassCard key={item.cartId} className="p-4 sm:p-6 group">
+                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-white/5 bg-zinc-900 shrink-0">
                     <OptimizedImage
                       src={item.product.image}
                       alt={item.product.name}
-                      sizes="128px"
+                      sizes="(max-width: 640px) 96px, 112px"
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                   </div>
 
                   <div className="flex-1 text-center sm:text-left">
                     <span className="text-cyan-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
-                    <h3 className="text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-[10px] font-black uppercase tracking-widest text-white/40">
+                    <h3 className="text-lg sm:text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest text-white/60">
                       <span>Size: {item.selectedSize}</span>
                       <span>Color: {item.selectedColor}</span>
-                      <span className="text-white">Quantity: {item.quantity}</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center sm:items-end gap-4">
-                    <p className="text-2xl font-black">৳{Number((item.product.price || 0) * item.quantity).toLocaleString()}</p>
-                    <button
+                  <div className="w-full sm:w-auto flex flex-col items-center sm:items-end gap-3">
+                    <div className="h-11 w-full sm:w-auto rounded-xl border border-white/15 bg-black/25 px-2 flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg border border-white/10 text-white/85 hover:text-cyan-300"
+                        onClick={() => updateCartItemQuantity(item.cartId, Math.max(1, item.quantity - 1))}
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </Button>
+                      <span className="min-w-8 text-center text-sm font-black text-white">{item.quantity}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg border border-white/10 text-white/85 hover:text-cyan-300"
+                        onClick={() => updateCartItemQuantity(item.cartId, item.quantity + 1)}
+                        aria-label="Increase quantity"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+
+                    <p className="text-lg sm:text-2xl font-black">৳{Number((item.product.price || 0) * item.quantity).toLocaleString()}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => removeFromCart(item.cartId)}
-                      className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-400 transition-colors flex items-center gap-2"
+                      className="text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 border border-rose-500/20"
                     >
-                      <Trash2 className="w-3.5 h-3.5" /> REMOVE ASSET
-                    </button>
+                      <Trash2 className="w-3.5 h-3.5" /> Remove
+                    </Button>
                   </div>
                 </div>
               </GlassCard>
@@ -76,9 +100,9 @@ export const CartPage: React.FC = () => {
 
         {/* Right: Sticky Summary */}
         <div className="lg:col-span-4">
-          <div className="sticky top-32">
-            <GlassCard className="p-10 border border-white/10">
-              <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-8">Summary</h3>
+          <div className="sticky top-24 sm:top-32">
+            <GlassCard className="p-5 sm:p-8 border border-white/10">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tighter uppercase italic mb-6">Order Summary</h3>
 
               <div className="space-y-4 mb-10">
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-white/40">
@@ -86,14 +110,14 @@ export const CartPage: React.FC = () => {
                   <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-white/40">
-                  <span>Shipping Estimation</span>
-                  <span className="text-zinc-400 italic">Calculated at Billing</span>
+                  <span>Shipping</span>
+                  <span className="text-zinc-400 italic">Calculated at checkout</span>
                 </div>
               </div>
 
-              <div className="pt-8 border-t border-white/10 flex justify-between items-baseline mb-12">
-                <span className="text-lg font-bold">Estimated Total</span>
-                <span className="text-3xl font-black">৳{Number(subtotal || 0).toLocaleString()}</span>
+              <div className="pt-6 border-t border-white/10 flex justify-between items-baseline mb-8">
+                <span className="text-base sm:text-lg font-bold">Total</span>
+                <span className="text-2xl sm:text-3xl font-black">৳{Number(subtotal || 0).toLocaleString()}</span>
               </div>
 
               <PrimaryButton

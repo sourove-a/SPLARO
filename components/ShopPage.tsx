@@ -539,9 +539,9 @@ export const ShopPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden px-8 py-5 liquid-glass rounded-full border border-white/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3"
+                className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full border border-white/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 touch-manipulation"
               >
-                <Filter className="w-4 h-4" /> Filters
+                <Filter className="w-4 h-4" /> {showFilters ? 'Hide Filters' : 'Filters'}
               </button>
             </div>
           )}
@@ -549,9 +549,34 @@ export const ShopPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-16">
-        <aside className={`lg:w-80 shrink-0 space-y-12 ${showFilters ? 'block' : 'hidden lg:block'}`}>
-          <div className="space-y-10 sticky top-48">
+      {showFilters && (
+        <button
+          type="button"
+          aria-label="Close filters"
+          onClick={() => setShowFilters(false)}
+          className="lg:hidden fixed inset-0 z-[129] bg-[#020816]/75 backdrop-blur-sm"
+        />
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+        <aside
+          className={`lg:w-80 shrink-0 space-y-6 ${
+            showFilters
+              ? 'fixed lg:static inset-x-3 top-24 bottom-[calc(var(--mobile-nav-height)+var(--mobile-safe-bottom)+16px)] z-[130] block overflow-y-auto rounded-[24px] border border-white/10 bg-[#08162f]/95 p-4'
+              : 'hidden lg:block'
+          }`}
+        >
+          <div className={`space-y-8 ${showFilters ? '' : 'lg:sticky lg:top-48'}`}>
+            <div className="lg:hidden flex items-center justify-between pb-2 border-b border-white/10">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300">Filters</h3>
+              <button
+                type="button"
+                onClick={() => setShowFilters(false)}
+                className="min-h-11 px-4 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-[0.2em] text-white/80"
+              >
+                Close
+              </button>
+            </div>
             <div className="space-y-6">
               <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
                 <Layers className="w-4 h-4 text-cyan-500" /> Category
@@ -701,8 +726,11 @@ export const ShopPage: React.FC = () => {
 
             {isFiltering && (
               <button
-                onClick={clearAllFilters}
-                className="w-full flex items-center justify-center gap-3 px-6 py-5 border border-rose-500/20 rounded-2xl text-[10px] font-black uppercase text-rose-500 tracking-widest hover:bg-rose-500/5 transition-all"
+                onClick={() => {
+                  clearAllFilters();
+                  setShowFilters(false);
+                }}
+                className="w-full min-h-12 flex items-center justify-center gap-3 px-5 py-3 border border-rose-500/20 rounded-2xl text-[10px] font-black uppercase text-rose-500 tracking-widest hover:bg-rose-500/5 transition-all touch-manipulation"
               >
                 <Trash2 className="w-4 h-4" /> PURGE SELECTIONS
               </button>
@@ -738,7 +766,7 @@ export const ShopPage: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 md:gap-10 xl:gap-14">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 lg:gap-8">
             {filteredProducts.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} language={language} />
             ))}

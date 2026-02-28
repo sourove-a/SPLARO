@@ -27,7 +27,7 @@ function toBool(value: unknown): boolean {
 export async function POST(request: NextRequest) {
   return withApiHandler(request, async ({ request: req, ip }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object') {

@@ -7,14 +7,50 @@ import { useNavigate } from 'react-router-dom';
 import { resolveProductUrgencyState } from '../lib/urgency';
 import { buildProductRoute, slugifyValue } from '../lib/productRoute';
 import { OptimizedImage } from './OptimizedImage';
+import { Button } from './ui/button';
 
 export const ProductCard: React.FC<{ product: Product; index?: number; language?: string }> = ({ product, index = 0, language = 'EN' }) => {
 
   const { setSelectedProduct, addToCart, siteSettings } = useApp();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
   const containerRef = useRef(null);
   const urgency = useMemo(() => resolveProductUrgencyState(product, siteSettings), [product, siteSettings]);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const query = window.matchMedia('(hover: none), (pointer: coarse)');
+    const setMode = () => setIsTouchDevice(query.matches);
+    setMode();
+    query.addEventListener?.('change', setMode);
+    return () => query.removeEventListener?.('change', setMode);
+  }, []);
+
+  const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>, goToCheckout = false) => {
+    event.stopPropagation();
+    if (urgency.outOfStock) return;
+    setIsAdding(true);
+    addToCart({
+      product,
+      quantity: 1,
+      selectedSize: product.sizes[0],
+      selectedColor: product.colors[0]
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('splaro-toast', { detail: { tone: 'success', message: `${product.name} added to cart` } })
+      );
+    }
+    setJustAdded(true);
+    window.setTimeout(() => setIsAdding(false), 380);
+    window.setTimeout(() => setJustAdded(false), 1250);
+    if (goToCheckout) {
+      window.setTimeout(() => navigate('/checkout'), 180);
+    }
+  };
 
   // Parallax Scroll Logic
   const { scrollYProgress } = useScroll({
@@ -43,10 +79,10 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
         setSelectedProduct(product);
         navigate(buildProductRoute(product));
       }}
-      className="group relative cursor-pointer"
+      className="group relative cursor-pointer min-w-0"
     >
       {/* Image Container with Parallax */}
-      <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[24px] sm:rounded-[32px] md:rounded-[48px] mb-4 sm:mb-8 shadow-2xl transition-all duration-700">
+      <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[18px] sm:rounded-[24px] md:rounded-[32px] mb-3 sm:mb-6 shadow-2xl transition-all duration-700">
         <motion.div
           style={{ y: smoothY }}
           animate={{
@@ -81,7 +117,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
 
         {/* Centered Actions */}
         <AnimatePresence>
-          {isHovered && (
+          {isHovered && !isTouchDevice && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-20 px-6 backdrop-blur-[2px]">
               <motion.button
                 initial={{ opacity: 0, y: 30, scale: 0.9 }}
@@ -98,11 +134,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 20, scale: 0.9 }}
                   transition={{ delay: 0.05 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (urgency.outOfStock) return;
-                    addToCart({ product, quantity: 1, selectedSize: product.sizes[0], selectedColor: product.colors[0] });
-                  }}
+                  onClick={(e) => handleAddToCart(e)}
                   disabled={urgency.outOfStock}
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${
                     urgency.outOfStock
@@ -118,12 +150,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 20, scale: 0.9 }}
                   transition={{ delay: 0.1 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (urgency.outOfStock) return;
-                    addToCart({ product, quantity: 1, selectedSize: product.sizes[0], selectedColor: product.colors[0] });
-                    navigate('/checkout');
-                  }}
+                  onClick={(e) => handleAddToCart(e, true)}
                   disabled={urgency.outOfStock}
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
@@ -144,7 +171,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       </div>
 
       {/* Content */}
-      <div className="px-2">
+      <div className="px-1 sm:px-2">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1">
             <button
@@ -225,6 +252,27 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             <Clock className="w-3 h-3 text-cyan-500" />
             <span className="text-[7px] font-black text-cyan-500 uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
           </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
+          <Button
+            variant={urgency.outOfStock ? 'secondary' : 'default'}
+            size="sm"
+            disabled={urgency.outOfStock}
+            onClick={(e) => handleAddToCart(e)}
+            className={`rounded-xl ${urgency.outOfStock ? 'bg-zinc-800 text-zinc-500 border-white/15 hover:bg-zinc-800' : ''}`}
+          >
+            {urgency.outOfStock ? 'Out' : isAdding ? 'Adding' : justAdded ? 'Added' : 'Add'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={urgency.outOfStock}
+            onClick={(e) => handleAddToCart(e, true)}
+            className={`rounded-xl ${urgency.outOfStock ? 'opacity-60' : ''}`}
+          >
+            Buy
+          </Button>
         </div>
       </div>
     </motion.div>

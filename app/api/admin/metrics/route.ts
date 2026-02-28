@@ -8,7 +8,7 @@ import { getCacheStore } from '../../../../lib/cache';
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const cache = await getCacheStore();
     const cacheKey = 'admin:metrics:v2';

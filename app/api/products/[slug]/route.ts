@@ -6,9 +6,10 @@ import { jsonError, jsonSuccess } from '../../../../lib/env';
 import { fallbackStore } from '../../../../lib/fallbackStore';
 import { setPublicCacheHeaders } from '../../../../lib/httpCache';
 
-export async function GET(request: NextRequest, context: { params: { slug: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ slug: string }> }) {
   return withApiHandler(request, async () => {
-    const slug = String(context.params.slug || '').trim();
+    const routeParams = await context.params;
+    const slug = String(routeParams.slug || '').trim();
     if (!slug) return jsonError('INVALID_SLUG', 'Invalid slug.', 400);
 
     const cache = await getCacheStore();

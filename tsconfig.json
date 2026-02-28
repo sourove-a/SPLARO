@@ -31,7 +31,9 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "strict": false,
+    "esModuleInterop": true
   },
   "include": [
     "next-env.d.ts",
@@ -40,6 +42,9 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist",
+    "public_html",
+    "vite.config.ts"
   ]
 }

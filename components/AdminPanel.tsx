@@ -5566,7 +5566,7 @@ export const AdminPanel = () => {
                   ? normalizeToPublicStorefrontUrl(customLiveUrl)
                   : generatedLiveUrl;
 
-                const finalProduct = {
+                const finalProduct: Product = {
                   ...p,
                   id: finalId,
                   productSlug: uniqueSlug,
@@ -5575,7 +5575,7 @@ export const AdminPanel = () => {
                   categorySlug,
                   subCategorySlug: subCategorySlug || undefined,
                   liveUrl,
-                  status: p.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED',
+                  status: (p.status === 'DRAFT' ? 'DRAFT' : 'PUBLISHED') as 'DRAFT' | 'PUBLISHED',
                   image,
                   mainImageId: mainImage?.id,
                   colors: normalizedColors,

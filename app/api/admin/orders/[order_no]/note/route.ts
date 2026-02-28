@@ -6,12 +6,13 @@ import { fallbackStore } from '../../../../../../lib/fallbackStore';
 import { writeAuditLog, writeSystemLog } from '../../../../../../lib/log';
 import { orderNoteSchema } from '../../../../../../lib/validators';
 
-export async function POST(request: NextRequest, context: { params: { order_no: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ order_no: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const orderNo = String(context.params.order_no || '').trim();
+    const orderNo = String(routeParams.order_no || '').trim();
     if (!orderNo) return jsonError('INVALID_ORDER_NO', 'Invalid order number.', 400);
 
     const body = await req.json().catch(() => null);

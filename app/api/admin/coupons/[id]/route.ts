@@ -6,12 +6,13 @@ import { fallbackStore } from '../../../../../lib/fallbackStore';
 import { writeAuditLog, writeSystemLog } from '../../../../../lib/log';
 import { couponUpdateSchema } from '../../../../../lib/validators';
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid coupon id.', 400);
 
     const body = await req.json().catch(() => null);

@@ -16,12 +16,13 @@ function sampleDeliveryLogs(targetCount: number, mode: 'test' | 'now') {
   }));
 }
 
-export async function POST(request: NextRequest, context: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
-    const id = String(context.params.id || '').trim();
+    const id = String(routeParams.id || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid campaign id.', 400);
 
     const body = await req.json().catch(() => ({}));

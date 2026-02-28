@@ -7,7 +7,7 @@ import { fallbackStore } from '../../../../lib/fallbackStore';
 export async function GET(request: NextRequest) {
   return withApiHandler(request, async ({ request: req }) => {
     const admin = requireAdmin(req.headers);
-    if (!admin.ok) return admin.response;
+    if (admin.ok === false) return admin.response;
 
     const q = String(req.nextUrl.searchParams.get('q') || '').trim();
     if (!q) {

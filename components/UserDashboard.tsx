@@ -395,7 +395,9 @@ export const UserDashboard: React.FC = () => {
       setTwoFactorEnabled(Boolean(result.two_factor_enabled));
       setTwoFactorSecret(String(result.secret || ''));
       setTwoFactorUri(String(result.otpauth_url || ''));
-      setUser((prev) => (prev ? { ...prev, twoFactorEnabled: Boolean(result.two_factor_enabled) } : prev));
+      if (user) {
+        setUser({ ...user, twoFactorEnabled: Boolean(result.two_factor_enabled) });
+      }
       emitToast(enabled ? '2FA enabled. Save your setup key.' : '2FA disabled.', 'success');
     } catch (error) {
       emitToast('Could not update 2FA setting.', 'error');

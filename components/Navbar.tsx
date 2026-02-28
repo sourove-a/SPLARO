@@ -77,13 +77,13 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
     <button
       type="button"
       onClick={onClick}
-      className="nav-item interactive-control w-full text-left py-7 border-b border-white/15 flex items-center justify-between group transition-all duration-500"
+      className="nav-item interactive-control w-full text-left py-4 sm:py-6 border-b border-white/15 flex items-center justify-between group transition-all duration-500"
     >
       <div className="flex flex-col">
         <span className="text-[10px] font-black text-cyan-200/85 uppercase tracking-[0.44em] mb-3 opacity-90 group-hover:opacity-100 transition-all duration-500 transform translate-y-0.5 group-hover:translate-y-0 italic">
           Quick Access
         </span>
-        <span className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white/90 group-hover:text-white transition-all duration-500 group-hover:pl-3 italic leading-none">
+        <span className="text-2xl sm:text-4xl md:text-6xl font-black uppercase tracking-tighter text-white/90 group-hover:text-white transition-all duration-500 group-hover:pl-3 italic leading-none">
           {label}
         </span>
       </div>
@@ -119,6 +119,18 @@ export const Navbar: React.FC = () => {
       setIsSearchOpen(false);
     }
   }, [menuOpen, setIsSearchOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -270,11 +282,11 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <nav
-        className="fixed inset-x-0 top-0 w-full z-[100] px-4 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-auto overflow-x-clip"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
-      >
-        {/* Left Side: Navigation Links + Menu Trigger */}
-        <div className="flex-1 flex items-center gap-8">
+      className="fixed inset-x-0 top-0 w-full z-[100] px-3 sm:px-5 md:px-10 lg:px-14 pb-3 md:pb-6 flex items-center justify-between pointer-events-auto overflow-x-clip"
+      style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
+    >
+      {/* Left Side: Navigation Links + Menu Trigger */}
+      <div className="flex-1 flex items-center gap-3 sm:gap-5 lg:gap-8">
           <button
             type="button"
             aria-label="Open menu"
@@ -282,7 +294,7 @@ export const Navbar: React.FC = () => {
               e.stopPropagation();
               setMenuOpen(true);
             }}
-            className="nav-item interactive-control min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto touch-manipulation"
+            className="nav-item interactive-control min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-xl rounded-[16px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/40 transition-all group shadow-2xl pointer-events-auto touch-manipulation"
           >
             <div className="flex flex-col gap-1.5 items-start">
               <div className="w-8 sm:w-9 md:w-10 h-[2.5px] bg-white transition-all group-hover:w-6" />
@@ -427,10 +439,10 @@ export const Navbar: React.FC = () => {
           </div>
 
           {user && (
-            <div className="lg:hidden">
-              <NotificationBell mobile />
-            </div>
-          )}
+          <div className="lg:hidden">
+            <NotificationBell mobile />
+          </div>
+        )}
 
           {!user && (
             <div className="lg:hidden flex items-center gap-2">
@@ -461,9 +473,25 @@ export const Navbar: React.FC = () => {
 
           <button
             type="button"
+            aria-label="Open search"
+            onClick={() => {
+              if (location.pathname !== '/shop') {
+                navigate('/shop');
+              }
+              setSelectedCategory(null);
+              setIsSearchOpen(true);
+              setMenuOpen(false);
+            }}
+            className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 bg-white/5 backdrop-blur-3xl rounded-[16px] sm:rounded-[22px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto touch-manipulation"
+          >
+            <Search className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </button>
+
+          <button
+            type="button"
             aria-label="Open cart"
             onClick={() => navigate('/cart')}
-            className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 md:p-5 bg-white/5 backdrop-blur-3xl rounded-[18px] sm:rounded-[22px] md:rounded-[24px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto touch-manipulation"
+            className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 bg-white/5 backdrop-blur-3xl rounded-[16px] sm:rounded-[22px] border border-white/10 hover:border-white/50 hover:text-white transition-all shadow-xl group pointer-events-auto touch-manipulation"
           >
             <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             {cart.length > 0 && (
@@ -536,14 +564,14 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
             onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(123,236,255,0.26),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(108,156,255,0.24),transparent_40%),linear-gradient(180deg,#0a1b3f_0%,#071632_42%,#050f24_100%)] overflow-y-auto overscroll-contain flex flex-col"
+            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(123,236,255,0.24),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(108,156,255,0.2),transparent_40%),linear-gradient(180deg,#0a1b3f_0%,#071632_42%,#050f24_100%)] overflow-y-auto overscroll-contain flex flex-col"
           >
             <div className="absolute inset-0 pointer-events-none opacity-20">
               <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#00D4FF11,transparent_50%)]" />
               <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_70%,#00D4FF11,transparent_50%)]" />
             </div>
 
-            <div onClick={(e) => e.stopPropagation()} className="px-8 py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
+            <div onClick={(e) => e.stopPropagation()} className="px-4 sm:px-8 py-6 sm:py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
               <SplaroLogo className="h-8 md:h-12" />
               <motion.button
                 type="button"
@@ -557,8 +585,8 @@ export const Navbar: React.FC = () => {
               </motion.button>
             </div>
 
-            <div onClick={(e) => e.stopPropagation()} className="flex-1 px-8 md:px-16 flex flex-col justify-center max-w-4xl relative z-10">
-              <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.38em] mb-12">Site Navigation</p>
+            <div onClick={(e) => e.stopPropagation()} className="flex-1 px-4 sm:px-8 md:px-16 flex flex-col justify-center max-w-4xl relative z-10">
+              <p className="text-[10px] font-black text-white/70 uppercase tracking-[0.32em] mb-8">Site Navigation</p>
               <div className="space-y-2">
                 {menuItems.map((item, i) => (
                   <div key={item.label} className="w-full">
@@ -577,7 +605,7 @@ export const Navbar: React.FC = () => {
               </div>
             </div>
 
-            <div onClick={(e) => e.stopPropagation()} className="px-8 py-10 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-8 relative z-10 border-t border-white/5">
+            <div onClick={(e) => e.stopPropagation()} className="px-4 sm:px-8 py-8 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10 border-t border-white/5">
               <div className="flex items-center gap-4">
                 <div className="w-2 h-2 rounded-full bg-cyan-200 animate-pulse" />
                 <p className="text-[10px] font-black tracking-widest text-white/75 uppercase">Session Active</p>
@@ -604,7 +632,7 @@ export const Navbar: React.FC = () => {
               </div>
             </div>
 
-            <div onClick={(e) => e.stopPropagation()} className="mt-auto pt-10 border-t border-white/5">
+            <div onClick={(e) => e.stopPropagation()} className="mt-auto px-4 sm:px-8 md:px-16 pb-6 pt-6 border-t border-white/5">
               <div className="flex items-center gap-4 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">Session Secure</span>
