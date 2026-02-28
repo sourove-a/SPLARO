@@ -120,7 +120,8 @@ class GenericRedisCacheStore implements CacheStore {
 
   static async fromRedisUrl(redisUrl: string): Promise<GenericRedisCacheStore | null> {
     try {
-      const redisModule = (await import('redis')) as {
+      const importDynamic = new Function('mod', 'return import(mod)') as (mod: string) => Promise<unknown>;
+      const redisModule = (await importDynamic('redis')) as {
         createClient: (opts: { url: string }) => any;
       };
 

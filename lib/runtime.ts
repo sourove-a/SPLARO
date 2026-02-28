@@ -1,14 +1,27 @@
+type RuntimeWindow = Window & {
+  __SPLARO_RUNTIME__?: Record<string, string>;
+  __SPLARO_GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_ID?: string;
+};
+
+const runtimeEnv = (key: string): string => {
+  if (typeof window !== 'undefined') {
+    const win = window as RuntimeWindow;
+    const fromRuntime = win.__SPLARO_RUNTIME__?.[key];
+    if (typeof fromRuntime === 'string' && fromRuntime.trim() !== '') {
+      return fromRuntime.trim();
+    }
+  }
+  const fromProcess = (process.env as Record<string, string | undefined>)[key];
+  return typeof fromProcess === 'string' ? fromProcess.trim() : '';
+};
+
 export const shouldUsePhpApi = (): boolean => {
   if (typeof window === 'undefined') return false;
 
-  const mode = String(import.meta.env.VITE_BACKEND_MODE || '').trim().toLowerCase();
+  const mode = runtimeEnv('NEXT_PUBLIC_BACKEND_MODE').toLowerCase();
   if (mode === 'local') return false;
-  if (mode === 'php' || mode === 'production') return true;
-
-  const host = window.location.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
-    return false;
-  }
+  if (mode === 'next' || mode === 'php' || mode === 'production') return true;
 
   return true;
 };
@@ -23,7 +36,7 @@ export const isAdminSubdomainHost = (): boolean => {
 };
 
 export const getStorefrontOrigin = (): string => {
-  const configured = normalizeBase(String(import.meta.env.VITE_STOREFRONT_ORIGIN || '').trim());
+  const configured = normalizeBase(runtimeEnv('NEXT_PUBLIC_STOREFRONT_ORIGIN'));
   if (configured !== '') {
     return configured;
   }
@@ -57,7 +70,7 @@ const normalizeConfiguredApi = (configuredBase: string): string => {
 
 export const getPhpApiNode = (): string => {
   if (typeof window !== 'undefined' && isAdminSubdomainHost()) {
-    const forceStorefrontForAdminRaw = String(import.meta.env.VITE_ADMIN_FORCE_STOREFRONT_API || '').trim().toLowerCase();
+    const forceStorefrontForAdminRaw = runtimeEnv('NEXT_PUBLIC_ADMIN_FORCE_STOREFRONT_API').toLowerCase();
     const forceStorefrontForAdmin = forceStorefrontForAdminRaw === 'true'
       || forceStorefrontForAdminRaw === '1'
       || forceStorefrontForAdminRaw === 'yes';
@@ -66,7 +79,7 @@ export const getPhpApiNode = (): string => {
     }
   }
 
-  const configured = normalizeBase(String(import.meta.env.VITE_API_BASE_URL || '').trim());
+  const configured = normalizeBase(runtimeEnv('NEXT_PUBLIC_API_BASE_URL'));
   if (configured === '') {
     return '/api/index.php';
   }
@@ -76,7 +89,7 @@ export const getPhpApiNode = (): string => {
     return resolved;
   }
 
-  const allowCrossOriginApi = String(import.meta.env.VITE_ALLOW_CROSS_ORIGIN_API || '').trim().toLowerCase() === 'true';
+  const allowCrossOriginApi = runtimeEnv('NEXT_PUBLIC_ALLOW_CROSS_ORIGIN_API').toLowerCase() === 'true';
   if (!allowCrossOriginApi && isAdminSubdomainHost()) {
     try {
       const resolvedUrl = new URL(resolved, window.location.origin);
@@ -91,3 +104,5 @@ export const getPhpApiNode = (): string => {
 
   return resolved;
 };
+
+export const getGoogleClientId = (): string => runtimeEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID');

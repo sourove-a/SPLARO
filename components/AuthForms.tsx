@@ -9,7 +9,7 @@ import { useApp } from '../store';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { useEffect } from 'react';
-import { getPhpApiNode, isAdminSubdomainHost, shouldUsePhpApi } from '../lib/runtime';
+import { getGoogleClientId, getPhpApiNode, isAdminSubdomainHost, shouldUsePhpApi } from '../lib/runtime';
 import { isAdminRole } from '../lib/roles';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
@@ -105,7 +105,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     }
   }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode, emailVerificationPending]);
   const googleClientId = String(
-    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    getGoogleClientId() ||
     siteSettings.googleClientId ||
     // @ts-ignore - legacy runtime payload
     siteSettings.google_client_id ||

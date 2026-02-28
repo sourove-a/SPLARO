@@ -30,7 +30,7 @@
 3. Share the Google Sheet with service account email as Editor.
 4. Store service account credentials only in env vars.
 5. Optional premium formatting script:
-   - Open Apps Script and paste `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/google-sheets-premium-format.gs`
+   - Open Apps Script and paste `docs/google-sheets-premium-format.gs`
    - Run `applyPremiumFormatting` once.
 
 ## API Contract Focus

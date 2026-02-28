@@ -195,6 +195,21 @@ export async function ensureTables(pool: Pool): Promise<void> {
   await addColumnIfMissing(pool, 'users', 'address', 'TEXT NULL');
   await addColumnIfMissing(pool, 'users', 'password_hash', 'VARCHAR(255) NULL');
   await addColumnIfMissing(pool, 'users', 'is_blocked', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing(pool, 'users', 'profile_image', 'TEXT NULL');
+  await addColumnIfMissing(pool, 'users', 'email_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing(pool, 'users', 'phone_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing(pool, 'users', 'default_shipping_address', 'TEXT NULL');
+  await addColumnIfMissing(pool, 'users', 'notification_email', 'TINYINT(1) NOT NULL DEFAULT 1');
+  await addColumnIfMissing(pool, 'users', 'notification_sms', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing(pool, 'users', 'preferred_language', "VARCHAR(10) NOT NULL DEFAULT 'EN'");
+  await addColumnIfMissing(pool, 'users', 'two_factor_enabled', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing(pool, 'users', 'two_factor_secret', 'VARCHAR(255) NULL');
+  await addColumnIfMissing(pool, 'users', 'email_verify_code', 'VARCHAR(16) NULL');
+  await addColumnIfMissing(pool, 'users', 'email_verify_expiry', 'DATETIME NULL');
+  await addColumnIfMissing(pool, 'users', 'reset_code', 'VARCHAR(16) NULL');
+  await addColumnIfMissing(pool, 'users', 'reset_expiry', 'DATETIME NULL');
+  await addColumnIfMissing(pool, 'users', 'last_password_change_at', 'DATETIME NULL');
+  await addColumnIfMissing(pool, 'users', 'force_relogin', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addColumnIfMissing(pool, 'users', 'updated_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 
   await addColumnIfMissing(pool, 'products', 'slug', 'VARCHAR(255) NULL');
@@ -220,6 +235,8 @@ export async function ensureTables(pool: Pool): Promise<void> {
   await addColumnIfMissing(pool, 'orders', 'discount', 'DECIMAL(12,2) NOT NULL DEFAULT 0');
   await addColumnIfMissing(pool, 'orders', 'total', 'DECIMAL(12,2) NOT NULL DEFAULT 0');
   await addColumnIfMissing(pool, 'orders', 'admin_note', 'TEXT NULL');
+  await addColumnIfMissing(pool, 'orders', 'tracking_number', 'VARCHAR(120) NULL');
+  await addColumnIfMissing(pool, 'orders', 'customer_comment', 'TEXT NULL');
   await addColumnIfMissing(pool, 'orders', 'is_refund_requested', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addColumnIfMissing(pool, 'orders', 'is_refunded', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addColumnIfMissing(pool, 'orders', 'updated_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');

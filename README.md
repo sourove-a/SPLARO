@@ -1,82 +1,130 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# SPLARO
 
-# SPLARO Codebase
+SPLARO is a luxury footwear and bags ecommerce platform running on **Next.js 15 App Router + TypeScript + MySQL**.
 
-Current branch contains the existing storefront app and a full enterprise migration blueprint for Next.js App Router.
+- Live: [https://splaro.co](https://splaro.co)
+- Runtime: Next.js route handlers (Node), no Vite runtime, no PHP runtime dependency
+- Storage: MySQL (Hostinger), Prisma-ready schema and utilities
 
-## Enterprise Blueprint (New)
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/enterprise-architecture.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/route-map-and-api.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/critical-flows.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/security-scale-deploy.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/migration-and-seed-plan.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/environment-variables.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/implementation-roadmap.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/hostinger-google-sheets-runbook.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/telegram-admin-bot.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/admin-performance-backend.md`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/schema.prisma`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/seed.ts`
-- `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/.env.example`
+## Tech Stack
 
-## Current App (Vite) Run Locally
-Prerequisite: Node.js
+- **Framework:** Next.js 15 (App Router)
+- **Language:** TypeScript
+- **UI:** React, Tailwind-style utility classes, Framer Motion
+- **Data:** MySQL (`mysql2`), Prisma schema/migrations
+- **Integrations:** SMTP (Nodemailer), Telegram, Google Sheets webhook
+- **Auth/Session:** Cookie + DB backed flows for admin/user panels
 
-1. `npm install`
-2. `npm run dev`
+## Quick Start
 
-## Added Next.js Admin Backend Layer
-- New route handlers are under `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/admin/`
-- Shared performance modules are under `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/`
-- Read `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/docs/admin-performance-backend.md` before wiring into your Next.js App Router project.
+1. Install dependencies
 
-## Added Next.js Transaction Backend (Hostinger MySQL + SMTP)
-- New API routes:
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/signup/route.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/order/route.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/subscribe/route.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/app/api/health/route.ts`
-- New backend modules:
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/prisma.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/mailer.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/telegram.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/password.ts`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/lib/apiValidators.ts`
-- Prisma now targets MySQL for Hostinger:
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/schema.prisma`
-  - `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/prisma/migrations/20260220_init_mysql/migration.sql`
+```bash
+npm install
+```
 
-### Prisma Commands
-1. `npm install`
-2. `npm run prisma:generate`
-3. `npm run prisma:migrate`
-4. `npm run prisma:seed`
+2. Configure environment
 
-## User Dashboard UX + Security Refactor
-- Updated dashboard UI: `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/components/UserDashboard.tsx`
-  - Password change moved to a hidden secure modal (default closed).
-  - Added sections: Profile, Order History, Account Security, Preferences, Support.
-  - Added active session list, 2FA toggle, logout-all-sessions action.
-- Updated backend security/actions: `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/public/api/index.php`
-  - New actions: `csrf`, `user_sessions`, `logout_all_sessions`, `toggle_two_factor`, `update_preferences`, `create_support_ticket`.
-  - Hardened actions with CSRF and rate limits: `change_password`, `update_profile`.
-  - Added audit/system logs for password/security/profile/preference/session/ticket events.
-  - Added `last_password_change_at` + `force_relogin` handling in password flows.
+```bash
+cp .env.example .env.local
+```
 
-## Storefront CMS + Theme Controls
-- Hero typography hardened in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/components/ShopPage.tsx`
-  - Balanced responsive headline wrapping.
-  - Manual line-break support using `\n` or `<br>` in CMS.
-  - Category-specific hero overrides (all/shoes/bags).
-- Theme settings and Hero CMS editor added in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/components/AdminPanel.tsx`
-  - Draft and Publish actions with revision list.
-  - Role-aware guard (Viewer blocked; Editor can edit CMS, not protocol settings).
-- Settings model extended in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/types.ts` and `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/store.tsx`
-  - `cmsDraft`, `cmsPublished`, `cmsActiveVersion`, `cmsRevisions`.
-  - `themeSettings`, `heroSettings`, `categoryHeroOverrides`.
-- Backend persistence upgraded in `/Users/sourove/Desktop/splaro---luxury-footwear-&-bags/public/api/index.php`
-  - Added DB tables: `page_sections`, `settings_revisions`.
-  - `update_settings` now stores CMS draft/publish bundles + revision history.
-  - `sync` returns normalized CMS bundle for storefront rendering.
+3. Prisma setup
+
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:seed
+```
+
+4. Start development
+
+```bash
+npm run dev
+```
+
+5. Build and run production
+
+```bash
+npm run build
+npm run start
+```
+
+## Production Migration Notes (Vite/PHP -> Next)
+
+The project is now organized for **pure Next.js runtime**:
+
+- `app/layout.tsx` provides global shell and runtime bootstrapping.
+- `app/[[...slug]]/page.tsx` mounts the client storefront/admin shell.
+- `app/api/**/route.ts` provides all API handlers (including legacy compatibility endpoint `/api/index.php?action=...`).
+- Existing PHP files are retained only as legacy reference artifacts and are not required for Next runtime.
+
+## Folder Structure
+
+```text
+.
+├── app/
+│   ├── [[...slug]]/page.tsx         # Catch-all storefront/admin entry
+│   ├── api/
+│   │   ├── index.php/route.ts       # Legacy action compatibility on Next
+│   │   ├── health/route.ts
+│   │   ├── status/route.ts
+│   │   ├── auth/login/route.ts
+│   │   ├── auth/signup/route.ts
+│   │   ├── orders/route.ts
+│   │   ├── orders/[order_no]/route.ts
+│   │   ├── products/route.ts
+│   │   ├── products/[slug]/route.ts
+│   │   ├── subscribe/route.ts
+│   │   └── admin/**/route.ts        # Admin APIs (metrics, users, orders, products, settings, etc.)
+│   ├── globals.css
+│   └── layout.tsx
+├── components/                      # UI components (storefront + admin)
+├── lib/                             # DB, auth, cache, validators, mailer, telegram, helpers
+├── prisma/                          # Prisma schema, migrations, seed
+├── public/                          # Static assets (icons, logos, images)
+├── docs/                            # Ops and architecture docs
+├── middleware.ts                    # Admin API protection middleware
+├── next.config.ts
+├── tsconfig.json
+└── package.json
+```
+
+## API Compatibility
+
+For zero-breaking migration of existing frontend logic:
+
+- Legacy-style actions are supported through:
+  - `GET/POST /api/index.php?action=<action_name>`
+- New route-handler endpoints are also available:
+  - `/api/auth/signup`
+  - `/api/auth/login`
+  - `/api/orders`
+  - `/api/order` (alias)
+  - `/api/subscribe`
+  - `/api/admin/...`
+  - `/api/health`, `/api/status`
+
+## Environment
+
+Use `.env.example` as canonical reference.
+
+Key groups:
+- Database: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (or `DB_PASSWORD_URLENC`)
+- Security/Admin: `ADMIN_KEY`, `APP_AUTH_SECRET`
+- Mail: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+- Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- Sheets: `GOOGLE_SHEETS_WEBHOOK_URL` (+ optional OAuth vars)
+- Frontend runtime: `NEXT_PUBLIC_*`
+
+## Contributing
+
+1. Create a branch from `main`
+2. Keep changes scoped and additive
+3. Run `npm run build` before PR
+4. Include verification steps and API/UI impact notes
+
+## License
+
+No open-source license is declared in this repository yet.
+All rights reserved unless a `LICENSE` file is added by the owner.

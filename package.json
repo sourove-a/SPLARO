@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
     "build:admin:hostinger": "bash scripts/prepare-admin-public-html.sh",
-    "start": "node server.mjs",
-    "start:hostinger": "node server.mjs",
-    "preview": "vite preview",
+    "start": "next start",
+    "start:hostinger": "next start",
     "test:product-route": "node scripts/product-route.smoke.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
@@ -33,9 +33,9 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@types/nodemailer": "^6.4.17",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
     "tsx": "^4.20.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript": "~5.8.2"
   }
 }

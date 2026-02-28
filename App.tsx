@@ -711,7 +711,7 @@ const AppContent = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!import.meta.env.DEV || typeof window === 'undefined') return;
+    if (process.env.NODE_ENV !== 'development' || typeof window === 'undefined') return;
 
     let rafId = 0;
     const checkHorizontalOverflow = () => {
