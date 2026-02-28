@@ -1790,6 +1790,76 @@ export const AdminPanel = () => {
     if (csrfTokenMatch?.[1]) headers['X-CSRF-Token'] = decodeURIComponent(csrfTokenMatch[1]);
     return headers;
   };
+  const getAdminApiCandidates = (): string[] => {
+    const candidates = [API_NODE];
+    if (typeof window !== 'undefined') {
+      const host = String(window.location.hostname || '').toLowerCase();
+      if (host === 'admin.splaro.co' || host.startsWith('admin.')) {
+        const storefrontApiNode = `${getStorefrontOrigin()}/api/index.php`;
+        if (storefrontApiNode !== '' && storefrontApiNode !== API_NODE) {
+          candidates.push(storefrontApiNode);
+        }
+      }
+    }
+    return candidates;
+  };
+  const shouldRetryAdminEndpoint = (message: string, httpStatus: number, hasFallback: boolean) => {
+    if (!hasFallback) return false;
+    if (isAdminAuthFailure(message, httpStatus)) return true;
+    if (httpStatus >= 500 || httpStatus === 404 || httpStatus === 0) return true;
+    if (message === '' || message === 'ACTION_NOT_RECOGNIZED' || message === 'INTERNAL_SERVER_ERROR') return true;
+    return false;
+  };
+  const postAdminActionWithFallback = async (action: string, payload: Record<string, any>) => {
+    const nodes = getAdminApiCandidates();
+    let lastStatus = 0;
+    let lastResult: any = { status: 'error', message: 'REQUEST_FAILED' };
+    for (let i = 0; i < nodes.length; i += 1) {
+      const node = nodes[i];
+      const hasFallback = i < nodes.length - 1;
+      const res = await fetchWithCredentials(`${node}?action=${action}`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && result?.status === 'success') {
+        return { ok: true, status: res.status, result };
+      }
+      const message = String(result?.message || '').trim().toUpperCase();
+      lastStatus = Number(res?.status || 0);
+      lastResult = result;
+      if (shouldRetryAdminEndpoint(message, lastStatus, hasFallback)) {
+        continue;
+      }
+      return { ok: false, status: lastStatus, result: lastResult };
+    }
+    return { ok: false, status: lastStatus, result: lastResult };
+  };
+  const getAdminActionWithFallback = async (query: URLSearchParams) => {
+    const nodes = getAdminApiCandidates();
+    let lastStatus = 0;
+    let lastResult: any = { status: 'error', message: 'REQUEST_FAILED' };
+    for (let i = 0; i < nodes.length; i += 1) {
+      const node = nodes[i];
+      const hasFallback = i < nodes.length - 1;
+      const res = await fetchWithCredentials(`${node}?${query.toString()}`, {
+        headers: getAuthHeaders()
+      });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok && result?.status === 'success') {
+        return { ok: true, status: res.status, result };
+      }
+      const message = String(result?.message || '').trim().toUpperCase();
+      lastStatus = Number(res?.status || 0);
+      lastResult = result;
+      if (shouldRetryAdminEndpoint(message, lastStatus, hasFallback)) {
+        continue;
+      }
+      return { ok: false, status: lastStatus, result: lastResult };
+    }
+    return { ok: false, status: lastStatus, result: lastResult };
+  };
 
   const normalizeAdminUserRecord = (raw: any): AdminUserRecord => ({
     id: String(raw?.id || ''),
@@ -2510,16 +2580,12 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:ssl:init`;
     setIntegrationActionKey(actionKey);
     try {
-      const res = await fetchWithCredentials(`${API_NODE}?action=sslcommerz_init`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({
-          order_id: (order as any).orderNo || order.id
-        })
+      const attempt = await postAdminActionWithFallback('sslcommerz_init', {
+        order_id: (order as any).orderNo || order.id
       });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        if (handleAdminAuthFailure(result?.message, res.status)) return;
+      const result = attempt.result || {};
+      if (!attempt.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, attempt.status)) return;
         throw new Error(result?.message || 'Unable to create SSLCommerz session.');
       }
       const gatewayUrl = String(result?.gateway_url || '').trim();
@@ -2538,17 +2604,13 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:steadfast:create:${force ? 'force' : 'normal'}`;
     setIntegrationActionKey(actionKey);
     try {
-      const res = await fetchWithCredentials(`${API_NODE}?action=admin_shipments_steadfast_create`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({
-          order_id: (order as any).orderNo || order.id,
-          force
-        })
+      const attempt = await postAdminActionWithFallback('admin_shipments_steadfast_create', {
+        order_id: (order as any).orderNo || order.id,
+        force
       });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        if (handleAdminAuthFailure(result?.message, res.status)) return;
+      const result = attempt.result || {};
+      if (!attempt.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, attempt.status)) return;
         throw new Error(result?.message || 'Steadfast booking failed.');
       }
 
@@ -2607,12 +2669,10 @@ export const AdminPanel = () => {
         action: 'admin_shipments_steadfast_track',
         order_id: (order as any).orderNo || order.id
       });
-      const res = await fetchWithCredentials(`${API_NODE}?${query.toString()}`, {
-        headers: getAuthHeaders()
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        if (handleAdminAuthFailure(result?.message, res.status)) return;
+      const attempt = await getAdminActionWithFallback(query);
+      const result = attempt.result || {};
+      if (!attempt.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, attempt.status)) return;
         throw new Error(result?.message || 'Tracking sync failed.');
       }
       const payload = result?.data || {};
@@ -2662,14 +2722,10 @@ export const AdminPanel = () => {
     const actionKey = `${order.id}:steadfast:sync`;
     setIntegrationActionKey(actionKey);
     try {
-      const res = await fetchWithCredentials(`${API_NODE}?action=admin_shipments_steadfast_sync`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({ limit: 20 })
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
-        if (handleAdminAuthFailure(result?.message, res.status)) return;
+      const attempt = await postAdminActionWithFallback('admin_shipments_steadfast_sync', { limit: 20 });
+      const result = attempt.result || {};
+      if (!attempt.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, attempt.status)) return;
         throw new Error(result?.message || 'Batch sync failed.');
       }
       const data = result?.data || {};

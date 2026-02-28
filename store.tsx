@@ -1217,7 +1217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) =>
     fetch(input, { credentials: 'include', ...init });
 
-  const getProductApiCandidates = () => {
+  const getAdminApiCandidates = () => {
     const candidates = [API_NODE];
     if (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'admin.splaro.co') {
       const storefrontApiNode = `${getStorefrontOrigin()}/api/index.php`;
@@ -1227,6 +1227,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return candidates;
   };
+  const getProductApiCandidates = () => getAdminApiCandidates();
 
   const postProductAction = async (
     action: string,
@@ -1297,23 +1298,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (existing !== '') return existing;
     if (!IS_PROD) return '';
 
+    const nodes = getAdminApiCandidates();
+    let authFailureSeen = false;
     try {
-      const res = await fetchWithCredentials(`${API_NODE}?action=csrf`, {
-        headers: getAuthHeaders()
-      });
-      const result = await res.json().catch(() => ({}));
-      if (res.ok && result?.status === 'success' && typeof result?.csrf_token === 'string' && result.csrf_token.trim() !== '') {
-        const token = result.csrf_token.trim();
-        if (typeof document !== 'undefined') {
-          document.cookie = `splaro_csrf=${encodeURIComponent(token)}; path=/; max-age=2592000; samesite=lax`;
+      for (const node of nodes) {
+        const res = await fetchWithCredentials(`${node}?action=csrf`, {
+          headers: getAuthHeaders()
+        });
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && result?.status === 'success' && typeof result?.csrf_token === 'string' && result.csrf_token.trim() !== '') {
+          const token = result.csrf_token.trim();
+          if (typeof document !== 'undefined') {
+            document.cookie = `splaro_csrf=${encodeURIComponent(token)}; path=/; max-age=2592000; samesite=lax`;
+          }
+          return token;
         }
-        return token;
-      }
-      if (isAdminAuthError(result?.message, res.status)) {
-        dispatchAdminAuthRequired();
+        if (isAdminAuthError(result?.message, res.status)) {
+          authFailureSeen = true;
+        }
       }
     } catch {
       // No-op: caller will use fallback behavior.
+    }
+    if (authFailureSeen) {
+      dispatchAdminAuthRequired();
     }
 
     return getCsrfToken();
@@ -1759,19 +1767,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     void (async () => {
       await ensureCsrfToken();
-      const res = await fetchWithCredentials(`${API_NODE}?action=delete_order`, {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: JSON.stringify({ id })
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || result?.status !== 'success') {
+      const nodes = getAdminApiCandidates();
+      let deleteSynced = false;
+      let lastStatus = 0;
+      let lastMessage = 'ORDER_DELETE_FAILED';
+      let authFailureSeen = false;
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        const node = nodes[i];
+        const hasFallback = i < nodes.length - 1;
+        const res = await fetchWithCredentials(`${node}?action=delete_order`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ id })
+        });
+        const result = await res.json().catch(() => ({}));
+        if (res.ok && result?.status === 'success') {
+          deleteSynced = true;
+          break;
+        }
+        lastStatus = Number(res?.status || 0);
+        lastMessage = String(result?.message || 'ORDER_DELETE_FAILED');
+        if (isAdminAuthError(lastMessage, lastStatus)) {
+          authFailureSeen = true;
+          continue;
+        }
+        const retryable = hasFallback && (
+          !res.ok
+          || lastMessage === ''
+          || lastMessage === 'ACTION_NOT_RECOGNIZED'
+          || lastMessage === 'INTERNAL_SERVER_ERROR'
+        );
+        if (retryable) {
+          continue;
+        }
+        break;
+      }
+
+      if (!deleteSynced) {
         setOrders(snapshot);
-        const backendMessage = String(result?.message || 'ORDER_DELETE_FAILED');
-        if (isAdminAuthError(backendMessage, res.status)) {
+        if (authFailureSeen) {
           dispatchAdminAuthRequired();
         }
-        emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
+        emitToast(resolveSettingsErrorMessage(lastMessage, lastStatus > 0 ? lastStatus : undefined), 'error');
         return;
       }
       emitToast('Order removed from registry.', 'success');
@@ -1803,33 +1841,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await ensureCsrfToken();
 
       const actionCandidates = ['admin_order_status', 'update_order_status'];
+      const nodes = getAdminApiCandidates();
       let persistedStatus: OrderStatus = status;
       let synced = false;
       let lastMessage = 'ORDER_STATUS_UPDATE_FAILED';
       let lastHttpStatus = 0;
+      let authFailureSeen = false;
 
-      for (const action of actionCandidates) {
-        const res = await fetchWithCredentials(`${API_NODE}?action=${action}`, {
-          method: 'POST',
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({ id: orderId, status }),
-          ...(controller ? { signal: controller.signal } : {})
-        });
-        const result = await res.json().catch(() => ({}));
-        if (res.ok && result?.status === 'success') {
-          persistedStatus = normalizeOrderStatusValue(result?.order?.status ?? status);
-          synced = true;
-          break;
-        }
+      for (let nodeIndex = 0; nodeIndex < nodes.length && !synced; nodeIndex += 1) {
+        const node = nodes[nodeIndex];
+        for (const action of actionCandidates) {
+          const res = await fetchWithCredentials(`${node}?action=${action}`, {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ id: orderId, status }),
+            ...(controller ? { signal: controller.signal } : {})
+          });
+          const result = await res.json().catch(() => ({}));
+          if (res.ok && result?.status === 'success') {
+            persistedStatus = normalizeOrderStatusValue(result?.order?.status ?? status);
+            synced = true;
+            break;
+          }
 
-        lastHttpStatus = Number(res?.status || 0);
-        lastMessage = String(result?.message || 'ORDER_STATUS_UPDATE_FAILED');
-        if (isAdminAuthError(lastMessage, lastHttpStatus)) {
-          break;
+          lastHttpStatus = Number(res?.status || 0);
+          lastMessage = String(result?.message || 'ORDER_STATUS_UPDATE_FAILED');
+          if (isAdminAuthError(lastMessage, lastHttpStatus)) {
+            authFailureSeen = true;
+            continue;
+          }
         }
       }
 
       if (!synced) {
+        if (authFailureSeen) {
+          dispatchAdminAuthRequired();
+        }
         throw new Error(`${lastMessage}|${lastHttpStatus}`);
       }
 
@@ -1867,18 +1914,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (IS_PROD) {
       try {
         await ensureCsrfToken();
-        const res = await fetchWithCredentials(`${API_NODE}?action=update_order_metadata`, {
-          method: 'POST',
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({ id: orderId, ...data })
-        });
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok || result?.status !== 'success') {
-          const backendMessage = String(result?.message || 'ORDER_METADATA_UPDATE_FAILED');
-          if (isAdminAuthError(backendMessage, res.status)) {
+        const nodes = getAdminApiCandidates();
+        let synced = false;
+        let authFailureSeen = false;
+        let lastMessage = 'ORDER_METADATA_UPDATE_FAILED';
+        let lastStatus = 0;
+
+        for (let i = 0; i < nodes.length; i += 1) {
+          const node = nodes[i];
+          const hasFallback = i < nodes.length - 1;
+          const res = await fetchWithCredentials(`${node}?action=update_order_metadata`, {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ id: orderId, ...data })
+          });
+          const result = await res.json().catch(() => ({}));
+          if (res.ok && result?.status === 'success') {
+            synced = true;
+            break;
+          }
+          lastMessage = String(result?.message || 'ORDER_METADATA_UPDATE_FAILED');
+          lastStatus = Number(res?.status || 0);
+          if (isAdminAuthError(lastMessage, lastStatus)) {
+            authFailureSeen = true;
+            continue;
+          }
+          const retryable = hasFallback && (
+            !res.ok
+            || lastMessage === ''
+            || lastMessage === 'ACTION_NOT_RECOGNIZED'
+            || lastMessage === 'INTERNAL_SERVER_ERROR'
+          );
+          if (retryable) {
+            continue;
+          }
+          break;
+        }
+        if (!synced) {
+          if (authFailureSeen) {
             dispatchAdminAuthRequired();
           }
-          emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
+          emitToast(resolveSettingsErrorMessage(lastMessage, lastStatus > 0 ? lastStatus : undefined), 'error');
         }
       } catch (e) {
         console.error('METADATA_SYNC_FAILURE:', e);
