@@ -1,5 +1,6 @@
 import { getDbPool, getStorageInfo } from '../../../lib/db';
 import { jsonSuccess } from '../../../lib/env';
+import { setNoStoreHeaders } from '../../../lib/httpCache';
 
 export async function GET() {
   const started = Date.now();
@@ -8,7 +9,7 @@ export async function GET() {
 
   const latencyMs = db ? Date.now() - started : null;
 
-  return jsonSuccess({
+  return setNoStoreHeaders(jsonSuccess({
     ok: true,
     db: {
       connected: Boolean(db),
@@ -19,5 +20,5 @@ export async function GET() {
       port: info.dbPort,
       error: info.error || null,
     },
-  });
+  }));
 }

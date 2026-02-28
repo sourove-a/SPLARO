@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
 import { getDbPool, getStorageInfo } from '../../../lib/db';
 import { fallbackStore } from '../../../lib/fallbackStore';
 import { jsonSuccess } from '../../../lib/env';
+import { setPublicCacheHeaders } from '../../../lib/httpCache';
 
 export async function GET() {
   const db = await getDbPool();
@@ -12,7 +12,7 @@ export async function GET() {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const last24hOrders = mem.orders.filter((o) => new Date(o.created_at).getTime() >= cutoff).length;
 
-    return jsonSuccess({
+    return setPublicCacheHeaders(jsonSuccess({
       storage: 'fallback',
       counts: {
         users: mem.users.length,
@@ -23,6 +23,9 @@ export async function GET() {
       last_24h_orders: last24hOrders,
       dbHost: storage.dbHost,
       dbName: storage.dbName,
+    }), {
+      sMaxAge: 30,
+      staleWhileRevalidate: 120,
     });
   }
 
@@ -37,7 +40,7 @@ export async function GET() {
 
   const row = Array.isArray(countRows) && countRows[0] ? (countRows[0] as any) : {};
 
-  return jsonSuccess({
+  return setPublicCacheHeaders(jsonSuccess({
     storage: 'mysql',
     counts: {
       users: Number(row.users_count || 0),
@@ -48,5 +51,8 @@ export async function GET() {
     last_24h_orders: Number(row.orders_24h || 0),
     dbHost: storage.dbHost,
     dbName: storage.dbName,
+  }), {
+    sMaxAge: 30,
+    staleWhileRevalidate: 120,
   });
 }

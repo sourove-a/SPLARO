@@ -25,6 +25,7 @@ import { shouldUsePhpApi } from '../lib/runtime';
 import { useApp } from '../store';
 import { Order, User } from '../types';
 import { GlassCard, LuxuryFloatingInput, PrimaryButton } from './LiquidGlass';
+import { OptimizedImage } from './OptimizedImage';
 
 type DashboardSession = {
   session_id: string;
@@ -722,7 +723,7 @@ export const UserDashboard: React.FC = () => {
               <div className="relative mb-6">
                 <div className="w-28 h-28 rounded-full border border-cyan-500/35 bg-black/50 overflow-hidden">
                   {profileForm.profileImage ? (
-                    <img src={profileForm.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                    <OptimizedImage src={profileForm.profileImage} alt="Profile" sizes="112px" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl font-black text-white/40">
                       {user.name?.[0] || 'U'}

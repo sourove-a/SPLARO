@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './ProductImageZoom.css';
+import { OptimizedImage } from './OptimizedImage';
 
 type ProductImageZoomProps = {
   src: string;
@@ -263,11 +264,11 @@ export const ProductImageZoom: React.FC<ProductImageZoomProps> = ({
       aria-label={alt}
       aria-live="polite"
     >
-      <img
-        src={src}
-        srcSet={highResSrc ? `${src} 1x, ${highResSrc} 2x` : undefined}
+      <OptimizedImage
+        src={highResSrc || src}
         alt={alt}
-        loading="eager"
+        priority
+        sizes="(max-width: 768px) 100vw, 55vw"
         draggable={false}
         className={`product-image-zoom__img ${imageClassName}`}
       />

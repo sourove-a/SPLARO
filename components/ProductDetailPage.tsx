@@ -8,6 +8,7 @@ import { GlassCard } from './LiquidGlass';
 import { resolveProductUrgencyState } from '../lib/urgency';
 import { productMatchesRoute, ProductRouteParams, slugifyValue } from '../lib/productRoute';
 import ProductImageZoom from './ProductImageZoom';
+import { OptimizedImage } from './OptimizedImage';
 
 const Accordion = ({ title, children }: { title: string; children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -180,7 +181,7 @@ export const ProductDetailPage: React.FC = () => {
                 onClick={() => setActiveImg(img)}
                 className={`w-16 sm:w-20 md:w-24 aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-cyan-500' : 'border-white/5 hover:border-white/20'}`}
               >
-                <img src={img} className="w-full h-full object-cover" loading="lazy" />
+                <OptimizedImage src={img} alt={`${product.name} thumbnail ${i + 1}`} sizes="96px" className="w-full h-full object-cover" />
               </button>
             ))}
           </div>
@@ -363,8 +364,12 @@ export const ProductDetailPage: React.FC = () => {
 
             {/* Payment Logos */}
             <div className="py-6 flex flex-wrap gap-6 items-center opacity-70 border-b border-white/5">
-              <img src="https://img.icons8.com/color/48/000000/visa.png" className="h-6 object-contain" />
-              <img src="https://img.icons8.com/color/48/000000/mastercard.png" className="h-8 object-contain" />
+              <div className="relative h-6 w-10">
+                <OptimizedImage src="https://img.icons8.com/color/48/000000/visa.png" alt="Visa" sizes="40px" className="h-full w-full object-contain" />
+              </div>
+              <div className="relative h-8 w-12">
+                <OptimizedImage src="https://img.icons8.com/color/48/000000/mastercard.png" alt="Mastercard" sizes="48px" className="h-full w-full object-contain" />
+              </div>
               <div className="h-6 w-20 bg-zinc-800 rounded flex items-center justify-center text-[8px] font-black text-white">SSLCOMMERZ</div>
               <div className="h-6 w-12 bg-white/12 border border-white/25 rounded flex items-center justify-center text-[8px] font-black text-white">BKASH</div>
               <div className="h-6 w-12 bg-zinc-800 rounded flex items-center justify-center text-[8px] font-black text-white">NAGAD</div>

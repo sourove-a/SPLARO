@@ -6,7 +6,7 @@
    - `dev`: `next dev`
    - `build`: `next build`
    - `start`: `next start`
-2. Add `next.config.ts` and `next-env.d.ts`.
+2. Add `next.config.mjs` and `next-env.d.ts`.
 3. Update `tsconfig.json` for Next (`jsx: preserve`, Next plugin, `.next/types` includes).
 
 ## 2) App Router shell

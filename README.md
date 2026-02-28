@@ -85,7 +85,7 @@ The project is now organized for **pure Next.js runtime**:
 ├── public/                          # Static assets (icons, logos, images)
 ├── docs/                            # Ops and architecture docs
 ├── middleware.ts                    # Admin API protection middleware
-├── next.config.ts
+├── next.config.mjs
 ├── tsconfig.json
 └── package.json
 ```

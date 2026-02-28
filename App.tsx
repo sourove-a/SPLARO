@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // Added ArrowRight to imports to fix line 103 error
 import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone } from 'lucide-react';
@@ -9,27 +9,28 @@ import { AppProvider, useApp } from './store';
 import { View } from './types';
 import { Navbar, SplaroLogo } from './components/Navbar';
 import { MobileTabBar } from './components/MobileTabBar';
-import { HeroSlider } from './components/HeroSlider';
-import { AdminPanel } from './components/AdminPanel';
-import { LoginForm, SignupForm } from './components/AuthForms';
-import { UserDashboard } from './components/UserDashboard';
-import { ShopPage } from './components/ShopPage';
-import { ProductDetailPage } from './components/ProductDetailPage';
-import { CartPage } from './components/CartPage';
-import { CheckoutPage } from './components/CheckoutPage';
 import { ProductCard } from './components/ProductCard';
 import { PrimaryButton, GlassCard } from './components/LiquidGlass';
-import { SubscriptionPrompt } from './components/SubscriptionPrompt';
+import { OptimizedImage } from './components/OptimizedImage';
 import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
 import { canWriteCms, isAdminRole } from './lib/roles';
 import { isAdminSubdomainHost } from './lib/runtime';
-import {
-  AdminCampaignsPage,
-  AdminCampaignDetailPage,
-  AdminCampaignLogsPage,
-  AdminCampaignNewPage,
-  AdminSearchPage
-} from './components/AdminCampaignPages';
+
+const HeroSlider = lazy(() => import('./components/HeroSlider').then((m) => ({ default: m.HeroSlider })));
+const AdminPanel = lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
+const LoginForm = lazy(() => import('./components/AuthForms').then((m) => ({ default: m.LoginForm })));
+const SignupForm = lazy(() => import('./components/AuthForms').then((m) => ({ default: m.SignupForm })));
+const UserDashboard = lazy(() => import('./components/UserDashboard').then((m) => ({ default: m.UserDashboard })));
+const ShopPage = lazy(() => import('./components/ShopPage').then((m) => ({ default: m.ShopPage })));
+const ProductDetailPage = lazy(() => import('./components/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })));
+const CartPage = lazy(() => import('./components/CartPage').then((m) => ({ default: m.CartPage })));
+const CheckoutPage = lazy(() => import('./components/CheckoutPage').then((m) => ({ default: m.CheckoutPage })));
+const SubscriptionPrompt = lazy(() => import('./components/SubscriptionPrompt').then((m) => ({ default: m.SubscriptionPrompt })));
+const AdminCampaignsPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignsPage })));
+const AdminCampaignDetailPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignDetailPage })));
+const AdminCampaignLogsPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignLogsPage })));
+const AdminCampaignNewPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignNewPage })));
+const AdminSearchPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminSearchPage })));
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
@@ -39,6 +40,18 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   >
     {children}
   </motion.div>
+);
+
+const RouteChunkFallback = () => (
+  <div className="min-h-[45vh] w-full flex items-center justify-center px-6">
+    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-cyan-300/80 animate-pulse">
+      Loading
+    </div>
+  </div>
+);
+
+const LazyView = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<RouteChunkFallback />}>{children}</Suspense>
 );
 
 const CmsContentPage = ({ pageKey }: { pageKey: 'manifest' | 'privacyPolicy' | 'termsConditions' | 'refundPolicy' }) => {
@@ -102,7 +115,7 @@ const StoryPage = () => {
                 <p className="text-zinc-400 text-sm leading-relaxed">{post.excerpt}</p>
                 {post.imageUrl && (
                   <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10">
-                    <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
+                    <OptimizedImage src={post.imageUrl} alt={post.title} sizes="(max-width: 1024px) 100vw, 50vw" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-line">{post.body}</p>
@@ -169,23 +182,33 @@ const MobileDebugPage = () => {
       </section>
 
       <section className="rounded-2xl overflow-hidden border border-white/10">
-        <HeroSlider />
+        <LazyView>
+          <HeroSlider />
+        </LazyView>
       </section>
 
       <section className="rounded-2xl border border-white/10 overflow-hidden">
-        <ShopPage />
+        <LazyView>
+          <ShopPage />
+        </LazyView>
       </section>
 
       <section className="rounded-2xl border border-white/10 overflow-hidden">
-        <ProductDetailPage />
+        <LazyView>
+          <ProductDetailPage />
+        </LazyView>
       </section>
 
       <section className="rounded-2xl border border-white/10 overflow-hidden">
-        <CartPage />
+        <LazyView>
+          <CartPage />
+        </LazyView>
       </section>
 
       <section className="rounded-2xl border border-white/10 overflow-hidden">
-        <CheckoutPage />
+        <LazyView>
+          <CheckoutPage />
+        </LazyView>
       </section>
     </div>
   );
@@ -261,7 +284,9 @@ const HomeView = () => {
 
   return (
     <div className="relative">
-      <HeroSlider />
+      <LazyView>
+        <HeroSlider />
+      </LazyView>
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40 relative overflow-hidden">
         <div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
@@ -793,9 +818,9 @@ const AppContent = () => {
                   path="/"
                   element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
                 />
-                <Route path="/sourove-admin" element={<LoginForm />} />
+                <Route path="/sourove-admin" element={<LazyView><LoginForm /></LazyView>} />
                 <Route path="/login" element={<Navigate to="/sourove-admin" replace />} />
-                <Route path="/admin_dashboard" element={<AdminPanel />} />
+                <Route path="/admin_dashboard" element={<LazyView><AdminPanel /></LazyView>} />
                 <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
                 <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
                 <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
@@ -805,11 +830,11 @@ const AppContent = () => {
                 <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
                 <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
                 <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
-                <Route path="/admin/campaigns" element={<AdminCampaignsPage />} />
-                <Route path="/admin/campaigns/new" element={<AdminCampaignNewPage />} />
-                <Route path="/admin/campaigns/:id" element={<AdminCampaignDetailPage />} />
-                <Route path="/admin/campaigns/:id/logs" element={<AdminCampaignLogsPage />} />
-                <Route path="/admin/search" element={<AdminSearchPage />} />
+                <Route path="/admin/campaigns" element={<LazyView><AdminCampaignsPage /></LazyView>} />
+                <Route path="/admin/campaigns/new" element={<LazyView><AdminCampaignNewPage /></LazyView>} />
+                <Route path="/admin/campaigns/:id" element={<LazyView><AdminCampaignDetailPage /></LazyView>} />
+                <Route path="/admin/campaigns/:id/logs" element={<LazyView><AdminCampaignLogsPage /></LazyView>} />
+                <Route path="/admin/search" element={<LazyView><AdminSearchPage /></LazyView>} />
                 <Route
                   path="*"
                   element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
@@ -818,17 +843,17 @@ const AppContent = () => {
             ) : (
               <>
                 <Route path="/" element={<HomeView />} />
-                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/shop" element={<LazyView><ShopPage /></LazyView>} />
                 <Route path="/search" element={<Navigate to="/shop" replace />} />
-                <Route path="/detail" element={<ProductDetailPage />} />
-                <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<ProductDetailPage />} />
-                <Route path="/product/:id" element={<ProductDetailPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/login" element={<LoginForm />} />
+                <Route path="/detail" element={<LazyView><ProductDetailPage /></LazyView>} />
+                <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<LazyView><ProductDetailPage /></LazyView>} />
+                <Route path="/product/:id" element={<LazyView><ProductDetailPage /></LazyView>} />
+                <Route path="/cart" element={<LazyView><CartPage /></LazyView>} />
+                <Route path="/checkout" element={<LazyView><CheckoutPage /></LazyView>} />
+                <Route path="/login" element={<LazyView><LoginForm /></LazyView>} />
                 <Route path="/sourove-admin" element={<Navigate to="/login" replace />} />
-                <Route path="/signup" element={<SignupForm />} />
-                <Route path="/user_dashboard" element={<UserDashboard />} />
+                <Route path="/signup" element={<LazyView><SignupForm /></LazyView>} />
+                <Route path="/user_dashboard" element={<LazyView><UserDashboard /></LazyView>} />
                 <Route path="/admin_dashboard" element={<Navigate to={storefrontIdentityPath} replace />} />
                 <Route path="/admin" element={<Navigate to={storefrontIdentityPath} replace />} />
                 <Route path="/admin/users" element={<Navigate to={storefrontIdentityPath} replace />} />
@@ -860,7 +885,11 @@ const AppContent = () => {
         </main>
       )}
 
-      {showSubscriptionPrompt && <SubscriptionPrompt />}
+      {showSubscriptionPrompt && (
+        <LazyView>
+          <SubscriptionPrompt />
+        </LazyView>
+      )}
 
       {/* Global Controls & Redesigned WhatsApp Orb */}
       {showWhatsAppFab && (

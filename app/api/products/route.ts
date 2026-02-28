@@ -4,6 +4,7 @@ import { withApiHandler } from '../../../lib/apiRoute';
 import { getDbPool } from '../../../lib/db';
 import { jsonError, jsonSuccess } from '../../../lib/env';
 import { fallbackStore } from '../../../lib/fallbackStore';
+import { setPublicCacheHeaders } from '../../../lib/httpCache';
 import { productQuerySchema } from '../../../lib/validators';
 
 export async function GET(request: NextRequest) {
@@ -22,7 +23,10 @@ export async function GET(request: NextRequest) {
 
     const cached = await cache.get<any>(cacheKey);
     if (cached) {
-      return jsonSuccess({ ...cached, cache_hit: true });
+      return setPublicCacheHeaders(jsonSuccess({ ...cached, cache_hit: true }), {
+        sMaxAge: 60,
+        staleWhileRevalidate: 300,
+      });
     }
 
     if (!db) {
@@ -46,7 +50,10 @@ export async function GET(request: NextRequest) {
 
       const payload = { storage: 'fallback', items, total, page, pageSize: query.pageSize, totalPages };
       await cache.set(cacheKey, payload, 45);
-      return jsonSuccess({ ...payload, cache_hit: false });
+      return setPublicCacheHeaders(jsonSuccess({ ...payload, cache_hit: false }), {
+        sMaxAge: 60,
+        staleWhileRevalidate: 300,
+      });
     }
 
     const where: string[] = ['active = 1'];
@@ -95,6 +102,9 @@ export async function GET(request: NextRequest) {
     };
 
     await cache.set(cacheKey, payload, 45);
-    return jsonSuccess({ ...payload, cache_hit: false });
+    return setPublicCacheHeaders(jsonSuccess({ ...payload, cache_hit: false }), {
+      sMaxAge: 60,
+      staleWhileRevalidate: 300,
+    });
   });
 }

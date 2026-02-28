@@ -1,11 +1,24 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Splaro | Official Luxury Registry',
+  title: {
+    default: 'SPLARO | Luxury Footwear & Bags',
+    template: '%s | SPLARO',
+  },
   description: 'SPLARO luxury footwear and bags ecommerce platform.',
   metadataBase: new URL('https://splaro.co'),
+  keywords: ['splaro', 'luxury footwear', 'luxury bags', 'bangladesh ecommerce', 'premium shoes'],
+  applicationName: 'SPLARO',
+  category: 'shopping',
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: '/',
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -23,8 +36,22 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: '@splaro',
+    creator: '@splaro',
     images: ['/favicon-512.png'],
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  colorScheme: 'dark light',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#060E1D' },
+    { media: '(prefers-color-scheme: light)', color: '#16355F' },
+  ],
 };
 
 export default function RootLayout({

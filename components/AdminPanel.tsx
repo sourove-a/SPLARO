@@ -23,6 +23,7 @@ import { canWriteCms, canWriteProtocols, isAdminRole, normalizeRole } from '../l
 import { getPhpApiNode, getStorefrontOrigin } from '../lib/runtime';
 import { CampaignForm } from './CampaignForm';
 import { SystemHealthPanel } from './SystemHealthPanel';
+import { OptimizedImage } from './OptimizedImage';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
@@ -1207,9 +1208,10 @@ const ProductModal: React.FC<{
                       <div className="flex gap-2 overflow-x-auto pb-1">
                         {galleryImagesForUi.slice(0, 5).map((img) => (
                           <div key={`quick-${img.id}`} className="relative shrink-0">
-                            <img
+                            <OptimizedImage
                               src={img.url}
                               alt={img.altText || 'Product image'}
+                              sizes="56px"
                               className="w-14 h-14 rounded-lg object-cover border border-white/20"
                             />
                             {img.isMain && (
@@ -1243,7 +1245,7 @@ const ProductModal: React.FC<{
                       onDragEnd={() => setDraggingGalleryId(null)}
                       className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-cyan-500/50 opacity-70' : 'border-white/15'}`}
                     >
-                      <img src={img.url} alt={img.altText || 'Product image'} className="w-14 h-14 rounded-lg object-cover border border-white/15" />
+                      <OptimizedImage src={img.url} alt={img.altText || 'Product image'} sizes="56px" className="w-14 h-14 rounded-lg object-cover border border-white/15" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-black text-white truncate">{img.url}</p>
                         <p className="text-[10px] text-zinc-400 uppercase tracking-[0.12em]">#{index + 1} {img.isMain ? '• Main image' : ''}</p>
@@ -3623,7 +3625,7 @@ export const AdminPanel = () => {
                           <td className="p-8">
                             <div className="flex items-center gap-6">
                               <div className="w-20 h-20 rounded-[28px] overflow-hidden border border-white/10 shrink-0 group-hover:border-blue-500/50 transition-colors">
-                                <img src={p.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                                <OptimizedImage src={p.image} alt={p.name} sizes="80px" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                               </div>
                               <div>
                                 <p className="font-black italic uppercase text-lg leading-tight tracking-tighter text-white">{p.name}</p>
@@ -5307,7 +5309,7 @@ export const AdminPanel = () => {
                   <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-cyan-500/20 transition-all duration-700">
                     <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-cyan-500 text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
                     <div className="aspect-[21/9] rounded-3xl overflow-hidden mb-8 border border-white/10 group-hover:scale-[1.02] transition-transform duration-700">
-                      <img src={slide.img} className="w-full h-full object-cover" />
+                      <OptimizedImage src={slide.img} alt={slide.title || `Slide ${idx + 1}`} sizes="(max-width: 768px) 100vw, 50vw" className="w-full h-full object-cover" />
                     </div>
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-6">
@@ -5755,7 +5757,7 @@ export const AdminPanel = () => {
                                       <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-lg overflow-hidden border border-white/10 bg-white/5">
                                           {item.imageUrl ? (
-                                            <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                                            <OptimizedImage src={item.imageUrl} alt={item.productName} sizes="40px" className="w-full h-full object-cover" />
                                           ) : (
                                             <div className="w-full h-full flex items-center justify-center text-zinc-600 text-[9px]">IMG</div>
                                           )}
@@ -6027,7 +6029,7 @@ export const AdminPanel = () => {
                               <td className="p-10">
                                 <div className="flex items-center gap-6">
                                   <div className="w-20 h-20 rounded-2xl overflow-hidden border border-white/10 flex-shrink-0">
-                                    <img src={item.product.image} className="w-full h-full object-cover" />
+                                    <OptimizedImage src={item.product.image} alt={item.product.name} sizes="80px" className="w-full h-full object-cover" />
                                   </div>
                                   <div>
                                     <p className="font-black italic uppercase text-lg leading-tight tracking-tighter text-white">{item.product.name}</p>

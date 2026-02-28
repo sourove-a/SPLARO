@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 import { isAdminRole } from '../lib/roles';
 import { isAdminSubdomainHost } from '../lib/runtime';
+import { OptimizedImage } from './OptimizedImage';
 
 export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string }) => {
   const { siteSettings } = useApp();
@@ -20,9 +21,10 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
     <div className={`relative flex items-center gap-2 sm:gap-3 md:gap-4 group ${className}`}>
       <div className="relative h-full aspect-[1.3/1] flex items-center justify-center">
         {siteSettings.logoUrl ? (
-          <img
+          <OptimizedImage
             src={siteSettings.logoUrl}
             alt={siteSettings.siteName}
+            sizes="140px"
             className="h-full w-auto object-contain"
           />
         ) : (
@@ -394,7 +396,7 @@ export const Navbar: React.FC = () => {
                 >
                   <div className={`w-10 h-10 rounded-full border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-cyan-500/50 group-hover:shadow-[0_0_15px_#00D4FF] flex items-center justify-center bg-white/5 ${isActive ? 'border-cyan-500 border-2 shadow-[0_0_15px_#00D4FF]' : ''}`}>
                     {user?.profileImage ? (
-                      <img src={user.profileImage} className="w-full h-full object-cover" alt="Profile" />
+                      <OptimizedImage src={user.profileImage} alt="Profile" sizes="40px" className="w-full h-full object-cover" />
                     ) : (
                       <User className="w-5 h-5 text-zinc-500 group-hover:text-cyan-400" />
                     )}

@@ -6,6 +6,7 @@ import { useApp } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { resolveProductUrgencyState } from '../lib/urgency';
 import { buildProductRoute, slugifyValue } from '../lib/productRoute';
+import { OptimizedImage } from './OptimizedImage';
 
 export const ProductCard: React.FC<{ product: Product; index?: number; language?: string }> = ({ product, index = 0, language = 'EN' }) => {
 
@@ -48,18 +49,18 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[24px] sm:rounded-[32px] md:rounded-[48px] mb-4 sm:mb-8 shadow-2xl transition-all duration-700">
         <motion.div
           style={{ y: smoothY }}
-          className="absolute inset-0 w-full h-[120%] -top-[10%]"
+          animate={{
+            scale: isHovered ? 1.08 : 1.02,
+            filter: isHovered ? 'brightness(1.1) saturate(1.1)' : 'brightness(0.9) saturate(1)'
+          }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0 w-full h-[120%] -top-[10%] will-change-transform"
         >
-          <motion.img
+          <OptimizedImage
             src={product.image}
             alt={product.name}
-            loading="lazy"
-            animate={{
-              scale: isHovered ? 1.08 : 1.02,
-              filter: isHovered ? 'brightness(1.1) saturate(1.1)' : 'brightness(0.9) saturate(1)'
-            }}
-            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full h-full object-cover will-change-transform"
+            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            className="w-full h-full object-cover"
           />
         </motion.div>
 

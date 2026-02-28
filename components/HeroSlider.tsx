@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
+import { OptimizedImage } from './OptimizedImage';
 
 const FALLBACK_SLIDES = [
   {
@@ -81,11 +82,10 @@ export const HeroSlider = () => {
           className="absolute inset-0"
         >
           <div className="w-full h-full relative">
-            <img
+            <OptimizedImage
               src={slides[index]?.img || ''}
-              loading={index === 0 ? 'eager' : 'lazy'}
-              decoding="async"
-              fetchPriority={index === 0 ? 'high' : 'auto'}
+              alt={slides[index]?.title || 'SPLARO hero image'}
+              priority={index === 0}
               sizes="100vw"
               className="w-full h-full object-cover opacity-[0.64] contrast-125 saturate-[1.08]"
             />

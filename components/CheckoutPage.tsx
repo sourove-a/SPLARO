@@ -9,6 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
+import { OptimizedImage } from './OptimizedImage';
 
 import { BANGLADESH_DATA } from '../bangladeshData';
 
@@ -491,7 +492,7 @@ export const CheckoutPage: React.FC = () => {
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} key={item.cartId} className="flex items-center justify-between">
                     <div className="flex items-center gap-5">
                       <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/40 border border-white/5">
-                        <img src={item.product.image} className="w-full h-full object-cover" />
+                        <OptimizedImage src={item.product.image} alt={item.product.name} sizes="64px" className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <h4 className="text-[10px] font-black uppercase tracking-tight leading-tight">{item.product.name}</h4>

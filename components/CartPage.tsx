@@ -3,6 +3,7 @@ import { ShoppingBag, Trash2, ArrowRight, ShieldCheck, HelpCircle } from 'lucide
 import { useApp } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, GlassCard } from './LiquidGlass';
+import { OptimizedImage } from './OptimizedImage';
 
 export const CartPage: React.FC = () => {
   const { cart, removeFromCart } = useApp();
@@ -40,7 +41,12 @@ export const CartPage: React.FC = () => {
               <GlassCard key={item.cartId} className="p-8 group">
                 <div className="flex flex-col sm:flex-row items-center gap-8">
                   <div className="w-32 h-32 rounded-3xl overflow-hidden border border-white/5 bg-zinc-900 shrink-0">
-                    <img src={item.product.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    <OptimizedImage
+                      src={item.product.image}
+                      alt={item.product.name}
+                      sizes="128px"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
                   </div>
 
                   <div className="flex-1 text-center sm:text-left">
