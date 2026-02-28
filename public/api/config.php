@@ -115,13 +115,30 @@ function bootstrap_env_files() {
         $locations[] = $cleanDocRoot . '/api/.builds/config';
         $locations[] = dirname($cleanDocRoot);
         $locations[] = dirname($cleanDocRoot) . '/.builds/config';
+        $locations[] = dirname($cleanDocRoot, 2);
+        $locations[] = dirname($cleanDocRoot, 2) . '/.builds/config';
     }
     $locations[] = __DIR__ . '/..';
     $locations[] = __DIR__;
     $locations[] = __DIR__ . '/../../';
     $locations[] = dirname(__DIR__, 2);
+    $locations[] = dirname(__DIR__, 3);
 
-    $locations = array_values(array_unique(array_filter($locations)));
+    $normalizedLocations = [];
+    foreach ($locations as $location) {
+        $location = rtrim((string)$location, '/\\');
+        if ($location === '') {
+            continue;
+        }
+        $resolved = realpath($location);
+        if ($resolved !== false) {
+            $location = rtrim((string)$resolved, '/\\');
+        }
+        if ($location !== '') {
+            $normalizedLocations[] = $location;
+        }
+    }
+    $locations = array_values(array_unique($normalizedLocations));
     $localCandidates = [];
     $envCandidates = [];
     foreach ($locations as $location) {
@@ -134,9 +151,12 @@ function bootstrap_env_files() {
     }
 
     // Always prefer .env.local across all known locations before falling back to .env.
+    // Load all matching files in order: first loaded file is authoritative for existing keys,
+    // subsequent files only backfill missing keys.
     $candidates = array_values(array_unique(array_merge($localCandidates, $envCandidates)));
     $tried = [];
     $found = false;
+    $sourceFiles = [];
 
     foreach ($candidates as $file) {
         $tried[] = [
@@ -154,7 +174,11 @@ function bootstrap_env_files() {
             continue;
         }
 
-        $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $file;
+        $isFirstLoadedFile = !$found;
+        if ($isFirstLoadedFile) {
+            $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $file;
+        }
+        $sourceFiles[] = $file;
         $found = true;
 
         foreach ($lines as $line) {
@@ -195,7 +219,9 @@ function bootstrap_env_files() {
             if ($key !== '') {
                 if (!$allowOverride) {
                     $existing = getenv($key);
-                    if ($existing !== false && trim((string)$existing) !== '' && !in_array($key, $forceOverrideKeys, true)) {
+                    $hasExisting = ($existing !== false && trim((string)$existing) !== '');
+                    $canOverrideExisting = $isFirstLoadedFile && in_array($key, $forceOverrideKeys, true);
+                    if ($hasExisting && !$canOverrideExisting) {
                         continue;
                     }
                 }
@@ -204,7 +230,6 @@ function bootstrap_env_files() {
                 $_SERVER[$key] = $value;
             }
         }
-        break; 
     }
 
     if (!$found) {
@@ -212,7 +237,8 @@ function bootstrap_env_files() {
         $GLOBALS['SPLARO_ENV_SOURCE_FILE'] = $primedFrom !== '' ? ('RUNTIME_ENV:' . $primedFrom) : 'RUNTIME_ENV';
         $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
     } else {
-         $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
+        $GLOBALS['SPLARO_ENV_TRIED_PATHS'] = $tried;
+        $GLOBALS['SPLARO_ENV_SOURCE_FILES'] = $sourceFiles;
     }
 }
 
