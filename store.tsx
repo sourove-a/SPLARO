@@ -1309,6 +1309,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return token;
       }
+      if (isAdminAuthError(result?.message, res.status)) {
+        dispatchAdminAuthRequired();
+      }
     } catch {
       // No-op: caller will use fallback behavior.
     }
@@ -1743,6 +1746,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteOrder = (id: string) => {
     if (!id) return;
+    if (IS_PROD && !hasAdminSession()) {
+      dispatchAdminAuthRequired();
+      emitToast('Admin login required. Please sign in again.', 'error');
+      return;
+    }
 
     const snapshot = [...orders];
     setOrders(prev => prev.filter((o) => o.id !== id));
@@ -1760,6 +1768,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!res.ok || result?.status !== 'success') {
         setOrders(snapshot);
         const backendMessage = String(result?.message || 'ORDER_DELETE_FAILED');
+        if (isAdminAuthError(backendMessage, res.status)) {
+          dispatchAdminAuthRequired();
+        }
         emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
         return;
       }
@@ -1772,6 +1783,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    if (IS_PROD && !hasAdminSession()) {
+      dispatchAdminAuthRequired();
+      emitToast('Admin login required. Please sign in again.', 'error');
+      return;
+    }
     const previousStatus = orders.find((o) => o.id === orderId)?.status ?? null;
     // Optimistic Update
     setOrders(prev => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
@@ -1808,6 +1824,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         lastHttpStatus = Number(res?.status || 0);
         lastMessage = String(result?.message || 'ORDER_STATUS_UPDATE_FAILED');
+        if (isAdminAuthError(lastMessage, lastHttpStatus)) {
+          break;
+        }
       }
 
       if (!synced) {
@@ -1826,6 +1845,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? 'REQUEST_TIMEOUT'
         : (messagePart || rawMessage || 'ORDER_STATUS_UPDATE_FAILED');
       const httpStatus = Number(statusPart || 0);
+      if (isAdminAuthError(message, Number.isFinite(httpStatus) ? httpStatus : undefined)) {
+        dispatchAdminAuthRequired();
+      }
       emitToast(resolveSettingsErrorMessage(message, Number.isFinite(httpStatus) ? httpStatus : undefined), 'error');
     } finally {
       if (timeout !== null && typeof window !== 'undefined') {
@@ -1835,6 +1857,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateOrderMetadata = async (orderId: string, data: { trackingNumber?: string; adminNotes?: string }) => {
+    if (IS_PROD && !hasAdminSession()) {
+      dispatchAdminAuthRequired();
+      emitToast('Admin login required. Please sign in again.', 'error');
+      return;
+    }
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...data } : o));
 
     if (IS_PROD) {
@@ -1848,6 +1875,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const result = await res.json().catch(() => ({}));
         if (!res.ok || result?.status !== 'success') {
           const backendMessage = String(result?.message || 'ORDER_METADATA_UPDATE_FAILED');
+          if (isAdminAuthError(backendMessage, res.status)) {
+            dispatchAdminAuthRequired();
+          }
           emitToast(resolveSettingsErrorMessage(backendMessage, res.status), 'error');
         }
       } catch (e) {

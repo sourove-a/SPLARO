@@ -1750,6 +1750,26 @@ export const AdminPanel = () => {
     setToast({ message, tone });
     window.setTimeout(() => setToast(null), 2600);
   };
+  const ADMIN_AUTH_ERROR_CODES = new Set([
+    'ADMIN_ACCESS_REQUIRED',
+    'AUTH_REQUIRED',
+    'CSRF_INVALID',
+    'CSRF_REQUIRED',
+    'INVALID_AUTH_TOKEN',
+    'TOKEN_EXPIRED',
+    'UNAUTHORIZED'
+  ]);
+  const isAdminAuthFailure = (rawMessage: unknown, httpStatus?: number) => {
+    const code = String(rawMessage || '').trim().toUpperCase();
+    if (code !== '' && ADMIN_AUTH_ERROR_CODES.has(code)) return true;
+    return httpStatus === 401 || httpStatus === 403;
+  };
+  const handleAdminAuthFailure = (rawMessage: unknown, httpStatus?: number) => {
+    if (!isAdminAuthFailure(rawMessage, httpStatus)) return false;
+    showToast('Admin login required. Please sign in again.', 'error');
+    navigate('/sourove-admin');
+    return true;
+  };
 
   useEffect(() => {
     setAdminProfileForm({
@@ -2499,6 +2519,7 @@ export const AdminPanel = () => {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, res.status)) return;
         throw new Error(result?.message || 'Unable to create SSLCommerz session.');
       }
       const gatewayUrl = String(result?.gateway_url || '').trim();
@@ -2527,6 +2548,7 @@ export const AdminPanel = () => {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, res.status)) return;
         throw new Error(result?.message || 'Steadfast booking failed.');
       }
 
@@ -2590,6 +2612,7 @@ export const AdminPanel = () => {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, res.status)) return;
         throw new Error(result?.message || 'Tracking sync failed.');
       }
       const payload = result?.data || {};
@@ -2646,6 +2669,7 @@ export const AdminPanel = () => {
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result?.status !== 'success') {
+        if (handleAdminAuthFailure(result?.message, res.status)) return;
         throw new Error(result?.message || 'Batch sync failed.');
       }
       const data = result?.data || {};

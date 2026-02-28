@@ -58,9 +58,9 @@ const normalizeConfiguredApi = (configuredBase: string): string => {
 export const getPhpApiNode = (): string => {
   if (typeof window !== 'undefined' && isAdminSubdomainHost()) {
     const forceStorefrontForAdminRaw = String(import.meta.env.VITE_ADMIN_FORCE_STOREFRONT_API || '').trim().toLowerCase();
-    const forceStorefrontForAdmin = forceStorefrontForAdminRaw === ''
-      ? true
-      : !(forceStorefrontForAdminRaw === 'false' || forceStorefrontForAdminRaw === '0' || forceStorefrontForAdminRaw === 'no');
+    const forceStorefrontForAdmin = forceStorefrontForAdminRaw === 'true'
+      || forceStorefrontForAdminRaw === '1'
+      || forceStorefrontForAdminRaw === 'yes';
     if (forceStorefrontForAdmin) {
       return `${getStorefrontOrigin()}/api/index.php`;
     }
