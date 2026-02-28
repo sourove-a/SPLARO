@@ -17115,13 +17115,18 @@ if ($method === 'POST' && $action === 'update_profile') {
 }
 
 if ($method === 'GET' && $action === 'csrf') {
-    if (!is_array($requestAuthUser) || empty($requestAuthUser['id'])) {
+    $hasUserIdentity = is_array($requestAuthUser) && !empty($requestAuthUser['id']);
+    if (!$hasUserIdentity && !is_admin_authenticated($requestAuthUser)) {
         http_response_code(401);
         echo json_encode(["status" => "error", "message" => "AUTH_REQUIRED"]);
         exit;
     }
     $csrfToken = refresh_csrf_token();
-    echo json_encode(["status" => "success", "csrf_token" => $csrfToken]);
+    echo json_encode([
+        "status" => "success",
+        "csrf_token" => $csrfToken,
+        "auth_source" => $hasUserIdentity ? "USER_TOKEN" : "ADMIN_KEY"
+    ]);
     exit;
 }
 
