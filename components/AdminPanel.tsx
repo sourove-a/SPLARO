@@ -1743,7 +1743,6 @@ export const AdminPanel = () => {
     phone: String(user?.phone || '')
   });
   const [adminProfileSaving, setAdminProfileSaving] = useState(false);
-  const [productAutoSeeded, setProductAutoSeeded] = useState(false);
   const [isProductSaving, setIsProductSaving] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
 
@@ -2989,20 +2988,6 @@ export const AdminPanel = () => {
     }
     return result;
   }, [products, brandFilter, searchQuery]);
-
-  useEffect(() => {
-    if (activeTab !== 'PRODUCTS') return;
-    if (products.length > 0) return;
-    if (productAutoSeeded) return;
-    void addOrUpdateProduct(createDemoVaultProduct()).then((result) => {
-      if (!result.ok) {
-        showToast('Demo product sync failed. Please retry.', 'error');
-        return;
-      }
-      setProductAutoSeeded(true);
-      showToast('Demo product auto-added to Vault Inventory.', 'info');
-    });
-  }, [activeTab, products.length, productAutoSeeded]);
 
   const chartSeries = useMemo(() => {
     if (analyticsChartMode === 'ROTATION') {

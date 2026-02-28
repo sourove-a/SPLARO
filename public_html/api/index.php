@@ -8614,6 +8614,7 @@ function require_campaign_write_access($authUser) {
 }
 
 if ($method === 'GET' && $action === 'health') {
+    require_admin_access($requestAuthUser);
     try {
 
     $dbPingOk = false;
@@ -8835,9 +8836,9 @@ if ($method === 'GET' && $action === 'health') {
     } elseif ($queueHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $queueStatus = 'WARNING';
         $queueError = 'QUEUE_HISTORICAL_DEAD_JOBS_PRESENT';
-    } elseif ($queueRetry > 0 || $queuePending > 250) {
+    } elseif ($queueRetry >= (int)HEALTH_QUEUE_RETRY_WARN_THRESHOLD || $queuePending > 250) {
         $queueStatus = 'WARNING';
-        $queueError = $queueRetry > 0 ? 'QUEUE_RETRY_JOBS_PRESENT' : 'QUEUE_PENDING_BACKLOG_HIGH';
+        $queueError = $queueRetry >= (int)HEALTH_QUEUE_RETRY_WARN_THRESHOLD ? 'QUEUE_RETRY_JOBS_PRESENT' : 'QUEUE_PENDING_BACKLOG_HIGH';
     }
 
     $telegramDead = (int)($telegramQueue['dead'] ?? 0);
@@ -8859,7 +8860,7 @@ if ($method === 'GET' && $action === 'health') {
     } elseif ($telegramHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $telegramStatus = 'WARNING';
         $telegramError = 'TELEGRAM_QUEUE_HISTORICAL_DEAD_PRESENT';
-    } elseif ((int)($telegramQueue['retry'] ?? 0) > 0) {
+    } elseif ((int)($telegramQueue['retry'] ?? 0) >= (int)HEALTH_QUEUE_RETRY_WARN_THRESHOLD) {
         $telegramStatus = 'WARNING';
         $telegramError = 'TELEGRAM_QUEUE_RETRY_PRESENT';
     }
@@ -8887,7 +8888,7 @@ if ($method === 'GET' && $action === 'health') {
     } elseif ($sheetsHistoricalDead >= (int)HEALTH_QUEUE_HISTORICAL_WARN_THRESHOLD) {
         $sheetsStatus = 'WARNING';
         $sheetsError = 'SHEETS_QUEUE_HISTORICAL_DEAD_PRESENT';
-    } elseif ((int)($sheetsQueue['retry'] ?? 0) > 0) {
+    } elseif ((int)($sheetsQueue['retry'] ?? 0) >= (int)HEALTH_SHEETS_RETRY_WARN_THRESHOLD) {
         $sheetsStatus = 'WARNING';
         $sheetsError = 'SHEETS_QUEUE_RETRY_PRESENT';
     }
@@ -18905,7 +18906,16 @@ function process_sync_queue($db, $limit = 20, $force = false) {
     }
 
     try {
-        $stmt = $db->prepare("SELECT id, sync_type, payload_json, attempts, max_attempts FROM sync_queue WHERE sync_type NOT LIKE 'TELEGRAM_%' AND sync_type NOT LIKE 'PUSH_%' AND status IN ('PENDING', 'RETRY') AND next_attempt_at <= NOW() ORDER BY id ASC LIMIT ?");
+        $queueSql = "SELECT id, sync_type, payload_json, attempts, max_attempts
+            FROM sync_queue
+            WHERE sync_type NOT LIKE 'TELEGRAM_%'
+              AND sync_type NOT LIKE 'PUSH_%'
+              AND status IN ('PENDING', 'RETRY')";
+        if (!$force) {
+            $queueSql .= " AND next_attempt_at <= NOW()";
+        }
+        $queueSql .= " ORDER BY id ASC LIMIT ?";
+        $stmt = $db->prepare($queueSql);
         $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->execute();
         $jobs = $stmt->fetchAll();
