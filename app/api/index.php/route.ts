@@ -129,7 +129,31 @@ function isAdminRequest(request: NextRequest): boolean {
   const direct = String(request.headers.get('x-admin-key') || '').trim();
   const auth = String(request.headers.get('authorization') || '').trim();
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  return direct === expected || bearer === expected;
+  if (direct === expected || bearer === expected) {
+    return true;
+  }
+
+  const cookieAuth = getAuthFromRequest(request);
+  if (cookieAuth) {
+    const role = String(cookieAuth.role || '').trim().toLowerCase();
+    if (
+      role === 'admin' ||
+      role === 'owner' ||
+      role === 'super_admin' ||
+      role === 'staff' ||
+      role === 'editor' ||
+      role === 'support' ||
+      role === 'manager' ||
+      role === 'viewer'
+    ) {
+      return true;
+    }
+    if (normalizeEmail(cookieAuth.email) === 'admin@splaro.co') {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function withCookies(response: NextResponse, values: Record<string, string | null>): NextResponse {

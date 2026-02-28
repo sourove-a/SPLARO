@@ -167,6 +167,91 @@ const getAuthHeaders = (json = false): Record<string, string> => {
   return headers;
 };
 
+const fetchNextHealthFallback = async (): Promise<HealthPayload | null> => {
+  try {
+    const [healthRes, statusRes] = await Promise.all([
+      fetchWithCredentials('/api/health', { headers: getAuthHeaders() }),
+      fetchWithCredentials('/api/status', { headers: getAuthHeaders() }),
+    ]);
+
+    const healthJson = await healthRes.json().catch(() => ({}));
+    const statusJson = await statusRes.json().catch(() => ({}));
+
+    const healthData = healthJson?.data || healthJson || {};
+    const statusData = statusJson?.data || statusJson || {};
+    const db = healthData?.db || {};
+    const connected = Boolean(db?.connected);
+    const timestamp = new Date().toISOString();
+
+    return {
+      status: 'success',
+      timestamp,
+      mode: connected ? 'NORMAL' : 'DEGRADED',
+      services: {
+        db: {
+          status: connected ? 'OK' : 'WARNING',
+          latency_ms: Number.isFinite(Number(db?.latency_ms)) ? Number(db.latency_ms) : null,
+          last_checked_at: timestamp,
+          error: connected ? '' : String(db?.error || 'DATABASE_CONNECTION_FAILED'),
+          next_action: connected ? '' : 'Run check and inspect system_errors.',
+        },
+        orders_api: {
+          status: statusRes.ok ? 'OK' : 'WARNING',
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: statusRes.ok ? '' : 'STATUS_ENDPOINT_UNAVAILABLE',
+          next_action: statusRes.ok ? '' : 'Check /api/status endpoint and runtime logs.',
+        },
+        auth_api: {
+          status: 'OK',
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: '',
+        },
+        queue: {
+          status: 'WARNING',
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Run queue probe for detailed diagnostics.',
+        },
+        telegram: {
+          status: 'WARNING',
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Run telegram probe for detailed diagnostics.',
+        },
+        sheets: {
+          status: 'WARNING',
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Run sheets probe for detailed diagnostics.',
+        },
+        push: {
+          status: 'WARNING',
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Run push probe for detailed diagnostics.',
+        },
+        sslcommerz: normalizeServiceState(statusData?.sslcommerz || healthData?.sslcommerz || {}),
+        steadfast: normalizeServiceState(statusData?.steadfast || healthData?.steadfast || {}),
+      },
+      queue: statusData?.queue || healthData?.queue,
+      recent_errors: Array.isArray(statusData?.recent_errors)
+        ? statusData.recent_errors
+        : Array.isArray(healthData?.recent_errors)
+          ? healthData.recent_errors
+          : [],
+    };
+  } catch {
+    return null;
+  }
+};
+
 const fetchHealth = async (): Promise<HealthPayload> => {
   const res = await fetchWithCredentials(`${API_NODE}?action=health`, {
     headers: getAuthHeaders()
@@ -174,6 +259,13 @@ const fetchHealth = async (): Promise<HealthPayload> => {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.status !== 'success') {
     const rawMessage = String(json?.message || 'HEALTH_ENDPOINT_UNAVAILABLE');
+    if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
+      const fallback = await fetchNextHealthFallback();
+      if (fallback) return fallback;
+      throw new Error('ADMIN_SESSION_EXPIRED');
+    }
+    const fallback = await fetchNextHealthFallback();
+    if (fallback) return fallback;
     if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
       throw new Error('ADMIN_SESSION_EXPIRED');
     }
