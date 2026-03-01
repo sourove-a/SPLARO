@@ -66,6 +66,25 @@ export const authLoginSchema = z.object({
   password: z.string().min(1).max(120),
 });
 
+export const authForgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+export const authResetPasswordSchema = z.object({
+  email: z.string().trim().email().max(255),
+  otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be 6 digits.'),
+  password: z.string().min(6).max(120),
+  confirmPassword: z.string().min(6).max(120),
+}).superRefine((value, ctx) => {
+  if (value.password !== value.confirmPassword) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['confirmPassword'],
+      message: 'Passwords do not match.',
+    });
+  }
+});
+
 export const productQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -174,6 +193,8 @@ export const campaignSendSchema = z.object({
 
 export type AuthSignupInput = z.infer<typeof authSignupSchema>;
 export type AuthLoginInput = z.infer<typeof authLoginSchema>;
+export type AuthForgotPasswordInput = z.infer<typeof authForgotPasswordSchema>;
+export type AuthResetPasswordInput = z.infer<typeof authResetPasswordSchema>;
 export type ProductQueryInput = z.infer<typeof productQuerySchema>;
 export type ProductCreateInput = z.infer<typeof productCreateSchema>;
 export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;

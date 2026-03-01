@@ -1165,7 +1165,7 @@ async function actionForgotPassword(request: NextRequest, body: JsonRecord): Pro
   }
 }
 
-async function actionResetPassword(body: JsonRecord): Promise<NextResponse> {
+async function actionResetPassword(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
   const email = normalizeEmail(body.identifier || body.email);
   const otp = String(body.otp || '').trim();
   const password = String(body.password || '').trim();
@@ -1174,14 +1174,18 @@ async function actionResetPassword(body: JsonRecord): Promise<NextResponse> {
   if (!db) return legacyError('DATABASE_CONNECTION_FAILED', 500);
 
   const [rows] = await db.execute(
-    'SELECT id, reset_code, reset_expiry FROM users WHERE email = ? LIMIT 1',
+    `SELECT id, name, email, phone, district, thana, address, role, is_blocked, reset_code, reset_expiry
+     FROM users
+     WHERE email = ?
+     LIMIT 1`,
     [email],
   );
   const user = Array.isArray(rows) && rows[0] ? (rows[0] as any) : null;
   if (!user) return legacyError('IDENTITY_NOT_FOUND', 404);
+  if (Number(user.is_blocked || 0) === 1) return legacyError('USER_BLOCKED', 403);
   const expiresAt = user.reset_expiry ? new Date(user.reset_expiry).getTime() : 0;
   if (String(user.reset_code || '') !== otp || !Number.isFinite(expiresAt) || expiresAt < Date.now()) {
-    return legacyError('INVALID_RESET_REQUEST', 400);
+    return legacyError('INVALID_OR_EXPIRED_CODE', 400);
   }
   await db.execute(
     `UPDATE users
@@ -1189,7 +1193,41 @@ async function actionResetPassword(body: JsonRecord): Promise<NextResponse> {
      WHERE id = ?`,
     [hashPassword(password), user.id],
   );
-  return legacySuccess({ message: 'PASSWORD_RESET_SUCCESS' });
+
+  await db.execute(
+    `INSERT INTO login_history (user_id, email, ip_address, user_agent)
+     VALUES (?, ?, ?, ?)`,
+    [user.id, user.email, requestIp(request.headers), request.headers.get('user-agent') || null],
+  );
+
+  await writeSystemLog({
+    eventType: 'PASSWORD_RESET_SUCCESS',
+    description: `Password reset + auto login: ${email}`,
+    userId: String(user.id),
+    ipAddress: requestIp(request.headers),
+  });
+
+  const response = legacySuccess({
+    message: 'PASSWORD_RESET_SUCCESS',
+    token: `auth_${randomUUID()}`,
+    user: {
+      id: String(user.id),
+      name: String(user.name || ''),
+      email: normalizeEmail(user.email),
+      phone: String(user.phone || ''),
+      district: String(user.district || ''),
+      thana: String(user.thana || ''),
+      address: String(user.address || ''),
+      role: String(user.role || 'user').toLowerCase(),
+      is_blocked: Number(user.is_blocked || 0) === 1,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+    },
+  });
+
+  return withCookies(response, {
+    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') }),
+  });
 }
 
 async function actionEmailOtpRequest(body: JsonRecord): Promise<NextResponse> {
@@ -1774,7 +1812,7 @@ async function routeAction(request: NextRequest): Promise<NextResponse> {
   if (action === 'signup') return actionSignup(request, body);
   if (action === 'login') return actionLogin(request, body);
   if (action === 'forgot_password') return actionForgotPassword(request, body);
-  if (action === 'reset_password') return actionResetPassword(body);
+  if (action === 'reset_password') return actionResetPassword(request, body);
   if (action === 'request_email_verification_otp') return actionEmailOtpRequest(body);
   if (action === 'verify_email_otp') return actionEmailOtpVerify(request, body);
 
