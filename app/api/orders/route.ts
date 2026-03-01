@@ -6,6 +6,7 @@ import { jsonError, jsonSuccess } from '../../../lib/env';
 import { fallbackStore, nextFallbackItemId, nextFallbackOrderNo } from '../../../lib/fallbackStore';
 import { writeSystemLog } from '../../../lib/log';
 import { orderCreatePayloadSchema } from '../../../lib/validators';
+import { fireIntegrationEvent } from '../../../lib/integrationDispatch';
 
 function computeTotals(payload: {
   items?: Array<{ quantity?: number; unit_price?: number }>;
@@ -82,6 +83,23 @@ export async function POST(request: NextRequest) {
         ipAddress: ip,
       });
 
+      fireIntegrationEvent('ORDER_CREATED', {
+        order_id: orderNo,
+        created_at: now,
+        name: payload.name,
+        email: payload.email.toLowerCase(),
+        phone: payload.phone,
+        address: payload.address,
+        district: payload.district,
+        thana: payload.thana,
+        product_name: payload.items[0]?.product_name || 'Order Items',
+        product_url: payload.items[0]?.product_url || '',
+        image_url: payload.items[0]?.image_url || '',
+        quantity: payload.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+        notes: '',
+        status: payload.status,
+      });
+
       return jsonSuccess({
         storage: 'fallback',
         order: {
@@ -156,6 +174,23 @@ export async function POST(request: NextRequest) {
       description: `Order created: ${orderNo}`,
       userId: payload.user_id || null,
       ipAddress: ip,
+    });
+
+    fireIntegrationEvent('ORDER_CREATED', {
+      order_id: orderNo,
+      created_at: new Date().toISOString(),
+      name: payload.name,
+      email: payload.email.toLowerCase(),
+      phone: payload.phone,
+      address: payload.address,
+      district: payload.district,
+      thana: payload.thana,
+      product_name: payload.items[0]?.product_name || 'Order Items',
+      product_url: payload.items[0]?.product_url || '',
+      image_url: payload.items[0]?.image_url || '',
+      quantity: payload.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+      notes: '',
+      status: payload.status,
     });
 
     return jsonSuccess({

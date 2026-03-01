@@ -2,6 +2,8 @@ import type { Pool } from 'mysql2/promise';
 import { createPool } from 'mysql2/promise';
 import { ensureTables } from './migrate';
 import { resolveDbEnv, type StorageMode } from './env';
+import { isTransientDbError, withRetries } from './error-handler';
+import { logError, logInfo } from './logger';
 
 let pool: Pool | null = null;
 let initPromise: Promise<void> | null = null;
@@ -9,6 +11,19 @@ let migrationPromise: Promise<void> | null = null;
 let storageMode: StorageMode = 'fallback';
 let connectedHost = '';
 let lastError = '';
+let lastInitAttemptAt = 0;
+
+const REINIT_BACKOFF_MS = 10_000;
+
+function safeNumber(input: unknown, fallback: number, min = 1, max = 10_000): number {
+  const numeric = Number(input);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(numeric)));
+}
+
+function poolTargetSize(): number {
+  return safeNumber(process.env.DB_POOL_TARGET || 6, 6, 5, 10);
+}
 
 async function ensureMigrated(activePool: Pool): Promise<void> {
   if (!migrationPromise) {
@@ -21,13 +36,20 @@ async function ensureMigrated(activePool: Pool): Promise<void> {
 }
 
 async function init(): Promise<void> {
+  const now = Date.now();
+  if (!pool && now - lastInitAttemptAt < REINIT_BACKOFF_MS) {
+    return;
+  }
+
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
+    lastInitAttemptAt = Date.now();
     const env = resolveDbEnv();
     if (!env.configured) {
       storageMode = 'fallback';
       lastError = `Missing env: ${env.missing.join(', ')}`;
+      initPromise = null;
       return;
     }
 
@@ -39,31 +61,72 @@ async function init(): Promise<void> {
           user: env.user,
           password: env.password,
           database: env.name,
-          connectionLimit: 10,
+          connectionLimit: poolTargetSize(),
+          maxIdle: poolTargetSize(),
+          idleTimeout: safeNumber(process.env.DB_IDLE_TIMEOUT_SECONDS || 90, 90, 15, 3600) * 1000,
           waitForConnections: true,
           queueLimit: 0,
-          connectTimeout: 5000,
+          connectTimeout: safeNumber(process.env.DB_CONNECT_TIMEOUT_SECONDS || 5, 5, 2, 20) * 1000,
           enableKeepAlive: true,
           keepAliveInitialDelay: 10000,
           decimalNumbers: true,
           charset: 'utf8mb4',
         });
 
-        await candidate.query('SELECT 1');
+        candidate.on('connection', (connection: any) => {
+          const lockWaitTimeout = safeNumber(process.env.DB_LOCK_WAIT_TIMEOUT_SECONDS || 10, 10, 3, 120);
+          const queryTimeoutMs = safeNumber(process.env.DB_QUERY_TIMEOUT_MS || 3500, 3500, 500, 60_000);
+          const safeExec = (sql: string) => {
+            try {
+              connection.query(sql, () => {
+                // best-effort session tuning
+              });
+            } catch {
+              // no-op
+            }
+          };
+          safeExec(`SET SESSION innodb_lock_wait_timeout = ${lockWaitTimeout}`);
+          safeExec(`SET SESSION wait_timeout = ${safeNumber(process.env.DB_IDLE_TIMEOUT_SECONDS || 90, 90, 15, 3600)}`);
+          safeExec(`SET SESSION interactive_timeout = ${safeNumber(process.env.DB_IDLE_TIMEOUT_SECONDS || 90, 90, 15, 3600)}`);
+          safeExec(`SET SESSION max_execution_time = ${queryTimeoutMs}`);
+        });
+
+        await withRetries(
+          () => candidate.query('SELECT 1'),
+          {
+            maxRetries: safeNumber(process.env.DB_RETRY_MAX || 3, 3, 0, 5),
+            baseDelayMs: safeNumber(process.env.DB_RETRY_BASE_DELAY_MS || 120, 120, 50, 2_000),
+            shouldRetry: (error) => isTransientDbError(error),
+          },
+        );
         await ensureMigrated(candidate);
 
         pool = candidate;
         storageMode = 'mysql';
         connectedHost = host;
         lastError = '';
+        initPromise = null;
+        logInfo('db_pool_connected', {
+          host,
+          port: env.port,
+          database: env.name,
+          poolTarget: poolTargetSize(),
+        });
         return;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown connection error';
         lastError = `${host}: ${message}`;
+        logError('db_pool_connect_failed', {
+          host,
+          port: env.port,
+          database: env.name,
+          error: message,
+        });
       }
     }
 
     storageMode = 'fallback';
+    initPromise = null;
   })();
 
   return initPromise;

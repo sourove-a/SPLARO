@@ -190,6 +190,85 @@ export async function ensureTables(pool: Pool): Promise<void> {
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS integration_settings (
+    id VARCHAR(64) PRIMARY KEY,
+    service VARCHAR(120) NOT NULL,
+    setting_key VARCHAR(120) NOT NULL,
+    setting_value LONGTEXT NULL,
+    value_mask VARCHAR(255) NULL,
+    is_secret TINYINT(1) NOT NULL DEFAULT 0,
+    enabled TINYINT(1) NOT NULL DEFAULT 0,
+    updated_by VARCHAR(64) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_integration_settings_service_key (service, setting_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS payment_events (
+    id VARCHAR(64) PRIMARY KEY,
+    order_id VARCHAR(64) NOT NULL,
+    provider VARCHAR(80) NOT NULL,
+    event_type VARCHAR(120) NOT NULL,
+    event_key VARCHAR(120) NOT NULL,
+    transaction_ref VARCHAR(191) NULL,
+    val_id VARCHAR(120) NULL,
+    amount DECIMAL(12,2) NULL,
+    currency VARCHAR(20) NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'PENDING',
+    request_payload_json LONGTEXT NULL,
+    response_payload_json LONGTEXT NULL,
+    http_code INT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_payment_events_event_key (event_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS shipments (
+    id VARCHAR(64) PRIMARY KEY,
+    order_id VARCHAR(64) NOT NULL,
+    provider VARCHAR(80) NULL,
+    consignment_id VARCHAR(120) NULL,
+    external_status VARCHAR(120) NULL,
+    tracking_url TEXT NULL,
+    timeline_json LONGTEXT NULL,
+    booking_payload_json LONGTEXT NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'PENDING',
+    last_synced_at DATETIME NULL,
+    last_error TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS integration_logs (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    service VARCHAR(120) NOT NULL,
+    event_type VARCHAR(120) NOT NULL,
+    status VARCHAR(40) NOT NULL,
+    reference_type VARCHAR(80) NULL,
+    reference_id VARCHAR(120) NULL,
+    http_code INT NULL,
+    error_message TEXT NULL,
+    response_preview TEXT NULL,
+    meta_json LONGTEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS sync_queue (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    queue_key VARCHAR(120) NOT NULL,
+    sync_type VARCHAR(64) NOT NULL,
+    payload_json LONGTEXT NULL,
+    status ENUM('PENDING','PROCESSING','RETRY','DONE','DEAD') NOT NULL DEFAULT 'PENDING',
+    attempts INT NOT NULL DEFAULT 0,
+    max_attempts INT NOT NULL DEFAULT 5,
+    next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    locked_at DATETIME NULL,
+    last_http_code INT NULL,
+    last_error TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_sync_queue_queue_key (queue_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
   await addColumnIfMissing(pool, 'users', 'district', 'VARCHAR(120) NULL');
   await addColumnIfMissing(pool, 'users', 'thana', 'VARCHAR(120) NULL');
   await addColumnIfMissing(pool, 'users', 'address', 'TEXT NULL');
@@ -239,6 +318,8 @@ export async function ensureTables(pool: Pool): Promise<void> {
   await addColumnIfMissing(pool, 'orders', 'customer_comment', 'TEXT NULL');
   await addColumnIfMissing(pool, 'orders', 'is_refund_requested', 'TINYINT(1) NOT NULL DEFAULT 0');
   await addColumnIfMissing(pool, 'orders', 'is_refunded', 'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing(pool, 'orders', 'payment_status', "VARCHAR(40) NOT NULL DEFAULT 'PENDING'");
+  await addColumnIfMissing(pool, 'orders', 'payment_ref', 'VARCHAR(191) NULL');
   await addColumnIfMissing(pool, 'orders', 'updated_at', 'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
 
   await addColumnIfMissing(pool, 'site_settings', 'setting_key', 'VARCHAR(120) NULL');
@@ -259,6 +340,8 @@ export async function ensureTables(pool: Pool): Promise<void> {
   await addIndexIfMissing(pool, 'orders', 'idx_orders_email', 'CREATE INDEX idx_orders_email ON orders(email)');
   await addIndexIfMissing(pool, 'orders', 'idx_orders_phone', 'CREATE INDEX idx_orders_phone ON orders(phone)');
   await addIndexIfMissing(pool, 'orders', 'idx_orders_updated_at', 'CREATE INDEX idx_orders_updated_at ON orders(updated_at)');
+  await addIndexIfMissing(pool, 'orders', 'idx_orders_payment_status_created', 'CREATE INDEX idx_orders_payment_status_created ON orders(payment_status, created_at)');
+  await addIndexIfMissing(pool, 'orders', 'idx_orders_payment_ref', 'CREATE INDEX idx_orders_payment_ref ON orders(payment_ref)');
 
   await addIndexIfMissing(pool, 'campaigns', 'idx_campaigns_status', 'CREATE INDEX idx_campaigns_status ON campaigns(status)');
   await addIndexIfMissing(pool, 'campaigns', 'idx_campaigns_created_at', 'CREATE INDEX idx_campaigns_created_at ON campaigns(created_at)');
@@ -279,6 +362,16 @@ export async function ensureTables(pool: Pool): Promise<void> {
   await addIndexIfMissing(pool, 'audit_logs', 'idx_audit_logs_created_at', 'CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)');
   await addIndexIfMissing(pool, 'site_settings', 'uniq_site_settings_setting_key', 'CREATE UNIQUE INDEX uniq_site_settings_setting_key ON site_settings(setting_key)');
   await addIndexIfMissing(pool, 'site_settings', 'idx_site_settings_setting_key', 'CREATE INDEX idx_site_settings_setting_key ON site_settings(setting_key)');
+  await addIndexIfMissing(pool, 'payment_events', 'idx_payment_events_order_created', 'CREATE INDEX idx_payment_events_order_created ON payment_events(order_id, created_at)');
+  await addIndexIfMissing(pool, 'payment_events', 'idx_payment_events_provider_status_created', 'CREATE INDEX idx_payment_events_provider_status_created ON payment_events(provider, status, created_at)');
+  await addIndexIfMissing(pool, 'payment_events', 'idx_payment_events_transaction_ref', 'CREATE INDEX idx_payment_events_transaction_ref ON payment_events(transaction_ref)');
+  await addIndexIfMissing(pool, 'shipments', 'idx_shipments_order_status_created', 'CREATE INDEX idx_shipments_order_status_created ON shipments(order_id, status, created_at)');
+  await addIndexIfMissing(pool, 'shipments', 'idx_shipments_consignment_id', 'CREATE INDEX idx_shipments_consignment_id ON shipments(consignment_id)');
+  await addIndexIfMissing(pool, 'integration_logs', 'idx_integration_logs_service_created', 'CREATE INDEX idx_integration_logs_service_created ON integration_logs(service, created_at)');
+  await addIndexIfMissing(pool, 'integration_logs', 'idx_integration_logs_status_created', 'CREATE INDEX idx_integration_logs_status_created ON integration_logs(status, created_at)');
+  await addIndexIfMissing(pool, 'integration_logs', 'idx_integration_logs_reference', 'CREATE INDEX idx_integration_logs_reference ON integration_logs(reference_type, reference_id)');
+  await addIndexIfMissing(pool, 'sync_queue', 'idx_sync_queue_status_next', 'CREATE INDEX idx_sync_queue_status_next ON sync_queue(status, next_attempt_at)');
+  await addIndexIfMissing(pool, 'sync_queue', 'idx_sync_queue_created_at', 'CREATE INDEX idx_sync_queue_created_at ON sync_queue(created_at)');
 
   await pool.query('INSERT INTO order_counters (id, seq) VALUES (1, 0) ON DUPLICATE KEY UPDATE seq = seq');
 }

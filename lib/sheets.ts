@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { getValidGoogleAccessToken, readSecureJson, writeSecureJson } from './googleAuth';
 import { logError, logInfo } from './logger';
+import { withCircuitBreaker } from './circuitBreaker';
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4';
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -165,22 +166,24 @@ async function requestGoogleJson<T>(
   path: string,
   init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {},
 ): Promise<T> {
-  return withGoogleApi<T>(label, async (accessToken) => {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init.headers || {}),
-    };
+  return withCircuitBreaker('google_sheets_api', () =>
+    withGoogleApi<T>(label, async (accessToken) => {
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+        ...(init.headers || {}),
+      };
 
-    const hasBody = init.body !== undefined;
-    if (hasBody && !headers['Content-Type']) {
-      headers['Content-Type'] = 'application/json';
-    }
+      const hasBody = init.body !== undefined;
+      if (hasBody && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
 
-    return fetchWithTimeout(`${SHEETS_API_BASE}${path}`, {
-      ...init,
-      headers,
-    });
-  });
+      return fetchWithTimeout(`${SHEETS_API_BASE}${path}`, {
+        ...init,
+        headers,
+      });
+    })
+  );
 }
 
 async function getStoredSpreadsheetMeta(): Promise<StoredSheetMeta | null> {

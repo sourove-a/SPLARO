@@ -4,6 +4,7 @@ export interface CacheStore {
   get<T = unknown>(key: string): Promise<T | null>;
   set<T = unknown>(key: string, value: T, ttlSeconds: number): Promise<void>;
   del(key: string): Promise<void>;
+  incr(key: string, ttlSeconds: number): Promise<number>;
   wrap<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T>;
 }
 
@@ -39,6 +40,24 @@ class MemoryCacheStore implements CacheStore {
 
   async del(key: string): Promise<void> {
     this.entries.delete(key);
+  }
+
+  async incr(key: string, ttlSeconds: number): Promise<number> {
+    const now = Date.now();
+    const hit = this.entries.get(key);
+    if (!hit || hit.expiresAt < now) {
+      await this.set(key, 1, ttlSeconds);
+      return 1;
+    }
+
+    let next = 1;
+    try {
+      next = Number(JSON.parse(hit.value)) + 1;
+    } catch {
+      next = 1;
+    }
+    await this.set(key, next, ttlSeconds);
+    return next;
   }
 
   async wrap<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
@@ -106,6 +125,14 @@ class UpstashRestCacheStore implements CacheStore {
     await this.request(`/del/${encoded}`);
   }
 
+  async incr(key: string, ttlSeconds: number): Promise<number> {
+    const encoded = encodeURIComponent(key);
+    const value = await this.request<number>(`/incr/${encoded}`);
+    await this.request(`/expire/${encoded}/${Math.max(1, ttlSeconds)}`);
+    const numeric = Number(value || 0);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
+  }
+
   async wrap<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
     const cached = await this.get<T>(key);
     if (cached !== null) return cached;
@@ -156,6 +183,14 @@ class GenericRedisCacheStore implements CacheStore {
 
   async del(key: string): Promise<void> {
     await this.client.del(key);
+  }
+
+  async incr(key: string, ttlSeconds: number): Promise<number> {
+    const value = await this.client.incr(key);
+    if (Number(value) === 1) {
+      await this.client.expire(key, Math.max(1, ttlSeconds));
+    }
+    return Number(value || 1);
   }
 
   async wrap<T>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {

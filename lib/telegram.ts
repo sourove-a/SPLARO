@@ -1,3 +1,6 @@
+import { withCircuitBreaker } from './circuitBreaker';
+import { logError, logInfo } from './logger';
+
 type TelegramSendResult = {
   ok: boolean;
   error?: string;
@@ -28,7 +31,7 @@ export async function sendTelegramMessage(text: string): Promise<TelegramSendRes
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), TELEGRAM_TIMEOUT_MS);
 
-      const response = await fetch(url, {
+      const response = await withCircuitBreaker('telegram_send', () => fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -38,10 +41,11 @@ export async function sendTelegramMessage(text: string): Promise<TelegramSendRes
           disable_web_page_preview: true,
         }),
         signal: controller.signal,
-      });
+      }));
       clearTimeout(timer);
 
       if (response.ok) {
+        logInfo('telegram_send_success', { attempt });
         return { ok: true };
       }
 
@@ -56,5 +60,6 @@ export async function sendTelegramMessage(text: string): Promise<TelegramSendRes
     }
   }
 
+  logError('telegram_send_failed', { error: lastError });
   return { ok: false, error: `TELEGRAM_SEND_FAILED:${lastError}` };
 }

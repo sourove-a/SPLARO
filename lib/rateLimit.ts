@@ -1,3 +1,5 @@
+import { getCacheStore } from './cache';
+
 type Bucket = {
   count: number;
   windowStart: number;
@@ -52,20 +54,82 @@ export function checkRateLimit(opts: {
   };
 }
 
-export function applyRateLimit(opts: {
+function resolveRuntimeLimits(opts: {
+  limit?: number;
+  authenticated: boolean;
+}): number {
+  const raw = opts.authenticated
+    ? Number(process.env.AUTH_RATE_LIMIT_MAX || 200)
+    : Number(process.env.RATE_LIMIT_MAX || opts.limit || 80);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return opts.authenticated ? 200 : 80;
+  }
+  return Math.floor(raw);
+}
+
+function resolveRuntimeWindowMs(opts?: { windowMs?: number }): number {
+  const raw = Number(process.env.RATE_LIMIT_WINDOW_MS || opts?.windowMs || 60_000);
+  if (!Number.isFinite(raw) || raw <= 0) return 60_000;
+  return Math.floor(raw);
+}
+
+async function applyDistributedRateLimit(opts: {
+  key: string;
+  limit: number;
+  windowMs: number;
+}): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  const cache = await getCacheStore();
+  const ttlSeconds = Math.max(1, Math.ceil(opts.windowMs / 1000));
+  const key = `rl:${opts.key}`;
+
+  const count = await cache.incr(key, ttlSeconds);
+  const allowed = count <= opts.limit;
+  return {
+    allowed,
+    remaining: Math.max(0, opts.limit - count),
+    resetAt: Date.now() + opts.windowMs,
+  };
+}
+
+export async function applyRateLimit(opts: {
   headers: Headers;
   scope: string;
+  userKey?: string | null;
   limit?: number;
   windowMs?: number;
-}): { ok: true } | { ok: false; remaining: number; resetAt: number } {
+}): Promise<{ ok: true } | { ok: false; remaining: number; resetAt: number }> {
   const ip = getClientIp(opts.headers);
-  const limit = Number(process.env.RATE_LIMIT_MAX || opts.limit || 120);
-  const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || opts.windowMs || 60_000);
-  const rate = checkRateLimit({
-    key: `${opts.scope}:${ip}`,
-    limit: Number.isFinite(limit) && limit > 0 ? limit : 120,
-    windowMs: Number.isFinite(windowMs) && windowMs > 0 ? windowMs : 60_000,
+  const explicitUserKey = String(opts.userKey || '').trim();
+  const headerUserKey = String(
+    opts.headers.get('x-auth-user-id')
+    || opts.headers.get('x-user-id')
+    || opts.headers.get('x-auth-email')
+    || '',
+  ).trim();
+  const bearer = String(opts.headers.get('authorization') || '').trim();
+  const hasAuth = explicitUserKey !== '' || headerUserKey !== '' || bearer.startsWith('Bearer ');
+  const scopeKey = explicitUserKey || headerUserKey || ip;
+  const limit = resolveRuntimeLimits({
+    limit: opts.limit,
+    authenticated: hasAuth,
   });
+  const windowMs = resolveRuntimeWindowMs({ windowMs: opts.windowMs });
+  const key = `${opts.scope}:${scopeKey}`;
+
+  let rate: { allowed: boolean; remaining: number; resetAt: number };
+  try {
+    rate = await applyDistributedRateLimit({
+      key,
+      limit,
+      windowMs,
+    });
+  } catch {
+    rate = checkRateLimit({
+      key,
+      limit,
+      windowMs,
+    });
+  }
 
   if (!rate.allowed) {
     return { ok: false, remaining: rate.remaining, resetAt: rate.resetAt };

@@ -1,5 +1,15 @@
 import { getDbPool } from './db';
 
+function emitLocalLog(level: 'info' | 'error', event: string, payload: Record<string, unknown>): void {
+  const logger = level === 'error' ? console.error : console.log;
+  logger(JSON.stringify({
+    level,
+    event,
+    ts: new Date().toISOString(),
+    ...payload,
+  }));
+}
+
 export async function writeSystemLog(input: {
   eventType: string;
   description: string;
@@ -15,8 +25,14 @@ export async function writeSystemLog(input: {
        VALUES (?, ?, ?, ?)`,
       [input.eventType, input.description, input.userId || null, input.ipAddress || null],
     );
-  } catch {
-    // best-effort logging
+  } catch (error) {
+    emitLocalLog('error', 'system_log_write_failed', {
+      eventType: input.eventType,
+      description: input.description,
+      userId: input.userId || null,
+      ipAddress: input.ipAddress || null,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -46,8 +62,15 @@ export async function writeAuditLog(input: {
         input.ipAddress || null,
       ],
     );
-  } catch {
-    // best-effort logging
+  } catch (error) {
+    emitLocalLog('error', 'audit_log_write_failed', {
+      action: input.action,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      actorId: input.actorId || null,
+      ipAddress: input.ipAddress || null,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -56,12 +79,24 @@ export async function trackRequestTiming(input: {
   method: string;
   durationMs: number;
   status: number;
+  requestId?: string;
+  cacheHit?: boolean | null;
   ipAddress?: string | null;
 }): Promise<void> {
-  const description = `${input.method} ${input.path} status=${input.status} duration_ms=${Math.round(input.durationMs)}`;
+  const description = `${input.method} ${input.path} status=${input.status} duration_ms=${Math.round(input.durationMs)} request_id=${input.requestId || '-'} cache_hit=${input.cacheHit == null ? '-' : input.cacheHit}`;
   await writeSystemLog({
     eventType: 'REQUEST_TIMING',
     description,
     ipAddress: input.ipAddress || null,
+  });
+
+  emitLocalLog('info', 'request_timing', {
+    path: input.path,
+    method: input.method,
+    status: input.status,
+    duration_ms: Math.round(input.durationMs),
+    request_id: input.requestId || '',
+    cache_hit: input.cacheHit == null ? null : Boolean(input.cacheHit),
+    ip: input.ipAddress || null,
   });
 }

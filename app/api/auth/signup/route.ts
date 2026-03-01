@@ -7,6 +7,7 @@ import { fallbackStore } from '../../../../lib/fallbackStore';
 import { writeSystemLog } from '../../../../lib/log';
 import { hashPassword } from '../../../../lib/password';
 import { authSignupSchema } from '../../../../lib/validators';
+import { fireIntegrationEvent } from '../../../../lib/integrationDispatch';
 
 export async function POST(request: NextRequest) {
   return withApiHandler(request, async ({ request: req, ip }) => {
@@ -51,6 +52,19 @@ export async function POST(request: NextRequest) {
         ipAddress: ip,
       });
 
+      fireIntegrationEvent('USER_SIGNUP', {
+        user_id: id,
+        created_at: now,
+        name: payload.name,
+        email: payload.email.toLowerCase(),
+        phone: payload.phone,
+        district: payload.district,
+        thana: payload.thana,
+        address: payload.address,
+        source: 'web',
+        verified: false,
+      });
+
       return jsonSuccess({
         storage: 'fallback',
         user: {
@@ -80,6 +94,19 @@ export async function POST(request: NextRequest) {
       description: `User signup: ${payload.email}`,
       userId: id,
       ipAddress: ip,
+    });
+
+    fireIntegrationEvent('USER_SIGNUP', {
+      user_id: id,
+      created_at: now,
+      name: payload.name,
+      email: payload.email.toLowerCase(),
+      phone: payload.phone,
+      district: payload.district,
+      thana: payload.thana,
+      address: payload.address,
+      source: 'web',
+      verified: false,
     });
 
     return jsonSuccess({

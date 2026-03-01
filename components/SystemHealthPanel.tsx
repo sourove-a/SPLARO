@@ -80,7 +80,7 @@ const normalizeServiceState = (input: any, fallbackError = 'NO_DATA', fallbackNe
   return {
     status: normalizeServiceStatus(input.status),
     latency_ms: Number.isFinite(Number(input.latency_ms)) ? Number(input.latency_ms) : null,
-    last_checked_at: String(input.last_checked_at || input.checked_at || ''),
+    last_checked_at: String(input.last_checked_at || input.last_checked || input.checked_at || ''),
     error: String(input.error || ''),
     next_action: String(input.next_action || fallbackNextAction)
   };
@@ -253,25 +253,32 @@ const fetchNextHealthFallback = async (): Promise<HealthPayload | null> => {
 };
 
 const fetchHealth = async (): Promise<HealthPayload> => {
-  const res = await fetchWithCredentials(`${API_NODE}?action=health`, {
-    headers: getAuthHeaders()
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json?.status !== 'success') {
-    const rawMessage = String(json?.message || 'HEALTH_ENDPOINT_UNAVAILABLE');
-    if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
+  try {
+    const res = await fetchWithCredentials(`${API_NODE}?action=health`, {
+      headers: getAuthHeaders()
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.status !== 'success') {
+      const rawMessage = String(json?.message || 'HEALTH_ENDPOINT_UNAVAILABLE');
+      if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
+        const fallback = await fetchNextHealthFallback();
+        if (fallback) return fallback;
+        throw new Error('ADMIN_SESSION_EXPIRED');
+      }
       const fallback = await fetchNextHealthFallback();
       if (fallback) return fallback;
-      throw new Error('ADMIN_SESSION_EXPIRED');
+      if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
+        throw new Error('ADMIN_SESSION_EXPIRED');
+      }
+      throw new Error(rawMessage);
     }
+    return normalizeLegacyHealthPayload(json);
+  } catch (error) {
     const fallback = await fetchNextHealthFallback();
     if (fallback) return fallback;
-    if (rawMessage === 'ADMIN_ACCESS_REQUIRED') {
-      throw new Error('ADMIN_SESSION_EXPIRED');
-    }
-    throw new Error(rawMessage);
+    const message = error instanceof Error ? error.message : 'HEALTH_ENDPOINT_UNAVAILABLE';
+    throw new Error(message || 'HEALTH_ENDPOINT_UNAVAILABLE');
   }
-  return normalizeLegacyHealthPayload(json);
 };
 
 const fetchHealthEvents = async (probe = '', limit = 50): Promise<HealthEventRow[]> => {

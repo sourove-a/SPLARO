@@ -21,6 +21,32 @@ enum OrderStatus {
   CANCELED
 }
 
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+  REFUNDED
+}
+
+enum QueueJobStatus {
+  PENDING
+  PROCESSING
+  RETRY
+  DONE
+  DEAD
+}
+
+enum ShipmentStatus {
+  PENDING
+  BOOKED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
 model User {
   id           String       @id @default(cuid())
   name         String
@@ -31,13 +57,20 @@ model User {
   address      String?
   passwordHash String?
   provider     AuthProvider @default(LOCAL)
+  role         String       @default("user")
+  isBlocked    Boolean      @default(false)
+  lastLoginAt  DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
   orders       Order[]
+  sessions     SessionToken[]
+  auditLogs    AuditLog[]   @relation("AuditActor")
 
   @@index([phone])
   @@index([createdAt])
+  @@index([role, createdAt])
+  @@index([isBlocked, createdAt])
 }
 
 model Order {
@@ -62,15 +95,24 @@ model Order {
   total       Decimal?    @db.Decimal(12, 2)
   notes       String?     @db.Text
   status      OrderStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentRef  String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  paymentEvents PaymentEvent[]
+  shipment    Shipment?
+  queueJobs   QueueJob[]
 
   @@index([email])
   @@index([phone])
   @@index([status])
   @@index([createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([userId, createdAt])
+  @@index([orderId, createdAt])
+  @@index([paymentRef])
 }
 
 model Subscription {
@@ -81,4 +123,152 @@ model Subscription {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+model SessionToken {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  rotatedAt    DateTime?
+  revokedAt    DateTime?
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@index([revokedAt, createdAt])
+  @@map("session_tokens")
+}
+
+model IntegrationSetting {
+  id         String   @id @default(cuid())
+  service    String
+  key        String
+  value      String?  @db.LongText
+  valueMask  String?
+  isSecret   Boolean  @default(false)
+  enabled    Boolean  @default(false)
+  updatedBy  String?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@unique([service, key])
+  @@index([service, enabled])
+  @@index([updatedAt])
+  @@map("integration_settings")
+}
+
+model PaymentEvent {
+  id               String        @id @default(cuid())
+  orderId          String
+  provider         String
+  status           PaymentStatus
+  eventType        String
+  eventKey         String        @unique
+  transactionId    String?       @unique
+  idempotencyKey   String?       @unique
+  amount           Decimal?      @db.Decimal(12, 2)
+  currency         String?
+  requestPayload   Json?
+  responsePayload  Json?
+  validationRef    String?
+  httpCode         Int?
+  createdAt        DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([provider, status, createdAt])
+  @@index([status, createdAt])
+  @@map("payment_events")
+}
+
+model Shipment {
+  id               String         @id @default(cuid())
+  orderId          String         @unique
+  provider         String
+  status           ShipmentStatus @default(PENDING)
+  consignmentId    String?        @unique
+  trackingUrl      String?
+  externalStatus   String?
+  timeline         Json?
+  bookingPayload   Json?
+  idempotencyKey   String?        @unique
+  lastSyncedAt     DateTime?
+  lastError        String?        @db.Text
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status, createdAt])
+  @@index([externalStatus, updatedAt])
+  @@map("shipments")
+}
+
+model QueueJob {
+  id            String        @id @default(cuid())
+  queueKey      String        @unique
+  orderId       String?
+  syncType      String
+  status        QueueJobStatus @default(PENDING)
+  payload       Json?
+  attempts      Int           @default(0)
+  maxAttempts   Int           @default(5)
+  nextAttemptAt DateTime      @default(now())
+  lockedAt      DateTime?
+  lastHttpCode  Int?
+  lastError     String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([syncType, status, createdAt])
+  @@index([createdAt])
+  @@map("sync_queue")
+}
+
+model IntegrationLog {
+  id             String   @id @default(cuid())
+  service        String
+  eventType      String
+  status         String
+  referenceType  String?
+  referenceId    String?
+  httpCode       Int?
+  errorMessage   String?  @db.Text
+  responsePreview String? @db.Text
+  metaJson       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([service, createdAt])
+  @@index([status, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("integration_logs")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  action      String
+  entityType  String
+  entityId    String
+  beforeJson  Json?
+  afterJson   Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
 }

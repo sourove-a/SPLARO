@@ -1,0 +1,126 @@
+.splaro-admin {
+  --admin-bg: #050505;
+  --admin-surface: #0c0c0c;
+  --admin-surface-soft: #111111;
+  --admin-border: rgba(232, 198, 112, 0.2);
+  --admin-gold: #e8c670;
+  --admin-gold-soft: rgba(232, 198, 112, 0.18);
+  --admin-green: #1f6b50;
+  --admin-text: #f6f1e6;
+  --admin-muted: #a39a8a;
+  --admin-danger: #b44a4a;
+  background:
+    radial-gradient(circle at 6% 12%, rgba(232, 198, 112, 0.1), transparent 40%),
+    radial-gradient(circle at 88% 84%, rgba(31, 107, 80, 0.12), transparent 44%),
+    var(--admin-bg);
+  color: var(--admin-text);
+  min-height: 100dvh;
+}
+
+.splaro-admin * {
+  box-sizing: border-box;
+}
+
+.splaro-admin .admin-panel-card {
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.94), rgba(10, 10, 10, 0.9));
+  border: 1px solid var(--admin-border);
+  border-radius: 20px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+
+.splaro-admin .admin-accent {
+  color: var(--admin-gold);
+}
+
+.splaro-admin .admin-kicker {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.26em;
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+.splaro-admin .admin-heading {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.splaro-admin .admin-input,
+.splaro-admin .admin-select,
+.splaro-admin .admin-textarea {
+  width: 100%;
+  background: #090909;
+  border: 1px solid rgba(232, 198, 112, 0.22);
+  border-radius: 12px;
+  color: var(--admin-text);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.splaro-admin .admin-input:focus,
+.splaro-admin .admin-select:focus,
+.splaro-admin .admin-textarea:focus {
+  border-color: rgba(232, 198, 112, 0.52);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(232, 198, 112, 0.16);
+}
+
+.splaro-admin .admin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 10px 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.splaro-admin .admin-button-primary {
+  background: linear-gradient(135deg, #e8c670, #d0a950);
+  color: #1d1505;
+}
+
+.splaro-admin .admin-button-primary:hover {
+  filter: brightness(1.04);
+}
+
+.splaro-admin .admin-button-secondary {
+  background: rgba(232, 198, 112, 0.08);
+  color: var(--admin-gold);
+  border-color: rgba(232, 198, 112, 0.3);
+}
+
+.splaro-admin .admin-button-secondary:hover {
+  background: rgba(232, 198, 112, 0.14);
+}
+
+.splaro-admin .admin-status-ok {
+  color: #9be2bf;
+  background: rgba(31, 107, 80, 0.25);
+  border: 1px solid rgba(86, 179, 139, 0.45);
+}
+
+.splaro-admin .admin-status-warn {
+  color: #f5d799;
+  background: rgba(171, 124, 37, 0.2);
+  border: 1px solid rgba(232, 198, 112, 0.38);
+}
+
+.splaro-admin .admin-status-down {
+  color: #f6b3b3;
+  background: rgba(145, 48, 48, 0.24);
+  border: 1px solid rgba(180, 74, 74, 0.48);
+}
+
+@media (max-width: 1024px) {
+  .splaro-admin .admin-desktop-sidebar {
+    display: none;
+  }
+}

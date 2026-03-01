@@ -6,6 +6,7 @@ import { jsonError, jsonSuccess } from '../../../lib/env';
 import { fallbackStore } from '../../../lib/fallbackStore';
 import { writeSystemLog } from '../../../lib/log';
 import { subscriptionCreateSchema } from '../../../lib/validators';
+import { fireIntegrationEvent } from '../../../lib/integrationDispatch';
 
 export async function POST(request: NextRequest) {
   return withApiHandler(request, async ({ request: req, ip }) => {
@@ -42,6 +43,14 @@ export async function POST(request: NextRequest) {
         ipAddress: ip,
       });
 
+      fireIntegrationEvent('SUBSCRIBED', {
+        sub_id: id,
+        created_at: created,
+        email,
+        consent: Boolean(payload.consent),
+        source: payload.source,
+      });
+
       return jsonSuccess({ storage: 'fallback', subscription: { id, email, source: payload.source, created_at: created } }, 201);
     }
 
@@ -60,6 +69,14 @@ export async function POST(request: NextRequest) {
       eventType: 'SUBSCRIBE',
       description: `Newsletter subscription: ${email}`,
       ipAddress: ip,
+    });
+
+    fireIntegrationEvent('SUBSCRIBED', {
+      sub_id: id,
+      created_at: new Date().toISOString(),
+      email,
+      consent: Boolean(payload.consent),
+      source: payload.source,
     });
 
     return jsonSuccess({
