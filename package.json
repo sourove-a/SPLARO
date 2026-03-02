@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build && node scripts/ensure-hostinger-dist.mjs",
     "typecheck": "tsc --noEmit",
     "build:admin:hostinger": "bash scripts/prepare-admin-public-html.sh",
     "start": "next start",
