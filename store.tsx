@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Product,
@@ -1068,6 +1068,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const [dbStatus, setDbStatus] = useState<'MYSQL' | 'FALLBACK' | 'OFFLINE'>('FALLBACK');
+  const lastCartMutationRef = useRef<{ signature: string; at: number }>({ signature: '', at: 0 });
 
 
 
@@ -1676,8 +1677,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addOrder = async (o: Order): Promise<AddOrderResult> => {
-    const localOrderId = String(o.id || '').trim() || `SPL-LOCAL-${Date.now()}`;
+    const providedId = String(o.id || '').trim();
+    const localOrderId =
+      providedId !== ''
+        ? providedId
+        : `SPL-${Math.random().toString(16).slice(2, 10).toUpperCase()}`;
     const draftOrder: Order = { ...o, id: localOrderId };
+    const requestPayload = { ...o, id: localOrderId };
 
     if (IS_PROD) {
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -1688,7 +1694,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const res = await fetchWithCredentials(`${API_NODE}?action=create_order`, {
           method: 'POST',
           headers: getAuthHeaders(true),
-          body: JSON.stringify(o),
+          body: JSON.stringify(requestPayload),
           ...(controller ? { signal: controller.signal } : {})
         });
         const result = await res.json().catch(() => ({}));
@@ -1965,6 +1971,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addToCart = (item: any) => {
+    const normalizedId = String(item?.product?.id || '').trim();
+    const normalizedSize = String(item?.selectedSize || '').trim().toLowerCase();
+    const normalizedColor = String(item?.selectedColor || '').trim().toLowerCase();
+    const normalizedQty = Number.isFinite(Number(item?.quantity))
+      ? Math.max(1, Math.min(99, Math.floor(Number(item.quantity))))
+      : 1;
+    const signature = `${normalizedId}|${normalizedSize}|${normalizedColor}|${normalizedQty}`;
+    const now = Date.now();
+    if (
+      signature !== '|||1'
+      && lastCartMutationRef.current.signature === signature
+      && now - lastCartMutationRef.current.at < 450
+    ) {
+      return;
+    }
+    lastCartMutationRef.current = { signature, at: now };
+
     setCart(prev => {
       const existing = prev.find(i =>
         i.product.id === item.product.id &&
@@ -1972,9 +1995,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         i.selectedColor === item.selectedColor
       );
       if (existing) {
-        return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + item.quantity } : i);
+        return prev.map(i => i.cartId === existing.cartId ? { ...i, quantity: i.quantity + normalizedQty } : i);
       }
-      return [...prev, { ...item, cartId: Math.random().toString(36).substr(2, 9) }];
+      return [...prev, { ...item, quantity: normalizedQty, cartId: Math.random().toString(36).substr(2, 9) }];
     });
   };
 

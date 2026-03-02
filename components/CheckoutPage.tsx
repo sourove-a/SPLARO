@@ -113,6 +113,7 @@ export const CheckoutPage: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
   const [submitError, setSubmitError] = useState('');
   const submitLockRef = useRef(false);
+  const submitOrderIdRef = useRef('');
   const [discountInput, setDiscountInput] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [discountError, setDiscountError] = useState('');
@@ -243,10 +244,14 @@ export const CheckoutPage: React.FC = () => {
     }
 
     submitLockRef.current = true;
+    if (!submitOrderIdRef.current) {
+      const random = Math.random().toString(16).slice(2, 10).toUpperCase();
+      submitOrderIdRef.current = `SPL-${random}`;
+    }
     setStatus('processing');
     try {
       const result = await addOrder({
-        id: '',
+        id: submitOrderIdRef.current,
         userId: user?.id,
         customerName: formData.fullName,
         customerEmail: formData.email,

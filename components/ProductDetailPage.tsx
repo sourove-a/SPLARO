@@ -154,7 +154,7 @@ export const ProductDetailPage: React.FC = () => {
 
   const handleAddToCart = useCallback(
     (goToCheckout = false) => {
-      if (!product || urgency.outOfStock) return;
+      if (!product || urgency.outOfStock || isAdding) return;
       setIsAdding(true);
       addToCart({
         product,
@@ -174,7 +174,7 @@ export const ProductDetailPage: React.FC = () => {
         window.setTimeout(() => navigate('/checkout'), 220);
       }
     },
-    [addToCart, navigate, product, quantity, selectedColor, selectedSize, sizeOptions, urgency.outOfStock]
+    [addToCart, isAdding, navigate, product, quantity, selectedColor, selectedSize, sizeOptions, urgency.outOfStock]
   );
 
   if (!product) return (
@@ -348,7 +348,7 @@ export const ProductDetailPage: React.FC = () => {
               <div className="space-y-3 pt-1">
                 <Button
                   onClick={() => handleAddToCart(false)}
-                  disabled={urgency.outOfStock}
+                  disabled={urgency.outOfStock || isAdding}
                   variant={urgency.outOfStock ? 'secondary' : 'default'}
                   size="lg"
                   className={`w-full h-14 rounded-2xl font-black tracking-[0.22em] transition-all ${
@@ -362,7 +362,7 @@ export const ProductDetailPage: React.FC = () => {
 
                 <Button
                   onClick={() => handleAddToCart(true)}
-                  disabled={urgency.outOfStock}
+                  disabled={urgency.outOfStock || isAdding}
                   variant="secondary"
                   size="lg"
                   className={`w-full h-14 rounded-2xl font-black tracking-[0.3em] transition-all ${

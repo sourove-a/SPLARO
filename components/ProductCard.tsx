@@ -31,7 +31,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
 
   const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>, goToCheckout = false) => {
     event.stopPropagation();
-    if (urgency.outOfStock) return;
+    if (urgency.outOfStock || isAdding) return;
     setIsAdding(true);
     addToCart({
       product,
@@ -135,7 +135,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   exit={{ opacity: 0, y: 20, scale: 0.9 }}
                   transition={{ delay: 0.05 }}
                   onClick={(e) => handleAddToCart(e)}
-                  disabled={urgency.outOfStock}
+                  disabled={urgency.outOfStock || isAdding}
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-900 border border-white/10 text-zinc-500 cursor-not-allowed'
@@ -151,7 +151,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   exit={{ opacity: 0, y: 20, scale: 0.9 }}
                   transition={{ delay: 0.1 }}
                   onClick={(e) => handleAddToCart(e, true)}
-                  disabled={urgency.outOfStock}
+                  disabled={urgency.outOfStock || isAdding}
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
@@ -258,7 +258,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
           <Button
             variant={urgency.outOfStock ? 'secondary' : 'default'}
             size="sm"
-            disabled={urgency.outOfStock}
+            disabled={urgency.outOfStock || isAdding}
             onClick={(e) => handleAddToCart(e)}
             className={`rounded-xl ${urgency.outOfStock ? 'bg-zinc-800 text-zinc-500 border-white/15 hover:bg-zinc-800' : ''}`}
           >
@@ -267,7 +267,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
           <Button
             variant="outline"
             size="sm"
-            disabled={urgency.outOfStock}
+            disabled={urgency.outOfStock || isAdding}
             onClick={(e) => handleAddToCart(e, true)}
             className={`rounded-xl ${urgency.outOfStock ? 'opacity-60' : ''}`}
           >
