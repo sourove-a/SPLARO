@@ -1,4 +1,4 @@
-import { randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { appendRow, ensureTabsAndHeaders } from '../../../lib/sheets';
 import { getDbPool, getStorageInfo, nextOrderNumber } from '../../../lib/db';
@@ -97,6 +97,58 @@ function sanitizeSlug(input: unknown): string {
     .replace(/-+$/, '');
 
   return raw || 'product';
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+async function uploadImageToCloudinary(file: File): Promise<{ url: string; width: number | null; height: number | null } | null> {
+  const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  const uploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || '').trim();
+  const apiKey = String(process.env.CLOUDINARY_API_KEY || '').trim();
+  const apiSecret = String(process.env.CLOUDINARY_API_SECRET || '').trim();
+  const folder = String(process.env.CLOUDINARY_FOLDER || 'splaro/products').trim();
+  const enabled = cloudName !== '' && (uploadPreset !== '' || (apiKey !== '' && apiSecret !== ''));
+  if (!enabled) return null;
+
+  const formData = new FormData();
+  formData.set('file', file);
+  formData.set('folder', folder);
+
+  if (uploadPreset !== '') {
+    formData.set('upload_preset', uploadPreset);
+  } else {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const base = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+    const signature = createHash('sha1').update(base).digest('hex');
+    formData.set('timestamp', String(timestamp));
+    formData.set('api_key', apiKey);
+    formData.set('signature', signature);
+  }
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+
+  if (!response) return null;
+  const payload = (await response.json().catch(() => ({}))) as JsonRecord;
+  const secureUrl = String(payload.secure_url || payload.url || '').trim();
+  if (!response.ok || secureUrl === '') return null;
+
+  return {
+    url: secureUrl,
+    width: Number.isFinite(Number(payload.width)) ? Number(payload.width) : null,
+    height: Number.isFinite(Number(payload.height)) ? Number(payload.height) : null,
+  };
 }
 
 function encodeAuthCookie(payload: { id: string; email: string; role: string }): string {
@@ -1741,7 +1793,38 @@ async function actionUploadProductImage(request: NextRequest): Promise<NextRespo
   if (!isAdminRequest(request)) return legacyError('ADMIN_ACCESS_REQUIRED', 403);
   const form = await request.formData();
   const file = form.get('image');
-  if (!(file instanceof File)) return legacyError('IMAGE_REQUIRED', 400);
+  const manualUrl = String(form.get('image_url') || form.get('url') || '').trim();
+
+  if (!(file instanceof File) || file.size <= 0) {
+    if (manualUrl && isHttpUrl(manualUrl)) {
+      return legacySuccess({
+        data: {
+          url: manualUrl,
+          relative_url: manualUrl,
+          width: null,
+          height: null,
+          storage: 'manual_url',
+        },
+      });
+    }
+    return legacyError(manualUrl ? 'INVALID_IMAGE_URL' : 'IMAGE_REQUIRED', 400);
+  }
+
+  const cloudinaryUpload = await uploadImageToCloudinary(file);
+  if (cloudinaryUpload) {
+    return legacySuccess({
+      data: {
+        url: cloudinaryUpload.url,
+        relative_url: cloudinaryUpload.url,
+        width: cloudinaryUpload.width,
+        height: cloudinaryUpload.height,
+        name: file.name,
+        size: file.size,
+        storage: 'cloudinary',
+      },
+    });
+  }
+
   const bytes = Buffer.from(await file.arrayBuffer());
   const mime = file.type || 'image/png';
   const dataUrl = `data:${mime};base64,${bytes.toString('base64')}`;
@@ -1753,6 +1836,7 @@ async function actionUploadProductImage(request: NextRequest): Promise<NextRespo
       height: null,
       name: file.name,
       size: file.size,
+      storage: 'inline',
     },
   });
 }

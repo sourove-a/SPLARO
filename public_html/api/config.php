@@ -635,6 +635,17 @@ define('SHUTDOWN_PUSH_DRAIN_LIMIT', splaro_env_int('SHUTDOWN_PUSH_DRAIN_LIMIT', 
 define('SHUTDOWN_TELEGRAM_DRAIN_LIMIT', splaro_env_int('SHUTDOWN_TELEGRAM_DRAIN_LIMIT', 3, 1, 20));
 define('ADMIN_SYNC_SHEETS_DRAIN_LIMIT', splaro_env_int('ADMIN_SYNC_SHEETS_DRAIN_LIMIT', 1, 0, 5));
 
+// 4.3 CLOUDINARY IMAGE DELIVERY
+define('CLOUDINARY_CLOUD_NAME', trim((string)env_or_default('CLOUDINARY_CLOUD_NAME', '')));
+define('CLOUDINARY_UPLOAD_PRESET', trim((string)env_or_default('CLOUDINARY_UPLOAD_PRESET', '')));
+define('CLOUDINARY_API_KEY', trim((string)env_or_default('CLOUDINARY_API_KEY', '')));
+define('CLOUDINARY_API_SECRET', trim((string)env_or_default('CLOUDINARY_API_SECRET', '')));
+define('CLOUDINARY_FOLDER', trim((string)env_or_default('CLOUDINARY_FOLDER', 'splaro/products')));
+define(
+    'CLOUDINARY_ENABLED',
+    CLOUDINARY_CLOUD_NAME !== '' && (CLOUDINARY_UPLOAD_PRESET !== '' || (CLOUDINARY_API_KEY !== '' && CLOUDINARY_API_SECRET !== ''))
+);
+
 // 4.5 PAYMENT/SHIPPING GATEWAY SAFETY DEFAULTS
 define('SSLCOMMERZ_INIT_URL_SANDBOX', env_or_default('SSLCOMMERZ_INIT_URL_SANDBOX', 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php'));
 define('SSLCOMMERZ_INIT_URL_LIVE', env_or_default('SSLCOMMERZ_INIT_URL_LIVE', 'https://securepay.sslcommerz.com/gwprocess/v4/api.php'));

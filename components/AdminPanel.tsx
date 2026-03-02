@@ -1048,6 +1048,7 @@ const ProductModal: React.FC<{
                   </span>
                 </div>
                 <p className="text-[10px] text-zinc-400 font-bold">WooCommerce style: 1 main image + gallery images (recommended 4-5).</p>
+                <p className="text-[10px] text-cyan-300/80 font-semibold">Supports both direct image URL (Cloudinary/manual link) and file upload.</p>
                 <div className="space-y-3">
                   <LuxuryFloatingInput
                     label="Main Image URL"
