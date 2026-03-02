@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   BarChart3,
   CheckCircle2,
@@ -51,10 +51,53 @@ type IntegrationsPanelProps = {
   initialRows: IntegrationView[];
 };
 
+type ProbeStatus = 'OK' | 'WARNING' | 'DOWN';
+
+type HealthProbe = {
+  key: string;
+  label: string;
+  status: ProbeStatus;
+  detail: string;
+  latencyMs: number | null;
+};
+
+type HealthSnapshot = {
+  mode: 'NORMAL' | 'DEGRADED';
+  checkedAt: string;
+  probes: HealthProbe[];
+};
+
+const HEALTH_KEYS: Array<{ key: string; label: string }> = [
+  { key: 'db', label: 'DB' },
+  { key: 'orders_api', label: 'Orders API' },
+  { key: 'auth_api', label: 'Auth API' },
+  { key: 'queue', label: 'Queue' },
+  { key: 'telegram', label: 'Telegram' },
+  { key: 'sheets', label: 'Sheets' },
+  { key: 'push', label: 'Push' },
+  { key: 'sslcommerz', label: 'SSLCommerz' },
+  { key: 'steadfast', label: 'Steadfast' },
+];
+
+const normalizeProbeStatus = (value: unknown): ProbeStatus => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'OK' || normalized === 'PASS' || normalized === 'UP') return 'OK';
+  if (normalized === 'DOWN' || normalized === 'FAIL' || normalized === 'ERROR') return 'DOWN';
+  return 'WARNING';
+};
+
+const probeStatusClass = (status: ProbeStatus): string => {
+  if (status === 'OK') return 'admin-status-ok';
+  if (status === 'WARNING') return 'admin-status-warn';
+  return 'admin-status-down';
+};
+
 export function IntegrationsPanel({ initialRows }: IntegrationsPanelProps) {
   const [rows, setRows] = useState<IntegrationView[]>(initialRows);
   const [modalProvider, setModalProvider] = useState<IntegrationProvider | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [health, setHealth] = useState<HealthSnapshot | null>(null);
+  const [healthPending, setHealthPending] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const selectedIntegration = useMemo(
@@ -94,6 +137,62 @@ export function IntegrationsPanel({ initialRows }: IntegrationsPanelProps) {
     });
   };
 
+  const loadHealth = async () => {
+    setHealthPending(true);
+    try {
+      const res = await fetch('/api/health', { cache: 'no-store' });
+      const json = await res.json().catch(() => ({}));
+      const payload = (json?.data && typeof json.data === 'object' ? json.data : json) || {};
+      const services = payload?.services && typeof payload.services === 'object' ? payload.services : {};
+
+      const dbStatus = normalizeProbeStatus((services as any)?.db?.status);
+      const probes = HEALTH_KEYS.map(({ key, label }) => {
+        const source = (services as any)?.[key] || {};
+        let status = normalizeProbeStatus(source?.status);
+        let detail = String(source?.error || source?.next_action || '');
+        let latencyMs = Number.isFinite(Number(source?.latency_ms)) ? Number(source.latency_ms) : null;
+
+        if (!source || typeof source !== 'object' || Object.keys(source).length === 0) {
+          if (key === 'orders_api' || key === 'auth_api') {
+            status = dbStatus === 'OK' ? 'OK' : 'WARNING';
+            detail = dbStatus === 'OK' ? 'Core API reachable via DB runtime.' : 'Waiting for DB to become healthy.';
+          } else {
+            status = 'WARNING';
+            detail = 'No probe data yet.';
+          }
+          latencyMs = null;
+        }
+
+        return { key, label, status, detail, latencyMs };
+      });
+
+      setHealth({
+        mode: String(payload?.mode || '').toUpperCase() === 'NORMAL' ? 'NORMAL' : 'DEGRADED',
+        checkedAt: String(payload?.timestamp || new Date().toISOString()),
+        probes,
+      });
+    } catch (error) {
+      setToast(makeToast('error', error instanceof Error ? error.message : 'Failed to load health snapshot'));
+      setHealth((prev) => prev ?? {
+        mode: 'DEGRADED',
+        checkedAt: new Date().toISOString(),
+        probes: HEALTH_KEYS.map(({ key, label }) => ({
+          key,
+          label,
+          status: 'WARNING',
+          detail: 'Health endpoint unreachable.',
+          latencyMs: null,
+        })),
+      });
+    } finally {
+      setHealthPending(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadHealth();
+  }, []);
+
   return (
     <div className="space-y-6">
       <section className="admin-panel-card p-6 md:p-8">
@@ -103,6 +202,53 @@ export function IntegrationsPanel({ initialRows }: IntegrationsPanelProps) {
           Configure payment gateways, courier services and marketing channels from one secure panel. Credentials are encrypted
           at rest and every change is audited.
         </p>
+      </section>
+
+      <section className="admin-panel-card p-5 md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="admin-kicker">Service Health</p>
+            <h3 className="admin-heading mt-2 text-[#f6e7c4]">API & Integration Health Matrix</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {health?.mode ? (
+              <span className="rounded-full border border-[#47381d] bg-[#0f0d08] px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-[#bda46d]">
+                Mode: {health.mode}
+              </span>
+            ) : null}
+            <Button
+              onClick={loadHealth}
+              variant="secondary"
+              className="border-[#e8c670]/35 bg-[#e8c670]/10 text-[#e8c670]"
+              disabled={healthPending}
+            >
+              {healthPending ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+              Refresh Health
+            </Button>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-[#9f8d69]">Last checked: {health?.checkedAt ? new Date(health.checkedAt).toLocaleString() : 'N/A'}</p>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {(health?.probes || HEALTH_KEYS.map(({ key, label }) => ({
+            key,
+            label,
+            status: 'WARNING' as ProbeStatus,
+            detail: 'No probe data yet.',
+            latencyMs: null,
+          }))).map((probe) => (
+            <article key={probe.key} className="rounded-xl border border-[#3a2f1b] bg-[#0f0c07] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-[#f5e8cb]">{probe.label}</p>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${probeStatusClass(probe.status)}`}>
+                  {probe.status}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-[#ad9c76]">{probe.detail || 'Healthy'}</p>
+              <p className="mt-1 text-[11px] text-[#8f7d58]">Latency: {probe.latencyMs !== null ? `${probe.latencyMs}ms` : 'N/A'}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       {INTEGRATION_CATEGORIES.map((category) => (

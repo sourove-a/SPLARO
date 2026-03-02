@@ -49,23 +49,60 @@ export default async function AdminProductsPage({
           </div>
         </div>
 
-        <form action={createProductAction} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <input name="name" required placeholder="Product name" className="admin-input" />
-          <input name="slug" placeholder="slug (optional)" className="admin-input" />
-          <input name="category_id" placeholder="category (e.g. sneakers)" className="admin-input" />
-          <select name="product_type" defaultValue="shoe" className="admin-select">
-            <option value="shoe">Shoe</option>
-            <option value="bag">Bag</option>
-          </select>
-          <input name="price" type="number" min={0} step="1" required placeholder="Price" className="admin-input" />
-          <input name="discount_price" type="number" min={0} step="1" placeholder="Discount price" className="admin-input" />
-          <input name="stock_quantity" type="number" min={0} step="1" placeholder="Stock qty" className="admin-input" />
-          <label className="flex items-center gap-2 rounded-xl border border-[#3e311d] bg-[#0e0c09] px-3 text-sm text-[#c8b48e]">
-            <input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active
+        <div className="mt-6 rounded-xl border border-[#3e311d] bg-[#0e0c09] px-4 py-3 text-xs text-[#c9b58f]">
+          Quick guide: Add product name, type, price, stock and image URL. Slug supports
+          <span className="ml-1 font-semibold text-[#f0dfba]">letters, numbers, -, _, . and ~</span>.
+        </div>
+
+        <form action={createProductAction} className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Product Name</span>
+            <input name="name" required placeholder="e.g. Adidas Ultra Boost" className="admin-input" />
           </label>
-          <input name="image_url" placeholder="Image URL" className="admin-input md:col-span-2" />
-          <input name="product_url" placeholder="Product URL" className="admin-input md:col-span-2" />
-          <button type="submit" className="admin-button admin-button-primary md:col-span-2 xl:col-span-4 justify-center">Create Product</button>
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Custom Slug (Optional)</span>
+            <input name="slug" placeholder="best-nike-shoes বা new-arrival-2026" className="admin-input" />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Category</span>
+            <input name="category_id" placeholder="e.g. sneakers / handbags" className="admin-input" />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Product Type</span>
+            <select name="product_type" defaultValue="shoe" className="admin-select">
+              <option value="shoe">Shoe</option>
+              <option value="bag">Bag</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Price (BDT)</span>
+            <input name="price" type="number" min={0} step="1" required placeholder="18500" className="admin-input" />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Discount Price</span>
+            <input name="discount_price" type="number" min={0} step="1" placeholder="17000 (optional)" className="admin-input" />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Stock Quantity</span>
+            <input name="stock_quantity" type="number" min={0} step="1" placeholder="50" className="admin-input" />
+          </label>
+          <label className="flex items-end gap-2 rounded-xl border border-[#3e311d] bg-[#0e0c09] px-3 py-3 text-sm text-[#c8b48e]">
+            <input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Publish immediately
+          </label>
+
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Main Image URL</span>
+            <input name="image_url" placeholder="https://res.cloudinary.com/.../image.webp" className="admin-input" />
+          </label>
+          <label className="space-y-1 md:col-span-2">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#9f8d68]">Product URL (Optional)</span>
+            <input name="product_url" placeholder="/product/adidas/sneakers/ultra-boost অথবা full URL" className="admin-input" />
+          </label>
+
+          <button type="submit" className="admin-button admin-button-primary md:col-span-2 xl:col-span-4 justify-center">
+            Create Product
+          </button>
         </form>
       </section>
 
