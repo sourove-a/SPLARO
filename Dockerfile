@@ -4,6 +4,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY prisma/schema.prisma ./prisma/schema.prisma
 RUN npm ci --no-audit --no-fund
 
 FROM base AS builder
