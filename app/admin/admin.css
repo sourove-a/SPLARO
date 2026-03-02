@@ -119,6 +119,33 @@
   border: 1px solid rgba(180, 74, 74, 0.48);
 }
 
+.splaro-admin .admin-integration-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 200ms ease;
+}
+
+.splaro-admin .admin-integration-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at 85% -20%, rgba(232, 198, 112, 0.18), transparent 52%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.splaro-admin .admin-integration-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 198, 112, 0.42);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(232, 198, 112, 0.15) inset;
+}
+
+.splaro-admin .admin-integration-card:hover::after {
+  opacity: 1;
+}
+
 @media (max-width: 1024px) {
   .splaro-admin .admin-desktop-sidebar {
     display: none;

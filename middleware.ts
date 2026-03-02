@@ -63,6 +63,51 @@ function hasSuspiciousPattern(value: unknown): boolean {
 
 export function middleware(request: NextRequest) {
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+  const pathname = request.nextUrl.pathname.toLowerCase();
+
+  const legacyTabMap: Record<string, string> = {
+    home: '/admin/dashboard',
+    analytics: '/admin/dashboard',
+    products: '/admin/products',
+    inventory: '/admin/products',
+    orders: '/admin/orders',
+    shipments: '/admin/orders',
+    users: '/admin/customers',
+    customers: '/admin/customers',
+    clientbase: '/admin/customers',
+    coupons: '/admin/coupons-discounts',
+    discounts: '/admin/coupons-discounts',
+    reviews: '/admin/reviews-ratings',
+    marketing: '/admin/marketing',
+    campaigns: '/admin/marketing',
+    content: '/admin/content',
+    pages: '/admin/content',
+    slider: '/admin/content',
+    payments: '/admin/payments',
+    financials: '/admin/payments',
+    shipping: '/admin/shipping-logistics',
+    logistics: '/admin/shipping-logistics',
+    integrations: '/admin/integrations',
+    settings: '/admin/settings',
+    security: '/admin/security',
+    protocols: '/admin/security',
+  };
+
+  const normalizeTab = (raw: string | null): string => String(raw || '').toLowerCase().replace(/[^a-z]/g, '');
+
+  if (pathname === '/admin_dashboard' || pathname.startsWith('/admin_dashboard/')) {
+    const tab = normalizeTab(request.nextUrl.searchParams.get('tab'));
+    const nextPath = legacyTabMap[tab] || '/admin/dashboard';
+    return NextResponse.redirect(new URL(nextPath, request.url), 308);
+  }
+
+  if (pathname === '/sourove-admin' || pathname.startsWith('/sourove-admin/')) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url), 308);
+  }
+
+  if (pathname === '/admin/campaigns') {
+    return NextResponse.redirect(new URL('/admin/marketing', request.url), 308);
+  }
 
   if (request.method === 'OPTIONS' && request.nextUrl.pathname.startsWith('/api/')) {
     const preflight = new NextResponse(null, { status: 204 });
