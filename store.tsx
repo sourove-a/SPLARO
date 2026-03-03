@@ -16,7 +16,7 @@ import {
   CmsRevision,
   InvoiceSettings
 } from './types';
-import { getPhpApiNode, getStorefrontOrigin, shouldUsePhpApi } from './lib/runtime';
+import { getPhpApiNode, getStorefrontOrigin, isAdminSubdomainHost, shouldUsePhpApi } from './lib/runtime';
 import { isAdminRole } from './lib/roles';
 
 
@@ -420,7 +420,7 @@ const LEGACY_DEMO_PRODUCT_IDS = new Set<string>([
   'splaro-demo-vault-01',
   'splaro-demo-vault-sneaker'
 ]);
-const FALLBACK_SEED_PRODUCTS: Product[] = [];
+const FALLBACK_SEED_PRODUCTS: Product[] = INITIAL_PRODUCTS.map((item) => ({ ...item }));
 
 
 
@@ -1212,6 +1212,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return false;
   };
+  const shouldForceAdminReauth = (): boolean => {
+    if (isAdminRole(user?.role)) return true;
+    if (getAdminKey().trim() !== '') return true;
+    if (typeof window !== 'undefined' && isAdminSubdomainHost()) return true;
+    return false;
+  };
   const dispatchAdminAuthRequired = () => {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new CustomEvent('splaro-admin-auth-required'));
@@ -1477,9 +1483,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         const backendMessage = String(result?.message || '').trim();
         if (isAdminAuthError(backendMessage, res.status)) {
-          setDbStatus('OFFLINE');
-          setProducts([]);
-          dispatchAdminAuthRequired();
+          if (shouldForceAdminReauth()) {
+            setDbStatus('OFFLINE');
+            setProducts([]);
+            dispatchAdminAuthRequired();
+          } else {
+            setDbStatus('FALLBACK');
+            setProducts((prev) => {
+              if (Array.isArray(prev) && prev.length > 0) return sanitizeProducts(prev);
+              return sanitizeProducts(FALLBACK_SEED_PRODUCTS);
+            });
+          }
           return;
         }
         const shouldDowngradeStorage =
