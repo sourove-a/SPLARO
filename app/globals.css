@@ -144,7 +144,7 @@
         }
 
         .whatsapp-fab-wrapper {
-            bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 20px);
+            bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 10px);
         }
 
         .liquid-glass {

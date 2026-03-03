@@ -103,8 +103,8 @@ export const HeroSlider = () => {
               <span className="text-[10px] font-black uppercase tracking-[0.8em]">{slides[index]?.tag || slides[index]?.tags?.[0] || 'DISCOVERY'}</span>
             </div>
 
-            <div className="overflow-hidden">
-              <h1 className="text-6xl md:text-[10rem] font-black text-white tracking-tighter leading-none">
+            <div className="overflow-hidden max-w-[90vw]">
+              <h1 className="text-[clamp(2.45rem,13.5vw,4.2rem)] sm:text-6xl md:text-[10rem] font-black text-white tracking-tighter leading-[0.92]">
                 {(slides[index]?.title || "SPLARO").split("").map((char, i) => (
                   <KineticLetter key={i} letter={char} index={i} active={true} />
                 ))}
@@ -125,9 +125,9 @@ export const HeroSlider = () => {
             setSearchQuery('');
             navigate('/shop');
           }}
-          className="pointer-events-auto group relative px-16 py-7 mt-12 bg-transparent rounded-full border border-white/20 flex items-center gap-6 transition-all"
+          className="pointer-events-auto group relative px-8 sm:px-16 py-4 sm:py-7 mt-8 sm:mt-12 bg-transparent rounded-full border border-white/20 flex items-center gap-3 sm:gap-6 transition-all"
         >
-          <span className="text-white font-black text-[10px] tracking-[0.5em] uppercase group-hover:text-white">Discover Collections</span>
+          <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.28em] sm:tracking-[0.5em] uppercase text-center group-hover:text-white">Discover Collections</span>
           <ArrowRight className="w-5 h-5 text-white group-hover:text-white group-hover:translate-x-2 transition-transform" />
         </motion.button>
       </div>
