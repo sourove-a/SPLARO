@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, User, Menu, X, Search, ArrowRight, Instagram, Facebook, Globe,
@@ -43,8 +43,8 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
         )}
       </div>
 
-      <div className="flex flex-col justify-center">
-        <span className="text-[1.05rem] sm:text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
+      <div className="hidden md:flex flex-col justify-center">
+        <span className="text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
           SPLARO
         </span>
       </div>
@@ -142,41 +142,6 @@ export const Navbar: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setIsSearchOpen]);
-
-  const currentRouteLabel = useMemo(() => {
-    const path = location.pathname;
-    if (path === '/') return 'HOME';
-    if (path === '/shop') return 'SHOP';
-    if (path === '/detail' || path.startsWith('/product/')) return 'PRODUCT DETAIL';
-    if (path === '/cart') return 'CART';
-    if (path === '/checkout') return 'CHECKOUT';
-    if (path === '/login' || path === '/signup' || path === '/sourove-admin') return 'IDENTITY';
-    if (path === '/user_dashboard') return 'USER DASHBOARD';
-    if (path === '/admin_dashboard') return 'ADMIN DASHBOARD';
-    if (path === '/admin/campaigns') return 'CAMPAIGNS';
-    if (path === '/admin/campaigns/new') return 'NEW CAMPAIGN';
-    if (path.startsWith('/admin/campaigns/') && path.endsWith('/logs')) return 'CAMPAIGN LOGS';
-    if (path.startsWith('/admin/campaigns/')) return 'CAMPAIGN DETAILS';
-    if (path === '/admin/search') return 'ADMIN SEARCH';
-    if (path === '/admin') return 'ADMIN';
-    if (path === '/admin/users') return 'USERS';
-    if (path === '/admin/products') return 'PRODUCTS';
-    if (path === '/admin/orders') return 'ORDERS';
-    if (path === '/admin/coupons') return 'COUPONS';
-    if (path === '/admin/reports') return 'REPORTS';
-    if (path === '/admin/settings') return 'SETTINGS';
-    if (path === '/admin/system') return 'SYSTEM';
-    if (path === '/admin/system-health') return 'SYSTEM HEALTH';
-    if (path === '/order_success') return 'ORDER SUCCESS';
-    if (path === '/story') return 'STORY';
-    if (path === '/support') return 'SUPPORT';
-    if (path === '/manifest') return 'MANIFEST';
-    if (path === '/privacy') return 'PRIVACY POLICY';
-    if (path === '/terms') return 'TERMS & CONDITIONS';
-    if (path === '/order-tracking') return 'ORDER TRACKING';
-    if (path === '/refund-policy') return 'REFUND POLICY';
-    return 'SPLARO';
-  }, [location.pathname]);
 
   const handleNav = (label: string, targetView: View, category: string | null = null) => {
     setSearchQuery('');
@@ -347,15 +312,12 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[48vw] sm:max-w-[52vw] md:max-w-none" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[30vw] md:max-w-none" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
           <SplaroLogo className="h-7 sm:h-9 md:h-16" />
-          <span className="hidden sm:block mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
-            {currentRouteLabel}
-          </span>
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
