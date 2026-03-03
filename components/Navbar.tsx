@@ -220,7 +220,7 @@ export const Navbar: React.FC = () => {
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
-    ...(user ? [{ label: 'IDENTITY', view: allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD, icon: UserIcon }] : []),
+    { label: 'IDENTITY', view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
 
@@ -324,32 +324,6 @@ export const Navbar: React.FC = () => {
         <div className="flex-1 flex justify-end items-center gap-3 sm:gap-3 md:gap-8">
           {/* Desktop Right Links */}
           <div className="hidden lg:flex items-center gap-6 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[24px] border border-white/5 shadow-xl pointer-events-auto">
-            {!user && (
-              <div className="flex items-center gap-2 mr-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/login');
-                    setIsSearchOpen(false);
-                    setMenuOpen(false);
-                  }}
-                  className="h-10 px-4 rounded-full border border-white/20 text-[9px] font-black uppercase tracking-[0.2em] text-white/90 hover:border-cyan-400/70 hover:text-cyan-200 transition-all"
-                >
-                  LOG IN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/signup');
-                    setIsSearchOpen(false);
-                    setMenuOpen(false);
-                  }}
-                  className="h-10 px-4 rounded-full bg-cyan-500/75 border border-cyan-300/60 text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-cyan-400 transition-all"
-                >
-                  SIGN UP
-                </button>
-              </div>
-            )}
             {user && <NotificationBell />}
             {rightItems.map((item) => {
               const isActive = getIsActive(item);
