@@ -92,3 +92,81 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     rateLimitWindowMs: 60_000,
   });
 }
+
+/**
+ * GET /api/admin/coupons/[id]
+ * Fetch a single coupon by id.
+ */
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return withApiHandler(request, async ({ request: req }) => {
+    const routeParams = await context.params;
+    const admin = requireAdmin(req.headers);
+    if (admin.ok === false) return admin.response;
+
+    const id = String(routeParams.id || '').trim();
+    if (!id) return jsonError('INVALID_ID', 'Invalid coupon id.', 400);
+
+    const db = await getDbPool();
+    if (!db) {
+      const mem = fallbackStore();
+      const item = mem.coupons.find((c) => c.id === id);
+      if (!item) return jsonError('NOT_FOUND', 'Coupon not found.', 404);
+      return jsonSuccess({ storage: 'fallback', item });
+    }
+
+    const [rows] = await db.execute('SELECT * FROM coupons WHERE id = ? LIMIT 1', [id]);
+    const item = Array.isArray(rows) && rows[0] ? (rows[0] as any) : null;
+    if (!item) return jsonError('NOT_FOUND', 'Coupon not found.', 404);
+
+    return jsonSuccess({ storage: 'mysql', item });
+  });
+}
+
+/**
+ * DELETE /api/admin/coupons/[id]
+ * Deactivate (soft-delete) a coupon.
+ */
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return withApiHandler(request, async ({ request: req, ip }) => {
+    const routeParams = await context.params;
+    const admin = requireAdmin(req.headers);
+    if (admin.ok === false) return admin.response;
+
+    const id = String(routeParams.id || '').trim();
+    if (!id) return jsonError('INVALID_ID', 'Invalid coupon id.', 400);
+
+    const db = await getDbPool();
+
+    if (!db) {
+      const mem = fallbackStore();
+      const idx = mem.coupons.findIndex((c) => c.id === id);
+      if (idx < 0) return jsonError('NOT_FOUND', 'Coupon not found.', 404);
+      const before = { ...mem.coupons[idx] };
+      mem.coupons[idx] = { ...mem.coupons[idx], is_active: false, updated_at: new Date().toISOString() };
+      const after = mem.coupons[idx];
+
+      await writeAuditLog({ action: 'COUPON_DEACTIVATED', entityType: 'coupon', entityId: id, before, after, ipAddress: ip });
+      await writeSystemLog({ eventType: 'COUPON_DEACTIVATED_FALLBACK', description: `Coupon deactivated: ${id}`, ipAddress: ip });
+
+      return jsonSuccess({ storage: 'fallback', item: after });
+    }
+
+    const [existingRows] = await db.execute('SELECT * FROM coupons WHERE id = ? LIMIT 1', [id]);
+    const existing = Array.isArray(existingRows) && existingRows[0] ? (existingRows[0] as any) : null;
+    if (!existing) return jsonError('NOT_FOUND', 'Coupon not found.', 404);
+
+    await db.execute('UPDATE coupons SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [id]);
+
+    const [updatedRows] = await db.execute('SELECT * FROM coupons WHERE id = ? LIMIT 1', [id]);
+    const updated = Array.isArray(updatedRows) && updatedRows[0] ? (updatedRows[0] as any) : null;
+
+    await writeAuditLog({ action: 'COUPON_DEACTIVATED', entityType: 'coupon', entityId: id, before: existing, after: updated, ipAddress: ip });
+    await writeSystemLog({ eventType: 'COUPON_DEACTIVATED', description: `Coupon deactivated: ${id}`, ipAddress: ip });
+
+    return jsonSuccess({ storage: 'mysql', item: updated });
+  }, {
+    rateLimitScope: 'admin_coupons_write',
+    rateLimitLimit: 50,
+    rateLimitWindowMs: 60_000,
+  });
+}

@@ -16,6 +16,35 @@ function slugify(input: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * GET /api/admin/products/[id]
+ * Fetch a single product by id (admin view, includes inactive).
+ */
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return withApiHandler(request, async ({ request: req }) => {
+    const routeParams = await context.params;
+    const admin = requireAdmin(req.headers);
+    if (admin.ok === false) return admin.response;
+
+    const id = String(routeParams.id || '').trim();
+    if (!id) return jsonError('INVALID_ID', 'Invalid product id.', 400);
+
+    const db = await getDbPool();
+    if (!db) {
+      const mem = fallbackStore();
+      const item = mem.products.find((p) => p.id === id);
+      if (!item) return jsonError('NOT_FOUND', 'Product not found.', 404);
+      return jsonSuccess({ storage: 'fallback', item });
+    }
+
+    const [rows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
+    const item = Array.isArray(rows) && rows[0] ? (rows[0] as any) : null;
+    if (!item) return jsonError('NOT_FOUND', 'Product not found.', 404);
+
+    return jsonSuccess({ storage: 'mysql', item });
+  });
+}
+
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return withApiHandler(request, async ({ request: req, ip }) => {
     const routeParams = await context.params;

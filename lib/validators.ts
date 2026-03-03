@@ -58,7 +58,10 @@ export const authSignupSchema = z.object({
   district: z.string().trim().max(120).optional().default(''),
   thana: z.string().trim().max(120).optional().default(''),
   address: z.string().trim().max(500).optional().default(''),
-  password: z.string().min(6).max(120).optional(),
+  password: z.string().min(8).max(120).regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+    'Password must be at least 8 characters and include uppercase, lowercase, and a number.',
+  ).optional(),
 });
 
 export const authLoginSchema = z.object({
@@ -73,8 +76,11 @@ export const authForgotPasswordSchema = z.object({
 export const authResetPasswordSchema = z.object({
   email: z.string().trim().email().max(255),
   otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be 6 digits.'),
-  password: z.string().min(6).max(120),
-  confirmPassword: z.string().min(6).max(120),
+  password: z.string().min(8).max(120).regex(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+    'Password must be at least 8 characters and include uppercase, lowercase, and a number.',
+  ),
+  confirmPassword: z.string().min(8).max(120),
 }).superRefine((value, ctx) => {
   if (value.password !== value.confirmPassword) {
     ctx.addIssue({

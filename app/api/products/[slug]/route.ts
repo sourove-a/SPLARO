@@ -36,7 +36,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
     }
 
     const [rows] = await db.execute(
-      `SELECT id, name, slug, category_id, product_type, image_url, product_url, price, active, created_at, updated_at
+      `SELECT id, name, slug, category_id, product_type, image_url, product_url,
+              price, discount_price, stock_quantity, variants_json,
+              seo_title, seo_description, meta_keywords,
+              active, created_at, updated_at
        FROM products WHERE slug = ? AND active = 1 LIMIT 1`,
       [slug],
     );
