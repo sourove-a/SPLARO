@@ -1,4 +1,4 @@
-import { randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { appendRow, ensureTabsAndHeaders } from '../../../lib/sheets';
 import { getDbPool, getStorageInfo, nextOrderNumber } from '../../../lib/db';
@@ -12,6 +12,7 @@ import { sendMail } from '../../../lib/mailer';
 type JsonRecord = Record<string, any>;
 
 const AUTH_COOKIE = 'splaro_auth_user';
+const LEGACY_AUTH_COOKIE = 'splaro_auth';
 const CSRF_COOKIE = 'splaro_csrf';
 
 const DEFAULT_SITE_SETTINGS = {
@@ -99,6 +100,58 @@ function sanitizeSlug(input: unknown): string {
   return raw || 'product';
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+async function uploadImageToCloudinary(file: File): Promise<{ url: string; width: number | null; height: number | null } | null> {
+  const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  const uploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || '').trim();
+  const apiKey = String(process.env.CLOUDINARY_API_KEY || '').trim();
+  const apiSecret = String(process.env.CLOUDINARY_API_SECRET || '').trim();
+  const folder = String(process.env.CLOUDINARY_FOLDER || 'splaro/products').trim();
+  const enabled = cloudName !== '' && (uploadPreset !== '' || (apiKey !== '' && apiSecret !== ''));
+  if (!enabled) return null;
+
+  const formData = new FormData();
+  formData.set('file', file);
+  formData.set('folder', folder);
+
+  if (uploadPreset !== '') {
+    formData.set('upload_preset', uploadPreset);
+  } else {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const base = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+    const signature = createHash('sha1').update(base).digest('hex');
+    formData.set('timestamp', String(timestamp));
+    formData.set('api_key', apiKey);
+    formData.set('signature', signature);
+  }
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+
+  if (!response) return null;
+  const payload = (await response.json().catch(() => ({}))) as JsonRecord;
+  const secureUrl = String(payload.secure_url || payload.url || '').trim();
+  if (!response.ok || secureUrl === '') return null;
+
+  return {
+    url: secureUrl,
+    width: Number.isFinite(Number(payload.width)) ? Number(payload.width) : null,
+    height: Number.isFinite(Number(payload.height)) ? Number(payload.height) : null,
+  };
+}
+
 function encodeAuthCookie(payload: { id: string; email: string; role: string }): string {
   return Buffer.from(JSON.stringify(payload)).toString('base64url');
 }
@@ -112,6 +165,59 @@ function decodeAuthCookie(token: string | undefined): { id: string; email: strin
       id: String((parsed as any).id || ''),
       email: normalizeEmail((parsed as any).email),
       role: String((parsed as any).role || 'user').toLowerCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getAuthSecret(): string {
+  const configured = String(process.env.APP_AUTH_SECRET || '').trim();
+  if (configured !== '') return configured;
+  const db = resolveRuntimeEnv().db;
+  return createHash('sha256')
+    .update(`splaro|${db.host}|${db.name}|${db.user}`)
+    .digest('hex');
+}
+
+function issueLegacyAuthToken(payload: { id: string; email: string; role: string }): string {
+  const secret = getAuthSecret();
+  if (secret === '') return '';
+  const now = Math.floor(Date.now() / 1000);
+  const body = {
+    uid: String(payload.id || ''),
+    email: normalizeEmail(payload.email),
+    role: String(payload.role || 'user').toUpperCase(),
+    pwd_at: now,
+    exp: now + (12 * 60 * 60),
+  };
+  const encoded = Buffer.from(JSON.stringify(body)).toString('base64url');
+  const signature = createHmac('sha256', secret).update(encoded).digest('base64url');
+  return `${encoded}.${signature}`;
+}
+
+function decodeLegacyAuthToken(token: string | undefined): { id: string; email: string; role: string } | null {
+  const raw = String(token || '').trim();
+  if (!raw || !raw.includes('.')) return null;
+  const [encoded, signature] = raw.split('.', 2);
+  if (!encoded || !signature) return null;
+  const secret = getAuthSecret();
+  if (secret === '') return null;
+  const expected = createHmac('sha256', secret).update(encoded).digest('base64url');
+  if (expected !== signature) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const exp = Number(parsed.exp || 0);
+    if (Number.isFinite(exp) && exp > 0 && exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    const id = String(parsed.uid || parsed.id || '').trim();
+    if (!id) return null;
+    return {
+      id,
+      email: normalizeEmail(parsed.email),
+      role: String(parsed.role || 'user').toLowerCase(),
     };
   } catch {
     return null;
@@ -179,7 +285,47 @@ function withCookies(response: NextResponse, values: Record<string, string | nul
 }
 
 function getAuthFromRequest(request: NextRequest) {
-  return decodeAuthCookie(request.cookies.get(AUTH_COOKIE)?.value);
+  const modernCookie = decodeAuthCookie(request.cookies.get(AUTH_COOKIE)?.value);
+  if (modernCookie) return modernCookie;
+
+  const legacyCookie = decodeLegacyAuthToken(request.cookies.get(LEGACY_AUTH_COOKIE)?.value);
+  if (legacyCookie) return legacyCookie;
+
+  const auth = String(request.headers.get('authorization') || '').trim();
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (bearer) {
+    const legacyBearer = decodeLegacyAuthToken(bearer);
+    if (legacyBearer) return legacyBearer;
+  }
+
+  return null;
+}
+
+function withAuthSessionCookies(
+  response: NextResponse,
+  payload: { id: string; email: string; role: string } | null,
+): NextResponse {
+  if (!payload) {
+    return withCookies(response, {
+      [AUTH_COOKIE]: null,
+      [LEGACY_AUTH_COOKIE]: null,
+    });
+  }
+
+  const normalized = {
+    id: String(payload.id || ''),
+    email: normalizeEmail(payload.email),
+    role: String(payload.role || 'user'),
+  };
+  const values: Record<string, string | null> = {
+    [AUTH_COOKIE]: encodeAuthCookie(normalized),
+    [LEGACY_AUTH_COOKIE]: null,
+  };
+  const legacyToken = issueLegacyAuthToken(normalized);
+  if (legacyToken !== '') {
+    values[LEGACY_AUTH_COOKIE] = legacyToken;
+  }
+  return withCookies(response, values);
 }
 
 async function getSiteSettingsMap(db: any | null): Promise<Record<string, any>> {
@@ -549,14 +695,13 @@ async function actionSignup(request: NextRequest, body: JsonRecord): Promise<Nex
   });
   await sendTelegramMessage(`✅ New Signup\nName: ${normalizedName}\nEmail: ${email}\nPhone: ${phone || 'N/A'}`);
 
+  const authPayload = { id: userId, email, role };
   const response = legacySuccess({
     message: 'SIGNUP_SUCCESS',
-    token: `auth_${randomUUID()}`,
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
     user: userPayload,
   }, 201);
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: userId, email, role }),
-  });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionLogin(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
@@ -601,18 +746,17 @@ async function actionLogin(request: NextRequest, body: JsonRecord): Promise<Next
     ipAddress: requestIp(request.headers),
   });
 
+  const authPayload = { id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') };
   const response = legacySuccess({
     message: 'LOGIN_SUCCESS',
-    token: `auth_${randomUUID()}`,
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
     user: {
       ...user,
       password_hash: undefined,
     },
   });
 
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') }),
-  });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionCreateOrder(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
@@ -1037,8 +1181,8 @@ async function actionLogoutAllSessions(request: NextRequest): Promise<NextRespon
   const auth = getAuthFromRequest(request);
   if (!auth) return legacyError('AUTH_REQUIRED', 401);
   const response = legacySuccess({ message: 'SESSIONS_TERMINATED' });
-  return withCookies(response, {
-    [AUTH_COOKIE]: null,
+  const cleared = withAuthSessionCookies(response, null);
+  return withCookies(cleared, {
     [CSRF_COOKIE]: null,
   });
 }
@@ -1131,6 +1275,7 @@ async function actionChangePassword(request: NextRequest, body: JsonRecord): Pro
   if (body.logoutAllSessions) {
     return withCookies(response, {
       [AUTH_COOKIE]: null,
+      [LEGACY_AUTH_COOKIE]: null,
       [CSRF_COOKIE]: null,
     });
   }
@@ -1206,9 +1351,10 @@ async function actionResetPassword(request: NextRequest, body: JsonRecord): Prom
     ipAddress: requestIp(request.headers),
   });
 
+  const authPayload = { id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') };
   const response = legacySuccess({
     message: 'PASSWORD_RESET_SUCCESS',
-    token: `auth_${randomUUID()}`,
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
     user: {
       id: String(user.id),
       name: String(user.name || ''),
@@ -1224,9 +1370,7 @@ async function actionResetPassword(request: NextRequest, body: JsonRecord): Prom
     },
   });
 
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') }),
-  });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionEmailOtpRequest(body: JsonRecord): Promise<NextResponse> {
@@ -1278,10 +1422,18 @@ async function actionEmailOtpVerify(request: NextRequest, body: JsonRecord): Pro
      WHERE id = ?`,
     [user.id],
   );
-  const response = legacySuccess({ message: 'EMAIL_VERIFIED' });
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email, role: String(user.role || 'user') }),
+  const authPayload = { id: String(user.id), email, role: String(user.role || 'user') };
+  const response = legacySuccess({
+    message: 'EMAIL_VERIFIED',
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
+    user: {
+      id: String(user.id),
+      email,
+      role: String(user.role || 'user').toLowerCase(),
+      email_verified: true,
+    },
   });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionUpdateSettings(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
@@ -1740,7 +1892,38 @@ async function actionUploadProductImage(request: NextRequest): Promise<NextRespo
   if (!isAdminRequest(request)) return legacyError('ADMIN_ACCESS_REQUIRED', 403);
   const form = await request.formData();
   const file = form.get('image');
-  if (!(file instanceof File)) return legacyError('IMAGE_REQUIRED', 400);
+  const manualUrl = String(form.get('image_url') || form.get('url') || '').trim();
+
+  if (!(file instanceof File) || file.size <= 0) {
+    if (manualUrl && isHttpUrl(manualUrl)) {
+      return legacySuccess({
+        data: {
+          url: manualUrl,
+          relative_url: manualUrl,
+          width: null,
+          height: null,
+          storage: 'manual_url',
+        },
+      });
+    }
+    return legacyError(manualUrl ? 'INVALID_IMAGE_URL' : 'IMAGE_REQUIRED', 400);
+  }
+
+  const cloudinaryUpload = await uploadImageToCloudinary(file);
+  if (cloudinaryUpload) {
+    return legacySuccess({
+      data: {
+        url: cloudinaryUpload.url,
+        relative_url: cloudinaryUpload.url,
+        width: cloudinaryUpload.width,
+        height: cloudinaryUpload.height,
+        name: file.name,
+        size: file.size,
+        storage: 'cloudinary',
+      },
+    });
+  }
+
   const bytes = Buffer.from(await file.arrayBuffer());
   const mime = file.type || 'image/png';
   const dataUrl = `data:${mime};base64,${bytes.toString('base64')}`;
@@ -1752,6 +1935,7 @@ async function actionUploadProductImage(request: NextRequest): Promise<NextRespo
       height: null,
       name: file.name,
       size: file.size,
+      storage: 'inline',
     },
   });
 }
