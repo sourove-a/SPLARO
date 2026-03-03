@@ -277,24 +277,209 @@ const ScrollToTop = () => {
   return null;
 };
 
+/* ─────────────────────────────── HOME PAGE ─────────────────────────────── */
+
+const HomeTrustStats = () => {
+  const stats = [
+    { value: '500+', label: 'Premium Products', icon: Sparkles },
+    { value: 'Direct', label: 'China Import', icon: Globe },
+    { value: '100%', label: 'Authentic Quality', icon: Shield },
+    { value: '48h', label: 'Dhaka Delivery', icon: Box },
+    { value: '24/7', label: 'WhatsApp Support', icon: Smartphone },
+  ];
+  return (
+    <div className="relative overflow-hidden border-y border-white/5 bg-gradient-to-r from-[#05060A] via-[#080D18] to-[#05060A]">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8">
+          {stats.map((s, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: i * 0.08 }}
+              className="flex flex-col items-center text-center gap-3 group"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500/20 transition-all duration-500">
+                <s.icon className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-black text-white tracking-tight">{s.value}</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.35em] text-zinc-600 mt-0.5">{s.label}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HomeCategoryCards = ({ onNavigate }: { onNavigate: (cat: string) => void }) => (
+  <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.8 }}
+      className="mb-14"
+    >
+      <p className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-500 mb-4">COLLECTIONS</p>
+      <h2 className="text-5xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none uppercase text-white">
+        SHOP BY<br /><span className="text-white/30">CATEGORY.</span>
+      </h2>
+    </motion.div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-8">
+      {[
+        {
+          label: 'FOOTWEAR',
+          sub: 'Imported Sneakers & Shoes',
+          tag: 'Nike · Adidas · Jordan · New Balance',
+          cat: 'shoe',
+          img: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=900',
+          accent: 'from-cyan-900/60 to-[#050505]',
+        },
+        {
+          label: 'BAGS',
+          sub: 'Luxury & Designer Bags',
+          tag: 'Gucci · Prada · LV · Dior',
+          cat: 'bag',
+          img: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?q=80&w=900',
+          accent: 'from-blue-900/60 to-[#050505]',
+        },
+      ].map((item, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: i * 0.15 }}
+          onClick={() => onNavigate(item.cat)}
+          className="group relative cursor-pointer overflow-hidden rounded-[28px] sm:rounded-[36px] border border-white/8 hover:border-cyan-500/30 transition-all duration-700 aspect-[4/3] sm:aspect-[16/9]"
+        >
+          <div className="absolute inset-0 overflow-hidden">
+            <OptimizedImage
+              src={item.img}
+              alt={item.label}
+              sizes="(max-width: 640px) 100vw, 50vw"
+              className="w-full h-full object-cover opacity-50 group-hover:opacity-70 group-hover:scale-105 transition-all duration-1000"
+            />
+            <div className={`absolute inset-0 bg-gradient-to-t ${item.accent}`} />
+          </div>
+          <div className="relative z-10 h-full flex flex-col justify-end p-8 sm:p-10">
+            <p className="text-[9px] font-black uppercase tracking-[0.5em] text-white/40 mb-3">{item.tag}</p>
+            <h3 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter text-white leading-none mb-3">{item.label}</h3>
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/60 mb-6">{item.sub}</p>
+            <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 group-hover:gap-5 transition-all duration-500">
+              <span>Explore</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-500" />
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  </section>
+);
+
+const HomeWhySplaro = () => {
+  const pillars = [
+    {
+      icon: CreditCard,
+      title: 'Direct Price',
+      desc: 'Directly imported from China — no middlemen, no markups. Premium quality at honest prices.',
+    },
+    {
+      icon: Shield,
+      title: '100% Authentic',
+      desc: 'Every product is sourced from verified manufacturers. Authenticity guaranteed on every item.',
+    },
+    {
+      icon: Briefcase,
+      title: 'Curated Selection',
+      desc: 'Handpicked by our team for design excellence, material quality, and long-lasting finish.',
+    },
+  ];
+  return (
+    <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8 }}
+        className="mb-16"
+      >
+        <p className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-500 mb-4">WHY SPLARO</p>
+        <h2 className="text-5xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none uppercase text-white">
+          THE SPLARO<br /><span className="text-white/30">PROMISE.</span>
+        </h2>
+      </motion.div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+        {pillars.map((p, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: i * 0.12 }}
+            className="group relative overflow-hidden rounded-[28px] border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] hover:border-cyan-500/20 transition-all duration-700 p-8 sm:p-10"
+          >
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-cyan-500/5 blur-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/15 flex items-center justify-center text-cyan-400 mb-8 group-hover:bg-cyan-500/20 transition-all duration-500">
+              <p.icon className="w-5 h-5" />
+            </div>
+            <div className="w-8 h-[2px] bg-cyan-500/30 mb-8 group-hover:w-16 group-hover:bg-cyan-500/60 transition-all duration-700" />
+            <h3 className="text-xl font-black uppercase tracking-tight text-white mb-4">{p.title}</h3>
+            <p className="text-[11px] font-bold text-white/50 leading-relaxed uppercase tracking-[0.15em]">{p.desc}</p>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+};
+
 const HomeView = () => {
   const { products, setSelectedCategory, setSearchQuery } = useApp();
   const navigate = useNavigate();
-  const displayProducts = products;
+
+  const featuredProducts = useMemo(() => {
+    const featured = products.filter((p) => (p as any).featured);
+    return featured.length >= 3 ? featured.slice(0, 6) : products.slice(0, 6);
+  }, [products]);
+
+  const handleCategoryNav = (cat: string) => {
+    setSelectedCategory(cat as any);
+    setSearchQuery('');
+    navigate('/shop');
+  };
 
   return (
     <div className="relative">
+      {/* ── Hero ── */}
       <LazyView>
         <HeroSlider />
       </LazyView>
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40 relative overflow-hidden">
-        <div>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
-            <div className="max-w-3xl">
-              <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
+
+      {/* ── Trust Stats Strip ── */}
+      <HomeTrustStats />
+
+      {/* ── Categories ── */}
+      <HomeCategoryCards onNavigate={handleCategoryNav} />
+
+      {/* ── Featured Products ── */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-14 sm:mb-20 gap-8">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-500 mb-4">NEW ARRIVALS</p>
+              <h2 className="text-5xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none uppercase text-white">
                 MODERN<br /><span className="text-cyan-500">LUXURY FLOW.</span>
               </h2>
-              <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium">
+              <p className="text-white/50 text-sm max-w-md leading-relaxed font-medium mt-6">
                 Imported footwear and bags with sharp lines, bold character, and a refined finish.
               </p>
             </div>
@@ -304,17 +489,98 @@ const HomeView = () => {
                 setSearchQuery('');
                 navigate('/shop');
               }}
-              className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-cyan-500 transition-all duration-700"
+              className="group flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.5em] border border-white/10 rounded-full px-8 py-4 hover:border-cyan-500/50 hover:text-cyan-400 transition-all duration-500 shrink-0"
             >
-              Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
+              View All <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-500" />
             </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">
-            {displayProducts.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} />
+        </motion.div>
+
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-10 lg:gap-14">
+          {featuredProducts.map((p, i) => (
+            <ProductCard key={p.id} product={p} index={i} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Why SPLARO ── */}
+      <HomeWhySplaro />
+
+      {/* ── Full Collection ── */}
+      {products.length > 6 && (
+        <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-20 sm:pb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-14 gap-8">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-500 mb-4">FULL CATALOG</p>
+                <h2 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-none uppercase text-white">
+                  ALL<br /><span className="text-white/30">PRODUCTS.</span>
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedCategory(null);
+                  setSearchQuery('');
+                  navigate('/shop');
+                }}
+                className="group flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.5em] border border-white/10 rounded-full px-8 py-4 hover:border-cyan-500/50 hover:text-cyan-400 transition-all duration-500 shrink-0"
+              >
+                Open Shop <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-500" />
+              </button>
+            </div>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-10 lg:gap-14">
+            {products.slice(6).map((p, i) => (
+              <ProductCard key={p.id} product={p} index={i + 6} />
             ))}
           </div>
-        </div>
+        </section>
+      )}
+
+      {/* ── Premium CTA Banner ── */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-20 sm:pb-28">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="relative overflow-hidden rounded-[32px] sm:rounded-[48px] border border-white/8 bg-gradient-to-br from-[#0B1829] via-[#091426] to-[#050A14] p-10 sm:p-16 md:p-20 text-center"
+        >
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-cyan-600/10 rounded-full blur-[120px]" />
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-[0.8em] text-cyan-500/70 mb-6 relative z-10">DIRECT IMPORT · BANGLADESH EXCLUSIVE</p>
+          <h2 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-none uppercase text-white mb-8 relative z-10">
+            ELEVATE YOUR<br /><span className="text-cyan-500">COLLECTION.</span>
+          </h2>
+          <p className="text-white/40 text-sm font-bold uppercase tracking-[0.3em] max-w-lg mx-auto mb-12 relative z-10">
+            Premium imported footwear and bags. Directly from China to Bangladesh.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => { setSelectedCategory(null); setSearchQuery(''); navigate('/shop'); }}
+              className="px-10 sm:px-16 py-5 sm:py-6 bg-cyan-500 text-black text-[10px] font-black uppercase tracking-[0.5em] rounded-full hover:bg-cyan-400 transition-all duration-300 flex items-center gap-3 justify-center"
+            >
+              Shop Collection <ArrowRight className="w-4 h-4" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => navigate('/story')}
+              className="px-10 sm:px-16 py-5 sm:py-6 border border-white/15 text-white text-[10px] font-black uppercase tracking-[0.5em] rounded-full hover:border-cyan-500/40 hover:text-cyan-400 transition-all duration-300"
+            >
+              Our Story
+            </motion.button>
+          </div>
+        </motion.div>
       </section>
     </div>
   );
