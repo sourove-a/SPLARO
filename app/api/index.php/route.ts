@@ -125,11 +125,10 @@ function randomOtp(): string {
 function isAdminRequest(request: NextRequest): boolean {
   const runtime = resolveRuntimeEnv();
   const expected = runtime.adminKey || '';
-  if (!expected) return false;
   const direct = String(request.headers.get('x-admin-key') || '').trim();
   const auth = String(request.headers.get('authorization') || '').trim();
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  if (direct === expected || bearer === expected) {
+  if (expected !== '' && (direct === expected || bearer === expected)) {
     return true;
   }
 
