@@ -347,19 +347,19 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[36vw] sm:max-w-[52vw] md:max-w-none" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[48vw] sm:max-w-[52vw] md:max-w-none" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
-          <SplaroLogo className="h-6 sm:h-9 md:h-16" />
+          <SplaroLogo className="h-7 sm:h-9 md:h-16" />
           <span className="hidden sm:block mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
             {currentRouteLabel}
           </span>
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
-        <div className="flex-1 flex justify-end items-center gap-2 sm:gap-3 md:gap-8">
+        <div className="flex-1 flex justify-end items-center gap-3 sm:gap-3 md:gap-8">
           {/* Desktop Right Links */}
           <div className="hidden lg:flex items-center gap-6 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[24px] border border-white/5 shadow-xl pointer-events-auto">
             {!user && (
@@ -443,24 +443,6 @@ export const Navbar: React.FC = () => {
             <NotificationBell mobile />
           </div>
         )}
-
-          {!user && (
-            <button
-              type="button"
-              aria-label="Open login"
-              onClick={() => {
-                navigate('/login');
-                setIsSearchOpen(false);
-                setMenuOpen(false);
-              }}
-              className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 px-3 bg-white/10 backdrop-blur-3xl rounded-[16px] border border-white/15 hover:border-cyan-400/70 transition-all shadow-xl group pointer-events-auto touch-manipulation flex items-center justify-center gap-1"
-            >
-              <User className="w-4 h-4 text-white/90 group-hover:text-cyan-200" />
-              <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/95 group-hover:text-cyan-200">
-                SIGN IN
-              </span>
-            </button>
-          )}
 
           <button
             type="button"
