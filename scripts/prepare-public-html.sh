@@ -7,7 +7,7 @@ PUBLIC_DIR="$ROOT_DIR/public"
 TARGET_DIR="$ROOT_DIR/public_html"
 
 echo "[prepare-public-html] building frontend..."
-(cd "$ROOT_DIR" && npm run build >/dev/null)
+(cd "$ROOT_DIR" && npm run build:storefront >/dev/null)
 
 echo "[prepare-public-html] ensuring target directory..."
 mkdir -p "$TARGET_DIR"

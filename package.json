@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate --schema=./prisma/schema.prisma && next build && node scripts/ensure-hostinger-dist.mjs",
+    "build:storefront": "vite build",
     "typecheck": "tsc --noEmit",
+    "prepare:public-html": "bash scripts/prepare-public-html.sh",
     "build:admin:hostinger": "bash scripts/prepare-admin-public-html.sh",
     "start": "next start",
     "start:hostinger": "next start",
@@ -37,6 +39,8 @@
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "tsx": "^4.20.0"
+    "@vitejs/plugin-react": "^5.1.4",
+    "tsx": "^4.20.0",
+    "vite": "^7.3.1"
   }
 }
