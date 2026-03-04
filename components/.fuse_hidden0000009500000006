@@ -1,0 +1,996 @@
+
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Lock, Mail, Eye, EyeOff,
+  Sparkles, AlertCircle, KeyRound
+} from 'lucide-react';
+import { useApp } from '../store';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
+import { useEffect } from 'react';
+import { getGoogleClientId, getPhpApiNode, isAdminSubdomainHost, shouldUsePhpApi } from '../lib/runtime';
+import { isAdminRole } from '../lib/roles';
+
+type AuthMode = 'login' | 'signup' | 'forgot';
+
+type AuthFormProps = {
+  forcedMode?: 'login' | 'signup';
+};
+
+export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
+  const { setUser, registerUser, syncRegistry, users, siteSettings } = useApp();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const adminDomain = isAdminSubdomainHost();
+  const isSignupPath = location.pathname.includes('signup');
+  const isLoginPath = location.pathname.includes('login') || location.pathname === '/sourove-admin';
+  const initialMode: AuthMode = forcedMode ?? (isSignupPath ? 'signup' : 'login');
+
+  const [authMode, setAuthMode] = useState<AuthMode>(initialMode);
+  const [recoveryStep, setRecoveryStep] = useState<'email' | 'reset'>('email');
+  const [formData, setFormData] = useState({
+    email: '',
+    identifier: '',
+    password: '',
+    confirmPassword: '',
+    otp: '',
+    signupName: '',
+    signupPhone: ''
+  });
+  const [showPass, setShowPass] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
+  const [googleButtonState, setGoogleButtonState] = useState<'idle' | 'ready' | 'missing' | 'unavailable'>('idle');
+  const buildDisplayNameFromEmail = (email: string) => {
+    const base = email.split('@')[0] || '';
+    const cleaned = base
+      .replace(/[0-9]/g, ' ')
+      .replace(/[._-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleaned) return 'SPLARO Customer';
+
+    return cleaned
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const generatePublicUserId = () => {
+    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const getRandomHex = (len: number) => {
+      if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        const bytes = new Uint8Array(Math.ceil(len / 2));
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes)
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('')
+          .slice(0, len)
+          .toUpperCase();
+      }
+      return Math.random().toString(16).slice(2).padEnd(len, '0').slice(0, len).toUpperCase();
+    };
+    return `USR-${datePart}-${getRandomHex(10)}`;
+  };
+
+  useEffect(() => {
+    if (forcedMode && authMode !== forcedMode) {
+      setErrors({});
+      setAuthMode(forcedMode);
+      return;
+    }
+
+    if (!forcedMode) {
+      // Keep forgot-password flow stable; only auto-switch between login/signup.
+      if (isSignupPath && authMode === 'login') setAuthMode('signup');
+      if (isLoginPath && authMode === 'signup') setAuthMode('login');
+    }
+
+    // Hidden Admin Entry Protocol (do not force-exit forgot mode)
+    if (location.pathname === '/sourove-admin' && authMode === 'signup') {
+      setAuthMode('login');
+    }
+    if (location.pathname === '/sourove-admin') {
+      setFormData(prev => ({
+        ...prev,
+        identifier: prev.identifier || 'admin@splaro.co'
+      }));
+    }
+    if (authMode !== 'login' && emailVerificationPending) {
+      setEmailVerificationPending(false);
+    }
+  }, [forcedMode, location.pathname, isSignupPath, isLoginPath, authMode, emailVerificationPending]);
+  const googleClientId = String(
+    getGoogleClientId() ||
+    siteSettings.googleClientId ||
+    // @ts-ignore - legacy runtime payload
+    siteSettings.google_client_id ||
+    // @ts-ignore - optional runtime injection
+    (typeof window !== 'undefined' ? (window.__SPLARO_GOOGLE_CLIENT_ID || window.GOOGLE_CLIENT_ID || '') : '')
+  ).trim();
+  const floatingAssets = useMemo(
+    () =>
+      Array.from({ length: 6 }, () => ({
+        top: `${Math.random() * 88 + 6}%`,
+        left: `${Math.random() * 88 + 6}%`
+      })),
+    []
+  );
+  const persistAuthToken = (token?: string) => {
+    if (!token) return;
+    localStorage.setItem('splaro-auth-token', token);
+  };
+  const persistAdminKey = (key?: string) => {
+    if (!key) return;
+    localStorage.setItem('splaro-admin-key', key);
+  };
+  const normalizeApiUser = (raw: any) => ({
+    ...(raw || {}),
+    profileImage: raw?.profile_image || raw?.profileImage || '',
+    createdAt: raw?.created_at || raw?.createdAt || new Date().toISOString(),
+    emailVerified: typeof raw?.email_verified === 'boolean'
+      ? raw.email_verified
+      : (typeof raw?.emailVerified === 'boolean' ? raw.emailVerified : (Number(raw?.email_verified ?? 0) === 1)),
+    phoneVerified: typeof raw?.phone_verified === 'boolean'
+      ? raw.phone_verified
+      : (typeof raw?.phoneVerified === 'boolean' ? raw.phoneVerified : (Number(raw?.phone_verified ?? 0) === 1)),
+    defaultShippingAddress: raw?.default_shipping_address ?? raw?.defaultShippingAddress ?? '',
+    notificationEmail: typeof raw?.notification_email === 'boolean'
+      ? raw.notification_email
+      : (typeof raw?.notificationEmail === 'boolean' ? raw.notificationEmail : (Number(raw?.notification_email ?? 1) === 1)),
+    notificationSms: typeof raw?.notification_sms === 'boolean'
+      ? raw.notification_sms
+      : (typeof raw?.notificationSms === 'boolean' ? raw.notificationSms : (Number(raw?.notification_sms ?? 0) === 1)),
+    preferredLanguage: raw?.preferred_language || raw?.preferredLanguage || 'EN',
+    twoFactorEnabled: typeof raw?.two_factor_enabled === 'boolean'
+      ? raw.two_factor_enabled
+      : (typeof raw?.twoFactorEnabled === 'boolean' ? raw.twoFactorEnabled : (Number(raw?.two_factor_enabled ?? 0) === 1)),
+    lastPasswordChangeAt: raw?.last_password_change_at || raw?.lastPasswordChangeAt || undefined,
+    forceRelogin: typeof raw?.force_relogin === 'boolean'
+      ? raw.force_relogin
+      : (typeof raw?.forceRelogin === 'boolean' ? raw.forceRelogin : (Number(raw?.force_relogin ?? 0) === 1))
+  });
+
+  const isEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const isPhone = (val: string) => /^(?:\+?88)?01[3-9]\d{8}$/.test(val.trim());
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    const newErrors: Record<string, string> = {};
+    const isLoginOtpStep = authMode === 'login' && emailVerificationPending;
+
+    if (authMode === 'signup') {
+      if (!isEmail(formData.email)) newErrors.email = "Email Identity Mandatory *";
+      if (!formData.signupName.trim()) newErrors.signupName = "Name Required *";
+      if (!isPhone(formData.signupPhone.trim())) newErrors.signupPhone = "Valid Number Required (01XXXXXXXXX or +8801XXXXXXXXX)";
+      if (formData.password.length < 6) newErrors.password = "Minimum 6 Characters";
+      if (formData.confirmPassword.length < 6) newErrors.confirmPassword = "Confirm your password";
+      if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = "Password mismatch";
+      }
+    } else {
+      if (authMode === 'forgot') {
+        if (!isEmail(formData.identifier)) {
+          newErrors.identifier = "Valid Email Required";
+        }
+      } else if (!isEmail(formData.identifier)) {
+        newErrors.identifier = "Scientific Email ID Required";
+      }
+    }
+
+    if (authMode === 'login') {
+      if (isLoginOtpStep) {
+        if (!/^\d{6}$/.test(formData.otp.trim())) {
+          newErrors.otp = "Enter 6-digit OTP";
+        }
+      } else if (formData.password.length < 6) {
+        newErrors.password = "Minimum 6 Characters";
+      }
+    }
+
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setStatus('error');
+      setTimeout(() => setStatus('idle'), 3000);
+      return;
+    }
+
+    setStatus('loading');
+
+    const IS_PROD = shouldUsePhpApi();
+    const API_NODE = getPhpApiNode();
+
+    if (authMode === 'login') {
+      try {
+        if (isLoginOtpStep) {
+          if (!IS_PROD) {
+            setEmailVerificationPending(false);
+            setStatus('idle');
+            return;
+          }
+
+          const verifyRes = await fetch(`${API_NODE}?action=verify_email_otp`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: formData.identifier, otp: formData.otp })
+          });
+          const verifyResult = await verifyRes.json();
+          if (verifyResult.status === 'success' && verifyResult.user) {
+            const normalizedUser = normalizeApiUser(verifyResult.user);
+            persistAuthToken(verifyResult.token);
+            if (isAdminRole(normalizedUser.role) && adminDomain && formData.password) {
+              persistAdminKey(formData.password);
+            }
+            setEmailVerificationPending(false);
+            setUser(normalizedUser);
+            setStatus('success');
+            const targetPath = isAdminRole(normalizedUser.role)
+              ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+              : '/';
+            setTimeout(() => navigate(targetPath), 1000);
+            return;
+          }
+
+          const verifyMessage = String(verifyResult?.message || 'INVALID_CODE_OR_EXPIRED');
+          if (verifyMessage === 'EMAIL_ALREADY_VERIFIED') {
+            setEmailVerificationPending(false);
+            setErrors({ identifier: 'Email already verified. Login with password.' });
+            setStatus('error');
+            setTimeout(() => setStatus('idle'), 3000);
+            return;
+          }
+          throw new Error(verifyMessage);
+        }
+
+        if (IS_PROD) {
+          const res = await fetch(`${API_NODE}?action=login`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: formData.identifier, password: formData.password })
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            const normalizedUser = normalizeApiUser(result.user);
+            persistAuthToken(result.token);
+            if (isAdminRole(normalizedUser.role) && adminDomain) {
+              persistAdminKey(formData.password);
+            }
+            setEmailVerificationPending(false);
+            setUser(normalizedUser);
+            setStatus('success');
+            const targetPath = isAdminRole(normalizedUser.role)
+              ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+              : '/';
+            setTimeout(() => navigate(targetPath), 1000);
+            return;
+          }
+          if (result.message === 'EMAIL_VERIFICATION_REQUIRED') {
+            setEmailVerificationPending(true);
+            setStatus('idle');
+            if (String(result.delivery || '') === 'FAILED') {
+              setErrors({ otp: 'OTP delivery failed. Use Resend OTP.' });
+            } else {
+              setErrors({ otp: 'Email OTP sent. Enter 6-digit code.' });
+            }
+            window.dispatchEvent(new CustomEvent('splaro-toast', {
+              detail: {
+                message: String(result.delivery || '') === 'FAILED'
+                  ? 'Email OTP delivery failed. Click resend.'
+                  : 'Verification OTP sent to your email.',
+                tone: String(result.delivery || '') === 'FAILED' ? 'error' : 'info'
+              }
+            }));
+            return;
+          }
+          if (result.message === 'DATABASE_ENV_NOT_CONFIGURED' || result.message === 'DATABASE_CONNECTION_FAILED') {
+            const identifier = formData.identifier.trim().toLowerCase();
+            const localUser = users.find((u: any) => String(u.email || '').toLowerCase() === identifier);
+            if (localUser && String((localUser as any).password || '') === formData.password) {
+              setUser(localUser);
+              setStatus('success');
+              const targetPath = isAdminRole(localUser.role)
+                ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+                : '/';
+              setTimeout(() => navigate(targetPath), 1000);
+              return;
+            }
+          }
+          if (result.message === 'PASSWORD_RESET_REQUIRED') {
+            setErrors({ identifier: 'Password hash upgrade required. Use Forgot Password.' });
+            setStatus('error');
+            setTimeout(() => setStatus('idle'), 3500);
+            return;
+          }
+        } else {
+          const identifier = formData.identifier.trim().toLowerCase();
+          const localUser = users.find((u: any) => String(u.email || '').toLowerCase() === identifier);
+          if (localUser && String((localUser as any).password || '') === formData.password) {
+            setUser(localUser);
+            setStatus('success');
+            const targetPath = isAdminRole(localUser.role)
+              ? (adminDomain ? '/admin_dashboard' : '/user_dashboard')
+              : '/';
+            setTimeout(() => navigate(targetPath), 1000);
+            return;
+          }
+        }
+
+        throw new Error('INVALID_CREDENTIALS');
+      } catch (e) {
+        const message = e instanceof Error ? e.message : '';
+        if (isLoginOtpStep) {
+          if (message === 'INVALID_VERIFICATION_REQUEST') {
+            setErrors({ otp: 'Enter valid email and 6-digit OTP.' });
+          } else if (message === 'RATE_LIMIT_EXCEEDED') {
+            setErrors({ otp: 'Too many OTP attempts. Wait a minute.' });
+          } else {
+            setErrors({ otp: 'Invalid or expired OTP.' });
+          }
+        } else {
+          setErrors({ identifier: 'Invalid Credentials', password: 'Check identity or access code' });
+        }
+        setStatus('error');
+        setTimeout(() => setStatus('idle'), 3000);
+      }
+    } else if (authMode === 'signup') {
+      try {
+        const normalizedEmail = formData.email.trim().toLowerCase();
+        const newUser: any = {
+          id: generatePublicUserId(),
+          name: formData.signupName.trim() || buildDisplayNameFromEmail(normalizedEmail),
+          email: normalizedEmail,
+          phone: formData.signupPhone.trim(),
+          password: formData.password,
+          role: 'USER',
+          createdAt: new Date().toISOString()
+        };
+        let userToStore = newUser;
+
+        if (IS_PROD) {
+          const res = await fetch(`${API_NODE}?action=signup`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newUser)
+          });
+          const result = await res.json();
+          if (result.status !== 'success') throw new Error(result.message || 'SIGNUP_FAILED');
+          persistAuthToken(result.token);
+          if (result.user) {
+            userToStore = normalizeApiUser(result.user);
+          }
+        }
+
+        registerUser(userToStore);
+        setUser(userToStore);
+        if (IS_PROD) {
+          await syncRegistry();
+        }
+        setStatus('success');
+        setTimeout(() => navigate('/'), 1000);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : '';
+        const canFallbackToLocal =
+          !IS_PROD ||
+          message === 'DATABASE_ENV_NOT_CONFIGURED' ||
+          message === 'DATABASE_CONNECTION_FAILED';
+
+        if (canFallbackToLocal) {
+          const fallbackUser = {
+            id: generatePublicUserId(),
+            name: formData.signupName.trim() || buildDisplayNameFromEmail(formData.email.trim().toLowerCase()),
+            email: formData.email.trim().toLowerCase(),
+            phone: formData.signupPhone.trim(),
+            password: formData.password,
+            role: 'USER',
+            createdAt: new Date().toISOString()
+          };
+          registerUser(fallbackUser as any);
+          setUser(fallbackUser as any);
+          setStatus('success');
+          setTimeout(() => navigate('/'), 1000);
+          return;
+        }
+
+        if (message === 'EMAIL_ALREADY_REGISTERED' || message === 'IDENTITY_ALREADY_EXISTS') {
+          setErrors({ email: 'Email already registered. Please log in.' });
+        } else if (message === 'INVALID_EMAIL') {
+          setErrors({ email: 'Enter a valid email address.' });
+        } else if (message === 'PASSWORD_REQUIRED') {
+          setErrors({ password: 'Password is required.' });
+        } else if (message === 'WEAK_PASSWORD') {
+          setErrors({ password: 'Password must be at least 6 characters and cannot include spaces.' });
+        } else if (message === 'RATE_LIMIT_EXCEEDED') {
+          setErrors({ email: 'Too many attempts. Please wait 1 minute and try again.' });
+        } else if (message === 'SPAM_BLOCKED') {
+          setErrors({ email: 'Request blocked. Please retry.' });
+        } else {
+          setErrors({ email: 'Signup failed. Please try again.' });
+        }
+        setStatus('error');
+        setTimeout(() => setStatus('idle'), 3000);
+      }
+    } else if (authMode === 'forgot') {
+      if (recoveryStep === 'email') {
+        try {
+          const res = await fetch(`${API_NODE}?action=forgot_password`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              identifier: formData.identifier,
+              email: formData.identifier
+            })
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            setStatus('success');
+            setRecoveryStep('reset');
+            const otpPreview = String(result.otp_preview || '').trim();
+            const msg =
+              result.message === 'RECOVERY_SIGNAL_DISPATCHED' && String(result.channel || '') === 'EMAIL_AND_TELEGRAM'
+                ? 'OTP sent to your email. Backup sent to admin Telegram.'
+                : result.message === 'RECOVERY_CODE_SENT_TO_ADMIN_TELEGRAM'
+                ? 'OTP sent to admin Telegram. Use that code to reset.'
+                : result.message === 'RECOVERY_CODE_GENERATED_FALLBACK'
+                  ? (otpPreview ? `SMTP down. Use OTP now: ${otpPreview}` : 'SMTP down. OTP generated, contact admin.')
+                  : 'OTP sent. Check your email and enter the code.';
+            if (otpPreview) {
+              setFormData(prev => ({ ...prev, otp: otpPreview }));
+            }
+            window.dispatchEvent(new CustomEvent('splaro-toast', {
+              detail: { message: msg, tone: 'success' }
+            }));
+            setTimeout(() => setStatus('idle'), 2000);
+          } else {
+            throw new Error(result.message);
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : '';
+          if (message === 'IDENTITY_NOT_FOUND') {
+            setErrors({ identifier: 'No account found with this email' });
+          } else if (message === 'INVALID_IDENTITY') {
+            setErrors({ identifier: 'Enter a valid email address' });
+          } else if (message === 'INVALID_EMAIL') {
+            setErrors({ identifier: 'Enter a valid email address' });
+          } else if (message === 'RATE_LIMIT_EXCEEDED') {
+            setErrors({ identifier: 'Too many attempts. Try again after 1 minute' });
+          } else if (message === 'RECOVERY_DELIVERY_FAILED') {
+            setErrors({ identifier: 'Could not send OTP now. Contact admin support' });
+          } else {
+            setErrors({ identifier: 'Reset request failed. Try again' });
+          }
+          setStatus('error');
+          setTimeout(() => setStatus('idle'), 3000);
+        }
+      } else {
+        try {
+          const res = await fetch(`${API_NODE}?action=reset_password`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              identifier: formData.identifier,
+              email: formData.identifier,
+              otp: formData.otp,
+              password: formData.password
+            })
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            setStatus('success');
+            window.dispatchEvent(new CustomEvent('splaro-toast', {
+              detail: { message: 'Password updated. Please sign in.', tone: 'success' }
+            }));
+            setAuthMode('login');
+            setRecoveryStep('email');
+            setFormData(prev => ({ ...prev, otp: '', password: '', confirmPassword: '' }));
+          } else {
+            throw new Error(result.message);
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : '';
+          if (message === 'INVALID_RESET_REQUEST') {
+            setErrors({ otp: 'Enter valid email, OTP and new password (min 6 chars)' });
+          } else {
+            setErrors({ otp: 'Invalid or expired verification code' });
+          }
+          setStatus('error');
+          setTimeout(() => setStatus('idle'), 3000);
+        }
+      }
+    }
+  };
+
+  const handleResendEmailOtp = async () => {
+    const email = formData.identifier.trim().toLowerCase();
+    if (!isEmail(email)) {
+      setErrors({ identifier: 'Enter a valid email first.' });
+      return;
+    }
+    try {
+      const res = await fetch(`${getPhpApiNode()}?action=request_email_verification_otp`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (result.status !== 'success') {
+        throw new Error(String(result.message || 'EMAIL_OTP_DELIVERY_FAILED'));
+      }
+      window.dispatchEvent(new CustomEvent('splaro-toast', {
+        detail: {
+          message: result.message === 'EMAIL_ALREADY_VERIFIED'
+            ? 'Email already verified. Login now.'
+            : 'Verification OTP resent to your email.',
+          tone: 'success'
+        }
+      }));
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      if (message === 'RATE_LIMIT_EXCEEDED') {
+        setErrors({ otp: 'Too many requests. Try after 1 minute.' });
+      } else {
+        setErrors({ otp: 'OTP resend failed. Try again.' });
+      }
+    }
+  };
+
+  // Google Identity Payload Decoder
+  const decodeJwt = (token: string) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const handleGoogleSuccess = async (response: any) => {
+    try {
+      setStatus('loading');
+      const payload = decodeJwt(response.credential);
+      if (!payload?.email || !payload?.sub) {
+        throw new Error('INVALID_GOOGLE_PAYLOAD');
+      }
+
+      const normalizedEmail = String(payload.email).trim().toLowerCase();
+      const googleUser = {
+        id: `google_${payload.sub}`,
+        name: payload.name || buildDisplayNameFromEmail(normalizedEmail),
+        email: normalizedEmail,
+        phone: 'N/A',
+        password: 'social_auth_sync',
+        google_sub: String(payload.sub),
+        role: 'USER',
+        createdAt: new Date().toISOString()
+      };
+      let userToStore: any = googleUser;
+
+      const IS_PROD = shouldUsePhpApi();
+      if (IS_PROD) {
+        const API_NODE = getPhpApiNode();
+        const res = await fetch(`${API_NODE}?action=signup`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(googleUser)
+        });
+        const result = await res.json();
+        if (result.status !== 'success') throw new Error(result.message || 'GOOGLE_SIGNUP_FAILED');
+        persistAuthToken(result.token);
+        if (result.user) {
+          userToStore = normalizeApiUser(result.user);
+        }
+      }
+
+      registerUser(userToStore);
+      setUser(userToStore);
+      if (IS_PROD) {
+        await syncRegistry();
+      }
+      setStatus('success');
+      setTimeout(() => navigate('/'), 1000);
+    } catch (e) {
+      setStatus('error');
+      setErrors({ identifier: 'Google sign-in failed. Please try again.' });
+      setTimeout(() => setStatus('idle'), 3000);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let retries = 0;
+    const maxRetries = 20;
+
+    if (!googleClientId) {
+      setGoogleButtonState('missing');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const renderGoogleButton = () => {
+      if (cancelled) return;
+      const mountNode = document.getElementById('googleSignInBtn');
+      // @ts-ignore - gsi script global
+      const googleObj = window.google;
+
+      if (!mountNode || !googleObj?.accounts?.id) {
+        retries += 1;
+        if (retries >= maxRetries) {
+          setGoogleButtonState('unavailable');
+          return;
+        }
+        window.setTimeout(renderGoogleButton, 250);
+        return;
+      }
+
+      try {
+        // @ts-ignore - gsi script global
+        googleObj.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleSuccess,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+
+        mountNode.innerHTML = '';
+        // @ts-ignore - gsi script global
+        googleObj.accounts.id.renderButton(mountNode, {
+          theme: 'outline',
+          size: 'large',
+          width: Math.max(240, Math.min(420, mountNode.clientWidth || 320)),
+          text: 'continue_with',
+          shape: 'pill'
+        });
+
+        setGoogleButtonState('ready');
+      } catch {
+        setGoogleButtonState('unavailable');
+      }
+    };
+
+    renderGoogleButton();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId, authMode]);
+
+  const getIdentityIcon = () => {
+    return <Mail className="w-5 h-5 text-cyan-400" />;
+  };
+
+
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-[#050505]">
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-blue-900/10 via-transparent to-cyan-500/10 opacity-30" />
+
+        {/* Floating Peripheral Assets */}
+        {floatingAssets.map((asset, i) => (
+          <motion.div
+            key={i}
+            animate={{
+              y: [0, -28, 0],
+              x: [0, 14, 0],
+              rotate: [0, 120, 240],
+              opacity: [0.1, 0.2, 0.1]
+            }}
+            transition={{
+              duration: 12 + i * 1.8,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+            className="absolute w-[160px] h-[160px] border border-cyan-500/10 rounded-full blur-sm"
+            style={{
+              top: asset.top,
+              left: asset.left,
+            }}
+          />
+        ))}
+
+        <motion.div
+          animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.15, 0.1] }}
+          transition={{ duration: 15, repeat: Infinity }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600 rounded-full blur-[180px]"
+        />
+        <div className="ribbed-texture absolute inset-0 opacity-[0.02]" />
+      </div>
+
+      <motion.div
+        layout
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-[480px] z-10"
+      >
+        <GlassCard className="p-8 md:p-12 !border-white/10 !bg-white/[0.08] shadow-[0_0_80px_rgba(0,0,0,0.8)] !rounded-[48px] backdrop-blur-[120px] relative overflow-hidden group">
+          {/* Subtle cyan glow around the card */}
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-blue-500/10 opacity-50 pointer-events-none" />
+
+          <header className="flex flex-col items-center text-center mb-12 relative z-10 pt-4">
+            <div className="h-10 md:h-14" />
+
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white mb-3 italic">
+              {authMode === 'login' ? 'IDENTITY' : authMode === 'signup' ? 'ARCHIVING' : 'RECOVERY'}
+            </h2>
+            <div className="h-1 w-16 bg-cyan-500 mb-6 shadow-[0_0_20px_#00D4FF]" />
+            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-500 opacity-60">
+              {authMode === 'login' ? 'SECURE INITIALIZATION' : authMode === 'signup' ? 'ESTABLISH ARCHIVE' : 'PROTOCOL RESTORATION'}
+            </p>
+
+            {authMode !== 'forgot' && (
+              <div className="mt-6 grid grid-cols-2 gap-2 w-full max-w-xs p-1 rounded-full border border-white/10 bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => { setErrors({}); navigate('/login'); }}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'login' ? 'bg-white/15 border border-white/30 text-white' : 'text-white/50 hover:text-white'}`}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setErrors({}); navigate('/signup'); }}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-cyan-500/70 border border-cyan-300/50 text-white' : 'text-white/50 hover:text-white'}`}
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
+          </header>
+
+
+
+
+          <form onSubmit={handleAuth} className="space-y-6">
+            {authMode === 'signup' ? (
+              <>
+                <LuxuryFloatingInput
+                  label="Full Name *"
+                  value={formData.signupName}
+                  onChange={v => setFormData({ ...formData, signupName: v })}
+                  icon={<Sparkles className="w-5 h-5" />}
+                  error={errors.signupName}
+                  placeholder="Your name"
+                />
+                <LuxuryFloatingInput
+                  label="Email Address *"
+                  value={formData.email}
+                  onChange={v => setFormData({ ...formData, email: v })}
+                  icon={<Mail className="w-5 h-5" />}
+                  error={errors.email}
+                  placeholder="name@email.com"
+                />
+                <LuxuryFloatingInput
+                  label="Phone Number *"
+                  value={formData.signupPhone}
+                  onChange={v => {
+                    const cleaned = v.replace(/[^\d+]/g, '');
+                    const normalized = cleaned.startsWith('+')
+                      ? `+${cleaned.slice(1).replace(/\+/g, '').slice(0, 13)}`
+                      : cleaned.replace(/\+/g, '').slice(0, 11);
+                    setFormData({ ...formData, signupPhone: normalized });
+                  }}
+                  icon={<KeyRound className="w-5 h-5" />}
+                  error={errors.signupPhone}
+                  placeholder="01XXXXXXXXX or +8801XXXXXXXXX"
+                />
+              </>
+            ) : (
+              <LuxuryFloatingInput
+                label={authMode === 'forgot' ? 'Email Address' : 'Scientific Email ID'}
+                value={formData.identifier}
+                onChange={v => setFormData({ ...formData, identifier: v })}
+                icon={getIdentityIcon()}
+                error={errors.identifier}
+                isValid={isEmail(formData.identifier)}
+                placeholder="name@email.com"
+              />
+            )}
+
+
+            {authMode === 'forgot' && recoveryStep === 'reset' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <LuxuryFloatingInput
+                  label="Verification Code (OTP)"
+                  value={formData.otp}
+                  onChange={v => setFormData({ ...formData, otp: v })}
+                  icon={<KeyRound className="w-5 h-5" />}
+                  error={errors.otp}
+                  placeholder="123456"
+                />
+                <LuxuryFloatingInput
+                  label="New Institutional Password"
+                  type={showPass ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={v => setFormData({ ...formData, password: v })}
+                  icon={<Lock className="w-5 h-5" />}
+                  error={errors.password}
+                  placeholder="••••••••"
+                  suffix={
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  }
+                />
+              </motion.div>
+            )}
+
+            {authMode !== 'forgot' && (
+              <div className="relative">
+                {authMode === 'signup' ? (
+                  <div className="space-y-4">
+                    <LuxuryFloatingInput
+                      label="Password *"
+                      type={showPass ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={v => setFormData({ ...formData, password: v })}
+                      icon={<Lock className="w-5 h-5" />}
+                      error={errors.password}
+                      placeholder="••••••••"
+                      suffix={
+                        <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      }
+                    />
+                    <LuxuryFloatingInput
+                      label="Confirm Password *"
+                      type={showPass ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={v => setFormData({ ...formData, confirmPassword: v })}
+                      icon={<Lock className="w-5 h-5" />}
+                      error={errors.confirmPassword}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                ) : emailVerificationPending ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                    <LuxuryFloatingInput
+                      label="Email Verification OTP"
+                      value={formData.otp}
+                      onChange={v => setFormData({ ...formData, otp: v.replace(/[^\d]/g, '').slice(0, 6) })}
+                      icon={<KeyRound className="w-5 h-5" />}
+                      error={errors.otp}
+                      placeholder="6-digit code"
+                    />
+                    <div className="flex items-center justify-between gap-4 text-[10px] uppercase tracking-wider">
+                      <p className="text-white/50">Check your email inbox for OTP</p>
+                      <button
+                        type="button"
+                        onClick={handleResendEmailOtp}
+                        className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors"
+                      >
+                        Resend OTP
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <LuxuryFloatingInput
+                    label="Password"
+                    type={showPass ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={v => setFormData({ ...formData, password: v })}
+                    icon={<Lock className="w-5 h-5" />}
+                    error={errors.password}
+                    placeholder="••••••••"
+                    suffix={
+                      <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                        {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
+                  />
+                )}
+
+                {authMode === 'login' && !emailVerificationPending && (
+                  <div className="flex justify-end mt-[-1rem]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrors({});
+                        setStatus('idle');
+                        setRecoveryStep('email');
+                        setAuthMode('forgot');
+                      }}
+                      className="text-[10px] font-black uppercase text-cyan-400/80 hover:text-cyan-300 tracking-widest transition-colors"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+
+
+            <div className="pt-4">
+              <PrimaryButton
+                type="submit"
+                isLoading={status === 'loading'}
+                className="w-full h-16 text-[11px] uppercase tracking-[0.4em]"
+              >
+                {authMode === 'login'
+                  ? (emailVerificationPending ? 'Verify Email OTP' : 'Sign In')
+                  : authMode === 'signup'
+                    ? 'Create Account'
+                    : recoveryStep === 'email'
+                      ? 'Send OTP Code'
+                      : 'Override Password'}
+                {!status.includes('loading') && <Sparkles className="w-4 h-4 ml-3" />}
+              </PrimaryButton>
+
+            </div>
+          </form>
+
+          <div className="mt-8 flex items-center gap-4 text-white/5">
+            <div className="h-[1px] flex-1 bg-white/5" />
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">OR</span>
+            <div className="h-[1px] flex-1 bg-white/5" />
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            {googleClientId ? (
+              <div id="googleSignInBtn" className="w-full max-w-sm"></div>
+            ) : (
+              <div className="w-full max-w-sm h-12 rounded-full border border-cyan-400/30 bg-cyan-500/10 text-[10px] font-semibold tracking-wide text-cyan-100 flex items-center justify-center px-4 text-center">
+                Google login সেট করতে Admin Settings এ Google Client ID দিন
+              </div>
+            )}
+            {googleClientId && googleButtonState === 'unavailable' && (
+              <div className="w-full max-w-sm mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-[10px] text-rose-200 text-center">
+                Google sign in এখন unavailable. কিছুক্ষণ পর আবার try করুন।
+              </div>
+            )}
+          </div>
+
+          <footer className="mt-10 text-center">
+            <p className="text-xs text-white/40 font-medium">
+              {authMode === 'login' ? "Don't have an account?" : "Ready to sign in?"}{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setErrors({});
+                  navigate(authMode === 'login' ? '/signup' : '/login');
+                }}
+                className="text-cyan-500 font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
+              >
+                {authMode === 'login' ? 'Sign Up' : 'Log In'}
+              </button>
+            </p>
+          </footer>
+
+        </GlassCard>
+
+        <AnimatePresence>
+          {status === 'error' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-4"
+            >
+              <AlertCircle className="w-4 h-4 text-rose-500" />
+              <p className="text-[11px] font-semibold text-rose-200 tracking-wide">Please correct the highlighted fields and try again.</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  );
+};
+
+export const SignupForm: React.FC = () => <LoginForm forcedMode="signup" />;

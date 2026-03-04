@@ -7,7 +7,7 @@ PUBLIC_DIR="$ROOT_DIR/public"
 TARGET_DIR="$ROOT_DIR/public_html"
 
 echo "[prepare-public-html] building frontend..."
-(cd "$ROOT_DIR" && npm run build >/dev/null)
+(cd "$ROOT_DIR" && npm run build:storefront >/dev/null)
 
 echo "[prepare-public-html] ensuring target directory..."
 mkdir -p "$TARGET_DIR"
@@ -19,6 +19,8 @@ find "$TARGET_DIR" -mindepth 1 \
   ! -name '.env.production' \
   ! -path "$TARGET_DIR/assets" \
   ! -path "$TARGET_DIR/assets/*" \
+  ! -path "$TARGET_DIR/admin" \
+  ! -path "$TARGET_DIR/admin/*" \
   -exec rm -rf {} +
 
 echo "[prepare-public-html] copying dist files..."

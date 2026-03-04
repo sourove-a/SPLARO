@@ -89,8 +89,9 @@ export const HeroSlider = () => {
               sizes="100vw"
               className="w-full h-full object-cover opacity-[0.64] contrast-125 saturate-[1.08]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#030a18] via-[#040e20]/35 to-[#071329]/72" />
-            <div className="absolute inset-0 bg-cyan-400/18 mix-blend-screen" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#020a05] via-[#040f08]/40 to-[#071a0d]/75" />
+            <div className="absolute inset-0 bg-green-900/20 mix-blend-multiply" />
+            <div className="absolute inset-0 bg-emerald-400/8 mix-blend-screen" />
           </div>
         </motion.div>
       </AnimatePresence>
@@ -103,8 +104,8 @@ export const HeroSlider = () => {
               <span className="text-[10px] font-black uppercase tracking-[0.8em]">{slides[index]?.tag || slides[index]?.tags?.[0] || 'DISCOVERY'}</span>
             </div>
 
-            <div className="overflow-hidden">
-              <h1 className="text-6xl md:text-[10rem] font-black text-white tracking-tighter leading-none">
+            <div className="overflow-hidden max-w-[90vw]">
+              <h1 className="text-[clamp(2.45rem,13.5vw,4.2rem)] sm:text-6xl md:text-[10rem] font-black text-white tracking-tighter leading-[0.92]">
                 {(slides[index]?.title || "SPLARO").split("").map((char, i) => (
                   <KineticLetter key={i} letter={char} index={i} active={true} />
                 ))}
@@ -118,31 +119,31 @@ export const HeroSlider = () => {
         </AnimatePresence>
 
         <motion.button
-          whileHover={{ scale: 1.05, backgroundColor: 'rgba(132, 228, 255, 0.18)', color: 'white' }}
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(30, 125, 69, 0.30)', color: 'white', borderColor: 'rgba(82, 196, 123, 0.70)' }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
             setSelectedCategory(null);
             setSearchQuery('');
             navigate('/shop');
           }}
-          className="pointer-events-auto group relative px-16 py-7 mt-12 bg-transparent rounded-full border border-white/20 flex items-center gap-6 transition-all"
+          className="pointer-events-auto group relative px-8 sm:px-16 py-4 sm:py-7 mt-8 sm:mt-12 bg-green-900/20 backdrop-blur-sm rounded-full border border-green-400/30 flex items-center gap-3 sm:gap-6 transition-all shadow-[0_0_30px_rgba(30,125,69,0.25)]"
         >
-          <span className="text-white font-black text-[10px] tracking-[0.5em] uppercase group-hover:text-white">Discover Collections</span>
-          <ArrowRight className="w-5 h-5 text-white group-hover:text-white group-hover:translate-x-2 transition-transform" />
+          <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.28em] sm:tracking-[0.5em] uppercase text-center group-hover:text-green-100">Discover Collections</span>
+          <ArrowRight className="w-5 h-5 text-green-300 group-hover:text-white group-hover:translate-x-2 transition-transform" />
         </motion.button>
       </div>
 
       <div className="absolute bottom-8 right-8 z-30 flex items-center gap-3 pointer-events-auto">
         <button
           onClick={showPrevSlide}
-          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-cyan-400/20 hover:text-white transition-all flex items-center justify-center"
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-green-500/20 hover:text-white transition-all flex items-center justify-center"
           aria-label="Previous slide"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <button
           onClick={showNextSlide}
-          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-cyan-400/20 hover:text-white transition-all flex items-center justify-center"
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-green-500/20 hover:text-white transition-all flex items-center justify-center"
           aria-label="Next slide"
         >
           <ArrowRight className="w-5 h-5" />

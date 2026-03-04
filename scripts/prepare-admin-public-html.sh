@@ -7,7 +7,7 @@ PUBLIC_DIR="$ROOT_DIR/public"
 TARGET_DIR="$ROOT_DIR/public_html/admin"
 
 echo "[prepare-admin-public-html] building frontend..."
-(cd "$ROOT_DIR" && npm run build >/dev/null)
+(cd "$ROOT_DIR" && npm run build:storefront >/dev/null)
 
 echo "[prepare-admin-public-html] ensuring target directory..."
 mkdir -p "$TARGET_DIR"
@@ -37,8 +37,9 @@ ADMIN_ASSETS_DIR="$TARGET_DIR/assets"
 if [ -d "$MAIN_ASSETS_DIR" ] && [ -d "$ADMIN_ASSETS_DIR" ]; then
   echo "[prepare-admin-public-html] mirroring storefront asset compatibility set..."
   find "$MAIN_ASSETS_DIR" -maxdepth 1 -type f \( -name 'index-*.js' -o -name 'index-*.css' \) -print0 | while IFS= read -r -d '' file; do
+    [ -f "$file" ] || continue
     base="$(basename "$file")"
-    cp -f "$file" "$ADMIN_ASSETS_DIR/$base"
+    cp -f "$file" "$ADMIN_ASSETS_DIR/$base" || true
   done
 fi
 

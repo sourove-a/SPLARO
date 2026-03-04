@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag, User, Menu, X, Search, ArrowRight, Instagram, Facebook, Globe,
@@ -43,8 +43,8 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
         )}
       </div>
 
-      <div className="flex flex-col justify-center">
-        <span className="text-2xl sm:text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
+      <div className="hidden md:flex flex-col justify-center">
+        <span className="text-3xl md:text-6xl font-black italic tracking-tighter text-white uppercase flex items-center leading-none select-none">
           SPLARO
         </span>
       </div>
@@ -80,7 +80,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
       className="nav-item interactive-control w-full text-left py-4 sm:py-6 border-b border-white/15 flex items-center justify-between group transition-all duration-500"
     >
       <div className="flex flex-col">
-        <span className="text-[10px] font-black text-cyan-200/85 uppercase tracking-[0.44em] mb-3 opacity-90 group-hover:opacity-100 transition-all duration-500 transform translate-y-0.5 group-hover:translate-y-0 italic">
+        <span className="text-[10px] font-black text-green-200/85 uppercase tracking-[0.44em] mb-3 opacity-90 group-hover:opacity-100 transition-all duration-500 transform translate-y-0.5 group-hover:translate-y-0 italic">
           Quick Access
         </span>
         <span className="text-2xl sm:text-4xl md:text-6xl font-black uppercase tracking-tighter text-white/90 group-hover:text-white transition-all duration-500 group-hover:pl-3 italic leading-none">
@@ -89,9 +89,9 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
       </div>
       <motion.div
         whileHover={{ x: 8, scale: 1.08 }}
-        className="w-16 h-16 rounded-full liquid-glass border border-cyan-200/35 flex items-center justify-center opacity-90 group-hover:opacity-100 group-hover:border-cyan-200/80 transition-all duration-500"
+        className="w-16 h-16 rounded-full liquid-glass border border-green-200/35 flex items-center justify-center opacity-90 group-hover:opacity-100 group-hover:border-green-200/80 transition-all duration-500"
       >
-        <ArrowRight className="w-6 h-6 text-cyan-100 group-hover:text-white" />
+        <ArrowRight className="w-6 h-6 text-green-100 group-hover:text-white" />
       </motion.div>
     </button>
   </motion.div>
@@ -142,41 +142,6 @@ export const Navbar: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setIsSearchOpen]);
-
-  const currentRouteLabel = useMemo(() => {
-    const path = location.pathname;
-    if (path === '/') return 'HOME';
-    if (path === '/shop') return 'SHOP';
-    if (path === '/detail' || path.startsWith('/product/')) return 'PRODUCT DETAIL';
-    if (path === '/cart') return 'CART';
-    if (path === '/checkout') return 'CHECKOUT';
-    if (path === '/login' || path === '/signup' || path === '/sourove-admin') return 'IDENTITY';
-    if (path === '/user_dashboard') return 'USER DASHBOARD';
-    if (path === '/admin_dashboard') return 'ADMIN DASHBOARD';
-    if (path === '/admin/campaigns') return 'CAMPAIGNS';
-    if (path === '/admin/campaigns/new') return 'NEW CAMPAIGN';
-    if (path.startsWith('/admin/campaigns/') && path.endsWith('/logs')) return 'CAMPAIGN LOGS';
-    if (path.startsWith('/admin/campaigns/')) return 'CAMPAIGN DETAILS';
-    if (path === '/admin/search') return 'ADMIN SEARCH';
-    if (path === '/admin') return 'ADMIN';
-    if (path === '/admin/users') return 'USERS';
-    if (path === '/admin/products') return 'PRODUCTS';
-    if (path === '/admin/orders') return 'ORDERS';
-    if (path === '/admin/coupons') return 'COUPONS';
-    if (path === '/admin/reports') return 'REPORTS';
-    if (path === '/admin/settings') return 'SETTINGS';
-    if (path === '/admin/system') return 'SYSTEM';
-    if (path === '/admin/system-health') return 'SYSTEM HEALTH';
-    if (path === '/order_success') return 'ORDER SUCCESS';
-    if (path === '/story') return 'STORY';
-    if (path === '/support') return 'SUPPORT';
-    if (path === '/manifest') return 'MANIFEST';
-    if (path === '/privacy') return 'PRIVACY POLICY';
-    if (path === '/terms') return 'TERMS & CONDITIONS';
-    if (path === '/order-tracking') return 'ORDER TRACKING';
-    if (path === '/refund-policy') return 'REFUND POLICY';
-    return 'SPLARO';
-  }, [location.pathname]);
 
   const handleNav = (label: string, targetView: View, category: string | null = null) => {
     setSearchQuery('');
@@ -255,7 +220,7 @@ export const Navbar: React.FC = () => {
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
-    ...(user ? [{ label: 'IDENTITY', view: allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD, icon: UserIcon }] : []),
+    { label: 'IDENTITY', view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
 
@@ -313,10 +278,10 @@ export const Navbar: React.FC = () => {
                   onClick={() => handleNav(item.label, item.view, (item as any).category)}
                   className={`nav-item interactive-control relative group p-2 transition-all duration-500`}
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 ${isActive ? 'text-cyan-400 border-cyan-500/50 bg-cyan-500/5 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-green-600/10 group-hover:border-green-500/30 transition-all duration-500 ${isActive ? 'text-green-400 border-green-500/50 bg-green-500/5 shadow-[0_0_15px_rgba(52,168,83,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
                   </div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-cyan-500 whitespace-nowrap pointer-events-none">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
                     {item.label}
                   </div>
                 </button>
@@ -334,10 +299,10 @@ export const Navbar: React.FC = () => {
               }}
               className="nav-item interactive-control relative group p-2 mx-2"
             >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 text-white/40 group-hover:text-white">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-green-600/10 group-hover:border-green-500/30 transition-all duration-500 text-white/40 group-hover:text-white">
                 <Search className="w-5 h-5" />
               </div>
-              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-cyan-500 whitespace-nowrap pointer-events-none">
+              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
                 SEARCH
               </div>
             </button>
@@ -347,47 +312,18 @@ export const Navbar: React.FC = () => {
         </div>
 
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[46vw] sm:max-w-[52vw] md:max-w-none" onClick={() => {
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col justify-center items-center cursor-pointer pointer-events-auto max-w-[30vw] md:max-w-none" onClick={() => {
           navigate('/');
           setIsSearchOpen(false);
           setMenuOpen(false);
         }}>
           <SplaroLogo className="h-7 sm:h-9 md:h-16" />
-          <span className="hidden sm:block mt-1 text-[8px] md:text-[9px] font-black uppercase tracking-[0.35em] text-cyan-400/80">
-            {currentRouteLabel}
-          </span>
         </div>
 
         {/* Right Side: Navigation Links + Action Icons */}
-        <div className="flex-1 flex justify-end items-center gap-8">
+        <div className="flex-1 flex justify-end items-center gap-3 sm:gap-3 md:gap-8">
           {/* Desktop Right Links */}
           <div className="hidden lg:flex items-center gap-6 bg-white/5 backdrop-blur-2xl px-6 py-4 rounded-[24px] border border-white/5 shadow-xl pointer-events-auto">
-            {!user && (
-              <div className="flex items-center gap-2 mr-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/login');
-                    setIsSearchOpen(false);
-                    setMenuOpen(false);
-                  }}
-                  className="h-10 px-4 rounded-full border border-white/20 text-[9px] font-black uppercase tracking-[0.2em] text-white/90 hover:border-cyan-400/70 hover:text-cyan-200 transition-all"
-                >
-                  LOG IN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/signup');
-                    setIsSearchOpen(false);
-                    setMenuOpen(false);
-                  }}
-                  className="h-10 px-4 rounded-full bg-cyan-500/75 border border-cyan-300/60 text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-cyan-400 transition-all"
-                >
-                  SIGN UP
-                </button>
-              </div>
-            )}
             {user && <NotificationBell />}
             {rightItems.map((item) => {
               const isActive = getIsActive(item);
@@ -406,14 +342,14 @@ export const Navbar: React.FC = () => {
                   }}
                   className="nav-item interactive-control relative group p-2"
                 >
-                  <div className={`w-10 h-10 rounded-full border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-cyan-500/50 group-hover:shadow-[0_0_15px_#00D4FF] flex items-center justify-center bg-white/5 ${isActive ? 'border-cyan-500 border-2 shadow-[0_0_15px_#00D4FF]' : ''}`}>
+                  <div className={`w-10 h-10 rounded-full border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-green-500/50 group-hover:shadow-[0_0_15px_#34a853] flex items-center justify-center bg-white/5 ${isActive ? 'border-green-500 border-2 shadow-[0_0_15px_#34a853]' : ''}`}>
                     {user?.profileImage ? (
                       <OptimizedImage src={user.profileImage} alt="Profile" sizes="40px" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-5 h-5 text-zinc-500 group-hover:text-cyan-400" />
+                      <User className="w-5 h-5 text-zinc-500 group-hover:text-green-400" />
                     )}
                   </div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-cyan-500 whitespace-nowrap pointer-events-none">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
                     {user ? 'PROFILE' : 'SIGN IN'}
                   </div>
                 </button>
@@ -424,13 +360,13 @@ export const Navbar: React.FC = () => {
                   onClick={() => handleNav(item.label, item.view)}
                   className="nav-item interactive-control relative group p-2"
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-cyan-500/10 group-hover:border-cyan-500/30 transition-all duration-500 ${isActive ? 'text-cyan-400 border-cyan-500/50 bg-cyan-500/5 shadow-[0_0_15px_rgba(0,212,255,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-green-600/10 group-hover:border-green-500/30 transition-all duration-500 ${isActive ? 'text-green-400 border-green-500/50 bg-green-500/5 shadow-[0_0_15px_rgba(52,168,83,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
                     {item.label === 'CART' && cart.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black border border-white/30">{cart.length}</span>
+                      <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black border border-white/30">{cart.length}</span>
                     )}
                   </div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-cyan-500 whitespace-nowrap pointer-events-none">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
                     {item.label}
                   </div>
                 </button>
@@ -443,33 +379,6 @@ export const Navbar: React.FC = () => {
             <NotificationBell mobile />
           </div>
         )}
-
-          {!user && (
-            <div className="lg:hidden flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/login');
-                  setIsSearchOpen(false);
-                  setMenuOpen(false);
-                }}
-                className="h-10 px-3 rounded-full border border-white/25 bg-white/10 text-[8px] font-black uppercase tracking-[0.16em] text-white/95 hover:border-cyan-400/70 hover:text-cyan-200 transition-all"
-              >
-                LOG IN
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/signup');
-                  setIsSearchOpen(false);
-                  setMenuOpen(false);
-                }}
-                className="h-10 px-3 rounded-full border border-cyan-300/50 bg-cyan-500/70 text-[8px] font-black uppercase tracking-[0.16em] text-white hover:bg-cyan-400 transition-all"
-              >
-                SIGN UP
-              </button>
-            </div>
-          )}
 
           <button
             type="button"
@@ -498,7 +407,7 @@ export const Navbar: React.FC = () => {
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
+                className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
               >
                 {cart.length}
               </motion.span>
@@ -526,7 +435,7 @@ export const Navbar: React.FC = () => {
               className="w-full max-w-3xl"
             >
               <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 liquid-glass border border-white/10 rounded-[24px] sm:rounded-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
-                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-500 shrink-0" />
+                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 shrink-0" />
                 <input
                   autoFocus
                   type="text"
@@ -564,11 +473,11 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
             onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(123,236,255,0.24),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(108,156,255,0.2),transparent_40%),linear-gradient(180deg,#0a1b3f_0%,#071632_42%,#050f24_100%)] overflow-y-auto overscroll-contain flex flex-col"
+            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(52,168,83,0.22),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(30,125,69,0.18),transparent_40%),linear-gradient(180deg,#071a0d_0%,#050f08_42%,#030a05_100%)] overflow-y-auto overscroll-contain flex flex-col"
           >
             <div className="absolute inset-0 pointer-events-none opacity-20">
-              <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#00D4FF11,transparent_50%)]" />
-              <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_70%,#00D4FF11,transparent_50%)]" />
+              <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#34a85311,transparent_50%)]" />
+              <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_70%,#34a85311,transparent_50%)]" />
             </div>
 
             <div onClick={(e) => e.stopPropagation()} className="px-4 sm:px-8 py-6 sm:py-8 md:px-16 md:py-12 flex justify-between items-center relative z-10 border-b border-white/5">
@@ -607,7 +516,7 @@ export const Navbar: React.FC = () => {
 
             <div onClick={(e) => e.stopPropagation()} className="px-4 sm:px-8 py-8 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10 border-t border-white/5">
               <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full bg-cyan-200 animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-green-200 animate-pulse" />
                 <p className="text-[10px] font-black tracking-widest text-white/75 uppercase">Session Active</p>
               </div>
 

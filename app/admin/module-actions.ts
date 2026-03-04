@@ -20,6 +20,15 @@ type StoryPost = {
   updatedAt: string;
 };
 
+type HeroSlide = {
+  id: string;
+  img: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+  linkUrl?: string;
+};
+
 type CustomerNote = {
   id: string;
   userId: string;
@@ -61,6 +70,33 @@ const cleanSlug = (value: string): string =>
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+const normalizeSlideId = (value: string): string => {
+  const cleaned = value
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || randomUUID().slice(0, 8);
+};
+
+const normalizeHeroSlide = (raw: Partial<HeroSlide>, fallbackId = randomUUID().slice(0, 8)): HeroSlide => {
+  const id = normalizeSlideId(String(raw.id || fallbackId));
+  return {
+    id,
+    img: String(raw.img || '').trim(),
+    title: String(raw.title || '').trim() || 'New Slide',
+    subtitle: String(raw.subtitle || '').trim(),
+    tag: String(raw.tag || '').trim() || 'NEW',
+    linkUrl: String(raw.linkUrl || '').trim() || undefined,
+  };
+};
+
+async function readHeroSlides(): Promise<HeroSlide[]> {
+  const slides = await readAdminSetting<HeroSlide[]>('hero_slides', []);
+  return Array.isArray(slides)
+    ? slides.map((slide, index) => normalizeHeroSlide(slide || {}, `slide-${index + 1}`)).filter((slide) => slide.img)
+    : [];
+}
 
 function revalidateAdminRoutes(): void {
   revalidatePath('/admin/customers');
@@ -267,6 +303,98 @@ export async function saveHeroContentAction(formData: FormData): Promise<void> {
     ipAddress: 'server-action',
   });
   revalidatePath('/admin/content');
+}
+
+export async function saveHeroSlideAction(formData: FormData): Promise<void> {
+  if (!(await hasAccess('EDITOR'))) return;
+
+  const indexRaw = clean(formData.get('index'));
+  const index = indexRaw === '' ? -1 : Math.max(0, Math.floor(toNum(formData.get('index'), -1)));
+  const nextSlide = normalizeHeroSlide({
+    id: clean(formData.get('id')),
+    img: clean(formData.get('img')),
+    title: clean(formData.get('title')),
+    subtitle: clean(formData.get('subtitle')),
+    tag: clean(formData.get('tag')),
+    linkUrl: clean(formData.get('linkUrl')),
+  });
+  if (!nextSlide.img) return;
+
+  const slides = await readHeroSlides();
+  if (index >= 0 && index < slides.length) {
+    slides[index] = nextSlide;
+  } else {
+    slides.push(nextSlide);
+  }
+
+  await writeAdminSetting('hero_slides', slides);
+  await writeAuditLog({
+    action: index >= 0 ? 'HERO_SLIDE_UPDATED' : 'HERO_SLIDE_CREATED',
+    entityType: 'site_settings',
+    entityId: nextSlide.id,
+    after: nextSlide,
+    ipAddress: 'server-action',
+  });
+  await writeSystemLog({
+    eventType: index >= 0 ? 'HERO_SLIDE_UPDATED' : 'HERO_SLIDE_CREATED',
+    description: `${index >= 0 ? 'Updated' : 'Created'} hero slide ${nextSlide.id}`,
+    ipAddress: 'server-action',
+  });
+  revalidatePath('/admin/content');
+  revalidatePath('/');
+  revalidatePath('/shop');
+}
+
+export async function deleteHeroSlideAction(formData: FormData): Promise<void> {
+  if (!(await hasAccess('EDITOR'))) return;
+  const id = clean(formData.get('id'));
+  if (!id) return;
+
+  const slides = await readHeroSlides();
+  const next = slides.filter((slide) => slide.id !== id);
+  await writeAdminSetting('hero_slides', next);
+  await writeAuditLog({
+    action: 'HERO_SLIDE_DELETED',
+    entityType: 'site_settings',
+    entityId: id,
+    ipAddress: 'server-action',
+  });
+  await writeSystemLog({
+    eventType: 'HERO_SLIDE_DELETED',
+    description: `Deleted hero slide ${id}`,
+    ipAddress: 'server-action',
+  });
+  revalidatePath('/admin/content');
+  revalidatePath('/');
+  revalidatePath('/shop');
+}
+
+export async function moveHeroSlideAction(formData: FormData): Promise<void> {
+  if (!(await hasAccess('EDITOR'))) return;
+  const index = Math.max(0, Math.floor(toNum(formData.get('index'), -1)));
+  const direction = clean(formData.get('direction')).toLowerCase();
+  const delta = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+  if (!delta) return;
+
+  const slides = await readHeroSlides();
+  if (index < 0 || index >= slides.length) return;
+  const target = index + delta;
+  if (target < 0 || target >= slides.length) return;
+
+  const reordered = [...slides];
+  const [item] = reordered.splice(index, 1);
+  reordered.splice(target, 0, item);
+  await writeAdminSetting('hero_slides', reordered);
+  await writeAuditLog({
+    action: 'HERO_SLIDE_REORDERED',
+    entityType: 'site_settings',
+    entityId: item.id,
+    after: { from: index, to: target },
+    ipAddress: 'server-action',
+  });
+  revalidatePath('/admin/content');
+  revalidatePath('/');
+  revalidatePath('/shop');
 }
 
 export async function saveStoryPostAction(formData: FormData): Promise<void> {

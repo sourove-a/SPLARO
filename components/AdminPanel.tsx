@@ -121,7 +121,7 @@ const ProductCollapsibleBox: React.FC<{
         aria-expanded={isOpen}
       >
         <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400">{title}</h3>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-green-400">{title}</h3>
           {hint ? <p className="text-[9px] text-zinc-500 font-semibold mt-1">{hint}</p> : null}
         </div>
         <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -834,7 +834,7 @@ const ProductModal: React.FC<{
 
         <div className="p-8 md:p-10 overflow-y-auto custom-scrollbar flex-1 min-h-0">
           <div className="sticky top-0 z-20 flex justify-end mb-4 pointer-events-none">
-            <span className="px-3 py-1 rounded-full border border-cyan-400/25 bg-[#09162b]/80 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200/80">
+            <span className="px-3 py-1 rounded-full border border-green-400/25 bg-[#09162b]/80 text-[9px] font-black uppercase tracking-[0.2em] text-green-200/80">
               Scroll for more
             </span>
           </div>
@@ -877,12 +877,12 @@ const ProductModal: React.FC<{
                         setAutoSlugFromName(true);
                         setFormData({ ...formData, id: generated, productSlug: generated });
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-cyan-500/35 text-cyan-300 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                      className="px-3 py-1.5 rounded-lg border border-green-500/35 text-green-300 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-green-500/10"
                     >
                       Use Name As Slug
                     </button>
                   </div>
-                  <p className="px-6 text-[8px] font-black text-cyan-500/50 uppercase tracking-[0.2em]">
+                  <p className="px-6 text-[8px] font-black text-green-500/50 uppercase tracking-[0.2em]">
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
                   </p>
                   <p className="px-6 text-[9px] font-semibold text-zinc-400 tracking-[0.06em]">
@@ -892,7 +892,7 @@ const ProductModal: React.FC<{
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3 relative group">
-                    <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6 mb-2 block">Brand Presence</label>
+                    <label className="text-[10px] font-black uppercase text-green-400/70 tracking-[0.2em] pl-6 mb-2 block">Brand Presence</label>
                     <div className="relative">
                       <select
                         value={formData.brand}
@@ -905,7 +905,7 @@ const ProductModal: React.FC<{
                     </div>
                   </div>
                   <div className="space-y-3 relative group">
-                    <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6 mb-2 block">Category Registry</label>
+                    <label className="text-[10px] font-black uppercase text-green-400/70 tracking-[0.2em] pl-6 mb-2 block">Category Registry</label>
                     <div className="relative">
                       <select
                         value={formData.category}
@@ -944,7 +944,7 @@ const ProductModal: React.FC<{
                       <button
                         key={sc}
                         onClick={() => setFormData({ ...formData, subCategory: sc, subCategorySlug: slugify(sc) })}
-                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-cyan-500 border-cyan-500 text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
+                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-green-500 border-green-500 text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
                       >
                         {sc}
                       </button>
@@ -956,7 +956,7 @@ const ProductModal: React.FC<{
                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4">Featured Visibility</h4>
                   <button
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
-                    className={`w-full py-5 rounded-2xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-cyan-500 border-cyan-500 text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
+                    className={`w-full py-5 rounded-2xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-green-500 border-green-500 text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
                   >
                     <Sparkles className={`w-4 h-4 ${formData.featured ? 'animate-pulse' : ''}`} />
                     <span className="text-[9px] font-black uppercase tracking-[0.3em]">{formData.featured ? 'FEATURED ON HOME' : 'MARK AS FEATURED'}</span>
@@ -1014,7 +1014,7 @@ const ProductModal: React.FC<{
                     <select
                       value={formData.status || 'PUBLISHED'}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as Product['status'] })}
-                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                     >
                       <option value="PUBLISHED">Published</option>
                       <option value="DRAFT">Draft</option>
@@ -1025,7 +1025,7 @@ const ProductModal: React.FC<{
                     <input
                       value={formData.barcode || ''}
                       onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      className="w-full h-12 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                     />
                   </div>
                 </div>
@@ -1043,7 +1043,7 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
                 <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[9px] font-black uppercase tracking-[0.16em]">
+                  <span className="px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 text-green-200 text-[9px] font-black uppercase tracking-[0.16em]">
                     {galleryImagesForUi.length} image{galleryImagesForUi.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -1097,7 +1097,7 @@ const ProductModal: React.FC<{
                     icon={<ImageIcon className="w-5 h-5" />}
                   />
                   <div className="flex flex-wrap gap-3">
-                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10'}`}>
+                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-green-500/40 text-green-300 hover:bg-green-500/10'}`}>
                       {isUploadingMain ? 'Uploading...' : 'Upload Main Image'}
                       <input
                         type="file"
@@ -1148,16 +1148,16 @@ const ProductModal: React.FC<{
                         }
                       }}
                       placeholder="Add gallery image URL"
-                      className="flex-1 h-12 rounded-xl border border-white/20 bg-[#0f1624] px-4 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      className="flex-1 h-12 rounded-xl border border-white/20 bg-[#0f1624] px-4 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                     />
                     <button
                       type="button"
                       onClick={() => addGalleryImageByUrl(galleryUrlInput)}
-                      className="px-4 h-12 rounded-xl border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                      className="px-4 h-12 rounded-xl border border-green-500/40 text-green-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-green-500/10"
                     >
                       Add
                     </button>
-                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10'}`}>
+                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-green-500/40 text-green-300 hover:bg-green-500/10'}`}>
                       {isUploadingGallery ? 'Uploading...' : 'Upload'}
                       <input
                         type="file"
@@ -1190,12 +1190,12 @@ const ProductModal: React.FC<{
                       onChange={(e) => setGalleryBulkInput(e.target.value)}
                       placeholder="Add multiple gallery image URLs (one per line or comma separated)"
                       rows={3}
-                      className="w-full rounded-xl border border-white/20 bg-[#0f1624] px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 resize-y"
+                      className="w-full rounded-xl border border-white/20 bg-[#0f1624] px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none focus-visible:ring-0 focus-visible:border-green-400/55 resize-y"
                     />
                     <button
                       type="button"
                       onClick={addGalleryImagesFromBulkInput}
-                      className="px-4 h-10 rounded-xl border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                      className="px-4 h-10 rounded-xl border border-green-500/40 text-green-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-green-500/10"
                     >
                       Add Multiple URLs
                     </button>
@@ -1216,7 +1216,7 @@ const ProductModal: React.FC<{
                               className="w-14 h-14 rounded-lg object-cover border border-white/20"
                             />
                             {img.isMain && (
-                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-cyan-500 text-black text-[8px] font-black uppercase tracking-[0.1em]">
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-green-500 text-black text-[8px] font-black uppercase tracking-[0.1em]">
                                 Main
                               </span>
                             )}
@@ -1244,7 +1244,7 @@ const ProductModal: React.FC<{
                         setDraggingGalleryId(null);
                       }}
                       onDragEnd={() => setDraggingGalleryId(null)}
-                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-cyan-500/50 opacity-70' : 'border-white/15'}`}
+                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-green-500/50 opacity-70' : 'border-white/15'}`}
                     >
                       <OptimizedImage src={img.url} alt={img.altText || 'Product image'} sizes="56px" className="w-14 h-14 rounded-lg object-cover border border-white/15" />
                       <div className="flex-1 min-w-0">
@@ -1254,7 +1254,7 @@ const ProductModal: React.FC<{
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => moveGalleryImage(img.id, 'up')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↑</button>
                         <button type="button" onClick={() => moveGalleryImage(img.id, 'down')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↓</button>
-                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-cyan-500/50 text-cyan-300' : 'border-white/20 text-zinc-300'}`}>Main</button>
+                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-green-500/50 text-green-300' : 'border-white/20 text-zinc-300'}`}>Main</button>
                         <button type="button" onClick={() => removeGalleryImage(img.id)} className="px-2 py-1 rounded border border-rose-500/40 text-rose-300 text-[10px]">Remove</button>
                       </div>
                     </div>
@@ -1272,7 +1272,7 @@ const ProductModal: React.FC<{
                     <button
                       key={tag}
                       onClick={() => toggleTag(tag)}
-                      className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.tags?.includes(tag as any) ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'border-white/5 text-zinc-600'}`}
+                      className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.tags?.includes(tag as any) ? 'bg-green-500/20 border-green-500 text-green-400' : 'border-white/5 text-zinc-600'}`}
                     >
                       {tag}
                     </button>
@@ -1310,7 +1310,7 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Descriptions (EN/BN)" hint="Product details in both languages" defaultOpen>
                 <div className="space-y-6">
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
+                  <label className="text-[10px] font-black uppercase text-green-400/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
                   <textarea
                     placeholder="ARCHIVAL DATA (ENGLISH)..."
                     value={formData.description?.EN}
@@ -1319,7 +1319,7 @@ const ProductModal: React.FC<{
                   />
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
+                  <label className="text-[10px] font-black uppercase text-green-400/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
                   <textarea
                     placeholder="আর্কিভ ডেটা (বাংলা)..."
                     value={formData.description?.BN}
@@ -1408,20 +1408,20 @@ const ProductModal: React.FC<{
                 />
                 <div className="p-4 rounded-xl border border-white/15 bg-[#0f1624]">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-[0.18em] font-black mb-2">Live URL Preview</p>
-                  <p className="text-xs text-cyan-300 break-all font-semibold">{previewLiveUrl}</p>
+                  <p className="text-xs text-green-300 break-all font-semibold">{previewLiveUrl}</p>
                   <button
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(previewLiveUrl);
                       window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
                     }}
-                    className="mt-3 px-3 py-2 rounded-lg border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                    className="mt-3 px-3 py-2 rounded-lg border border-green-500/40 text-green-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-green-500/10"
                   >
                     Copy Link
                   </button>
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-cyan-400/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
+                  <label className="text-[10px] font-black uppercase text-green-400/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
                   <textarea
                     placeholder="META DESCRIPTION PROTOCOL..."
                     value={formData.seoDescription || ''}
@@ -1441,14 +1441,14 @@ const ProductModal: React.FC<{
                       placeholder="Color name (e.g. Midnight Black)"
                       value={colorNameInput}
                       onChange={(e) => setColorNameInput(e.target.value)}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 text-white"
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-green-400/55 text-white"
                     />
                     <input
                       type="text"
                       placeholder="#111827"
                       value={colorHexInput}
                       onChange={(e) => setColorHexInput(e.target.value)}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 text-white uppercase"
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-green-400/55 text-white uppercase"
                     />
                     <input
                       type="text"
@@ -1461,7 +1461,7 @@ const ProductModal: React.FC<{
                           addColorVariant();
                         }
                       }}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55 text-white"
+                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-green-400/55 text-white"
                     />
                   </div>
                   <button
@@ -1501,7 +1501,7 @@ const ProductModal: React.FC<{
                       <select
                         value={variationDraft.color}
                         onChange={(e) => setVariationDraft((prev) => ({ ...prev, color: e.target.value }))}
-                        className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                        className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                       >
                         <option value="">Select color</option>
                         {availableVariationColors.map((color) => (
@@ -1515,7 +1515,7 @@ const ProductModal: React.FC<{
                         value={variationDraft.sizes}
                         onChange={(e) => setVariationDraft((prev) => ({ ...prev, sizes: e.target.value }))}
                         placeholder={Array.isArray(formData.sizes) && formData.sizes.length > 0 ? formData.sizes.join(', ') : '40, 41'}
-                        className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                        className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                       />
                     </div>
                   </div>
@@ -1525,21 +1525,21 @@ const ProductModal: React.FC<{
                       value={variationDraft.sku}
                       onChange={(e) => setVariationDraft((prev) => ({ ...prev, sku: e.target.value }))}
                       placeholder="Variant SKU"
-                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                     />
                     <input
                       type="number"
                       value={variationDraft.price}
                       onChange={(e) => setVariationDraft((prev) => ({ ...prev, price: e.target.value }))}
                       placeholder="Price override"
-                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                     />
                     <input
                       type="number"
                       value={variationDraft.stock}
                       onChange={(e) => setVariationDraft((prev) => ({ ...prev, stock: e.target.value }))}
                       placeholder="Stock"
-                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                      className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                     />
                   </div>
 
@@ -1547,14 +1547,14 @@ const ProductModal: React.FC<{
                     value={variationDraft.image}
                     onChange={(e) => setVariationDraft((prev) => ({ ...prev, image: e.target.value }))}
                     placeholder="Variant image URL (optional)"
-                    className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                    className="w-full h-11 rounded-xl border border-white/20 bg-[#0f1624] px-3 text-xs text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                   />
 
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={addManualVariation}
-                      className="px-4 h-10 rounded-xl border border-cyan-500/45 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                      className="px-4 h-10 rounded-xl border border-green-500/45 text-green-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-green-500/10"
                     >
                       Add / Update Variant
                     </button>
@@ -1575,19 +1575,19 @@ const ProductModal: React.FC<{
                             value={variation.color || ''}
                             onChange={(e) => updateVariationField(index, 'color', e.target.value)}
                             placeholder="Color"
-                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                           />
                           <input
                             value={Array.isArray(variation.sizes) ? variation.sizes.join(', ') : ''}
                             onChange={(e) => updateVariationField(index, 'sizes', e.target.value)}
                             placeholder="Sizes (e.g. 40,41)"
-                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                           />
                           <input
                             value={variation.sku || ''}
                             onChange={(e) => updateVariationField(index, 'sku', e.target.value)}
                             placeholder="SKU"
-                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -1596,14 +1596,14 @@ const ProductModal: React.FC<{
                             value={variation.price !== undefined ? String(variation.price) : ''}
                             onChange={(e) => updateVariationField(index, 'price', e.target.value)}
                             placeholder="Price override"
-                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                           />
                           <input
                             type="number"
                             value={variation.stock !== undefined ? String(variation.stock) : ''}
                             onChange={(e) => updateVariationField(index, 'stock', e.target.value)}
                             placeholder="Stock"
-                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                            className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                           />
                           <button
                             type="button"
@@ -1617,7 +1617,7 @@ const ProductModal: React.FC<{
                           value={variation.image || ''}
                           onChange={(e) => updateVariationField(index, 'image', e.target.value)}
                           placeholder="Variant image URL"
-                          className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-cyan-400/55"
+                          className="w-full h-10 rounded-lg border border-white/20 bg-[#0b1220] px-3 text-[11px] text-white outline-none focus-visible:ring-0 focus-visible:border-green-400/55"
                         />
                       </div>
                     ))}
@@ -3358,8 +3358,8 @@ export const AdminPanel = () => {
         {/* Header Actions */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
           <div>
-            <div className="flex items-center gap-4 text-cyan-400 mb-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
+            <div className="flex items-center gap-4 text-green-400 mb-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
               <span className="text-[10px] font-black uppercase tracking-[0.6em]">Secure Protocol: ACTIVE</span>
             </div>
             <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase italic">
@@ -3410,7 +3410,7 @@ export const AdminPanel = () => {
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8"
             >
               <BentoCard title="Logistics Revenue" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+14.2%" icon={DollarSign} color="bg-blue-600" />
-              <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-cyan-500" />
+              <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-green-500" />
               <BentoCard title="Archival Portfolio" value={products.length.toString()} trend="+2.1%" icon={ShoppingBag} color="bg-purple-600" />
               <BentoCard title="Intelligence Velocity" value="4.8h" trend="OPTIMAL" icon={Zap} color="bg-emerald-600" />
 
@@ -3444,9 +3444,9 @@ export const AdminPanel = () => {
                       initial={{ height: 0 }}
                       animate={{ height: `${h}%` }}
                       transition={{ delay: i * 0.05, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex-1 bg-gradient-to-t from-blue-600/20 via-blue-500/40 to-cyan-400 rounded-t-xl group relative"
+                      className="flex-1 bg-gradient-to-t from-green-700/20 via-green-600/40 to-green-400 rounded-t-xl group relative"
                     >
-                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#0A0C12] border border-white/10 text-cyan-400 text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#0A0C12] border border-white/10 text-green-400 text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
                         ৳{Math.floor(h * 15).toLocaleString()}k
                       </div>
                     </motion.div>
@@ -3578,7 +3578,7 @@ export const AdminPanel = () => {
                   <div className="w-[1px] h-12 bg-white/5" />
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Catalog Value</span>
-                    <span className="text-4xl font-black italic tracking-tighter text-cyan-500">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
+                    <span className="text-4xl font-black italic tracking-tighter text-green-500">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -3633,7 +3633,7 @@ export const AdminPanel = () => {
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                   <a
                                     href={`/shop?brand=${encodeURIComponent(slugifyValue((p as any).brandSlug || p.brand || ''))}`}
-                                    className="text-[10px] text-zinc-400 uppercase font-black tracking-widest hover:text-cyan-300"
+                                    className="text-[10px] text-zinc-400 uppercase font-black tracking-widest hover:text-green-300"
                                   >
                                     {p.brand}
                                   </a>
@@ -3646,7 +3646,7 @@ export const AdminPanel = () => {
                                     href={(p as any).liveUrl || '#'}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[9px] text-cyan-300 hover:text-cyan-200 break-all"
+                                    className="text-[9px] text-green-300 hover:text-green-200 break-all"
                                   >
                                     {(p as any).liveUrl || 'URL not generated'}
                                   </a>
@@ -3657,7 +3657,7 @@ export const AdminPanel = () => {
                                         navigator.clipboard.writeText((p as any).liveUrl);
                                         showToast('Product URL copied.', 'success');
                                       }}
-                                      className="px-2 py-1 rounded-md border border-cyan-500/35 text-cyan-300 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-cyan-500/10"
+                                      className="px-2 py-1 rounded-md border border-green-500/35 text-green-300 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-green-500/10"
                                     >
                                       Copy
                                     </button>
@@ -3665,18 +3665,18 @@ export const AdminPanel = () => {
                                 </div>
                                 <div className="flex gap-2 mt-3">
                                   {p.featured && <span className="px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg text-[7px] font-black uppercase">Featured</span>}
-                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-[7px] font-black uppercase">{t}</span>)}
+                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-green-500/10 text-green-400 rounded-lg text-[7px] font-black uppercase">{t}</span>)}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="p-8">
                             <div className="space-y-2">
-                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-cyan-500/45">
+                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-green-500/45">
                                 {p.category}
                               </a>
                               {p.subCategory && (
-                                <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}&sub=${encodeURIComponent(slugifyValue((p as any).subCategorySlug || p.subCategory || ''))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-cyan-300">
+                                <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}&sub=${encodeURIComponent(slugifyValue((p as any).subCategorySlug || p.subCategory || ''))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-green-300">
                                   {p.subCategory}
                                 </a>
                               )}
@@ -3758,7 +3758,7 @@ export const AdminPanel = () => {
                                     showToast('Demo product added to Vault Inventory.', 'success');
                                   });
                                 }}
-                                className="px-4 py-2 rounded-xl border border-cyan-500/45 text-cyan-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/10"
+                                className="px-4 py-2 rounded-xl border border-green-500/45 text-green-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-green-500/10"
                               >
                                 Add Demo Product
                               </button>
@@ -3827,7 +3827,7 @@ export const AdminPanel = () => {
                     <select
                       value={userStatusFilter}
                       onChange={(event) => setUserStatusFilter(event.target.value as any)}
-                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#0A0C12] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-cyan-400/60"
+                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#0A0C12] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-green-400/60"
                     >
                       <option value="ALL">All users</option>
                       <option value="ACTIVE">Active</option>
@@ -3838,7 +3838,7 @@ export const AdminPanel = () => {
                     </select>
                     <button
                       onClick={() => fetchAdminUsers()}
-                      className="h-11 px-5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-cyan-500/20 transition-all"
+                      className="h-11 px-5 rounded-xl border border-green-500/30 bg-green-500/10 text-green-200 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-green-500/20 transition-all"
                     >
                       Refresh
                     </button>
@@ -3901,7 +3901,7 @@ export const AdminPanel = () => {
                           <td className="p-6">
                             <div className="space-y-1.5">
                               <p className="text-white font-black text-[11px]">{Number(u.totalOrders || 0)} orders</p>
-                              <p className="text-cyan-300 font-black text-[11px]">৳{Number(u.lifetimeValue || 0).toLocaleString()}</p>
+                              <p className="text-green-300 font-black text-[11px]">৳{Number(u.lifetimeValue || 0).toLocaleString()}</p>
                             </div>
                           </td>
                           <td className="p-6">
@@ -3914,7 +3914,7 @@ export const AdminPanel = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 onClick={() => openCustomerProfile(u.id)}
-                                className="px-3 py-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-cyan-500/20 transition-all"
+                                className="px-3 py-2 rounded-lg border border-green-500/30 bg-green-500/10 text-green-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-green-500/20 transition-all"
                               >
                                 View
                               </button>
@@ -3933,7 +3933,7 @@ export const AdminPanel = () => {
                                 value={u.role}
                                 onChange={(event) => updateCustomerRole(u, event.target.value as User['role'])}
                                 disabled={isLockedIdentity}
-                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-cyan-400/60 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-green-400/60 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
                               >
                                 {u.role === 'OWNER' && <option value="OWNER">OWNER</option>}
                                 <option value="USER">USER</option>
@@ -4029,11 +4029,11 @@ export const AdminPanel = () => {
                         initial={{ height: 0 }} animate={{ height: `${(h / 180) * 100}%` }}
                         className={`flex-1 rounded-t-xl group relative ${
                           analyticsChartMode === 'REVENUE'
-                            ? 'bg-gradient-to-t from-blue-600/10 via-blue-500/40 to-cyan-400'
+                            ? 'bg-gradient-to-t from-green-700/10 via-green-600/40 to-green-400'
                             : 'bg-gradient-to-t from-emerald-600/10 via-emerald-500/40 to-lime-300'
                         }`}
                       >
-                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#0A0C12] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-cyan-400 whitespace-nowrap shadow-2xl">
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#0A0C12] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-green-400 whitespace-nowrap shadow-2xl">
                           {analyticsChartMode === 'REVENUE' ? `৳${(h * 10).toLocaleString()}k` : `${h}%`}
                         </div>
                       </motion.div>
@@ -4058,7 +4058,7 @@ export const AdminPanel = () => {
                       </div>
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                         <p className="text-[10px] leading-relaxed text-zinc-400 font-bold uppercase">
-                          <span className="text-cyan-400">Inventory Alert:</span> Balenciaga stock levels dropping below <span className="text-white">threshold (15%)</span>.
+                          <span className="text-green-400">Inventory Alert:</span> Balenciaga stock levels dropping below <span className="text-white">threshold (15%)</span>.
                         </p>
                       </div>
                     </div>
@@ -4114,7 +4114,7 @@ export const AdminPanel = () => {
                   ))}
                   <button
                     onClick={exportFinanceReport}
-                    className="px-5 py-2 rounded-full border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/10 transition-all"
+                    className="px-5 py-2 rounded-full border border-green-500/40 text-green-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-green-500/10 transition-all"
                   >
                     Export CSV
                   </button>
@@ -4124,7 +4124,7 @@ export const AdminPanel = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <BentoCard title="Gross Sales" value={`৳${financeSummary.grossSales.toLocaleString()}`} trend={`${financeSummary.totalOrders} orders`} icon={DollarSign} color="bg-emerald-600" />
                 <BentoCard title="Total Expenses" value={`৳${financeSummary.expensesTotal.toLocaleString()}`} trend={`${financeExpensesFiltered.length} entries`} icon={LogOut} color="bg-rose-600" />
-                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-cyan-600" />
+                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-green-600" />
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -4156,7 +4156,7 @@ export const AdminPanel = () => {
                         type="date"
                         value={expenseForm.date}
                         onChange={(e) => setExpenseForm((prev) => ({ ...prev, date: e.target.value }))}
-                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-4 text-sm text-white outline-none focus:border-cyan-500/60"
+                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-4 text-sm text-white outline-none focus:border-green-500/60"
                       />
                     </div>
                   </div>
@@ -4212,7 +4212,7 @@ export const AdminPanel = () => {
                   </div>
                   <div className="h-px bg-white/10" />
                   <div className="space-y-3 text-[11px] font-bold uppercase tracking-[0.12em]">
-                    <div className="flex justify-between"><span className="text-zinc-500">Shipping Income</span><span className="text-cyan-300">৳{financeSummary.shippingIncome.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-500">Shipping Income</span><span className="text-green-300">৳{financeSummary.shippingIncome.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span className="text-zinc-500">Discount Given</span><span className="text-rose-400">৳{financeSummary.discounts.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span className="text-zinc-500">Cancelled Value</span><span className="text-rose-400">৳{financeSummary.cancelledValue.toLocaleString()}</span></div>
                   </div>
@@ -4232,7 +4232,7 @@ export const AdminPanel = () => {
                         Update your personal name and phone for admin account
                       </p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <span className="px-4 py-2 rounded-full border border-green-500/30 bg-green-500/10 text-green-200 text-[10px] font-black uppercase tracking-[0.2em]">
                       {adminRole}
                     </span>
                   </div>
@@ -4311,7 +4311,7 @@ export const AdminPanel = () => {
 
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-6 mb-12">
-                    <div className="w-16 h-16 rounded-[24px] bg-cyan-600/10 flex items-center justify-center text-cyan-500">
+                    <div className="w-16 h-16 rounded-[24px] bg-green-600/10 flex items-center justify-center text-green-500">
                       <Phone className="w-8 h-8" />
                     </div>
                     <div>
@@ -4388,7 +4388,7 @@ export const AdminPanel = () => {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-4 mb-10">
-                    <Mail className="w-8 h-8 text-cyan-500" />
+                    <Mail className="w-8 h-8 text-green-500" />
                     <h3 className="text-3xl font-black uppercase italic">Handshake Protocols (SMTP)</h3>
                   </div>
                   <div className="space-y-6">
@@ -4510,10 +4510,10 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 md:p-5 space-y-4">
+                  <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-4 md:p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">Invoice Serial Preview</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-green-200">Invoice Serial Preview</p>
                         <p className="text-base md:text-lg font-black text-white mt-1">
                           {`${String(siteSettings.invoiceSettings.invoicePrefix || 'SPL').toUpperCase()}-${'0'.repeat(Math.max(3, Math.min(10, Number(siteSettings.invoiceSettings.numberPadding) || 6)))}`}
                         </p>
@@ -4532,7 +4532,7 @@ export const AdminPanel = () => {
                       </button>
                       <button
                         onClick={syncInvoiceThemeToStoreTheme}
-                        className="h-11 rounded-xl border border-cyan-500/40 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-green-500/40 text-green-200 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-green-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         SYNC WITH THEME SETTINGS
@@ -4547,7 +4547,7 @@ export const AdminPanel = () => {
                         type="text"
                         value={siteSettings.invoiceSettings.invoicePrefix}
                         onChange={(e) => updateInvoiceSettingsField({ invoicePrefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       />
                     </div>
                     <div className="space-y-2">
@@ -4558,7 +4558,7 @@ export const AdminPanel = () => {
                         max={10}
                         value={siteSettings.invoiceSettings.numberPadding}
                         onChange={(e) => updateInvoiceSettingsField({ numberPadding: Math.max(3, Math.min(10, Number(e.target.value) || 6)) })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       />
                     </div>
                     <div className="space-y-2">
@@ -4566,7 +4566,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.invoiceSettings.defaultType}
                         onChange={(e) => updateInvoiceSettingsField({ defaultType: e.target.value })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         {(siteSettings.invoiceSettings.serialTypes || []).map((item) => (
                           <option key={item.code} value={item.code}>{item.code} - {item.label}</option>
@@ -4577,7 +4577,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Counter Mode</label>
                       <button
                         onClick={() => updateInvoiceSettingsField({ separateCounterPerType: !siteSettings.invoiceSettings.separateCounterPerType })}
-                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-cyan-400/50 text-cyan-200 bg-cyan-500/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-green-400/50 text-green-200 bg-green-500/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
                       >
                         {siteSettings.invoiceSettings.separateCounterPerType ? 'Separate by Type' : 'Global Counter'}
                       </button>
@@ -4620,7 +4620,7 @@ export const AdminPanel = () => {
                             type="text"
                             value={(siteSettings.invoiceSettings.theme as any)[item.key]}
                             onChange={(e) => updateInvoiceThemeField(item.key, e.target.value.toUpperCase())}
-                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                           />
                         </div>
                       </div>
@@ -4646,7 +4646,7 @@ export const AdminPanel = () => {
                             step={0.25}
                             value={siteSettings.invoiceSettings.taxRate}
                             onChange={(e) => updateInvoiceSettingsField({ taxRate: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
-                            className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                           />
                         ) : (
                           <button
@@ -4665,7 +4665,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Serial Types</label>
                       <button
                         onClick={addInvoiceSerialType}
-                        className="h-10 px-4 rounded-xl border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/10 transition-all"
+                        className="h-10 px-4 rounded-xl border border-green-500/40 text-green-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-green-500/10 transition-all"
                       >
                         Add Type
                       </button>
@@ -4677,13 +4677,13 @@ export const AdminPanel = () => {
                             type="text"
                             value={serialType.code}
                             onChange={(e) => updateInvoiceSerialType(index, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                           />
                           <input
                             type="text"
                             value={serialType.label}
                             onChange={(e) => updateInvoiceSerialType(index, { label: e.target.value })}
-                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                           />
                           <button
                             onClick={() => removeInvoiceSerialType(index)}
@@ -4719,7 +4719,7 @@ export const AdminPanel = () => {
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">
+                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-green-300">
                       Role: {adminRole}
                     </span>
                   </div>
@@ -4755,7 +4755,7 @@ export const AdminPanel = () => {
                           type="text"
                           value={field.value}
                           onChange={(e) => updateThemeSettingsField(field.key, e.target.value)}
-                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                         />
                       </div>
                     ))}
@@ -4767,7 +4767,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.themeSettings.typography.fontFamily}
                         onChange={(e) => updateThemeSettingsField('typography.fontFamily', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         {['Inter', 'Manrope', 'Plus Jakarta Sans', 'Urbanist', 'Poppins'].map((font) => (
                           <option key={font} value={font}>{font}</option>
@@ -4779,7 +4779,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.themeSettings.containerWidth}
                         onChange={(e) => updateThemeSettingsField('containerWidth', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         {['LG', 'XL', '2XL', 'FULL'].map((width) => (
                           <option key={width} value={width}>{width}</option>
@@ -4791,7 +4791,7 @@ export const AdminPanel = () => {
                   <button
                     type="button"
                     onClick={() => setThemeAdvancedOpen((prev) => !prev)}
-                    className="w-full h-11 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 hover:text-white hover:border-cyan-400/50 transition-all flex items-center justify-center gap-2"
+                    className="w-full h-11 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 hover:text-white hover:border-green-400/50 transition-all flex items-center justify-center gap-2"
                   >
                     {themeAdvancedOpen ? 'Hide Advanced Controls' : 'Show Advanced Controls'}
                     <ChevronDown className={`w-4 h-4 transition-transform ${themeAdvancedOpen ? 'rotate-180' : ''}`} />
@@ -4814,7 +4814,7 @@ export const AdminPanel = () => {
                               max={20}
                               value={siteSettings.cmsDraft.themeSettings.typography.baseSize}
                               onChange={(e) => updateThemeSettingsField('typography.baseSize', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4826,7 +4826,7 @@ export const AdminPanel = () => {
                               step={0.05}
                               value={siteSettings.cmsDraft.themeSettings.typography.headingScale}
                               onChange={(e) => updateThemeSettingsField('typography.headingScale', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4837,7 +4837,7 @@ export const AdminPanel = () => {
                               max={40}
                               value={siteSettings.cmsDraft.themeSettings.borderRadius}
                               onChange={(e) => updateThemeSettingsField('borderRadius', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4848,7 +4848,7 @@ export const AdminPanel = () => {
                               max={100}
                               value={siteSettings.cmsDraft.themeSettings.shadowIntensity}
                               onChange={(e) => updateThemeSettingsField('shadowIntensity', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                             />
                           </div>
                         </div>
@@ -4888,7 +4888,7 @@ export const AdminPanel = () => {
                             max={50}
                             value={siteSettings.cmsDraft.themeSettings.lowStockThreshold}
                             onChange={(e) => updateThemeSettingsField('lowStockThreshold', Number(e.target.value))}
-                            className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                            className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                           />
                           <p className="text-[10px] text-zinc-500">
                             Show “Low stock” only when stock is known and at or below this value.
@@ -4918,7 +4918,7 @@ export const AdminPanel = () => {
                         onClick={() => setCmsCategoryTab(tab)}
                         className={`h-11 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                           cmsCategoryTab === tab
-                            ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300'
+                            ? 'bg-green-500/20 border-green-400/60 text-green-300'
                             : 'border-white/10 text-zinc-400 hover:text-white'
                         }`}
                       >
@@ -4939,7 +4939,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroTitleMode}
                         onChange={(e) => updateHeroField('heroTitleMode', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         <option value="AUTO">AUTO</option>
                         <option value="MANUAL">MANUAL</option>
@@ -4950,7 +4950,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroAlignment}
                         onChange={(e) => updateHeroField('heroAlignment', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         <option value="LEFT">LEFT</option>
                         <option value="CENTER">CENTER</option>
@@ -4964,7 +4964,7 @@ export const AdminPanel = () => {
                       value={siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks}
                       onChange={(e) => updateHeroField('heroTitleManualBreaks', e.target.value)}
                       rows={3}
-                      className="w-full rounded-xl border border-white/10 bg-[#0A0C12] px-4 py-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                      className="w-full rounded-xl border border-white/10 bg-[#0A0C12] px-4 py-3 text-xs text-white outline-none focus:border-green-400/60"
                     />
                   </div>
 
@@ -5020,7 +5020,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroBgType}
                         onChange={(e) => updateHeroField('heroBgType', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         <option value="GRADIENT">GRADIENT</option>
                         <option value="IMAGE">IMAGE</option>
@@ -5034,7 +5034,7 @@ export const AdminPanel = () => {
                         max={4}
                         value={siteSettings.cmsDraft.heroSettings.heroMaxLines}
                         onChange={(e) => updateHeroField('heroMaxLines', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       />
                     </div>
                   </div>
@@ -5047,7 +5047,7 @@ export const AdminPanel = () => {
                   />
 
                   <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">Category Override: {cmsCategoryTab.toUpperCase()}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-400">Category Override: {cmsCategoryTab.toUpperCase()}</p>
                     <LuxuryFloatingInput
                       label="Override Title"
                       value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroTitle || ''}
@@ -5081,7 +5081,7 @@ export const AdminPanel = () => {
                         <select
                           value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroBgType || 'GRADIENT'}
                           onChange={(e) => updateCategoryOverrideField('heroBgType', e.target.value)}
-                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                         >
                           <option value="GRADIENT">GRADIENT</option>
                           <option value="IMAGE">IMAGE</option>
@@ -5098,7 +5098,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.sortDefault || 'Newest'}
                         onChange={(e) => updateCategoryOverrideField('sortDefault', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-cyan-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-green-400/60"
                       >
                         <option value="Newest">Newest</option>
                         <option value="PriceLowToHigh">PriceLowToHigh</option>
@@ -5107,8 +5107,8 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">Live Hero Preview</p>
+                  <div className="p-5 rounded-2xl border border-green-500/20 bg-green-500/5 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-300">Live Hero Preview</p>
                     <p className="text-2xl font-black leading-tight text-white whitespace-pre-line">
                       {siteSettings.cmsDraft.heroSettings.heroTitleMode === 'MANUAL'
                         ? siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks.replace(/<br\s*\/?>/gi, '\n').replace(/\\n/g, '\n')
@@ -5148,7 +5148,7 @@ export const AdminPanel = () => {
             <motion.div key="pages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
               <GlassCard className="p-12">
                 <div className="flex items-center gap-4 mb-10">
-                  <FileText className="w-8 h-8 text-cyan-500" />
+                  <FileText className="w-8 h-8 text-green-500" />
                   <div>
                     <h3 className="text-3xl font-black uppercase italic tracking-tighter">Pages CMS</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Footer link pages are editable here</p>
@@ -5158,7 +5158,7 @@ export const AdminPanel = () => {
                 <div className="space-y-8">
                   {cmsPageSections.map((section) => (
                     <div key={section.key} className="p-8 rounded-[28px] border border-white/10 bg-white/[0.02] space-y-5">
-                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-cyan-400">{section.label}</h4>
+                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-green-400">{section.label}</h4>
                       <LuxuryFloatingInput
                         label="Page Heading"
                         value={siteSettings.cmsPages[section.key].heading}
@@ -5177,7 +5177,7 @@ export const AdminPanel = () => {
                           value={siteSettings.cmsPages[section.key].body}
                           onChange={(e) => updateCmsField(section.key, 'body', e.target.value)}
                           rows={4}
-                          className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-cyan-500/50"
+                          className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-green-500/50"
                         />
                       </div>
                     </div>
@@ -5204,7 +5204,7 @@ export const AdminPanel = () => {
                 {(siteSettings.storyPosts || []).map((story) => (
                   <GlassCard key={story.id} className="p-10 space-y-6 border-white/10">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-cyan-500">
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-green-500">
                         Story ID: {story.id}
                       </p>
                       <div className="flex items-center gap-4">
@@ -5254,7 +5254,7 @@ export const AdminPanel = () => {
                         value={story.body}
                         onChange={(e) => upsertStoryPost(story.id, 'body', e.target.value)}
                         rows={6}
-                        className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-cyan-500/50"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-green-500/50"
                       />
                     </div>
 
@@ -5265,10 +5265,10 @@ export const AdminPanel = () => {
                           type="datetime-local"
                           value={story.publishAt ? new Date(story.publishAt).toISOString().slice(0, 16) : ''}
                           onChange={(e) => upsertStoryPost(story.id, 'publishAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-cyan-500/50"
+                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-green-500/50"
                         />
                       </div>
-                      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-cyan-400 flex items-center">
+                      <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-green-400 flex items-center">
                         Auto mode: draft stories publish automatically after schedule time.
                       </div>
                     </div>
@@ -5307,8 +5307,8 @@ export const AdminPanel = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {slides.map((slide, idx) => (
-                  <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-cyan-500/20 transition-all duration-700">
-                    <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-cyan-500 text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
+                  <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-green-500/20 transition-all duration-700">
+                    <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-green-500 text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
                     <div className="aspect-[21/9] rounded-3xl overflow-hidden mb-8 border border-white/10 group-hover:scale-[1.02] transition-transform duration-700">
                       <OptimizedImage src={slide.img} alt={slide.title || `Slide ${idx + 1}`} sizes="(max-width: 768px) 100vw, 50vw" className="w-full h-full object-cover" />
                     </div>
@@ -5335,14 +5335,14 @@ export const AdminPanel = () => {
                         <button
                           onClick={() => moveSlide(idx, 'up')}
                           disabled={idx === 0}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-green-500/30 text-green-400 hover:bg-green-500/10'}`}
                         >
                           Move Up
                         </button>
                         <button
                           onClick={() => moveSlide(idx, 'down')}
                           disabled={idx === slides.length - 1}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-green-500/30 text-green-400 hover:bg-green-500/10'}`}
                         >
                           Move Down
                         </button>
@@ -5362,7 +5362,7 @@ export const AdminPanel = () => {
                         </button>
                         <button
                           onClick={() => updateSettings({ slides })}
-                          className="flex-1 py-5 rounded-2xl bg-white text-black font-black text-[10px] uppercase shadow-lg transition-all hover:bg-cyan-400"
+                          className="flex-1 py-5 rounded-2xl bg-white text-black font-black text-[10px] uppercase shadow-lg transition-all hover:bg-green-400"
                         >
                           Synchronize Slide
                         </button>
@@ -5432,7 +5432,7 @@ export const AdminPanel = () => {
             <motion.div key="traffic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <BentoCard title="Active Collectors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-blue-600" />
-                <BentoCard title="Session Velocity" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-cyan-500" />
+                <BentoCard title="Session Velocity" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-green-500" />
                 <BentoCard title="Entry Points" value={new Set(trafficData.map(t => t.path)).size.toString()} trend="+2" icon={MapPin} color="bg-indigo-600" />
               </div>
 
@@ -5625,7 +5625,7 @@ export const AdminPanel = () => {
                 <GlassCard className="p-6 md:p-10 !rounded-[36px] border-white/10 bg-[#0A0C12]/95">
                   <div className="flex items-start justify-between gap-4 mb-8">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-cyan-400 font-black mb-2">Customer Profile</p>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-green-400 font-black mb-2">Customer Profile</p>
                       <h3 className="text-2xl md:text-4xl font-black tracking-tight text-white">
                         {selectedCustomerProfile?.user?.name || 'Loading customer...'}
                       </h3>
@@ -5662,7 +5662,7 @@ export const AdminPanel = () => {
                         </GlassCard>
                         <GlassCard className="p-5">
                           <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Lifetime Value</p>
-                          <p className="text-2xl font-black text-cyan-300 mt-2">৳{selectedCustomerProfile.stats.lifetimeValue.toLocaleString()}</p>
+                          <p className="text-2xl font-black text-green-300 mt-2">৳{selectedCustomerProfile.stats.lifetimeValue.toLocaleString()}</p>
                         </GlassCard>
                         <GlassCard className="p-5">
                           <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Refunds</p>
@@ -5727,7 +5727,7 @@ export const AdminPanel = () => {
                             </button>
                             <button
                               onClick={exportCustomerOrdersCsv}
-                              className="px-4 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.16em]"
+                              className="px-4 py-2 rounded-xl border border-green-500/30 bg-green-500/10 text-green-200 text-[10px] font-black uppercase tracking-[0.16em]"
                             >
                               Export Orders
                             </button>
@@ -5767,7 +5767,7 @@ export const AdminPanel = () => {
                                       </div>
                                     </td>
                                     <td className="py-3 pr-3 text-zinc-300 font-semibold">{item.totalQuantity}</td>
-                                    <td className="py-3 pr-3 text-cyan-200 font-semibold">৳{item.totalSpent.toLocaleString()}</td>
+                                    <td className="py-3 pr-3 text-green-200 font-semibold">৳{item.totalSpent.toLocaleString()}</td>
                                     <td className="py-3 text-zinc-400 text-sm">
                                       {item.lastPurchasedAt ? new Date(item.lastPurchasedAt).toLocaleString() : 'N/A'}
                                     </td>
@@ -5818,7 +5818,7 @@ export const AdminPanel = () => {
                                   <tr key={order.id} className="border-t border-white/5">
                                     <td className="py-3 pr-3 text-white font-semibold">{order.orderNo || order.id}</td>
                                     <td className="py-3 pr-3 text-zinc-300">{order.status}</td>
-                                    <td className="py-3 pr-3 text-cyan-200">৳{Number(order.total || 0).toLocaleString()}</td>
+                                    <td className="py-3 pr-3 text-green-200">৳{Number(order.total || 0).toLocaleString()}</td>
                                     <td className="py-3 text-zinc-400 text-sm">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}</td>
                                   </tr>
                                 ))}
@@ -5853,12 +5853,12 @@ export const AdminPanel = () => {
                               value={customerNoteDraft}
                               onChange={(event) => setCustomerNoteDraft(event.target.value)}
                               placeholder="Add admin note..."
-                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#0A0C12] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-cyan-400/60 resize-none"
+                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#0A0C12] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-green-400/60 resize-none"
                             />
                             <button
                               onClick={saveCustomerNote}
                               disabled={customerNoteSaving}
-                              className="h-11 px-5 rounded-xl border border-cyan-500/35 bg-cyan-500/10 text-cyan-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
+                              className="h-11 px-5 rounded-xl border border-green-500/35 bg-green-500/10 text-green-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
                             >
                               {customerNoteSaving ? 'Saving...' : 'Save note'}
                             </button>
@@ -5867,7 +5867,7 @@ export const AdminPanel = () => {
                             {customerActivity.map((event) => (
                               <div key={event.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
                                 <div className="flex items-center justify-between gap-2 mb-1">
-                                  <p className="text-[10px] uppercase tracking-[0.14em] text-cyan-300 font-black">{event.type.replace(/_/g, ' ')}</p>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-green-300 font-black">{event.type.replace(/_/g, ' ')}</p>
                                   <p className="text-[10px] text-zinc-500">{event.createdAt ? new Date(event.createdAt).toLocaleString() : 'N/A'}</p>
                                 </div>
                                 <p className="text-sm text-zinc-200 break-words">{event.details || 'No details'}</p>
@@ -5886,7 +5886,7 @@ export const AdminPanel = () => {
                           {selectedCustomerProfile.addresses.map((address) => (
                             <div key={address.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-2">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-[11px] uppercase tracking-[0.16em] font-black text-cyan-300">{address.label || 'Address'}</p>
+                                <p className="text-[11px] uppercase tracking-[0.16em] font-black text-green-300">{address.label || 'Address'}</p>
                                 {address.isDefault && <span className="text-[9px] text-emerald-300 uppercase font-black">Default</span>}
                               </div>
                               <p className="text-sm font-semibold text-white">{address.recipientName || selectedCustomerProfile.user.name}</p>
@@ -6010,7 +6010,7 @@ export const AdminPanel = () => {
 
                   <div className="bg-white/5 rounded-[40px] border border-white/10 overflow-hidden mb-14">
                     <div className="p-10 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400 flex items-center gap-3">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-green-400 flex items-center gap-3">
                         <ShoppingBag className="w-4 h-4" /> Inventory Manifest
                       </h4>
                       <span className="px-4 py-1.5 bg-zinc-800 rounded-full text-[9px] font-black text-zinc-400 uppercase tracking-widest">{selectedOrder.items.length} ASSETS</span>
@@ -6077,9 +6077,9 @@ export const AdminPanel = () => {
                         <span>Logistics Fee</span>
                         <span className="text-zinc-200">৳{selectedOrder.shippingFee.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between w-full md:w-80 pt-8 border-t border-white/10 text-4xl font-black italic text-cyan-400 tracking-tighter">
+                      <div className="flex justify-between w-full md:w-80 pt-8 border-t border-white/10 text-4xl font-black italic text-green-400 tracking-tighter">
                         <span>TOTAL</span>
-                        <span className="shadow-[0_0_30px_rgba(0,212,255,0.2)]">৳{selectedOrder.total.toLocaleString()}</span>
+                        <span className="shadow-[0_0_30px_rgba(52, 168, 83,0.2)]">৳{selectedOrder.total.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -6089,7 +6089,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSslCommerzInit(selectedOrder)}
                         disabled={integrationActionKey === `${selectedOrder.id}:ssl:init`}
-                        className="h-14 rounded-2xl border border-cyan-500/35 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-cyan-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-2xl border border-green-500/35 bg-green-500/10 text-green-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-green-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <CreditCard className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:ssl:init` ? 'Creating...' : 'Create Payment Link'}
@@ -6121,9 +6121,9 @@ export const AdminPanel = () => {
                     </div>
 
                     {(selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus) && (
-                      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="rounded-2xl border border-green-500/20 bg-green-500/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em]">
-                          <span className="text-cyan-300">Consignment</span>
+                          <span className="text-green-300">Consignment</span>
                           <span className="text-zinc-100">{selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || 'N/A'}</span>
                           <span className="text-zinc-400">Status</span>
                           <span className="text-emerald-300">{selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus || 'Pending sync'}</span>
@@ -6133,7 +6133,7 @@ export const AdminPanel = () => {
                         {selectedOrderShipment?.trackingUrl && (
                           <button
                             onClick={() => window.open(selectedOrderShipment.trackingUrl, '_blank', 'noopener,noreferrer')}
-                            className="h-10 px-4 rounded-xl border border-cyan-500/35 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-cyan-500/20"
+                            className="h-10 px-4 rounded-xl border border-green-500/35 bg-green-500/10 text-green-200 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-green-500/20"
                           >
                             Open Tracking
                           </button>
@@ -6159,7 +6159,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => downloadLatestInvoice(selectedOrder, siteSettings.invoiceSettings.defaultType || 'INV')}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest`}
-                        className="h-14 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-cyan-500/20 disabled:opacity-60"
+                        className="h-14 rounded-2xl border border-green-500/30 bg-green-500/10 text-green-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-green-500/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest` ? 'Opening...' : 'Download PDF'}
                       </button>
@@ -6211,7 +6211,7 @@ export const AdminPanel = () => {
               ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
               : toast.tone === 'error'
                 ? 'border-rose-500/40 bg-rose-500/15 text-rose-200'
-                : 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                : 'border-green-500/40 bg-green-500/15 text-green-200'
           }`}
         >
           {toast.message}

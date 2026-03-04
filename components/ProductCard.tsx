@@ -123,7 +123,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 initial={{ opacity: 0, y: 30, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className="w-full h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-cyan-400/20 hover:text-white transition-all duration-500"
+                className="w-full h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-green-500/20 hover:text-white transition-all duration-500"
               >
                 <Eye className="w-4 h-4" /> View Details
               </motion.button>
@@ -155,7 +155,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
-                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-cyan-400/25'
+                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-green-500/25'
                   }`}
                 >
                   Buy Now
@@ -180,11 +180,11 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 event.stopPropagation();
                 navigate(`/shop?brand=${slugifyValue((product as any).brandSlug || product.brand)}`);
               }}
-              className="text-[8px] font-black text-cyan-500 uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-cyan-300"
+              className="text-[8px] font-black text-green-500 uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-green-300"
             >
               {product.brand}
             </button>
-            <h3 className="text-sm sm:text-lg md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-cyan-400 transition-colors">
+            <h3 className="text-sm sm:text-lg md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-green-400 transition-colors">
               {product.name}
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -194,7 +194,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   event.stopPropagation();
                   navigate(`/shop?category=${slugifyValue((product as any).categorySlug || product.category)}`);
                 }}
-                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-cyan-500/45 hover:text-cyan-300"
+                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-green-500/45 hover:text-green-300"
               >
                 {product.category}
               </button>
@@ -207,7 +207,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     const subSlug = slugifyValue((product as any).subCategorySlug || product.subCategory);
                     navigate(`/shop?category=${categorySlug}&sub=${subSlug}`);
                   }}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-cyan-500/35 hover:text-cyan-300"
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-green-500/35 hover:text-green-300"
                 >
                   {product.subCategory}
                 </button>
@@ -220,7 +220,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.14em] ${
                       urgency.outOfStock
                         ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                        : 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300'
+                        : 'border-green-500/35 bg-green-600/10 text-green-300'
                     }`}
                   >
                     {urgency.outOfStock
@@ -237,7 +237,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             )}
           </div>
           <div className="text-right">
-            <p className="text-sm sm:text-lg md:text-xl font-black text-white group-hover:text-cyan-400 transition-colors">৳{product.price.toLocaleString()}</p>
+            <p className="text-sm sm:text-lg md:text-xl font-black text-white group-hover:text-green-400 transition-colors">৳{product.price.toLocaleString()}</p>
           </div>
         </div>
 
@@ -247,10 +247,10 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             <Globe className="w-3 h-3" />
             <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">Curated Import</span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-cyan-500" />
+          <div className="w-1 h-1 rounded-full bg-green-500" />
           <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3 text-cyan-500" />
-            <span className="text-[7px] font-black text-cyan-500 uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
+            <Clock className="w-3 h-3 text-green-500" />
+            <span className="text-[7px] font-black text-green-500 uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
           </div>
         </div>
 

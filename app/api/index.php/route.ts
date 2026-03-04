@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
+=======
+import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
+>>>>>>> codex/main-hotfix-20260303
 import { NextRequest, NextResponse } from 'next/server';
 import { appendRow, ensureTabsAndHeaders } from '../../../lib/sheets';
 import { getDbPool, getStorageInfo, nextOrderNumber } from '../../../lib/db';
@@ -12,6 +16,7 @@ import { sendMail } from '../../../lib/mailer';
 type JsonRecord = Record<string, any>;
 
 const AUTH_COOKIE = 'splaro_auth_user';
+const LEGACY_AUTH_COOKIE = 'splaro_auth';
 const CSRF_COOKIE = 'splaro_csrf';
 
 const DEFAULT_SITE_SETTINGS = {
@@ -170,6 +175,59 @@ function decodeAuthCookie(token: string | undefined): { id: string; email: strin
   }
 }
 
+function getAuthSecret(): string {
+  const configured = String(process.env.APP_AUTH_SECRET || '').trim();
+  if (configured !== '') return configured;
+  const db = resolveRuntimeEnv().db;
+  return createHash('sha256')
+    .update(`splaro|${db.host}|${db.name}|${db.user}`)
+    .digest('hex');
+}
+
+function issueLegacyAuthToken(payload: { id: string; email: string; role: string }): string {
+  const secret = getAuthSecret();
+  if (secret === '') return '';
+  const now = Math.floor(Date.now() / 1000);
+  const body = {
+    uid: String(payload.id || ''),
+    email: normalizeEmail(payload.email),
+    role: String(payload.role || 'user').toUpperCase(),
+    pwd_at: now,
+    exp: now + (12 * 60 * 60),
+  };
+  const encoded = Buffer.from(JSON.stringify(body)).toString('base64url');
+  const signature = createHmac('sha256', secret).update(encoded).digest('base64url');
+  return `${encoded}.${signature}`;
+}
+
+function decodeLegacyAuthToken(token: string | undefined): { id: string; email: string; role: string } | null {
+  const raw = String(token || '').trim();
+  if (!raw || !raw.includes('.')) return null;
+  const [encoded, signature] = raw.split('.', 2);
+  if (!encoded || !signature) return null;
+  const secret = getAuthSecret();
+  if (secret === '') return null;
+  const expected = createHmac('sha256', secret).update(encoded).digest('base64url');
+  if (expected !== signature) return null;
+
+  try {
+    const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const exp = Number(parsed.exp || 0);
+    if (Number.isFinite(exp) && exp > 0 && exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    const id = String(parsed.uid || parsed.id || '').trim();
+    if (!id) return null;
+    return {
+      id,
+      email: normalizeEmail(parsed.email),
+      role: String(parsed.role || 'user').toLowerCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function randomOtp(): string {
   return String(randomInt(100000, 999999));
 }
@@ -177,11 +235,10 @@ function randomOtp(): string {
 function isAdminRequest(request: NextRequest): boolean {
   const runtime = resolveRuntimeEnv();
   const expected = runtime.adminKey || '';
-  if (!expected) return false;
   const direct = String(request.headers.get('x-admin-key') || '').trim();
   const auth = String(request.headers.get('authorization') || '').trim();
   const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  if (direct === expected || bearer === expected) {
+  if (expected !== '' && (direct === expected || bearer === expected)) {
     return true;
   }
 
@@ -232,7 +289,47 @@ function withCookies(response: NextResponse, values: Record<string, string | nul
 }
 
 function getAuthFromRequest(request: NextRequest) {
-  return decodeAuthCookie(request.cookies.get(AUTH_COOKIE)?.value);
+  const modernCookie = decodeAuthCookie(request.cookies.get(AUTH_COOKIE)?.value);
+  if (modernCookie) return modernCookie;
+
+  const legacyCookie = decodeLegacyAuthToken(request.cookies.get(LEGACY_AUTH_COOKIE)?.value);
+  if (legacyCookie) return legacyCookie;
+
+  const auth = String(request.headers.get('authorization') || '').trim();
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (bearer) {
+    const legacyBearer = decodeLegacyAuthToken(bearer);
+    if (legacyBearer) return legacyBearer;
+  }
+
+  return null;
+}
+
+function withAuthSessionCookies(
+  response: NextResponse,
+  payload: { id: string; email: string; role: string } | null,
+): NextResponse {
+  if (!payload) {
+    return withCookies(response, {
+      [AUTH_COOKIE]: null,
+      [LEGACY_AUTH_COOKIE]: null,
+    });
+  }
+
+  const normalized = {
+    id: String(payload.id || ''),
+    email: normalizeEmail(payload.email),
+    role: String(payload.role || 'user'),
+  };
+  const values: Record<string, string | null> = {
+    [AUTH_COOKIE]: encodeAuthCookie(normalized),
+    [LEGACY_AUTH_COOKIE]: null,
+  };
+  const legacyToken = issueLegacyAuthToken(normalized);
+  if (legacyToken !== '') {
+    values[LEGACY_AUTH_COOKIE] = legacyToken;
+  }
+  return withCookies(response, values);
 }
 
 async function getSiteSettingsMap(db: any | null): Promise<Record<string, any>> {
@@ -602,14 +699,13 @@ async function actionSignup(request: NextRequest, body: JsonRecord): Promise<Nex
   });
   await sendTelegramMessage(`✅ New Signup\nName: ${normalizedName}\nEmail: ${email}\nPhone: ${phone || 'N/A'}`);
 
+  const authPayload = { id: userId, email, role };
   const response = legacySuccess({
     message: 'SIGNUP_SUCCESS',
-    token: `auth_${randomUUID()}`,
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
     user: userPayload,
   }, 201);
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: userId, email, role }),
-  });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionLogin(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
@@ -654,18 +750,17 @@ async function actionLogin(request: NextRequest, body: JsonRecord): Promise<Next
     ipAddress: requestIp(request.headers),
   });
 
+  const authPayload = { id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') };
   const response = legacySuccess({
     message: 'LOGIN_SUCCESS',
-    token: `auth_${randomUUID()}`,
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
     user: {
       ...user,
       password_hash: undefined,
     },
   });
 
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') }),
-  });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionCreateOrder(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
@@ -1090,8 +1185,8 @@ async function actionLogoutAllSessions(request: NextRequest): Promise<NextRespon
   const auth = getAuthFromRequest(request);
   if (!auth) return legacyError('AUTH_REQUIRED', 401);
   const response = legacySuccess({ message: 'SESSIONS_TERMINATED' });
-  return withCookies(response, {
-    [AUTH_COOKIE]: null,
+  const cleared = withAuthSessionCookies(response, null);
+  return withCookies(cleared, {
     [CSRF_COOKIE]: null,
   });
 }
@@ -1184,6 +1279,7 @@ async function actionChangePassword(request: NextRequest, body: JsonRecord): Pro
   if (body.logoutAllSessions) {
     return withCookies(response, {
       [AUTH_COOKIE]: null,
+      [LEGACY_AUTH_COOKIE]: null,
       [CSRF_COOKIE]: null,
     });
   }
@@ -1259,9 +1355,10 @@ async function actionResetPassword(request: NextRequest, body: JsonRecord): Prom
     ipAddress: requestIp(request.headers),
   });
 
+  const authPayload = { id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') };
   const response = legacySuccess({
     message: 'PASSWORD_RESET_SUCCESS',
-    token: `auth_${randomUUID()}`,
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
     user: {
       id: String(user.id),
       name: String(user.name || ''),
@@ -1277,9 +1374,7 @@ async function actionResetPassword(request: NextRequest, body: JsonRecord): Prom
     },
   });
 
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email: normalizeEmail(user.email), role: String(user.role || 'user') }),
-  });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionEmailOtpRequest(body: JsonRecord): Promise<NextResponse> {
@@ -1331,10 +1426,18 @@ async function actionEmailOtpVerify(request: NextRequest, body: JsonRecord): Pro
      WHERE id = ?`,
     [user.id],
   );
-  const response = legacySuccess({ message: 'EMAIL_VERIFIED' });
-  return withCookies(response, {
-    [AUTH_COOKIE]: encodeAuthCookie({ id: String(user.id), email, role: String(user.role || 'user') }),
+  const authPayload = { id: String(user.id), email, role: String(user.role || 'user') };
+  const response = legacySuccess({
+    message: 'EMAIL_VERIFIED',
+    token: issueLegacyAuthToken(authPayload) || `auth_${randomUUID()}`,
+    user: {
+      id: String(user.id),
+      email,
+      role: String(user.role || 'user').toLowerCase(),
+      email_verified: true,
+    },
   });
+  return withAuthSessionCookies(response, authPayload);
 }
 
 async function actionUpdateSettings(request: NextRequest, body: JsonRecord): Promise<NextResponse> {
