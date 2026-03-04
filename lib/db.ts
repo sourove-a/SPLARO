@@ -36,6 +36,20 @@ async function ensureMigrated(activePool: Pool): Promise<void> {
 }
 
 async function init(): Promise<void> {
+  // avoid trying to connect during build steps where DB isn't reachable
+  // for example `next build` runs on CI without a database; we want the
+  // site to still compile. Set SKIP_DB_DURING_BUILD=1 in your CI if
+  // the build machine has DB env vars but the service isn't accessible.
+  // Next.js exposes NEXT_PHASE which is set to "phase-build" during build.
+  if (
+    process.env.SKIP_DB_DURING_BUILD === '1' ||
+    process.env.NEXT_PHASE === 'phase-build'
+  ) {
+    storageMode = 'fallback';
+    lastError = 'skipped during build';
+    return;
+  }
+
   const now = Date.now();
   if (!pool && now - lastInitAttemptAt < REINIT_BACKOFF_MS) {
     return;

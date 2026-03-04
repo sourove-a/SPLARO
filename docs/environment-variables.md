@@ -56,3 +56,10 @@
 - `SEED_ADMIN_PHONE`
 - `SEED_ADMIN_NAME`
 - `SEED_ADMIN_PASSWORD_HASH`
+
+## Build-time tweaks
+
+- `SKIP_DB_DURING_BUILD` – when set to `1` the application will bypass
+  database initialization. Useful on CI or other build environments where
+  `DATABASE_URL` may be set but the database itself is unreachable. The
+  check also runs automatically when `NEXT_PHASE=phase-build`.
