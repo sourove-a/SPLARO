@@ -14835,9 +14835,59 @@ if ($method === 'POST' && $action === 'create_order') {
         }
         error_log("SPLARO_ORDER_CREATE_FAILURE: " . $e->getMessage());
         splaro_log_exception('order.db.insert', $e, ['order_id' => $orderId]);
+        $rawError = (string)$e->getMessage();
+        $isDuplicate = false;
+        if ($e instanceof PDOException) {
+            $pdoCode = (string)$e->getCode();
+            if ($pdoCode === '23000') {
+                $isDuplicate = true;
+            }
+        }
+        if (!$isDuplicate && stripos($rawError, 'Duplicate entry') !== false) {
+            $isDuplicate = true;
+        }
+        if ($isDuplicate) {
+            try {
+                $existingStmt = $db->prepare("SELECT id, order_no FROM orders WHERE id = ? OR order_no = ? ORDER BY created_at DESC LIMIT 1");
+                $existingStmt->execute([(string)$orderId, (string)$orderNo]);
+                $existingOrder = $existingStmt->fetch();
+                if ($existingOrder) {
+                    $existingOrderId = (string)($existingOrder['id'] ?? $orderId);
+                    $existingOrderNo = (string)($existingOrder['order_no'] ?? $orderNo);
+                    splaro_integration_trace('order.db.insert.duplicate_recovered', [
+                        'order_id' => $existingOrderId,
+                        'order_no' => $existingOrderNo
+                    ], 'WARNING');
+                    echo json_encode([
+                        "status" => "success",
+                        "order_id" => $existingOrderId,
+                        "order_no" => $existingOrderNo,
+                        "message" => "ORDER_ALREADY_CREATED",
+                        "email" => ["admin" => false, "customer" => false],
+                        "invoice" => [
+                            "status" => "NOT_ATTEMPTED",
+                            "channel" => "NONE",
+                            "serial" => null,
+                            "downloadUrl" => null,
+                            "error" => null
+                        ],
+                        "integrations" => [
+                            "sheets" => ["queued" => false],
+                            "telegram" => ["queued" => false, "delivered" => false],
+                            "push" => ["notification_id" => 0, "queued_jobs" => 0]
+                        ]
+                    ]);
+                    exit;
+                }
+            } catch (Throwable $duplicateLookupError) {
+                splaro_log_exception('order.db.insert.duplicate_lookup', $duplicateLookupError, [
+                    'order_id' => (string)$orderId,
+                    'order_no' => (string)$orderNo
+                ], 'WARNING');
+            }
+        }
         $message = 'ORDER_CREATE_FAILED';
         $statusCode = 500;
-        $rawError = (string)$e->getMessage();
         if (strpos($rawError, 'INSUFFICIENT_STOCK_FOR_PRODUCT_') === 0) {
             $message = 'INSUFFICIENT_STOCK';
             $statusCode = 409;
@@ -18687,6 +18737,22 @@ function queue_telegram_message($text, $targetChatId = null, $options = [], $eve
     }
 
     if ($queuedId > 0) {
+        try {
+            $instantDrain = process_telegram_queue($db, 8);
+            splaro_integration_trace('telegram.queue.instant_drain', [
+                'event_type' => (string)$eventType,
+                'queue_id' => (int)$queuedId,
+                'processed' => (int)($instantDrain['processed'] ?? 0),
+                'success' => (int)($instantDrain['success'] ?? 0),
+                'failed' => (int)($instantDrain['failed'] ?? 0),
+                'dead' => (int)($instantDrain['dead'] ?? 0)
+            ], ((int)($instantDrain['success'] ?? 0) > 0) ? 'INFO' : 'WARNING');
+        } catch (Throwable $drainError) {
+            splaro_log_exception('telegram.queue.instant_drain', $drainError, [
+                'event_type' => (string)$eventType,
+                'queue_id' => (int)$queuedId
+            ], 'WARNING');
+        }
         schedule_sync_queue_drain($db);
         return true;
     }

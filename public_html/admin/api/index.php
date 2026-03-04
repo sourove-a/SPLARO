@@ -14835,9 +14835,59 @@ if ($method === 'POST' && $action === 'create_order') {
         }
         error_log("SPLARO_ORDER_CREATE_FAILURE: " . $e->getMessage());
         splaro_log_exception('order.db.insert', $e, ['order_id' => $orderId]);
+        $rawError = (string)$e->getMessage();
+        $isDuplicate = false;
+        if ($e instanceof PDOException) {
+            $pdoCode = (string)$e->getCode();
+            if ($pdoCode === '23000') {
+                $isDuplicate = true;
+            }
+        }
+        if (!$isDuplicate && stripos($rawError, 'Duplicate entry') !== false) {
+            $isDuplicate = true;
+        }
+        if ($isDuplicate) {
+            try {
+                $existingStmt = $db->prepare("SELECT id, order_no FROM orders WHERE id = ? OR order_no = ? ORDER BY created_at DESC LIMIT 1");
+                $existingStmt->execute([(string)$orderId, (string)$orderNo]);
+                $existingOrder = $existingStmt->fetch();
+                if ($existingOrder) {
+                    $existingOrderId = (string)($existingOrder['id'] ?? $orderId);
+                    $existingOrderNo = (string)($existingOrder['order_no'] ?? $orderNo);
+                    splaro_integration_trace('order.db.insert.duplicate_recovered', [
+                        'order_id' => $existingOrderId,
+                        'order_no' => $existingOrderNo
+                    ], 'WARNING');
+                    echo json_encode([
+                        "status" => "success",
+                        "order_id" => $existingOrderId,
+                        "order_no" => $existingOrderNo,
+                        "message" => "ORDER_ALREADY_CREATED",
+                        "email" => ["admin" => false, "customer" => false],
+                        "invoice" => [
+                            "status" => "NOT_ATTEMPTED",
+                            "channel" => "NONE",
+                            "serial" => null,
+                            "downloadUrl" => null,
+                            "error" => null
+                        ],
+                        "integrations" => [
+                            "sheets" => ["queued" => false],
+                            "telegram" => ["queued" => false, "delivered" => false],
+                            "push" => ["notification_id" => 0, "queued_jobs" => 0]
+                        ]
+                    ]);
+                    exit;
+                }
+            } catch (Throwable $duplicateLookupError) {
+                splaro_log_exception('order.db.insert.duplicate_lookup', $duplicateLookupError, [
+                    'order_id' => (string)$orderId,
+                    'order_no' => (string)$orderNo
+                ], 'WARNING');
+            }
+        }
         $message = 'ORDER_CREATE_FAILED';
         $statusCode = 500;
-        $rawError = (string)$e->getMessage();
         if (strpos($rawError, 'INSUFFICIENT_STOCK_FOR_PRODUCT_') === 0) {
             $message = 'INSUFFICIENT_STOCK';
             $statusCode = 409;
@@ -15888,14 +15938,31 @@ if ($method === 'POST' && $action === 'sync_products') {
 if ($method === 'POST' && $action === 'upload_product_image') {
     require_admin_access($requestAuthUser);
     try {
-        if (!isset($_FILES['image']) || !is_array($_FILES['image'])) {
-            echo json_encode(["status" => "error", "message" => "IMAGE_REQUIRED"]);
+        $manualUrl = trim((string)($_POST['image_url'] ?? $_POST['url'] ?? ''));
+        $file = isset($_FILES['image']) && is_array($_FILES['image']) ? $_FILES['image'] : null;
+        $hasFile = $file !== null && (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK);
+
+        if ($manualUrl !== '' && !$hasFile) {
+            if (!preg_match('#^https?://#i', $manualUrl)) {
+                echo json_encode(["status" => "error", "message" => "INVALID_IMAGE_URL"]);
+                exit;
+            }
+
+            echo json_encode([
+                "status" => "success",
+                "message" => "IMAGE_URL_ACCEPTED",
+                "data" => [
+                    "url" => $manualUrl,
+                    "relative_url" => $manualUrl,
+                    "width" => null,
+                    "height" => null
+                ]
+            ]);
             exit;
         }
 
-        $file = $_FILES['image'];
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            echo json_encode(["status" => "error", "message" => "UPLOAD_FAILED"]);
+        if (!$hasFile) {
+            echo json_encode(["status" => "error", "message" => "IMAGE_REQUIRED"]);
             exit;
         }
 
@@ -15919,38 +15986,95 @@ if ($method === 'POST' && $action === 'upload_product_image') {
         }
 
         $ext = $allowed[$mime];
-        $uploadRoot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__)), '/\\') . '/uploads/products';
-        if (!is_dir($uploadRoot)) {
-            @mkdir($uploadRoot, 0755, true);
-        }
-        if (!is_dir($uploadRoot) || !is_writable($uploadRoot)) {
-            echo json_encode(["status" => "error", "message" => "UPLOAD_PATH_NOT_WRITABLE"]);
-            exit;
+        $publicUrl = '';
+        $relative = '';
+        $width = 0;
+        $height = 0;
+        $storageDriver = 'local';
+
+        if (CLOUDINARY_ENABLED && function_exists('curl_init')) {
+            $apiUrl = 'https://api.cloudinary.com/v1_1/' . rawurlencode((string)CLOUDINARY_CLOUD_NAME) . '/image/upload';
+            $uploadFields = [
+                'file' => new CURLFile($tmpPath, $mime, (string)($file['name'] ?? ('upload.' . $ext))),
+                'folder' => (string)CLOUDINARY_FOLDER
+            ];
+
+            if (CLOUDINARY_UPLOAD_PRESET !== '') {
+                $uploadFields['upload_preset'] = (string)CLOUDINARY_UPLOAD_PRESET;
+            } else {
+                $timestamp = time();
+                $uploadFields['timestamp'] = $timestamp;
+                $uploadFields['api_key'] = (string)CLOUDINARY_API_KEY;
+                $signBase = 'folder=' . (string)CLOUDINARY_FOLDER . '&timestamp=' . $timestamp . (string)CLOUDINARY_API_SECRET;
+                $uploadFields['signature'] = sha1($signBase);
+            }
+
+            $ch = curl_init($apiUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $uploadFields,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 6,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_HTTPHEADER => ['Accept: application/json']
+            ]);
+            $raw = curl_exec($ch);
+            $curlErr = curl_error($ch);
+            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            $decoded = is_string($raw) ? json_decode($raw, true) : null;
+            $secureUrl = is_array($decoded) ? trim((string)($decoded['secure_url'] ?? '')) : '';
+            if ($secureUrl !== '' && $httpCode >= 200 && $httpCode < 300) {
+                $publicUrl = $secureUrl;
+                $relative = $secureUrl;
+                $width = is_array($decoded) ? (int)($decoded['width'] ?? 0) : 0;
+                $height = is_array($decoded) ? (int)($decoded['height'] ?? 0) : 0;
+                $storageDriver = 'cloudinary';
+            } else {
+                splaro_integration_trace('product.upload.cloudinary_failed', [
+                    'http' => $httpCode,
+                    'error' => $curlErr,
+                    'response' => is_string($raw) ? substr($raw, 0, 400) : ''
+                ], 'WARNING');
+            }
         }
 
-        $fileName = 'prd_' . date('Ymd_His') . '_' . substr(bin2hex(random_bytes(6)), 0, 12) . '.' . $ext;
-        $destPath = $uploadRoot . '/' . $fileName;
-        if (!move_uploaded_file($tmpPath, $destPath)) {
-            echo json_encode(["status" => "error", "message" => "UPLOAD_MOVE_FAILED"]);
-            exit;
+        if ($publicUrl === '') {
+            $uploadRoot = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__)), '/\\') . '/uploads/products';
+            if (!is_dir($uploadRoot)) {
+                @mkdir($uploadRoot, 0755, true);
+            }
+            if (!is_dir($uploadRoot) || !is_writable($uploadRoot)) {
+                echo json_encode(["status" => "error", "message" => "UPLOAD_PATH_NOT_WRITABLE"]);
+                exit;
+            }
+
+            $fileName = 'prd_' . date('Ymd_His') . '_' . substr(bin2hex(random_bytes(6)), 0, 12) . '.' . $ext;
+            $destPath = $uploadRoot . '/' . $fileName;
+            if (!move_uploaded_file($tmpPath, $destPath)) {
+                echo json_encode(["status" => "error", "message" => "UPLOAD_MOVE_FAILED"]);
+                exit;
+            }
+
+            $relative = '/uploads/products/' . $fileName;
+            $origin = trim((string)env_or_default('APP_ORIGIN', ''));
+            $publicUrl = $origin !== '' ? rtrim($origin, '/') . $relative : $relative;
+
+            $dimensions = @getimagesize($destPath);
+            $width = is_array($dimensions) ? (int)($dimensions[0] ?? 0) : 0;
+            $height = is_array($dimensions) ? (int)($dimensions[1] ?? 0) : 0;
+            $storageDriver = 'local';
         }
-
-        $relative = '/uploads/products/' . $fileName;
-        $origin = trim((string)env_or_default('APP_ORIGIN', ''));
-        $publicUrl = $origin !== '' ? rtrim($origin, '/') . $relative : $relative;
-
-        $dimensions = @getimagesize($destPath);
-        $width = is_array($dimensions) ? (int)($dimensions[0] ?? 0) : 0;
-        $height = is_array($dimensions) ? (int)($dimensions[1] ?? 0) : 0;
 
         audit_log_insert(
             $db,
             (string)($requestAuthUser['id'] ?? $requestAuthUser['email'] ?? 'admin'),
             'IMAGES_UPDATED',
             'PRODUCT_MEDIA',
-            $fileName,
+            basename(parse_url((string)$publicUrl, PHP_URL_PATH) ?: (string)$publicUrl),
             null,
-            ['url' => $publicUrl, 'width' => $width, 'height' => $height],
+            ['url' => $publicUrl, 'width' => $width, 'height' => $height, 'storage' => $storageDriver],
             $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN'
         );
 
@@ -15961,10 +16085,11 @@ if ($method === 'POST' && $action === 'upload_product_image') {
                 "url" => $publicUrl,
                 "relative_url" => $relative,
                 "width" => $width,
-                "height" => $height
+                "height" => $height,
+                "storage" => $storageDriver
             ]
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("SPLARO_IMAGE_UPLOAD_FAILED: " . $e->getMessage());
         splaro_log_exception('products.image_upload', $e);
         echo json_encode(["status" => "error", "message" => "IMAGE_UPLOAD_FAILED"]);
@@ -18612,6 +18737,22 @@ function queue_telegram_message($text, $targetChatId = null, $options = [], $eve
     }
 
     if ($queuedId > 0) {
+        try {
+            $instantDrain = process_telegram_queue($db, 8);
+            splaro_integration_trace('telegram.queue.instant_drain', [
+                'event_type' => (string)$eventType,
+                'queue_id' => (int)$queuedId,
+                'processed' => (int)($instantDrain['processed'] ?? 0),
+                'success' => (int)($instantDrain['success'] ?? 0),
+                'failed' => (int)($instantDrain['failed'] ?? 0),
+                'dead' => (int)($instantDrain['dead'] ?? 0)
+            ], ((int)($instantDrain['success'] ?? 0) > 0) ? 'INFO' : 'WARNING');
+        } catch (Throwable $drainError) {
+            splaro_log_exception('telegram.queue.instant_drain', $drainError, [
+                'event_type' => (string)$eventType,
+                'queue_id' => (int)$queuedId
+            ], 'WARNING');
+        }
         schedule_sync_queue_drain($db);
         return true;
     }
