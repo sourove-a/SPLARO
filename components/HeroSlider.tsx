@@ -89,9 +89,9 @@ export const HeroSlider = () => {
               sizes="100vw"
               className="w-full h-full object-cover opacity-[0.64] contrast-125 saturate-[1.08]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#020a05] via-[#040f08]/40 to-[#071a0d]/75" />
-            <div className="absolute inset-0 bg-green-900/20 mix-blend-multiply" />
-            <div className="absolute inset-0 bg-emerald-400/8 mix-blend-screen" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#060200] via-[#0A0500]/40 to-[#120800]/75" />
+            <div className="absolute inset-0 bg-amber-950/20 mix-blend-multiply" />
+            <div className="absolute inset-0 bg-amber-400/6 mix-blend-screen" />
           </div>
         </motion.div>
       </AnimatePresence>
