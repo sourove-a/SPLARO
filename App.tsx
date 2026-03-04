@@ -44,7 +44,7 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 
 const RouteChunkFallback = () => (
   <div className="min-h-[45vh] w-full flex items-center justify-center px-6">
-    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-cyan-300/80 animate-pulse">
+    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-green-300/80 animate-pulse">
       Loading
     </div>
   </div>
@@ -98,7 +98,7 @@ const StoryPage = () => {
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
         <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">
-          BRAND<br /><span className="text-cyan-500">STORY.</span>
+          BRAND<br /><span className="text-green-500">STORY.</span>
         </h1>
         {publishedStories.length === 0 ? (
           <GlassCard className="p-12 !bg-white/[0.02]">
@@ -108,7 +108,7 @@ const StoryPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {publishedStories.map((post) => (
               <GlassCard key={post.id} className="p-10 space-y-6 !bg-white/[0.02]">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-500">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-green-500">
                   {new Date(post.publishAt || post.createdAt).toLocaleDateString('en-GB')}
                 </p>
                 <h2 className="text-3xl font-black uppercase tracking-tight italic text-white">{post.title}</h2>
@@ -131,20 +131,20 @@ const StoryPage = () => {
 const SupportPage = () => (
   <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }}>
-      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">CENTRAL<br /><span className="text-cyan-500">ADVISORY.</span></h1>
+      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">CENTRAL<br /><span className="text-green-500">ADVISORY.</span></h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         {[
           { label: 'Deployment Status', icon: Box, desc: 'Track your archival transition in real-time within the global matrix.' },
           { label: 'Protocol Support', icon: MessageSquare, desc: 'Connect with our strategic advisors via the high-velocity WhatsApp beacon.' },
           { label: 'Secure Verification', icon: Shield, desc: 'Every asset is manifest with absolute authenticity and high-res spectral analysis.' }
         ].map((item, i) => (
-          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-cyan-500/50 transition-all duration-700">
-            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 group-hover:border-cyan-500/20 transition-all duration-500">
+          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-green-500/50 transition-all duration-700">
+            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-green-400 group-hover:bg-green-500/10 group-hover:border-green-500/20 transition-all duration-500">
               <item.icon className="w-8 h-8 group-hover:scale-110 transition-transform" />
             </div>
             <div className="space-y-6">
               <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white italic">{item.label}</h3>
-              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-cyan-500/50 transition-all duration-700" />
+              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-green-500/50 transition-all duration-700" />
               <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest leading-relaxed">{item.desc}</p>
             </div>
           </GlassCard>
@@ -177,7 +177,7 @@ const MobileDebugPage = () => {
           5. Keyboard open on input fields does not cut off form fields or action buttons.
       */}
       <section className="rounded-2xl border border-white/10 p-4 bg-white/[0.02]">
-        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-cyan-400">Mobile QA Debug Surface</h1>
+        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-green-400">Mobile QA Debug Surface</h1>
         <p className="mt-2 text-xs text-zinc-400">Internal route: verify mobile overflow, spacing, sticky/fixed layers, and safe-area behavior.</p>
       </section>
 
@@ -240,7 +240,7 @@ const OrderTrackingPage = () => {
             <PrimaryButton onClick={() => navigate('/login')} className="px-8 py-4 text-[10px]">
               LOG IN TO TRACK
             </PrimaryButton>
-            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-cyan-500 hover:text-cyan-400 transition-all">
+            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-green-500 hover:text-green-400 transition-all">
               CREATE ACCOUNT
             </button>
           </div>
@@ -256,7 +256,7 @@ const OrderTrackingPage = () => {
                     <p className="text-[11px] text-zinc-400 mt-2">{new Date(order.createdAt).toLocaleString('en-GB')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-cyan-400 uppercase">{order.status}</p>
+                    <p className="text-sm font-black text-green-400 uppercase">{order.status}</p>
                     <p className="text-[11px] text-zinc-300 mt-1">Total: ৳{order.total.toLocaleString()}</p>
                   </div>
                 </div>
@@ -292,7 +292,7 @@ const HomeView = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
             <div className="max-w-3xl">
               <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
-                MODERN<br /><span className="text-cyan-500">LUXURY FLOW.</span>
+                MODERN<br /><span className="text-green-500">LUXURY FLOW.</span>
               </h2>
               <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium">
                 Imported footwear and bags with sharp lines, bold character, and a refined finish.
@@ -304,7 +304,7 @@ const HomeView = () => {
                 setSearchQuery('');
                 navigate('/shop');
               }}
-              className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-cyan-500 transition-all duration-700"
+              className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-green-500 transition-all duration-700"
             >
               Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
             </button>
@@ -335,11 +335,11 @@ const OrderSuccessView = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#050505] relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-cyan-900/20 via-transparent to-blue-900/20 opacity-30" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-green-900/20 via-transparent to-blue-900/20 opacity-30" />
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
           transition={{ duration: 10, repeat: Infinity }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-600 rounded-full blur-[200px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-green-600 rounded-full blur-[200px]"
         />
       </div>
 
@@ -371,9 +371,9 @@ const OrderSuccessView = () => {
           transition={{ delay: 1, duration: 1 }}
           className="text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
         >
-          SECURED<span className="text-cyan-500">.</span>
+          SECURED<span className="text-green-500">.</span>
         </motion.h1>
-        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-cyan-500/60 mb-16 animate-pulse">Asset Deployment Initialized</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-green-500/60 mb-16 animate-pulse">Asset Deployment Initialized</p>
         {invoiceState === 'sent' && (
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300 mb-10">
             Invoice email delivered to your inbox.
@@ -387,7 +387,7 @@ const OrderSuccessView = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-16">
           <GlassCard className="p-10 !bg-white/[0.04]">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-cyan-500 mb-6">Shipment Manifest</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-green-500 mb-6">Shipment Manifest</h4>
             <div className="space-y-4">
               <div className="flex justify-between border-b border-white/5 pb-4">
                 <span className="text-[11px] font-bold text-zinc-500 uppercase">Order Identity</span>
@@ -403,7 +403,7 @@ const OrderSuccessView = () => {
               </div>
               <div className="flex justify-between pt-2">
                 <span className="text-[11px] font-bold text-zinc-500 uppercase">Vested Total</span>
-                <span className="text-xl font-black text-cyan-400">৳{latestOrder?.total.toLocaleString()}</span>
+                <span className="text-xl font-black text-green-400">৳{latestOrder?.total.toLocaleString()}</span>
               </div>
             </div>
           </GlassCard>
@@ -417,7 +417,7 @@ const OrderSuccessView = () => {
                 { label: 'Deployment', status: 'Interstellar', icon: ShoppingBag, active: false }
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-6">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-cyan-500/10 text-cyan-400' : 'bg-white/5 text-zinc-800'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-zinc-800'}`}>
                     <step.icon className="w-5 h-5" />
                   </div>
                   <div>
@@ -456,7 +456,7 @@ const BrandMarquee = () => {
           className="flex gap-20 items-center px-10"
         >
           {brands.concat(brands).map((brand, i) => (
-            <span key={i} className="text-[10px] font-black uppercase tracking-[0.8em] text-zinc-600 hover:text-cyan-400 cursor-default transition-colors">
+            <span key={i} className="text-[10px] font-black uppercase tracking-[0.8em] text-zinc-600 hover:text-green-400 cursor-default transition-colors">
               {brand}
             </span>
           ))}
@@ -478,7 +478,7 @@ const Footer = () => {
 
       {/* Decorative Glow Elements */}
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-royal-blue/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-green-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="max-w-[1800px] mx-auto px-2 sm:px-0">
         <BrandMarquee />
@@ -501,7 +501,7 @@ const Footer = () => {
               </p>
               <div className="flex gap-4">
                 {[
-                  { icon: Instagram, color: 'hover:text-cyan-400', glow: 'hover:shadow-[0_0_20px_rgba(0,212,255,0.4)]', link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
+                  { icon: Instagram, color: 'hover:text-green-400', glow: 'hover:shadow-[0_0_20px_rgba(52, 168, 83,0.4)]', link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
                   { icon: Facebook, color: 'hover:text-blue-500', glow: 'hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]', link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
                   { icon: Globe, color: 'hover:text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]', link: 'https://splaro.co' }
                 ].map((social, idx) => (
@@ -521,7 +521,7 @@ const Footer = () => {
 
             {/* Headquarters Column */}
             <div className="lg:col-span-3 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">HEAD OFFICE</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">HEAD OFFICE</h4>
               <div className="flex items-start gap-6 group">
                 <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 shrink-0 group-hover:bg-blue-600/20 transition-all">
                   <MapPin className="w-4 h-4" />
@@ -536,10 +536,10 @@ const Footer = () => {
 
             {/* Portal Connect Column */}
             <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">CONNECT</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">CONNECT</h4>
               <div className="space-y-6">
                 <div className="flex items-center gap-4 group cursor-pointer">
-                  <Mail className="w-4 h-4 text-cyan-500/50 group-hover:text-cyan-400" />
+                  <Mail className="w-4 h-4 text-green-500/50 group-hover:text-green-400" />
                   <a href="mailto:info@splaro.co" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-zinc-200 transition-colors">info@splaro.co</a>
                 </div>
                 <div className="flex items-center gap-4 group cursor-pointer">
@@ -551,22 +551,22 @@ const Footer = () => {
 
             {/* Quick Vault Access */}
             <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">QUICK LINKS</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">QUICK LINKS</h4>
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/shop')} className="cursor-pointer transition-all duration-300">SHOP</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">HOME</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300">ORDER TRACKING</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/shop')} className="cursor-pointer transition-all duration-300">SHOP</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">HOME</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300">ORDER TRACKING</motion.span>
               </div>
             </div>
 
             {/* Institutional Column */}
             <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400">SUPPORT</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">SUPPORT</h4>
               <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/manifest')} className="cursor-pointer transition-all duration-300">ABOUT SPLARO</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/privacy')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/terms')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#00D4FF' }} onClick={() => navigate('/refund-policy')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/manifest')} className="cursor-pointer transition-all duration-300">ABOUT SPLARO</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/privacy')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/terms')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
+                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/refund-policy')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
               </div>
             </div>
 
@@ -583,10 +583,10 @@ const Footer = () => {
             </div>
             <div className="flex items-center gap-6 text-zinc-800">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-900 shadow-[0_0_10px_#00D4FF33]" />
+                <div className="w-1.5 h-1.5 rounded-full bg-green-900 shadow-[0_0_10px_#34a85333]" />
                 <p className="text-[8px] font-black tracking-[0.5em] uppercase">SECURED BY HOSTINGER</p>
               </div>
-              <span onClick={() => navigate('/login')} className="text-[8px] font-black uppercase tracking-[0.5em] hover:text-cyan-500 cursor-pointer transition-all opacity-30">Admin Access</span>
+              <span onClick={() => navigate('/login')} className="text-[8px] font-black uppercase tracking-[0.5em] hover:text-green-500 cursor-pointer transition-all opacity-30">Admin Access</span>
             </div>
           </div>
         </div>
@@ -784,7 +784,7 @@ const AppContent = () => {
   const showFooter = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.CHECKOUT;
 
   return (
-    <div className={`min-h-screen selection:bg-cyan-500/30 overflow-x-hidden`}>
+    <div className={`min-h-screen selection:bg-green-500/30 overflow-x-hidden`}>
       {showNav && <Navbar />}
       {showMobileBar && <MobileTabBar />}
 
@@ -900,7 +900,7 @@ const AppContent = () => {
             whileHover={{ scale: 1.1, y: -8 }}
             whileTap={{ scale: 0.9 }}
             animate={{
-              boxShadow: ["0 0 20px rgba(16,185,129,0.2)", "0 0 60px rgba(0,212,255,0.4)", "0 0 20px rgba(16,185,129,0.2)"],
+              boxShadow: ["0 0 20px rgba(16,185,129,0.2)", "0 0 60px rgba(52, 168, 83,0.4)", "0 0 20px rgba(16,185,129,0.2)"],
               y: [0, -10, 0]
             }}
             transition={{

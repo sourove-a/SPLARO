@@ -358,7 +358,7 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={runPreview}
-            className="h-11 px-4 rounded-xl border border-cyan-400/35 text-cyan-300 disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl border border-green-400/35 text-green-300 disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Eye className="w-4 h-4" /> Preview
           </button>
@@ -382,15 +382,15 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('schedule')}
-            className="h-11 px-4 rounded-xl bg-cyan-500 text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-green-500 text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Clock3 className="w-4 h-4" /> Schedule
           </button>
         </div>
 
         {preview && (
-          <div className="mt-4 rounded-xl border border-cyan-500/25 bg-cyan-500/10 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-300 font-black">Preview</p>
+          <div className="mt-4 rounded-xl border border-green-500/25 bg-green-500/10 p-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-green-300 font-black">Preview</p>
             <p className="text-sm text-zinc-200 mt-1">Users: {preview.users} | Subscriptions: {preview.subscriptions}</p>
             {preview.sample_user_ids?.length > 0 && (
               <p className="text-[11px] text-zinc-400 mt-2">Sample: {preview.sample_user_ids.join(', ')}</p>

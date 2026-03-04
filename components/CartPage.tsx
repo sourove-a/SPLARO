@@ -33,7 +33,7 @@ export const CartPage: React.FC = () => {
         {/* Left: Cart Items List */}
         <div className="lg:col-span-8">
           <header className="mb-8 sm:mb-12">
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-cyan-500">Cart.</span></h1>
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-green-500">Cart.</span></h1>
             <p className="text-white/30 font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[9px]">{cart.length} Selected items</p>
           </header>
 
@@ -51,7 +51,7 @@ export const CartPage: React.FC = () => {
                   </div>
 
                   <div className="flex-1 text-center sm:text-left">
-                    <span className="text-cyan-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
+                    <span className="text-green-500 text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
                     <h3 className="text-lg sm:text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
                     <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest text-white/60">
                       <span>Size: {item.selectedSize}</span>
@@ -64,7 +64,7 @@ export const CartPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-lg border border-white/10 text-white/85 hover:text-cyan-300"
+                        className="h-8 w-8 rounded-lg border border-white/10 text-white/85 hover:text-green-300"
                         onClick={() => updateCartItemQuantity(item.cartId, Math.max(1, item.quantity - 1))}
                         aria-label="Decrease quantity"
                       >
@@ -74,7 +74,7 @@ export const CartPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-lg border border-white/10 text-white/85 hover:text-cyan-300"
+                        className="h-8 w-8 rounded-lg border border-white/10 text-white/85 hover:text-green-300"
                         onClick={() => updateCartItemQuantity(item.cartId, item.quantity + 1)}
                         aria-label="Increase quantity"
                       >
@@ -124,17 +124,17 @@ export const CartPage: React.FC = () => {
                 onClick={() => {
                   navigate('/checkout');
                 }}
-                className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(0,212,255,0.25)] hover:shadow-[0_0_60px_rgba(0,212,255,0.45)]"
+                className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(52, 168, 83,0.25)] hover:shadow-[0_0_60px_rgba(52, 168, 83,0.45)]"
               >
                 PROCEED TO BILLING <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
               </PrimaryButton>
 
               <div className="mt-10 flex flex-col gap-4">
                 <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
-                  <ShieldCheck className="w-4 h-4 text-cyan-500" /> Secure Checkout Protocol
+                  <ShieldCheck className="w-4 h-4 text-green-500" /> Secure Checkout Protocol
                 </div>
                 <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
-                  <HelpCircle className="w-4 h-4 text-cyan-500" /> Elite Customer Support
+                  <HelpCircle className="w-4 h-4 text-green-500" /> Elite Customer Support
                 </div>
               </div>
             </GlassCard>

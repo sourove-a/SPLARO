@@ -178,11 +178,11 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
         onClick={() => setOpen((prev) => !prev)}
         className={`nav-item interactive-control relative p-2 ${mobile ? 'min-h-12 min-w-12 bg-white/5 backdrop-blur-3xl rounded-[18px] border border-white/10 hover:border-white/50 transition-all shadow-xl' : 'group'}`}
       >
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] text-white/70 group-hover:text-white group-hover:border-cyan-500/30 transition-all duration-500">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] text-white/70 group-hover:text-white group-hover:border-green-500/30 transition-all duration-500">
           <Bell className="w-5 h-5" />
         </div>
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 bg-cyan-500 text-white text-[9px] min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 font-black border border-white/30">
+          <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 font-black border border-white/30">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
@@ -192,7 +192,7 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
         <div className={`absolute ${mobile ? 'right-0' : 'right-0'} mt-3 w-[320px] max-w-[92vw] rounded-2xl border border-white/10 bg-[#05070e]/95 backdrop-blur-2xl shadow-[0_22px_60px_rgba(0,0,0,0.45)] z-[700]`}>
           <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-400">Notifications</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-green-400">Notifications</p>
               <p className="text-[10px] text-zinc-500">Unread {unread}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -231,7 +231,7 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
                   >
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[11px] font-black uppercase tracking-[0.15em] text-white truncate">{item.title}</p>
-                      {!isRead && <span className="w-2 h-2 rounded-full bg-cyan-400 mt-1.5 shrink-0" />}
+                      {!isRead && <span className="w-2 h-2 rounded-full bg-green-400 mt-1.5 shrink-0" />}
                     </div>
                     <p className="text-[11px] text-zinc-300 mt-1 line-clamp-2">{item.message}</p>
                     <p className="text-[9px] text-zinc-500 mt-2">{item.created_at ? new Date(item.created_at).toLocaleString('en-GB') : ''}</p>
