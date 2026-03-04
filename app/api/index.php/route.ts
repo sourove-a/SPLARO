@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
-=======
 import { createHash, createHmac, randomBytes, randomInt, randomUUID } from 'node:crypto';
->>>>>>> codex/main-hotfix-20260303
 import { NextRequest, NextResponse } from 'next/server';
 import { appendRow, ensureTabsAndHeaders } from '../../../lib/sheets';
 import { getDbPool, getStorageInfo, nextOrderNumber } from '../../../lib/db';
