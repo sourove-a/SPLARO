@@ -35,9 +35,9 @@ function passwordStrengthLabel(value: string): { label: string; width: number; c
   if (/\d/.test(value)) score += 1;
   if (/[^a-zA-Z0-9]/.test(value)) score += 1;
   if (score <= 2) return { label: 'Weak', width: 24, color: 'bg-rose-400' };
-  if (score === 3) return { label: 'Fair', width: 48, color: 'bg-amber-400' };
+  if (score === 3) return { label: 'Fair', width: 48, color: 'bg-blue-400' };
   if (score === 4) return { label: 'Good', width: 72, color: 'bg-yellow-300' };
-  return { label: 'Strong', width: 100, color: 'bg-amber-400' };
+  return { label: 'Strong', width: 100, color: 'bg-blue-400' };
 }
 
 export default function ForgotPasswordPage() {
@@ -371,7 +371,7 @@ export default function ForgotPasswordPage() {
             exit={{ opacity: 0, y: -8 }}
             className={`fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-2xl border px-4 py-3 text-sm shadow-2xl ${
               toast.tone === 'success'
-                ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
+                ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
                 : toast.tone === 'error'
                   ? 'border-rose-500/40 bg-rose-500/15 text-rose-100'
                   : 'border-[#e8c670]/40 bg-[#e8c670]/15 text-[#f3dfaf]'

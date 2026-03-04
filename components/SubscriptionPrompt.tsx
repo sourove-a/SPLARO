@@ -162,11 +162,11 @@ export const SubscriptionPrompt: React.FC = () => {
   return (
     <div className="fixed left-4 right-4 bottom-24 sm:bottom-28 z-[650] mx-auto max-w-lg rounded-2xl border border-white/15 bg-[#05070e]/95 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] p-4">
       <div className="flex items-start gap-3">
-        <div className="w-11 h-11 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 flex items-center justify-center shrink-0">
+        <div className="w-11 h-11 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-300 flex items-center justify-center shrink-0">
           <Bell className="w-5 h-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-400">Stay Updated</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">Stay Updated</p>
           <p className="text-sm text-zinc-200 mt-1">Enable push notifications to receive order updates and offers on your phone.</p>
           {statusText && <p className="text-[11px] text-zinc-400 mt-2">{statusText}</p>}
 
@@ -175,7 +175,7 @@ export const SubscriptionPrompt: React.FC = () => {
               type="button"
               onClick={requestPermission}
               disabled={busy}
-              className="h-10 px-4 rounded-xl bg-amber-500 text-black text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-60"
+              className="h-10 px-4 rounded-xl bg-blue-500 text-black text-[10px] font-black uppercase tracking-[0.2em] disabled:opacity-60"
             >
               {busy ? 'Please wait' : 'Allow'}
             </button>

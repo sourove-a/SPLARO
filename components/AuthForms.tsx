@@ -671,7 +671,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   }, [googleClientId, authMode]);
 
   const getIdentityIcon = () => {
-    return <Mail className="w-5 h-5 text-amber-400" />;
+    return <Mail className="w-5 h-5 text-blue-400" />;
   };
 
 
@@ -696,7 +696,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               repeat: Infinity,
               ease: "linear"
             }}
-            className="absolute w-[160px] h-[160px] border border-amber-500/10 rounded-full blur-sm"
+            className="absolute w-[160px] h-[160px] border border-blue-500/10 rounded-full blur-sm"
             style={{
               top: asset.top,
               left: asset.left,
@@ -728,8 +728,8 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white mb-3 italic">
               {authMode === 'login' ? 'IDENTITY' : authMode === 'signup' ? 'ARCHIVING' : 'RECOVERY'}
             </h2>
-            <div className="h-1 w-16 bg-amber-500 mb-6 shadow-[0_0_20px_#00D4FF]" />
-            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-amber-500 opacity-60">
+            <div className="h-1 w-16 bg-blue-500 mb-6 shadow-[0_0_20px_#00D4FF]" />
+            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-blue-500 opacity-60">
               {authMode === 'login' ? 'SECURE INITIALIZATION' : authMode === 'signup' ? 'ESTABLISH ARCHIVE' : 'PROTOCOL RESTORATION'}
             </p>
 
@@ -745,7 +745,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                 <button
                   type="button"
                   onClick={() => { setErrors({}); navigate('/signup'); }}
-                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-amber-500/70 border border-amber-300/50 text-white' : 'text-white/50 hover:text-white'}`}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-blue-500/70 border border-blue-300/50 text-white' : 'text-white/50 hover:text-white'}`}
                 >
                   Sign Up
                 </button>
@@ -873,7 +873,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                       <button
                         type="button"
                         onClick={handleResendEmailOtp}
-                        className="text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+                        className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
                       >
                         Resend OTP
                       </button>
@@ -906,7 +906,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                         setRecoveryStep('email');
                         setAuthMode('forgot');
                       }}
-                      className="text-[10px] font-black uppercase text-amber-400/80 hover:text-amber-300 tracking-widest transition-colors"
+                      className="text-[10px] font-black uppercase text-blue-400/80 hover:text-blue-300 tracking-widest transition-colors"
                     >
                       Forgot Password?
                     </button>
@@ -946,7 +946,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             {googleClientId ? (
               <div id="googleSignInBtn" className="w-full max-w-sm"></div>
             ) : (
-              <div className="w-full max-w-sm h-12 rounded-full border border-amber-400/30 bg-amber-500/10 text-[10px] font-semibold tracking-wide text-amber-100 flex items-center justify-center px-4 text-center">
+              <div className="w-full max-w-sm h-12 rounded-full border border-blue-400/30 bg-blue-500/10 text-[10px] font-semibold tracking-wide text-blue-100 flex items-center justify-center px-4 text-center">
                 Google login সেট করতে Admin Settings এ Google Client ID দিন
               </div>
             )}
@@ -966,7 +966,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                   setErrors({});
                   navigate(authMode === 'login' ? '/signup' : '/login');
                 }}
-                className="text-amber-500 font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
+                className="text-blue-500 font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
               >
                 {authMode === 'login' ? 'Sign Up' : 'Log In'}
               </button>

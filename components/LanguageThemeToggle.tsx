@@ -23,7 +23,7 @@ export const LanguageThemeToggle: React.FC = () => {
         onClick={() => setTheme(theme === 'DARK' ? 'LIGHT' : 'DARK')}
         className="liquid-glass w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 transition-all"
       >
-        {theme === 'DARK' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
+        {theme === 'DARK' ? <Moon className="w-4 h-4 text-blue-400" /> : <Sun className="w-4 h-4 text-blue-500" />}
       </button>
     </div>
   );

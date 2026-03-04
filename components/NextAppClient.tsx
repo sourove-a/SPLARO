@@ -8,7 +8,7 @@ const AppShell = dynamic(() => import('../App'), {
   ssr: false,
   loading: () => (
     <div className="min-h-[45vh] w-full flex items-center justify-center px-6">
-      <div className="text-[10px] font-black uppercase tracking-[0.38em] text-amber-300/80 animate-pulse">
+      <div className="text-[10px] font-black uppercase tracking-[0.38em] text-blue-300/80 animate-pulse">
         Loading
       </div>
     </div>

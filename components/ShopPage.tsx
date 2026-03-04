@@ -29,15 +29,15 @@ const FilterPill: React.FC<{
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
     className={`relative px-5 py-3 rounded-2xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group ${isSelected
-      ? 'bg-amber-600/20 border-amber-500/50 text-amber-400 shadow-[0_0_30px_rgba(196, 146, 58,0.15)]'
+      ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_30px_rgba(37, 99, 235,0.15)]'
       : 'bg-white/[0.03] backdrop-blur-md border-white/5 text-white/40 hover:border-white/20 hover:text-white'
       }`}
   >
-    {isSelected && <motion.div layoutId={`pill-glow-${label}`} className="absolute inset-0 bg-amber-500/5 blur-xl pointer-events-none" />}
+    {isSelected && <motion.div layoutId={`pill-glow-${label}`} className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none" />}
     {colorHex ? (
       <div className="w-4 h-4 rounded-full border border-white/20 shadow-inner" style={{ backgroundColor: colorHex }} />
     ) : (
-      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-amber-500 scale-125' : 'bg-white/10'}`} />
+      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-blue-500 scale-125' : 'bg-white/10'}`} />
     )}
     <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
     {count !== undefined && <span className="text-[9px] font-bold opacity-30 group-hover:opacity-60">[{count}]</span>}
@@ -58,7 +58,7 @@ const SizeBox: React.FC<{
       ? 'opacity-10 cursor-not-allowed border-white/5'
       : isSelected
         ? 'bg-white/15 text-white border-white/35 shadow-[0_15px_40px_rgba(132,228,255,0.22)]'
-        : 'bg-white/[0.03] backdrop-blur-xl border-white/10 text-white/40 hover:border-amber-500/40 hover:text-white'
+        : 'bg-white/[0.03] backdrop-blur-xl border-white/10 text-white/40 hover:border-blue-500/40 hover:text-white'
       }`}
   >
     <span className="text-sm font-black relative z-10">{size}</span>
@@ -70,7 +70,7 @@ const ActiveFilterPill: React.FC<{ label: string; onRemove: () => void }> = ({ l
     initial={{ scale: 0, opacity: 0 }}
     animate={{ scale: 1, opacity: 1 }}
     exit={{ scale: 0, opacity: 0 }}
-    className="flex items-center gap-2 px-4 py-2 bg-amber-600/10 border border-amber-500/20 rounded-full text-[9px] font-black text-amber-500 uppercase tracking-widest"
+    className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 border border-blue-500/20 rounded-full text-[9px] font-black text-blue-500 uppercase tracking-widest"
   >
     {label}
     <button onClick={onRemove} className="hover:text-white">
@@ -486,7 +486,7 @@ export const ShopPage: React.FC = () => {
         >
           <div className={`flex flex-col md:flex-row justify-between ${resolvedHero.heroAlignment === 'CENTER' ? 'items-center text-center md:text-center' : 'items-start md:items-end text-left'} gap-10`}>
           <div className="max-w-xl">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 text-amber-500 mb-6">
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 text-blue-500 mb-6">
               <Sparkles className="w-5 h-5" />
               <span className="text-[10px] font-black uppercase tracking-[0.4em]">{resolvedHero.heroBadge}</span>
             </motion.div>
@@ -497,7 +497,7 @@ export const ShopPage: React.FC = () => {
             >
               {resolvedHero.titleLines.map((line: string, index: number) => (
                 <React.Fragment key={`hero-line-${index}`}>
-                  <span className={index === resolvedHero.titleLines.length - 1 ? 'text-amber-400' : ''}>{line}</span>
+                  <span className={index === resolvedHero.titleLines.length - 1 ? 'text-blue-400' : ''}>{line}</span>
                   {index < resolvedHero.titleLines.length - 1 ? <br /> : null}
                 </React.Fragment>
               ))}
@@ -517,7 +517,7 @@ export const ShopPage: React.FC = () => {
                     navigate(resolvedHero.heroCtaUrl);
                   }
                 }}
-                className="mt-6 min-h-12 px-6 rounded-full border border-amber-400/40 bg-amber-600/10 hover:bg-amber-600/20 text-amber-300 text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                className="mt-6 min-h-12 px-6 rounded-full border border-blue-400/40 bg-blue-600/10 hover:bg-blue-600/20 text-blue-300 text-[10px] font-black uppercase tracking-[0.2em] transition-all"
               >
                 {resolvedHero.heroCtaLabel}
               </button>
@@ -539,7 +539,7 @@ export const ShopPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full border border-white/10 text-amber-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 touch-manipulation"
+                className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full border border-white/10 text-blue-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 touch-manipulation"
               >
                 <Filter className="w-4 h-4" /> {showFilters ? 'Hide Filters' : 'Filters'}
               </button>
@@ -568,7 +568,7 @@ export const ShopPage: React.FC = () => {
         >
           <div className={`space-y-8 ${showFilters ? '' : 'lg:sticky lg:top-48'}`}>
             <div className="lg:hidden flex items-center justify-between pb-2 border-b border-white/10">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300">Filters</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Filters</h3>
               <button
                 type="button"
                 onClick={() => setShowFilters(false)}
@@ -579,7 +579,7 @@ export const ShopPage: React.FC = () => {
             </div>
             <div className="space-y-6">
               <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                <Layers className="w-4 h-4 text-amber-500" /> Category
+                <Layers className="w-4 h-4 text-blue-500" /> Category
               </h4>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
                 <FilterPill label="All Products" isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
@@ -606,7 +606,7 @@ export const ShopPage: React.FC = () => {
                 return (
                   <div className="space-y-6" key={filter.id}>
                     <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                      <Tag className="w-4 h-4 text-amber-500" /> {filter.label}
+                      <Tag className="w-4 h-4 text-blue-500" /> {filter.label}
                     </h4>
                     {isSizeFilter(filter) ? (
                       <div className="grid grid-cols-4 lg:grid-cols-4 gap-3">
@@ -625,15 +625,15 @@ export const ShopPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setOpenMultiFilterId((prev) => (prev === filter.id ? null : filter.id))}
-                            className="w-full min-h-12 px-4 rounded-2xl border border-white/10 bg-white/[0.03] text-white/80 hover:border-amber-500/40 transition-all flex items-center justify-between"
+                            className="w-full min-h-12 px-4 rounded-2xl border border-white/10 bg-white/[0.03] text-white/80 hover:border-blue-500/40 transition-all flex items-center justify-between"
                           >
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">
                               {selectedValues.length > 0 ? `${selectedValues.length} Selected` : 'Select Brand'}
                             </span>
                             {openMultiFilterId === filter.id ? (
-                              <ChevronUp className="w-4 h-4 text-amber-400" />
+                              <ChevronUp className="w-4 h-4 text-blue-400" />
                             ) : (
-                              <ChevronDown className="w-4 h-4 text-amber-400" />
+                              <ChevronDown className="w-4 h-4 text-blue-400" />
                             )}
                           </button>
 
@@ -648,12 +648,12 @@ export const ShopPage: React.FC = () => {
                                     onClick={() => toggleMultiFilter(filter.id, option)}
                                     className={`w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between ${
                                       isChecked
-                                        ? 'border-amber-500/50 bg-amber-600/10 text-amber-300'
+                                        ? 'border-blue-500/50 bg-blue-600/10 text-blue-300'
                                         : 'border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20'
                                     }`}
                                   >
                                     <span className="text-[10px] font-black uppercase tracking-[0.15em] text-left">{option}</span>
-                                    <span className={`w-2.5 h-2.5 rounded-full ${isChecked ? 'bg-amber-400' : 'bg-white/20'}`} />
+                                    <span className={`w-2.5 h-2.5 rounded-full ${isChecked ? 'bg-blue-400' : 'bg-white/20'}`} />
                                   </button>
                                 );
                               })}
@@ -681,7 +681,7 @@ export const ShopPage: React.FC = () => {
             {priceFilter && priceRange && (
               <div className="space-y-6">
                 <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                  <SortAsc className="w-4 h-4 text-amber-500" /> Price Range
+                  <SortAsc className="w-4 h-4 text-blue-500" /> Price Range
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
@@ -699,7 +699,7 @@ export const ShopPage: React.FC = () => {
                           return { ...prev, min: Math.min(value, prev.max) };
                         });
                       }}
-                      className="w-full bg-transparent text-sm font-black text-amber-400 outline-none"
+                      className="w-full bg-transparent text-sm font-black text-blue-400 outline-none"
                     />
                   </div>
                   <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
@@ -717,7 +717,7 @@ export const ShopPage: React.FC = () => {
                           return { ...prev, max: Math.max(value, prev.min) };
                         });
                       }}
-                      className="w-full bg-transparent text-sm font-black text-amber-400 outline-none"
+                      className="w-full bg-transparent text-sm font-black text-blue-400 outline-none"
                     />
                   </div>
                 </div>
