@@ -38,10 +38,10 @@ const segmentLabels: Record<AudienceSegment['type'], string> = {
 };
 
 const statusChip = (status: CampaignStatus) => {
-  if (status === 'Active') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  if (status === 'Active') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
   if (status === 'Paused') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
   if (status === 'Completed') return 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20';
-  return 'bg-green-500/10 text-green-400 border-green-500/20';
+  return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
 };
 
 const useAdminReady = () => {
@@ -110,10 +110,10 @@ const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
   if (!toast) return null;
   const tone =
     toast.tone === 'success'
-      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
       : toast.tone === 'error'
         ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-        : 'bg-green-500/10 border-green-500/30 text-green-300';
+        : 'bg-amber-500/10 border-amber-500/30 text-amber-300';
 
   return (
     <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl border text-sm font-bold ${tone}`}>
@@ -125,8 +125,8 @@ const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
 const AdminCampaignTopNav: React.FC = () => {
   return (
     <div className="flex items-center justify-between mb-8 gap-4">
-      <div className="flex items-center gap-3 text-green-400 text-[10px] uppercase tracking-[0.35em] font-black">
-        <span className="w-2 h-2 rounded-full bg-green-400" />
+      <div className="flex items-center gap-3 text-amber-400 text-[10px] uppercase tracking-[0.35em] font-black">
+        <span className="w-2 h-2 rounded-full bg-amber-400" />
         Campaigns
       </div>
       <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.25em] font-black">
@@ -246,7 +246,7 @@ export const AdminCampaignsPage: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="space-y-2">
                     <button className="text-left" onClick={() => navigate(`/admin/campaigns/${campaign.id}`)}>
-                      <h3 className="text-xl font-black text-white uppercase tracking-tight hover:text-green-300 transition-colors">{campaign.name}</h3>
+                      <h3 className="text-xl font-black text-white uppercase tracking-tight hover:text-amber-300 transition-colors">{campaign.name}</h3>
                     </button>
                     <p className="text-zinc-400 text-sm">{campaign.description || 'No description yet.'}</p>
                     <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-[0.2em] font-black">
@@ -267,7 +267,7 @@ export const AdminCampaignsPage: React.FC = () => {
                     <button
                       onClick={() => flipStatus(campaign.id, 'Active')}
                       disabled={busyId === campaign.id}
-                      className="px-4 py-2 rounded-full border border-emerald-500/30 text-emerald-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-emerald-500/10 transition-all disabled:opacity-40"
+                      className="px-4 py-2 rounded-full border border-amber-500/30 text-amber-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-amber-500/10 transition-all disabled:opacity-40"
                     >
                       <PlayCircle className="inline w-4 h-4 mr-2" /> Activate
                     </button>
@@ -296,7 +296,7 @@ export const AdminCampaignsPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigate(`/admin/campaigns/${campaign.id}/logs`)}
-                    className="px-4 py-2 rounded-full border border-green-500/30 text-green-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-green-500/10 transition-all"
+                    className="px-4 py-2 rounded-full border border-amber-500/30 text-amber-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-amber-500/10 transition-all"
                   >
                     View logs
                   </button>
@@ -429,7 +429,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-green-500/50"
+              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-amber-500/50"
             />
           </div>
 
@@ -447,8 +447,8 @@ export const AdminCampaignNewPage: React.FC = () => {
                 <option value="VIP_USERS">VIP users</option>
               </select>
             </div>
-            <div className="p-5 rounded-2xl border border-green-500/20 bg-green-500/5">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-green-400 font-black">Target count</p>
+            <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400 font-black">Target count</p>
               <p className="text-4xl font-black text-white mt-3">{targetCount}</p>
             </div>
           </div>
@@ -473,7 +473,7 @@ export const AdminCampaignNewPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-green-500/50"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-amber-500/50"
               />
             </div>
           </div>
@@ -675,7 +675,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-green-500/50"
+              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-amber-500/50"
             />
           </div>
 
@@ -693,8 +693,8 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 <option value="VIP_USERS">VIP users</option>
               </select>
             </div>
-            <div className="p-5 rounded-2xl border border-green-500/20 bg-green-500/5">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-green-400 font-black">Target count</p>
+            <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400 font-black">Target count</p>
               <p className="text-4xl font-black text-white mt-3">{targetCount}</p>
             </div>
           </div>
@@ -719,7 +719,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-green-500/50"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-amber-500/50"
               />
             </div>
           </div>
@@ -735,10 +735,10 @@ export const AdminCampaignDetailPage: React.FC = () => {
           </label>
 
           {sending && (
-            <div className="p-5 rounded-2xl border border-green-500/20 bg-green-500/5">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-green-300 font-black mb-3">Sending in progress</p>
+            <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300 font-black mb-3">Sending in progress</p>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                <div className="h-full bg-green-400 transition-all" style={{ width: `${progress}%` }} />
+                <div className="h-full bg-amber-400 transition-all" style={{ width: `${progress}%` }} />
               </div>
             </div>
           )}
@@ -749,13 +749,13 @@ export const AdminCampaignDetailPage: React.FC = () => {
             </PrimaryButton>
             <button
               onClick={() => simulateSend('TEST')}
-              className="px-6 py-3 rounded-full border border-green-500/30 text-green-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-green-500/10 transition-all"
+              className="px-6 py-3 rounded-full border border-amber-500/30 text-amber-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-amber-500/10 transition-all"
             >
               <Send className="inline w-4 h-4 mr-2" /> Send test
             </button>
             <button
               onClick={() => simulateSend('SEND_NOW')}
-              className="px-6 py-3 rounded-full border border-emerald-500/30 text-emerald-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-emerald-500/10 transition-all"
+              className="px-6 py-3 rounded-full border border-amber-500/30 text-amber-300 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-amber-500/10 transition-all"
             >
               <Send className="inline w-4 h-4 mr-2" /> Send now
             </button>
@@ -807,7 +807,7 @@ export const AdminCampaignLogsPage: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <h3 className="text-lg font-black uppercase tracking-[0.2em] text-green-300">Jobs</h3>
+              <h3 className="text-lg font-black uppercase tracking-[0.2em] text-amber-300">Jobs</h3>
               {jobs.length === 0 && <div className="p-6 border border-white/10 rounded-2xl text-zinc-500">No jobs yet.</div>}
               {jobs.map((job) => (
                 <div key={job.id} className="p-5 border border-white/10 rounded-2xl bg-white/[0.02] space-y-2">
@@ -820,14 +820,14 @@ export const AdminCampaignLogsPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-lg font-black uppercase tracking-[0.2em] text-green-300">Delivery</h3>
+              <h3 className="text-lg font-black uppercase tracking-[0.2em] text-amber-300">Delivery</h3>
               {logs.length === 0 && <div className="p-6 border border-white/10 rounded-2xl text-zinc-500">No delivery logs yet.</div>}
               <div className="max-h-[560px] overflow-auto space-y-3 pr-1">
                 {logs.map((log) => (
                   <div key={log.id} className="p-4 border border-white/10 rounded-2xl bg-white/[0.02]">
                     <p className="text-sm font-bold text-white">{log.recipientName}</p>
                     <p className="text-xs text-zinc-400">{log.recipientEmail} • {log.recipientPhone}</p>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-300 mt-2">{log.status}</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-amber-300 mt-2">{log.status}</p>
                   </div>
                 ))}
               </div>
@@ -870,7 +870,7 @@ export const AdminSearchPage: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="space-y-3">
-              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-green-300">Users</h3>
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-amber-300">Users</h3>
               {results.users.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No users</div>}
               {results.users.map((user) => (
                 <div key={user.id} className="p-4 border border-white/10 rounded-xl bg-white/[0.02]">
@@ -882,10 +882,10 @@ export const AdminSearchPage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-green-300">Orders</h3>
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-amber-300">Orders</h3>
               {results.orders.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No orders</div>}
               {results.orders.map((order) => (
-                <Link key={order.id} to="/admin_dashboard?tab=orders" className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-green-500/30 transition-all">
+                <Link key={order.id} to="/admin_dashboard?tab=orders" className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-amber-500/30 transition-all">
                   <p className="text-sm text-white font-bold">{order.id}</p>
                   <p className="text-xs text-zinc-400">{order.customerEmail}</p>
                   <p className="text-xs text-zinc-500">{order.phone || '-'}</p>
@@ -894,10 +894,10 @@ export const AdminSearchPage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-green-300">Campaigns</h3>
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-amber-300">Campaigns</h3>
               {results.campaigns.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No campaigns</div>}
               {results.campaigns.map((campaign) => (
-                <Link key={campaign.id} to={`/admin/campaigns/${campaign.id}`} className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-green-500/30 transition-all">
+                <Link key={campaign.id} to={`/admin/campaigns/${campaign.id}`} className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-amber-500/30 transition-all">
                   <p className="text-sm text-white font-bold">{campaign.name}</p>
                   <p className="text-xs text-zinc-400">{campaign.status}</p>
                 </Link>

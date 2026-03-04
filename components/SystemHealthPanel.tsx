@@ -344,7 +344,7 @@ const formatTime = (value: string | null | undefined) => {
 };
 
 const statusClass = (status: HealthServiceStatus | 'PASS' | 'FAIL' | 'WARNING') => {
-  if (status === 'OK' || status === 'PASS') return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
+  if (status === 'OK' || status === 'PASS') return 'text-amber-400 border-amber-500/30 bg-amber-500/10';
   if (status === 'WARNING') return 'text-amber-400 border-amber-500/30 bg-amber-500/10';
   return 'text-rose-400 border-rose-500/30 bg-rose-500/10';
 };
@@ -464,12 +464,12 @@ export const SystemHealthPanel: React.FC = () => {
       <GlassCard className="p-8 md:p-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-green-400 font-black">System Health</p>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-amber-400 font-black">System Health</p>
             <h3 className="text-2xl md:text-3xl font-black uppercase italic mt-2">Live Service Status</h3>
             <p className="text-xs text-zinc-400 mt-3">
-              Mode: <span className={healthQuery.data?.mode === 'NORMAL' ? 'text-emerald-400' : 'text-amber-400'}>{healthQuery.data?.mode || 'UNKNOWN'}</span>
+              Mode: <span className={healthQuery.data?.mode === 'NORMAL' ? 'text-amber-400' : 'text-amber-400'}>{healthQuery.data?.mode || 'UNKNOWN'}</span>
               {' '}• Last refresh: {formatTime(healthQuery.data?.timestamp)}
-              {' '}• {stale ? <span className="text-rose-400">STALE</span> : <span className="text-emerald-400">LIVE</span>}
+              {' '}• {stale ? <span className="text-rose-400">STALE</span> : <span className="text-amber-400">LIVE</span>}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -498,7 +498,7 @@ export const SystemHealthPanel: React.FC = () => {
           <GlassCard key={key} className="p-6 space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <Icon className="w-5 h-5 text-green-400" />
+                <Icon className="w-5 h-5 text-amber-400" />
                 <p className="text-xs font-black uppercase tracking-[0.2em]">{label}</p>
               </div>
               <span className={`px-2 py-1 rounded-full border text-[10px] font-black uppercase ${statusClass(state.status)}`}>
@@ -517,7 +517,7 @@ export const SystemHealthPanel: React.FC = () => {
               <button
                 onClick={() => probe && probeMutation.mutate(probe)}
                 disabled={!probe || probeMutation.isPending}
-                className="w-full rounded-xl border border-white/20 py-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-xl border border-white/20 py-2 text-[10px] font-black uppercase tracking-[0.2em] hover:border-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {probeMutation.isPending ? 'Running...' : 'Run Check'}
               </button>

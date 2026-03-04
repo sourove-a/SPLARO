@@ -80,7 +80,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
       className="nav-item interactive-control w-full text-left py-4 sm:py-6 border-b border-white/15 flex items-center justify-between group transition-all duration-500"
     >
       <div className="flex flex-col">
-        <span className="text-[10px] font-black text-green-200/85 uppercase tracking-[0.44em] mb-3 opacity-90 group-hover:opacity-100 transition-all duration-500 transform translate-y-0.5 group-hover:translate-y-0 italic">
+        <span className="text-[10px] font-black text-amber-200/85 uppercase tracking-[0.44em] mb-3 opacity-90 group-hover:opacity-100 transition-all duration-500 transform translate-y-0.5 group-hover:translate-y-0 italic">
           Quick Access
         </span>
         <span className="text-2xl sm:text-4xl md:text-6xl font-black uppercase tracking-tighter text-white/90 group-hover:text-white transition-all duration-500 group-hover:pl-3 italic leading-none">
@@ -89,9 +89,9 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
       </div>
       <motion.div
         whileHover={{ x: 8, scale: 1.08 }}
-        className="w-16 h-16 rounded-full liquid-glass border border-green-200/35 flex items-center justify-center opacity-90 group-hover:opacity-100 group-hover:border-green-200/80 transition-all duration-500"
+        className="w-16 h-16 rounded-full liquid-glass border border-amber-200/35 flex items-center justify-center opacity-90 group-hover:opacity-100 group-hover:border-amber-200/80 transition-all duration-500"
       >
-        <ArrowRight className="w-6 h-6 text-green-100 group-hover:text-white" />
+        <ArrowRight className="w-6 h-6 text-amber-100 group-hover:text-white" />
       </motion.div>
     </button>
   </motion.div>
@@ -278,10 +278,10 @@ export const Navbar: React.FC = () => {
                   onClick={() => handleNav(item.label, item.view, (item as any).category)}
                   className={`nav-item interactive-control relative group p-2 transition-all duration-500`}
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-green-600/10 group-hover:border-green-500/30 transition-all duration-500 ${isActive ? 'text-green-400 border-green-500/50 bg-green-500/5 shadow-[0_0_15px_rgba(52,168,83,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-amber-600/10 group-hover:border-amber-500/30 transition-all duration-500 ${isActive ? 'text-amber-400 border-amber-500/50 bg-amber-500/5 shadow-[0_0_15px_rgba(196, 146, 58,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
                   </div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-amber-500 whitespace-nowrap pointer-events-none">
                     {item.label}
                   </div>
                 </button>
@@ -299,10 +299,10 @@ export const Navbar: React.FC = () => {
               }}
               className="nav-item interactive-control relative group p-2 mx-2"
             >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-green-600/10 group-hover:border-green-500/30 transition-all duration-500 text-white/40 group-hover:text-white">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-amber-600/10 group-hover:border-amber-500/30 transition-all duration-500 text-white/40 group-hover:text-white">
                 <Search className="w-5 h-5" />
               </div>
-              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
+              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-amber-500 whitespace-nowrap pointer-events-none">
                 SEARCH
               </div>
             </button>
@@ -342,14 +342,14 @@ export const Navbar: React.FC = () => {
                   }}
                   className="nav-item interactive-control relative group p-2"
                 >
-                  <div className={`w-10 h-10 rounded-full border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-green-500/50 group-hover:shadow-[0_0_15px_#34a853] flex items-center justify-center bg-white/5 ${isActive ? 'border-green-500 border-2 shadow-[0_0_15px_#34a853]' : ''}`}>
+                  <div className={`w-10 h-10 rounded-full border border-white/10 overflow-hidden transition-all duration-500 group-hover:border-amber-500/50 group-hover:shadow-[0_0_15px_#34a853] flex items-center justify-center bg-white/5 ${isActive ? 'border-amber-500 border-2 shadow-[0_0_15px_#34a853]' : ''}`}>
                     {user?.profileImage ? (
                       <OptimizedImage src={user.profileImage} alt="Profile" sizes="40px" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-5 h-5 text-zinc-500 group-hover:text-green-400" />
+                      <User className="w-5 h-5 text-zinc-500 group-hover:text-amber-400" />
                     )}
                   </div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-amber-500 whitespace-nowrap pointer-events-none">
                     {user ? 'PROFILE' : 'SIGN IN'}
                   </div>
                 </button>
@@ -360,13 +360,13 @@ export const Navbar: React.FC = () => {
                   onClick={() => handleNav(item.label, item.view)}
                   className="nav-item interactive-control relative group p-2"
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-green-600/10 group-hover:border-green-500/30 transition-all duration-500 ${isActive ? 'text-green-400 border-green-500/50 bg-green-500/5 shadow-[0_0_15px_rgba(52,168,83,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] group-hover:bg-amber-600/10 group-hover:border-amber-500/30 transition-all duration-500 ${isActive ? 'text-amber-400 border-amber-500/50 bg-amber-500/5 shadow-[0_0_15px_rgba(196, 146, 58,0.2)]' : 'text-white/40 group-hover:text-white'}`}>
                     <item.icon className="w-5 h-5" />
                     {item.label === 'CART' && cart.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black border border-white/30">{cart.length}</span>
+                      <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black border border-white/30">{cart.length}</span>
                     )}
                   </div>
-                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-green-500 whitespace-nowrap pointer-events-none">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-black uppercase tracking-[0.2em] text-amber-500 whitespace-nowrap pointer-events-none">
                     {item.label}
                   </div>
                 </button>
@@ -407,7 +407,7 @@ export const Navbar: React.FC = () => {
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
+                className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
               >
                 {cart.length}
               </motion.span>
@@ -435,7 +435,7 @@ export const Navbar: React.FC = () => {
               className="w-full max-w-3xl"
             >
               <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 liquid-glass border border-white/10 rounded-[24px] sm:rounded-[32px] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
-                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 shrink-0" />
+                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-amber-500 shrink-0" />
                 <input
                   autoFocus
                   type="text"
@@ -473,7 +473,7 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
             onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(52,168,83,0.22),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(30,125,69,0.18),transparent_40%),linear-gradient(180deg,#071a0d_0%,#050f08_42%,#030a05_100%)] overflow-y-auto overscroll-contain flex flex-col"
+            className="fixed inset-0 z-[500] bg-[radial-gradient(circle_at_18%_22%,rgba(196, 146, 58,0.22),transparent_44%),radial-gradient(circle_at_82%_80%,rgba(196, 146, 58,0.18),transparent_40%),linear-gradient(180deg,#120B03_0%,#050f08_42%,#030a05_100%)] overflow-y-auto overscroll-contain flex flex-col"
           >
             <div className="absolute inset-0 pointer-events-none opacity-20">
               <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#34a85311,transparent_50%)]" />
@@ -516,7 +516,7 @@ export const Navbar: React.FC = () => {
 
             <div onClick={(e) => e.stopPropagation()} className="px-4 sm:px-8 py-8 md:px-16 md:py-12 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10 border-t border-white/5">
               <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full bg-green-200 animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-amber-200 animate-pulse" />
                 <p className="text-[10px] font-black tracking-widest text-white/75 uppercase">Session Active</p>
               </div>
 
@@ -542,9 +542,9 @@ export const Navbar: React.FC = () => {
             </div>
 
             <div onClick={(e) => e.stopPropagation()} className="mt-auto px-4 sm:px-8 md:px-16 pb-6 pt-6 border-t border-white/5">
-              <div className="flex items-center gap-4 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">Session Secure</span>
+              <div className="flex items-center gap-4 bg-amber-500/5 p-4 rounded-2xl border border-amber-500/10">
+                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Session Secure</span>
               </div>
             </div>
           </motion.div>

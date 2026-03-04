@@ -123,7 +123,7 @@ export const MobileTabBar: React.FC = () => {
                 <div className="relative p-1.5">
                   <item.icon
                     className={`w-7 h-7 transition-all duration-500 ${isActive
-                      ? 'text-green-300 scale-110 drop-shadow-[0_0_12px_rgba(82,196,123,0.75)]'
+                      ? 'text-amber-300 scale-110 drop-shadow-[0_0_12px_rgba(212, 175, 122,0.75)]'
                       : 'text-white/80 scale-100 opacity-95'
                       }`}
                     strokeWidth={isActive ? 2.5 : 2}
@@ -133,7 +133,7 @@ export const MobileTabBar: React.FC = () => {
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 bg-green-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
+                      className="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
                     >
                       {(item as any).badge}
                     </motion.span>
@@ -143,7 +143,7 @@ export const MobileTabBar: React.FC = () => {
                 {isActive && (
                   <motion.div
                     layoutId="dock-active-indicator"
-                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-green-400 shadow-[0_0_10px_rgba(82,196,123,0.65)]"
+                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(212, 175, 122,0.65)]"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                   />
                 )}
@@ -151,7 +151,7 @@ export const MobileTabBar: React.FC = () => {
             );
           })}
         </div>
-        <div className="absolute inset-x-10 bottom-0 h-3 bg-green-500/10 blur-xl rounded-full -z-10" />
+        <div className="absolute inset-x-10 bottom-0 h-3 bg-amber-500/10 blur-xl rounded-full -z-10" />
       </div>
     </motion.div>
   );

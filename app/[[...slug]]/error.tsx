@@ -15,12 +15,12 @@ export default function CatchAllError({
 
   return (
     <div className="min-h-[55vh] w-full flex flex-col items-center justify-center px-6 text-center gap-6">
-      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-green-300">Route Error</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-300">Route Error</p>
       <p className="text-sm text-zinc-300 max-w-md">This page could not load right now.</p>
       <button
         type="button"
         onClick={reset}
-        className="px-6 py-3 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:border-green-400 hover:text-green-300 transition-colors"
+        className="px-6 py-3 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-[0.22em] text-white hover:border-amber-400 hover:text-amber-300 transition-colors"
       >
         Retry
       </button>

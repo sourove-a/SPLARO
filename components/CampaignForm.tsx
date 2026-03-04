@@ -358,7 +358,7 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={runPreview}
-            className="h-11 px-4 rounded-xl border border-green-400/35 text-green-300 disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl border border-amber-400/35 text-amber-300 disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Eye className="w-4 h-4" /> Preview
           </button>
@@ -374,7 +374,7 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('send_now')}
-            className="h-11 px-4 rounded-xl bg-emerald-500 text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-amber-500 text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Send className="w-4 h-4" /> Send Now
           </button>
@@ -382,15 +382,15 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('schedule')}
-            className="h-11 px-4 rounded-xl bg-green-500 text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-amber-500 text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Clock3 className="w-4 h-4" /> Schedule
           </button>
         </div>
 
         {preview && (
-          <div className="mt-4 rounded-xl border border-green-500/25 bg-green-500/10 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-green-300 font-black">Preview</p>
+          <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-amber-300 font-black">Preview</p>
             <p className="text-sm text-zinc-200 mt-1">Users: {preview.users} | Subscriptions: {preview.subscriptions}</p>
             {preview.sample_user_ids?.length > 0 && (
               <p className="text-[11px] text-zinc-400 mt-2">Sample: {preview.sample_user_ids.join(', ')}</p>
@@ -398,7 +398,7 @@ export const CampaignForm: React.FC = () => {
           </div>
         )}
 
-        {toast && <p className="mt-3 text-[11px] text-emerald-300">{toast}</p>}
+        {toast && <p className="mt-3 text-[11px] text-amber-300">{toast}</p>}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -459,7 +459,7 @@ export const CampaignForm: React.FC = () => {
                       type="button"
                       disabled={busy || !canWrite}
                       onClick={() => sendExistingCampaignNow(campaign.id)}
-                      className="h-8 px-3 rounded-lg border border-emerald-500/35 text-[10px] text-emerald-300 disabled:opacity-60"
+                      className="h-8 px-3 rounded-lg border border-amber-500/35 text-[10px] text-amber-300 disabled:opacity-60"
                     >
                       Send Now
                     </button>

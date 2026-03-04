@@ -119,31 +119,31 @@ export const HeroSlider = () => {
         </AnimatePresence>
 
         <motion.button
-          whileHover={{ scale: 1.05, backgroundColor: 'rgba(30, 125, 69, 0.30)', color: 'white', borderColor: 'rgba(82, 196, 123, 0.70)' }}
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(196, 146, 58, 0.30)', color: 'white', borderColor: 'rgba(212, 175, 122, 0.70)' }}
           whileTap={{ scale: 0.95 }}
           onClick={() => {
             setSelectedCategory(null);
             setSearchQuery('');
             navigate('/shop');
           }}
-          className="pointer-events-auto group relative px-8 sm:px-16 py-4 sm:py-7 mt-8 sm:mt-12 bg-green-900/20 backdrop-blur-sm rounded-full border border-green-400/30 flex items-center gap-3 sm:gap-6 transition-all shadow-[0_0_30px_rgba(30,125,69,0.25)]"
+          className="pointer-events-auto group relative px-8 sm:px-16 py-4 sm:py-7 mt-8 sm:mt-12 bg-amber-900/20 backdrop-blur-sm rounded-full border border-amber-400/30 flex items-center gap-3 sm:gap-6 transition-all shadow-[0_0_30px_rgba(196, 146, 58,0.25)]"
         >
-          <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.28em] sm:tracking-[0.5em] uppercase text-center group-hover:text-green-100">Discover Collections</span>
-          <ArrowRight className="w-5 h-5 text-green-300 group-hover:text-white group-hover:translate-x-2 transition-transform" />
+          <span className="text-white font-black text-[9px] sm:text-[10px] tracking-[0.28em] sm:tracking-[0.5em] uppercase text-center group-hover:text-amber-100">Discover Collections</span>
+          <ArrowRight className="w-5 h-5 text-amber-300 group-hover:text-white group-hover:translate-x-2 transition-transform" />
         </motion.button>
       </div>
 
       <div className="absolute bottom-8 right-8 z-30 flex items-center gap-3 pointer-events-auto">
         <button
           onClick={showPrevSlide}
-          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-green-500/20 hover:text-white transition-all flex items-center justify-center"
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-amber-500/20 hover:text-white transition-all flex items-center justify-center"
           aria-label="Previous slide"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <button
           onClick={showNextSlide}
-          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-green-500/20 hover:text-white transition-all flex items-center justify-center"
+          className="w-12 h-12 rounded-full border border-white/20 bg-black/30 backdrop-blur-md text-white hover:bg-amber-500/20 hover:text-white transition-all flex items-center justify-center"
           aria-label="Next slide"
         >
           <ArrowRight className="w-5 h-5" />
