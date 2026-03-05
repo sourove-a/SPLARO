@@ -25,7 +25,7 @@ const ShopPage = lazy(() => import('./components/ShopPage').then((m) => ({ defau
 const ProductDetailPage = lazy(() => import('./components/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })));
 const CartPage = lazy(() => import('./components/CartPage').then((m) => ({ default: m.CartPage })));
 const CheckoutPage = lazy(() => import('./components/CheckoutPage').then((m) => ({ default: m.CheckoutPage })));
-const SubscriptionPrompt = lazy(() => import('./components/SubscriptionPrompt').then((m) => ({ default: m.SubscriptionPrompt })));
+const NewArrivalPopup = lazy(() => import('./components/NewArrivalPopup').then((m) => ({ default: m.NewArrivalPopup })));
 const AdminCampaignsPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignsPage })));
 const AdminCampaignDetailPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignDetailPage })));
 const AdminCampaignLogsPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignLogsPage })));
@@ -44,7 +44,7 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 
 const RouteChunkFallback = () => (
   <div className="min-h-[45vh] w-full flex items-center justify-center px-6">
-    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-green-300/80 animate-pulse">
+    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-[#C49A6C]/80 animate-pulse">
       Loading
     </div>
   </div>
@@ -98,7 +98,7 @@ const StoryPage = () => {
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
         <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">
-          BRAND<br /><span className="text-green-500">STORY.</span>
+          BRAND<br /><span className="text-[#C49A6C]">STORY.</span>
         </h1>
         {publishedStories.length === 0 ? (
           <GlassCard className="p-12 !bg-white/[0.02]">
@@ -108,7 +108,7 @@ const StoryPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {publishedStories.map((post) => (
               <GlassCard key={post.id} className="p-10 space-y-6 !bg-white/[0.02]">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-green-500">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#C49A6C]">
                   {new Date(post.publishAt || post.createdAt).toLocaleDateString('en-GB')}
                 </p>
                 <h2 className="text-3xl font-black uppercase tracking-tight italic text-white">{post.title}</h2>
@@ -131,20 +131,20 @@ const StoryPage = () => {
 const SupportPage = () => (
   <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }}>
-      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">CENTRAL<br /><span className="text-green-500">ADVISORY.</span></h1>
+      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">CUSTOMER<br /><span style={{color:'#C49A6C'}}>SUPPORT.</span></h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         {[
-          { label: 'Deployment Status', icon: Box, desc: 'Track your archival transition in real-time within the global matrix.' },
-          { label: 'Protocol Support', icon: MessageSquare, desc: 'Connect with our strategic advisors via the high-velocity WhatsApp beacon.' },
-          { label: 'Secure Verification', icon: Shield, desc: 'Every asset is manifest with absolute authenticity and high-res spectral analysis.' }
+          { label: 'Order Tracking', icon: Box, desc: 'Track your order status and delivery updates in real-time.' },
+          { label: 'Customer Care', icon: MessageSquare, desc: 'Reach our support team quickly via WhatsApp or email for any queries.' },
+          { label: 'Quality Guarantee', icon: Shield, desc: 'All products are 100% authentic, imported directly from verified global suppliers.' }
         ].map((item, i) => (
-          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-green-500/50 transition-all duration-700">
-            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-green-400 group-hover:bg-green-500/10 group-hover:border-green-500/20 transition-all duration-500">
+          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-[#C49A6C]/50 transition-all duration-700">
+            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-[#C49A6C] group-hover:bg-[#C49A6C]/10 group-hover:border-[#C49A6C]/20 transition-all duration-500">
               <item.icon className="w-8 h-8 group-hover:scale-110 transition-transform" />
             </div>
             <div className="space-y-6">
               <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white italic">{item.label}</h3>
-              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-green-500/50 transition-all duration-700" />
+              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-[#C49A6C]/50 transition-all duration-700" />
               <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest leading-relaxed">{item.desc}</p>
             </div>
           </GlassCard>
@@ -177,7 +177,7 @@ const MobileDebugPage = () => {
           5. Keyboard open on input fields does not cut off form fields or action buttons.
       */}
       <section className="rounded-2xl border border-white/10 p-4 bg-white/[0.02]">
-        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-green-400">Mobile QA Debug Surface</h1>
+        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-[#C49A6C]">Mobile QA Debug Surface</h1>
         <p className="mt-2 text-xs text-zinc-400">Internal route: verify mobile overflow, spacing, sticky/fixed layers, and safe-area behavior.</p>
       </section>
 
@@ -240,7 +240,7 @@ const OrderTrackingPage = () => {
             <PrimaryButton onClick={() => navigate('/login')} className="px-8 py-4 text-[10px]">
               LOG IN TO TRACK
             </PrimaryButton>
-            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-green-500 hover:text-green-400 transition-all">
+            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-[#C49A6C] hover:text-[#C49A6C] transition-all">
               CREATE ACCOUNT
             </button>
           </div>
@@ -256,7 +256,7 @@ const OrderTrackingPage = () => {
                     <p className="text-[11px] text-zinc-400 mt-2">{new Date(order.createdAt).toLocaleString('en-GB')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-green-400 uppercase">{order.status}</p>
+                    <p className="text-sm font-black text-[#C49A6C] uppercase">{order.status}</p>
                     <p className="text-[11px] text-zinc-300 mt-1">Total: ৳{order.total.toLocaleString()}</p>
                   </div>
                 </div>
@@ -327,6 +327,92 @@ const HomeView = () => {
           </div>
         </div>
       </section>
+
+      {/* ── About Us Section ── */}
+      <section id="about" className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+          <div>
+            <p
+              className="text-[10px] font-black uppercase mb-6"
+              style={{ letterSpacing: '0.5em', color: '#C49A6C' }}
+            >
+              আমাদের সম্পর্কে · About Us
+            </p>
+            <h2
+              className="text-5xl md:text-7xl font-black tracking-tighter leading-tight uppercase mb-8"
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC' }}
+            >
+              SPLARO<br />
+              <span style={{ color: '#C49A6C' }}>LUXURY.</span>
+            </h2>
+            <p
+              className="text-base leading-relaxed mb-6"
+              style={{ color: 'rgba(237,232,220,0.72)', fontFamily: "'Inter', sans-serif" }}
+            >
+              Splaro is Bangladesh's premium destination for directly imported luxury footwear and bags. We source the finest pieces from global markets — Nike, Adidas, Jordan, Gucci, Louis Vuitton and more — and bring them straight to you without middlemen.
+            </p>
+            <p
+              className="text-base leading-relaxed mb-10"
+              style={{ color: 'rgba(237,232,220,0.65)', fontFamily: "'Inter', sans-serif" }}
+            >
+              স্প্লারো বাংলাদেশের প্রিমিয়াম ফুটওয়্যার ও ব্যাগের সর্বোচ্চ গন্তব্য। আমরা সরাসরি বিশ্ব বাজার থেকে আমদানি করি — সর্বোচ্চ মান ও সত্যতার নিশ্চয়তা সহ।
+            </p>
+            <div className="grid grid-cols-3 gap-8">
+              {[
+                { value: '500+', label: 'Premium Products' },
+                { value: '100%', label: 'Authentic Imports' },
+                { value: '24/7', label: 'Customer Support' }
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <p
+                    className="text-3xl md:text-4xl font-black mb-2"
+                    style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#C49A6C' }}
+                  >
+                    {stat.value}
+                  </p>
+                  <p
+                    className="text-[9px] font-semibold uppercase"
+                    style={{ letterSpacing: '0.35em', color: 'rgba(237,232,220,0.50)' }}
+                  >
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-5">
+            {[
+              { icon: Shield, title: 'প্রামাণিক পণ্য', subtitle: 'Authentic Products', desc: 'Every item is verified and directly sourced from authorized global suppliers.' },
+              { icon: Box, title: 'দ্রুত ডেলিভারি', subtitle: 'Fast Delivery', desc: 'Delivered safely across Bangladesh with real-time order tracking.' },
+              { icon: CreditCard, title: 'নিরাপদ পেমেন্ট', subtitle: 'Secure Payment', desc: 'Multiple secure payment options including bKash, Nagad, and COD.' },
+              { icon: Smartphone, title: 'সহজ রিটার্ন', subtitle: 'Easy Returns', desc: 'Hassle-free returns and exchanges within the return window.' }
+            ].map((feature, i) => (
+              <div
+                key={i}
+                className="p-6 rounded-2xl flex flex-col gap-4 transition-all duration-500 hover:scale-[1.02]"
+                style={{
+                  background: 'rgba(15,26,13,0.65)',
+                  border: '1px solid rgba(196,154,108,0.16)',
+                  backdropFilter: 'blur(12px)'
+                }}
+              >
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(196,154,108,0.10)', border: '1px solid rgba(196,154,108,0.22)' }}
+                >
+                  <feature.icon className="w-5 h-5" style={{ color: '#C49A6C' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-black tracking-tight" style={{ color: '#EDE8DC' }}>{feature.title}</p>
+                  <p className="text-[10px] font-medium mt-0.5" style={{ color: '#C49A6C', letterSpacing: '0.12em' }}>{feature.subtitle}</p>
+                  <p className="text-[11px] font-medium leading-relaxed mt-2" style={{ color: 'rgba(237,232,220,0.55)' }}>{feature.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
@@ -346,11 +432,11 @@ const OrderSuccessView = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#050505] relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-green-900/20 via-transparent to-blue-900/20 opacity-30" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-[#3D6B3D]/15 via-transparent to-[#C49A6C]/10 opacity-30" />
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
           transition={{ duration: 10, repeat: Infinity }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-green-600 rounded-full blur-[200px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#C49A6C] rounded-full blur-[200px]"
         />
       </div>
 
@@ -370,9 +456,9 @@ const OrderSuccessView = () => {
           }}
           className="mb-12"
         >
-          <div className="w-32 h-32 mx-auto rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center relative group shadow-[0_0_80px_rgba(16,185,129,0.3)]">
-            <CheckCircle2 className="w-16 h-16 text-emerald-400" />
-            <div className="absolute inset-0 bg-emerald-500/20 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
+          <div className="w-32 h-32 mx-auto rounded-3xl bg-[#C49A6C]/10 border border-[#C49A6C]/20 flex items-center justify-center relative group shadow-[0_0_80px_rgba(16,185,129,0.3)]">
+            <CheckCircle2 className="w-16 h-16 text-[#C49A6C]" />
+            <div className="absolute inset-0 bg-[#C49A6C]/20 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
           </div>
         </motion.div>
 
@@ -382,9 +468,9 @@ const OrderSuccessView = () => {
           transition={{ delay: 1, duration: 1 }}
           className="text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
         >
-          SECURED<span className="text-green-500">.</span>
+          ORDER CONFIRMED.
         </motion.h1>
-        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-green-500/60 mb-16 animate-pulse">Asset Deployment Initialized</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[#C49A6C]/60 mb-16 animate-pulse">Your order is being prepared</p>
         {invoiceState === 'sent' && (
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300 mb-10">
             Invoice email delivered to your inbox.
@@ -398,37 +484,37 @@ const OrderSuccessView = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-16">
           <GlassCard className="p-10 !bg-white/[0.04]">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-green-500 mb-6">Shipment Manifest</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C49A6C] mb-6">Order Summary</h4>
             <div className="space-y-4">
               <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Order Identity</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">Order ID</span>
                 <span className="text-xs font-black text-white uppercase tracking-wider">#{latestOrder?.id}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Collector</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">Customer Name</span>
                 <span className="text-xs font-black text-white uppercase">{latestOrder?.customerName}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Deployment Zone</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">Delivery Address</span>
                 <span className="text-xs font-black text-white uppercase">{latestOrder?.district}</span>
               </div>
               <div className="flex justify-between pt-2">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Vested Total</span>
-                <span className="text-xl font-black text-green-400">৳{latestOrder?.total.toLocaleString()}</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">Total Amount</span>
+                <span className="text-xl font-black text-[#C49A6C]">৳{latestOrder?.total.toLocaleString()}</span>
               </div>
             </div>
           </GlassCard>
 
           <GlassCard className="p-10 !bg-white/[0.04] flex flex-col justify-center">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mb-8">Logistics Roadmap</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C49A6C] mb-8">Order Status</h4>
             <div className="space-y-8">
               {[
-                { label: 'Validated', status: 'Completed', icon: CheckCircle2, active: true },
-                { label: 'Preprocessing', status: 'In-Progress', icon: Sparkles, active: true },
-                { label: 'Deployment', status: 'Interstellar', icon: ShoppingBag, active: false }
+                { label: 'Confirmed', status: 'Completed', icon: CheckCircle2, active: true },
+                { label: 'Processing', status: 'In Progress', icon: Sparkles, active: true },
+                { label: 'Delivery', status: 'Scheduled', icon: ShoppingBag, active: false }
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-6">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-zinc-800'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-[#C49A6C]/10 text-[#C49A6C]' : 'bg-white/5 text-zinc-800'}`}>
                     <step.icon className="w-5 h-5" />
                   </div>
                   <div>
@@ -443,7 +529,7 @@ const OrderSuccessView = () => {
 
         <div className="flex flex-col sm:flex-row gap-6 justify-center">
           <PrimaryButton onClick={() => navigate('/')} className="px-16 py-7 text-[10px] !bg-white/5 !border !border-white/10 hover:!bg-white/10">
-            VAULT RETURN
+            RETURN HOME
           </PrimaryButton>
           <PrimaryButton onClick={() => navigate('/shop')} className="px-16 py-7 text-[10px]">
             DISCOVER MORE <ArrowRight className="w-5 h-5 ml-2" />
@@ -698,9 +784,34 @@ const Footer = () => {
 
           </div>
 
+          {/* Trust & Security Badges */}
+          <div
+            className="mt-12 pt-8 grid grid-cols-2 md:grid-cols-4 gap-4"
+            style={{ borderTop: '1px solid rgba(196,154,108,0.10)' }}
+          >
+            {[
+              { icon: Shield, label: 'SSL Secured', sub: 'Encrypted connection' },
+              { icon: CheckCircle2, label: '100% Authentic', sub: 'Verified products' },
+              { icon: CreditCard, label: 'Safe Payment', sub: 'bKash · Nagad · COD' },
+              { icon: Box, label: 'Fast Delivery', sub: 'Across Bangladesh' }
+            ].map((badge) => (
+              <div
+                key={badge.label}
+                className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ background: 'rgba(196,154,108,0.06)', border: '1px solid rgba(196,154,108,0.12)' }}
+              >
+                <badge.icon className="w-4 h-4 shrink-0" style={{ color: COGNAC }} />
+                <div>
+                  <p className="text-[9px] font-bold uppercase" style={{ letterSpacing: '0.2em', color: '#EDE8DC' }}>{badge.label}</p>
+                  <p className="text-[8px] font-medium mt-0.5" style={{ color: COGNAC_MUTE }}>{badge.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {/* Footer bottom */}
           <div
-            className="mt-16 pt-10 flex flex-col md:flex-row justify-between items-center gap-6"
+            className="mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-6"
             style={{ borderTop: '1px solid rgba(196,154,108,0.12)' }}
           >
             <div className="flex items-center gap-4">
@@ -713,7 +824,7 @@ const Footer = () => {
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#8BA888', boxShadow: '0 0 8px rgba(139,168,136,0.50)' }} />
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#C49A6C', boxShadow: '0 0 8px rgba(196,154,108,0.50)' }} />
                 <p className="text-[8px] font-medium tracking-[0.45em] uppercase" style={{ color: COGNAC_MUTE }}>
                   Secured by Hostinger
                 </p>
@@ -758,8 +869,8 @@ const AppContent = () => {
   }, [siteSettings.cmsPublished, siteSettings.cmsDraft, siteSettings.cmsActiveVersion, user?.role, isAdminSurface]);
 
   useEffect(() => {
-    // Velocity Protocol: Ensure the browser environment is primed for high-speed discovery
-    console.log('SPLARO_ARCHIVE: Institutional Terminal Initialized.');
+    // App initialized
+    console.log('Splaro app loaded.');
     if (typeof window !== 'undefined') {
       (window as any).__SPLARO_APP_BOOTED = true;
     }
@@ -919,12 +1030,11 @@ const AppContent = () => {
 
   const showNav = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.LOGIN && view !== View.SIGNUP;
   const showMobileBar = showNav && view !== View.CHECKOUT;
-  const showSubscriptionPrompt = !isAdminSurface;
   const showWhatsAppFab = !isAdminSurface && view !== View.ORDER_SUCCESS;
   const showFooter = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.CHECKOUT;
 
   return (
-    <div className={`min-h-screen selection:bg-green-500/30 overflow-x-hidden`}>
+    <div className={`min-h-screen selection:bg-[#C49A6C]/30 overflow-x-hidden`}>
       {showNav && <Navbar />}
       {showMobileBar && <MobileTabBar />}
 
@@ -1025,9 +1135,9 @@ const AppContent = () => {
         </main>
       )}
 
-      {showSubscriptionPrompt && (
+      {!isAdminSurface && (
         <LazyView>
-          <SubscriptionPrompt />
+          <NewArrivalPopup />
         </LazyView>
       )}
 

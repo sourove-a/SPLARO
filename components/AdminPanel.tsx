@@ -90,7 +90,7 @@ const BentoCard: React.FC<{
       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${color} shadow-lg`}>
         <Icon className="w-6 h-6 text-white" />
       </div>
-      <div className="flex items-center gap-1 text-[10px] font-black text-[#8BA888] bg-[#8BA888]/10 px-3 py-1.5 rounded-full">
+      <div className="flex items-center gap-1 text-[10px] font-black text-[#C49A6C] bg-[#C49A6C]/10 px-3 py-1.5 rounded-full">
         <ArrowUpRight className="w-3 h-3" /> {trend}
       </div>
     </div>
@@ -877,7 +877,7 @@ const ProductModal: React.FC<{
                         setAutoSlugFromName(true);
                         setFormData({ ...formData, id: generated, productSlug: generated });
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-[#C49A6C]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                      className="px-3 py-1.5 rounded-lg border border-[#C49A6C]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                     >
                       Use Name As Slug
                     </button>
@@ -1043,7 +1043,7 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
                 <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[9px] font-black uppercase tracking-[0.16em]">
+                  <span className="px-3 py-1 rounded-full border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85 text-[9px] font-black uppercase tracking-[0.16em]">
                     {galleryImagesForUi.length} image{galleryImagesForUi.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -1097,7 +1097,7 @@ const ProductModal: React.FC<{
                     icon={<ImageIcon className="w-5 h-5" />}
                   />
                   <div className="flex flex-wrap gap-3">
-                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#C49A6C]/40 text-white/90 hover:bg-[#8BA888]/10'}`}>
+                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#C49A6C]/40 text-white/90 hover:bg-[#C49A6C]/10'}`}>
                       {isUploadingMain ? 'Uploading...' : 'Upload Main Image'}
                       <input
                         type="file"
@@ -1153,11 +1153,11 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={() => addGalleryImageByUrl(galleryUrlInput)}
-                      className="px-4 h-12 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                      className="px-4 h-12 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                     >
                       Add
                     </button>
-                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#C49A6C]/40 text-white/90 hover:bg-[#8BA888]/10'}`}>
+                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#C49A6C]/40 text-white/90 hover:bg-[#C49A6C]/10'}`}>
                       {isUploadingGallery ? 'Uploading...' : 'Upload'}
                       <input
                         type="file"
@@ -1195,7 +1195,7 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={addGalleryImagesFromBulkInput}
-                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                     >
                       Add Multiple URLs
                     </button>
@@ -1415,7 +1415,7 @@ const ProductModal: React.FC<{
                       navigator.clipboard.writeText(previewLiveUrl);
                       window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
                     }}
-                    className="mt-3 px-3 py-2 rounded-lg border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                    className="mt-3 px-3 py-2 rounded-lg border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                   >
                     Copy Link
                   </button>
@@ -1554,14 +1554,14 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={addManualVariation}
-                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                     >
                       Add / Update Variant
                     </button>
                     <button
                       type="button"
                       onClick={generateVariationMatrix}
-                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                     >
                       Auto Generate From Color + Size
                     </button>
@@ -3213,10 +3213,10 @@ export const AdminPanel = () => {
 
 
   const statusColors: Record<OrderStatus, string> = {
-    Pending: 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/20',
-    Processing: 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/20',
+    Pending: 'bg-[#C49A6C]/10 text-[#C49A6C] border-[#C49A6C]/20',
+    Processing: 'bg-[#C49A6C]/10 text-[#C49A6C] border-[#C49A6C]/20',
     Shipped: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    Delivered: 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/20',
+    Delivered: 'bg-[#C49A6C]/10 text-[#C49A6C] border-[#C49A6C]/20',
     Cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
   };
 
@@ -3657,15 +3657,15 @@ export const AdminPanel = () => {
                                         navigator.clipboard.writeText((p as any).liveUrl);
                                         showToast('Product URL copied.', 'success');
                                       }}
-                                      className="px-2 py-1 rounded-md border border-[#C49A6C]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-[#8BA888]/10"
+                                      className="px-2 py-1 rounded-md border border-[#C49A6C]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-[#C49A6C]/10"
                                     >
                                       Copy
                                     </button>
                                   )}
                                 </div>
                                 <div className="flex gap-2 mt-3">
-                                  {p.featured && <span className="px-2.5 py-1 bg-[#8BA888]/10 text-[#C49A6C] rounded-lg text-[7px] font-black uppercase">Featured</span>}
-                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-[#8BA888]/10 text-[#C49A6C] rounded-lg text-[7px] font-black uppercase">{t}</span>)}
+                                  {p.featured && <span className="px-2.5 py-1 bg-[#C49A6C]/10 text-[#C49A6C] rounded-lg text-[7px] font-black uppercase">Featured</span>}
+                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-[#C49A6C]/10 text-[#C49A6C] rounded-lg text-[7px] font-black uppercase">{t}</span>)}
                                 </div>
                               </div>
                             </div>
@@ -3758,7 +3758,7 @@ export const AdminPanel = () => {
                                     showToast('Demo product added to Vault Inventory.', 'success');
                                   });
                                 }}
-                                className="px-4 py-2 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
+                                className="px-4 py-2 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/10"
                               >
                                 Add Demo Product
                               </button>
@@ -3801,7 +3801,7 @@ export const AdminPanel = () => {
                     <div className="flex items-center gap-4">
                       <button
                         onClick={() => toggleDiscount(d.id)}
-                        className={`px-8 py-3 rounded-full text-[9px] font-black uppercase border transition-all ${d.active ? 'bg-[#8BA888]/10 border-[#C49A6C]/50 text-[#C49A6C]' : 'bg-rose-500/10 border-rose-500/50 text-rose-500'}`}
+                        className={`px-8 py-3 rounded-full text-[9px] font-black uppercase border transition-all ${d.active ? 'bg-[#C49A6C]/10 border-[#C49A6C]/50 text-[#C49A6C]' : 'bg-rose-500/10 border-rose-500/50 text-rose-500'}`}
                       >
                         {d.active ? 'ACTIVE' : 'DISABLED'}
                       </button>
@@ -3838,7 +3838,7 @@ export const AdminPanel = () => {
                     </select>
                     <button
                       onClick={() => fetchAdminUsers()}
-                      className="h-11 px-5 rounded-xl border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-[#C49A6C]/20 transition-all"
+                      className="h-11 px-5 rounded-xl border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-[#C49A6C]/20 transition-all"
                     >
                       Refresh
                     </button>
@@ -3887,13 +3887,13 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-6">
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-[#8BA888]/10 text-[#C49A6C] border border-[#C49A6C]/20'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-[#C49A6C]/10 text-[#C49A6C] border border-[#C49A6C]/20'}`}>
                                 {u.role}
                               </span>
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85'}`}>
                                 {u.isBlocked ? 'Blocked' : 'Active'}
                               </span>
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85' : 'border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85' : 'border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85'}`}>
                                 Email {u.emailVerified ? 'Verified' : 'Pending'}
                               </span>
                             </div>
@@ -3914,7 +3914,7 @@ export const AdminPanel = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 onClick={() => openCustomerProfile(u.id)}
-                                className="px-3 py-2 rounded-lg border border-[#C49A6C]/30 bg-[#8BA888]/10 text-blue-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/20 transition-all"
+                                className="px-3 py-2 rounded-lg border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-blue-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/20 transition-all"
                               >
                                 View
                               </button>
@@ -3923,7 +3923,7 @@ export const AdminPanel = () => {
                                 disabled={isLockedIdentity}
                                 className={`px-3 py-2 rounded-lg border text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                                   u.isBlocked
-                                    ? 'border-[#C49A6C]/40 bg-[#8BA888]/10 text-white/85 hover:bg-[#C49A6C]/20'
+                                    ? 'border-[#C49A6C]/40 bg-[#C49A6C]/10 text-white/85 hover:bg-[#C49A6C]/20'
                                     : 'border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
                                 } ${isLockedIdentity ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
                               >
@@ -4114,7 +4114,7 @@ export const AdminPanel = () => {
                   ))}
                   <button
                     onClick={exportFinanceReport}
-                    className="px-5 py-2 rounded-full border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all"
+                    className="px-5 py-2 rounded-full border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#C49A6C]/10 transition-all"
                   >
                     Export CSV
                   </button>
@@ -4232,7 +4232,7 @@ export const AdminPanel = () => {
                         Update your personal name and phone for admin account
                       </p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <span className="px-4 py-2 rounded-full border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
                       {adminRole}
                     </span>
                   </div>
@@ -4323,20 +4323,20 @@ export const AdminPanel = () => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <LuxuryFloatingInput
-                        label="Support Voice Terminal"
+                        label="Support Phone Number"
                         value={siteSettings.supportPhone}
                         onChange={v => setSiteSettings({ ...siteSettings, supportPhone: v })}
                         icon={<Phone className="w-5 h-5" />}
                       />
                       <LuxuryFloatingInput
-                        label="WhatsApp Signal"
+                        label="WhatsApp Number"
                         value={siteSettings.whatsappNumber}
                         onChange={v => setSiteSettings({ ...siteSettings, whatsappNumber: v })}
                         icon={<Smartphone className="w-5 h-5" />}
                       />
                     </div>
                     <LuxuryFloatingInput
-                      label="Support Intelligence Node (Email)"
+                      label="Support Email Address"
                       value={siteSettings.supportEmail}
                       onChange={v => setSiteSettings({ ...siteSettings, supportEmail: v })}
                       icon={<Mail className="w-5 h-5" />}
@@ -4349,12 +4349,12 @@ export const AdminPanel = () => {
                     />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                       <LuxuryFloatingInput
-                        label="Facebook Matrix Link"
+                        label="Facebook Page Link"
                         value={siteSettings?.facebookLink || ''}
                         onChange={v => setSiteSettings({ ...siteSettings, facebookLink: v })}
                       />
                       <LuxuryFloatingInput
-                        label="Instagram Matrix Link"
+                        label="Instagram Profile Link"
                         value={siteSettings?.instagramLink || ''}
                         onChange={v => setSiteSettings({ ...siteSettings, instagramLink: v })}
                       />
@@ -4380,7 +4380,97 @@ export const AdminPanel = () => {
                       });
                     }}
                   >
-                    SAVE INSTITUTIONAL PROFILE
+                    SAVE SITE SETTINGS
+                  </PrimaryButton>
+                </GlassCard>
+
+                {/* ── New Arrival Popup ── */}
+                <GlassCard className="p-10">
+                  <div className="flex items-center gap-4 mb-8">
+                    <Sparkles className="w-7 h-7 text-[#C49A6C]" />
+                    <div>
+                      <h3 className="text-2xl font-black uppercase italic">New Arrival Popup</h3>
+                      <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.25em]">নতুন পণ্য পপআপ — Homepage notification</p>
+                    </div>
+                  </div>
+
+                  {/* Enable toggle */}
+                  <div className="flex items-center justify-between p-4 rounded-xl mb-6" style={{ background: 'rgba(196,154,108,0.06)', border: '1px solid rgba(196,154,108,0.18)' }}>
+                    <div>
+                      <p className="text-sm font-bold text-white">Enable Popup</p>
+                      <p className="text-[10px] text-zinc-400 mt-1">Show new arrival popup to visitors on the homepage</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSiteSettings({
+                        ...siteSettings,
+                        newArrivalPopup: {
+                          ...(siteSettings.newArrivalPopup || { title: 'New Arrivals', subtitle: 'Fresh collection just landed!', badge: 'New', ctaLabel: 'Shop Now', ctaUrl: '/shop', delay: 3 }),
+                          enabled: !(siteSettings.newArrivalPopup?.enabled ?? false)
+                        }
+                      })}
+                      className="w-14 h-7 rounded-full transition-all relative"
+                      style={{
+                        background: siteSettings.newArrivalPopup?.enabled ? 'linear-gradient(135deg, #9B6B3A, #C49A6C)' : 'rgba(255,255,255,0.10)',
+                        border: '1px solid rgba(196,154,108,0.30)'
+                      }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-6 h-6 rounded-full transition-all duration-300"
+                        style={{
+                          background: '#EDE8DC',
+                          left: siteSettings.newArrivalPopup?.enabled ? 'calc(100% - 1.75rem)' : '2px'
+                        }}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <LuxuryFloatingInput
+                        label="Popup Title"
+                        value={siteSettings.newArrivalPopup?.title || ''}
+                        onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, subtitle: '', badge: 'New', ctaLabel: 'Shop Now', ctaUrl: '/shop', delay: 3 }), title: v } })}
+                      />
+                      <LuxuryFloatingInput
+                        label="Badge Text (e.g. New Arrival)"
+                        value={siteSettings.newArrivalPopup?.badge || ''}
+                        onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, title: '', subtitle: '', ctaLabel: 'Shop Now', ctaUrl: '/shop', delay: 3 }), badge: v } })}
+                      />
+                    </div>
+                    <LuxuryFloatingInput
+                      label="Subtitle / Description"
+                      value={siteSettings.newArrivalPopup?.subtitle || ''}
+                      onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, title: '', badge: 'New', ctaLabel: 'Shop Now', ctaUrl: '/shop', delay: 3 }), subtitle: v } })}
+                    />
+                    <LuxuryFloatingInput
+                      label="Product Image URL (optional)"
+                      value={siteSettings.newArrivalPopup?.imageUrl || ''}
+                      onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, title: '', subtitle: '', badge: 'New', ctaLabel: 'Shop Now', ctaUrl: '/shop', delay: 3 }), imageUrl: v } })}
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      <LuxuryFloatingInput
+                        label="Button Label"
+                        value={siteSettings.newArrivalPopup?.ctaLabel || ''}
+                        onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, title: '', subtitle: '', badge: 'New', ctaUrl: '/shop', delay: 3 }), ctaLabel: v } })}
+                      />
+                      <LuxuryFloatingInput
+                        label="Button Link (e.g. /shop)"
+                        value={siteSettings.newArrivalPopup?.ctaUrl || ''}
+                        onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, title: '', subtitle: '', badge: 'New', ctaLabel: 'Shop Now', delay: 3 }), ctaUrl: v } })}
+                      />
+                      <LuxuryFloatingInput
+                        label="Show After (seconds)"
+                        value={String(siteSettings.newArrivalPopup?.delay ?? 3)}
+                        onChange={v => setSiteSettings({ ...siteSettings, newArrivalPopup: { ...(siteSettings.newArrivalPopup || { enabled: false, title: '', subtitle: '', badge: 'New', ctaLabel: 'Shop Now', ctaUrl: '/shop' }), delay: Number(v) || 3 } })}
+                      />
+                    </div>
+                  </div>
+                  <PrimaryButton
+                    className="mt-8 w-full rounded-2xl h-12 text-[10px]"
+                    onClick={() => updateSettings({ newArrivalPopup: siteSettings.newArrivalPopup })}
+                  >
+                    SAVE POPUP SETTINGS
                   </PrimaryButton>
                 </GlassCard>
               </div>
@@ -4389,7 +4479,7 @@ export const AdminPanel = () => {
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-4 mb-10">
                     <Mail className="w-8 h-8 text-[#C49A6C]" />
-                    <h3 className="text-3xl font-black uppercase italic">Handshake Protocols (SMTP)</h3>
+                    <h3 className="text-3xl font-black uppercase italic">Email Server Settings (SMTP)</h3>
                   </div>
                   <div className="space-y-6">
                     <LuxuryFloatingInput label="SMTP Server Host" value={smtpSettings?.host || ''} onChange={v => setSmtpSettings({ ...smtpSettings, host: v })} />
@@ -4397,7 +4487,7 @@ export const AdminPanel = () => {
                       <LuxuryFloatingInput label="SMTP Port" value={smtpSettings?.port || ''} onChange={v => setSmtpSettings({ ...smtpSettings, port: v })} />
                       <LuxuryFloatingInput label="Encryption" value="SSL/TLS" onChange={() => { }} />
                     </div>
-                    <LuxuryFloatingInput label="Archive Email Account" value={smtpSettings?.user || ''} onChange={v => setSmtpSettings({ ...smtpSettings, user: v })} />
+                    <LuxuryFloatingInput label="SMTP Email Account" value={smtpSettings?.user || ''} onChange={v => setSmtpSettings({ ...smtpSettings, user: v })} />
                     <LuxuryFloatingInput
                       label="SMTP Password"
                       type="password"
@@ -4498,12 +4588,12 @@ export const AdminPanel = () => {
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Serial format, template and email controls</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/40 text-white/90 bg-[#8BA888]/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
+                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/40 text-white/90 bg-[#C49A6C]/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
                         {siteSettings.invoiceSettings.invoiceEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <button
                         onClick={() => updateInvoiceSettingsField({ invoiceEnabled: !siteSettings.invoiceSettings.invoiceEnabled })}
-                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/30 text-white/90 hover:bg-[#8BA888]/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
+                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/30 text-white/90 hover:bg-[#C49A6C]/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
                       >
                         Toggle
                       </button>
@@ -4525,14 +4615,14 @@ export const AdminPanel = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <button
                         onClick={applyInvoiceSerialPreset}
-                        className="h-11 rounded-xl border border-[#C49A6C]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-[#C49A6C]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#C49A6C]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         APPLY SPL-000000 FORMAT
                       </button>
                       <button
                         onClick={syncInvoiceThemeToStoreTheme}
-                        className="h-11 rounded-xl border border-[#C49A6C]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-[#C49A6C]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#C49A6C]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         SYNC WITH THEME SETTINGS
@@ -4577,7 +4667,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Counter Mode</label>
                       <button
                         onClick={() => updateInvoiceSettingsField({ separateCounterPerType: !siteSettings.invoiceSettings.separateCounterPerType })}
-                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#8BA888]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#C49A6C]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
                       >
                         {siteSettings.invoiceSettings.separateCounterPerType ? 'Separate by Type' : 'Global Counter'}
                       </button>
@@ -4651,7 +4741,7 @@ export const AdminPanel = () => {
                         ) : (
                           <button
                             onClick={() => updateInvoiceSettingsField({ [item.key]: !(siteSettings.invoiceSettings as any)[item.key] })}
-                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#C49A6C]/40 text-white/85 bg-[#8BA888]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#C49A6C]/40 text-white/85 bg-[#C49A6C]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
                           >
                             {(siteSettings.invoiceSettings as any)[item.key] ? 'On' : 'Off'}
                           </button>
@@ -4665,7 +4755,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Serial Types</label>
                       <button
                         onClick={addInvoiceSerialType}
-                        className="h-10 px-4 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all"
+                        className="h-10 px-4 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#C49A6C]/10 transition-all"
                       >
                         Add Type
                       </button>
@@ -5211,8 +5301,8 @@ export const AdminPanel = () => {
                         <button
                           onClick={() => upsertStoryPost(story.id, 'published', !story.published)}
                           className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${story.published
-                            ? 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/30'
-                            : 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/30'
+                            ? 'bg-[#C49A6C]/10 text-[#C49A6C] border-[#C49A6C]/30'
+                            : 'bg-[#C49A6C]/10 text-[#C49A6C] border-[#C49A6C]/30'
                             }`}
                         >
                           {story.published ? 'Published' : 'Draft'}
@@ -5335,14 +5425,14 @@ export const AdminPanel = () => {
                         <button
                           onClick={() => moveSlide(idx, 'up')}
                           disabled={idx === 0}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#C49A6C]/30 text-[#C49A6C] hover:bg-[#8BA888]/10'}`}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#C49A6C]/30 text-[#C49A6C] hover:bg-[#C49A6C]/10'}`}
                         >
                           Move Up
                         </button>
                         <button
                           onClick={() => moveSlide(idx, 'down')}
                           disabled={idx === slides.length - 1}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#C49A6C]/30 text-[#C49A6C] hover:bg-[#8BA888]/10'}`}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#C49A6C]/30 text-[#C49A6C] hover:bg-[#C49A6C]/10'}`}
                         >
                           Move Down
                         </button>
@@ -5715,7 +5805,7 @@ export const AdminPanel = () => {
                               disabled={selectedCustomerLocked}
                               className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] ${
                                 selectedCustomerProfile.user.isBlocked
-                                  ? 'border-[#C49A6C]/40 bg-[#8BA888]/10 text-white/85'
+                                  ? 'border-[#C49A6C]/40 bg-[#C49A6C]/10 text-white/85'
                                   : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
                               } ${selectedCustomerLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
@@ -5727,7 +5817,7 @@ export const AdminPanel = () => {
                             </button>
                             <button
                               onClick={exportCustomerOrdersCsv}
-                              className="px-4 py-2 rounded-xl border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.16em]"
+                              className="px-4 py-2 rounded-xl border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.16em]"
                             >
                               Export Orders
                             </button>
@@ -5858,7 +5948,7 @@ export const AdminPanel = () => {
                             <button
                               onClick={saveCustomerNote}
                               disabled={customerNoteSaving}
-                              className="h-11 px-5 rounded-xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-blue-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
+                              className="h-11 px-5 rounded-xl border border-[#C49A6C]/35 bg-[#C49A6C]/10 text-blue-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
                             >
                               {customerNoteSaving ? 'Saving...' : 'Save note'}
                             </button>
@@ -5971,7 +6061,7 @@ export const AdminPanel = () => {
                         <div>
                           <p className="text-xl font-bold leading-relaxed">{selectedOrder.address}</p>
                           <div className="flex gap-3 mt-4">
-                            <span className="px-4 py-1.5 bg-[#8BA888]/10 border border-[#C49A6C]/20 text-[#C49A6C] rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
+                            <span className="px-4 py-1.5 bg-[#C49A6C]/10 border border-[#C49A6C]/20 text-[#C49A6C] rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
                             <span className="px-4 py-1.5 bg-zinc-800 border border-white/5 text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.thana}</span>
                           </div>
                         </div>
@@ -6089,7 +6179,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSslCommerzInit(selectedOrder)}
                         disabled={integrationActionKey === `${selectedOrder.id}:ssl:init`}
-                        className="h-14 rounded-2xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/35 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <CreditCard className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:ssl:init` ? 'Creating...' : 'Create Payment Link'}
@@ -6097,7 +6187,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSteadfastCreate(selectedOrder, false)}
                         disabled={integrationActionKey === `${selectedOrder.id}:steadfast:create:normal`}
-                        className="h-14 rounded-2xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/35 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <Truck className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:steadfast:create:normal` ? 'Booking...' : 'Send to Steadfast'}
@@ -6133,7 +6223,7 @@ export const AdminPanel = () => {
                         {selectedOrderShipment?.trackingUrl && (
                           <button
                             onClick={() => window.open(selectedOrderShipment.trackingUrl, '_blank', 'noopener,noreferrer')}
-                            className="h-10 px-4 rounded-xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-[#C49A6C]/20"
+                            className="h-10 px-4 rounded-xl border border-[#C49A6C]/35 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-[#C49A6C]/20"
                           >
                             Open Tracking
                           </button>
@@ -6152,14 +6242,14 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runInvoiceAction(selectedOrder, { type: siteSettings.invoiceSettings.defaultType || 'INV', send: true, autoOpen: false })}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send`}
-                        className="h-14 rounded-2xl border border-[#C49A6C]/40 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/40 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send` ? 'Sending...' : 'Send Invoice'}
                       </button>
                       <button
                         onClick={() => downloadLatestInvoice(selectedOrder, siteSettings.invoiceSettings.defaultType || 'INV')}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest`}
-                        className="h-14 rounded-2xl border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest` ? 'Opening...' : 'Download PDF'}
                       </button>

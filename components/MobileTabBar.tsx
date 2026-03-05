@@ -143,7 +143,7 @@ export const MobileTabBar: React.FC = () => {
                 {isActive && (
                   <motion.div
                     layoutId="dock-active-indicator"
-                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-[#8BA888] shadow-[0_0_10px_rgba(139,168,136,0.55)]"
+                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-[#C49A6C] shadow-[0_0_10px_rgba(196,154,108,0.55)]"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                   />
                 )}

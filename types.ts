@@ -293,4 +293,14 @@ export interface SiteSettings {
   cmsActiveVersion: 'DRAFT' | 'PUBLISHED';
   cmsRevisions: CmsRevision[];
   invoiceSettings: InvoiceSettings;
+  newArrivalPopup?: {
+    enabled: boolean;
+    title: string;
+    subtitle: string;
+    badge: string;
+    imageUrl?: string;
+    ctaLabel: string;
+    ctaUrl: string;
+    delay: number;
+  };
 }

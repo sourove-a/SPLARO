@@ -720,7 +720,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       >
         <GlassCard className="p-8 md:p-12 !border-white/10 !bg-white/[0.08] shadow-[0_0_80px_rgba(0,0,0,0.8)] !rounded-[48px] backdrop-blur-[120px] relative overflow-hidden group">
           {/* Subtle cyan glow around the card */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#8BA888]/8 via-transparent to-[#C49A6C]/8 opacity-50 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#C49A6C]/8 via-transparent to-[#C49A6C]/8 opacity-50 pointer-events-none" />
 
           <header className="flex flex-col items-center text-center mb-12 relative z-10 pt-4">
             <div className="h-10 md:h-14" />

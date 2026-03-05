@@ -74,13 +74,13 @@ export const LuxuryFloatingInput: React.FC<{
     <div className="relative mb-4 group w-full">
       <motion.div
         animate={{
-          borderColor: focused ? 'rgba(196, 154, 108, 0.85)' : error ? 'rgba(192, 97, 74, 0.70)' : isValid ? 'rgba(139, 168, 136, 0.60)' : 'rgba(196, 154, 108, 0.22)',
+          borderColor: focused ? 'rgba(196, 154, 108, 0.85)' : error ? 'rgba(192, 97, 74, 0.70)' : isValid ? 'rgba(212, 165, 116, 0.60)' : 'rgba(196, 154, 108, 0.22)',
           backgroundColor: focused ? 'rgba(10, 15, 8, 0.98)' : error ? 'rgba(30, 12, 8, 0.55)' : 'rgba(10, 15, 8, 0.92)',
           boxShadow: focused ? '0 0 0 2px rgba(196, 154, 108, 0.20), 0 10px 26px rgba(0, 0, 0, 0.52)' : '0 8px 18px rgba(0, 0, 0, 0.38)'
         }}
         className="relative flex items-center h-20 md:h-24 border rounded-[24px] transition-all duration-200 ease-out overflow-hidden"
       >
-        <div className={`pl-8 transition-all duration-300 ${focused ? 'scale-105' : ''}`} style={{ color: focused ? '#C49A6C' : error ? '#C0614A' : isValid ? '#8BA888' : 'rgba(237,232,220,0.55)' }}>
+        <div className={`pl-8 transition-all duration-300 ${focused ? 'scale-105' : ''}`} style={{ color: focused ? '#C49A6C' : error ? '#C0614A' : isValid ? '#D4A574' : 'rgba(237,232,220,0.55)' }}>
           {icon}
         </div>
 
@@ -91,7 +91,7 @@ export const LuxuryFloatingInput: React.FC<{
               y: (focused || isFilled) ? -24 : 0,
               scale: (focused || isFilled) ? 0.58 : 1,
               x: (focused || isFilled) ? -20 : 0,
-              color: (focused || isFilled) ? '#C49A6C' : error ? '#C0614A' : isValid ? '#8BA888' : 'rgba(237,232,220,0.50)'
+              color: (focused || isFilled) ? '#C49A6C' : error ? '#C0614A' : isValid ? '#D4A574' : 'rgba(237,232,220,0.50)'
             }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-black uppercase tracking-[0.18em] origin-left z-20 whitespace-nowrap"

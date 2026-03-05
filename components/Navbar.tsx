@@ -28,8 +28,8 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
             className="h-full w-auto object-contain"
           />
         ) : (
-          <svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[90%] w-auto filter drop-shadow-[0_0_14px_rgba(196,154,108,0.35)]">
-            <g className="transition-all duration-700 group-hover:scale-105" stroke="#C49A6C" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-[90%] w-auto filter drop-shadow-[0_0_14px_rgba(255,255,255,0.20)]">
+            <g className="transition-all duration-700 group-hover:scale-105" stroke="white" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round">
               <g className="transition-transform duration-500 group-hover:-translate-y-0.5">
                 <path d="M24 44 L56 12" />
                 <path d="M50 50 L82 18" />
@@ -120,12 +120,12 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
 const COGNAC      = '#C49A6C';
 const COGNAC_BG   = 'rgba(196,154,108,0.12)';
 const COGNAC_BDR  = 'rgba(196,154,108,0.28)';
-const SAGE        = '#8BA888';
+const SAGE        = '#D4A574'; // Luxury gold for validation states
 const NAV_GLASS   = 'rgba(255,252,248,0.05)';
 const NAV_BDR     = 'rgba(196,154,108,0.14)';
 
 export const Navbar: React.FC = () => {
-  const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings } = useApp();
+  const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const adminDomain = isAdminSubdomainHost();
@@ -488,6 +488,24 @@ export const Navbar: React.FC = () => {
               </motion.span>
             )}
           </button>
+
+          {/* Language Toggle */}
+          <button
+            type="button"
+            aria-label="Toggle language"
+            onClick={() => setLanguage(language === 'EN' ? 'BN' : 'EN')}
+            className="nav-item interactive-control min-h-11 px-3 py-2 backdrop-blur-3xl rounded-[14px] transition-all shadow-xl pointer-events-auto touch-manipulation flex items-center gap-1.5"
+            style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
+            title={language === 'EN' ? 'Switch to Bengali' : 'Switch to English'}
+          >
+            <Globe className="w-3.5 h-3.5" style={{ color: COGNAC }} />
+            <span
+              className="text-[9px] font-black uppercase tracking-[0.25em]"
+              style={{ color: language === 'EN' ? '#EDE8DC' : COGNAC }}
+            >
+              {language === 'EN' ? 'বাংলা' : 'EN'}
+            </span>
+          </button>
         </div>
       </nav>
 
@@ -629,7 +647,7 @@ export const Navbar: React.FC = () => {
               style={{ borderTop: '1px solid rgba(196,154,108,0.10)' }}
             >
               <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: SAGE }} />
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: COGNAC }} />
                 <p
                   className="text-[10px] font-semibold uppercase tracking-widest"
                   style={{ color: 'rgba(237,232,220,0.65)' }}
