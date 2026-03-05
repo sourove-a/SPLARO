@@ -371,7 +371,7 @@ export default function ForgotPasswordPage() {
             exit={{ opacity: 0, y: -8 }}
             className={`fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-2xl border px-4 py-3 text-sm shadow-2xl ${
               toast.tone === 'success'
-                ? 'border-blue-500/40 bg-blue-500/15 text-blue-100'
+                ? 'border-blue-500/40 bg-[#0090FF]/15 text-blue-100'
                 : toast.tone === 'error'
                   ? 'border-rose-500/40 bg-rose-500/15 text-rose-100'
                   : 'border-[#e8c670]/40 bg-[#e8c670]/15 text-[#f3dfaf]'

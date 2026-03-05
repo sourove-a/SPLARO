@@ -291,11 +291,15 @@ const HomeView = () => {
         <div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
             <div className="max-w-3xl">
-              <h2 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase">
-                MODERN<br /><span className="text-green-500">LUXURY FLOW.</span>
+              <h2
+                className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC' }}
+              >
+                PREMIUM<br />
+                <span style={{ color: '#C49A6C' }}>COLLECTION.</span>
               </h2>
-              <p className="text-white/70 text-base md:text-xl max-w-xl leading-relaxed font-medium">
-                Imported footwear and bags with sharp lines, bold character, and a refined finish.
+              <p className="text-base md:text-xl max-w-xl leading-relaxed font-medium" style={{ color: 'rgba(237,232,220,0.70)' }}>
+                Directly imported footwear &amp; bags with refined craftsmanship, premium materials, and elegant character.
               </p>
             </div>
             <button
@@ -304,7 +308,14 @@ const HomeView = () => {
                 setSearchQuery('');
                 navigate('/shop');
               }}
-              className="group flex items-center gap-6 text-sm font-black uppercase tracking-[0.5em] border-b-2 border-white/5 pb-6 hover:border-green-500 transition-all duration-700"
+              className="group flex items-center gap-5 text-sm font-semibold uppercase pb-5 transition-all duration-700"
+              style={{
+                letterSpacing: '0.42em',
+                color: '#EDE8DC',
+                borderBottom: '1px solid rgba(196,154,108,0.18)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.borderBottomColor = 'rgba(196,154,108,0.70)')}
+              onMouseLeave={e => (e.currentTarget.style.borderBottomColor = 'rgba(196,154,108,0.18)')}
             >
               Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
             </button>
@@ -445,25 +456,50 @@ const OrderSuccessView = () => {
 
 
 const BrandMarquee = () => {
-  const brands = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga', 'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi', 'Hermes', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino', 'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning', '361 Degrees', 'Xtep', 'Peak', 'Feiyue', 'Luxury Imports'];
+  const brands = [
+    'Nike', 'Adidas', 'Jordan', 'New Balance', 'Yeezy', 'Balenciaga',
+    'Gucci', 'Prada', 'Louis Vuitton', 'Dior', 'Versace', 'Fendi',
+    'Hermès', 'Saint Laurent', 'Burberry', 'Chanel', 'Valentino',
+    'Givenchy', 'Off-White', 'Alexander McQueen', 'Anta', 'Li-Ning',
+    'Reebok', 'Puma', 'Vans', 'Converse', 'Luxury Imports'
+  ];
 
   return (
-    <div className="relative w-full overflow-hidden py-12 border-y border-white/5 bg-[#0A0C12]/30 backdrop-blur-3xl mb-24">
+    <div
+      className="relative w-full overflow-hidden py-10 backdrop-blur-3xl mb-24"
+      style={{
+        borderTop: '1px solid rgba(196,154,108,0.12)',
+        borderBottom: '1px solid rgba(196,154,108,0.12)',
+        background: 'rgba(10,15,8,0.55)',
+      }}
+    >
       <div className="flex whitespace-nowrap">
         <motion.div
-          animate={{ x: [0, -2000] }}
-          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-          className="flex gap-20 items-center px-10"
+          animate={{ x: [0, -2400] }}
+          transition={{ duration: 44, repeat: Infinity, ease: 'linear' }}
+          className="flex gap-16 items-center px-8"
         >
           {brands.concat(brands).map((brand, i) => (
-            <span key={i} className="text-[10px] font-black uppercase tracking-[0.8em] text-zinc-600 hover:text-green-400 cursor-default transition-colors">
+            <span
+              key={i}
+              className="text-[10px] font-semibold uppercase cursor-default transition-colors"
+              style={{ letterSpacing: '0.65em', color: 'rgba(196,154,108,0.38)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#C49A6C')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(196,154,108,0.38)')}
+            >
               {brand}
             </span>
           ))}
         </motion.div>
       </div>
-      <div className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-[#050505] to-transparent z-10" />
-      <div className="absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-[#050505] to-transparent z-10" />
+      <div
+        className="absolute inset-y-0 left-0 w-32 z-10"
+        style={{ background: 'linear-gradient(to right, rgba(10,15,8,1), transparent)' }}
+      />
+      <div
+        className="absolute inset-y-0 right-0 w-32 z-10"
+        style={{ background: 'linear-gradient(to left, rgba(10,15,8,1), transparent)' }}
+      />
     </div>
   );
 };
@@ -471,47 +507,103 @@ const BrandMarquee = () => {
 const Footer = () => {
   const navigate = useNavigate();
   const { siteSettings } = useApp();
-  return (
-    <footer className="relative mt-40 md:mt-60 pb-20 px-0 sm:px-4 md:px-10 lg:px-12 overflow-hidden">
-      {/* Background Layer with Deep Royal Gradient */}
-      <div className="absolute inset-x-0 top-0 bottom-0 bg-gradient-to-b from-[#0a0c12]/50 to-[#050505] -z-10" />
 
-      {/* Decorative Glow Elements */}
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-royal-blue/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-green-500/10 rounded-full blur-[120px] pointer-events-none" />
+  const COGNAC      = '#C49A6C';
+  const COGNAC_DIM  = 'rgba(196,154,108,0.45)';
+  const COGNAC_MUTE = 'rgba(196,154,108,0.28)';
+  const TEXT_DIM    = 'rgba(237,232,220,0.52)';
+
+  const footerLink = (label: string, path: string) => (
+    <motion.span
+      whileHover={{ x: 5, color: COGNAC }}
+      onClick={() => navigate(path)}
+      className="cursor-pointer transition-all duration-300 text-[10px] font-medium uppercase"
+      style={{ letterSpacing: '0.32em', color: TEXT_DIM }}
+    >
+      {label}
+    </motion.span>
+  );
+
+  return (
+    <footer
+      className="relative mt-40 md:mt-60 pb-20 px-0 sm:px-4 md:px-10 lg:px-12 overflow-hidden"
+    >
+      {/* Natural gradient background */}
+      <div
+        className="absolute inset-x-0 top-0 bottom-0 -z-10"
+        style={{ background: 'linear-gradient(180deg, rgba(10,15,8,0.5) 0%, #080C06 100%)' }}
+      />
+
+      {/* Warm forest glow */}
+      <div
+        className="absolute -top-60 -left-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-30"
+        style={{ background: 'radial-gradient(circle, rgba(61,107,61,0.25), transparent 60%)' }}
+      />
+      <div
+        className="absolute -bottom-60 -right-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-20"
+        style={{ background: 'radial-gradient(circle, rgba(196,154,108,0.20), transparent 60%)' }}
+      />
 
       <div className="max-w-[1800px] mx-auto px-2 sm:px-0">
         <BrandMarquee />
 
-        <div className="liquid-glass rounded-[28px] sm:rounded-[40px] md:rounded-[48px] border border-white/10 p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)]">
-          {/* Subtle Ribbed Overlay */}
-          <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
-
+        <div
+          className="liquid-glass rounded-[28px] sm:rounded-[40px] md:rounded-[48px] p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden"
+          style={{
+            border: '1px solid rgba(196,154,108,0.16)',
+            boxShadow: '0 50px 100px -20px rgba(0,0,0,0.55)',
+          }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 md:gap-16 lg:gap-12 relative z-10">
 
-            {/* Brand Essence Column */}
-            <div className="lg:col-span-3 space-y-10">
+            {/* Brand Column */}
+            <div className="lg:col-span-3 space-y-8">
               <div className="cursor-pointer inline-block" onClick={() => navigate('/')}>
-                <span className="text-2xl md:text-3xl font-black italic tracking-tighter text-white uppercase select-none">
+                <span
+                  className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase select-none"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC' }}
+                >
                   SPLARO
                 </span>
+                <p className="text-[8px] font-medium uppercase mt-1" style={{ letterSpacing: '0.35em', color: COGNAC }}>
+                  Luxury Footwear &amp; Bags
+                </p>
               </div>
-              <p className="text-zinc-300 text-[10px] font-black leading-relaxed uppercase tracking-[0.25em] max-w-sm">
-                Directly imported from China to Bangladesh. Premium-grade quality with precision logistics.
+              <p
+                className="text-[10px] font-medium leading-relaxed max-w-xs"
+                style={{ letterSpacing: '0.12em', color: TEXT_DIM }}
+              >
+                Directly imported premium footwear &amp; bags from global markets to Bangladesh. Unmatched quality, refined taste.
               </p>
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 {[
-                  { icon: Instagram, color: 'hover:text-green-400', glow: 'hover:shadow-[0_0_20px_rgba(52, 168, 83,0.4)]', link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
-                  { icon: Facebook, color: 'hover:text-blue-500', glow: 'hover:shadow-[0_0_20px_rgba(37,99,235,0.4)]', link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
-                  { icon: Globe, color: 'hover:text-emerald-400', glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]', link: 'https://splaro.co' }
+                  { icon: Instagram, link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
+                  { icon: Facebook, link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
+                  { icon: Globe, link: 'https://splaro.co' }
                 ].map((social, idx) => (
                   <motion.a
                     key={idx}
-                    whileHover={{ scale: 1.1, y: -4, backgroundColor: 'rgba(255,255,255,0.1)' }}
+                    whileHover={{ scale: 1.1, y: -3 }}
                     whileTap={{ scale: 0.95 }}
                     href={social.link}
                     target="_blank"
-                    className={`w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500 transition-all duration-500 ${social.color} ${social.glow} hover:border-white/30`}
+                    rel="noopener noreferrer"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-400"
+                    style={{
+                      background: 'rgba(196,154,108,0.08)',
+                      border: '1px solid rgba(196,154,108,0.20)',
+                      color: 'rgba(196,154,108,0.55)',
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.color = COGNAC;
+                      (e.currentTarget as HTMLElement).style.borderColor = COGNAC_DIM;
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(196,154,108,0.14)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.color = 'rgba(196,154,108,0.55)';
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(196,154,108,0.20)';
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(196,154,108,0.08)';
+                    }}
                   >
                     <social.icon className="w-4 h-4" />
                   </motion.a>
@@ -519,74 +611,122 @@ const Footer = () => {
               </div>
             </div>
 
-            {/* Headquarters Column */}
-            <div className="lg:col-span-3 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">HEAD OFFICE</h4>
-              <div className="flex items-start gap-6 group">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center text-blue-500 shrink-0 group-hover:bg-blue-600/20 transition-all">
-                  <MapPin className="w-4 h-4" />
+            {/* Headquarters */}
+            <div className="lg:col-span-3 space-y-8">
+              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
+                Head Office
+              </h4>
+              <div className="flex items-start gap-5 group">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all"
+                  style={{ background: 'rgba(196,154,108,0.10)', border: '1px solid rgba(196,154,108,0.22)' }}
+                >
+                  <MapPin className="w-4 h-4" style={{ color: COGNAC }} />
                 </div>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-zinc-100 leading-relaxed">Sector 13, Road 16</p>
-                  <p className="text-xs font-black uppercase tracking-[0.15em] text-zinc-100 leading-relaxed">Uttara, Dhaka 1230</p>
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-700 mt-2">Bangladesh</p>
+                  <p className="text-xs font-medium leading-relaxed" style={{ letterSpacing: '0.12em', color: 'rgba(237,232,220,0.85)' }}>
+                    Sector 13, Road 16
+                  </p>
+                  <p className="text-xs font-medium leading-relaxed" style={{ letterSpacing: '0.12em', color: 'rgba(237,232,220,0.85)' }}>
+                    Uttara, Dhaka 1230
+                  </p>
+                  <p className="text-[9px] font-medium uppercase mt-2" style={{ letterSpacing: '0.28em', color: COGNAC_MUTE }}>
+                    Bangladesh
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Portal Connect Column */}
-            <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">CONNECT</h4>
-              <div className="space-y-6">
-                <div className="flex items-center gap-4 group cursor-pointer">
-                  <Mail className="w-4 h-4 text-green-500/50 group-hover:text-green-400" />
-                  <a href="mailto:info@splaro.co" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-zinc-200 transition-colors">info@splaro.co</a>
+            {/* Contact */}
+            <div className="lg:col-span-2 space-y-8">
+              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
+                Contact
+              </h4>
+              <div className="space-y-5">
+                <div className="flex items-center gap-4 group">
+                  <Mail className="w-4 h-4 shrink-0" style={{ color: COGNAC_MUTE }} />
+                  <a
+                    href="mailto:info@splaro.co"
+                    className="text-[10px] font-medium uppercase transition-colors"
+                    style={{ letterSpacing: '0.18em', color: TEXT_DIM }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#EDE8DC')}
+                    onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}
+                  >
+                    info@splaro.co
+                  </a>
                 </div>
-                <div className="flex items-center gap-4 group cursor-pointer">
-                  <Phone className="w-4 h-4 text-blue-500/50 group-hover:text-white" />
-                  <a href="tel:+8801905010205" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-zinc-200 transition-colors whitespace-nowrap">+880 1905 010 205</a>
+                <div className="flex items-center gap-4 group">
+                  <Phone className="w-4 h-4 shrink-0" style={{ color: COGNAC_MUTE }} />
+                  <a
+                    href="tel:+8801905010205"
+                    className="text-[10px] font-medium uppercase transition-colors whitespace-nowrap"
+                    style={{ letterSpacing: '0.18em', color: TEXT_DIM }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#EDE8DC')}
+                    onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}
+                  >
+                    +880 1905 010 205
+                  </a>
                 </div>
               </div>
             </div>
 
-            {/* Quick Vault Access */}
-            <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">QUICK LINKS</h4>
-              <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/shop')} className="cursor-pointer transition-all duration-300">SHOP</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/')} className="cursor-pointer transition-all duration-300">HOME</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/order-tracking')} className="cursor-pointer transition-all duration-300">ORDER TRACKING</motion.span>
+            {/* Quick Links */}
+            <div className="lg:col-span-2 space-y-8">
+              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
+                Collection
+              </h4>
+              <div className="flex flex-col gap-4">
+                {footerLink('All Products', '/shop')}
+                {footerLink('Shoes', '/shop?category=shoes')}
+                {footerLink('Bags', '/shop?category=bags')}
+                {footerLink('Order Tracking', '/order-tracking')}
               </div>
             </div>
 
-            {/* Institutional Column */}
-            <div className="lg:col-span-2 space-y-10">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-green-400">SUPPORT</h4>
-              <div className="flex flex-col gap-5 text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/manifest')} className="cursor-pointer transition-all duration-300">ABOUT SPLARO</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/privacy')} className="cursor-pointer transition-all duration-300">PRIVACY POLICY</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/terms')} className="cursor-pointer transition-all duration-300">TERMS & CONDITIONS</motion.span>
-                <motion.span whileHover={{ x: 6, color: '#34a853' }} onClick={() => navigate('/refund-policy')} className="cursor-pointer transition-all duration-300">REFUND POLICY</motion.span>
+            {/* Support */}
+            <div className="lg:col-span-2 space-y-8">
+              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
+                Support
+              </h4>
+              <div className="flex flex-col gap-4">
+                {footerLink('About Splaro', '/manifest')}
+                {footerLink('Privacy Policy', '/privacy')}
+                {footerLink('Terms & Conditions', '/terms')}
+                {footerLink('Refund Policy', '/refund-policy')}
               </div>
             </div>
 
           </div>
 
-          <div className="mt-16 pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+          {/* Footer bottom */}
+          <div
+            className="mt-16 pt-10 flex flex-col md:flex-row justify-between items-center gap-6"
+            style={{ borderTop: '1px solid rgba(196,154,108,0.12)' }}
+          >
             <div className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-zinc-600">
-                <Globe className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(196,154,108,0.08)', border: '1px solid rgba(196,154,108,0.18)' }}>
+                <Globe className="w-4 h-4" style={{ color: COGNAC }} />
               </div>
-              <p className="text-[9px] font-black uppercase tracking-[0.35em] text-zinc-300">
-                <span className="text-white font-extrabold">Directly imported from China to Bangladesh</span> - Premium grade.
+              <p className="text-[9px] font-medium uppercase" style={{ letterSpacing: '0.28em', color: TEXT_DIM }}>
+                <span style={{ color: '#EDE8DC', fontWeight: 700 }}>Directly imported</span> — Premium Grade · Bangladesh
               </p>
             </div>
-            <div className="flex items-center gap-6 text-zinc-800">
+            <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-900 shadow-[0_0_10px_#34a85333]" />
-                <p className="text-[8px] font-black tracking-[0.5em] uppercase">SECURED BY HOSTINGER</p>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#8BA888', boxShadow: '0 0 8px rgba(139,168,136,0.50)' }} />
+                <p className="text-[8px] font-medium tracking-[0.45em] uppercase" style={{ color: COGNAC_MUTE }}>
+                  Secured by Hostinger
+                </p>
               </div>
-              <span onClick={() => navigate('/login')} className="text-[8px] font-black uppercase tracking-[0.5em] hover:text-green-500 cursor-pointer transition-all opacity-30">Admin Access</span>
+              <span
+                onClick={() => navigate('/login')}
+                className="text-[8px] font-medium uppercase tracking-[0.45em] cursor-pointer transition-all opacity-30"
+                style={{ color: '#EDE8DC' }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.70')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.30')}
+              >
+                Admin
+              </span>
             </div>
           </div>
         </div>
@@ -790,7 +930,7 @@ const AppContent = () => {
 
       {siteSettings.maintenanceMode && !isAdminRole(user?.role) && location.pathname !== '/sourove-admin' ? (
         <div className="min-h-screen flex flex-col items-center justify-center p-12 text-center bg-[#05060A]">
-          <div className="w-32 h-32 rounded-[40px] bg-blue-600/10 flex items-center justify-center text-blue-500 mb-12 animate-pulse">
+          <div className="w-32 h-32 rounded-[40px] bg-[#007AFF]/10 flex items-center justify-center text-blue-500 mb-12 animate-pulse">
             <Activity className="w-16 h-16" />
           </div>
           <h1 className="text-5xl font-black uppercase italic tracking-tighter text-white mb-6">Tactical Recalibration</h1>

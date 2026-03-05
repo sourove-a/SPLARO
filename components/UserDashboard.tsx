@@ -44,10 +44,10 @@ type PasswordStrength = {
 
 const statusPillClass = (status: string) => {
   const normalized = String(status || '').toLowerCase();
-  if (normalized.includes('deliver')) return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-  if (normalized.includes('ship')) return 'bg-blue-500/10 text-blue-300 border-blue-500/20';
+  if (normalized.includes('deliver')) return 'bg-[#C49A6C]/10 text-[#C49A6C] border-[#C49A6C]/20';
+  if (normalized.includes('ship')) return 'bg-[#C49A6C]/10 text-white/90 border-[#C49A6C]/20';
   if (normalized.includes('cancel')) return 'bg-rose-500/10 text-rose-300 border-rose-500/20';
-  return 'bg-blue-500/10 text-blue-300 border-blue-500/20';
+  return 'bg-[#C49A6C]/10 text-white/90 border-[#C49A6C]/20';
 };
 
 const normalizeUserPayload = (raw: any): User => ({
@@ -80,9 +80,9 @@ const evaluatePasswordStrength = (value: string): PasswordStrength => {
   if (/[^a-zA-Z0-9]/.test(value)) score += 1;
 
   if (score <= 2) return { score, label: 'Weak', color: 'bg-rose-500' };
-  if (score === 3) return { score, label: 'Fair', color: 'bg-blue-500' };
-  if (score === 4) return { score, label: 'Good', color: 'bg-blue-500' };
-  return { score, label: 'Strong', color: 'bg-blue-500' };
+  if (score === 3) return { score, label: 'Fair', color: 'bg-[#C49A6C]' };
+  if (score === 4) return { score, label: 'Good', color: 'bg-[#C49A6C]' };
+  return { score, label: 'Strong', color: 'bg-[#C49A6C]' };
 };
 
 const formatOrderDate = (value: string) => {
@@ -704,7 +704,7 @@ export const UserDashboard: React.FC = () => {
       <header className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
           <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">
-            Account <span className="text-blue-400">Dashboard</span>
+            Account <span className="text-[#C49A6C]">Dashboard</span>
           </h1>
           <p className="text-[10px] font-black uppercase tracking-[0.45em] text-white/35 mt-3">
             Manage your profile, orders and security settings
@@ -712,7 +712,7 @@ export const UserDashboard: React.FC = () => {
         </div>
         <button
           onClick={() => syncRegistry()}
-          className="h-12 px-6 rounded-2xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.28em] text-white/70 hover:text-blue-300 hover:border-blue-500/40 transition-all"
+          className="h-12 px-6 rounded-2xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.28em] text-white/70 hover:text-white/90 hover:border-[#C49A6C]/40 transition-all"
         >
           Refresh Data
         </button>
@@ -723,7 +723,7 @@ export const UserDashboard: React.FC = () => {
           <GlassCard className="p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
             <div className="flex flex-col items-center">
               <div className="relative mb-6">
-                <div className="w-28 h-28 rounded-full border border-blue-500/35 bg-black/50 overflow-hidden">
+                <div className="w-28 h-28 rounded-full border border-[#C49A6C]/35 bg-black/50 overflow-hidden">
                   {profileForm.profileImage ? (
                     <OptimizedImage src={profileForm.profileImage} alt="Profile" sizes="112px" className="w-full h-full object-cover" />
                   ) : (
@@ -734,7 +734,7 @@ export const UserDashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 h-10 w-10 rounded-xl bg-blue-500 text-black flex items-center justify-center hover:scale-105 transition-transform"
+                  className="absolute -bottom-1 -right-1 h-10 w-10 rounded-xl bg-[#C49A6C] text-black flex items-center justify-center hover:scale-105 transition-transform"
                   aria-label="Upload avatar"
                   type="button"
                 >
@@ -750,18 +750,18 @@ export const UserDashboard: React.FC = () => {
               </div>
 
               <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">{user.name}</h2>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-blue-400 mt-1">{user.role}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#C49A6C] mt-1">{user.role}</p>
 
               <div className="w-full mt-8 space-y-3">
                 <div className="h-14 rounded-2xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-blue-400" />
+                  <Mail className="w-4 h-4 text-[#C49A6C]" />
                   <div className="min-w-0">
                     <p className="text-[8px] text-white/30 font-black uppercase tracking-[0.25em]">Email</p>
                     <p className="text-sm text-white truncate">{user.email}</p>
                   </div>
                 </div>
                 <div className="h-14 rounded-2xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-blue-400" />
+                  <Phone className="w-4 h-4 text-[#C49A6C]" />
                   <div className="min-w-0">
                     <p className="text-[8px] text-white/30 font-black uppercase tracking-[0.25em]">Phone</p>
                     <p className="text-sm text-white truncate">{user.phone || 'N/A'}</p>
@@ -789,7 +789,7 @@ export const UserDashboard: React.FC = () => {
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <UserIcon className="w-5 h-5 text-blue-400" />
+                <UserIcon className="w-5 h-5 text-[#C49A6C]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Profile Info</h3>
               </div>
               {openSections.profile ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -874,7 +874,7 @@ export const UserDashboard: React.FC = () => {
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-blue-400" />
+                <Package className="w-5 h-5 text-[#C49A6C]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Order History</h3>
               </div>
               {openSections.orders ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -912,14 +912,14 @@ export const UserDashboard: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => downloadInvoice(order)}
-                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-blue-500/40 hover:text-blue-300 transition-all"
+                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-[#C49A6C]/40 hover:text-white/90 transition-all"
                                 >
                                   Invoice
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => navigate('/order-tracking')}
-                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-blue-500/40 hover:text-blue-300 transition-all"
+                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-[#C49A6C]/40 hover:text-white/90 transition-all"
                                 >
                                   Track
                                 </button>
@@ -954,7 +954,7 @@ export const UserDashboard: React.FC = () => {
                                               Qty {quantity}
                                             </p>
                                           </div>
-                                          <p className="text-sm font-black text-blue-300">৳{(unitPrice * quantity).toLocaleString()}</p>
+                                          <p className="text-sm font-black text-white/90">৳{(unitPrice * quantity).toLocaleString()}</p>
                                         </div>
                                       );
                                     })}
@@ -985,7 +985,7 @@ export const UserDashboard: React.FC = () => {
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <ShieldCheck className="w-5 h-5 text-blue-400" />
+                <ShieldCheck className="w-5 h-5 text-[#C49A6C]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Account Security</h3>
               </div>
               {openSections.security ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -1014,7 +1014,7 @@ export const UserDashboard: React.FC = () => {
                         type="button"
                         disabled={securityLoading}
                         onClick={() => handleToggleTwoFactor(!twoFactorEnabled)}
-                        className="h-12 px-6 rounded-2xl border border-white/20 bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-white/85 hover:border-blue-500/40 transition-all disabled:opacity-50"
+                        className="h-12 px-6 rounded-2xl border border-white/20 bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-white/85 hover:border-[#C49A6C]/40 transition-all disabled:opacity-50"
                       >
                         {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
                       </button>
@@ -1029,14 +1029,14 @@ export const UserDashboard: React.FC = () => {
                     </div>
 
                     {twoFactorEnabled && twoFactorSecret ? (
-                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">Authenticator setup key</p>
+                      <div className="rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/10 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">Authenticator setup key</p>
                         <div className="mt-2 flex items-center gap-2">
                           <code className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white break-all">{twoFactorSecret}</code>
                           <button
                             type="button"
                             onClick={handleCopyTwoFactorSecret}
-                            className="h-10 px-3 rounded-xl border border-white/20 text-white/80 hover:text-blue-300 transition-colors"
+                            className="h-10 px-3 rounded-xl border border-white/20 text-white/80 hover:text-white/90 transition-colors"
                             aria-label="Copy 2FA secret"
                           >
                             <Copy className="w-4 h-4" />
@@ -1054,7 +1054,7 @@ export const UserDashboard: React.FC = () => {
                         <button
                           type="button"
                           onClick={loadActiveSessions}
-                          className="h-8 px-3 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.18em] text-white/70 hover:border-blue-500/40 hover:text-blue-300 transition-all"
+                          className="h-8 px-3 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.18em] text-white/70 hover:border-[#C49A6C]/40 hover:text-white/90 transition-all"
                         >
                           Refresh
                         </button>
@@ -1070,7 +1070,7 @@ export const UserDashboard: React.FC = () => {
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">{session.ip_address || 'Unknown IP'}</span>
                                 {session.is_current ? (
-                                  <span className="px-2 h-6 rounded-full border border-blue-500/30 bg-blue-500/10 text-[9px] font-black uppercase tracking-[0.16em] text-blue-300 inline-flex items-center">
+                                  <span className="px-2 h-6 rounded-full border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-[9px] font-black uppercase tracking-[0.16em] text-white/90 inline-flex items-center">
                                     Current
                                   </span>
                                 ) : null}
@@ -1095,7 +1095,7 @@ export const UserDashboard: React.FC = () => {
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <Languages className="w-5 h-5 text-blue-400" />
+                <Languages className="w-5 h-5 text-[#C49A6C]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Preferences</h3>
               </div>
               {openSections.preferences ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -1170,7 +1170,7 @@ export const UserDashboard: React.FC = () => {
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <Ticket className="w-5 h-5 text-blue-400" />
+                <Ticket className="w-5 h-5 text-[#C49A6C]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Support</h3>
               </div>
               {openSections.support ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -1195,14 +1195,14 @@ export const UserDashboard: React.FC = () => {
                       value={supportForm.subject}
                       onChange={(e) => setSupportForm((prev) => ({ ...prev, subject: e.target.value }))}
                       placeholder="Ticket subject"
-                      className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.03] px-4 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-blue-500/40 transition-colors"
+                      className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.03] px-4 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#C49A6C]/40 transition-colors"
                     />
                     <textarea
                       value={supportForm.message}
                       onChange={(e) => setSupportForm((prev) => ({ ...prev, message: e.target.value }))}
                       placeholder="Describe your issue..."
                       rows={4}
-                      className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-blue-500/40 transition-colors resize-y"
+                      className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#C49A6C]/40 transition-colors resize-y"
                     />
 
                     <PrimaryButton
@@ -1213,7 +1213,7 @@ export const UserDashboard: React.FC = () => {
                       Submit Ticket
                     </PrimaryButton>
                     {supportTicketResult ? (
-                      <p className="text-sm text-blue-300">{supportTicketResult}</p>
+                      <p className="text-sm text-white/90">{supportTicketResult}</p>
                     ) : null}
                   </div>
                 </motion.div>
@@ -1248,7 +1248,7 @@ export const UserDashboard: React.FC = () => {
               aria-label="Change password"
             >
               <div className="flex items-center gap-3 mb-5">
-                <KeyRound className="w-5 h-5 text-blue-400" />
+                <KeyRound className="w-5 h-5 text-[#C49A6C]" />
                 <h4 className="text-xl font-black uppercase tracking-tight text-white">Change Password</h4>
               </div>
 
@@ -1261,12 +1261,12 @@ export const UserDashboard: React.FC = () => {
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
                     placeholder="Current password"
                     autoComplete="current-password"
-                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-blue-500/45 transition-colors"
+                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#C49A6C]/45 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => ({ ...prev, current: !prev.current }))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-blue-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white/90 transition-colors"
                     aria-label="Toggle current password visibility"
                   >
                     {showPassword.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1280,12 +1280,12 @@ export const UserDashboard: React.FC = () => {
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
                     placeholder="New password"
                     autoComplete="new-password"
-                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-blue-500/45 transition-colors"
+                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#C49A6C]/45 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => ({ ...prev, next: !prev.next }))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-blue-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white/90 transition-colors"
                     aria-label="Toggle new password visibility"
                   >
                     {showPassword.next ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1299,12 +1299,12 @@ export const UserDashboard: React.FC = () => {
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                     placeholder="Confirm password"
                     autoComplete="new-password"
-                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-blue-500/45 transition-colors"
+                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#C49A6C]/45 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => ({ ...prev, confirm: !prev.confirm }))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-blue-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white/90 transition-colors"
                     aria-label="Toggle confirm password visibility"
                   >
                     {showPassword.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

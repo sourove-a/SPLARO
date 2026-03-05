@@ -53,7 +53,7 @@ const SidebarItem: React.FC<{
     {active && (
       <motion.div
         layoutId="active-pill"
-        className="absolute inset-0 bg-blue-600 -z-10 shadow-[0_0_18px_rgba(37,99,235,0.34)]"
+        className="absolute inset-0 -z-10" style={{ background: "linear-gradient(135deg, #4A3520, #6B4A28, #8B5A2B)", boxShadow: "0 0 18px rgba(139,90,43,0.38)" }}
       />
     )}
     <Icon className={`w-5 h-5 ${active ? 'scale-110' : ''}`} />
@@ -90,7 +90,7 @@ const BentoCard: React.FC<{
       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${color} shadow-lg`}>
         <Icon className="w-6 h-6 text-white" />
       </div>
-      <div className="flex items-center gap-1 text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-1.5 rounded-full">
+      <div className="flex items-center gap-1 text-[10px] font-black text-[#8BA888] bg-[#8BA888]/10 px-3 py-1.5 rounded-full">
         <ArrowUpRight className="w-3 h-3" /> {trend}
       </div>
     </div>
@@ -113,7 +113,7 @@ const ProductCollapsibleBox: React.FC<{
   const [isOpen, setIsOpen] = useState<boolean>(Boolean(defaultOpen));
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#0f1624]/70 overflow-hidden">
+    <div className="rounded-[28px] border border-white/10 bg-[#0F1A0D]/70 overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -121,7 +121,7 @@ const ProductCollapsibleBox: React.FC<{
         aria-expanded={isOpen}
       >
         <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">{title}</h3>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C49A6C]">{title}</h3>
           {hint ? <p className="text-[9px] text-zinc-500 font-semibold mt-1">{hint}</p> : null}
         </div>
         <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -808,11 +808,11 @@ const ProductModal: React.FC<{
     >
       <motion.div
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(37,99,235,0.2)] flex flex-col"
+        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(0, 122, 255, 0.2)] flex flex-col"
       >
-        <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-blue-600/5">
+        <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-[#9B6B3A]/5">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/40">
+            <div className="w-16 h-16 rounded-2xl bg-[#9B6B3A] flex items-center justify-center shadow-lg shadow-blue-600/40">
               <LayoutDashboard className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -834,7 +834,7 @@ const ProductModal: React.FC<{
 
         <div className="p-8 md:p-10 overflow-y-auto custom-scrollbar flex-1 min-h-0">
           <div className="sticky top-0 z-20 flex justify-end mb-4 pointer-events-none">
-            <span className="px-3 py-1 rounded-full border border-blue-400/25 bg-[#09162b]/80 text-[9px] font-black uppercase tracking-[0.2em] text-blue-200/80">
+            <span className="px-3 py-1 rounded-full border border-white/20 bg-[#09162b]/80 text-[9px] font-black uppercase tracking-[0.2em] text-white/85/80">
               Scroll for more
             </span>
           </div>
@@ -877,12 +877,12 @@ const ProductModal: React.FC<{
                         setAutoSlugFromName(true);
                         setFormData({ ...formData, id: generated, productSlug: generated });
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-blue-500/35 text-blue-300 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                      className="px-3 py-1.5 rounded-lg border border-[#C49A6C]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                     >
                       Use Name As Slug
                     </button>
                   </div>
-                  <p className="px-6 text-[8px] font-black text-blue-500/50 uppercase tracking-[0.2em]">
+                  <p className="px-6 text-[8px] font-black text-[#C49A6C]/50 uppercase tracking-[0.2em]">
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
                   </p>
                   <p className="px-6 text-[9px] font-semibold text-zinc-400 tracking-[0.06em]">
@@ -892,29 +892,29 @@ const ProductModal: React.FC<{
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3 relative group">
-                    <label className="text-[10px] font-black uppercase text-blue-400/70 tracking-[0.2em] pl-6 mb-2 block">Brand Presence</label>
+                    <label className="text-[10px] font-black uppercase text-[#C49A6C]/70 tracking-[0.2em] pl-6 mb-2 block">Brand Presence</label>
                     <div className="relative">
                       <select
                         value={formData.brand}
                         onChange={e => setFormData({ ...formData, brand: e.target.value as any, brandSlug: slugify(e.target.value) })}
-                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
+                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-[#C49A6C]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
                         {availableBrands.map(b => <option key={b} value={b} className="bg-[#0A0C12]">{b}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-blue-500" />
+                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#C49A6C]" />
                     </div>
                   </div>
                   <div className="space-y-3 relative group">
-                    <label className="text-[10px] font-black uppercase text-blue-400/70 tracking-[0.2em] pl-6 mb-2 block">Category Registry</label>
+                    <label className="text-[10px] font-black uppercase text-[#C49A6C]/70 tracking-[0.2em] pl-6 mb-2 block">Category Registry</label>
                     <div className="relative">
                       <select
                         value={formData.category}
                         onChange={e => setFormData({ ...formData, category: e.target.value as any, categorySlug: slugify(e.target.value) })}
-                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-blue-500/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
+                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-[#C49A6C]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
                         {availableCategories.map(c => <option key={c} value={c} className="bg-[#0A0C12]">{c}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-blue-500" />
+                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#C49A6C]" />
                     </div>
                   </div>
                 </div>
@@ -924,7 +924,7 @@ const ProductModal: React.FC<{
                     <button
                       key={t}
                       onClick={() => setFormData({ ...formData, type: t as any })}
-                      className={`flex-1 py-4 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest ${formData.type === t ? 'bg-blue-600 border-blue-600 text-white shadow-[0_10px_30px_rgba(37,99,235,0.3)]' : 'border-white/10 text-white/30 hover:border-white/20'}`}
+                      className={`flex-1 py-4 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest ${formData.type === t ? 'bg-[#9B6B3A] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/10 text-white/30 hover:border-white/20'}`}
                     >
                       {t}
                     </button>
@@ -944,7 +944,7 @@ const ProductModal: React.FC<{
                       <button
                         key={sc}
                         onClick={() => setFormData({ ...formData, subCategory: sc, subCategorySlug: slugify(sc) })}
-                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-blue-500 border-blue-500 text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
+                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-[#C49A6C] border-[#C49A6C] text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
                       >
                         {sc}
                       </button>
@@ -956,7 +956,7 @@ const ProductModal: React.FC<{
                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4">Featured Visibility</h4>
                   <button
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
-                    className={`w-full py-5 rounded-2xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-blue-500 border-blue-500 text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
+                    className={`w-full py-5 rounded-2xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-[#C49A6C] border-[#C49A6C] text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
                   >
                     <Sparkles className={`w-4 h-4 ${formData.featured ? 'animate-pulse' : ''}`} />
                     <span className="text-[9px] font-black uppercase tracking-[0.3em]">{formData.featured ? 'FEATURED ON HOME' : 'MARK AS FEATURED'}</span>
@@ -1043,7 +1043,7 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
                 <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-200 text-[9px] font-black uppercase tracking-[0.16em]">
+                  <span className="px-3 py-1 rounded-full border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[9px] font-black uppercase tracking-[0.16em]">
                     {galleryImagesForUi.length} image{galleryImagesForUi.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -1097,7 +1097,7 @@ const ProductModal: React.FC<{
                     icon={<ImageIcon className="w-5 h-5" />}
                   />
                   <div className="flex flex-wrap gap-3">
-                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-blue-500/40 text-blue-300 hover:bg-blue-500/10'}`}>
+                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#C49A6C]/40 text-white/90 hover:bg-[#8BA888]/10'}`}>
                       {isUploadingMain ? 'Uploading...' : 'Upload Main Image'}
                       <input
                         type="file"
@@ -1153,11 +1153,11 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={() => addGalleryImageByUrl(galleryUrlInput)}
-                      className="px-4 h-12 rounded-xl border border-blue-500/40 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                      className="px-4 h-12 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                     >
                       Add
                     </button>
-                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-blue-500/40 text-blue-300 hover:bg-blue-500/10'}`}>
+                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#C49A6C]/40 text-white/90 hover:bg-[#8BA888]/10'}`}>
                       {isUploadingGallery ? 'Uploading...' : 'Upload'}
                       <input
                         type="file"
@@ -1195,7 +1195,7 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={addGalleryImagesFromBulkInput}
-                      className="px-4 h-10 rounded-xl border border-blue-500/40 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                     >
                       Add Multiple URLs
                     </button>
@@ -1216,7 +1216,7 @@ const ProductModal: React.FC<{
                               className="w-14 h-14 rounded-lg object-cover border border-white/20"
                             />
                             {img.isMain && (
-                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-black text-[8px] font-black uppercase tracking-[0.1em]">
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-[#C49A6C] text-black text-[8px] font-black uppercase tracking-[0.1em]">
                                 Main
                               </span>
                             )}
@@ -1244,7 +1244,7 @@ const ProductModal: React.FC<{
                         setDraggingGalleryId(null);
                       }}
                       onDragEnd={() => setDraggingGalleryId(null)}
-                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-blue-500/50 opacity-70' : 'border-white/15'}`}
+                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-[#C49A6C]/50 opacity-70' : 'border-white/15'}`}
                     >
                       <OptimizedImage src={img.url} alt={img.altText || 'Product image'} sizes="56px" className="w-14 h-14 rounded-lg object-cover border border-white/15" />
                       <div className="flex-1 min-w-0">
@@ -1254,7 +1254,7 @@ const ProductModal: React.FC<{
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => moveGalleryImage(img.id, 'up')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↑</button>
                         <button type="button" onClick={() => moveGalleryImage(img.id, 'down')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↓</button>
-                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-blue-500/50 text-blue-300' : 'border-white/20 text-zinc-300'}`}>Main</button>
+                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-[#C49A6C]/50 text-white/90' : 'border-white/20 text-zinc-300'}`}>Main</button>
                         <button type="button" onClick={() => removeGalleryImage(img.id)} className="px-2 py-1 rounded border border-rose-500/40 text-rose-300 text-[10px]">Remove</button>
                       </div>
                     </div>
@@ -1272,14 +1272,14 @@ const ProductModal: React.FC<{
                     <button
                       key={tag}
                       onClick={() => toggleTag(tag)}
-                      className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.tags?.includes(tag as any) ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'border-white/5 text-zinc-600'}`}
+                      className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.tags?.includes(tag as any) ? 'bg-[#C49A6C]/20 border-[#C49A6C] text-[#C49A6C]' : 'border-white/5 text-zinc-600'}`}
                     >
                       {tag}
                     </button>
                   ))}
                   <button
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
-                    className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.featured ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'border-white/5 text-zinc-600'}`}
+                    className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.featured ? 'bg-[#C49A6C]/20 border-[#C49A6C] text-[#C49A6C]' : 'border-white/5 text-zinc-600'}`}
                   >
                     FEATURED PRODUCT
                   </button>
@@ -1298,7 +1298,7 @@ const ProductModal: React.FC<{
                     <button
                       key={size}
                       onClick={() => toggleSize(size)}
-                      className={`h-12 rounded-xl border transition-all text-[10px] font-black ${formData.sizes?.includes(size) ? 'bg-blue-600 border-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'border-white/10 text-zinc-600 hover:border-white/30'}`}
+                      className={`h-12 rounded-xl border transition-all text-[10px] font-black ${formData.sizes?.includes(size) ? 'bg-[#9B6B3A] border-blue-600 text-white shadow-[0_0_15px_rgba(0, 122, 255, 0.4)]' : 'border-white/10 text-zinc-600 hover:border-white/30'}`}
                     >
                       {size}
                     </button>
@@ -1310,21 +1310,21 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Descriptions (EN/BN)" hint="Product details in both languages" defaultOpen>
                 <div className="space-y-6">
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-blue-400/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
+                  <label className="text-[10px] font-black uppercase text-[#C49A6C]/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
                   <textarea
                     placeholder="ARCHIVAL DATA (ENGLISH)..."
                     value={formData.description?.EN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, EN: e.target.value } })}
-                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-blue-500/50 transition-all placeholder:text-zinc-800 bg-[#0A0C12]/50 text-white"
+                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#C49A6C]/50 transition-all placeholder:text-zinc-800 bg-[#0A0C12]/50 text-white"
                   />
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-blue-400/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
+                  <label className="text-[10px] font-black uppercase text-[#C49A6C]/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
                   <textarea
                     placeholder="আর্কিভ ডেটা (বাংলা)..."
                     value={formData.description?.BN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, BN: e.target.value } })}
-                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-blue-500/50 transition-all placeholder:text-zinc-800 bg-[#0A0C12]/50 text-white"
+                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#C49A6C]/50 transition-all placeholder:text-zinc-800 bg-[#0A0C12]/50 text-white"
                   />
                 </div>
               </div>
@@ -1408,25 +1408,25 @@ const ProductModal: React.FC<{
                 />
                 <div className="p-4 rounded-xl border border-white/15 bg-[#0f1624]">
                   <p className="text-[10px] text-zinc-400 uppercase tracking-[0.18em] font-black mb-2">Live URL Preview</p>
-                  <p className="text-xs text-blue-300 break-all font-semibold">{previewLiveUrl}</p>
+                  <p className="text-xs text-white/90 break-all font-semibold">{previewLiveUrl}</p>
                   <button
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(previewLiveUrl);
                       window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
                     }}
-                    className="mt-3 px-3 py-2 rounded-lg border border-blue-500/40 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                    className="mt-3 px-3 py-2 rounded-lg border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                   >
                     Copy Link
                   </button>
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-blue-400/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
+                  <label className="text-[10px] font-black uppercase text-[#C49A6C]/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
                   <textarea
                     placeholder="META DESCRIPTION PROTOCOL..."
                     value={formData.seoDescription || ''}
                     onChange={e => setFormData({ ...formData, seoDescription: e.target.value })}
-                    className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-[10px] outline-none resize-none focus:border-blue-500/50 transition-all placeholder:text-zinc-800 uppercase bg-[#0A0C12]/50 text-white"
+                    className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-[10px] outline-none resize-none focus:border-[#C49A6C]/50 transition-all placeholder:text-zinc-800 uppercase bg-[#0A0C12]/50 text-white"
                   />
                 </div>
               </div>
@@ -1467,7 +1467,7 @@ const ProductModal: React.FC<{
                   <button
                     type="button"
                     onClick={addColorVariant}
-                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
+                    className="px-5 py-2.5 rounded-xl bg-[#9B6B3A] hover:bg-[#C49A6C] text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
                   >
                     Add Color
                   </button>
@@ -1554,14 +1554,14 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={addManualVariation}
-                      className="px-4 h-10 rounded-xl border border-blue-500/45 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                     >
                       Add / Update Variant
                     </button>
                     <button
                       type="button"
                       onClick={generateVariationMatrix}
-                      className="px-4 h-10 rounded-xl border border-blue-500/45 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                      className="px-4 h-10 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                     >
                       Auto Generate From Color + Size
                     </button>
@@ -1639,7 +1639,7 @@ const ProductModal: React.FC<{
             onClick={handleSubmitProduct}
             isLoading={isSaving}
             disabled={isSaving}
-            className="flex-[2] h-18 shadow-[0_20px_60px_rgba(37,99,235,0.4)]"
+            className="flex-[2] h-18 shadow-[0_20px_60px_rgba(0, 122, 255, 0.4)]"
           >
             <Sparkles className="w-5 h-5 mr-3" /> Submit Product
           </PrimaryButton>
@@ -2407,7 +2407,7 @@ export const AdminPanel = () => {
       accentColor: String(colors.accent || '#41DCFF'),
       backgroundColor: String(colors.background || '#F4F7FF'),
       tableHeaderColor: String(colors.primary || '#111827'),
-      buttonColor: String(colors.accent || '#2563EB')
+      buttonColor: String(colors.accent || '#9B6B3A')
     };
   };
 
@@ -3213,10 +3213,10 @@ export const AdminPanel = () => {
 
 
   const statusColors: Record<OrderStatus, string> = {
-    Pending: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    Processing: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    Pending: 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/20',
+    Processing: 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/20',
     Shipped: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    Delivered: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    Delivered: 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/20',
     Cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
   };
 
@@ -3328,14 +3328,14 @@ export const AdminPanel = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col gap-1">
               <h4 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest text-white">System Health</h4>
-              <p className={`text-[8px] font-black uppercase tracking-widest ${dbStatus === 'MYSQL' ? 'text-blue-500' : 'text-blue-500'}`}>
+              <p className={`text-[8px] font-black uppercase tracking-widest ${dbStatus === 'MYSQL' ? 'text-[#C49A6C]' : 'text-[#C49A6C]'}`}>
                 Storage: {dbStatus === 'MYSQL' ? 'MySQL' : 'Fallback'}
               </p>
             </div>
             <div className="flex gap-1">
-              <div className={`w-1 h-3 rounded-full animate-pulse ${dbStatus === 'MYSQL' ? 'bg-blue-500' : 'bg-blue-500'}`} />
-              <div className={`w-1 h-5 rounded-full animate-pulse delay-75 ${dbStatus === 'MYSQL' ? 'bg-blue-500' : 'bg-blue-500'}`} />
-              <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'MYSQL' ? 'bg-blue-500' : 'bg-blue-500'}`} />
+              <div className={`w-1 h-3 rounded-full animate-pulse ${dbStatus === 'MYSQL' ? 'bg-[#C49A6C]' : 'bg-[#C49A6C]'}`} />
+              <div className={`w-1 h-5 rounded-full animate-pulse delay-75 ${dbStatus === 'MYSQL' ? 'bg-[#C49A6C]' : 'bg-[#C49A6C]'}`} />
+              <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'MYSQL' ? 'bg-[#C49A6C]' : 'bg-[#C49A6C]'}`} />
             </div>
           </div>
           <button
@@ -3358,8 +3358,8 @@ export const AdminPanel = () => {
         {/* Header Actions */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
           <div>
-            <div className="flex items-center gap-4 text-blue-400 mb-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
+            <div className="flex items-center gap-4 text-[#C49A6C] mb-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#C49A6C] animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
               <span className="text-[10px] font-black uppercase tracking-[0.6em]">Secure Protocol: ACTIVE</span>
             </div>
             <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase italic">
@@ -3367,8 +3367,8 @@ export const AdminPanel = () => {
             </h2>
           </div>
           <div className="flex items-center gap-6">
-            <div className="hidden lg:flex items-center bg-white/5 backdrop-blur-3xl rounded-[32px] border border-white/5 px-8 py-5 gap-5 focus-within:border-blue-500/50 transition-all duration-500 group">
-              <Search className="w-6 h-6 text-zinc-600 group-focus-within:text-blue-500 transition-colors" />
+            <div className="hidden lg:flex items-center bg-white/5 backdrop-blur-3xl rounded-[32px] border border-white/5 px-8 py-5 gap-5 focus-within:border-[#C49A6C]/50 transition-all duration-500 group">
+              <Search className="w-6 h-6 text-zinc-600 group-focus-within:text-[#C49A6C] transition-colors" />
               <input
                 type="text"
                 placeholder="Search products, orders, users..."
@@ -3393,7 +3393,7 @@ export const AdminPanel = () => {
                 onClick={() => switchTab('SYNC')}
                 className="nav-item interactive-control w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group"
               >
-                <Database className="w-7 h-7 text-zinc-500 group-hover:text-blue-500 transition-all" />
+                <Database className="w-7 h-7 text-zinc-500 group-hover:text-[#C49A6C] transition-all" />
               </button>
             </div>
           </div>
@@ -3409,13 +3409,13 @@ export const AdminPanel = () => {
               exit={{ opacity: 0, y: -20 }}
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8"
             >
-              <BentoCard title="Logistics Revenue" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+14.2%" icon={DollarSign} color="bg-blue-600" />
-              <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-blue-500" />
+              <BentoCard title="Logistics Revenue" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+14.2%" icon={DollarSign} color="bg-[#9B6B3A]" />
+              <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-[#C49A6C]" />
               <BentoCard title="Archival Portfolio" value={products.length.toString()} trend="+2.1%" icon={ShoppingBag} color="bg-purple-600" />
-              <BentoCard title="Intelligence Velocity" value="4.8h" trend="OPTIMAL" icon={Zap} color="bg-blue-600" />
+              <BentoCard title="Intelligence Velocity" value="4.8h" trend="OPTIMAL" icon={Zap} color="bg-[#9B6B3A]" />
 
               <GlassCard className="md:col-span-2 xl:col-span-3 p-12 min-h-[500px] relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-600/10 transition-all duration-1000" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#9B6B3A]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-[#C49A6C]/10 transition-all duration-1000" />
                 <div className="flex justify-between items-center mb-12 relative z-10">
                   <div>
                     <h3 className="text-3xl font-black italic uppercase tracking-tighter">Strategic Archive Pulse</h3>
@@ -3427,8 +3427,8 @@ export const AdminPanel = () => {
                         key={t}
                         onClick={() => setAnalyticsWindow(t)}
                         className={`px-5 py-2 rounded-full liquid-glass border text-[9px] font-black uppercase transition-all ${analyticsWindow === t
-                          ? 'border-blue-500/40 bg-blue-600 text-white'
-                          : 'border-white/5 hover:bg-blue-600 hover:text-white'
+                          ? 'border-[#C49A6C]/40 bg-[#9B6B3A] text-white'
+                          : 'border-white/5 hover:bg-[#9B6B3A] hover:text-white'
                           }`}
                       >
                         {t}
@@ -3446,7 +3446,7 @@ export const AdminPanel = () => {
                       transition={{ delay: i * 0.05, duration: 1, ease: [0.16, 1, 0.3, 1] }}
                       className="flex-1 bg-gradient-to-t from-blue-700/20 via-blue-600/40 to-blue-400 rounded-t-xl group relative"
                     >
-                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#0A0C12] border border-white/10 text-blue-400 text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#0A0C12] border border-white/10 text-[#C49A6C] text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
                         ৳{Math.floor(h * 15).toLocaleString()}k
                       </div>
                     </motion.div>
@@ -3463,15 +3463,15 @@ export const AdminPanel = () => {
                   {orders.slice(0, 5).map(order => (
                     <div key={order.id} className="flex items-center justify-between group cursor-pointer" onClick={() => switchTab('ORDERS')}>
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl liquid-glass flex items-center justify-center border border-white/5 group-hover:border-blue-500/50 group-hover:bg-blue-500/5 transition-all duration-500">
-                          <Package className="w-5 h-5 text-zinc-500 group-hover:text-blue-500" />
+                        <div className="w-12 h-12 rounded-2xl liquid-glass flex items-center justify-center border border-white/5 group-hover:border-[#C49A6C]/50 group-hover:bg-[#C49A6C]/5 transition-all duration-500">
+                          <Package className="w-5 h-5 text-zinc-500 group-hover:text-[#C49A6C]" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-white group-hover:text-blue-400 transition-colors uppercase italic">{order.id}</p>
+                          <p className="text-sm font-black text-white group-hover:text-[#C49A6C] transition-colors uppercase italic">{order.id}</p>
                           <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">{order.customerName}</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                      <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-[#C49A6C] group-hover:translate-x-1 transition-all" />
                     </div>
                   ))}
                   {orders.length === 0 && (
@@ -3497,7 +3497,7 @@ export const AdminPanel = () => {
                       <button
                         key={s}
                         onClick={() => setOrderFilter(s)}
-                        className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${orderFilter === s ? 'bg-blue-600 border-blue-600 text-white shadow-[0_10px_30px_rgba(37,99,235,0.3)]' : 'border-white/5 text-zinc-500 hover:border-white/20'}`}
+                        className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${orderFilter === s ? 'bg-[#9B6B3A] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/5 text-zinc-500 hover:border-white/20'}`}
                       >
                         {s}
                       </button>
@@ -3531,7 +3531,7 @@ export const AdminPanel = () => {
                             <p className="text-[9px] text-zinc-600 uppercase font-medium mt-1 truncate max-w-[150px]">{order.address}</p>
                           </td>
                           <td className="p-8">
-                            <p className="font-black text-blue-500">৳{order.total.toLocaleString()}</p>
+                            <p className="font-black text-[#C49A6C]">৳{order.total.toLocaleString()}</p>
                             <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mt-1">{formatTimestamp(order.createdAt)}</p>
                           </td>
                           <td className="p-8">
@@ -3550,7 +3550,7 @@ export const AdminPanel = () => {
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 onClick={() => setSelectedOrder(order)}
-                                className="p-3 liquid-glass rounded-xl border border-white/5 hover:text-blue-500"
+                                className="p-3 liquid-glass rounded-xl border border-white/5 hover:text-[#C49A6C]"
                               >
                                 <Eye className="w-4 h-4" />
                               </motion.button>
@@ -3578,14 +3578,14 @@ export const AdminPanel = () => {
                   <div className="w-[1px] h-12 bg-white/5" />
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Catalog Value</span>
-                    <span className="text-4xl font-black italic tracking-tighter text-blue-500">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
+                    <span className="text-4xl font-black italic tracking-tighter text-[#C49A6C]">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <select
                     value={brandFilter}
                     onChange={(e) => setBrandFilter(e.target.value)}
-                    className="bg-white/5 border border-white/5 rounded-[24px] px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-blue-500/50 transition-all"
+                    className="bg-white/5 border border-white/5 rounded-[24px] px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-[#C49A6C]/50 transition-all"
                   >
                     <option value="All Brands" className="bg-[#0A0C12]">All Brands</option>
                     {Array.from(new Set(products.map(p => p.brand))).map(b => <option key={b} value={b} className="bg-[#0A0C12]">{b}</option>)}
@@ -3625,7 +3625,7 @@ export const AdminPanel = () => {
                         <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors group">
                           <td className="p-8">
                             <div className="flex items-center gap-6">
-                              <div className="w-20 h-20 rounded-[28px] overflow-hidden border border-white/10 shrink-0 group-hover:border-blue-500/50 transition-colors">
+                              <div className="w-20 h-20 rounded-[28px] overflow-hidden border border-white/10 shrink-0 group-hover:border-[#C49A6C]/50 transition-colors">
                                 <OptimizedImage src={p.image} alt={p.name} sizes="80px" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                               </div>
                               <div>
@@ -3633,11 +3633,11 @@ export const AdminPanel = () => {
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                   <a
                                     href={`/shop?brand=${encodeURIComponent(slugifyValue((p as any).brandSlug || p.brand || ''))}`}
-                                    className="text-[10px] text-zinc-400 uppercase font-black tracking-widest hover:text-blue-300"
+                                    className="text-[10px] text-zinc-400 uppercase font-black tracking-widest hover:text-white/90"
                                   >
                                     {p.brand}
                                   </a>
-                                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.14em] ${String(p.status || 'PUBLISHED').toUpperCase() === 'DRAFT' ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30' : 'bg-blue-500/15 text-blue-300 border border-blue-500/30'}`}>
+                                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.14em] ${String(p.status || 'PUBLISHED').toUpperCase() === 'DRAFT' ? 'bg-[#C49A6C]/15 text-white/90 border border-[#C49A6C]/30' : 'bg-[#C49A6C]/15 text-white/90 border border-[#C49A6C]/30'}`}>
                                     {String(p.status || 'PUBLISHED').toUpperCase()}
                                   </span>
                                 </div>
@@ -3646,7 +3646,7 @@ export const AdminPanel = () => {
                                     href={(p as any).liveUrl || '#'}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[9px] text-blue-300 hover:text-blue-200 break-all"
+                                    className="text-[9px] text-white/90 hover:text-white/85 break-all"
                                   >
                                     {(p as any).liveUrl || 'URL not generated'}
                                   </a>
@@ -3657,26 +3657,26 @@ export const AdminPanel = () => {
                                         navigator.clipboard.writeText((p as any).liveUrl);
                                         showToast('Product URL copied.', 'success');
                                       }}
-                                      className="px-2 py-1 rounded-md border border-blue-500/35 text-blue-300 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-blue-500/10"
+                                      className="px-2 py-1 rounded-md border border-[#C49A6C]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-[#8BA888]/10"
                                     >
                                       Copy
                                     </button>
                                   )}
                                 </div>
                                 <div className="flex gap-2 mt-3">
-                                  {p.featured && <span className="px-2.5 py-1 bg-blue-500/10 text-blue-500 rounded-lg text-[7px] font-black uppercase">Featured</span>}
-                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-[7px] font-black uppercase">{t}</span>)}
+                                  {p.featured && <span className="px-2.5 py-1 bg-[#8BA888]/10 text-[#C49A6C] rounded-lg text-[7px] font-black uppercase">Featured</span>}
+                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-[#8BA888]/10 text-[#C49A6C] rounded-lg text-[7px] font-black uppercase">{t}</span>)}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="p-8">
                             <div className="space-y-2">
-                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-blue-500/45">
+                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-[#C49A6C]/45">
                                 {p.category}
                               </a>
                               {p.subCategory && (
-                                <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}&sub=${encodeURIComponent(slugifyValue((p as any).subCategorySlug || p.subCategory || ''))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-blue-300">
+                                <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}&sub=${encodeURIComponent(slugifyValue((p as any).subCategorySlug || p.subCategory || ''))}`} className="text-[8px] font-black text-zinc-400 uppercase tracking-widest ml-4 hover:text-white/90">
                                   {p.subCategory}
                                 </a>
                               )}
@@ -3697,13 +3697,13 @@ export const AdminPanel = () => {
                             <div className="w-fit mx-auto px-6 py-3 rounded-2xl liquid-glass border border-white/5">
                               <p className="text-[10px] font-black text-white">{p.stock ?? 50}</p>
                               <div className="w-12 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
-                                <div className={`h-full ${(p.stock ?? 50) < 10 ? 'bg-rose-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(100, (p.stock ?? 50) * 2)}%` }} />
+                                <div className={`h-full ${(p.stock ?? 50) < 10 ? 'bg-rose-500' : 'bg-[#C49A6C]'}`} style={{ width: `${Math.min(100, (p.stock ?? 50) * 2)}%` }} />
                               </div>
                             </div>
                           </td>
                           <td className="p-8">
                             <div className="flex gap-3">
-                              <button onClick={() => { setEditingProduct(p); setIsProductModalOpen(true); }} className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-white hover:border-blue-500 transition-all"><Edit className="w-5 h-5" /></button>
+                              <button onClick={() => { setEditingProduct(p); setIsProductModalOpen(true); }} className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-white hover:border-[#C49A6C] transition-all"><Edit className="w-5 h-5" /></button>
                               <button
                                 onClick={async () => {
                                   if (deletingProductId === p.id) return;
@@ -3758,7 +3758,7 @@ export const AdminPanel = () => {
                                     showToast('Demo product added to Vault Inventory.', 'success');
                                   });
                                 }}
-                                className="px-4 py-2 rounded-xl border border-blue-500/45 text-blue-300 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/10"
+                                className="px-4 py-2 rounded-xl border border-[#C49A6C]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#8BA888]/10"
                               >
                                 Add Demo Product
                               </button>
@@ -3788,7 +3788,7 @@ export const AdminPanel = () => {
                 {discounts.map(d => (
                   <GlassCard key={d.id} className="p-10 flex flex-col md:flex-row justify-between items-center gap-8 group">
                     <div className="flex items-center gap-8">
-                      <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center border border-white/5 ${d.active ? 'bg-blue-600/10 text-blue-500' : 'bg-zinc-800/10 text-zinc-700'}`}>
+                      <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center border border-white/5 ${d.active ? 'bg-[#C49A6C]/10 text-[#C49A6C]' : 'bg-zinc-800/10 text-zinc-700'}`}>
                         <Tag className="w-8 h-8" />
                       </div>
                       <div>
@@ -3801,7 +3801,7 @@ export const AdminPanel = () => {
                     <div className="flex items-center gap-4">
                       <button
                         onClick={() => toggleDiscount(d.id)}
-                        className={`px-8 py-3 rounded-full text-[9px] font-black uppercase border transition-all ${d.active ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : 'bg-rose-500/10 border-rose-500/50 text-rose-500'}`}
+                        className={`px-8 py-3 rounded-full text-[9px] font-black uppercase border transition-all ${d.active ? 'bg-[#8BA888]/10 border-[#C49A6C]/50 text-[#C49A6C]' : 'bg-rose-500/10 border-rose-500/50 text-rose-500'}`}
                       >
                         {d.active ? 'ACTIVE' : 'DISABLED'}
                       </button>
@@ -3827,7 +3827,7 @@ export const AdminPanel = () => {
                     <select
                       value={userStatusFilter}
                       onChange={(event) => setUserStatusFilter(event.target.value as any)}
-                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#0A0C12] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-blue-400/60"
+                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#0A0C12] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-white/22"
                     >
                       <option value="ALL">All users</option>
                       <option value="ACTIVE">Active</option>
@@ -3838,7 +3838,7 @@ export const AdminPanel = () => {
                     </select>
                     <button
                       onClick={() => fetchAdminUsers()}
-                      className="h-11 px-5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-blue-500/20 transition-all"
+                      className="h-11 px-5 rounded-xl border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-[#C49A6C]/20 transition-all"
                     >
                       Refresh
                     </button>
@@ -3870,7 +3870,7 @@ export const AdminPanel = () => {
                         return (<tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-6">
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center font-black text-blue-500">{avatarLetter}</div>
+                              <div className="w-10 h-10 rounded-full bg-[#C49A6C]/20 flex items-center justify-center font-black text-[#C49A6C]">{avatarLetter}</div>
                               <div className="min-w-0">
                                 <p className="font-black text-white truncate">{u.name || 'Unknown User'}</p>
                                 <p className="text-[10px] text-zinc-500 font-mono truncate">ID: {u.id}</p>
@@ -3887,13 +3887,13 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-6">
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-[#8BA888]/10 text-[#C49A6C] border border-[#C49A6C]/20'}`}>
                                 {u.role}
                               </span>
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-blue-500/30 bg-blue-500/10 text-blue-200'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85'}`}>
                                 {u.isBlocked ? 'Blocked' : 'Active'}
                               </span>
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-blue-500/30 bg-blue-500/10 text-blue-200' : 'border-blue-500/30 bg-blue-500/10 text-blue-200'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85' : 'border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85'}`}>
                                 Email {u.emailVerified ? 'Verified' : 'Pending'}
                               </span>
                             </div>
@@ -3901,7 +3901,7 @@ export const AdminPanel = () => {
                           <td className="p-6">
                             <div className="space-y-1.5">
                               <p className="text-white font-black text-[11px]">{Number(u.totalOrders || 0)} orders</p>
-                              <p className="text-blue-300 font-black text-[11px]">৳{Number(u.lifetimeValue || 0).toLocaleString()}</p>
+                              <p className="text-white/90 font-black text-[11px]">৳{Number(u.lifetimeValue || 0).toLocaleString()}</p>
                             </div>
                           </td>
                           <td className="p-6">
@@ -3914,7 +3914,7 @@ export const AdminPanel = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 onClick={() => openCustomerProfile(u.id)}
-                                className="px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-blue-500/20 transition-all"
+                                className="px-3 py-2 rounded-lg border border-[#C49A6C]/30 bg-[#8BA888]/10 text-blue-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-[#C49A6C]/20 transition-all"
                               >
                                 View
                               </button>
@@ -3923,7 +3923,7 @@ export const AdminPanel = () => {
                                 disabled={isLockedIdentity}
                                 className={`px-3 py-2 rounded-lg border text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                                   u.isBlocked
-                                    ? 'border-blue-500/40 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20'
+                                    ? 'border-[#C49A6C]/40 bg-[#8BA888]/10 text-white/85 hover:bg-[#C49A6C]/20'
                                     : 'border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
                                 } ${isLockedIdentity ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
                               >
@@ -3933,7 +3933,7 @@ export const AdminPanel = () => {
                                 value={u.role}
                                 onChange={(event) => updateCustomerRole(u, event.target.value as User['role'])}
                                 disabled={isLockedIdentity}
-                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-blue-400/60 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-white/22 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
                               >
                                 {u.role === 'OWNER' && <option value="OWNER">OWNER</option>}
                                 <option value="USER">USER</option>
@@ -3985,8 +3985,8 @@ export const AdminPanel = () => {
               {/* Advanced Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <BentoCard title="Gross Pipeline" value={`৳${(orders.reduce((acc, o) => acc + o.total, 0) * 1.2).toLocaleString()}`} trend="+22%" icon={TrendingUp} color="bg-indigo-600" />
-                <BentoCard title="Avg Asset Value" value={`৳${products.length > 0 ? Math.floor(products.reduce((acc, p) => acc + p.price, 0) / products.length).toLocaleString() : '0'}`} trend="+5%" icon={DollarSign} color="bg-blue-600" />
-                <BentoCard title="Collector LTV" value="৳85,400" trend="+12%" icon={Users} color="bg-blue-600" />
+                <BentoCard title="Avg Asset Value" value={`৳${products.length > 0 ? Math.floor(products.reduce((acc, p) => acc + p.price, 0) / products.length).toLocaleString() : '0'}`} trend="+5%" icon={DollarSign} color="bg-[#9B6B3A]" />
+                <BentoCard title="Collector LTV" value="৳85,400" trend="+12%" icon={Users} color="bg-[#9B6B3A]" />
                 <BentoCard title="Refill Velocity" value="84%" trend="STABLE" icon={RefreshCcw} color="bg-rose-500" />
               </div>
 
@@ -4002,7 +4002,7 @@ export const AdminPanel = () => {
                         aria-pressed={analyticsChartMode === 'REVENUE'}
                         className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                           analyticsChartMode === 'REVENUE'
-                            ? 'bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.28)]'
+                            ? 'bg-[#9B6B3A] text-white shadow-[0_10px_24px_rgba(0, 122, 255, 0.28)]'
                             : 'hover:bg-white/5 text-zinc-500'
                         }`}
                       >
@@ -4014,7 +4014,7 @@ export const AdminPanel = () => {
                         aria-pressed={analyticsChartMode === 'ROTATION'}
                         className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                           analyticsChartMode === 'ROTATION'
-                            ? 'bg-blue-600 text-white shadow-[0_10px_24px_rgba(59, 124, 246,0.28)]'
+                            ? 'bg-[#9B6B3A] text-white shadow-[0_10px_24px_rgba(52, 170, 220, 0.28)]'
                             : 'hover:bg-white/5 text-zinc-500'
                         }`}
                       >
@@ -4033,7 +4033,7 @@ export const AdminPanel = () => {
                             : 'bg-gradient-to-t from-blue-600/10 via-blue-500/40 to-lime-300'
                         }`}
                       >
-                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#0A0C12] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-blue-400 whitespace-nowrap shadow-2xl">
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#0A0C12] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-[#C49A6C] whitespace-nowrap shadow-2xl">
                           {analyticsChartMode === 'REVENUE' ? `৳${(h * 10).toLocaleString()}k` : `${h}%`}
                         </div>
                       </motion.div>
@@ -4058,7 +4058,7 @@ export const AdminPanel = () => {
                       </div>
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                         <p className="text-[10px] leading-relaxed text-zinc-400 font-bold uppercase">
-                          <span className="text-blue-400">Inventory Alert:</span> Balenciaga stock levels dropping below <span className="text-white">threshold (15%)</span>.
+                          <span className="text-[#C49A6C]">Inventory Alert:</span> Balenciaga stock levels dropping below <span className="text-white">threshold (15%)</span>.
                         </p>
                       </div>
                     </div>
@@ -4078,7 +4078,7 @@ export const AdminPanel = () => {
                             <span>{s.val}%</span>
                           </div>
                           <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${s.val}%` }} className="h-full bg-blue-600" />
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${s.val}%` }} className="h-full bg-[#9B6B3A]" />
                           </div>
                         </div>
                       ))}
@@ -4105,7 +4105,7 @@ export const AdminPanel = () => {
                       onClick={() => setFinanceRange(range)}
                       className={`px-5 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                         financeRange === range
-                          ? 'bg-blue-600 border-blue-500 text-white'
+                          ? 'bg-[#9B6B3A] border-[#C49A6C] text-white'
                           : 'border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'
                       }`}
                     >
@@ -4114,7 +4114,7 @@ export const AdminPanel = () => {
                   ))}
                   <button
                     onClick={exportFinanceReport}
-                    className="px-5 py-2 rounded-full border border-blue-500/40 text-blue-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-500/10 transition-all"
+                    className="px-5 py-2 rounded-full border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all"
                   >
                     Export CSV
                   </button>
@@ -4122,9 +4122,9 @@ export const AdminPanel = () => {
               </GlassCard>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <BentoCard title="Gross Sales" value={`৳${financeSummary.grossSales.toLocaleString()}`} trend={`${financeSummary.totalOrders} orders`} icon={DollarSign} color="bg-blue-600" />
+                <BentoCard title="Gross Sales" value={`৳${financeSummary.grossSales.toLocaleString()}`} trend={`${financeSummary.totalOrders} orders`} icon={DollarSign} color="bg-[#9B6B3A]" />
                 <BentoCard title="Total Expenses" value={`৳${financeSummary.expensesTotal.toLocaleString()}`} trend={`${financeExpensesFiltered.length} entries`} icon={LogOut} color="bg-rose-600" />
-                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-blue-600" />
+                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-[#9B6B3A]" />
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -4156,7 +4156,7 @@ export const AdminPanel = () => {
                         type="date"
                         value={expenseForm.date}
                         onChange={(e) => setExpenseForm((prev) => ({ ...prev, date: e.target.value }))}
-                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-4 text-sm text-white outline-none focus:border-blue-500/60"
+                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-4 text-sm text-white outline-none focus:border-[#C49A6C]/60"
                       />
                     </div>
                   </div>
@@ -4204,15 +4204,15 @@ export const AdminPanel = () => {
                 <GlassCard className="p-8 space-y-6">
                   <h3 className="text-xl font-black uppercase italic text-white">Order Breakdown</h3>
                   <div className="space-y-3 text-[11px] font-bold uppercase tracking-[0.12em]">
-                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Pending</span><span className="text-blue-400">{financeSummary.statusStats.Pending}</span></div>
-                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Processing</span><span className="text-blue-400">{financeSummary.statusStats.Processing}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Pending</span><span className="text-[#C49A6C]">{financeSummary.statusStats.Pending}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Processing</span><span className="text-[#C49A6C]">{financeSummary.statusStats.Processing}</span></div>
                     <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Shipped</span><span className="text-purple-400">{financeSummary.statusStats.Shipped}</span></div>
-                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Delivered</span><span className="text-blue-400">{financeSummary.statusStats.Delivered}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Delivered</span><span className="text-[#C49A6C]">{financeSummary.statusStats.Delivered}</span></div>
                     <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Cancelled</span><span className="text-rose-400">{financeSummary.statusStats.Cancelled}</span></div>
                   </div>
                   <div className="h-px bg-white/10" />
                   <div className="space-y-3 text-[11px] font-bold uppercase tracking-[0.12em]">
-                    <div className="flex justify-between"><span className="text-zinc-500">Shipping Income</span><span className="text-blue-300">৳{financeSummary.shippingIncome.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-500">Shipping Income</span><span className="text-white/90">৳{financeSummary.shippingIncome.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span className="text-zinc-500">Discount Given</span><span className="text-rose-400">৳{financeSummary.discounts.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span className="text-zinc-500">Cancelled Value</span><span className="text-rose-400">৳{financeSummary.cancelledValue.toLocaleString()}</span></div>
                   </div>
@@ -4232,7 +4232,7 @@ export const AdminPanel = () => {
                         Update your personal name and phone for admin account
                       </p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <span className="px-4 py-2 rounded-full border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
                       {adminRole}
                     </span>
                   </div>
@@ -4268,7 +4268,7 @@ export const AdminPanel = () => {
 
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-6 mb-12">
-                    <div className="w-16 h-16 rounded-[24px] bg-blue-600/10 flex items-center justify-center text-blue-500">
+                    <div className="w-16 h-16 rounded-[24px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C]">
                       <Settings2 className="w-8 h-8" />
                     </div>
                     <div>
@@ -4311,7 +4311,7 @@ export const AdminPanel = () => {
 
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-6 mb-12">
-                    <div className="w-16 h-16 rounded-[24px] bg-blue-600/10 flex items-center justify-center text-blue-500">
+                    <div className="w-16 h-16 rounded-[24px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C]">
                       <Phone className="w-8 h-8" />
                     </div>
                     <div>
@@ -4388,7 +4388,7 @@ export const AdminPanel = () => {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                 <GlassCard className="p-12">
                   <div className="flex items-center gap-4 mb-10">
-                    <Mail className="w-8 h-8 text-blue-500" />
+                    <Mail className="w-8 h-8 text-[#C49A6C]" />
                     <h3 className="text-3xl font-black uppercase italic">Handshake Protocols (SMTP)</h3>
                   </div>
                   <div className="space-y-6">
@@ -4418,8 +4418,8 @@ export const AdminPanel = () => {
                     Update Mail Server
                   </PrimaryButton>
 
-                  <div className="mt-8 p-6 bg-blue-600/5 rounded-2xl border border-blue-500/10">
-                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <div className="mt-8 p-6 bg-[#9B6B3A]/5 rounded-2xl border border-[#C49A6C]/10">
+                    <p className="text-[9px] font-black text-[#C49A6C] uppercase tracking-widest mb-3 flex items-center gap-2">
                       <Info className="w-3 h-3" /> Handshake Logic Documentation
                     </p>
                     <p className="text-[10px] text-zinc-500 leading-relaxed font-bold uppercase">
@@ -4430,7 +4430,7 @@ export const AdminPanel = () => {
 
                 <GlassCard className="p-8 md:p-10">
                   <div className="flex items-center gap-3 mb-8">
-                    <div className="w-12 h-12 rounded-[20px] bg-blue-600/10 flex items-center justify-center text-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.2)]">
+                    <div className="w-12 h-12 rounded-[20px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C] shadow-[0_0_30px_rgba(0, 122, 255, 0.2)]">
                       <Truck className="w-6 h-6" />
                     </div>
                     <h3 className="text-xl md:text-2xl font-black uppercase italic">Logistics Configuration</h3>
@@ -4498,22 +4498,22 @@ export const AdminPanel = () => {
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Serial format, template and email controls</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-blue-500/40 text-blue-300 bg-blue-500/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
+                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/40 text-white/90 bg-[#8BA888]/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
                         {siteSettings.invoiceSettings.invoiceEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <button
                         onClick={() => updateInvoiceSettingsField({ invoiceEnabled: !siteSettings.invoiceSettings.invoiceEnabled })}
-                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-blue-500/30 text-blue-300 hover:bg-blue-500/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
+                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/30 text-white/90 hover:bg-[#8BA888]/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
                       >
                         Toggle
                       </button>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 md:p-5 space-y-4">
+                  <div className="rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5 p-4 md:p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-200">Invoice Serial Preview</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/85">Invoice Serial Preview</p>
                         <p className="text-base md:text-lg font-black text-white mt-1">
                           {`${String(siteSettings.invoiceSettings.invoicePrefix || 'SPL').toUpperCase()}-${'0'.repeat(Math.max(3, Math.min(10, Number(siteSettings.invoiceSettings.numberPadding) || 6)))}`}
                         </p>
@@ -4525,14 +4525,14 @@ export const AdminPanel = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <button
                         onClick={applyInvoiceSerialPreset}
-                        className="h-11 rounded-xl border border-blue-500/40 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-[#C49A6C]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         APPLY SPL-000000 FORMAT
                       </button>
                       <button
                         onClick={syncInvoiceThemeToStoreTheme}
-                        className="h-11 rounded-xl border border-blue-500/40 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-[#C49A6C]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         SYNC WITH THEME SETTINGS
@@ -4547,7 +4547,7 @@ export const AdminPanel = () => {
                         type="text"
                         value={siteSettings.invoiceSettings.invoicePrefix}
                         onChange={(e) => updateInvoiceSettingsField({ invoicePrefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       />
                     </div>
                     <div className="space-y-2">
@@ -4558,7 +4558,7 @@ export const AdminPanel = () => {
                         max={10}
                         value={siteSettings.invoiceSettings.numberPadding}
                         onChange={(e) => updateInvoiceSettingsField({ numberPadding: Math.max(3, Math.min(10, Number(e.target.value) || 6)) })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       />
                     </div>
                     <div className="space-y-2">
@@ -4566,7 +4566,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.invoiceSettings.defaultType}
                         onChange={(e) => updateInvoiceSettingsField({ defaultType: e.target.value })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         {(siteSettings.invoiceSettings.serialTypes || []).map((item) => (
                           <option key={item.code} value={item.code}>{item.code} - {item.label}</option>
@@ -4577,7 +4577,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Counter Mode</label>
                       <button
                         onClick={() => updateInvoiceSettingsField({ separateCounterPerType: !siteSettings.invoiceSettings.separateCounterPerType })}
-                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-blue-200 bg-blue-500/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#8BA888]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
                       >
                         {siteSettings.invoiceSettings.separateCounterPerType ? 'Separate by Type' : 'Global Counter'}
                       </button>
@@ -4620,7 +4620,7 @@ export const AdminPanel = () => {
                             type="text"
                             value={(siteSettings.invoiceSettings.theme as any)[item.key]}
                             onChange={(e) => updateInvoiceThemeField(item.key, e.target.value.toUpperCase())}
-                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                         </div>
                       </div>
@@ -4646,12 +4646,12 @@ export const AdminPanel = () => {
                             step={0.25}
                             value={siteSettings.invoiceSettings.taxRate}
                             onChange={(e) => updateInvoiceSettingsField({ taxRate: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
-                            className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                            className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                         ) : (
                           <button
                             onClick={() => updateInvoiceSettingsField({ [item.key]: !(siteSettings.invoiceSettings as any)[item.key] })}
-                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-blue-500/40 text-blue-200 bg-blue-500/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#C49A6C]/40 text-white/85 bg-[#8BA888]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
                           >
                             {(siteSettings.invoiceSettings as any)[item.key] ? 'On' : 'Off'}
                           </button>
@@ -4665,7 +4665,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Serial Types</label>
                       <button
                         onClick={addInvoiceSerialType}
-                        className="h-10 px-4 rounded-xl border border-blue-500/40 text-blue-300 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-500/10 transition-all"
+                        className="h-10 px-4 rounded-xl border border-[#C49A6C]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#8BA888]/10 transition-all"
                       >
                         Add Type
                       </button>
@@ -4677,13 +4677,13 @@ export const AdminPanel = () => {
                             type="text"
                             value={serialType.code}
                             onChange={(e) => updateInvoiceSerialType(index, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                           <input
                             type="text"
                             value={serialType.label}
                             onChange={(e) => updateInvoiceSerialType(index, { label: e.target.value })}
-                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                           <button
                             onClick={() => removeInvoiceSerialType(index)}
@@ -4719,7 +4719,7 @@ export const AdminPanel = () => {
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
+                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
                       Role: {adminRole}
                     </span>
                   </div>
@@ -4755,7 +4755,7 @@ export const AdminPanel = () => {
                           type="text"
                           value={field.value}
                           onChange={(e) => updateThemeSettingsField(field.key, e.target.value)}
-                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                         />
                       </div>
                     ))}
@@ -4767,7 +4767,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.themeSettings.typography.fontFamily}
                         onChange={(e) => updateThemeSettingsField('typography.fontFamily', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         {['Inter', 'Manrope', 'Plus Jakarta Sans', 'Urbanist', 'Poppins'].map((font) => (
                           <option key={font} value={font}>{font}</option>
@@ -4779,7 +4779,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.themeSettings.containerWidth}
                         onChange={(e) => updateThemeSettingsField('containerWidth', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         {['LG', 'XL', '2XL', 'FULL'].map((width) => (
                           <option key={width} value={width}>{width}</option>
@@ -4814,7 +4814,7 @@ export const AdminPanel = () => {
                               max={20}
                               value={siteSettings.cmsDraft.themeSettings.typography.baseSize}
                               onChange={(e) => updateThemeSettingsField('typography.baseSize', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4826,7 +4826,7 @@ export const AdminPanel = () => {
                               step={0.05}
                               value={siteSettings.cmsDraft.themeSettings.typography.headingScale}
                               onChange={(e) => updateThemeSettingsField('typography.headingScale', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4837,7 +4837,7 @@ export const AdminPanel = () => {
                               max={40}
                               value={siteSettings.cmsDraft.themeSettings.borderRadius}
                               onChange={(e) => updateThemeSettingsField('borderRadius', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4848,7 +4848,7 @@ export const AdminPanel = () => {
                               max={100}
                               value={siteSettings.cmsDraft.themeSettings.shadowIntensity}
                               onChange={(e) => updateThemeSettingsField('shadowIntensity', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                         </div>
@@ -4888,7 +4888,7 @@ export const AdminPanel = () => {
                             max={50}
                             value={siteSettings.cmsDraft.themeSettings.lowStockThreshold}
                             onChange={(e) => updateThemeSettingsField('lowStockThreshold', Number(e.target.value))}
-                            className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                            className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                           <p className="text-[10px] text-zinc-500">
                             Show “Low stock” only when stock is known and at or below this value.
@@ -4905,7 +4905,7 @@ export const AdminPanel = () => {
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Hero & Pages CMS</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Draft / publish with revision history</p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
+                    <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
                       LIVE: {siteSettings.cmsActiveVersion}
                     </span>
                   </div>
@@ -4918,7 +4918,7 @@ export const AdminPanel = () => {
                         onClick={() => setCmsCategoryTab(tab)}
                         className={`h-11 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                           cmsCategoryTab === tab
-                            ? 'bg-blue-500/20 border-blue-400/60 text-blue-300'
+                            ? 'bg-[#C49A6C]/20 border-white/22 text-white/90'
                             : 'border-white/10 text-zinc-400 hover:text-white'
                         }`}
                       >
@@ -4939,7 +4939,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroTitleMode}
                         onChange={(e) => updateHeroField('heroTitleMode', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="AUTO">AUTO</option>
                         <option value="MANUAL">MANUAL</option>
@@ -4950,7 +4950,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroAlignment}
                         onChange={(e) => updateHeroField('heroAlignment', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="LEFT">LEFT</option>
                         <option value="CENTER">CENTER</option>
@@ -4964,7 +4964,7 @@ export const AdminPanel = () => {
                       value={siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks}
                       onChange={(e) => updateHeroField('heroTitleManualBreaks', e.target.value)}
                       rows={3}
-                      className="w-full rounded-xl border border-white/10 bg-[#0A0C12] px-4 py-3 text-xs text-white outline-none focus:border-blue-400/60"
+                      className="w-full rounded-xl border border-white/10 bg-[#0A0C12] px-4 py-3 text-xs text-white outline-none focus:border-white/22"
                     />
                   </div>
 
@@ -5020,7 +5020,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroBgType}
                         onChange={(e) => updateHeroField('heroBgType', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="GRADIENT">GRADIENT</option>
                         <option value="IMAGE">IMAGE</option>
@@ -5034,7 +5034,7 @@ export const AdminPanel = () => {
                         max={4}
                         value={siteSettings.cmsDraft.heroSettings.heroMaxLines}
                         onChange={(e) => updateHeroField('heroMaxLines', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       />
                     </div>
                   </div>
@@ -5047,7 +5047,7 @@ export const AdminPanel = () => {
                   />
 
                   <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Category Override: {cmsCategoryTab.toUpperCase()}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#C49A6C]">Category Override: {cmsCategoryTab.toUpperCase()}</p>
                     <LuxuryFloatingInput
                       label="Override Title"
                       value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroTitle || ''}
@@ -5081,7 +5081,7 @@ export const AdminPanel = () => {
                         <select
                           value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroBgType || 'GRADIENT'}
                           onChange={(e) => updateCategoryOverrideField('heroBgType', e.target.value)}
-                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                         >
                           <option value="GRADIENT">GRADIENT</option>
                           <option value="IMAGE">IMAGE</option>
@@ -5098,7 +5098,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.sortDefault || 'Newest'}
                         onChange={(e) => updateCategoryOverrideField('sortDefault', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-blue-400/60"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="Newest">Newest</option>
                         <option value="PriceLowToHigh">PriceLowToHigh</option>
@@ -5107,8 +5107,8 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-2xl border border-blue-500/20 bg-blue-500/5 space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">Live Hero Preview</p>
+                  <div className="p-5 rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">Live Hero Preview</p>
                     <p className="text-2xl font-black leading-tight text-white whitespace-pre-line">
                       {siteSettings.cmsDraft.heroSettings.heroTitleMode === 'MANUAL'
                         ? siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks.replace(/<br\s*\/?>/gi, '\n').replace(/\\n/g, '\n')
@@ -5148,7 +5148,7 @@ export const AdminPanel = () => {
             <motion.div key="pages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
               <GlassCard className="p-12">
                 <div className="flex items-center gap-4 mb-10">
-                  <FileText className="w-8 h-8 text-blue-500" />
+                  <FileText className="w-8 h-8 text-[#C49A6C]" />
                   <div>
                     <h3 className="text-3xl font-black uppercase italic tracking-tighter">Pages CMS</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Footer link pages are editable here</p>
@@ -5158,7 +5158,7 @@ export const AdminPanel = () => {
                 <div className="space-y-8">
                   {cmsPageSections.map((section) => (
                     <div key={section.key} className="p-8 rounded-[28px] border border-white/10 bg-white/[0.02] space-y-5">
-                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-blue-400">{section.label}</h4>
+                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-[#C49A6C]">{section.label}</h4>
                       <LuxuryFloatingInput
                         label="Page Heading"
                         value={siteSettings.cmsPages[section.key].heading}
@@ -5177,7 +5177,7 @@ export const AdminPanel = () => {
                           value={siteSettings.cmsPages[section.key].body}
                           onChange={(e) => updateCmsField(section.key, 'body', e.target.value)}
                           rows={4}
-                          className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-blue-500/50"
+                          className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
                         />
                       </div>
                     </div>
@@ -5204,15 +5204,15 @@ export const AdminPanel = () => {
                 {(siteSettings.storyPosts || []).map((story) => (
                   <GlassCard key={story.id} className="p-10 space-y-6 border-white/10">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-blue-500">
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#C49A6C]">
                         Story ID: {story.id}
                       </p>
                       <div className="flex items-center gap-4">
                         <button
                           onClick={() => upsertStoryPost(story.id, 'published', !story.published)}
                           className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${story.published
-                            ? 'bg-blue-500/10 text-blue-500 border-blue-500/30'
-                            : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                            ? 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/30'
+                            : 'bg-[#8BA888]/10 text-[#C49A6C] border-[#C49A6C]/30'
                             }`}
                         >
                           {story.published ? 'Published' : 'Draft'}
@@ -5254,7 +5254,7 @@ export const AdminPanel = () => {
                         value={story.body}
                         onChange={(e) => upsertStoryPost(story.id, 'body', e.target.value)}
                         rows={6}
-                        className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-blue-500/50"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
                       />
                     </div>
 
@@ -5265,10 +5265,10 @@ export const AdminPanel = () => {
                           type="datetime-local"
                           value={story.publishAt ? new Date(story.publishAt).toISOString().slice(0, 16) : ''}
                           onChange={(e) => upsertStoryPost(story.id, 'publishAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-blue-500/50"
+                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
                         />
                       </div>
-                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-blue-400 flex items-center">
+                      <div className="rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-[#C49A6C] flex items-center">
                         Auto mode: draft stories publish automatically after schedule time.
                       </div>
                     </div>
@@ -5307,8 +5307,8 @@ export const AdminPanel = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {slides.map((slide, idx) => (
-                  <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-blue-500/20 transition-all duration-700">
-                    <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-blue-500 text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
+                  <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-[#C49A6C]/20 transition-all duration-700">
+                    <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-[#C49A6C] text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
                     <div className="aspect-[21/9] rounded-3xl overflow-hidden mb-8 border border-white/10 group-hover:scale-[1.02] transition-transform duration-700">
                       <OptimizedImage src={slide.img} alt={slide.title || `Slide ${idx + 1}`} sizes="(max-width: 768px) 100vw, 50vw" className="w-full h-full object-cover" />
                     </div>
@@ -5335,14 +5335,14 @@ export const AdminPanel = () => {
                         <button
                           onClick={() => moveSlide(idx, 'up')}
                           disabled={idx === 0}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10'}`}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#C49A6C]/30 text-[#C49A6C] hover:bg-[#8BA888]/10'}`}
                         >
                           Move Up
                         </button>
                         <button
                           onClick={() => moveSlide(idx, 'down')}
                           disabled={idx === slides.length - 1}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10'}`}
+                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#C49A6C]/30 text-[#C49A6C] hover:bg-[#8BA888]/10'}`}
                         >
                           Move Down
                         </button>
@@ -5384,7 +5384,7 @@ export const AdminPanel = () => {
             <motion.div key="sync" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl space-y-8">
               <GlassCard className="p-12">
                 <div className="flex items-center gap-4 mb-10">
-                  <Database className="w-8 h-8 text-blue-500" />
+                  <Database className="w-8 h-8 text-[#C49A6C]" />
                   <h3 className="text-3xl font-black uppercase italic">Google Registry Sync</h3>
                 </div>
                 <p className="text-zinc-500 text-sm mb-10 leading-relaxed">Connect your archival database with Google Sheets for real-time inventory and order manifest synchronization.</p>
@@ -5399,28 +5399,28 @@ export const AdminPanel = () => {
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="p-6 rounded-3xl bg-white/5 border border-white/5 space-y-2">
-                      <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Sync</p>
+                      <p className="text-[10px] font-black text-[#C49A6C] uppercase tracking-widest">Active Sync</p>
                       <p className="text-lg font-bold text-white uppercase">Orders manifest</p>
                     </div>
                     <div className="p-6 rounded-3xl bg-white/5 border border-white/5 space-y-2">
-                      <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Sync</p>
+                      <p className="text-[10px] font-black text-[#C49A6C] uppercase tracking-widest">Active Sync</p>
                       <p className="text-lg font-bold text-white uppercase">Inventory Registry</p>
                     </div>
                   </div>
-                  <PrimaryButton className="w-full h-20 shadow-[0_20px_40px_rgba(59, 124, 246,0.1)]" onClick={initializeSheets}>
+                  <PrimaryButton className="w-full h-20 shadow-[0_20px_40px_rgba(52, 170, 220, 0.1)]" onClick={initializeSheets}>
                     <RefreshCcw className="w-5 h-5 mr-3" /> INITIALIZE SHEET COLUMNS
                   </PrimaryButton>
 
-                  <div className="mt-6 p-8 bg-blue-500/5 rounded-3xl border border-blue-500/10">
-                    <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <div className="mt-6 p-8 bg-[#C49A6C]/5 rounded-3xl border border-[#C49A6C]/10">
+                    <h4 className="text-[10px] font-black text-[#C49A6C] uppercase tracking-widest mb-4 flex items-center gap-2">
                       <RefreshCcw className="w-3 h-3" /> Database Integration Protocol
                     </h4>
                     <p className="text-[11px] text-zinc-400 font-bold uppercase leading-relaxed mb-6">
                       Institutional Registry is currently operating on <b>Production SQL Matrix</b> via Hostinger. Synchronization is manifest.
                     </p>
                     <ul className="space-y-3 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-blue-500 mt-1" /> SQL Handshake: {dbStatus}</li>
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-blue-500 mt-1" /> Automation: Active</li>
+                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-[#C49A6C] mt-1" /> SQL Handshake: {dbStatus}</li>
+                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-[#C49A6C] mt-1" /> Automation: Active</li>
                     </ul>
                   </div>
                 </div>
@@ -5431,8 +5431,8 @@ export const AdminPanel = () => {
           {activeTab === 'TRAFFIC' && (
             <motion.div key="traffic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <BentoCard title="Active Collectors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-blue-600" />
-                <BentoCard title="Session Velocity" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-blue-500" />
+                <BentoCard title="Active Collectors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-[#9B6B3A]" />
+                <BentoCard title="Session Velocity" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-[#C49A6C]" />
                 <BentoCard title="Entry Points" value={new Set(trafficData.map(t => t.path)).size.toString()} trend="+2" icon={MapPin} color="bg-indigo-600" />
               </div>
 
@@ -5441,12 +5441,12 @@ export const AdminPanel = () => {
                   <div className="flex justify-between items-center mb-12 relative z-10">
                     <h3 className="text-2xl font-black uppercase italic">Regional Collector Heatmap</h3>
                     <div className="flex gap-4">
-                      <span className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[9px] font-black uppercase text-blue-500">Live Stream active</span>
+                      <span className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[9px] font-black uppercase text-[#C49A6C]">Live Stream active</span>
                     </div>
                   </div>
 
                   <div className="absolute inset-x-20 inset-y-40 opacity-20 flex items-center justify-center">
-                    <Globe className="w-96 h-96 text-blue-500 animate-pulse" strokeWidth={0.5} />
+                    <Globe className="w-96 h-96 text-[#C49A6C] animate-pulse" strokeWidth={0.5} />
                   </div>
 
                   <div className="space-y-8 relative z-10">
@@ -5461,7 +5461,7 @@ export const AdminPanel = () => {
                           <span className="text-white">{loc.active} ACTIVE</span>
                         </div>
                         <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${loc.load}%` }} className="h-full bg-blue-500" />
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${loc.load}%` }} className="h-full bg-[#C49A6C]" />
                         </div>
                       </div>
                     ))}
@@ -5481,7 +5481,7 @@ export const AdminPanel = () => {
                           <p className="text-[9px] text-zinc-600 font-bold uppercase truncate">
                             {sess.path} • {new Date(sess.last_active).toLocaleTimeString()}
                           </p>
-                          <p className="text-[8px] text-blue-500/50 font-mono truncate">{sess.ip_address}</p>
+                          <p className="text-[8px] text-[#C49A6C]/50 font-mono truncate">{sess.ip_address}</p>
                         </div>
                       </div>
                     )) : (
@@ -5625,7 +5625,7 @@ export const AdminPanel = () => {
                 <GlassCard className="p-6 md:p-10 !rounded-[36px] border-white/10 bg-[#0A0C12]/95">
                   <div className="flex items-start justify-between gap-4 mb-8">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-blue-400 font-black mb-2">Customer Profile</p>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-[#C49A6C] font-black mb-2">Customer Profile</p>
                       <h3 className="text-2xl md:text-4xl font-black tracking-tight text-white">
                         {selectedCustomerProfile?.user?.name || 'Loading customer...'}
                       </h3>
@@ -5662,11 +5662,11 @@ export const AdminPanel = () => {
                         </GlassCard>
                         <GlassCard className="p-5">
                           <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Lifetime Value</p>
-                          <p className="text-2xl font-black text-blue-300 mt-2">৳{selectedCustomerProfile.stats.lifetimeValue.toLocaleString()}</p>
+                          <p className="text-2xl font-black text-white/90 mt-2">৳{selectedCustomerProfile.stats.lifetimeValue.toLocaleString()}</p>
                         </GlassCard>
                         <GlassCard className="p-5">
                           <p className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black">Refunds</p>
-                          <p className="text-2xl font-black text-blue-200 mt-2">{selectedCustomerProfile.stats.totalRefunds}</p>
+                          <p className="text-2xl font-black text-white/85 mt-2">{selectedCustomerProfile.stats.totalRefunds}</p>
                           <p className="text-[10px] text-zinc-500 mt-1">৳{selectedCustomerProfile.stats.refundAmount.toLocaleString()}</p>
                         </GlassCard>
                         <GlassCard className="p-5">
@@ -5692,19 +5692,19 @@ export const AdminPanel = () => {
                             </div>
                             <div className="flex justify-between gap-4">
                               <span className="text-zinc-500">Email verification</span>
-                              <span className={`${selectedCustomerProfile.user.emailVerified ? 'text-blue-300' : 'text-blue-300'} font-semibold`}>
+                              <span className={`${selectedCustomerProfile.user.emailVerified ? 'text-white/90' : 'text-white/90'} font-semibold`}>
                                 {selectedCustomerProfile.user.emailVerified ? 'Verified' : 'Pending'}
                               </span>
                             </div>
                             <div className="flex justify-between gap-4">
                               <span className="text-zinc-500">Phone verification</span>
-                              <span className={`${selectedCustomerProfile.user.phoneVerified ? 'text-blue-300' : 'text-blue-300'} font-semibold`}>
+                              <span className={`${selectedCustomerProfile.user.phoneVerified ? 'text-white/90' : 'text-white/90'} font-semibold`}>
                                 {selectedCustomerProfile.user.phoneVerified ? 'Verified' : 'Pending'}
                               </span>
                             </div>
                             <div className="flex justify-between gap-4">
                               <span className="text-zinc-500">Status</span>
-                              <span className={`${selectedCustomerProfile.user.isBlocked ? 'text-rose-300' : 'text-blue-300'} font-semibold`}>
+                              <span className={`${selectedCustomerProfile.user.isBlocked ? 'text-rose-300' : 'text-white/90'} font-semibold`}>
                                 {selectedCustomerProfile.user.isBlocked ? 'Blocked' : 'Active'}
                               </span>
                             </div>
@@ -5715,7 +5715,7 @@ export const AdminPanel = () => {
                               disabled={selectedCustomerLocked}
                               className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] ${
                                 selectedCustomerProfile.user.isBlocked
-                                  ? 'border-blue-500/40 bg-blue-500/10 text-blue-200'
+                                  ? 'border-[#C49A6C]/40 bg-[#8BA888]/10 text-white/85'
                                   : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
                               } ${selectedCustomerLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
@@ -5727,7 +5727,7 @@ export const AdminPanel = () => {
                             </button>
                             <button
                               onClick={exportCustomerOrdersCsv}
-                              className="px-4 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.16em]"
+                              className="px-4 py-2 rounded-xl border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.16em]"
                             >
                               Export Orders
                             </button>
@@ -5767,7 +5767,7 @@ export const AdminPanel = () => {
                                       </div>
                                     </td>
                                     <td className="py-3 pr-3 text-zinc-300 font-semibold">{item.totalQuantity}</td>
-                                    <td className="py-3 pr-3 text-blue-200 font-semibold">৳{item.totalSpent.toLocaleString()}</td>
+                                    <td className="py-3 pr-3 text-white/85 font-semibold">৳{item.totalSpent.toLocaleString()}</td>
                                     <td className="py-3 text-zinc-400 text-sm">
                                       {item.lastPurchasedAt ? new Date(item.lastPurchasedAt).toLocaleString() : 'N/A'}
                                     </td>
@@ -5818,7 +5818,7 @@ export const AdminPanel = () => {
                                   <tr key={order.id} className="border-t border-white/5">
                                     <td className="py-3 pr-3 text-white font-semibold">{order.orderNo || order.id}</td>
                                     <td className="py-3 pr-3 text-zinc-300">{order.status}</td>
-                                    <td className="py-3 pr-3 text-blue-200">৳{Number(order.total || 0).toLocaleString()}</td>
+                                    <td className="py-3 pr-3 text-white/85">৳{Number(order.total || 0).toLocaleString()}</td>
                                     <td className="py-3 text-zinc-400 text-sm">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}</td>
                                   </tr>
                                 ))}
@@ -5853,12 +5853,12 @@ export const AdminPanel = () => {
                               value={customerNoteDraft}
                               onChange={(event) => setCustomerNoteDraft(event.target.value)}
                               placeholder="Add admin note..."
-                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#0A0C12] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-blue-400/60 resize-none"
+                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#0A0C12] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-white/22 resize-none"
                             />
                             <button
                               onClick={saveCustomerNote}
                               disabled={customerNoteSaving}
-                              className="h-11 px-5 rounded-xl border border-blue-500/35 bg-blue-500/10 text-blue-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
+                              className="h-11 px-5 rounded-xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-blue-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
                             >
                               {customerNoteSaving ? 'Saving...' : 'Save note'}
                             </button>
@@ -5867,7 +5867,7 @@ export const AdminPanel = () => {
                             {customerActivity.map((event) => (
                               <div key={event.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
                                 <div className="flex items-center justify-between gap-2 mb-1">
-                                  <p className="text-[10px] uppercase tracking-[0.14em] text-blue-300 font-black">{event.type.replace(/_/g, ' ')}</p>
+                                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/90 font-black">{event.type.replace(/_/g, ' ')}</p>
                                   <p className="text-[10px] text-zinc-500">{event.createdAt ? new Date(event.createdAt).toLocaleString() : 'N/A'}</p>
                                 </div>
                                 <p className="text-sm text-zinc-200 break-words">{event.details || 'No details'}</p>
@@ -5886,8 +5886,8 @@ export const AdminPanel = () => {
                           {selectedCustomerProfile.addresses.map((address) => (
                             <div key={address.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-2">
                               <div className="flex items-center justify-between gap-2">
-                                <p className="text-[11px] uppercase tracking-[0.16em] font-black text-blue-300">{address.label || 'Address'}</p>
-                                {address.isDefault && <span className="text-[9px] text-blue-300 uppercase font-black">Default</span>}
+                                <p className="text-[11px] uppercase tracking-[0.16em] font-black text-white/90">{address.label || 'Address'}</p>
+                                {address.isDefault && <span className="text-[9px] text-white/90 uppercase font-black">Default</span>}
                               </div>
                               <p className="text-sm font-semibold text-white">{address.recipientName || selectedCustomerProfile.user.name}</p>
                               <p className="text-sm text-zinc-300">{address.phone || selectedCustomerProfile.user.phone}</p>
@@ -5912,11 +5912,11 @@ export const AdminPanel = () => {
           {selectedOrder && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-3xl">
               <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <GlassCard className="p-10 md:p-14 !rounded-[48px] bg-[#0A0C12]/90 border-white/5 shadow-[0_0_100px_rgba(37,99,235,0.1)]">
+                <GlassCard className="p-10 md:p-14 !rounded-[48px] bg-[#0A0C12]/90 border-white/5 shadow-[0_0_100px_rgba(0, 122, 255, 0.1)]">
                   <div className="flex justify-between items-start mb-14">
                     <div>
-                      <div className="flex items-center gap-3 text-blue-500 mb-4">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_15px_#3b82f6]" />
+                      <div className="flex items-center gap-3 text-[#C49A6C] mb-4">
+                        <div className="w-2 h-2 rounded-full bg-[#C49A6C] shadow-[0_0_15px_#3b82f6]" />
                         <span className="text-[10px] font-black uppercase tracking-[0.4em]">Order Intelligence Report — {formatTimestamp(selectedOrder.createdAt)}</span>
                       </div>
                       <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">{selectedOrder.id}</h3>
@@ -5967,11 +5967,11 @@ export const AdminPanel = () => {
                         <div className="w-4 h-[1px] bg-zinc-800" /> Logistics Terminal
                       </h4>
                       <div className="flex items-start gap-6 text-white p-8 liquid-glass border border-white/5 rounded-[32px]">
-                        <MapPin className="w-6 h-6 text-blue-500 mt-2 shrink-0" />
+                        <MapPin className="w-6 h-6 text-[#C49A6C] mt-2 shrink-0" />
                         <div>
                           <p className="text-xl font-bold leading-relaxed">{selectedOrder.address}</p>
                           <div className="flex gap-3 mt-4">
-                            <span className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-500 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
+                            <span className="px-4 py-1.5 bg-[#8BA888]/10 border border-[#C49A6C]/20 text-[#C49A6C] rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
                             <span className="px-4 py-1.5 bg-zinc-800 border border-white/5 text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.thana}</span>
                           </div>
                         </div>
@@ -6010,7 +6010,7 @@ export const AdminPanel = () => {
 
                   <div className="bg-white/5 rounded-[40px] border border-white/10 overflow-hidden mb-14">
                     <div className="p-10 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 flex items-center gap-3">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#C49A6C] flex items-center gap-3">
                         <ShoppingBag className="w-4 h-4" /> Inventory Manifest
                       </h4>
                       <span className="px-4 py-1.5 bg-zinc-800 rounded-full text-[9px] font-black text-zinc-400 uppercase tracking-widest">{selectedOrder.items.length} ASSETS</span>
@@ -6048,9 +6048,9 @@ export const AdminPanel = () => {
                                     <p className="text-[8px] font-black text-zinc-600 uppercase mb-1">Color</p>
                                     <span className="text-xs font-black text-white uppercase">{item.selectedColor}</span>
                                   </div>
-                                  <div className="px-4 py-2 bg-blue-600/10 rounded-xl border border-blue-500/20">
-                                    <p className="text-[8px] font-black text-blue-500/60 uppercase mb-1">Quantity</p>
-                                    <span className="text-xs font-black text-blue-500">{item.quantity}</span>
+                                  <div className="px-4 py-2 bg-[#C49A6C]/10 rounded-xl border border-[#C49A6C]/20">
+                                    <p className="text-[8px] font-black text-[#C49A6C]/60 uppercase mb-1">Quantity</p>
+                                    <span className="text-xs font-black text-[#C49A6C]">{item.quantity}</span>
                                   </div>
                                 </div>
                               </td>
@@ -6077,9 +6077,9 @@ export const AdminPanel = () => {
                         <span>Logistics Fee</span>
                         <span className="text-zinc-200">৳{selectedOrder.shippingFee.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between w-full md:w-80 pt-8 border-t border-white/10 text-4xl font-black italic text-blue-400 tracking-tighter">
+                      <div className="flex justify-between w-full md:w-80 pt-8 border-t border-white/10 text-4xl font-black italic text-[#C49A6C] tracking-tighter">
                         <span>TOTAL</span>
-                        <span className="shadow-[0_0_30px_rgba(37, 99, 235,0.2)]">৳{selectedOrder.total.toLocaleString()}</span>
+                        <span className="shadow-[0_0_30px_rgba(0, 122, 255, 0.2)]">৳{selectedOrder.total.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -6089,7 +6089,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSslCommerzInit(selectedOrder)}
                         disabled={integrationActionKey === `${selectedOrder.id}:ssl:init`}
-                        className="h-14 rounded-2xl border border-blue-500/35 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <CreditCard className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:ssl:init` ? 'Creating...' : 'Create Payment Link'}
@@ -6097,7 +6097,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSteadfastCreate(selectedOrder, false)}
                         disabled={integrationActionKey === `${selectedOrder.id}:steadfast:create:normal`}
-                        className="h-14 rounded-2xl border border-blue-500/35 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <Truck className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:steadfast:create:normal` ? 'Booking...' : 'Send to Steadfast'}
@@ -6121,19 +6121,19 @@ export const AdminPanel = () => {
                     </div>
 
                     {(selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus) && (
-                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em]">
-                          <span className="text-blue-300">Consignment</span>
+                          <span className="text-white/90">Consignment</span>
                           <span className="text-zinc-100">{selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || 'N/A'}</span>
                           <span className="text-zinc-400">Status</span>
-                          <span className="text-blue-300">{selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus || 'Pending sync'}</span>
+                          <span className="text-white/90">{selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus || 'Pending sync'}</span>
                           <span className="text-zinc-500">Source</span>
                           <span className="text-zinc-300">{selectedOrderShipment?.source || 'MANUAL'}</span>
                         </div>
                         {selectedOrderShipment?.trackingUrl && (
                           <button
                             onClick={() => window.open(selectedOrderShipment.trackingUrl, '_blank', 'noopener,noreferrer')}
-                            className="h-10 px-4 rounded-xl border border-blue-500/35 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-blue-500/20"
+                            className="h-10 px-4 rounded-xl border border-[#C49A6C]/35 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-[#C49A6C]/20"
                           >
                             Open Tracking
                           </button>
@@ -6152,14 +6152,14 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runInvoiceAction(selectedOrder, { type: siteSettings.invoiceSettings.defaultType || 'INV', send: true, autoOpen: false })}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send`}
-                        className="h-14 rounded-2xl border border-blue-500/40 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500/20 disabled:opacity-60"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/40 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send` ? 'Sending...' : 'Send Invoice'}
                       </button>
                       <button
                         onClick={() => downloadLatestInvoice(selectedOrder, siteSettings.invoiceSettings.defaultType || 'INV')}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest`}
-                        className="h-14 rounded-2xl border border-blue-500/30 bg-blue-500/10 text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500/20 disabled:opacity-60"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/30 bg-[#8BA888]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest` ? 'Opening...' : 'Download PDF'}
                       </button>
@@ -6186,7 +6186,7 @@ export const AdminPanel = () => {
                           setSelectedOrder(null);
                           showToast(`Order ${id} moved to shipped.`, 'success');
                         }}
-                        className="h-14 rounded-2xl border border-blue-500/40 bg-blue-600 text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-blue-500"
+                        className="h-14 rounded-2xl border border-[#C49A6C]/40 bg-[#9B6B3A] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#C49A6C]"
                       >
                         Mark Shipped
                       </button>
@@ -6208,10 +6208,10 @@ export const AdminPanel = () => {
         <div
           className={`fixed bottom-8 left-1/2 z-[320] -translate-x-1/2 rounded-2xl border px-6 py-4 text-sm font-bold ${
             toast.tone === 'success'
-              ? 'border-blue-500/40 bg-blue-500/15 text-blue-200'
+              ? 'border-[#C49A6C]/40 bg-[#C49A6C]/15 text-white/85'
               : toast.tone === 'error'
                 ? 'border-rose-500/40 bg-rose-500/15 text-rose-200'
-                : 'border-blue-500/40 bg-blue-500/15 text-blue-200'
+                : 'border-[#C49A6C]/40 bg-[#C49A6C]/15 text-white/85'
           }`}
         >
           {toast.message}

@@ -557,7 +557,7 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
     accentColor: '#41DCFF',
     backgroundColor: '#F4F7FF',
     tableHeaderColor: '#111827',
-    buttonColor: '#2563EB'
+    buttonColor: '#007AFF'
   },
   logoUrl: '',
   footerText: 'SPLARO • Luxury Footwear & Bags • www.splaro.co',

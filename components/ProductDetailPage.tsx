@@ -19,7 +19,7 @@ const Accordion = ({ title, children }: { title: string; children: React.ReactNo
         onClick={() => setIsOpen(!isOpen)}
         className="w-full py-6 flex justify-between items-center group"
       >
-        <span className="text-sm font-black uppercase tracking-widest group-hover:text-blue-400 transition-colors">{title}</span>
+        <span className="text-sm font-black uppercase tracking-widest group-hover:text-[#D4B47A] transition-colors">{title}</span>
         {isOpen ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
       </button>
       <AnimatePresence>
@@ -180,7 +180,7 @@ export const ProductDetailPage: React.FC = () => {
   if (!product) return (
     <div className="pt-40 text-center">
       <h2 className="text-2xl font-black uppercase text-zinc-500 tracking-tighter italic">UNIT NOT ENCOUNTERED</h2>
-      <button onClick={() => navigate('/shop')} className="mt-8 px-12 py-5 border border-zinc-800 rounded-full font-black uppercase text-[10px] tracking-[0.4em] hover:border-blue-500 hover:text-blue-400 transition-all">Back to Collective</button>
+      <button onClick={() => navigate('/shop')} className="mt-8 px-12 py-5 border border-zinc-800 rounded-full font-black uppercase text-[10px] tracking-[0.4em] hover:border-[#C49A6C] hover:text-[#D4B47A] transition-all">Back to Collective</button>
     </div>
   );
 
@@ -195,7 +195,7 @@ export const ProductDetailPage: React.FC = () => {
           }
           navigate('/shop');
         }}
-        className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 hover:text-blue-400 transition-colors mb-8 md:mb-12"
+        className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-500 hover:text-[#D4B47A] transition-colors mb-8 md:mb-12"
       >
         <ChevronLeft className="w-3 h-3" /> BACK TO THE SHOP
       </button>
@@ -209,7 +209,7 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 key={i}
                 onClick={() => setActiveImg(img)}
-                className={`w-16 sm:w-20 md:w-24 aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-blue-500' : 'border-white/5 hover:border-white/20'}`}
+                className={`w-16 sm:w-20 md:w-24 aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-[#C49A6C]' : 'border-white/5 hover:border-white/20'}`}
               >
                 <OptimizedImage src={img} alt={`${product.name} thumbnail ${i + 1}`} sizes="96px" className="w-full h-full object-cover" />
               </button>
@@ -253,20 +253,20 @@ export const ProductDetailPage: React.FC = () => {
           <button
             type="button"
             onClick={handleAskQuestion}
-            className="flex items-center gap-2 text-[10px] font-black text-white/40 hover:text-blue-400 uppercase tracking-widest mb-4"
+            className="flex items-center gap-2 text-[10px] font-black text-white/40 hover:text-[#D4B47A] uppercase tracking-widest mb-4"
           >
             <HelpCircle className="w-4 h-4" /> Ask a Question
           </button>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter mb-4 leading-tight uppercase italic">{product.name || 'Spectral Asset'}</h1>
-          <p className="text-2xl md:text-3xl font-black text-blue-400 mb-8">Tk {Number(product.price || 0).toLocaleString()}.00</p>
+          <p className="text-2xl md:text-3xl font-black text-[#D4B47A] mb-8">Tk {Number(product.price || 0).toLocaleString()}.00</p>
 
           <div className="space-y-10">
             <div className="rounded-[28px] border border-white/10 bg-[#0b111c]/80 backdrop-blur-2xl p-5 sm:p-6 space-y-5 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Select Size</h3>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">{selectedSize}</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#D4B47A]">{selectedSize}</span>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
                   {sizeOptions.map((s) => (
@@ -276,7 +276,7 @@ export const ProductDetailPage: React.FC = () => {
                       className={`h-11 rounded-xl border text-[11px] font-black uppercase tracking-[0.16em] transition-all ${
                         selectedSize === s
                           ? 'bg-blue-400 text-black border-blue-300 shadow-[0_0_20px_rgba(65,220,255,0.4)]'
-                          : 'bg-white/[0.03] border-white/15 text-white/80 hover:border-blue-400/40 hover:text-white'
+                          : 'bg-white/[0.03] border-white/15 text-white/80 hover:border-white/18 hover:text-white'
                       }`}
                     >
                       {s}
@@ -289,7 +289,7 @@ export const ProductDetailPage: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Select Color</h3>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">{selectedColor}</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#D4B47A]">{selectedColor}</span>
                   </div>
                   <div className="flex flex-wrap gap-2.5">
                     {product.colors.map((color) => {
@@ -301,7 +301,7 @@ export const ProductDetailPage: React.FC = () => {
                           className={`min-h-11 px-3 rounded-xl border text-[10px] font-black uppercase tracking-[0.15em] transition-all ${
                             active
                               ? 'bg-blue-400 text-black border-blue-300 shadow-[0_0_18px_rgba(65,220,255,0.35)]'
-                              : 'bg-white/[0.03] border-white/15 text-white/80 hover:border-blue-400/40 hover:text-white'
+                              : 'bg-white/[0.03] border-white/15 text-white/80 hover:border-white/18 hover:text-white'
                           }`}
                         >
                           {color}
@@ -315,12 +315,12 @@ export const ProductDetailPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Quantity</h3>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">{quantity} PCS</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#D4B47A]">{quantity} PCS</span>
                 </div>
                 <div className="h-14 rounded-2xl border border-white/15 bg-black/25 px-2 flex items-center">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-11 h-11 rounded-xl border border-white/10 text-white/85 hover:border-blue-400/40 hover:text-blue-300 transition-all flex items-center justify-center"
+                    className="w-11 h-11 rounded-xl border border-white/10 text-white/85 hover:border-white/18 hover:text-white/90 transition-all flex items-center justify-center"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
@@ -336,7 +336,7 @@ export const ProductDetailPage: React.FC = () => {
                     className={`w-11 h-11 rounded-xl border border-white/10 transition-all flex items-center justify-center ${
                       urgency.outOfStock
                         ? 'opacity-40 cursor-not-allowed text-white/40'
-                        : 'text-white/85 hover:border-blue-400/40 hover:text-blue-300'
+                        : 'text-white/85 hover:border-white/18 hover:text-white/90'
                     }`}
                     disabled={urgency.outOfStock}
                   >
@@ -354,7 +354,7 @@ export const ProductDetailPage: React.FC = () => {
                   className={`w-full h-14 rounded-2xl font-black tracking-[0.22em] transition-all ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed border border-white/10 hover:bg-zinc-800'
-                      : 'bg-gradient-to-r from-blue-500 to-blue-400 text-white hover:brightness-110 shadow-[0_12px_30px_rgba(37, 99, 235,0.35)]'
+                      : 'bg-gradient-to-r from-blue-500 to-blue-400 text-white hover:brightness-110 shadow-[0_12px_30px_rgba(0, 122, 255, 0.35)]'
                   }`}
                 >
                   {urgency.outOfStock ? 'Out Of Stock' : isAdding ? 'Adding...' : justAdded ? 'Added ✓' : 'Add To Cart'}
@@ -392,7 +392,7 @@ export const ProductDetailPage: React.FC = () => {
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.max(8, Math.min(100, (urgency.knownStock / Math.max(urgency.threshold, 1)) * 100))}%` }}
-                          className="h-full bg-blue-500/70"
+                          className="h-full bg-[#C49A6C]/70"
                         />
                       </div>
                     )}
@@ -432,19 +432,19 @@ export const ProductDetailPage: React.FC = () => {
             {/* Trust Icons */}
             <div className="pt-10 flex justify-between">
               <div className="flex flex-col items-center gap-2 group cursor-default">
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-blue-500 transition-colors">
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#C49A6C] transition-colors">
                   <Truck className="w-5 h-5 text-zinc-400" />
                 </div>
                 <span className="text-[9px] font-black uppercase text-zinc-600">Free Ship</span>
               </div>
               <div className="flex flex-col items-center gap-2 group cursor-default">
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-blue-500 transition-colors">
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#C49A6C] transition-colors">
                   <RotateCcw className="w-5 h-5 text-zinc-400" />
                 </div>
                 <span className="text-[9px] font-black uppercase text-zinc-600">Returns</span>
               </div>
               <div className="flex flex-col items-center gap-2 group cursor-default">
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-blue-500 transition-colors">
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#C49A6C] transition-colors">
                   <ShieldCheck className="w-5 h-5 text-zinc-400" />
                 </div>
                 <span className="text-[9px] font-black uppercase text-zinc-600">Secure</span>

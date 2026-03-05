@@ -178,11 +178,11 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
         onClick={() => setOpen((prev) => !prev)}
         className={`nav-item interactive-control relative p-2 ${mobile ? 'min-h-12 min-w-12 bg-white/5 backdrop-blur-3xl rounded-[18px] border border-white/10 hover:border-white/50 transition-all shadow-xl' : 'group'}`}
       >
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] text-white/70 group-hover:text-white group-hover:border-blue-500/30 transition-all duration-500">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] text-white/70 group-hover:text-white group-hover:border-[#C49A6C]/30 transition-all duration-500">
           <Bell className="w-5 h-5" />
         </div>
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[9px] min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 font-black border border-white/30">
+          <span className="absolute -top-1 -right-1 bg-[#C49A6C] text-white text-[9px] min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 font-black border border-white/30">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
@@ -192,7 +192,7 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
         <div className={`absolute ${mobile ? 'right-0' : 'right-0'} mt-3 w-[320px] max-w-[92vw] rounded-2xl border border-white/10 bg-[#05070e]/95 backdrop-blur-2xl shadow-[0_22px_60px_rgba(0,0,0,0.45)] z-[700]`}>
           <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-400">Notifications</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#D4B47A]">Notifications</p>
               <p className="text-[10px] text-zinc-500">Unread {unread}</p>
             </div>
             <div className="flex items-center gap-2">

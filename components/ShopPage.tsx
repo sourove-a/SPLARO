@@ -28,19 +28,39 @@ const FilterPill: React.FC<{
     whileHover={{ scale: 1.05, y: -2 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
-    className={`relative px-5 py-3 rounded-2xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group ${isSelected
-      ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_30px_rgba(37, 99, 235,0.15)]'
-      : 'bg-white/[0.03] backdrop-blur-md border-white/5 text-white/40 hover:border-white/20 hover:text-white'
-      }`}
+    className="relative px-5 py-3 rounded-2xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group"
+    style={{
+      background: isSelected ? 'rgba(196,154,108,0.18)' : 'rgba(255,252,248,0.04)',
+      borderColor: isSelected ? 'rgba(196,154,108,0.52)' : 'rgba(196,154,108,0.12)',
+      color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.48)',
+      boxShadow: isSelected ? '0 0 24px rgba(196,154,108,0.14)' : 'none',
+    }}
   >
-    {isSelected && <motion.div layoutId={`pill-glow-${label}`} className="absolute inset-0 bg-blue-500/5 blur-xl pointer-events-none" />}
-    {colorHex ? (
-      <div className="w-4 h-4 rounded-full border border-white/20 shadow-inner" style={{ backgroundColor: colorHex }} />
-    ) : (
-      <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-blue-500 scale-125' : 'bg-white/10'}`} />
+    {isSelected && (
+      <motion.div
+        layoutId={`pill-glow-${label}`}
+        className="absolute inset-0 blur-xl pointer-events-none"
+        style={{ background: 'rgba(196,154,108,0.08)' }}
+      />
     )}
-    <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
-    {count !== undefined && <span className="text-[9px] font-bold opacity-30 group-hover:opacity-60">[{count}]</span>}
+    {colorHex ? (
+      <div
+        className="w-4 h-4 rounded-full shadow-inner"
+        style={{ backgroundColor: colorHex, border: '1px solid rgba(237,232,220,0.22)' }}
+      />
+    ) : (
+      <div
+        className="w-2 h-2 rounded-full transition-all"
+        style={{
+          background: isSelected ? '#C49A6C' : 'rgba(196,154,108,0.22)',
+          transform: isSelected ? 'scale(1.3)' : 'scale(1)',
+        }}
+      />
+    )}
+    <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+    {count !== undefined && (
+      <span className="text-[9px] font-semibold opacity-40 group-hover:opacity-65">[{count}]</span>
+    )}
   </motion.button>
 );
 
@@ -51,17 +71,20 @@ const SizeBox: React.FC<{
   isAvailable?: boolean;
 }> = ({ size, isSelected, onClick, isAvailable = true }) => (
   <motion.button
-    whileHover={isAvailable ? { scale: 1.1, y: -4 } : {}}
-    whileTap={isAvailable ? { scale: 0.9 } : {}}
+    whileHover={isAvailable ? { scale: 1.08, y: -3 } : {}}
+    whileTap={isAvailable ? { scale: 0.92 } : {}}
     onClick={isAvailable ? onClick : undefined}
-    className={`relative w-16 h-16 flex items-center justify-center rounded-2xl border transition-all duration-700 overflow-hidden ${!isAvailable
-      ? 'opacity-10 cursor-not-allowed border-white/5'
-      : isSelected
-        ? 'bg-white/15 text-white border-white/35 shadow-[0_15px_40px_rgba(132,228,255,0.22)]'
-        : 'bg-white/[0.03] backdrop-blur-xl border-white/10 text-white/40 hover:border-blue-500/40 hover:text-white'
-      }`}
+    className="relative w-16 h-16 flex items-center justify-center rounded-2xl border transition-all duration-500 overflow-hidden"
+    style={{
+      opacity: !isAvailable ? 0.14 : 1,
+      cursor: !isAvailable ? 'not-allowed' : 'pointer',
+      background: isSelected ? 'rgba(196,154,108,0.20)' : 'rgba(255,252,248,0.03)',
+      borderColor: isSelected ? 'rgba(196,154,108,0.55)' : 'rgba(196,154,108,0.14)',
+      color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.45)',
+      boxShadow: isSelected ? '0 8px 28px rgba(196,154,108,0.22)' : 'none',
+    }}
   >
-    <span className="text-sm font-black relative z-10">{size}</span>
+    <span className="text-sm font-bold relative z-10">{size}</span>
   </motion.button>
 );
 
@@ -70,10 +93,19 @@ const ActiveFilterPill: React.FC<{ label: string; onRemove: () => void }> = ({ l
     initial={{ scale: 0, opacity: 0 }}
     animate={{ scale: 1, opacity: 1 }}
     exit={{ scale: 0, opacity: 0 }}
-    className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 border border-blue-500/20 rounded-full text-[9px] font-black text-blue-500 uppercase tracking-widest"
+    className="flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-bold uppercase tracking-widest"
+    style={{
+      background: 'rgba(196,154,108,0.14)',
+      border: '1px solid rgba(196,154,108,0.35)',
+      color: '#C49A6C',
+    }}
   >
     {label}
-    <button onClick={onRemove} className="hover:text-white">
+    <button
+      onClick={onRemove}
+      className="hover:opacity-100 transition-opacity"
+      style={{ color: '#C49A6C', opacity: 0.7 }}
+    >
       <X className="w-3 h-3" />
     </button>
   </motion.div>
@@ -486,9 +518,9 @@ export const ShopPage: React.FC = () => {
         >
           <div className={`flex flex-col md:flex-row justify-between ${resolvedHero.heroAlignment === 'CENTER' ? 'items-center text-center md:text-center' : 'items-start md:items-end text-left'} gap-10`}>
           <div className="max-w-xl">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 text-blue-500 mb-6">
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-6" style={{ color: '#C49A6C' }}>
               <Sparkles className="w-5 h-5" />
-              <span className="text-[10px] font-black uppercase tracking-[0.4em]">{resolvedHero.heroBadge}</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.4em]">{resolvedHero.heroBadge}</span>
             </motion.div>
             <h1
               className={`hero-headline font-black uppercase italic mb-4 sm:mb-6 break-normal whitespace-normal ${resolvedHero.autoBalance ? '' : 'text-wrap-pretty'}`}
@@ -497,7 +529,7 @@ export const ShopPage: React.FC = () => {
             >
               {resolvedHero.titleLines.map((line: string, index: number) => (
                 <React.Fragment key={`hero-line-${index}`}>
-                  <span className={index === resolvedHero.titleLines.length - 1 ? 'text-blue-400' : ''}>{line}</span>
+                  <span style={index === resolvedHero.titleLines.length - 1 ? { color: '#C49A6C' } : {}}>{line}</span>
                   {index < resolvedHero.titleLines.length - 1 ? <br /> : null}
                 </React.Fragment>
               ))}
@@ -517,7 +549,8 @@ export const ShopPage: React.FC = () => {
                     navigate(resolvedHero.heroCtaUrl);
                   }
                 }}
-                className="mt-6 min-h-12 px-6 rounded-full border border-blue-400/40 bg-blue-600/10 hover:bg-blue-600/20 text-blue-300 text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+                className="mt-6 min-h-12 px-6 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
+                style={{ border: '1px solid rgba(196,154,108,0.30)', background: 'rgba(196,154,108,0.10)', color: '#EDE8DC' }}
               >
                 {resolvedHero.heroCtaLabel}
               </button>
@@ -526,12 +559,20 @@ export const ShopPage: React.FC = () => {
 
           {!!activeFilterSet?.filters.find((filter) => filter.id === 'sort') && (
             <div className="flex flex-wrap gap-4 w-full md:w-auto">
-              <div className="flex liquid-glass rounded-full border border-white/10 p-1 max-w-full overflow-x-auto">
+              <div
+                className="flex rounded-full p-1 max-w-full overflow-x-auto liquid-glass"
+                style={{ border: '1px solid rgba(196,154,108,0.18)' }}
+              >
                 {SORT_OPTIONS.map((option) => (
                   <button
                     key={option}
                     onClick={() => setSortOption(option)}
-                    className={`px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-black tracking-widest whitespace-nowrap ${sortOption === option ? 'bg-white/15 text-white border border-white/35' : 'text-white/40 hover:text-white'}`}
+                    className="px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-bold tracking-widest whitespace-nowrap"
+                    style={{
+                      background: sortOption === option ? 'rgba(196,154,108,0.22)' : 'transparent',
+                      color: sortOption === option ? '#D4B47A' : 'rgba(220,210,190,0.45)',
+                      border: sortOption === option ? '1px solid rgba(196,154,108,0.40)' : '1px solid transparent',
+                    }}
                   >
                     {sortButtonLabel[option]}
                   </button>
@@ -539,7 +580,8 @@ export const ShopPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full border border-white/10 text-blue-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 touch-manipulation"
+                className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 touch-manipulation"
+                style={{ border: '1px solid rgba(196,154,108,0.22)', color: '#C49A6C' }}
               >
                 <Filter className="w-4 h-4" /> {showFilters ? 'Hide Filters' : 'Filters'}
               </button>
@@ -562,13 +604,14 @@ export const ShopPage: React.FC = () => {
         <aside
           className={`lg:w-80 shrink-0 space-y-6 ${
             showFilters
-              ? 'fixed lg:static inset-x-3 top-24 bottom-[calc(var(--mobile-nav-height)+var(--mobile-safe-bottom)+16px)] z-[130] block overflow-y-auto rounded-[24px] border border-white/10 bg-[#08162f]/95 p-4'
+              ? 'fixed lg:static inset-x-3 top-24 bottom-[calc(var(--mobile-nav-height)+var(--mobile-safe-bottom)+16px)] z-[130] block overflow-y-auto rounded-[24px] p-4'
               : 'hidden lg:block'
           }`}
+          style={showFilters ? { border: '1px solid rgba(196,154,108,0.22)', background: 'rgba(12,20,9,0.97)' } : {}}
         >
           <div className={`space-y-8 ${showFilters ? '' : 'lg:sticky lg:top-48'}`}>
             <div className="lg:hidden flex items-center justify-between pb-2 border-b border-white/10">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Filters</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/90">Filters</h3>
               <button
                 type="button"
                 onClick={() => setShowFilters(false)}
@@ -578,8 +621,8 @@ export const ShopPage: React.FC = () => {
               </button>
             </div>
             <div className="space-y-6">
-              <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                <Layers className="w-4 h-4 text-blue-500" /> Category
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(237,232,220,0.90)', borderBottom: '1px solid rgba(196,154,108,0.14)' }}>
+                <Layers className="w-4 h-4" style={{ color: '#C49A6C' }} /> Category
               </h4>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
                 <FilterPill label="All Products" isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
@@ -605,8 +648,8 @@ export const ShopPage: React.FC = () => {
 
                 return (
                   <div className="space-y-6" key={filter.id}>
-                    <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                      <Tag className="w-4 h-4 text-blue-500" /> {filter.label}
+                    <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(237,232,220,0.90)', borderBottom: '1px solid rgba(196,154,108,0.14)' }}>
+                      <Tag className="w-4 h-4" style={{ color: '#C49A6C' }} /> {filter.label}
                     </h4>
                     {isSizeFilter(filter) ? (
                       <div className="grid grid-cols-4 lg:grid-cols-4 gap-3">
@@ -625,15 +668,16 @@ export const ShopPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setOpenMultiFilterId((prev) => (prev === filter.id ? null : filter.id))}
-                            className="w-full min-h-12 px-4 rounded-2xl border border-white/10 bg-white/[0.03] text-white/80 hover:border-blue-500/40 transition-all flex items-center justify-between"
+                            className="w-full min-h-12 px-4 rounded-2xl transition-all flex items-center justify-between"
+                            style={{ border: '1px solid rgba(196,154,108,0.18)', background: 'rgba(255,252,248,0.03)', color: 'rgba(237,232,220,0.80)' }}
                           >
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">
                               {selectedValues.length > 0 ? `${selectedValues.length} Selected` : 'Select Brand'}
                             </span>
                             {openMultiFilterId === filter.id ? (
-                              <ChevronUp className="w-4 h-4 text-blue-400" />
+                              <ChevronUp className="w-4 h-4" style={{ color: '#C49A6C' }} />
                             ) : (
-                              <ChevronDown className="w-4 h-4 text-blue-400" />
+                              <ChevronDown className="w-4 h-4" style={{ color: '#C49A6C' }} />
                             )}
                           </button>
 
@@ -646,14 +690,18 @@ export const ShopPage: React.FC = () => {
                                     key={option}
                                     type="button"
                                     onClick={() => toggleMultiFilter(filter.id, option)}
-                                    className={`w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between ${
-                                      isChecked
-                                        ? 'border-blue-500/50 bg-blue-600/10 text-blue-300'
-                                        : 'border-white/10 bg-white/[0.02] text-white/70 hover:border-white/20'
-                                    }`}
+                                    className="w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between"
+                                    style={{
+                                      borderColor: isChecked ? 'rgba(196,154,108,0.52)' : 'rgba(196,154,108,0.14)',
+                                      background: isChecked ? 'rgba(196,154,108,0.14)' : 'rgba(255,252,248,0.03)',
+                                      color: isChecked ? '#D4B47A' : 'rgba(220,210,190,0.72)',
+                                    }}
                                   >
-                                    <span className="text-[10px] font-black uppercase tracking-[0.15em] text-left">{option}</span>
-                                    <span className={`w-2.5 h-2.5 rounded-full ${isChecked ? 'bg-blue-400' : 'bg-white/20'}`} />
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-left">{option}</span>
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full"
+                                      style={{ background: isChecked ? '#C49A6C' : 'rgba(196,154,108,0.22)' }}
+                                    />
                                   </button>
                                 );
                               })}
@@ -680,12 +728,12 @@ export const ShopPage: React.FC = () => {
 
             {priceFilter && priceRange && (
               <div className="space-y-6">
-                <h4 className="text-[11px] font-black uppercase text-white tracking-[0.4em] flex items-center gap-3 border-b border-white/5 pb-4">
-                  <SortAsc className="w-4 h-4 text-blue-500" /> Price Range
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(237,232,220,0.90)', borderBottom: '1px solid rgba(196,154,108,0.14)' }}>
+                  <SortAsc className="w-4 h-4" style={{ color: '#C49A6C' }} /> Price Range (৳)
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
-                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Min</p>
+                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,252,248,0.03)', border: '1px solid rgba(196,154,108,0.18)' }}>
+                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(196,154,108,0.55)' }}>Min ৳</p>
                     <input
                       type="number"
                       value={priceRange.min}
@@ -699,11 +747,12 @@ export const ShopPage: React.FC = () => {
                           return { ...prev, min: Math.min(value, prev.max) };
                         });
                       }}
-                      className="w-full bg-transparent text-sm font-black text-blue-400 outline-none"
+                      className="w-full bg-transparent text-sm font-bold outline-none"
+                      style={{ color: '#C49A6C' }}
                     />
                   </div>
-                  <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
-                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Max</p>
+                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,252,248,0.03)', border: '1px solid rgba(196,154,108,0.18)' }}>
+                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(196,154,108,0.55)' }}>Max ৳</p>
                     <input
                       type="number"
                       value={priceRange.max}
@@ -717,7 +766,8 @@ export const ShopPage: React.FC = () => {
                           return { ...prev, max: Math.max(value, prev.min) };
                         });
                       }}
-                      className="w-full bg-transparent text-sm font-black text-blue-400 outline-none"
+                      className="w-full bg-transparent text-sm font-bold outline-none"
+                      style={{ color: '#C49A6C' }}
                     />
                   </div>
                 </div>

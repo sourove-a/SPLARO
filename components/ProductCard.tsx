@@ -100,8 +100,11 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
           />
         </motion.div>
 
-        {/* Glass Overlay on Hover */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 bg-gradient-to-t from-blue-900/40 via-transparent to-transparent pointer-events-none" />
+        {/* Natural Overlay on Hover */}
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(30,50,20,0.55) 0%, rgba(30,50,20,0.15) 40%, transparent 75%)' }}
+        />
 
         {/* Wishlist Icon */}
         <div className="absolute top-6 right-6 z-20">
@@ -123,7 +126,8 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 initial={{ opacity: 0, y: 30, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className="w-full h-14 bg-white/10 backdrop-blur-3xl border border-white/20 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-blue-500/20 hover:text-white transition-all duration-500"
+                className="w-full h-14 backdrop-blur-3xl rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
+                style={{ background: 'rgba(196,154,108,0.15)', border: '1px solid rgba(196,154,108,0.30)', color: '#EDE8DC' }}
               >
                 <Eye className="w-4 h-4" /> View Details
               </motion.button>
@@ -136,11 +140,12 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   transition={{ delay: 0.05 }}
                   onClick={(e) => handleAddToCart(e)}
                   disabled={urgency.outOfStock || isAdding}
-                  className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${
+                  className="h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
+                  style={
                     urgency.outOfStock
-                      ? 'bg-zinc-900 border border-white/10 text-zinc-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white shadow-xl hover:bg-blue-500'
-                  }`}
+                      ? { background: 'rgba(255,252,248,0.05)', border: '1px solid rgba(196,154,108,0.12)', color: 'rgba(237,232,220,0.28)', cursor: 'not-allowed' }
+                      : { background: 'linear-gradient(135deg, #6B4226, #9B6B3A, #C49A6C)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(155,107,58,0.40)' }
+                  }
                 >
                   <ShoppingBag className="w-4 h-4" />
                 </motion.button>
@@ -155,7 +160,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
-                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-blue-500/25'
+                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-[#C49A6C]/25'
                   }`}
                 >
                   Buy Now
@@ -180,11 +185,11 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 event.stopPropagation();
                 navigate(`/shop?brand=${slugifyValue((product as any).brandSlug || product.brand)}`);
               }}
-              className="text-[8px] font-black text-blue-500 uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-blue-300"
+              className="text-[8px] font-black text-[#C49A6C] uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-white/90"
             >
               {product.brand}
             </button>
-            <h3 className="text-sm sm:text-lg md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-blue-400 transition-colors">
+            <h3 className="text-sm sm:text-lg md:text-2xl font-black text-white leading-tight uppercase italic tracking-tighter group-hover:text-[#D4B47A] transition-colors">
               {product.name}
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -194,7 +199,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   event.stopPropagation();
                   navigate(`/shop?category=${slugifyValue((product as any).categorySlug || product.category)}`);
                 }}
-                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-blue-500/45 hover:text-blue-300"
+                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-[#C49A6C]/45 hover:text-white/90"
               >
                 {product.category}
               </button>
@@ -207,7 +212,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     const subSlug = slugifyValue((product as any).subCategorySlug || product.subCategory);
                     navigate(`/shop?category=${categorySlug}&sub=${subSlug}`);
                   }}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-blue-500/35 hover:text-blue-300"
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-[#C49A6C]/35 hover:text-white/90"
                 >
                   {product.subCategory}
                 </button>
@@ -220,7 +225,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.14em] ${
                       urgency.outOfStock
                         ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                        : 'border-blue-500/35 bg-blue-600/10 text-blue-300'
+                        : 'border-[#C49A6C]/35 bg-[#9B6B3A]/10 text-white/90'
                     }`}
                   >
                     {urgency.outOfStock
@@ -237,7 +242,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             )}
           </div>
           <div className="text-right">
-            <p className="text-sm sm:text-lg md:text-xl font-black text-white group-hover:text-blue-400 transition-colors">৳{product.price.toLocaleString()}</p>
+            <p className="text-sm sm:text-lg md:text-xl font-black text-white group-hover:text-[#D4B47A] transition-colors">৳{product.price.toLocaleString()}</p>
           </div>
         </div>
 
@@ -247,10 +252,10 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             <Globe className="w-3 h-3" />
             <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">Curated Import</span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-blue-500" />
+          <div className="w-1 h-1 rounded-full bg-[#C49A6C]" />
           <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3 text-blue-500" />
-            <span className="text-[7px] font-black text-blue-500 uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
+            <Clock className="w-3 h-3 text-[#C49A6C]" />
+            <span className="text-[7px] font-black text-[#C49A6C] uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
           </div>
         </div>
 
