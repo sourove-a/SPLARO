@@ -239,6 +239,48 @@ const fetchNextHealthFallback = async (): Promise<HealthPayload | null> => {
         },
         sslcommerz: normalizeServiceState(statusData?.sslcommerz || healthData?.sslcommerz || {}),
         steadfast: normalizeServiceState(statusData?.steadfast || healthData?.steadfast || {}),
+        smtp: {
+          status: 'WARNING' as const,
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Check SMTP settings in Admin Panel.',
+        },
+        google_oauth: {
+          status: 'WARNING' as const,
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Verify Google OAuth client ID in settings.',
+        },
+        bkash: {
+          status: 'WARNING' as const,
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Check bKash payment gateway credentials.',
+        },
+        nagad: {
+          status: 'WARNING' as const,
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Check Nagad payment gateway credentials.',
+        },
+        cdn: {
+          status: 'OK' as const,
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: '',
+        },
+        whatsapp: {
+          status: 'WARNING' as const,
+          latency_ms: null,
+          last_checked_at: timestamp,
+          error: '',
+          next_action: 'Configure WhatsApp number in site settings.',
+        },
       },
       queue: statusData?.queue || healthData?.queue,
       recent_errors: Array.isArray(statusData?.recent_errors)
@@ -349,19 +391,31 @@ const statusClass = (status: HealthServiceStatus | 'PASS' | 'FAIL' | 'WARNING') 
   return 'text-rose-400 border-rose-500/30 bg-rose-500/10';
 };
 
-const serviceMeta: Record<string, { label: string; icon: any; probe: ProbeName | null }> = {
-  db: { label: 'DB', icon: Database, probe: 'db' },
-  orders_api: { label: 'Orders API', icon: ShoppingCart, probe: 'orders' },
-  auth_api: { label: 'Auth API', icon: ShieldCheck, probe: 'auth' },
-  queue: { label: 'Queue', icon: Workflow, probe: 'queue' },
-  telegram: { label: 'Telegram', icon: Send, probe: 'telegram' },
-  sheets: { label: 'Sheets', icon: Table2, probe: 'sheets' },
-  push: { label: 'Push', icon: Activity, probe: 'queue' },
-  sslcommerz: { label: 'SSLCommerz', icon: Activity, probe: null },
-  steadfast: { label: 'Steadfast', icon: Activity, probe: null }
+const serviceMeta: Record<string, { label: string; icon: any; probe: ProbeName | null; description?: string }> = {
+  db:            { label: 'Database',      icon: Database,   probe: 'db',       description: 'MySQL / Prisma connection' },
+  orders_api:    { label: 'Orders API',    icon: ShoppingCart, probe: 'orders', description: 'Order processing endpoint' },
+  auth_api:      { label: 'Auth API',      icon: ShieldCheck, probe: 'auth',    description: 'User login & session auth' },
+  queue:         { label: 'Job Queue',     icon: Workflow,   probe: 'queue',    description: 'Background task processor' },
+  telegram:      { label: 'Telegram Bot',  icon: Send,       probe: 'telegram', description: 'Order notification bot' },
+  sheets:        { label: 'Google Sheets', icon: Table2,     probe: 'sheets',   description: 'Sales sync spreadsheet' },
+  push:          { label: 'Push Notify',   icon: Activity,   probe: 'queue',    description: 'Web push notifications' },
+  sslcommerz:    { label: 'SSLCommerz',    icon: Activity,   probe: null,       description: 'Payment gateway (BD)' },
+  steadfast:     { label: 'Steadfast',     icon: Activity,   probe: null,       description: 'Courier & delivery' },
+  smtp:          { label: 'SMTP Email',    icon: Send,       probe: null,       description: 'Invoice & order emails' },
+  google_oauth:  { label: 'Google OAuth',  icon: ShieldCheck, probe: null,      description: 'Social sign-in' },
+  bkash:         { label: 'bKash',         icon: ShoppingCart, probe: null,     description: 'Mobile payment' },
+  nagad:         { label: 'Nagad',         icon: ShoppingCart, probe: null,     description: 'Mobile payment' },
+  cdn:           { label: 'CDN / Hosting', icon: Activity,   probe: null,       description: 'Hostinger static assets' },
+  whatsapp:      { label: 'WhatsApp API',  icon: Send,       probe: null,       description: 'Customer support channel' },
 };
 
-const knownServiceOrder = ['db', 'orders_api', 'auth_api', 'queue', 'telegram', 'sheets', 'push', 'sslcommerz', 'steadfast'];
+const knownServiceOrder = [
+  'db', 'orders_api', 'auth_api', 'queue',
+  'telegram', 'sheets', 'push',
+  'smtp', 'google_oauth',
+  'sslcommerz', 'bkash', 'nagad',
+  'steadfast', 'cdn', 'whatsapp'
+];
 
 const serviceLabelFromKey = (key: string): string => {
   const text = String(key || '').replace(/_/g, ' ').trim();

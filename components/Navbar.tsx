@@ -13,6 +13,7 @@ import { NotificationBell } from './NotificationBell';
 import { isAdminRole } from '../lib/roles';
 import { isAdminSubdomainHost } from '../lib/runtime';
 import { OptimizedImage } from './OptimizedImage';
+import { useTranslation } from '../lib/useTranslation';
 
 export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string }) => {
   const { siteSettings } = useApp();
@@ -70,8 +71,9 @@ interface NavItemProps {
   onClick: () => void;
 }
 
-const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
-  <motion.div
+const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
+  const { language } = useApp();
+  return (<motion.div
     initial={{ x: -24, opacity: 0 }}
     animate={{ x: 0, opacity: 1 }}
     exit={{ x: 12, opacity: 0 }}
@@ -93,7 +95,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
           className="text-[10px] font-bold uppercase mb-3 opacity-75 group-hover:opacity-100 transition-all duration-500"
           style={{ letterSpacing: '0.44em', color: '#C49A6C' }}
         >
-          Navigate
+          {language === 'BN' ? 'নেভিগেট' : 'Navigate'}
         </span>
         <span
           className="text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tighter transition-all duration-500 group-hover:pl-3 leading-none"
@@ -114,7 +116,8 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => (
       </motion.div>
     </button>
   </motion.div>
-);
+  );
+};
 
 /* ── Cognac/gold colour tokens reused in nav ── */
 const COGNAC      = '#C49A6C';
@@ -126,6 +129,7 @@ const NAV_BDR     = 'rgba(196,154,108,0.14)';
 
 export const Navbar: React.FC = () => {
   const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const adminDomain = isAdminSubdomainHost();
@@ -239,20 +243,20 @@ export const Navbar: React.FC = () => {
   ];
 
   const menuItems = [
-    { label: 'HOME',         view: View.HOME, icon: Home },
-    { label: 'ALL PRODUCTS', view: View.SHOP, icon: ShoppingBag },
-    { label: 'SHOES',        view: View.SHOP, category: 'Shoes', icon: Footprints },
-    { label: 'BAGS',         view: View.SHOP, category: 'Bags',  icon: Briefcase },
-    { label: 'NEW ARRIVALS', view: View.SHOP, icon: Star },
-    { label: 'BRAND STORY',  view: View.STORY,   icon: BookOpen },
-    { label: 'SUPPORT',      view: View.SUPPORT, icon: MessageSquare },
+    { label: t('nav.home').toUpperCase(),         view: View.HOME, icon: Home },
+    { label: t('nav.all').toUpperCase(),          view: View.SHOP, icon: ShoppingBag },
+    { label: t('nav.shoes').toUpperCase(),        view: View.SHOP, category: 'Shoes', icon: Footprints },
+    { label: t('nav.bags').toUpperCase(),         view: View.SHOP, category: 'Bags',  icon: Briefcase },
+    { label: t('nav.newArrivals').toUpperCase(),  view: View.SHOP, icon: Star },
+    { label: t('nav.story').toUpperCase(),        view: View.STORY,   icon: BookOpen },
+    { label: t('nav.support').toUpperCase(),      view: View.SUPPORT, icon: MessageSquare },
     ...(allowAdminPanel
-      ? [{ label: 'ADMIN PANEL', view: View.ADMIN_DASHBOARD, icon: BarChart3 }]
+      ? [{ label: t('nav.admin').toUpperCase(), view: View.ADMIN_DASHBOARD, icon: BarChart3 }]
       : user
-        ? [{ label: 'MY ACCOUNT', view: View.USER_DASHBOARD, icon: UserIcon }]
+        ? [{ label: t('nav.account').toUpperCase(), view: View.USER_DASHBOARD, icon: UserIcon }]
         : [
-            { label: 'SIGN UP',  view: View.SIGNUP, icon: UserIcon },
-            { label: 'SIGN IN',  view: View.LOGIN,  icon: Shield },
+            { label: t('nav.signUp').toUpperCase(),  view: View.SIGNUP, icon: UserIcon },
+            { label: t('nav.signIn').toUpperCase(),  view: View.LOGIN,  icon: Shield },
           ]
     )
   ];
@@ -411,7 +415,7 @@ export const Navbar: React.FC = () => {
                     className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold uppercase tracking-[0.25em] whitespace-nowrap pointer-events-none"
                     style={{ color: COGNAC }}
                   >
-                    {user ? 'PROFILE' : 'SIGN IN'}
+                    {user ? t('nav.profile').toUpperCase() : t('nav.signIn').toUpperCase()}
                   </div>
                 </button>
               ) : (
@@ -537,7 +541,7 @@ export const Navbar: React.FC = () => {
                 <input
                   autoFocus
                   type="text"
-                  placeholder="Search shoes, bags, brands..."
+                  placeholder={t('nav.search')}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -562,7 +566,7 @@ export const Navbar: React.FC = () => {
                 className="text-center mt-5 text-[10px] font-semibold uppercase tracking-[0.38em]"
                 style={{ color: 'rgba(196,154,108,0.55)' }}
               >
-                Press Enter to Search · Type Brand, Category or Style
+                {t('nav.searchHint')}
               </p>
             </motion.div>
           </motion.div>
@@ -693,7 +697,7 @@ export const Navbar: React.FC = () => {
                   className="text-[10px] font-semibold uppercase tracking-[0.3em]"
                   style={{ color: COGNAC }}
                 >
-                  Premium Quality · Authentic Imports · Bangladesh
+                  {t('nav.trust')}
                 </span>
               </div>
             </div>

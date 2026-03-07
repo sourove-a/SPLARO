@@ -2,7 +2,7 @@
 import React, { Suspense, lazy, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // Added ArrowRight to imports to fix line 103 error
-import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone } from 'lucide-react';
+import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone, Star, Quote, Tag, Bell, Truck, Headphones, RefreshCw, Award } from 'lucide-react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider, useApp } from './store';
@@ -15,6 +15,7 @@ import { OptimizedImage } from './components/OptimizedImage';
 import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
 import { canWriteCms, isAdminRole } from './lib/roles';
 import { isAdminSubdomainHost } from './lib/runtime';
+import { useTranslation } from './lib/useTranslation';
 
 const HeroSlider = lazy(() => import('./components/HeroSlider').then((m) => ({ default: m.HeroSlider })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
@@ -78,6 +79,7 @@ const CmsContentPage = ({ pageKey }: { pageKey: 'manifest' | 'privacyPolicy' | '
 
 const StoryPage = () => {
   const { siteSettings } = useApp();
+  const { t } = useTranslation();
   const publishedStories = useMemo(() => {
     const now = Date.now();
     return (siteSettings.storyPosts || [])
@@ -98,11 +100,11 @@ const StoryPage = () => {
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
         <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">
-          BRAND<br /><span className="text-[#C49A6C]">STORY.</span>
+          {t('story.title1')}<br /><span className="text-[#C49A6C]">{t('story.title2')}</span>
         </h1>
         {publishedStories.length === 0 ? (
           <GlassCard className="p-12 !bg-white/[0.02]">
-            <p className="text-zinc-400 text-sm uppercase tracking-[0.2em]">No published stories yet.</p>
+            <p className="text-zinc-400 text-sm uppercase tracking-[0.2em]">{t('story.empty')}</p>
           </GlassCard>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -128,15 +130,20 @@ const StoryPage = () => {
   );
 };
 
-const SupportPage = () => (
+const SupportPage = () => {
+  const { t } = useTranslation();
+  const { siteSettings } = useApp();
+  return (
   <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }}>
-      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">CUSTOMER<br /><span style={{color:'#C49A6C'}}>SUPPORT.</span></h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+        {t('support.title1')}<br /><span style={{color:'#E8B866'}}>{t('support.title2')}</span>
+      </h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-16">
         {[
-          { label: 'Order Tracking', icon: Box, desc: 'Track your order status and delivery updates in real-time.' },
-          { label: 'Customer Care', icon: MessageSquare, desc: 'Reach our support team quickly via WhatsApp or email for any queries.' },
-          { label: 'Quality Guarantee', icon: Shield, desc: 'All products are 100% authentic, imported directly from verified global suppliers.' }
+          { label: t('support.track'), icon: Box, desc: t('support.trackDesc') },
+          { label: t('support.care'), icon: MessageSquare, desc: t('support.careDesc') },
+          { label: t('support.quality'), icon: Shield, desc: t('support.qualityDesc') }
         ].map((item, i) => (
           <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-[#C49A6C]/50 transition-all duration-700">
             <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-[#C49A6C] group-hover:bg-[#C49A6C]/10 group-hover:border-[#C49A6C]/20 transition-all duration-500">
@@ -150,9 +157,33 @@ const SupportPage = () => (
           </GlassCard>
         ))}
       </div>
+
+      {/* Contact Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+        {[
+          { icon: MessageSquare, label: t('support.whatsapp'), href: `https://wa.me/${(siteSettings.whatsappNumber || '+8801905010205').replace(/[^\d+]/g, '')}`, color: '#25D366' },
+          { icon: Mail, label: t('support.email'), href: `mailto:${siteSettings.supportEmail || 'info@splaro.co'}`, color: '#C49A6C' },
+          { icon: Phone, label: t('support.phone'), href: `tel:${siteSettings.supportPhone || '+8801905010205'}`, color: '#C49A6C' },
+        ].map((c, i) => (
+          <a
+            key={i}
+            href={c.href}
+            target={c.href.startsWith('http') ? '_blank' : undefined}
+            rel="noreferrer"
+            className="flex items-center gap-4 p-6 rounded-2xl transition-all duration-400 hover:scale-[1.02] group"
+            style={{ background: 'rgba(15,26,13,0.65)', border: '1px solid rgba(196,154,108,0.20)', textDecoration: 'none' }}
+          >
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(196,154,108,0.10)', border: '1px solid rgba(196,154,108,0.22)' }}>
+              <c.icon className="w-5 h-5" style={{ color: c.color }} />
+            </div>
+            <span className="text-sm font-bold" style={{ color: '#EDE8DC' }}>{c.label}</span>
+          </a>
+        ))}
+      </div>
     </motion.div>
   </div>
-);
+  );
+};
 
 const ManifestPage = () => <CmsContentPage pageKey="manifest" />;
 const PrivacyPolicyPage = () => <CmsContentPage pageKey="privacyPolicy" />;
@@ -279,6 +310,7 @@ const ScrollToTop = () => {
 
 const HomeView = () => {
   const { products, setSelectedCategory, setSearchQuery } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const displayProducts = products;
 
@@ -293,13 +325,13 @@ const HomeView = () => {
             <div className="max-w-3xl">
               <h2
                 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC' }}
+                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
               >
-                PREMIUM<br />
-                <span style={{ color: '#C49A6C' }}>COLLECTION.</span>
+                {t('home.headline1')}<br />
+                <span style={{ color: '#E8B866' }}>{t('home.headline2')}</span>
               </h2>
-              <p className="text-base md:text-xl max-w-xl leading-relaxed font-medium" style={{ color: 'rgba(237,232,220,0.70)' }}>
-                Directly imported footwear &amp; bags with refined craftsmanship, premium materials, and elegant character.
+              <p className="text-base md:text-xl max-w-xl leading-relaxed font-medium" style={{ color: 'rgba(245,239,227,0.78)' }}>
+                {t('home.subheadline')}
               </p>
             </div>
             <button
@@ -317,7 +349,7 @@ const HomeView = () => {
               onMouseEnter={e => (e.currentTarget.style.borderBottomColor = 'rgba(196,154,108,0.70)')}
               onMouseLeave={e => (e.currentTarget.style.borderBottomColor = 'rgba(196,154,108,0.18)')}
             >
-              Explore Collection <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
+              {t('home.explore')} <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">
@@ -340,39 +372,39 @@ const HomeView = () => {
             </p>
             <h2
               className="text-5xl md:text-7xl font-black tracking-tighter leading-tight uppercase mb-8"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC' }}
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
             >
-              SPLARO<br />
-              <span style={{ color: '#C49A6C' }}>LUXURY.</span>
+              {t('about.title1')}<br />
+              <span style={{ color: '#E8B866' }}>{t('about.title2')}</span>
             </h2>
             <p
               className="text-base leading-relaxed mb-6"
-              style={{ color: 'rgba(237,232,220,0.72)', fontFamily: "'Inter', sans-serif" }}
+              style={{ color: 'rgba(245,239,227,0.80)', fontFamily: "'Inter', sans-serif" }}
             >
-              Splaro is Bangladesh's premium destination for directly imported luxury footwear and bags. We source the finest pieces from global markets — Nike, Adidas, Jordan, Gucci, Louis Vuitton and more — and bring them straight to you without middlemen.
+              {t('about.body1')}
             </p>
             <p
               className="text-base leading-relaxed mb-10"
-              style={{ color: 'rgba(237,232,220,0.65)', fontFamily: "'Inter', sans-serif" }}
+              style={{ color: 'rgba(245,239,227,0.70)', fontFamily: "'Inter', sans-serif" }}
             >
-              স্প্লারো বাংলাদেশের প্রিমিয়াম ফুটওয়্যার ও ব্যাগের সর্বোচ্চ গন্তব্য। আমরা সরাসরি বিশ্ব বাজার থেকে আমদানি করি — সর্বোচ্চ মান ও সত্যতার নিশ্চয়তা সহ।
+              {t('about.body2')}
             </p>
             <div className="grid grid-cols-3 gap-8">
               {[
-                { value: '500+', label: 'Premium Products' },
-                { value: '100%', label: 'Authentic Imports' },
-                { value: '24/7', label: 'Customer Support' }
+                { value: '500+', label: t('about.stat1sub') },
+                { value: '100%', label: t('about.stat2sub') },
+                { value: '24/7', label: t('about.stat3sub') }
               ].map((stat) => (
                 <div key={stat.label}>
                   <p
                     className="text-3xl md:text-4xl font-black mb-2"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#C49A6C' }}
+                    style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#E8B866' }}
                   >
                     {stat.value}
                   </p>
                   <p
                     className="text-[9px] font-semibold uppercase"
-                    style={{ letterSpacing: '0.35em', color: 'rgba(237,232,220,0.50)' }}
+                    style={{ letterSpacing: '0.35em', color: 'rgba(245,239,227,0.55)' }}
                   >
                     {stat.label}
                   </p>
@@ -383,35 +415,221 @@ const HomeView = () => {
 
           <div className="grid grid-cols-2 gap-5">
             {[
-              { icon: Shield, title: 'প্রামাণিক পণ্য', subtitle: 'Authentic Products', desc: 'Every item is verified and directly sourced from authorized global suppliers.' },
-              { icon: Box, title: 'দ্রুত ডেলিভারি', subtitle: 'Fast Delivery', desc: 'Delivered safely across Bangladesh with real-time order tracking.' },
-              { icon: CreditCard, title: 'নিরাপদ পেমেন্ট', subtitle: 'Secure Payment', desc: 'Multiple secure payment options including bKash, Nagad, and COD.' },
-              { icon: Smartphone, title: 'সহজ রিটার্ন', subtitle: 'Easy Returns', desc: 'Hassle-free returns and exchanges within the return window.' }
+              { icon: Shield, title: t('about.feat1t'), subtitle: t('about.feat1d') },
+              { icon: Box, title: t('about.feat2t'), subtitle: t('about.feat2d') },
+              { icon: CreditCard, title: t('about.feat3t'), subtitle: t('about.feat3d') },
+              { icon: Smartphone, title: t('about.feat4t'), subtitle: t('about.feat4d') }
             ].map((feature, i) => (
               <div
                 key={i}
                 className="p-6 rounded-2xl flex flex-col gap-4 transition-all duration-500 hover:scale-[1.02]"
                 style={{
                   background: 'rgba(15,26,13,0.65)',
-                  border: '1px solid rgba(196,154,108,0.16)',
+                  border: '1px solid rgba(232,184,102,0.20)',
                   backdropFilter: 'blur(12px)'
                 }}
               >
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(196,154,108,0.10)', border: '1px solid rgba(196,154,108,0.22)' }}
+                  style={{ background: 'rgba(232,184,102,0.12)', border: '1px solid rgba(232,184,102,0.28)' }}
                 >
-                  <feature.icon className="w-5 h-5" style={{ color: '#C49A6C' }} />
+                  <feature.icon className="w-5 h-5" style={{ color: '#E8B866' }} />
                 </div>
                 <div>
-                  <p className="text-sm font-black tracking-tight" style={{ color: '#EDE8DC' }}>{feature.title}</p>
-                  <p className="text-[10px] font-medium mt-0.5" style={{ color: '#C49A6C', letterSpacing: '0.12em' }}>{feature.subtitle}</p>
-                  <p className="text-[11px] font-medium leading-relaxed mt-2" style={{ color: 'rgba(237,232,220,0.55)' }}>{feature.desc}</p>
+                  <p className="text-sm font-black tracking-tight" style={{ color: '#F5EFE3' }}>{feature.title}</p>
+                  <p className="text-[11px] font-medium leading-relaxed mt-2" style={{ color: 'rgba(245,239,227,0.62)' }}>{feature.subtitle}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ── Why Choose Us — Service Pillars ── */}
+      <section style={{ background: 'rgba(10,17,9,0.70)', borderTop: '1px solid rgba(232,184,102,0.12)', borderBottom: '1px solid rgba(232,184,102,0.12)' }}>
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+          {[
+            { icon: Truck,       title: t('why.delivery'),  sub: t('why.deliverysub') },
+            { icon: RefreshCw,   title: t('why.returns'),   sub: t('why.returnssub')  },
+            { icon: Award,       title: t('why.quality'),   sub: t('why.qualitysub')  },
+            { icon: Headphones,  title: t('why.support'),   sub: t('why.supportsub')  },
+          ].map((item, i) => (
+            <div key={i} className="flex flex-col items-center text-center gap-3">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1"
+                style={{ background: 'rgba(232,184,102,0.10)', border: '1px solid rgba(232,184,102,0.25)' }}
+              >
+                <item.icon className="w-6 h-6" style={{ color: '#E8B866' }} />
+              </div>
+              <p className="text-sm font-black tracking-tight" style={{ color: '#F5EFE3' }}>{item.title}</p>
+              <p className="text-[10px] leading-relaxed" style={{ color: 'rgba(245,239,227,0.55)' }}>{item.sub}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Customer Testimonials ── */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32">
+        <div className="text-center mb-16">
+          <p className="text-[10px] font-black uppercase mb-4" style={{ letterSpacing: '0.5em', color: '#E8B866' }}>
+            {t('testimonial.label')}
+          </p>
+          <h2
+            className="text-4xl md:text-6xl font-black tracking-tighter uppercase"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
+          >
+            {t('testimonial.title1')}<br />
+            <span style={{ color: '#E8B866' }}>{t('testimonial.title2')}</span>
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { name: 'Rafiq Ahmed',    location: 'Dhaka',      rating: 5, text: t('testimonial.r1'), img: '👨‍💼' },
+            { name: 'Nusrat Jahan',   location: 'Chittagong',  rating: 5, text: t('testimonial.r2'), img: '👩‍💼' },
+            { name: 'Tanvir Hossain', location: 'Sylhet',     rating: 5, text: t('testimonial.r3'), img: '👨‍🦱' },
+          ].map((review, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15, duration: 0.6 }}
+              className="p-7 rounded-2xl flex flex-col gap-5 relative"
+              style={{
+                background: 'rgba(15,26,13,0.70)',
+                border: '1px solid rgba(232,184,102,0.18)',
+                backdropFilter: 'blur(14px)',
+              }}
+            >
+              <Quote className="w-6 h-6 absolute top-6 right-7 opacity-20" style={{ color: '#E8B866' }} />
+              <div className="flex gap-1">
+                {Array.from({ length: review.rating }).map((_, s) => (
+                  <Star key={s} className="w-4 h-4 fill-current" style={{ color: '#E8B866' }} />
+                ))}
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(245,239,227,0.82)' }}>&ldquo;{review.text}&rdquo;</p>
+              <div className="flex items-center gap-3 mt-auto pt-4" style={{ borderTop: '1px solid rgba(232,184,102,0.10)' }}>
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                  style={{ background: 'rgba(232,184,102,0.12)', border: '1px solid rgba(232,184,102,0.25)' }}
+                >
+                  {review.img}
+                </div>
+                <div>
+                  <p className="text-xs font-black" style={{ color: '#F5EFE3' }}>{review.name}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(245,239,227,0.45)', letterSpacing: '0.12em' }}>{review.location}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Promotional Sale Banner ── */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-20">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="relative overflow-hidden rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10"
+          style={{
+            background: 'linear-gradient(135deg, #1A2E18 0%, #0D1F0A 40%, #2A1A08 100%)',
+            border: '1px solid rgba(232,184,102,0.28)',
+            boxShadow: '0 0 60px rgba(232,184,102,0.08), inset 0 1px 0 rgba(232,184,102,0.15)',
+          }}
+        >
+          {/* Decorative blobs */}
+          <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-10 pointer-events-none"
+            style={{ background: 'radial-gradient(circle, #E8B866 0%, transparent 70%)', transform: 'translate(30%,-30%)' }} />
+          <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-08 pointer-events-none"
+            style={{ background: 'radial-gradient(circle, #4A8040 0%, transparent 70%)', transform: 'translate(-30%,30%)' }} />
+
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: 'rgba(232,184,102,0.18)', border: '1px solid rgba(232,184,102,0.38)' }}>
+              <Tag className="w-3 h-3" style={{ color: '#E8B866' }} />
+              <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#E8B866' }}>{t('sale.badge')}</span>
+            </div>
+            <h3
+              className="text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4"
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
+            >
+              {t('sale.title1')}<br />
+              <span style={{ color: '#E8B866' }}>{t('sale.title2')}</span>
+            </h3>
+            <p className="text-sm max-w-sm" style={{ color: 'rgba(245,239,227,0.70)' }}>
+              {t('sale.sub')}
+            </p>
+          </div>
+          <div className="relative z-10 flex flex-col items-center gap-5">
+            <div className="text-center">
+              <p className="text-[11px] font-bold uppercase mb-1" style={{ letterSpacing: '0.35em', color: 'rgba(245,239,227,0.55)' }}>
+                {t('sale.offLabel')}
+              </p>
+              <p className="text-8xl md:text-9xl font-black leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#E8B866' }}>
+                30%
+              </p>
+              <p className="text-sm font-black uppercase mt-1" style={{ letterSpacing: '0.3em', color: '#F5EFE3' }}>
+                OFF
+              </p>
+            </div>
+            <button
+              onClick={() => { navigate('/shop'); }}
+              className="btn-green-primary px-8 py-4 rounded-full text-sm font-black uppercase"
+              style={{ letterSpacing: '0.25em' }}
+            >
+              {t('sale.cta')}
+            </button>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ── WhatsApp / Newsletter Subscribe ── */}
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-32">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="rounded-3xl p-10 md:p-14 text-center"
+          style={{
+            background: 'rgba(15,26,13,0.65)',
+            border: '1px solid rgba(232,184,102,0.16)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+            style={{ background: 'rgba(232,184,102,0.12)', border: '1px solid rgba(232,184,102,0.28)' }}
+          >
+            <Bell className="w-7 h-7" style={{ color: '#E8B866' }} />
+          </div>
+          <p className="text-[10px] font-black uppercase mb-3" style={{ letterSpacing: '0.5em', color: '#E8B866' }}>
+            {t('newsletter.label')}
+          </p>
+          <h3
+            className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-4"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
+          >
+            {t('newsletter.title')}
+          </h3>
+          <p className="text-sm mb-10 max-w-lg mx-auto" style={{ color: 'rgba(245,239,227,0.65)' }}>
+            {t('newsletter.sub')}
+          </p>
+          <a
+            href="https://wa.me/8801XXXXXXXXX?text=Splaro%20Newsletter%20Subscribe"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-green-primary inline-flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black uppercase"
+            style={{ letterSpacing: '0.2em' }}
+          >
+            <MessageSquare className="w-4 h-4" />
+            {t('newsletter.cta')}
+          </a>
+          <p className="text-[10px] mt-5" style={{ color: 'rgba(245,239,227,0.35)' }}>
+            {t('newsletter.note')}
+          </p>
+        </motion.div>
       </section>
     </div>
   );
@@ -419,6 +637,7 @@ const HomeView = () => {
 
 const OrderSuccessView = () => {
   const { orders } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const latestOrder = orders[0];
@@ -468,9 +687,9 @@ const OrderSuccessView = () => {
           transition={{ delay: 1, duration: 1 }}
           className="text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
         >
-          ORDER CONFIRMED.
+          {t('success.title')}
         </motion.h1>
-        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[#C49A6C]/60 mb-16 animate-pulse">Your order is being prepared</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[#C49A6C]/60 mb-16 animate-pulse">{t('success.sub')}</p>
         {invoiceState === 'sent' && (
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300 mb-10">
             Invoice email delivered to your inbox.
@@ -484,32 +703,32 @@ const OrderSuccessView = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-16">
           <GlassCard className="p-10 !bg-white/[0.04]">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C49A6C] mb-6">Order Summary</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C49A6C] mb-6">{t('success.orderSummary')}</h4>
             <div className="space-y-4">
               <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Order ID</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.orderId')}</span>
                 <span className="text-xs font-black text-white uppercase tracking-wider">#{latestOrder?.id}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Customer Name</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.customer')}</span>
                 <span className="text-xs font-black text-white uppercase">{latestOrder?.customerName}</span>
               </div>
               <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Delivery Address</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.address')}</span>
                 <span className="text-xs font-black text-white uppercase">{latestOrder?.district}</span>
               </div>
               <div className="flex justify-between pt-2">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">Total Amount</span>
+                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.total')}</span>
                 <span className="text-xl font-black text-[#C49A6C]">৳{latestOrder?.total.toLocaleString()}</span>
               </div>
             </div>
           </GlassCard>
 
           <GlassCard className="p-10 !bg-white/[0.04] flex flex-col justify-center">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C49A6C] mb-8">Order Status</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C49A6C] mb-8">{t('success.status')}</h4>
             <div className="space-y-8">
               {[
-                { label: 'Confirmed', status: 'Completed', icon: CheckCircle2, active: true },
+                { label: t('success.step1'), status: t('checkout.cod') === 'Cash on Delivery' ? 'Completed' : 'Completed', icon: CheckCircle2, active: true },
                 { label: 'Processing', status: 'In Progress', icon: Sparkles, active: true },
                 { label: 'Delivery', status: 'Scheduled', icon: ShoppingBag, active: false }
               ].map((step, i) => (
@@ -529,10 +748,10 @@ const OrderSuccessView = () => {
 
         <div className="flex flex-col sm:flex-row gap-6 justify-center">
           <PrimaryButton onClick={() => navigate('/')} className="px-16 py-7 text-[10px] !bg-white/5 !border !border-white/10 hover:!bg-white/10">
-            RETURN HOME
+            {t('success.returnHome')}
           </PrimaryButton>
           <PrimaryButton onClick={() => navigate('/shop')} className="px-16 py-7 text-[10px]">
-            DISCOVER MORE <ArrowRight className="w-5 h-5 ml-2" />
+            {t('success.discoverMore').toUpperCase()} <ArrowRight className="w-5 h-5 ml-2" />
           </PrimaryButton>
         </div>
       </motion.div>
@@ -593,11 +812,12 @@ const BrandMarquee = () => {
 const Footer = () => {
   const navigate = useNavigate();
   const { siteSettings } = useApp();
+  const { t } = useTranslation();
 
-  const COGNAC      = '#C49A6C';
-  const COGNAC_DIM  = 'rgba(196,154,108,0.45)';
-  const COGNAC_MUTE = 'rgba(196,154,108,0.28)';
-  const TEXT_DIM    = 'rgba(237,232,220,0.52)';
+  const COGNAC      = '#E8B866';
+  const COGNAC_DIM  = 'rgba(232,184,102,0.55)';
+  const COGNAC_MUTE = 'rgba(232,184,102,0.38)';
+  const TEXT_DIM    = 'rgba(245,239,227,0.58)';
 
   const footerLink = (label: string, path: string) => (
     <motion.span
@@ -659,7 +879,7 @@ const Footer = () => {
                 className="text-[10px] font-medium leading-relaxed max-w-xs"
                 style={{ letterSpacing: '0.12em', color: TEXT_DIM }}
               >
-                Directly imported premium footwear &amp; bags from global markets to Bangladesh. Unmatched quality, refined taste.
+                {t('footer.tagline')}
               </p>
               <div className="flex gap-3">
                 {[
@@ -700,7 +920,7 @@ const Footer = () => {
             {/* Headquarters */}
             <div className="lg:col-span-3 space-y-8">
               <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                Head Office
+                {t('footer.office')}
               </h4>
               <div className="flex items-start gap-5 group">
                 <div
@@ -726,7 +946,7 @@ const Footer = () => {
             {/* Contact */}
             <div className="lg:col-span-2 space-y-8">
               <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                Contact
+                {t('footer.contact')}
               </h4>
               <div className="space-y-5">
                 <div className="flex items-center gap-4 group">
@@ -759,26 +979,26 @@ const Footer = () => {
             {/* Quick Links */}
             <div className="lg:col-span-2 space-y-8">
               <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                Collection
+                {t('footer.collection')}
               </h4>
               <div className="flex flex-col gap-4">
-                {footerLink('All Products', '/shop')}
-                {footerLink('Shoes', '/shop?category=shoes')}
-                {footerLink('Bags', '/shop?category=bags')}
-                {footerLink('Order Tracking', '/order-tracking')}
+                {footerLink(t('footer.allProducts'), '/shop')}
+                {footerLink(t('footer.shoes'), '/shop?category=shoes')}
+                {footerLink(t('footer.bags'), '/shop?category=bags')}
+                {footerLink(t('footer.tracking'), '/order-tracking')}
               </div>
             </div>
 
             {/* Support */}
             <div className="lg:col-span-2 space-y-8">
               <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                Support
+                {t('footer.support')}
               </h4>
               <div className="flex flex-col gap-4">
-                {footerLink('About Splaro', '/manifest')}
-                {footerLink('Privacy Policy', '/privacy')}
-                {footerLink('Terms & Conditions', '/terms')}
-                {footerLink('Refund Policy', '/refund-policy')}
+                {footerLink(t('footer.about'), '/manifest')}
+                {footerLink(t('footer.privacy'), '/privacy')}
+                {footerLink(t('footer.terms'), '/terms')}
+                {footerLink(t('footer.refund'), '/refund-policy')}
               </div>
             </div>
 
@@ -787,22 +1007,22 @@ const Footer = () => {
           {/* Trust & Security Badges */}
           <div
             className="mt-12 pt-8 grid grid-cols-2 md:grid-cols-4 gap-4"
-            style={{ borderTop: '1px solid rgba(196,154,108,0.10)' }}
+            style={{ borderTop: '1px solid rgba(232,184,102,0.15)' }}
           >
             {[
-              { icon: Shield, label: 'SSL Secured', sub: 'Encrypted connection' },
-              { icon: CheckCircle2, label: '100% Authentic', sub: 'Verified products' },
-              { icon: CreditCard, label: 'Safe Payment', sub: 'bKash · Nagad · COD' },
-              { icon: Box, label: 'Fast Delivery', sub: 'Across Bangladesh' }
+              { icon: Shield,       label: t('trust.ssl'),      sub: t('trust.sslSub') },
+              { icon: CheckCircle2, label: t('trust.auth'),     sub: t('trust.authSub') },
+              { icon: CreditCard,   label: t('trust.payment'),  sub: t('trust.paymentSub') },
+              { icon: Box,          label: t('trust.delivery'), sub: t('trust.deliverySub') }
             ].map((badge) => (
               <div
                 key={badge.label}
                 className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(196,154,108,0.06)', border: '1px solid rgba(196,154,108,0.12)' }}
+                style={{ background: 'rgba(232,184,102,0.08)', border: '1px solid rgba(232,184,102,0.18)' }}
               >
                 <badge.icon className="w-4 h-4 shrink-0" style={{ color: COGNAC }} />
                 <div>
-                  <p className="text-[9px] font-bold uppercase" style={{ letterSpacing: '0.2em', color: '#EDE8DC' }}>{badge.label}</p>
+                  <p className="text-[9px] font-bold uppercase" style={{ letterSpacing: '0.2em', color: '#F5EFE3' }}>{badge.label}</p>
                   <p className="text-[8px] font-medium mt-0.5" style={{ color: COGNAC_MUTE }}>{badge.sub}</p>
                 </div>
               </div>
@@ -812,21 +1032,21 @@ const Footer = () => {
           {/* Footer bottom */}
           <div
             className="mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-6"
-            style={{ borderTop: '1px solid rgba(196,154,108,0.12)' }}
+            style={{ borderTop: '1px solid rgba(232,184,102,0.15)' }}
           >
             <div className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(196,154,108,0.08)', border: '1px solid rgba(196,154,108,0.18)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(232,184,102,0.10)', border: '1px solid rgba(232,184,102,0.22)' }}>
                 <Globe className="w-4 h-4" style={{ color: COGNAC }} />
               </div>
               <p className="text-[9px] font-medium uppercase" style={{ letterSpacing: '0.28em', color: TEXT_DIM }}>
-                <span style={{ color: '#EDE8DC', fontWeight: 700 }}>Directly imported</span> — Premium Grade · Bangladesh
+                <span style={{ color: '#F5EFE3', fontWeight: 700 }}>{t('footer.imported')}</span> — {t('footer.grade')}
               </p>
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#C49A6C', boxShadow: '0 0 8px rgba(196,154,108,0.50)' }} />
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#E8B866', boxShadow: '0 0 8px rgba(232,184,102,0.60)' }} />
                 <p className="text-[8px] font-medium tracking-[0.45em] uppercase" style={{ color: COGNAC_MUTE }}>
-                  Secured by Hostinger
+                  {t('footer.secured')}
                 </p>
               </div>
               <span

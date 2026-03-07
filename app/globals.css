@@ -6,24 +6,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,700;1,800;1,900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-    /* ── Core Palette ── */
-    --ng-bg:              #0A0F08;
-    --ng-bg2:             #0F1A0D;
-    --ng-surface:         rgba(255, 252, 248, 0.055);
-    --ng-surface-hov:     rgba(255, 252, 248, 0.085);
-    --ng-primary:         #8BA888;     /* sage green */
-    --ng-primary-deep:    #3D6B3D;     /* deep forest green */
-    --ng-gold:            #C49A6C;     /* cognac leather */
-    --ng-gold-bright:     #D4B47A;     /* warm amber gold */
-    --ng-amber:           #E8C87A;     /* highlight amber */
-    --ng-text:            #EDE8DC;     /* warm cream */
-    --ng-text-dim:        rgba(230, 220, 200, 0.62);
-    --ng-text-muted:      rgba(200, 190, 170, 0.42);
-    --ng-border:          rgba(196, 154, 108, 0.18);
-    --ng-border-bright:   rgba(196, 154, 108, 0.45);
-    --ng-red:             #C0614A;
-    --ng-glass:           rgba(255, 252, 248, 0.055);
-    --ng-glass-border:    rgba(196, 154, 108, 0.22);
+    /* ── Core Palette — BRIGHT GENTLEMAN EDITION ── */
+    --ng-bg:              #0D1510;     /* slightly lighter deep forest */
+    --ng-bg2:             #142018;     /* warm forest mid */
+    --ng-surface:         rgba(255, 252, 248, 0.08);
+    --ng-surface-hov:     rgba(255, 252, 248, 0.13);
+    --ng-primary:         #A8C8A4;     /* brighter sage */
+    --ng-primary-deep:    #4A8050;     /* vibrant forest */
+    --ng-gold:            #D4A056;     /* rich gold — brighter */
+    --ng-gold-bright:     #E8B866;     /* warm bright gold */
+    --ng-amber:           #F0CC80;     /* vivid highlight amber */
+    --ng-text:            #F5EFE3;     /* brighter warm cream */
+    --ng-text-dim:        rgba(245, 239, 227, 0.75);
+    --ng-text-muted:      rgba(220, 210, 190, 0.55);
+    --ng-border:          rgba(212, 160, 86, 0.24);
+    --ng-border-bright:   rgba(212, 160, 86, 0.58);
+    --ng-red:             #D06050;
+    --ng-glass:           rgba(255, 252, 248, 0.07);
+    --ng-glass-border:    rgba(212, 160, 86, 0.28);
     --ng-radius:          24px;
     --ng-radius-sm:       16px;
     --ng-radius-lg:       36px;
@@ -39,11 +39,11 @@
     --ui-focus-shadow:    0 0 0 4px rgba(196, 154, 108, 0.22);
 
     /* ── System tokens (mapped to natural theme) ── */
-    --splaro-primary:       #8BA888;
-    --splaro-accent:        #C49A6C;
-    --splaro-bg:            #0A0F08;
-    --splaro-surface:       rgba(255, 252, 248, 0.065);
-    --splaro-text:          #EDE8DC;
+    --splaro-primary:       #A8C8A4;
+    --splaro-accent:        #E8B866;
+    --splaro-bg:            #0D1510;
+    --splaro-surface:       rgba(255, 252, 248, 0.08);
+    --splaro-text:          #F5EFE3;
     --splaro-radius:        24px;
     --splaro-shadow-strength: 72;
     --splaro-font-base-size: 16px;
@@ -103,10 +103,11 @@ body {
     margin: 0;
     background-color: var(--bg-main);
     background-image:
-        radial-gradient(ellipse at 15% 8%,  rgba(61, 107, 61, 0.22), transparent 42%),
-        radial-gradient(ellipse at 85% 92%, rgba(196, 154, 108, 0.12), transparent 38%),
-        radial-gradient(ellipse at 50% 45%, rgba(139, 168, 136, 0.06), transparent 55%),
-        linear-gradient(180deg, #0C1409 0%, #0A0F08 45%, #080C06 100%);
+        radial-gradient(ellipse at 15% 8%,  rgba(74, 128, 80, 0.32), transparent 42%),
+        radial-gradient(ellipse at 85% 92%, rgba(212, 160, 86, 0.20), transparent 40%),
+        radial-gradient(ellipse at 50% 45%, rgba(168, 200, 164, 0.10), transparent 55%),
+        radial-gradient(ellipse at 70% 20%, rgba(232, 184, 102, 0.10), transparent 35%),
+        linear-gradient(180deg, #0F1A12 0%, #0D1510 45%, #0B1210 100%);
     color: var(--text-main);
     transition: background-color 0.35s ease, color 0.25s ease;
     -webkit-font-smoothing: antialiased;
@@ -197,20 +198,20 @@ h1, h2, h3, h4 {
     background:
         linear-gradient(
             135deg,
-            rgba(255, 252, 248, 0.10) 0%,
-            rgba(255, 252, 248, 0.03) 40%,
-            rgba(196, 154, 108, 0.06) 100%
+            rgba(255, 252, 248, 0.14) 0%,
+            rgba(255, 252, 248, 0.05) 40%,
+            rgba(212, 160, 86, 0.09) 100%
         ),
         var(--glass-bg);
-    backdrop-filter: blur(36px) saturate(180%);
-    -webkit-backdrop-filter: blur(36px) saturate(180%);
+    backdrop-filter: blur(36px) saturate(200%);
+    -webkit-backdrop-filter: blur(36px) saturate(200%);
     border: 1px solid var(--glass-border);
     border-radius: var(--splaro-radius, 24px);
     box-shadow:
-        0 0 0 0.5px rgba(255, 252, 248, 0.08),
-        inset 0 1px 0 rgba(255, 252, 248, 0.16),
-        0 24px 52px rgba(0, 0, 0, 0.72),
-        0 0 32px rgba(61, 107, 61, 0.08);
+        0 0 0 0.5px rgba(255, 252, 248, 0.10),
+        inset 0 1px 0 rgba(255, 252, 248, 0.20),
+        0 24px 52px rgba(0, 0, 0, 0.65),
+        0 0 40px rgba(74, 128, 80, 0.12);
 }
 
 .ribbed-texture {
@@ -408,20 +409,23 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    CTA BUTTON — Cognac/Leather Premium
    ══════════════════════════════════════════ */
 .btn-green-primary {
-    background: linear-gradient(135deg, #6B4226 0%, #9B6B3A 45%, #C49A6C 75%, #9B6B3A 100%);
-    border: 1px solid rgba(212, 180, 122, 0.38);
-    color: #F8F0E0;
+    background: linear-gradient(135deg, #8B5E2A 0%, #C07832 45%, #E8B866 75%, #C07832 100%);
+    border: 1px solid rgba(232, 184, 102, 0.55);
+    color: #FFFAF0;
     box-shadow:
-        0 4px 24px rgba(155, 107, 58, 0.52),
-        inset 0 1px 0 rgba(255, 240, 210, 0.24);
+        0 4px 28px rgba(192, 120, 50, 0.65),
+        0 0 12px rgba(232, 184, 102, 0.25),
+        inset 0 1px 0 rgba(255, 248, 220, 0.32);
     transition: all 240ms ease;
 }
 .btn-green-primary:hover {
-    background: linear-gradient(135deg, #9B6B3A 0%, #C49A6C 50%, #D4B47A 80%, #C49A6C 100%);
+    background: linear-gradient(135deg, #C07832 0%, #E8B866 50%, #F5CC82 80%, #E8B866 100%);
+    border-color: rgba(245, 204, 130, 0.75);
     box-shadow:
-        0 8px 32px rgba(196, 154, 108, 0.65),
-        inset 0 1px 0 rgba(255, 240, 210, 0.32);
-    transform: translateY(-1px);
+        0 8px 36px rgba(232, 184, 102, 0.75),
+        0 0 20px rgba(232, 184, 102, 0.40),
+        inset 0 1px 0 rgba(255, 248, 220, 0.40);
+    transform: translateY(-2px);
 }
 
 /* ── Natural badges ── */
@@ -489,19 +493,20 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    NATURAL FILTER PILL (Shop Page)
    ══════════════════════════════════════════ */
 .filter-pill-active {
-    background: rgba(196, 154, 108, 0.18);
-    border-color: rgba(196, 154, 108, 0.52);
-    color: var(--ng-gold-bright);
-    box-shadow: 0 0 24px rgba(196, 154, 108, 0.15);
+    background: rgba(232, 184, 102, 0.22);
+    border-color: rgba(232, 184, 102, 0.70);
+    color: #F5CC82;
+    box-shadow: 0 0 28px rgba(232, 184, 102, 0.28), inset 0 0 8px rgba(232, 184, 102, 0.08);
 }
 .filter-pill-inactive {
-    background: rgba(255, 252, 248, 0.04);
-    border-color: rgba(196, 154, 108, 0.12);
-    color: rgba(220, 210, 190, 0.48);
+    background: rgba(255, 252, 248, 0.05);
+    border-color: rgba(232, 184, 102, 0.18);
+    color: rgba(245, 239, 227, 0.55);
 }
 .filter-pill-inactive:hover {
-    border-color: rgba(196, 154, 108, 0.32);
+    border-color: rgba(232, 184, 102, 0.48);
     color: var(--ng-text);
+    background: rgba(232, 184, 102, 0.08);
 }
 
 /* ══════════════════════════════════════════
@@ -520,8 +525,9 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    ADMIN PANEL NATURAL
    ══════════════════════════════════════════ */
 .admin-sidebar-active {
-    background: linear-gradient(135deg, #4A3520 0%, #6B4A28 50%, #8B5A2B 100%);
-    box-shadow: 0 0 20px rgba(139, 90, 43, 0.35);
+    background: linear-gradient(135deg, #6B4226 0%, #9B6B3A 50%, #C49A6C 100%);
+    box-shadow: 0 0 24px rgba(192, 154, 108, 0.45), inset 0 1px 0 rgba(232, 184, 102, 0.20);
+    border-left: 2px solid rgba(232, 184, 102, 0.60);
 }
 .admin-trend-badge {
     background: rgba(139, 168, 136, 0.15);
