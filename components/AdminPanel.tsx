@@ -4237,13 +4237,37 @@ export const AdminPanel = () => {
 
           {activeTab === 'SETTINGS' && (
             <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+
+              {/* ── Settings Section Quick Nav ── */}
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: '① Owner Profile', href: '#s-owner' },
+                  { label: '② Site Info', href: '#s-site' },
+                  { label: '③ Contact & Social', href: '#s-contact' },
+                  { label: '④ New Arrival Popup', href: '#s-popup' },
+                  { label: '⑤ Email (SMTP)', href: '#s-smtp' },
+                  { label: '⑥ Delivery Fees', href: '#s-delivery' },
+                  { label: '⑦ Invoice', href: '#s-invoice' },
+                  { label: '⑧ Theme', href: '#s-theme' },
+                  { label: '⑨ Hero / Pages', href: '#s-hero' },
+                ].map(item => (
+                  <a key={item.href} href={item.href}
+                    className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all hover:bg-white/10"
+                    style={{ background: 'rgba(232,184,102,0.08)', border: '1px solid rgba(232,184,102,0.20)', color: '#E8B866' }}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </div>
+
+              <div id="s-owner" className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                 <GlassCard className="p-10 xl:col-span-2">
                   <div className="flex flex-wrap items-start justify-between gap-6">
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>① ADMIN ACCOUNT</p>
                       <h3 className="text-2xl font-black uppercase italic tracking-tight text-white">Owner Profile</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mt-2">
-                        Update your personal name and phone for admin account
+                        আপনার নাম ও ফোন নম্বর আপডেট করুন
                       </p>
                     </div>
                     <span className="px-4 py-2 rounded-full border border-[#C49A6C]/30 bg-[#C49A6C]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
@@ -4280,12 +4304,13 @@ export const AdminPanel = () => {
                   </p>
                 </GlassCard>
 
-                <GlassCard className="p-12">
+                <GlassCard id="s-site" className="p-12">
                   <div className="flex items-center gap-6 mb-12">
                     <div className="w-16 h-16 rounded-[24px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C]">
                       <Settings2 className="w-8 h-8" />
                     </div>
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>② SITE INFO</p>
                       <h3 className="text-3xl font-black uppercase italic tracking-tighter">Site Identity</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Site name, logo & maintenance</p>
                     </div>
@@ -4323,12 +4348,13 @@ export const AdminPanel = () => {
                   </div>
                 </GlassCard>
 
-                <GlassCard className="p-12">
+                <GlassCard id="s-contact" className="p-12">
                   <div className="flex items-center gap-6 mb-12">
                     <div className="w-16 h-16 rounded-[24px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C]">
                       <Phone className="w-8 h-8" />
                     </div>
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>③ CONTACT & SOCIAL</p>
                       <h3 className="text-3xl font-black uppercase italic tracking-tighter">Contact & Social</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Phone, WhatsApp, Email, Social links</p>
                     </div>
@@ -4399,10 +4425,11 @@ export const AdminPanel = () => {
                 </GlassCard>
 
                 {/* ── New Arrival Popup ── */}
-                <GlassCard className="p-10">
+                <GlassCard id="s-popup" className="p-10">
                   <div className="flex items-center gap-4 mb-8">
                     <Sparkles className="w-7 h-7 text-[#C49A6C]" />
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>④ NEW ARRIVAL POPUP</p>
                       <h3 className="text-2xl font-black uppercase italic">New Arrival Popup</h3>
                       <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.25em]">নতুন পণ্য পপআপ — Homepage notification</p>
                     </div>
@@ -4489,12 +4516,26 @@ export const AdminPanel = () => {
                 </GlassCard>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+              <div id="s-smtp" className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                 <GlassCard className="p-12">
-                  <div className="flex items-center gap-4 mb-10">
+                  <div className="flex items-center gap-4 mb-4">
                     <Mail className="w-8 h-8 text-[#C49A6C]" />
-                    <h3 className="text-3xl font-black uppercase italic">Email Server Settings (SMTP)</h3>
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑤ EMAIL SERVER</p>
+                      <h3 className="text-3xl font-black uppercase italic">Email (SMTP) Settings</h3>
+                    </div>
+                    {/* Status indicator */}
+                    <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                      style={{
+                        background: smtpSettings?.host ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                        border: `1px solid ${smtpSettings?.host ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                        color: smtpSettings?.host ? '#10A37F' : '#ef4444'
+                      }}>
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: smtpSettings?.host ? '#10A37F' : '#ef4444', boxShadow: `0 0 5px ${smtpSettings?.host ? '#10A37F' : '#ef4444'}` }} />
+                      {smtpSettings?.host ? 'Configured' : 'Not Set'}
+                    </div>
                   </div>
+                  <p className="text-[10px] text-zinc-500 mb-8">ইমেইল invoice ও notifications পাঠানোর জন্য SMTP server setup করুন।</p>
                   <div className="space-y-6">
                     <LuxuryFloatingInput label="SMTP Server Host" value={smtpSettings?.host || ''} onChange={v => setSmtpSettings({ ...smtpSettings, host: v })} />
                     <div className="grid grid-cols-2 gap-6">
@@ -4522,26 +4563,40 @@ export const AdminPanel = () => {
                     Update Mail Server
                   </PrimaryButton>
 
-                  <div className="mt-8 p-6 bg-[#9B6B3A]/5 rounded-2xl border border-[#C49A6C]/10">
-                    <p className="text-[9px] font-black text-[#C49A6C] uppercase tracking-widest mb-3 flex items-center gap-2">
-                      <Info className="w-3 h-3" /> Handshake Logic Documentation
+                  <div className="mt-8 p-5 rounded-2xl" style={{ background: 'rgba(232,184,102,0.05)', border: '1px solid rgba(232,184,102,0.12)' }}>
+                    <p className="text-[9px] font-black uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: '#E8B866' }}>
+                      <Info className="w-3 h-3" /> Setup Notes
                     </p>
-                    <p className="text-[10px] text-zinc-500 leading-relaxed font-bold uppercase">
-                      To activate official SMTP signal, you must deploy a specialized Node.js/PHP backend terminal. Connect these parameters to a 'Nodemailer' or 'PHPMailer' artifact to authorize institutional email deployments.
+                    <p className="text-[10px] text-zinc-400 leading-relaxed">
+                      এই SMTP settings গুলো backend server এ Nodemailer বা PHPMailer দিয়ে কাজ করে।
+                      Gmail ব্যবহার করলে: host = smtp.gmail.com, port = 587, এবং App Password ব্যবহার করুন।
                     </p>
                   </div>
                 </GlassCard>
 
-                <GlassCard className="p-8 md:p-10">
+                <GlassCard id="s-delivery" className="p-8 md:p-10">
                   <div className="flex items-center gap-3 mb-8">
                     <div className="w-12 h-12 rounded-[20px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C] shadow-[0_0_30px_rgba(0, 122, 255, 0.2)]">
                       <Truck className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl md:text-2xl font-black uppercase italic">Logistics Configuration</h3>
+                    <div className="flex-1">
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-0.5" style={{ color: '#E8B866' }}>⑥ DELIVERY FEES</p>
+                      <h3 className="text-xl md:text-2xl font-black uppercase italic">Delivery Fee Settings</h3>
+                      <p className="text-[10px] text-zinc-400 mt-1">ডেলিভারি চার্জ সেট করুন — ঢাকার ভেতরে ও বাইরে</p>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                      style={{
+                        background: (logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                        border: `1px solid ${(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                        color: (logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? '#10A37F' : '#ef4444'
+                      }}>
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: (logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? '#10A37F' : '#ef4444', boxShadow: `0 0 5px ${(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? '#10A37F' : '#ef4444'}` }} />
+                      {(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'Configured' : 'Not Set'}
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-4">Metropolitan Fee (Dhaka)</label>
+                      <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-4">ঢাকার মধ্যে ডেলিভারি চার্জ (Dhaka)</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">৳</span>
                         <input
@@ -4560,7 +4615,7 @@ export const AdminPanel = () => {
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest pl-4">Regional Fee (Outside)</label>
+                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest pl-4">ঢাকার বাইরে ডেলিভারি চার্জ (Outside Dhaka)</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40 font-bold">৳</span>
                         <input
@@ -4583,21 +4638,22 @@ export const AdminPanel = () => {
                     className="mt-8 w-full h-12 text-[10px]"
                     onClick={() => {
                       if (!canManageProtocols) {
-                        showToast('Editor role cannot change logistics protocol.', 'error');
+                        showToast('Editor role cannot change delivery settings.', 'error');
                         return;
                       }
                       updateSettings({ logisticsConfig });
                     }}
                   >
-                    SAVE LOGISTICS
+                    SAVE DELIVERY FEES
                   </PrimaryButton>
                 </GlassCard>
               </div>
 
               <div className="grid grid-cols-1 gap-12">
-                <GlassCard className="p-8 md:p-10 space-y-8">
+                <GlassCard id="s-invoice" className="p-8 md:p-10 space-y-8">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑦ INVOICE</p>
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Invoice Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Serial format, template and email controls</p>
                     </div>
@@ -4816,10 +4872,11 @@ export const AdminPanel = () => {
                 </GlassCard>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+              <div id="s-theme" className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                 <GlassCard className="p-6 md:p-8 space-y-6 max-h-[78vh] overflow-y-auto pr-2">
                   <div className="flex items-center justify-between gap-4">
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑧ THEME</p>
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
                     </div>
@@ -5003,9 +5060,10 @@ export const AdminPanel = () => {
                   </AnimatePresence>
                 </GlassCard>
 
-                <GlassCard className="p-8 md:p-10 space-y-8">
+                <GlassCard id="s-hero" className="p-8 md:p-10 space-y-8">
                   <div className="flex items-center justify-between gap-4">
                     <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑨ HERO / PAGES</p>
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Hero & Pages CMS</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Draft / publish with revision history</p>
                     </div>
@@ -5517,14 +5575,20 @@ export const AdminPanel = () => {
 
                   <div className="mt-6 p-8 bg-[#C49A6C]/5 rounded-3xl border border-[#C49A6C]/10">
                     <h4 className="text-[10px] font-black text-[#C49A6C] uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <RefreshCcw className="w-3 h-3" /> Database Integration Protocol
+                      <RefreshCcw className="w-3 h-3" /> Database Status
                     </h4>
-                    <p className="text-[11px] text-zinc-400 font-bold uppercase leading-relaxed mb-6">
-                      Institutional Registry is currently operating on <b>Production SQL Matrix</b> via Hostinger. Synchronization is manifest.
+                    <p className="text-[11px] text-zinc-400 leading-relaxed mb-6">
+                      Splaro database Hostinger MySQL-এ চলছে। সব orders, products, users এখানে সংরক্ষিত।
                     </p>
                     <ul className="space-y-3 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-[#C49A6C] mt-1" /> SQL Handshake: {dbStatus}</li>
-                      <li className="flex items-start gap-3"><div className="w-1 h-1 rounded-full bg-[#C49A6C] mt-1" /> Automation: Active</li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full" style={{ background: dbStatus === 'MYSQL' ? '#10A37F' : '#ef4444', boxShadow: `0 0 6px ${dbStatus === 'MYSQL' ? '#10A37F' : '#ef4444'}` }} />
+                        Database Connection: {dbStatus}
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" style={{ boxShadow: '0 0 6px #10A37F' }} />
+                        Auto Sync: Active
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -5535,17 +5599,17 @@ export const AdminPanel = () => {
           {activeTab === 'TRAFFIC' && (
             <motion.div key="traffic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <BentoCard title="Active Collectors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-[#9B6B3A]" />
-                <BentoCard title="Session Velocity" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-[#C49A6C]" />
-                <BentoCard title="Entry Points" value={new Set(trafficData.map(t => t.path)).size.toString()} trend="+2" icon={MapPin} color="bg-indigo-600" />
+                <BentoCard title="Active Visitors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-[#9B6B3A]" />
+                <BentoCard title="Avg Session (min)" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-[#C49A6C]" />
+                <BentoCard title="Unique Pages" value={new Set(trafficData.map(t => t.path)).size.toString()} trend="+2" icon={MapPin} color="bg-indigo-600" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                 <GlassCard className="lg:col-span-8 p-12 min-h-[600px] relative overflow-hidden">
                   <div className="flex justify-between items-center mb-12 relative z-10">
-                    <h3 className="text-2xl font-black uppercase italic">Regional Collector Heatmap</h3>
+                    <h3 className="text-2xl font-black uppercase italic">Visitor Location Map</h3>
                     <div className="flex gap-4">
-                      <span className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[9px] font-black uppercase text-[#C49A6C]">Live Stream active</span>
+                      <span className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[9px] font-black uppercase text-[#C49A6C]">Live · Real-time</span>
                     </div>
                   </div>
 
@@ -5639,9 +5703,18 @@ export const AdminPanel = () => {
                   <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
                     <CreditCard className="w-6 h-6 text-emerald-400" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-lg font-black uppercase text-white">Payment Gateways</h4>
                     <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">bKash, Nagad, SSLCommerz</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                    style={{
+                      background: (siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                      border: `1px solid ${(siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                      color: (siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? '#10A37F' : '#ef4444'
+                    }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: (siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? '#10A37F' : '#ef4444' }} />
+                    {(siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'Connected' : 'Not Set'}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -5658,9 +5731,18 @@ export const AdminPanel = () => {
                   <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
                     <Truck className="w-6 h-6 text-blue-400" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-lg font-black uppercase text-white">Delivery Partner</h4>
                     <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Steadfast, Pathao, RedX</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                    style={{
+                      background: siteSettings.steadfastApiKey ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                      border: `1px solid ${siteSettings.steadfastApiKey ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                      color: siteSettings.steadfastApiKey ? '#10A37F' : '#ef4444'
+                    }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: siteSettings.steadfastApiKey ? '#10A37F' : '#ef4444' }} />
+                    {siteSettings.steadfastApiKey ? 'Connected' : 'Not Set'}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -5675,9 +5757,18 @@ export const AdminPanel = () => {
                   <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center">
                     <Send className="w-6 h-6 text-purple-400" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-lg font-black uppercase text-white">Communication APIs</h4>
                     <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Email, SMS, WhatsApp, Push</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                    style={{
+                      background: siteSettings.smtpHost ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                      border: `1px solid ${siteSettings.smtpHost ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                      color: siteSettings.smtpHost ? '#10A37F' : '#ef4444'
+                    }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: siteSettings.smtpHost ? '#10A37F' : '#ef4444' }} />
+                    {siteSettings.smtpHost ? 'Connected' : 'Not Set'}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -5696,9 +5787,18 @@ export const AdminPanel = () => {
                   <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center">
                     <Shield className="w-6 h-6 text-orange-400" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-lg font-black uppercase text-white">Auth & Analytics</h4>
                     <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Google OAuth, Analytics, FB Pixel</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                    style={{
+                      background: (siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                      border: `1px solid ${(siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                      color: (siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? '#10A37F' : '#ef4444'
+                    }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: (siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? '#10A37F' : '#ef4444' }} />
+                    {(siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'Connected' : 'Not Set'}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -5715,9 +5815,18 @@ export const AdminPanel = () => {
                   <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
                     <Cpu className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-lg font-black uppercase text-white">CDN & Hosting</h4>
                     <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Hostinger, Cloudflare, Media CDN</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
+                    style={{
+                      background: (siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                      border: `1px solid ${(siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
+                      color: (siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? '#10A37F' : '#ef4444'
+                    }}>
+                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: (siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? '#10A37F' : '#ef4444' }} />
+                    {(siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'Connected' : 'Not Set'}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

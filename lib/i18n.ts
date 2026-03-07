@@ -92,12 +92,37 @@ export const translations = {
 
   /* ── Cart ── */
   'cart.title':        { EN: 'Your Cart',     BN: 'আপনার কার্ট' },
-  'cart.empty':        { EN: 'Your cart is empty', BN: 'আপনার কার্ট খালি' },
+  'cart.empty':        { EN: 'YOUR CART IS EMPTY', BN: 'আপনার কার্ট খালি' },
+  'cart.emptyDiscover': { EN: 'Discover elite boutique footwear & bags', BN: 'এলিট ফুটওয়্যার ও ব্যাগ দেখুন' },
+  'cart.startShopping': { EN: 'Start Shopping', BN: 'কেনাকাটা শুরু করুন' },
+  'cart.items':        { EN: 'Selected items', BN: 'টি আইটেম নির্বাচিত' },
+  'cart.subtotal':     { EN: 'Subtotal',      BN: 'সাবটোটাল' },
+  'cart.shipping':     { EN: 'Shipping',      BN: 'শিপিং' },
+  'cart.shippingCalc': { EN: 'Calculated at checkout', BN: 'চেকআউটে হিসাব হবে' },
   'cart.total':        { EN: 'Total',         BN: 'মোট' },
+  'cart.proceedBilling': { EN: 'Proceed to Billing', BN: 'বিলিং এ যান' },
+  'cart.secureCheckout': { EN: 'Secure Checkout', BN: 'নিরাপদ চেকআউট' },
+  'cart.support':      { EN: 'Customer Support', BN: 'কাস্টমার সাপোর্ট' },
   'cart.checkout':     { EN: 'Proceed to Checkout', BN: 'চেকআউটে যান' },
   'cart.continue':     { EN: 'Continue Shopping', BN: 'কেনাকাটা চালিয়ে যান' },
   'cart.remove':       { EN: 'Remove',        BN: 'সরান' },
   'cart.qty':          { EN: 'Quantity',      BN: 'পরিমাণ' },
+  'cart.size':         { EN: 'Size',          BN: 'সাইজ' },
+  'cart.color':        { EN: 'Color',         BN: 'রঙ' },
+
+  /* ── Shop Filters ── */
+  'shop.filters':      { EN: 'Filters',       BN: 'ফিল্টার' },
+  'shop.hideFilters':  { EN: 'Hide Filters',  BN: 'ফিল্টার লুকান' },
+  'shop.close':        { EN: 'Close',         BN: 'বন্ধ' },
+  'shop.category':     { EN: 'Category',      BN: 'ক্যাটাগরি' },
+  'shop.clearFilters': { EN: 'Clear Filters', BN: 'ফিল্টার মুছুন' },
+  'shop.adjustFilters': { EN: 'Try adjusting your filters', BN: 'ফিল্টার পরিবর্তন করে দেখুন' },
+
+  /* ── Product Card ── */
+  'product.curatedImport': { EN: 'Curated Import', BN: 'বাছাই আমদানি' },
+  'product.delivery710': { EN: 'Delivery: 7-10 Days', BN: 'ডেলিভারি: ৭-১০ দিন' },
+  'product.unavailable': { EN: 'Currently unavailable', BN: 'বর্তমানে অনুপলব্ধ' },
+  'product.limitedStock': { EN: 'Limited stock', BN: 'সীমিত স্টক' },
 
   /* ── Checkout ── */
   'checkout.title':    { EN: 'Checkout',      BN: 'চেকআউট' },

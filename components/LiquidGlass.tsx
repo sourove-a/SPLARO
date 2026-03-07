@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
-export const GlassCard: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
+export const GlassCard: React.FC<{ children: React.ReactNode; className?: string; id?: string }> = ({ children, className = "", id }) => (
   <div
+    id={id}
     className={`card liquid-glass rounded-[32px] relative overflow-hidden ${className}`}
     style={{
       border: '1px solid rgba(196,154,108,0.16)',

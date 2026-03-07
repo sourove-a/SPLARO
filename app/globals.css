@@ -32,7 +32,7 @@
     --obsidian:           #000000;
     --midnight:           #050505;
     --pearl:              #EDE8DC;
-    --mobile-nav-height:  70px;
+    --mobile-nav-height:  78px;
     --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --mobile-safe-top:    env(safe-area-inset-top, 0px);
     --ui-focus-outline:   rgba(196, 154, 108, 0.90);

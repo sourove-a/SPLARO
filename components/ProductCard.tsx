@@ -8,10 +8,12 @@ import { resolveProductUrgencyState } from '../lib/urgency';
 import { buildProductRoute, slugifyValue } from '../lib/productRoute';
 import { OptimizedImage } from './OptimizedImage';
 import { Button } from './ui/button';
+import { useTranslation } from '../lib/useTranslation';
 
 export const ProductCard: React.FC<{ product: Product; index?: number; language?: string }> = ({ product, index = 0, language = 'EN' }) => {
 
   const { setSelectedProduct, addToCart, siteSettings } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -129,7 +131,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 className="w-full h-14 backdrop-blur-3xl rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
                 style={{ background: 'rgba(196,154,108,0.15)', border: '1px solid rgba(196,154,108,0.30)', color: '#EDE8DC' }}
               >
-                <Eye className="w-4 h-4" /> View Details
+                <Eye className="w-4 h-4" /> {t('shop.viewDetails')}
               </motion.button>
 
               <div className="grid grid-cols-2 gap-3 w-full">
@@ -163,7 +165,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                       : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-[#C49A6C]/25'
                   }`}
                 >
-                  Buy Now
+                  {t('product.buyNow')}
                 </motion.button>
               </div>
             </div>
@@ -229,8 +231,8 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     }`}
                   >
                     {urgency.outOfStock
-                      ? 'Currently unavailable'
-                      : `Limited stock: ${urgency.knownStock ?? ''} left`}
+                      ? t('product.unavailable')
+                      : `${t('product.limitedStock')}: ${urgency.knownStock ?? ''} left`}
                   </span>
                 )}
                 {!urgency.outOfStock && urgency.trustLabel && (
@@ -250,12 +252,12 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
           <div className="h-[1px] flex-1 bg-white" />
           <div className="flex items-center gap-2">
             <Globe className="w-3 h-3" />
-            <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">Curated Import</span>
+            <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">{t('product.curatedImport')}</span>
           </div>
           <div className="w-1 h-1 rounded-full bg-[#C49A6C]" />
           <div className="flex items-center gap-2">
             <Clock className="w-3 h-3 text-[#C49A6C]" />
-            <span className="text-[7px] font-black text-[#C49A6C] uppercase tracking-[0.4em]">Delivery: 7-10 Days</span>
+            <span className="text-[7px] font-black text-[#C49A6C] uppercase tracking-[0.4em]">{t('product.delivery710')}</span>
           </div>
         </div>
 

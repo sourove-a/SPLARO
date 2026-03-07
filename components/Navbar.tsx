@@ -450,66 +450,63 @@ export const Navbar: React.FC = () => {
             })}
           </div>
 
-          {user && (
-            <div className="lg:hidden">
-              <NotificationBell mobile />
-            </div>
-          )}
-
-          {/* Mobile Search */}
-          <button
-            type="button"
-            aria-label="Open search"
-            onClick={() => {
-              if (location.pathname !== '/shop') navigate('/shop');
-              setSelectedCategory(null);
-              setIsSearchOpen(true);
-              setMenuOpen(false);
-            }}
-            className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 backdrop-blur-3xl rounded-[16px] sm:rounded-[22px] transition-all shadow-xl group pointer-events-auto touch-manipulation"
-            style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
-          >
-            <Search className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#EDE8DC' }} />
-          </button>
-
-          {/* Mobile Cart */}
-          <button
-            type="button"
-            aria-label="Open cart"
-            onClick={() => navigate('/cart')}
-            className="nav-item interactive-control relative lg:hidden min-h-12 min-w-12 p-3 sm:p-4 backdrop-blur-3xl rounded-[16px] sm:rounded-[22px] transition-all shadow-xl group pointer-events-auto touch-manipulation"
-            style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
-          >
-            <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#EDE8DC' }} />
-            {cart.length > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black"
-                style={{ background: COGNAC, color: '#0A0F08', border: '2px solid rgba(10,15,8,0.7)' }}
-              >
-                {cart.length}
-              </motion.span>
-            )}
-          </button>
-
-          {/* Language Toggle */}
-          <button
-            type="button"
-            aria-label="Toggle language"
-            onClick={() => setLanguage(language === 'EN' ? 'BN' : 'EN')}
-            className="nav-item interactive-control min-h-11 px-3 py-2 backdrop-blur-3xl rounded-[14px] transition-all shadow-xl pointer-events-auto touch-manipulation flex items-center gap-1.5"
-            style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
-            title={language === 'EN' ? 'Switch to Bengali' : 'Switch to English'}
-          >
-            <Globe className="w-3.5 h-3.5" style={{ color: COGNAC }} />
-            <span
-              className="text-[9px] font-black uppercase tracking-[0.25em]"
-              style={{ color: language === 'EN' ? '#EDE8DC' : COGNAC }}
+          {/* Mobile Actions — compact pill: Search + Cart badge + Lang */}
+          <div className="lg:hidden flex items-center gap-2 pointer-events-auto">
+            {/* Search */}
+            <button
+              type="button"
+              aria-label="Open search"
+              onClick={() => {
+                if (location.pathname !== '/shop') navigate('/shop');
+                setSelectedCategory(null);
+                setIsSearchOpen(true);
+                setMenuOpen(false);
+              }}
+              className="nav-item interactive-control relative min-h-11 min-w-11 flex items-center justify-center backdrop-blur-3xl rounded-[14px] transition-all shadow-xl touch-manipulation"
+              style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
             >
-              {language === 'EN' ? 'বাংলা' : 'EN'}
-            </span>
-          </button>
+              <Search className="w-5 h-5" style={{ color: '#EDE8DC' }} />
+            </button>
+
+            {/* Cart with badge */}
+            <button
+              type="button"
+              aria-label="Open cart"
+              onClick={() => navigate('/cart')}
+              className="nav-item interactive-control relative min-h-11 min-w-11 flex items-center justify-center backdrop-blur-3xl rounded-[14px] transition-all shadow-xl touch-manipulation"
+              style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
+            >
+              <ShoppingBag className="w-5 h-5" style={{ color: '#EDE8DC' }} />
+              {cart.length > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
+                  style={{ background: COGNAC, color: '#0A0F08', border: '1.5px solid rgba(10,15,8,0.8)' }}
+                >
+                  {cart.length}
+                </motion.span>
+              )}
+            </button>
+
+            {/* Language Toggle */}
+            <button
+              type="button"
+              aria-label="Toggle language"
+              onClick={() => setLanguage(language === 'EN' ? 'BN' : 'EN')}
+              className="nav-item interactive-control min-h-11 px-2.5 py-2 backdrop-blur-3xl rounded-[14px] transition-all shadow-xl touch-manipulation flex items-center gap-1"
+              style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
+              title={language === 'EN' ? 'Switch to Bengali' : 'Switch to English'}
+            >
+              <Globe className="w-3.5 h-3.5 shrink-0" style={{ color: COGNAC }} />
+              <span
+                className="text-[9px] font-black uppercase tracking-wider"
+                style={{ color: language === 'EN' ? '#EDE8DC' : COGNAC }}
+              >
+                {language === 'EN' ? 'বাং' : 'EN'}
+              </span>
+            </button>
+          </div>
         </div>
       </nav>
 

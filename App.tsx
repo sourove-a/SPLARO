@@ -62,7 +62,7 @@ const CmsContentPage = ({ pageKey }: { pageKey: 'manifest' | 'privacyPolicy' | '
 
   return (
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
-      <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">
+      <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-8 sm:mb-10">
         {page.heading}
       </h1>
       <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
@@ -99,7 +99,7 @@ const StoryPage = () => {
   return (
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-        <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]">
+        <h1 className="text-4xl sm:text-6xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-10 sm:mb-20 text-white leading-[0.85]">
           {t('story.title1')}<br /><span className="text-[#C49A6C]">{t('story.title2')}</span>
         </h1>
         {publishedStories.length === 0 ? (
@@ -136,7 +136,7 @@ const SupportPage = () => {
   return (
   <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }}>
-      <h1 className="text-8xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-20 text-white leading-[0.8]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+      <h1 className="text-4xl sm:text-6xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-10 sm:mb-20 text-white leading-[0.85]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
         {t('support.title1')}<br /><span style={{color:'#E8B866'}}>{t('support.title2')}</span>
       </h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-16">
@@ -260,7 +260,7 @@ const OrderTrackingPage = () => {
 
   return (
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
-      <h1 className="text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-10">
+      <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-8 sm:mb-10">
         {page.heading}
       </h1>
       <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
@@ -319,40 +319,49 @@ const HomeView = () => {
       <LazyView>
         <HeroSlider />
       </LazyView>
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40 relative overflow-hidden">
+      {/* Thin separator after hero */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(196,154,108,0.20), transparent)' }} />
+
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-20 lg:py-32 relative overflow-hidden">
         <div>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-32 gap-12">
-            <div className="max-w-3xl">
+          {/* Section header — stacks cleanly on mobile */}
+          <div className="mb-8 sm:mb-16 lg:mb-24">
+            <p className="text-[9px] sm:text-[10px] font-black uppercase mb-3 sm:mb-4 tracking-[0.45em]" style={{ color: '#C49A6C' }}>
+              — {t('home.explore')} —
+            </p>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 sm:gap-8">
               <h2
-                className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-10 uppercase"
+                className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.92] uppercase"
                 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
               >
                 {t('home.headline1')}<br />
                 <span style={{ color: '#E8B866' }}>{t('home.headline2')}</span>
               </h2>
-              <p className="text-base md:text-xl max-w-xl leading-relaxed font-medium" style={{ color: 'rgba(245,239,227,0.78)' }}>
-                {t('home.subheadline')}
-              </p>
+              <div className="flex flex-col gap-4 sm:items-end shrink-0">
+                <p className="text-xs sm:text-sm max-w-xs leading-relaxed" style={{ color: 'rgba(245,239,227,0.65)' }}>
+                  {t('home.subheadline')}
+                </p>
+                <button
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setSearchQuery('');
+                    navigate('/shop');
+                  }}
+                  className="group inline-flex items-center gap-3 text-[10px] sm:text-xs font-black uppercase px-6 py-3 rounded-full transition-all duration-500 w-fit"
+                  style={{
+                    letterSpacing: '0.3em',
+                    color: '#EDE8DC',
+                    background: 'rgba(196,154,108,0.12)',
+                    border: '1px solid rgba(196,154,108,0.30)',
+                  }}
+                >
+                  {t('home.shopNow')} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-500" />
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => {
-                setSelectedCategory(null);
-                setSearchQuery('');
-                navigate('/shop');
-              }}
-              className="group flex items-center gap-5 text-sm font-semibold uppercase pb-5 transition-all duration-700"
-              style={{
-                letterSpacing: '0.42em',
-                color: '#EDE8DC',
-                borderBottom: '1px solid rgba(196,154,108,0.18)',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderBottomColor = 'rgba(196,154,108,0.70)')}
-              onMouseLeave={e => (e.currentTarget.style.borderBottomColor = 'rgba(196,154,108,0.18)')}
-            >
-              {t('home.explore')} <ArrowRight className="w-5 h-5 group-hover:translate-x-3 transition-transform duration-700" />
-            </button>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-12 lg:gap-20">
+
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-10">
             {displayProducts.map((p, i) => (
               <ProductCard key={p.id} product={p} index={i} />
             ))}
@@ -360,18 +369,21 @@ const HomeView = () => {
         </div>
       </section>
 
+      {/* Section separator */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(196,154,108,0.15), transparent)' }} />
+
       {/* ── About Us Section ── */}
-      <section id="about" className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32 lg:py-40">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+      <section id="about" className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-40">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-24 items-center">
           <div>
             <p
-              className="text-[10px] font-black uppercase mb-6"
+              className="text-[10px] font-black uppercase mb-4 sm:mb-6"
               style={{ letterSpacing: '0.5em', color: '#C49A6C' }}
             >
               আমাদের সম্পর্কে · About Us
             </p>
             <h2
-              className="text-5xl md:text-7xl font-black tracking-tighter leading-tight uppercase mb-8"
+              className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-tight uppercase mb-6 sm:mb-8"
               style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
             >
               {t('about.title1')}<br />
@@ -389,7 +401,7 @@ const HomeView = () => {
             >
               {t('about.body2')}
             </p>
-            <div className="grid grid-cols-3 gap-8">
+            <div className="grid grid-cols-3 gap-4 sm:gap-8">
               {[
                 { value: '500+', label: t('about.stat1sub') },
                 { value: '100%', label: t('about.stat2sub') },
@@ -468,14 +480,17 @@ const HomeView = () => {
         </div>
       </section>
 
+      {/* Section separator */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(196,154,108,0.15), transparent)' }} />
+
       {/* ── Customer Testimonials ── */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-24 sm:py-32">
-        <div className="text-center mb-16">
-          <p className="text-[10px] font-black uppercase mb-4" style={{ letterSpacing: '0.5em', color: '#E8B866' }}>
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-32">
+        <div className="text-center mb-10 sm:mb-16">
+          <p className="text-[10px] font-black uppercase mb-3 sm:mb-4" style={{ letterSpacing: '0.5em', color: '#E8B866' }}>
             {t('testimonial.label')}
           </p>
           <h2
-            className="text-4xl md:text-6xl font-black tracking-tighter uppercase"
+            className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase"
             style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
           >
             {t('testimonial.title1')}<br />
@@ -525,14 +540,17 @@ const HomeView = () => {
         </div>
       </section>
 
+      {/* Section separator */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(196,154,108,0.15), transparent)' }} />
+
       {/* ── Promotional Sale Banner ── */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-20">
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-16 pb-12 sm:pb-20">
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.7 }}
-          className="relative overflow-hidden rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-10"
+          className="relative overflow-hidden rounded-3xl p-7 sm:p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10"
           style={{
             background: 'linear-gradient(135deg, #1A2E18 0%, #0D1F0A 40%, #2A1A08 100%)',
             border: '1px solid rgba(232,184,102,0.28)',
@@ -551,7 +569,7 @@ const HomeView = () => {
               <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#E8B866' }}>{t('sale.badge')}</span>
             </div>
             <h3
-              className="text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4"
+              className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4"
               style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5EFE3' }}
             >
               {t('sale.title1')}<br />
@@ -566,7 +584,7 @@ const HomeView = () => {
               <p className="text-[11px] font-bold uppercase mb-1" style={{ letterSpacing: '0.35em', color: 'rgba(245,239,227,0.55)' }}>
                 {t('sale.offLabel')}
               </p>
-              <p className="text-8xl md:text-9xl font-black leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#E8B866' }}>
+              <p className="text-6xl sm:text-8xl md:text-9xl font-black leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#E8B866' }}>
                 30%
               </p>
               <p className="text-sm font-black uppercase mt-1" style={{ letterSpacing: '0.3em', color: '#F5EFE3' }}>
@@ -584,8 +602,11 @@ const HomeView = () => {
         </motion.div>
       </section>
 
+      {/* Section separator */}
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(196,154,108,0.15), transparent)' }} />
+
       {/* ── WhatsApp / Newsletter Subscribe ── */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 pb-32">
+      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10 sm:py-16 pb-28 sm:pb-32">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -685,7 +706,7 @@ const OrderSuccessView = () => {
           initial={{ x: -200, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+          className="text-4xl sm:text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
         >
           {t('success.title')}
         </motion.h1>

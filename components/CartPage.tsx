@@ -5,10 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import { PrimaryButton, GlassCard } from './LiquidGlass';
 import { OptimizedImage } from './OptimizedImage';
 import { Button } from './ui/button';
+import { useTranslation } from '../lib/useTranslation';
 
 export const CartPage: React.FC = () => {
   const { cart, removeFromCart, updateCartItemQuantity } = useApp();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const subtotal = useMemo(() => cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0), [cart]);
 
@@ -18,10 +20,10 @@ export const CartPage: React.FC = () => {
         <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-10">
           <ShoppingBag className="w-10 h-10 text-zinc-700" />
         </div>
-        <h2 className="text-3xl sm:text-5xl font-black tracking-tighter mb-4 uppercase italic">YOUR CART IS EMPTY</h2>
-        <p className="text-white/40 text-sm font-bold uppercase tracking-widest mb-10">Discover elite boutique footwear & bags</p>
+        <h2 className="text-3xl sm:text-5xl font-black tracking-tighter mb-4 uppercase italic">{t('cart.empty')}</h2>
+        <p className="text-white/40 text-sm font-bold uppercase tracking-widest mb-10">{t('cart.emptyDiscover')}</p>
         <PrimaryButton onClick={() => navigate('/shop')} className="px-12 py-6 text-[10px]">
-          Start Shopping
+          {t('cart.startShopping')}
         </PrimaryButton>
       </div>
     );
@@ -34,7 +36,7 @@ export const CartPage: React.FC = () => {
         <div className="lg:col-span-8">
           <header className="mb-8 sm:mb-12">
             <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-[#C49A6C]">Cart.</span></h1>
-            <p className="text-white/30 font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[9px]">{cart.length} Selected items</p>
+            <p className="text-white/30 font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[9px]">{cart.length} {t('cart.items')}</p>
           </header>
 
           <div className="space-y-4 sm:space-y-6">
@@ -54,8 +56,8 @@ export const CartPage: React.FC = () => {
                     <span className="text-[#C49A6C] text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
                     <h3 className="text-lg sm:text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
                     <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest text-white/60">
-                      <span>Size: {item.selectedSize}</span>
-                      <span>Color: {item.selectedColor}</span>
+                      <span>{t('cart.size')}: {item.selectedSize}</span>
+                      <span>{t('cart.color')}: {item.selectedColor}</span>
                     </div>
                   </div>
 
@@ -89,7 +91,7 @@ export const CartPage: React.FC = () => {
                       onClick={() => removeFromCart(item.cartId)}
                       className="text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 border border-rose-500/20"
                     >
-                      <Trash2 className="w-3.5 h-3.5" /> Remove
+                      <Trash2 className="w-3.5 h-3.5" /> {t('cart.remove')}
                     </Button>
                   </div>
                 </div>
@@ -102,21 +104,21 @@ export const CartPage: React.FC = () => {
         <div className="lg:col-span-4">
           <div className="sticky top-24 sm:top-32">
             <GlassCard className="p-5 sm:p-8 border border-white/10">
-              <h3 className="text-xl sm:text-2xl font-black tracking-tighter uppercase italic mb-6">Order Summary</h3>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tighter uppercase italic mb-6">{t('checkout.summary')}</h3>
 
               <div className="space-y-4 mb-10">
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-white/40">
-                  <span>Subtotal</span>
+                  <span>{t('cart.subtotal')}</span>
                   <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[11px] font-black uppercase tracking-widest text-white/40">
-                  <span>Shipping</span>
-                  <span className="text-zinc-400 italic">Calculated at checkout</span>
+                  <span>{t('cart.shipping')}</span>
+                  <span className="text-zinc-400 italic">{t('cart.shippingCalc')}</span>
                 </div>
               </div>
 
               <div className="pt-6 border-t border-white/10 flex justify-between items-baseline mb-8">
-                <span className="text-base sm:text-lg font-bold">Total</span>
+                <span className="text-base sm:text-lg font-bold">{t('cart.total')}</span>
                 <span className="text-2xl sm:text-3xl font-black">৳{Number(subtotal || 0).toLocaleString()}</span>
               </div>
 
@@ -126,15 +128,15 @@ export const CartPage: React.FC = () => {
                 }}
                 className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(0, 122, 255, 0.25)] hover:shadow-[0_0_60px_rgba(0, 122, 255, 0.45)]"
               >
-                PROCEED TO BILLING <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
+                {t('cart.proceedBilling')} <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
               </PrimaryButton>
 
               <div className="mt-10 flex flex-col gap-4">
                 <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
-                  <ShieldCheck className="w-4 h-4 text-[#C49A6C]" /> Secure Checkout Protocol
+                  <ShieldCheck className="w-4 h-4 text-[#C49A6C]" /> {t('cart.secureCheckout')}
                 </div>
                 <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
-                  <HelpCircle className="w-4 h-4 text-[#C49A6C]" /> Elite Customer Support
+                  <HelpCircle className="w-4 h-4 text-[#C49A6C]" /> {t('cart.support')}
                 </div>
               </div>
             </GlassCard>

@@ -6,11 +6,13 @@ import { useApp } from '../store';
 import { View } from '../types';
 import { isAdminRole } from '../lib/roles';
 import { isAdminSubdomainHost } from '../lib/runtime';
+import { useTranslation } from '../lib/useTranslation';
 
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export const MobileTabBar: React.FC = () => {
-  const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory } = useApp();
+  const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory, cart } = useApp();
+  const { t, isBN } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const adminDomain = isAdminSubdomainHost();
@@ -23,10 +25,31 @@ export const MobileTabBar: React.FC = () => {
   const allowAdminPanel = hasAdminAccess && adminDomain;
 
   const navItems = [
-    { icon: Home, view: View.HOME, label: 'VAULT' },
-    { icon: ShoppingBag, view: View.SHOP, label: 'SHOP' },
-    { icon: Search, view: View.SHOP, label: 'DISCOVER' },
-    { icon: User, view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, label: user ? 'IDENTITY' : 'LOGIN' }
+    {
+      icon: Home,
+      view: View.HOME,
+      label: isBN ? 'হোম' : 'Home',
+      key: 'HOME'
+    },
+    {
+      icon: ShoppingBag,
+      view: View.SHOP,
+      label: isBN ? 'শপ' : 'Shop',
+      key: 'SHOP',
+      badge: cart.length
+    },
+    {
+      icon: Search,
+      view: View.SHOP,
+      label: isBN ? 'খুঁজুন' : 'Search',
+      key: 'DISCOVER'
+    },
+    {
+      icon: User,
+      view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN,
+      label: user ? (isBN ? 'একাউন্ট' : 'Account') : (isBN ? 'লগইন' : 'Login'),
+      key: user ? 'IDENTITY' : 'LOGIN'
+    }
   ];
 
   const getIsActive = (item: any) => {
@@ -34,10 +57,8 @@ export const MobileTabBar: React.FC = () => {
 
     if (item.view === View.SHOP) {
       if (view !== View.SHOP && view !== View.PRODUCT_DETAIL) return false;
-
-      if (item.label === 'DISCOVER') return false; // Search is separate pulse
-
-      if (item.label === 'SHOP') return !selectedCategory;
+      if (item.key === 'DISCOVER') return false;
+      if (item.key === 'SHOP') return !selectedCategory;
       if (item.category) return selectedCategory === item.category;
       return true;
     }
@@ -56,29 +77,33 @@ export const MobileTabBar: React.FC = () => {
       initial={{ y: 120, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 210, damping: 24 }}
-      className="fixed bottom-0 left-0 right-0 z-[120] px-4 lg:hidden pointer-events-auto"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 10px)' }}
+      className="fixed bottom-0 left-0 right-0 z-[120] px-3 lg:hidden pointer-events-auto"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}
     >
       <div className="max-w-screen-sm mx-auto relative" style={{ height: 'var(--mobile-nav-height)' }}>
-        <div className="group absolute inset-0 liquid-glass rounded-[24px] px-2 flex justify-around items-center shadow-[0_12px_28px_rgba(0,0,0,0.45)] border border-white/10 overflow-hidden">
+        <div
+          className="absolute inset-0 flex justify-around items-center px-2 overflow-hidden"
+          style={{
+            background: 'rgba(8,12,6,0.88)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            borderRadius: '22px',
+            border: '1px solid rgba(196,154,108,0.18)',
+            boxShadow: '0 -4px 32px rgba(0,0,0,0.55), 0 12px 28px rgba(0,0,0,0.45)',
+          }}
+        >
           <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
-          <div className="shine-sweep opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
           {navItems.map((item) => {
             const isActive = getIsActive(item);
+            const GOLD = '#C49A6C';
+            const GOLD_BRIGHT = '#E8B866';
+
             return (
               <button
-                key={item.label}
+                key={item.key}
                 type="button"
-                aria-label={
-                  item.label === 'VAULT'
-                    ? 'Open home'
-                    : item.label === 'SHOP'
-                      ? 'Open shop and bags'
-                      : item.label === 'DISCOVER'
-                        ? 'Open search'
-                        : 'Open profile'
-                }
+                aria-label={item.label}
                 onClick={() => {
                   setSearchQuery('');
                   if ((item as any).category) {
@@ -87,7 +112,7 @@ export const MobileTabBar: React.FC = () => {
                     setSelectedCategory(null);
                   }
 
-                  if (item.label === 'DISCOVER') {
+                  if (item.key === 'DISCOVER') {
                     if (location.pathname !== '/shop') {
                       navigate('/shop');
                     }
@@ -118,40 +143,62 @@ export const MobileTabBar: React.FC = () => {
                   }
                   navigate(path);
                 }}
-                className="nav-item interactive-control relative z-10 w-full h-full min-h-12 flex flex-col items-center justify-center group outline-none touch-manipulation"
+                className="relative z-10 flex-1 h-full flex flex-col items-center justify-center gap-0.5 outline-none touch-manipulation transition-all duration-300 rounded-[18px]"
+                style={{
+                  background: isActive ? 'rgba(196,154,108,0.10)' : 'transparent',
+                }}
               >
-                <div className="relative p-1.5">
+                {/* Icon with badge */}
+                <div className="relative">
                   <item.icon
-                    className={`w-7 h-7 transition-all duration-500 ${isActive
-                      ? 'text-white/90 scale-110 drop-shadow-[0_0_12px_rgba(90, 200, 250, 0.75)]'
-                      : 'text-white/80 scale-100 opacity-95'
-                      }`}
-                    strokeWidth={isActive ? 2.5 : 2}
+                    className="transition-all duration-300"
+                    style={{
+                      width: isActive ? 26 : 24,
+                      height: isActive ? 26 : 24,
+                      color: isActive ? GOLD_BRIGHT : 'rgba(237,232,220,0.55)',
+                      filter: isActive ? `drop-shadow(0 0 8px ${GOLD}88)` : 'none',
+                      strokeWidth: isActive ? 2.5 : 2,
+                    }}
                   />
-
-                  {(item as any).badge !== undefined && (item as any).badge > 0 && (
+                  {/* Cart badge */}
+                  {item.key === 'SHOP' && (item.badge || 0) > 0 && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 bg-[#C49A6C] text-white text-[9px] w-6 h-6 rounded-full flex items-center justify-center font-black border-2 border-white/30"
+                      className="absolute -top-1.5 -right-2 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
+                      style={{ background: GOLD, color: '#0A0F08', border: '1.5px solid rgba(10,15,8,0.8)' }}
                     >
-                      {(item as any).badge}
+                      {item.badge}
                     </motion.span>
                   )}
                 </div>
 
+                {/* Label */}
+                <span
+                  className="text-[8px] font-black uppercase tracking-wider leading-none transition-all duration-300"
+                  style={{
+                    color: isActive ? GOLD_BRIGHT : 'rgba(237,232,220,0.40)',
+                    letterSpacing: isActive ? '0.06em' : '0.04em'
+                  }}
+                >
+                  {item.label}
+                </span>
+
+                {/* Active dot indicator */}
                 {isActive && (
                   <motion.div
-                    layoutId="dock-active-indicator"
-                    className="absolute bottom-1.5 w-8 h-1 rounded-full bg-[#C49A6C] shadow-[0_0_10px_rgba(196,154,108,0.55)]"
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                    layoutId="tab-active-dot"
+                    className="absolute bottom-1 w-1 h-1 rounded-full"
+                    style={{ background: GOLD_BRIGHT, boxShadow: `0 0 6px ${GOLD}` }}
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
                   />
                 )}
               </button>
             );
           })}
         </div>
-        <div className="absolute inset-x-10 bottom-0 h-3 bg-[#C49A6C]/10 blur-xl rounded-full -z-10" />
+        {/* Ambient glow */}
+        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#C49A6C]/15 blur-xl rounded-full -z-10" />
       </div>
     </motion.div>
   );

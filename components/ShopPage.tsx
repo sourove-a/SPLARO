@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, X, Sparkles, Tag, SortAsc, Clock, Box, Trash2, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
+import { useTranslation } from '../lib/useTranslation';
 import { ProductCard } from './ProductCard';
 import { Product } from '../types';
 import {
@@ -254,6 +255,7 @@ const balanceHeadlineLines = (title: string, maxLines: number): string[] => {
 
 export const ShopPage: React.FC = () => {
   const { products, language, selectedCategory, setSelectedCategory, searchQuery, siteSettings } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -583,7 +585,7 @@ export const ShopPage: React.FC = () => {
                 className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 touch-manipulation"
                 style={{ border: '1px solid rgba(196,154,108,0.22)', color: '#C49A6C' }}
               >
-                <Filter className="w-4 h-4" /> {showFilters ? 'Hide Filters' : 'Filters'}
+                <Filter className="w-4 h-4" /> {showFilters ? t('shop.hideFilters') : t('shop.filters')}
               </button>
             </div>
           )}
@@ -611,21 +613,21 @@ export const ShopPage: React.FC = () => {
         >
           <div className={`space-y-8 ${showFilters ? '' : 'lg:sticky lg:top-48'}`}>
             <div className="lg:hidden flex items-center justify-between pb-2 border-b border-white/10">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/90">Filters</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/90">{t('shop.filters')}</h3>
               <button
                 type="button"
                 onClick={() => setShowFilters(false)}
                 className="min-h-11 px-4 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-[0.2em] text-white/80"
               >
-                Close
+                {t('shop.close')}
               </button>
             </div>
             <div className="space-y-6">
               <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(237,232,220,0.90)', borderBottom: '1px solid rgba(196,154,108,0.14)' }}>
-                <Layers className="w-4 h-4" style={{ color: '#C49A6C' }} /> Category
+                <Layers className="w-4 h-4" style={{ color: '#C49A6C' }} /> {t('shop.category')}
               </h4>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-                <FilterPill label="All Products" isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
+                <FilterPill label={t('shop.allProducts')} isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
                 {categoryCounts.map((category) => (
                   <FilterPill
                     key={category.name}
@@ -782,7 +784,7 @@ export const ShopPage: React.FC = () => {
                 }}
                 className="w-full min-h-12 flex items-center justify-center gap-3 px-5 py-3 border border-rose-500/20 rounded-2xl text-[10px] font-black uppercase text-rose-500 tracking-widest hover:bg-rose-500/5 transition-all touch-manipulation"
               >
-                <Trash2 className="w-4 h-4" /> PURGE SELECTIONS
+                <Trash2 className="w-4 h-4" /> {t('shop.clearFilters')}
               </button>
             )}
           </div>
@@ -826,8 +828,8 @@ export const ShopPage: React.FC = () => {
             <div className="h-96 flex flex-col items-center justify-center text-center space-y-6 liquid-glass rounded-[48px] border border-white/5">
               <Box className="w-16 h-16 text-zinc-800" />
               <div>
-                <p className="text-xl font-black uppercase tracking-widest text-zinc-600">No Products Found</p>
-                <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em] mt-2">Try adjusting your filters</p>
+                <p className="text-xl font-black uppercase tracking-widest text-zinc-600">{t('shop.noProducts')}</p>
+                <p className="text-[10px] font-bold text-zinc-800 uppercase tracking-[0.3em] mt-2">{t('shop.adjustFilters')}</p>
               </div>
             </div>
           )}

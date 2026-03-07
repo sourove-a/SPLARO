@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
+import { useTranslation } from '../lib/useTranslation';
 import { LuxuryFloatingInput, PrimaryButton, GlassCard } from './LiquidGlass';
 import { OptimizedImage } from './OptimizedImage';
 
@@ -108,6 +109,7 @@ const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any
 
 export const CheckoutPage: React.FC = () => {
   const { cart, addOrder, user, discounts, logisticsConfig } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const ADDRESS_MIN_LENGTH = 3;
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
@@ -323,10 +325,10 @@ export const CheckoutPage: React.FC = () => {
           <header className="mb-8 sm:mb-12">
             <div className="flex items-center gap-3 text-[#C49A6C] mb-6">
               <ShieldCheck className="w-4 h-4" />
-              <span className="text-[11px] font-black uppercase tracking-[0.45em]">Secure Checkout</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.45em]">{t('cart.secureCheckout')}</span>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic text-white leading-none">
-              CHECKOUT
+              {t('checkout.title').toUpperCase()}
             </h1>
           </header>
 
@@ -334,7 +336,7 @@ export const CheckoutPage: React.FC = () => {
             <GlassCard className="p-5 sm:p-8 md:p-10 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <LuxuryFloatingInput
-                  label="Full Name"
+                  label={t('checkout.name')}
                   value={formData.fullName}
                   onChange={v => {
                     setFormData({ ...formData, fullName: v });
@@ -358,7 +360,7 @@ export const CheckoutPage: React.FC = () => {
                   autoComplete="email"
                 />
                 <LuxuryFloatingInput
-                  label="Phone Number"
+                  label={t('checkout.phone')}
                   value={formData.phone}
                   onChange={handlePhoneChange}
                   icon={<Phone className="w-5 h-5" />}
@@ -418,7 +420,7 @@ export const CheckoutPage: React.FC = () => {
             </GlassCard>
 
             <div className="space-y-6">
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Payment Method</h3>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">{t('checkout.payment')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <button
                   type="button"
@@ -428,7 +430,7 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex items-center gap-5">
                     <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-[#C49A6C]' : 'text-white/20'}`} />
                     <div className="text-left">
-                      <p className="text-sm font-black uppercase text-white">Cash on Delivery</p>
+                      <p className="text-sm font-black uppercase text-white">{t('checkout.cod')}</p>
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Pay at Threshold</p>
                     </div>
                   </div>
@@ -475,7 +477,7 @@ export const CheckoutPage: React.FC = () => {
               isLoading={status === 'processing'}
               className="w-full min-h-14 h-14 sm:h-16 text-[11px] sm:text-[13px] uppercase tracking-[0.35em] sm:tracking-[0.55em] shadow-[0_25px_50px_rgba(0, 122, 255, 0.25)]"
             >
-              PLACE ORDER <Sparkles className="w-5 h-5 ml-4" />
+              {t('checkout.place').toUpperCase()} <Sparkles className="w-5 h-5 ml-4" />
             </PrimaryButton>
             {submitError && (
               <p className="text-center text-[10px] font-black uppercase tracking-widest text-rose-500">{submitError}</p>
@@ -489,7 +491,7 @@ export const CheckoutPage: React.FC = () => {
             <GlassCard className="p-5 sm:p-8 md:p-10 !rounded-[24px] sm:!rounded-[36px] md:!rounded-[48px]">
               <div className="flex items-center gap-4 mb-10">
                 <Package className="w-6 h-6 text-[#C49A6C]" />
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic">Order Summary</h2>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic">{t('checkout.summary')}</h2>
               </div>
 
               <div className="space-y-6 mb-10 max-h-[400px] overflow-y-auto pr-3">
@@ -555,11 +557,11 @@ export const CheckoutPage: React.FC = () => {
 
               <div className="space-y-5 pt-8 border-t border-white/5">
                 <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
-                  <span>Subtotal</span>
+                  <span>{t('cart.subtotal')}</span>
                   <span className="text-white">৳{Number(subtotal || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
-                  <span>Shipping {formData.district ? `(${formData.district})` : ''}</span>
+                  <span>{t('cart.shipping')} {formData.district ? `(${formData.district})` : ''}</span>
                   <span className="text-[#C49A6C]">৳{Number(shippingFee || 0).toLocaleString()}</span>
                 </div>
                 {discountAmount > 0 && (
@@ -571,7 +573,7 @@ export const CheckoutPage: React.FC = () => {
 
                 <div className="pt-8 border-t border-white/10 flex justify-between items-end">
                   <div>
-                    <p className="text-[9px] font-black uppercase text-white/40 tracking-[0.35em] mb-1">Total</p>
+                    <p className="text-[9px] font-black uppercase text-white/40 tracking-[0.35em] mb-1">{t('cart.total')}</p>
                     <p className="text-4xl sm:text-5xl font-black text-white tracking-tighter">৳{Number(finalTotal || 0).toLocaleString()}</p>
                   </div>
                 </div>
