@@ -249,6 +249,29 @@ export interface SiteSettings {
   whatsappNumber: string;
   maintenanceMode: boolean;
   logoUrl?: string;
+  /* ── Payment Gateways ── */
+  bkashNumber?: string;
+  nagadNumber?: string;
+  sslcommerzStoreId?: string;
+  sslcommerzPassword?: string;
+  /* ── Delivery ── */
+  steadfastApiKey?: string;
+  steadfastSecretKey?: string;
+  /* ── Communication ── */
+  smtpHost?: string;
+  smtpPort?: string;
+  smtpUser?: string;
+  smtpPass?: string;
+  whatsappApiToken?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  /* ── Analytics & Auth ── */
+  googleAnalyticsId?: string;
+  facebookPixelId?: string;
+  googleSearchConsoleCode?: string;
+  /* ── CDN & Hosting ── */
+  cloudflareToken?: string;
+  cdnBaseUrl?: string;
   slides?: any[];
   cmsPages: {
     manifest: {

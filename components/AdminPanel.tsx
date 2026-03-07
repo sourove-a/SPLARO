@@ -11,7 +11,8 @@ import {
   Zap, Shield, BarChart3, HelpCircle, Palette, Layers, Box, Maximize,
   Thermometer, Info, Sparkles, AlertTriangle, FileText, Share2, Download,
   CloudLightning, Activity, Target, PieChart, TrendingUp as TrendUpIcon, BookOpen,
-  CreditCard, Briefcase, Settings2, Smartphone
+  CreditCard, Briefcase, Settings2, Smartphone, Bot, Key, MessageSquare,
+  Send, Link, Lock, Cpu
 } from 'lucide-react';
 
 
@@ -24,10 +25,12 @@ import { getPhpApiNode, getStorefrontOrigin } from '../lib/runtime';
 import { CampaignForm } from './CampaignForm';
 import { SystemHealthPanel } from './SystemHealthPanel';
 import { OptimizedImage } from './OptimizedImage';
+import { AdminAIAgent } from './AdminAIAgent';
+import { AdminTelegramPanel } from './AdminTelegramPanel';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
-const ADMIN_TABS = ['DASHBOARD', 'ANALYTICS', 'PRODUCTS', 'ORDERS', 'SLIDER', 'DISCOUNTS', 'USERS', 'FINANCE', 'HEALTH', 'SYNC', 'SETTINGS', 'PAGES', 'STORY', 'TRAFFIC', 'CAMPAIGNS'] as const;
+const ADMIN_TABS = ['DASHBOARD', 'AI_AGENT', 'ORDERS', 'PRODUCTS', 'ANALYTICS', 'FINANCE', 'USERS', 'DISCOUNTS', 'SLIDER', 'CAMPAIGNS', 'PAGES', 'STORY', 'HEALTH', 'SYNC', 'TRAFFIC', 'TELEGRAM', 'API_KEYS', 'SETTINGS'] as const;
 type AdminTab = typeof ADMIN_TABS[number];
 type CmsCategoryTab = 'all' | 'shoes' | 'bags';
 
@@ -3305,21 +3308,28 @@ export const AdminPanel = () => {
       <aside className="w-full lg:w-80 shrink-0 flex flex-col gap-8">
         <div className="h-10" />
         <GlassCard className="p-8 space-y-3">
-          <SidebarItem icon={LayoutDashboard} label="Command Center" active={activeTab === 'DASHBOARD'} onClick={() => switchTab('DASHBOARD')} />
-          <SidebarItem icon={BarChart3} label="Strategic Analytics" active={activeTab === 'ANALYTICS'} onClick={() => switchTab('ANALYTICS')} />
-          <SidebarItem icon={ShoppingBag} label="Vault Inventory" active={activeTab === 'PRODUCTS'} onClick={() => switchTab('PRODUCTS')} />
-          <SidebarItem icon={Package} label="Shipments" active={activeTab === 'ORDERS'} badge={newOrdersCount} onClick={() => { switchTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }} />
-          <SidebarItem icon={ImageIcon} label="Slider Command" active={activeTab === 'SLIDER'} onClick={() => switchTab('SLIDER')} />
+          {/* ── Core ── */}
+          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'DASHBOARD'} onClick={() => switchTab('DASHBOARD')} />
+          <SidebarItem icon={Bot} label="AI Copilot" active={activeTab === 'AI_AGENT'} onClick={() => switchTab('AI_AGENT')} />
+          {/* ── Operations ── */}
+          <SidebarItem icon={Package} label="Orders" active={activeTab === 'ORDERS'} badge={newOrdersCount} onClick={() => { switchTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }} />
+          <SidebarItem icon={ShoppingBag} label="Products" active={activeTab === 'PRODUCTS'} onClick={() => switchTab('PRODUCTS')} />
+          <SidebarItem icon={BarChart3} label="Analytics" active={activeTab === 'ANALYTICS'} onClick={() => switchTab('ANALYTICS')} />
+          <SidebarItem icon={DollarSign} label="Finance" active={activeTab === 'FINANCE'} onClick={() => switchTab('FINANCE')} />
+          <SidebarItem icon={Users} label="Customers" active={activeTab === 'USERS'} onClick={() => switchTab('USERS')} />
           <SidebarItem icon={Tag} label="Discounts" active={activeTab === 'DISCOUNTS'} onClick={() => switchTab('DISCOUNTS')} />
-          <SidebarItem icon={Users} label="Client Base" active={activeTab === 'USERS'} onClick={() => switchTab('USERS')} />
-          <SidebarItem icon={DollarSign} label="Financials" active={activeTab === 'FINANCE'} onClick={() => switchTab('FINANCE')} />
-          <SidebarItem icon={Activity} label="System Health" active={activeTab === 'HEALTH'} onClick={() => switchTab('HEALTH')} />
-          <SidebarItem icon={Database} label="Registry Sync" active={activeTab === 'SYNC'} onClick={() => switchTab('SYNC')} />
-          <SidebarItem icon={Settings} label="Protocols" active={activeTab === 'SETTINGS'} onClick={() => switchTab('SETTINGS')} />
-          <SidebarItem icon={FileText} label="Pages CMS" active={activeTab === 'PAGES'} onClick={() => switchTab('PAGES')} />
-          <SidebarItem icon={BookOpen} label="Story Posts" active={activeTab === 'STORY'} onClick={() => switchTab('STORY')} />
-          <SidebarItem icon={Globe} label="Live Traffic" active={activeTab === 'TRAFFIC'} onClick={() => switchTab('TRAFFIC')} />
+          {/* ── Content ── */}
+          <SidebarItem icon={ImageIcon} label="Hero Slider" active={activeTab === 'SLIDER'} onClick={() => switchTab('SLIDER')} />
           <SidebarItem icon={Zap} label="Campaigns" active={activeTab === 'CAMPAIGNS'} onClick={() => switchTab('CAMPAIGNS')} />
+          <SidebarItem icon={FileText} label="Pages" active={activeTab === 'PAGES'} onClick={() => switchTab('PAGES')} />
+          <SidebarItem icon={BookOpen} label="Blog / Story" active={activeTab === 'STORY'} onClick={() => switchTab('STORY')} />
+          {/* ── System ── */}
+          <SidebarItem icon={Activity} label="System Health" active={activeTab === 'HEALTH'} onClick={() => switchTab('HEALTH')} />
+          <SidebarItem icon={Database} label="Data Sync" active={activeTab === 'SYNC'} onClick={() => switchTab('SYNC')} />
+          <SidebarItem icon={Globe} label="Live Traffic" active={activeTab === 'TRAFFIC'} onClick={() => switchTab('TRAFFIC')} />
+          <SidebarItem icon={MessageSquare} label="Telegram Bot" active={activeTab === 'TELEGRAM'} onClick={() => switchTab('TELEGRAM')} />
+          <SidebarItem icon={Key} label="API Keys" active={activeTab === 'API_KEYS'} onClick={() => switchTab('API_KEYS')} />
+          <SidebarItem icon={Settings} label="Settings" active={activeTab === 'SETTINGS'} onClick={() => switchTab('SETTINGS')} />
 
 
         </GlassCard>
@@ -3359,11 +3369,15 @@ export const AdminPanel = () => {
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
           <div>
             <div className="flex items-center gap-4 text-[#C49A6C] mb-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#C49A6C] animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.5)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.6em]">Secure Protocol: ACTIVE</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-[#C49A6C] animate-pulse shadow-[0_0_15px_rgba(196,154,108,0.5)]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.6em]">Splaro Admin · Secure</span>
             </div>
             <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase italic">
-              {activeTab === 'DASHBOARD' ? 'COMMAND' : activeTab}
+              {activeTab === 'DASHBOARD' ? 'DASHBOARD'
+                : activeTab === 'AI_AGENT' ? 'AI COPILOT'
+                : activeTab === 'API_KEYS' ? 'API KEYS'
+                : activeTab === 'TELEGRAM' ? 'TELEGRAM'
+                : activeTab}
             </h2>
           </div>
           <div className="flex items-center gap-6">
@@ -4272,29 +4286,29 @@ export const AdminPanel = () => {
                       <Settings2 className="w-8 h-8" />
                     </div>
                     <div>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tighter">Institutional Identity</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Core Site Manifest</p>
+                      <h3 className="text-3xl font-black uppercase italic tracking-tighter">Site Identity</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Site name, logo & maintenance</p>
                     </div>
                   </div>
 
                   <div className="space-y-6">
                     <LuxuryFloatingInput
-                      label="Site Name Protocol"
+                      label="Site Name"
                       value={siteSettings.siteName}
                       onChange={v => setSiteSettings({ ...siteSettings, siteName: v })}
                       icon={<Globe className="w-5 h-5" />}
                     />
                     <LuxuryFloatingInput
-                      label="Logo Assets URL"
+                      label="Logo URL"
                       value={siteSettings.logoUrl || ''}
                       onChange={v => setSiteSettings({ ...siteSettings, logoUrl: v })}
                       icon={<Plus className="w-5 h-5" />}
-                      placeholder="Institutional logo manifest URL"
+                      placeholder="Logo image URL"
                     />
                     <div className="flex items-center justify-between p-8 bg-rose-500/5 border border-rose-500/20 rounded-[32px] mt-8">
                       <div>
-                        <p className="text-sm font-black uppercase text-rose-500">Maintenance Protocol</p>
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">Status: {siteSettings.maintenanceMode ? 'ACTIVE (Public Access Restricted)' : 'INACTIVE'}</p>
+                        <p className="text-sm font-black uppercase text-rose-500">Maintenance Mode</p>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">Status: {siteSettings.maintenanceMode ? 'ON (Site is unavailable to public)' : 'OFF (Site is live)'}</p>
                       </div>
                       <button
                         onClick={() => setSiteSettings({ ...siteSettings, maintenanceMode: !siteSettings.maintenanceMode })}
@@ -4315,8 +4329,8 @@ export const AdminPanel = () => {
                       <Phone className="w-8 h-8" />
                     </div>
                     <div>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tighter">Signal Coordinates</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Communication Manifest</p>
+                      <h3 className="text-3xl font-black uppercase italic tracking-tighter">Contact & Social</h3>
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Phone, WhatsApp, Email, Social links</p>
                     </div>
                   </div>
 
@@ -5594,6 +5608,133 @@ export const AdminPanel = () => {
                 </PrimaryButton>
               </div>
               <CampaignForm />
+            </motion.div>
+          )}
+
+          {/* ── AI Copilot ── */}
+          {activeTab === 'AI_AGENT' && (
+            <motion.div key="ai_agent" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <AdminAIAgent />
+            </motion.div>
+          )}
+
+          {/* ── Telegram Bot ── */}
+          {activeTab === 'TELEGRAM' && (
+            <motion.div key="telegram" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <AdminTelegramPanel />
+            </motion.div>
+          )}
+
+          {/* ── API Keys & Integrations ── */}
+          {activeTab === 'API_KEYS' && (
+            <motion.div key="api_keys" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+              <div>
+                <h3 className="text-3xl font-black uppercase italic tracking-tight text-white mb-2">API Keys & Integrations</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">সব API keys এক জায়গায় সংরক্ষণ ও পরিচালনা করুন</p>
+              </div>
+
+              {/* Payment Gateways */}
+              <GlassCard className="p-8">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                    <CreditCard className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black uppercase text-white">Payment Gateways</h4>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">bKash, Nagad, SSLCommerz</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <LuxuryFloatingInput label="bKash Merchant Number" value={siteSettings.bkashNumber || ''} onChange={v => setSiteSettings({ ...siteSettings, bkashNumber: v })} icon={<Smartphone className="w-5 h-5" />} placeholder="01XXXXXXXXX" />
+                  <LuxuryFloatingInput label="Nagad Merchant Number" value={siteSettings.nagadNumber || ''} onChange={v => setSiteSettings({ ...siteSettings, nagadNumber: v })} icon={<Smartphone className="w-5 h-5" />} placeholder="01XXXXXXXXX" />
+                  <LuxuryFloatingInput label="SSLCommerz Store ID" value={siteSettings.sslcommerzStoreId || ''} onChange={v => setSiteSettings({ ...siteSettings, sslcommerzStoreId: v })} icon={<Key className="w-5 h-5" />} placeholder="Store ID" />
+                  <LuxuryFloatingInput label="SSLCommerz Store Password" value={siteSettings.sslcommerzPassword || ''} onChange={v => setSiteSettings({ ...siteSettings, sslcommerzPassword: v })} icon={<Lock className="w-5 h-5" />} placeholder="Store Password" />
+                </div>
+              </GlassCard>
+
+              {/* Delivery */}
+              <GlassCard className="p-8">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                    <Truck className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black uppercase text-white">Delivery Partner</h4>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Steadfast, Pathao, RedX</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <LuxuryFloatingInput label="Steadfast API Key" value={siteSettings.steadfastApiKey || ''} onChange={v => setSiteSettings({ ...siteSettings, steadfastApiKey: v })} icon={<Key className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Steadfast Secret Key" value={siteSettings.steadfastSecretKey || ''} onChange={v => setSiteSettings({ ...siteSettings, steadfastSecretKey: v })} icon={<Lock className="w-5 h-5" />} />
+                </div>
+              </GlassCard>
+
+              {/* Communication */}
+              <GlassCard className="p-8">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center">
+                    <Send className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black uppercase text-white">Communication APIs</h4>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Email, SMS, WhatsApp, Push</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <LuxuryFloatingInput label="SMTP Host" value={siteSettings.smtpHost || ''} onChange={v => setSiteSettings({ ...siteSettings, smtpHost: v })} icon={<Mail className="w-5 h-5" />} placeholder="smtp.gmail.com" />
+                  <LuxuryFloatingInput label="SMTP Port" value={siteSettings.smtpPort || ''} onChange={v => setSiteSettings({ ...siteSettings, smtpPort: v })} icon={<Link className="w-5 h-5" />} placeholder="587" />
+                  <LuxuryFloatingInput label="SMTP Username (Email)" value={siteSettings.smtpUser || ''} onChange={v => setSiteSettings({ ...siteSettings, smtpUser: v })} icon={<Mail className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="SMTP Password" value={siteSettings.smtpPass || ''} onChange={v => setSiteSettings({ ...siteSettings, smtpPass: v })} icon={<Lock className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="WhatsApp Business API Token" value={siteSettings.whatsappApiToken || ''} onChange={v => setSiteSettings({ ...siteSettings, whatsappApiToken: v })} icon={<MessageSquare className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Telegram Bot Token" value={siteSettings.telegramBotToken || ''} onChange={v => setSiteSettings({ ...siteSettings, telegramBotToken: v })} icon={<Send className="w-5 h-5" />} />
+                </div>
+              </GlassCard>
+
+              {/* Auth & Analytics */}
+              <GlassCard className="p-8">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black uppercase text-white">Auth & Analytics</h4>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Google OAuth, Analytics, FB Pixel</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <LuxuryFloatingInput label="Google OAuth Client ID" value={siteSettings.googleClientId || ''} onChange={v => setSiteSettings({ ...siteSettings, googleClientId: v })} icon={<Globe className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Google Analytics ID (GA4)" value={siteSettings.googleAnalyticsId || ''} onChange={v => setSiteSettings({ ...siteSettings, googleAnalyticsId: v })} icon={<BarChart3 className="w-5 h-5" />} placeholder="G-XXXXXXXXXX" />
+                  <LuxuryFloatingInput label="Facebook Pixel ID" value={siteSettings.facebookPixelId || ''} onChange={v => setSiteSettings({ ...siteSettings, facebookPixelId: v })} icon={<Target className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Google Search Console Code" value={siteSettings.googleSearchConsoleCode || ''} onChange={v => setSiteSettings({ ...siteSettings, googleSearchConsoleCode: v })} icon={<Globe className="w-5 h-5" />} />
+                </div>
+              </GlassCard>
+
+              {/* CDN & Hosting */}
+              <GlassCard className="p-8">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
+                    <Cpu className="w-6 h-6 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black uppercase text-white">CDN & Hosting</h4>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Hostinger, Cloudflare, Media CDN</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <LuxuryFloatingInput label="Cloudflare API Token" value={siteSettings.cloudflareToken || ''} onChange={v => setSiteSettings({ ...siteSettings, cloudflareToken: v })} icon={<Key className="w-5 h-5" />} />
+                  <LuxuryFloatingInput label="Media CDN Base URL" value={siteSettings.cdnBaseUrl || ''} onChange={v => setSiteSettings({ ...siteSettings, cdnBaseUrl: v })} icon={<Link className="w-5 h-5" />} placeholder="https://cdn.splaro.co" />
+                </div>
+              </GlassCard>
+
+              <PrimaryButton
+                className="w-full h-14 rounded-2xl text-[10px]"
+                onClick={() => {
+                  updateSettings(siteSettings);
+                  showToast('API Keys saved successfully!', 'success');
+                }}
+              >
+                SAVE ALL API KEYS
+              </PrimaryButton>
             </motion.div>
           )}
 
