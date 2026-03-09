@@ -39,6 +39,72 @@ const fetchWithCredentials = (input: RequestInfo | URL, init: RequestInit = {}) 
 
 const isAdminTab = (tab: string): tab is AdminTab => ADMIN_TABS.includes(tab as AdminTab);
 
+// ── Collapsible Settings Accordion Section ──
+const SettingsSection = ({
+  id, number, title, subtitle, icon: Icon, defaultOpen = false, status, children
+}: {
+  id?: string; number: string; title: string; subtitle?: string;
+  icon: React.ElementType; defaultOpen?: boolean;
+  status?: 'green' | 'red' | null; children: React.ReactNode;
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div id={id} className="overflow-hidden rounded-[22px]"
+      style={{ border: '1px solid rgba(232,184,102,0.18)', background: 'rgba(12,18,10,0.60)', backdropFilter: 'blur(12px)' }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-4 px-5 py-4 text-left transition-all hover:bg-white/[0.03] group"
+      >
+        <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0"
+          style={{ background: 'rgba(232,184,102,0.10)', border: '1px solid rgba(232,184,102,0.22)' }}>
+          <Icon className="w-5 h-5" style={{ color: '#E8B866' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-[9px] font-black uppercase tracking-[0.42em]" style={{ color: '#C49A6C' }}>{number}</span>
+            <h3 className="text-sm font-black uppercase tracking-tight text-white">{title}</h3>
+            {status && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase"
+                style={{
+                  background: status === 'green' ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
+                  border: `1px solid ${status === 'green' ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}` ,
+                  color: status === 'green' ? '#10A37F' : '#ef4444'
+                }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: status === 'green' ? '#10A37F' : '#ef4444' }} />
+                {status === 'green' ? 'Active' : 'Not Set'}
+              </span>
+            )}
+          </div>
+          {subtitle && <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">{subtitle}</p>}
+        </div>
+        <ChevronDown
+          className="w-4 h-4 shrink-0 transition-transform duration-300"
+          style={{ color: '#C49A6C', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            style={{ borderTop: '1px solid rgba(232,184,102,0.10)', overflow: 'hidden' }}
+          >
+            <div className="p-5 sm:p-7 space-y-6">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+
 const SidebarItem: React.FC<{
   icon: any,
   label: string,
@@ -2406,9 +2472,9 @@ export const AdminPanel = () => {
   const deriveInvoiceThemeFromCmsTheme = (themeSettings: any) => {
     const colors = themeSettings?.colors || {};
     return {
-      primaryColor: String(colors.primary || '#0A0C12'),
-      accentColor: String(colors.accent || '#41DCFF'),
-      backgroundColor: String(colors.background || '#F4F7FF'),
+      primaryColor: String(colors.primary || '#C49A6C'),
+      accentColor: String(colors.accent || '#E8B866'),
+      backgroundColor: String(colors.background || '#F5EFE3'),
       tableHeaderColor: String(colors.primary || '#111827'),
       buttonColor: String(colors.accent || '#9B6B3A')
     };
@@ -4236,35 +4302,20 @@ export const AdminPanel = () => {
           )}
 
           {activeTab === 'SETTINGS' && (
-            <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
+            <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
 
-              {/* ── Settings Section Quick Nav ── */}
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: '① Owner Profile', href: '#s-owner' },
-                  { label: '② Site Info', href: '#s-site' },
-                  { label: '③ Contact & Social', href: '#s-contact' },
-                  { label: '④ New Arrival Popup', href: '#s-popup' },
-                  { label: '⑤ Email (SMTP)', href: '#s-smtp' },
-                  { label: '⑥ Delivery Fees', href: '#s-delivery' },
-                  { label: '⑦ Invoice', href: '#s-invoice' },
-                  { label: '⑧ Theme', href: '#s-theme' },
-                  { label: '⑨ Hero / Pages', href: '#s-hero' },
-                ].map(item => (
-                  <a key={item.href} href={item.href}
-                    className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all hover:bg-white/10"
-                    style={{ background: 'rgba(232,184,102,0.08)', border: '1px solid rgba(232,184,102,0.20)', color: '#E8B866' }}
-                  >
-                    {item.label}
-                  </a>
-                ))}
+              {/* ── Settings Header ── */}
+              <div className="flex items-center gap-3 pb-1">
+                <Settings className="w-4 h-4" style={{ color: '#C49A6C' }} />
+                <h2 className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#EDE8DC' }}>Site Settings</h2>
+                <span className="text-[10px] text-zinc-500 hidden sm:block">— সব সেকশন খুলুন ও পরিবর্তন করুন</span>
               </div>
 
-              <div id="s-owner" className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                <GlassCard className="p-10 xl:col-span-2">
+              <div className="space-y-3">
+                <SettingsSection id="s-owner" number="①" title="Owner Profile" icon={UserIcon} subtitle="আপনার নাম ও ফোন নম্বর আপডেট করুন" defaultOpen={true}>
                   <div className="flex flex-wrap items-start justify-between gap-6">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>① ADMIN ACCOUNT</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>ADMIN ACCOUNT</p>
                       <h3 className="text-2xl font-black uppercase italic tracking-tight text-white">Owner Profile</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mt-2">
                         আপনার নাম ও ফোন নম্বর আপডেট করুন
@@ -4302,20 +4353,9 @@ export const AdminPanel = () => {
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500 mt-5">
                     Owner identity cannot be deleted or downgraded from the admin panel.
                   </p>
-                </GlassCard>
+                </SettingsSection>
 
-                <GlassCard id="s-site" className="p-12">
-                  <div className="flex items-center gap-6 mb-12">
-                    <div className="w-16 h-16 rounded-[24px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C]">
-                      <Settings2 className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>② SITE INFO</p>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tighter">Site Identity</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Site name, logo & maintenance</p>
-                    </div>
-                  </div>
-
+                <SettingsSection id="s-site" number="②" title="Site Identity" icon={Settings2} subtitle="Site name, logo & maintenance mode">
                   <div className="space-y-6">
                     <LuxuryFloatingInput
                       label="Site Name"
@@ -4346,19 +4386,9 @@ export const AdminPanel = () => {
                       </button>
                     </div>
                   </div>
-                </GlassCard>
+                </SettingsSection>
 
-                <GlassCard id="s-contact" className="p-12">
-                  <div className="flex items-center gap-6 mb-12">
-                    <div className="w-16 h-16 rounded-[24px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C]">
-                      <Phone className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>③ CONTACT & SOCIAL</p>
-                      <h3 className="text-3xl font-black uppercase italic tracking-tighter">Contact & Social</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Phone, WhatsApp, Email, Social links</p>
-                    </div>
-                  </div>
+                <SettingsSection id="s-contact" number="③" title="Contact & Social" icon={Phone} subtitle="Phone, WhatsApp, Email & Social links">
 
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -4422,10 +4452,9 @@ export const AdminPanel = () => {
                   >
                     SAVE SITE SETTINGS
                   </PrimaryButton>
-                </GlassCard>
+                </SettingsSection>
 
-                {/* ── New Arrival Popup ── */}
-                <GlassCard id="s-popup" className="p-10">
+                <SettingsSection id="s-popup" number="④" title="New Arrival Popup" icon={Bell} subtitle="পপআপ সেটিংস — নতুন আইটেম promotion">
                   <div className="flex items-center gap-4 mb-8">
                     <Sparkles className="w-7 h-7 text-[#C49A6C]" />
                     <div>
@@ -4513,11 +4542,10 @@ export const AdminPanel = () => {
                   >
                     SAVE POPUP SETTINGS
                   </PrimaryButton>
-                </GlassCard>
+                </SettingsSection>
               </div>
 
-              <div id="s-smtp" className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                <GlassCard className="p-12">
+              <SettingsSection id="s-smtp" number="⑤" title="Email (SMTP)" icon={Mail} subtitle="Invoice ও notification পাঠানোর জন্য mail server" status={smtpSettings?.host ? 'green' : 'red'}>
                   <div className="flex items-center gap-4 mb-4">
                     <Mail className="w-8 h-8 text-[#C49A6C]" />
                     <div>
@@ -4572,28 +4600,10 @@ export const AdminPanel = () => {
                       Gmail ব্যবহার করলে: host = smtp.gmail.com, port = 587, এবং App Password ব্যবহার করুন।
                     </p>
                   </div>
-                </GlassCard>
+                </SettingsSection>
 
-                <GlassCard id="s-delivery" className="p-8 md:p-10">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="w-12 h-12 rounded-[20px] bg-[#C49A6C]/10 flex items-center justify-center text-[#C49A6C] shadow-[0_0_30px_rgba(0, 122, 255, 0.2)]">
-                      <Truck className="w-6 h-6" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-0.5" style={{ color: '#E8B866' }}>⑥ DELIVERY FEES</p>
-                      <h3 className="text-xl md:text-2xl font-black uppercase italic">Delivery Fee Settings</h3>
-                      <p className="text-[10px] text-zinc-400 mt-1">ডেলিভারি চার্জ সেট করুন — ঢাকার ভেতরে ও বাইরে</p>
-                    </div>
-                    <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
-                      style={{
-                        background: (logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
-                        border: `1px solid ${(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
-                        color: (logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? '#10A37F' : '#ef4444'
-                      }}>
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: (logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? '#10A37F' : '#ef4444', boxShadow: `0 0 5px ${(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? '#10A37F' : '#ef4444'}` }} />
-                      {(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'Configured' : 'Not Set'}
-                    </div>
-                  </div>
+              <SettingsSection id="s-delivery" number="⑥" title="Delivery Fees" icon={Truck} subtitle="ডেলিভারি চার্জ সেট করুন — ঢাকার ভেতরে ও বাইরে" status={(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'green' : 'red'}>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-4">ঢাকার মধ্যে ডেলিভারি চার্জ (Dhaka)</label>
@@ -4646,18 +4656,11 @@ export const AdminPanel = () => {
                   >
                     SAVE DELIVERY FEES
                   </PrimaryButton>
-                </GlassCard>
-              </div>
 
-              <div className="grid grid-cols-1 gap-12">
-                <GlassCard id="s-invoice" className="p-8 md:p-10 space-y-8">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑦ INVOICE</p>
-                      <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Invoice Settings</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Serial format, template and email controls</p>
-                    </div>
-                    <div className="flex items-center gap-3">
+              </SettingsSection>
+
+              <SettingsSection id="s-invoice" number="⑦" title="Invoice Settings" icon={FileText} subtitle="Serial format, template & email controls" status={siteSettings.invoiceSettings.invoiceEnabled ? 'green' : 'red'}>
+                  <div className="flex items-center gap-3 mb-2">
                       <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#C49A6C]/40 text-white/90 bg-[#C49A6C]/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
                         {siteSettings.invoiceSettings.invoiceEnabled ? 'Enabled' : 'Disabled'}
                       </span>
@@ -4667,7 +4670,6 @@ export const AdminPanel = () => {
                       >
                         Toggle
                       </button>
-                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5 p-4 md:p-5 space-y-4">
@@ -4869,14 +4871,13 @@ export const AdminPanel = () => {
                   >
                     SAVE INVOICE SETTINGS
                   </PrimaryButton>
-                </GlassCard>
-              </div>
+              </SettingsSection>
 
-              <div id="s-theme" className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-                <GlassCard className="p-6 md:p-8 space-y-6 max-h-[78vh] overflow-y-auto pr-2">
+              <SettingsSection id="s-theme" number="⑧" title="Theme & Appearance" icon={Palette} subtitle="রঙ, layout, product UX সেটিংস">
+                <div className="space-y-6">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑧ THEME</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>THEME</p>
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
                     </div>
@@ -5058,15 +5059,11 @@ export const AdminPanel = () => {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </GlassCard>
+                </div>
+              </SettingsSection>
 
-                <GlassCard id="s-hero" className="p-8 md:p-10 space-y-8">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#E8B866' }}>⑨ HERO / PAGES</p>
-                      <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Hero & Pages CMS</h3>
-                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Draft / publish with revision history</p>
-                    </div>
+              <SettingsSection id="s-hero" number="⑨" title="Hero & Pages CMS" icon={Sparkles} subtitle="Draft / publish with revision history">
+                  <div className="flex items-center justify-between gap-4 mb-2">
                     <span className="px-4 py-2 rounded-full border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
                       LIVE: {siteSettings.cmsActiveVersion}
                     </span>
@@ -5301,8 +5298,7 @@ export const AdminPanel = () => {
                       <p className="text-[10px] text-zinc-500">No revision history yet.</p>
                     )}
                   </div>
-                </GlassCard>
-              </div>
+              </SettingsSection>
             </motion.div>
           )}
 
@@ -5691,86 +5687,30 @@ export const AdminPanel = () => {
 
           {/* ── API Keys & Integrations ── */}
           {activeTab === 'API_KEYS' && (
-            <motion.div key="api_keys" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <div>
-                <h3 className="text-3xl font-black uppercase italic tracking-tight text-white mb-2">API Keys & Integrations</h3>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">সব API keys এক জায়গায় সংরক্ষণ ও পরিচালনা করুন</p>
+            <motion.div key="api_keys" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+              <div className="flex items-center gap-3 pb-1">
+                <Key className="w-4 h-4" style={{ color: '#C49A6C' }} />
+                <h2 className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#EDE8DC' }}>API Keys & Integrations</h2>
+                <span className="text-[10px] text-zinc-500 hidden sm:block">— সব API keys এক জায়গায় সংরক্ষণ ও পরিচালনা করুন</span>
               </div>
 
-              {/* Payment Gateways */}
-              <GlassCard className="p-8">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-                    <CreditCard className="w-6 h-6 text-emerald-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-black uppercase text-white">Payment Gateways</h4>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">bKash, Nagad, SSLCommerz</p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
-                    style={{
-                      background: (siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
-                      border: `1px solid ${(siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
-                      color: (siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? '#10A37F' : '#ef4444'
-                    }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: (siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? '#10A37F' : '#ef4444' }} />
-                    {(siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'Connected' : 'Not Set'}
-                  </div>
-                </div>
+              <SettingsSection number="①" title="Payment Gateways" icon={CreditCard} subtitle="bKash, Nagad, SSLCommerz" status={(siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'green' : 'red'} defaultOpen={true}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <LuxuryFloatingInput label="bKash Merchant Number" value={siteSettings.bkashNumber || ''} onChange={v => setSiteSettings({ ...siteSettings, bkashNumber: v })} icon={<Smartphone className="w-5 h-5" />} placeholder="01XXXXXXXXX" />
                   <LuxuryFloatingInput label="Nagad Merchant Number" value={siteSettings.nagadNumber || ''} onChange={v => setSiteSettings({ ...siteSettings, nagadNumber: v })} icon={<Smartphone className="w-5 h-5" />} placeholder="01XXXXXXXXX" />
                   <LuxuryFloatingInput label="SSLCommerz Store ID" value={siteSettings.sslcommerzStoreId || ''} onChange={v => setSiteSettings({ ...siteSettings, sslcommerzStoreId: v })} icon={<Key className="w-5 h-5" />} placeholder="Store ID" />
                   <LuxuryFloatingInput label="SSLCommerz Store Password" value={siteSettings.sslcommerzPassword || ''} onChange={v => setSiteSettings({ ...siteSettings, sslcommerzPassword: v })} icon={<Lock className="w-5 h-5" />} placeholder="Store Password" />
                 </div>
-              </GlassCard>
+              </SettingsSection>
 
-              {/* Delivery */}
-              <GlassCard className="p-8">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                    <Truck className="w-6 h-6 text-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-black uppercase text-white">Delivery Partner</h4>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Steadfast, Pathao, RedX</p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
-                    style={{
-                      background: siteSettings.steadfastApiKey ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
-                      border: `1px solid ${siteSettings.steadfastApiKey ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
-                      color: siteSettings.steadfastApiKey ? '#10A37F' : '#ef4444'
-                    }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: siteSettings.steadfastApiKey ? '#10A37F' : '#ef4444' }} />
-                    {siteSettings.steadfastApiKey ? 'Connected' : 'Not Set'}
-                  </div>
-                </div>
+              <SettingsSection number="②" title="Delivery Partner" icon={Truck} subtitle="Steadfast, Pathao, RedX" status={siteSettings.steadfastApiKey ? 'green' : 'red'}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <LuxuryFloatingInput label="Steadfast API Key" value={siteSettings.steadfastApiKey || ''} onChange={v => setSiteSettings({ ...siteSettings, steadfastApiKey: v })} icon={<Key className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Steadfast Secret Key" value={siteSettings.steadfastSecretKey || ''} onChange={v => setSiteSettings({ ...siteSettings, steadfastSecretKey: v })} icon={<Lock className="w-5 h-5" />} />
                 </div>
-              </GlassCard>
+              </SettingsSection>
 
-              {/* Communication */}
-              <GlassCard className="p-8">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center">
-                    <Send className="w-6 h-6 text-purple-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-black uppercase text-white">Communication APIs</h4>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Email, SMS, WhatsApp, Push</p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
-                    style={{
-                      background: siteSettings.smtpHost ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
-                      border: `1px solid ${siteSettings.smtpHost ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
-                      color: siteSettings.smtpHost ? '#10A37F' : '#ef4444'
-                    }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: siteSettings.smtpHost ? '#10A37F' : '#ef4444' }} />
-                    {siteSettings.smtpHost ? 'Connected' : 'Not Set'}
-                  </div>
-                </div>
+              <SettingsSection number="③" title="Communication APIs" icon={Send} subtitle="Email, SMS, WhatsApp, Push" status={siteSettings.smtpHost ? 'green' : 'red'}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <LuxuryFloatingInput label="SMTP Host" value={siteSettings.smtpHost || ''} onChange={v => setSiteSettings({ ...siteSettings, smtpHost: v })} icon={<Mail className="w-5 h-5" />} placeholder="smtp.gmail.com" />
                   <LuxuryFloatingInput label="SMTP Port" value={siteSettings.smtpPort || ''} onChange={v => setSiteSettings({ ...siteSettings, smtpPort: v })} icon={<Link className="w-5 h-5" />} placeholder="587" />
@@ -5779,61 +5719,23 @@ export const AdminPanel = () => {
                   <LuxuryFloatingInput label="WhatsApp Business API Token" value={siteSettings.whatsappApiToken || ''} onChange={v => setSiteSettings({ ...siteSettings, whatsappApiToken: v })} icon={<MessageSquare className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Telegram Bot Token" value={siteSettings.telegramBotToken || ''} onChange={v => setSiteSettings({ ...siteSettings, telegramBotToken: v })} icon={<Send className="w-5 h-5" />} />
                 </div>
-              </GlassCard>
+              </SettingsSection>
 
-              {/* Auth & Analytics */}
-              <GlassCard className="p-8">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-orange-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-black uppercase text-white">Auth & Analytics</h4>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Google OAuth, Analytics, FB Pixel</p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
-                    style={{
-                      background: (siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
-                      border: `1px solid ${(siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
-                      color: (siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? '#10A37F' : '#ef4444'
-                    }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: (siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? '#10A37F' : '#ef4444' }} />
-                    {(siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'Connected' : 'Not Set'}
-                  </div>
-                </div>
+              <SettingsSection number="④" title="Auth & Analytics" icon={Shield} subtitle="Google OAuth, Analytics, Facebook Pixel" status={(siteSettings.googleClientId || siteSettings.googleAnalyticsId) ? 'green' : 'red'}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <LuxuryFloatingInput label="Google OAuth Client ID" value={siteSettings.googleClientId || ''} onChange={v => setSiteSettings({ ...siteSettings, googleClientId: v })} icon={<Globe className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Google Analytics ID (GA4)" value={siteSettings.googleAnalyticsId || ''} onChange={v => setSiteSettings({ ...siteSettings, googleAnalyticsId: v })} icon={<BarChart3 className="w-5 h-5" />} placeholder="G-XXXXXXXXXX" />
                   <LuxuryFloatingInput label="Facebook Pixel ID" value={siteSettings.facebookPixelId || ''} onChange={v => setSiteSettings({ ...siteSettings, facebookPixelId: v })} icon={<Target className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Google Search Console Code" value={siteSettings.googleSearchConsoleCode || ''} onChange={v => setSiteSettings({ ...siteSettings, googleSearchConsoleCode: v })} icon={<Globe className="w-5 h-5" />} />
                 </div>
-              </GlassCard>
+              </SettingsSection>
 
-              {/* CDN & Hosting */}
-              <GlassCard className="p-8">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
-                    <Cpu className="w-6 h-6 text-cyan-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-lg font-black uppercase text-white">CDN & Hosting</h4>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-[0.25em]">Hostinger, Cloudflare, Media CDN</p>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase"
-                    style={{
-                      background: (siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'rgba(16,163,127,0.10)' : 'rgba(239,68,68,0.10)',
-                      border: `1px solid ${(siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'rgba(16,163,127,0.30)' : 'rgba(239,68,68,0.25)'}`,
-                      color: (siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? '#10A37F' : '#ef4444'
-                    }}>
-                    <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: (siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? '#10A37F' : '#ef4444' }} />
-                    {(siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'Connected' : 'Not Set'}
-                  </div>
-                </div>
+              <SettingsSection number="⑤" title="CDN & Hosting" icon={Cpu} subtitle="Cloudflare, Hostinger, Media CDN" status={(siteSettings.cloudflareToken || siteSettings.cdnBaseUrl) ? 'green' : 'red'}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <LuxuryFloatingInput label="Cloudflare API Token" value={siteSettings.cloudflareToken || ''} onChange={v => setSiteSettings({ ...siteSettings, cloudflareToken: v })} icon={<Key className="w-5 h-5" />} />
                   <LuxuryFloatingInput label="Media CDN Base URL" value={siteSettings.cdnBaseUrl || ''} onChange={v => setSiteSettings({ ...siteSettings, cdnBaseUrl: v })} icon={<Link className="w-5 h-5" />} placeholder="https://cdn.splaro.co" />
                 </div>
-              </GlassCard>
+              </SettingsSection>
 
               <PrimaryButton
                 className="w-full h-14 rounded-2xl text-[10px]"
