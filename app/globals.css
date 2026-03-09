@@ -1,29 +1,29 @@
 /* ════════════════════════════════════════════════════════════════
-   SPLARO — Natural Gentleman Theme
-   Palette: Deep Forest · Warm Cognac · Sage Green · Cream
+   SPLARO — Electric Luxury Theme
+   Palette: Deep Navy · Lime Green · Electric Blue · White
    ════════════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,700;1,800;1,900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-    /* ── Core Palette — BRIGHT GENTLEMAN EDITION ── */
-    --ng-bg:              #0D1510;     /* slightly lighter deep forest */
-    --ng-bg2:             #142018;     /* warm forest mid */
-    --ng-surface:         rgba(255, 252, 248, 0.08);
-    --ng-surface-hov:     rgba(255, 252, 248, 0.13);
-    --ng-primary:         #A8C8A4;     /* brighter sage */
-    --ng-primary-deep:    #4A8050;     /* vibrant forest */
-    --ng-gold:            #D4A056;     /* rich gold — brighter */
-    --ng-gold-bright:     #E8B866;     /* warm bright gold */
-    --ng-amber:           #F0CC80;     /* vivid highlight amber */
-    --ng-text:            #F5EFE3;     /* brighter warm cream */
-    --ng-text-dim:        rgba(245, 239, 227, 0.75);
-    --ng-text-muted:      rgba(220, 210, 190, 0.55);
-    --ng-border:          rgba(212, 160, 86, 0.24);
-    --ng-border-bright:   rgba(212, 160, 86, 0.58);
-    --ng-red:             #D06050;
-    --ng-glass:           rgba(255, 252, 248, 0.07);
-    --ng-glass-border:    rgba(212, 160, 86, 0.28);
+    /* ── Core Palette — ELECTRIC LUXURY NAVY + LIME ── */
+    --ng-bg:              #07101E;     /* deep navy night */
+    --ng-bg2:             #0D1B3A;     /* navy mid */
+    --ng-surface:         rgba(10, 22, 52, 0.75);
+    --ng-surface-hov:     rgba(14, 30, 65, 0.85);
+    --ng-primary:         #9AE030;     /* lime green */
+    --ng-primary-deep:    #6AB810;     /* deep lime */
+    --ng-gold:            #7EC820;     /* lime medium */
+    --ng-gold-bright:     #AAEE2A;     /* bright lime */
+    --ng-amber:           #C8FF42;     /* electric lime hi */
+    --ng-text:            #FFFFFF;     /* pure white */
+    --ng-text-dim:        rgba(255, 255, 255, 0.72);
+    --ng-text-muted:      rgba(200, 225, 255, 0.50);
+    --ng-border:          rgba(154, 224, 48, 0.22);
+    --ng-border-bright:   rgba(154, 224, 48, 0.55);
+    --ng-red:             #FF4444;
+    --ng-glass:           rgba(10, 22, 52, 0.65);
+    --ng-glass-border:    rgba(154, 224, 48, 0.25);
     --ng-radius:          24px;
     --ng-radius-sm:       16px;
     --ng-radius-lg:       36px;
@@ -31,19 +31,19 @@
     /* ── Legacy tokens (keep for compatibility) ── */
     --obsidian:           #000000;
     --midnight:           #050505;
-    --pearl:              #EDE8DC;
+    --pearl:              #E8F8FF;
     --mobile-nav-height:  78px;
     --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --mobile-safe-top:    env(safe-area-inset-top, 0px);
-    --ui-focus-outline:   rgba(196, 154, 108, 0.90);
-    --ui-focus-shadow:    0 0 0 4px rgba(196, 154, 108, 0.22);
+    --ui-focus-outline:   rgba(154, 224, 48, 0.90);
+    --ui-focus-shadow:    0 0 0 4px rgba(154, 224, 48, 0.22);
 
     /* ── System tokens (mapped to natural theme) ── */
-    --splaro-primary:       #A8C8A4;
-    --splaro-accent:        #E8B866;
-    --splaro-bg:            #0D1510;
-    --splaro-surface:       rgba(255, 252, 248, 0.08);
-    --splaro-text:          #F5EFE3;
+    --splaro-primary:       #9AE030;
+    --splaro-accent:        #AAEE2A;
+    --splaro-bg:            #07101E;
+    --splaro-surface:       rgba(10, 22, 52, 0.75);
+    --splaro-text:          #FFFFFF;
     --splaro-radius:        24px;
     --splaro-shadow-strength: 72;
     --splaro-font-base-size: 16px;
@@ -65,8 +65,8 @@
 
 /* ── Focus States ── */
 :root[data-splaro-focus="bright"] {
-    --ui-focus-outline: rgba(196, 154, 108, 1);
-    --ui-focus-shadow:  0 0 0 4px rgba(196, 154, 108, 0.24);
+    --ui-focus-outline: rgba(154, 224, 48, 1);
+    --ui-focus-shadow:  0 0 0 4px rgba(154, 224, 48, 0.24);
 }
 
 :root[data-splaro-glow="reduced"] {
@@ -80,7 +80,7 @@
     --text-main:   #1A1614;
     --text-dim:    rgba(30, 22, 18, 0.60);
     --glass-bg:    rgba(255, 255, 255, 0.88);
-    --glass-border: rgba(196, 154, 108, 0.30);
+    --glass-border: rgba(154, 224, 48, 0.30);
 }
 
 /* ══════════════════════════════════════════
@@ -103,11 +103,11 @@ body {
     margin: 0;
     background-color: var(--bg-main);
     background-image:
-        radial-gradient(ellipse at 15% 8%,  rgba(74, 128, 80, 0.32), transparent 42%),
-        radial-gradient(ellipse at 85% 92%, rgba(212, 160, 86, 0.20), transparent 40%),
-        radial-gradient(ellipse at 50% 45%, rgba(168, 200, 164, 0.10), transparent 55%),
-        radial-gradient(ellipse at 70% 20%, rgba(232, 184, 102, 0.10), transparent 35%),
-        linear-gradient(180deg, #0F1A12 0%, #0D1510 45%, #0B1210 100%);
+        radial-gradient(ellipse at 15% 8%,  rgba(40, 100, 200, 0.28), transparent 42%),
+        radial-gradient(ellipse at 85% 92%, rgba(154, 224, 48, 0.14), transparent 40%),
+        radial-gradient(ellipse at 50% 45%, rgba(30, 70, 160, 0.12), transparent 55%),
+        radial-gradient(ellipse at 70% 20%, rgba(170, 238, 42, 0.08), transparent 35%),
+        linear-gradient(180deg, #0A1525 0%, #07101E 45%, #050C16 100%);
     color: var(--text-main);
     transition: background-color 0.35s ease, color 0.25s ease;
     -webkit-font-smoothing: antialiased;
@@ -273,13 +273,13 @@ h1, h2, h3, h4 {
 
 :where(button, a[href], [role="button"], .nav-item, .interactive-control):focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(196, 154, 108, 0.55);
+    box-shadow: 0 0 0 2px rgba(154, 224, 48, 0.55);
 }
 
 :where(input, select, textarea):focus-visible {
     outline: none;
     box-shadow: none !important;
-    border-color: rgba(196, 154, 108, 0.75) !important;
+    border-color: rgba(154, 224, 48, 0.75) !important;
 }
 
 :where(button, [role="button"], .nav-item, .interactive-control):active:not(:disabled) {
@@ -323,8 +323,8 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
 textarea:-webkit-autofill, textarea:-webkit-autofill:hover, textarea:-webkit-autofill:focus,
 select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:focus {
     -webkit-text-fill-color: var(--text-main) !important;
-    -webkit-box-shadow: 0 0 0 1000px rgba(10, 15, 8, 0.98) inset !important;
-    box-shadow:          0 0 0 1000px rgba(10, 15, 8, 0.98) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(8, 14, 32, 0.98) inset !important;
+    box-shadow:          0 0 0 1000px rgba(8, 14, 32, 0.98) inset !important;
     transition: background-color 9999s ease-out 0s !important;
     caret-color: var(--text-main);
 }
@@ -332,8 +332,8 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 .luxury-input-field:-webkit-autofill:hover,
 .luxury-input-field:-webkit-autofill:focus {
     -webkit-text-fill-color: var(--ng-text) !important;
-    -webkit-box-shadow: 0 0 0 1000px rgba(10, 15, 8, 0.98) inset !important;
-    box-shadow:          0 0 0 1000px rgba(10, 15, 8, 0.98) inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(8, 14, 32, 0.98) inset !important;
+    box-shadow:          0 0 0 1000px rgba(8, 14, 32, 0.98) inset !important;
     caret-color: var(--ng-text) !important;
 }
 
@@ -341,13 +341,13 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    TAILWIND OVERRIDES — Natural Palette
    (overrides the old iOS-blue mapping)
    ══════════════════════════════════════════ */
-.text-white\/40 { color: rgba(237, 232, 220, 0.46) !important; }
-.text-white\/50 { color: rgba(237, 232, 220, 0.60) !important; }
-.text-white\/60 { color: rgba(237, 232, 220, 0.72) !important; }
-.text-white\/70 { color: rgba(237, 232, 220, 0.84) !important; }
-.text-white\/80 { color: rgba(237, 232, 220, 0.90) !important; }
-.text-white\/90 { color: rgba(237, 232, 220, 0.95) !important; }
-.text-white     { color: #EDE8DC !important; }
+.text-white\/40 { color: rgba(255, 255, 255, 0.46) !important; }
+.text-white\/50 { color: rgba(255, 255, 255, 0.60) !important; }
+.text-white\/60 { color: rgba(255, 255, 255, 0.72) !important; }
+.text-white\/70 { color: rgba(255, 255, 255, 0.84) !important; }
+.text-white\/80 { color: rgba(255, 255, 255, 0.90) !important; }
+.text-white\/90 { color: rgba(255, 255, 255, 0.95) !important; }
+.text-white     { color: #F0F8FF !important; }
 
 .text-zinc-300  { color: rgba(232, 222, 206, 0.88) !important; }
 .text-zinc-400  { color: rgba(210, 198, 178, 0.68) !important; }
@@ -357,17 +357,17 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 .text-zinc-800  { color: rgba(130, 118, 98, 0.22) !important; }
 .text-zinc-900, .text-black { color: rgba(110, 100, 80, 0.16) !important; }
 
-.border-black { border-color: rgba(196, 154, 108, 0.22) !important; }
+.border-black { border-color: rgba(154, 224, 48, 0.22) !important; }
 
 .placeholder\:text-zinc-700::placeholder,
 .placeholder\:text-zinc-800::placeholder,
-.placeholder\:text-zinc-900::placeholder { color: rgba(196, 154, 108, 0.38) !important; }
+.placeholder\:text-zinc-900::placeholder { color: rgba(154, 224, 48, 0.38) !important; }
 
-.hover\:text-black:hover, .group:hover .group-hover\:text-black { color: #EDE8DC !important; }
+.hover\:text-black:hover, .group:hover .group-hover\:text-black { color: #F0F8FF !important; }
 .hover\:bg-white:hover, .group:hover .group-hover\:bg-white { background-color: rgba(255, 252, 248, 0.10) !important; }
 .bg-white.text-black, .text-black.bg-white {
     background-color: rgba(255, 252, 248, 0.07) !important;
-    border-color: rgba(196, 154, 108, 0.22) !important;
+    border-color: rgba(154, 224, 48, 0.22) !important;
 }
 
 /* Remap cyan/blue → cognac gold for natural theme */
@@ -383,17 +383,17 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 .text-green-400, .text-green-500 { color: var(--ng-primary) !important; }
 .text-green-300                   { color: rgba(160, 205, 155, 0.90) !important; }
 
-.border-cyan-200\/35, .border-cyan-200\/80 { border-color: rgba(196, 154, 108, 0.30) !important; }
-.border-white\/10 { border-color: rgba(196, 154, 108, 0.14) !important; }
-.border-white\/5  { border-color: rgba(196, 154, 108, 0.08) !important; }
-.border-white\/15 { border-color: rgba(196, 154, 108, 0.18) !important; }
-.border-white\/20 { border-color: rgba(196, 154, 108, 0.24) !important; }
+.border-cyan-200\/35, .border-cyan-200\/80 { border-color: rgba(154, 224, 48, 0.30) !important; }
+.border-white\/10 { border-color: rgba(154, 224, 48, 0.14) !important; }
+.border-white\/5  { border-color: rgba(154, 224, 48, 0.08) !important; }
+.border-white\/15 { border-color: rgba(154, 224, 48, 0.18) !important; }
+.border-white\/20 { border-color: rgba(154, 224, 48, 0.24) !important; }
 
 /* Background remaps */
 .bg-\[\#050505\], .bg-black, .bg-zinc-950 { background-color: var(--ng-bg) !important; }
 .bg-\[\#0A0C12\], .bg-\[\#0a0c12\],
 .bg-black\/25, .bg-black\/30,
-.bg-black\/40, .bg-black\/50 { background-color: rgba(10, 15, 8, 0.65) !important; }
+.bg-black\/40, .bg-black\/50 { background-color: rgba(8, 14, 32, 0.65) !important; }
 
 /* Gradient remaps */
 .from-\[\#050505\]  { --tw-gradient-from: var(--ng-bg) var(--tw-gradient-from-position) !important; }
@@ -409,37 +409,37 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    CTA BUTTON — Cognac/Leather Premium
    ══════════════════════════════════════════ */
 .btn-green-primary {
-    background: linear-gradient(135deg, #8B5E2A 0%, #C07832 45%, #E8B866 75%, #C07832 100%);
-    border: 1px solid rgba(232, 184, 102, 0.55);
-    color: #FFFAF0;
+    background: linear-gradient(135deg, #1A3A1A 0%, #3A8010 45%, #7EC820 75%, #AAEE2A 100%);
+    border: 1px solid rgba(154, 224, 48, 0.60);
+    color: #FFFFFF;
     box-shadow:
-        0 4px 28px rgba(192, 120, 50, 0.65),
-        0 0 12px rgba(232, 184, 102, 0.25),
-        inset 0 1px 0 rgba(255, 248, 220, 0.32);
+        0 4px 28px rgba(100, 200, 20, 0.55),
+        0 0 12px rgba(154, 224, 48, 0.28),
+        inset 0 1px 0 rgba(220, 255, 120, 0.30);
     transition: all 240ms ease;
 }
 .btn-green-primary:hover {
-    background: linear-gradient(135deg, #C07832 0%, #E8B866 50%, #F5CC82 80%, #E8B866 100%);
-    border-color: rgba(245, 204, 130, 0.75);
+    background: linear-gradient(135deg, #3A8010 0%, #7EC820 50%, #AAEE2A 80%, #C8FF42 100%);
+    border-color: rgba(200, 255, 66, 0.80);
     box-shadow:
-        0 8px 36px rgba(232, 184, 102, 0.75),
-        0 0 20px rgba(232, 184, 102, 0.40),
-        inset 0 1px 0 rgba(255, 248, 220, 0.40);
+        0 8px 36px rgba(154, 224, 48, 0.70),
+        0 0 20px rgba(170, 238, 42, 0.42),
+        inset 0 1px 0 rgba(220, 255, 120, 0.38);
     transform: translateY(-2px);
 }
 
 /* ── Natural badges ── */
 .green-badge {
-    background: rgba(139, 168, 136, 0.18);
-    border: 1px solid rgba(139, 168, 136, 0.38);
+    background: rgba(154, 224, 48, 0.14);
+    border: 1px solid rgba(154, 224, 48, 0.35);
     color: var(--ng-primary);
     backdrop-filter: blur(8px);
 }
 
 /* ── Cognac/leather badge ── */
 .cognac-badge {
-    background: rgba(196, 154, 108, 0.15);
-    border: 1px solid rgba(196, 154, 108, 0.35);
+    background: rgba(154, 224, 48, 0.12);
+    border: 1px solid rgba(154, 224, 48, 0.30);
     color: var(--ng-gold);
     backdrop-filter: blur(8px);
 }
@@ -448,17 +448,17 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    SEARCH BAR
    ══════════════════════════════════════════ */
 .search-premium {
-    background: rgba(15, 26, 13, 0.80);
-    border: 1px solid rgba(196, 154, 108, 0.22);
+    background: rgba(8, 18, 42, 0.80);
+    border: 1px solid rgba(154, 224, 48, 0.22);
     backdrop-filter: blur(30px) saturate(170%);
     border-radius: 999px;
     transition: border-color 240ms ease, box-shadow 240ms ease;
 }
 .search-premium:focus-within {
-    border-color: rgba(196, 154, 108, 0.85);
+    border-color: rgba(154, 224, 48, 0.85);
     box-shadow:
-        0 0 0 3px rgba(196, 154, 108, 0.16),
-        0 8px 32px rgba(196, 154, 108, 0.18);
+        0 0 0 3px rgba(154, 224, 48, 0.16),
+        0 8px 32px rgba(154, 224, 48, 0.18);
 }
 
 /* ══════════════════════════════════════════
@@ -468,45 +468,45 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 
 .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(196, 154, 108, 0.32) rgba(196, 154, 108, 0.05);
+    scrollbar-color: rgba(154, 224, 48, 0.32) rgba(154, 224, 48, 0.05);
     scrollbar-gutter: stable both-edges;
 }
 .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(196, 154, 108, 0.04);
+    background: rgba(154, 224, 48, 0.04);
     border-radius: 999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg,
-        rgba(196, 154, 108, 0.52),
-        rgba(196, 154, 108, 0.28));
+        rgba(154, 224, 48, 0.52),
+        rgba(154, 224, 48, 0.28));
     border-radius: 999px;
-    border: 2px solid rgba(10, 15, 8, 0.6);
+    border: 2px solid rgba(8, 14, 32, 0.6);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg,
         rgba(212, 180, 122, 0.90),
-        rgba(196, 154, 108, 0.70));
+        rgba(154, 224, 48, 0.70));
 }
 
 /* ══════════════════════════════════════════
    NATURAL FILTER PILL (Shop Page)
    ══════════════════════════════════════════ */
 .filter-pill-active {
-    background: rgba(232, 184, 102, 0.22);
-    border-color: rgba(232, 184, 102, 0.70);
+    background: rgba(170, 238, 42, 0.22);
+    border-color: rgba(170, 238, 42, 0.70);
     color: #F5CC82;
-    box-shadow: 0 0 28px rgba(232, 184, 102, 0.28), inset 0 0 8px rgba(232, 184, 102, 0.08);
+    box-shadow: 0 0 28px rgba(170, 238, 42, 0.28), inset 0 0 8px rgba(170, 238, 42, 0.08);
 }
 .filter-pill-inactive {
     background: rgba(255, 252, 248, 0.05);
-    border-color: rgba(232, 184, 102, 0.18);
-    color: rgba(245, 239, 227, 0.55);
+    border-color: rgba(170, 238, 42, 0.18);
+    color: rgba(255, 255, 255, 0.55);
 }
 .filter-pill-inactive:hover {
-    border-color: rgba(232, 184, 102, 0.48);
+    border-color: rgba(170, 238, 42, 0.48);
     color: var(--ng-text);
-    background: rgba(232, 184, 102, 0.08);
+    background: rgba(170, 238, 42, 0.08);
 }
 
 /* ══════════════════════════════════════════
@@ -525,9 +525,9 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    ADMIN PANEL NATURAL
    ══════════════════════════════════════════ */
 .admin-sidebar-active {
-    background: linear-gradient(135deg, #6B4226 0%, #9B6B3A 50%, #C49A6C 100%);
-    box-shadow: 0 0 24px rgba(192, 154, 108, 0.45), inset 0 1px 0 rgba(232, 184, 102, 0.20);
-    border-left: 2px solid rgba(232, 184, 102, 0.60);
+    background: linear-gradient(135deg, #071832 0%, #9B6B3A 50%, #9AE030 100%);
+    box-shadow: 0 0 24px rgba(192, 154, 108, 0.45), inset 0 1px 0 rgba(170, 238, 42, 0.20);
+    border-left: 2px solid rgba(170, 238, 42, 0.60);
 }
 .admin-trend-badge {
     background: rgba(139, 168, 136, 0.15);
@@ -541,7 +541,7 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 button, a { touch-action: manipulation; }
 
 .cognac-glow {
-    box-shadow: 0 0 28px rgba(196, 154, 108, 0.35);
+    box-shadow: 0 0 28px rgba(154, 224, 48, 0.35);
 }
 .sage-glow {
     box-shadow: 0 0 24px rgba(139, 168, 136, 0.30);
@@ -564,7 +564,7 @@ button, a { touch-action: manipulation; }
         box-shadow:
             0 0 0 0.5px rgba(255, 252, 248, 0.07),
             0 10px 28px rgba(0, 0, 0, 0.62),
-            0 0 20px rgba(61, 107, 61, 0.06);
+            0 0 20px rgba(30, 80, 180, 0.08);
     }
     .shine-sweep { animation-duration: 12s; opacity: 0.06; }
 }
@@ -572,9 +572,9 @@ button, a { touch-action: manipulation; }
 @media (max-width: 768px) {
     body {
         background-image:
-            radial-gradient(ellipse at 18% 8%,  rgba(61, 107, 61, 0.18), transparent 38%),
-            radial-gradient(ellipse at 82% 92%, rgba(196, 154, 108, 0.10), transparent 34%),
-            linear-gradient(180deg, #0C1409 0%, #0A0F08 100%);
+            radial-gradient(ellipse at 18% 8%,  rgba(30, 80, 180, 0.20), transparent 38%),
+            radial-gradient(ellipse at 82% 92%, rgba(154, 224, 48, 0.08), transparent 34%),
+            linear-gradient(180deg, #091420 0%, #07101E 100%);
     }
     .liquid-glass {
         backdrop-filter: blur(16px) saturate(150%);
@@ -582,7 +582,7 @@ button, a { touch-action: manipulation; }
         box-shadow:
             0 0 0 0.5px rgba(255, 252, 248, 0.06),
             0 8px 22px rgba(0, 0, 0, 0.58),
-            0 0 14px rgba(61, 107, 61, 0.05);
+            0 0 14px rgba(30, 80, 180, 0.06);
     }
     .shine-sweep { display: none; }
 }

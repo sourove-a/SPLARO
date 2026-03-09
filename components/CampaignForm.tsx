@@ -374,7 +374,7 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('send_now')}
-            className="h-11 px-4 rounded-xl bg-[#C49A6C] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-[#9AE030] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Send className="w-4 h-4" /> Send Now
           </button>
@@ -382,14 +382,14 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('schedule')}
-            className="h-11 px-4 rounded-xl bg-[#C49A6C] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-[#9AE030] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Clock3 className="w-4 h-4" /> Schedule
           </button>
         </div>
 
         {preview && (
-          <div className="mt-4 rounded-xl border border-[#C49A6C]/25 bg-[#C49A6C]/10 p-4">
+          <div className="mt-4 rounded-xl border border-[#9AE030]/25 bg-[#9AE030]/10 p-4">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/90 font-black">Preview</p>
             <p className="text-sm text-zinc-200 mt-1">Users: {preview.users} | Subscriptions: {preview.subscriptions}</p>
             {preview.sample_user_ids?.length > 0 && (
@@ -459,7 +459,7 @@ export const CampaignForm: React.FC = () => {
                       type="button"
                       disabled={busy || !canWrite}
                       onClick={() => sendExistingCampaignNow(campaign.id)}
-                      className="h-8 px-3 rounded-lg border border-[#C49A6C]/35 text-[10px] text-white/90 disabled:opacity-60"
+                      className="h-8 px-3 rounded-lg border border-[#9AE030]/35 text-[10px] text-white/90 disabled:opacity-60"
                     >
                       Send Now
                     </button>

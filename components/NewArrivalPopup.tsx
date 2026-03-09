@@ -54,14 +54,14 @@ export const NewArrivalPopup: React.FC = () => {
             className="relative overflow-hidden rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
             style={{
               background: 'linear-gradient(135deg, #0C1409 0%, #0F1A0D 60%, #12200F 100%)',
-              border: '1px solid rgba(196,154,108,0.28)',
+              border: '1px solid rgba(154,224,48,0.28)',
             }}
           >
             {/* Badge */}
             <div className="absolute top-4 left-4 z-10">
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ background: 'rgba(196,154,108,0.18)', border: '1px solid rgba(196,154,108,0.35)' }}
+                style={{ background: 'rgba(154,224,48,0.18)', border: '1px solid rgba(154,224,48,0.35)' }}
               >
                 <Sparkles className="w-3 h-3" style={{ color: '#D4B47A' }} />
                 <span
@@ -79,9 +79,9 @@ export const NewArrivalPopup: React.FC = () => {
               aria-label="Close popup"
               onClick={handleDismiss}
               className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ background: 'rgba(10,15,8,0.6)', border: '1px solid rgba(196,154,108,0.18)' }}
+              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(154,224,48,0.18)' }}
             >
-              <X className="w-4 h-4" style={{ color: 'rgba(237,232,220,0.7)' }} />
+              <X className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
             </button>
 
             {/* Image */}
@@ -104,13 +104,13 @@ export const NewArrivalPopup: React.FC = () => {
             <div className={`px-5 pb-5 ${popup.imageUrl ? 'pt-3' : 'pt-12'}`}>
               <h3
                 className="text-xl font-black uppercase tracking-tight leading-tight mb-2"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC' }}
+                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F0F8FF' }}
               >
                 {popup.title || 'New Arrivals'}
               </h3>
               <p
                 className="text-[11px] font-medium leading-relaxed mb-4"
-                style={{ color: 'rgba(237,232,220,0.65)', letterSpacing: '0.05em' }}
+                style={{ color: 'rgba(255,255,255,0.65)', letterSpacing: '0.05em' }}
               >
                 {popup.subtitle || 'Fresh collection just landed. Be the first to explore.'}
               </p>
@@ -121,9 +121,9 @@ export const NewArrivalPopup: React.FC = () => {
                   onClick={handleCta}
                   className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all group"
                   style={{
-                    background: 'linear-gradient(135deg, #6B4226 0%, #9B6B3A 45%, #C49A6C 75%, #9B6B3A 100%)',
+                    background: 'linear-gradient(135deg, #071832 0%, #9B6B3A 45%, #9AE030 75%, #9B6B3A 100%)',
                     color: '#0A0F08',
-                    boxShadow: '0 6px 20px rgba(196,154,108,0.30)',
+                    boxShadow: '0 6px 20px rgba(154,224,48,0.30)',
                   }}
                 >
                   {popup.ctaLabel || 'Shop Now'}
@@ -134,8 +134,8 @@ export const NewArrivalPopup: React.FC = () => {
                   onClick={handleDismiss}
                   className="h-11 px-4 rounded-xl text-[10px] font-bold uppercase tracking-[0.18em] transition-all"
                   style={{
-                    border: '1px solid rgba(196,154,108,0.22)',
-                    color: 'rgba(237,232,220,0.55)',
+                    border: '1px solid rgba(154,224,48,0.22)',
+                    color: 'rgba(255,255,255,0.55)',
                   }}
                 >
                   Later
@@ -146,7 +146,7 @@ export const NewArrivalPopup: React.FC = () => {
             {/* Decorative corner glow */}
             <div
               className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full blur-2xl pointer-events-none"
-              style={{ background: 'rgba(196,154,108,0.12)' }}
+              style={{ background: 'rgba(154,224,48,0.12)' }}
             />
           </div>
         </motion.div>

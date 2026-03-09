@@ -178,11 +178,11 @@ export const NotificationBell: React.FC<{ mobile?: boolean }> = ({ mobile = fals
         onClick={() => setOpen((prev) => !prev)}
         className={`nav-item interactive-control relative p-2 ${mobile ? 'min-h-12 min-w-12 bg-white/5 backdrop-blur-3xl rounded-[18px] border border-white/10 hover:border-white/50 transition-all shadow-xl' : 'group'}`}
       >
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] text-white/70 group-hover:text-white group-hover:border-[#C49A6C]/30 transition-all duration-500">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/5 bg-white/[0.02] text-white/70 group-hover:text-white group-hover:border-[#9AE030]/30 transition-all duration-500">
           <Bell className="w-5 h-5" />
         </div>
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 bg-[#C49A6C] text-white text-[9px] min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 font-black border border-white/30">
+          <span className="absolute -top-1 -right-1 bg-[#9AE030] text-white text-[9px] min-w-5 h-5 rounded-full flex items-center justify-center px-1.5 font-black border border-white/30">
             {unread > 99 ? '99+' : unread}
           </span>
         )}

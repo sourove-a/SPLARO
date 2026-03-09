@@ -1,0 +1,1 @@
+import{c}from"./index-xxm669Hd.js";const e=[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["path",{d:"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3",key:"1u773s"}],["path",{d:"M12 17h.01",key:"p32p05"}]],a=c("circle-question-mark",e);const o=[["path",{d:"M5 12h14",key:"1ays0h"}]],t=c("minus",o);export{a as C,t as M};

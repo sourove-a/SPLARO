@@ -38,10 +38,10 @@ const segmentLabels: Record<AudienceSegment['type'], string> = {
 };
 
 const statusChip = (status: CampaignStatus) => {
-  if (status === 'Active') return 'bg-[#C49A6C]/10 text-[#D4B47A] border-[#C49A6C]/20';
-  if (status === 'Paused') return 'bg-[#C49A6C]/10 text-[#D4B47A] border-[#C49A6C]/20';
+  if (status === 'Active') return 'bg-[#9AE030]/10 text-[#D4B47A] border-[#9AE030]/20';
+  if (status === 'Paused') return 'bg-[#9AE030]/10 text-[#D4B47A] border-[#9AE030]/20';
   if (status === 'Completed') return 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20';
-  return 'bg-[#C49A6C]/10 text-[#D4B47A] border-[#C49A6C]/20';
+  return 'bg-[#9AE030]/10 text-[#D4B47A] border-[#9AE030]/20';
 };
 
 const useAdminReady = () => {
@@ -110,10 +110,10 @@ const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
   if (!toast) return null;
   const tone =
     toast.tone === 'success'
-      ? 'bg-[#C49A6C]/10 border-[#C49A6C]/30 text-white/90'
+      ? 'bg-[#9AE030]/10 border-[#9AE030]/30 text-white/90'
       : toast.tone === 'error'
         ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-        : 'bg-[#C49A6C]/10 border-[#C49A6C]/30 text-white/90';
+        : 'bg-[#9AE030]/10 border-[#9AE030]/30 text-white/90';
 
   return (
     <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl border text-sm font-bold ${tone}`}>
@@ -267,7 +267,7 @@ export const AdminCampaignsPage: React.FC = () => {
                     <button
                       onClick={() => flipStatus(campaign.id, 'Active')}
                       disabled={busyId === campaign.id}
-                      className="px-4 py-2 rounded-full border border-[#C49A6C]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#C49A6C]/10 transition-all disabled:opacity-40"
+                      className="px-4 py-2 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all disabled:opacity-40"
                     >
                       <PlayCircle className="inline w-4 h-4 mr-2" /> Activate
                     </button>
@@ -275,7 +275,7 @@ export const AdminCampaignsPage: React.FC = () => {
                     <button
                       onClick={() => flipStatus(campaign.id, 'Paused')}
                       disabled={busyId === campaign.id}
-                      className="px-4 py-2 rounded-full border border-[#C49A6C]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#C49A6C]/10 transition-all disabled:opacity-40"
+                      className="px-4 py-2 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all disabled:opacity-40"
                     >
                       <PauseCircle className="inline w-4 h-4 mr-2" /> Pause
                     </button>
@@ -296,7 +296,7 @@ export const AdminCampaignsPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigate(`/admin/campaigns/${campaign.id}/logs`)}
-                    className="px-4 py-2 rounded-full border border-[#C49A6C]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#C49A6C]/10 transition-all"
+                    className="px-4 py-2 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
                   >
                     View logs
                   </button>
@@ -429,7 +429,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
+              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
             />
           </div>
 
@@ -447,7 +447,7 @@ export const AdminCampaignNewPage: React.FC = () => {
                 <option value="VIP_USERS">VIP users</option>
               </select>
             </div>
-            <div className="p-5 rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5">
+            <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5">
               <p className="text-[10px] uppercase tracking-[0.25em] text-[#D4B47A] font-black">Target count</p>
               <p className="text-4xl font-black text-white mt-3">{targetCount}</p>
             </div>
@@ -473,7 +473,7 @@ export const AdminCampaignNewPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
               />
             </div>
           </div>
@@ -675,7 +675,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
+              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
             />
           </div>
 
@@ -693,7 +693,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 <option value="VIP_USERS">VIP users</option>
               </select>
             </div>
-            <div className="p-5 rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5">
+            <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5">
               <p className="text-[10px] uppercase tracking-[0.25em] text-[#D4B47A] font-black">Target count</p>
               <p className="text-4xl font-black text-white mt-3">{targetCount}</p>
             </div>
@@ -719,7 +719,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#C49A6C]/50"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
               />
             </div>
           </div>
@@ -735,7 +735,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
           </label>
 
           {sending && (
-            <div className="p-5 rounded-2xl border border-[#C49A6C]/20 bg-[#C49A6C]/5">
+            <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5">
               <p className="text-[10px] uppercase tracking-[0.2em] text-white/90 font-black mb-3">Sending in progress</p>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full bg-blue-400 transition-all" style={{ width: `${progress}%` }} />
@@ -749,13 +749,13 @@ export const AdminCampaignDetailPage: React.FC = () => {
             </PrimaryButton>
             <button
               onClick={() => simulateSend('TEST')}
-              className="px-6 py-3 rounded-full border border-[#C49A6C]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#C49A6C]/10 transition-all"
+              className="px-6 py-3 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
             >
               <Send className="inline w-4 h-4 mr-2" /> Send test
             </button>
             <button
               onClick={() => simulateSend('SEND_NOW')}
-              className="px-6 py-3 rounded-full border border-[#C49A6C]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#C49A6C]/10 transition-all"
+              className="px-6 py-3 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
             >
               <Send className="inline w-4 h-4 mr-2" /> Send now
             </button>
@@ -765,7 +765,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 updateCampaign(campaign.id, { status: next });
                 setRefreshTick((v) => v + 1);
               }}
-              className="px-6 py-3 rounded-full border border-[#C49A6C]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#C49A6C]/10 transition-all"
+              className="px-6 py-3 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
             >
               {campaign.status === 'Active' ? 'Pause' : 'Activate'}
             </button>
@@ -885,7 +885,7 @@ export const AdminSearchPage: React.FC = () => {
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">Orders</h3>
               {results.orders.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No orders</div>}
               {results.orders.map((order) => (
-                <Link key={order.id} to="/admin_dashboard?tab=orders" className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#C49A6C]/30 transition-all">
+                <Link key={order.id} to="/admin_dashboard?tab=orders" className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#9AE030]/30 transition-all">
                   <p className="text-sm text-white font-bold">{order.id}</p>
                   <p className="text-xs text-zinc-400">{order.customerEmail}</p>
                   <p className="text-xs text-zinc-500">{order.phone || '-'}</p>
@@ -897,7 +897,7 @@ export const AdminSearchPage: React.FC = () => {
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">Campaigns</h3>
               {results.campaigns.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No campaigns</div>}
               {results.campaigns.map((campaign) => (
-                <Link key={campaign.id} to={`/admin/campaigns/${campaign.id}`} className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#C49A6C]/30 transition-all">
+                <Link key={campaign.id} to={`/admin/campaigns/${campaign.id}`} className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#9AE030]/30 transition-all">
                   <p className="text-sm text-white font-bold">{campaign.name}</p>
                   <p className="text-xs text-zinc-400">{campaign.status}</p>
                 </Link>

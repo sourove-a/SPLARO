@@ -218,7 +218,7 @@ export const AdminTelegramPanel: React.FC = () => {
           <button
             onClick={() => { setTempToken(botToken); setTempChatId(chatId); setShowConfig(prev => !prev); }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: '#E8B866' }}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', color: '#AAEE2A' }}
           >
             <Settings2 className="w-4 h-4" />
             Configure
@@ -309,7 +309,7 @@ export const AdminTelegramPanel: React.FC = () => {
                   onClick={saveConfig}
                   disabled={!tempToken.trim() || !tempChatId.trim()}
                   className="flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-40"
-                  style={{ background: 'linear-gradient(135deg, #C07832, #E8B866)', color: '#fff' }}
+                  style={{ background: 'linear-gradient(135deg, #C07832, #AAEE2A)', color: '#fff' }}
                 >
                   Save করুন
                 </button>
@@ -324,7 +324,7 @@ export const AdminTelegramPanel: React.FC = () => {
         {/* Quick Actions */}
         <div className="lg:col-span-1 space-y-4">
           <GlassCard className="p-6">
-            <h3 className="text-sm font-black uppercase tracking-[0.25em] mb-5" style={{ color: '#E8B866' }}>
+            <h3 className="text-sm font-black uppercase tracking-[0.25em] mb-5" style={{ color: '#AAEE2A' }}>
               Quick Actions
             </h3>
             <div className="space-y-3">
@@ -334,7 +334,7 @@ export const AdminTelegramPanel: React.FC = () => {
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all hover:bg-white/05 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ border: '1px solid rgba(255,255,255,0.08)' }}
               >
-                <BarChart3 className="w-5 h-5 shrink-0" style={{ color: '#E8B866' }} />
+                <BarChart3 className="w-5 h-5 shrink-0" style={{ color: '#AAEE2A' }} />
                 <div>
                   <p className="text-sm font-bold text-white">Daily Summary</p>
                   <p className="text-[10px] text-zinc-500">আজকের summary Telegram-এ পাঠান</p>
@@ -358,7 +358,7 @@ export const AdminTelegramPanel: React.FC = () => {
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all hover:bg-white/05 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ border: '1px solid rgba(255,255,255,0.08)' }}
               >
-                <Package className="w-5 h-5 shrink-0" style={{ color: '#E8B866' }} />
+                <Package className="w-5 h-5 shrink-0" style={{ color: '#AAEE2A' }} />
                 <div>
                   <p className="text-sm font-bold text-white">Pending Orders</p>
                   <p className="text-[10px] text-zinc-500">সব pending orders পাঠান</p>
@@ -384,7 +384,7 @@ export const AdminTelegramPanel: React.FC = () => {
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all hover:bg-white/05 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ border: '1px solid rgba(255,255,255,0.08)' }}
               >
-                <ShoppingBag className="w-5 h-5 shrink-0" style={{ color: '#E8B866' }} />
+                <ShoppingBag className="w-5 h-5 shrink-0" style={{ color: '#AAEE2A' }} />
                 <div>
                   <p className="text-sm font-bold text-white">Product List</p>
                   <p className="text-[10px] text-zinc-500">Top products Telegram-এ পাঠান</p>
@@ -414,7 +414,7 @@ export const AdminTelegramPanel: React.FC = () => {
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all hover:bg-white/05 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ border: '1px solid rgba(255,255,255,0.08)' }}
               >
-                <Activity className="w-5 h-5 shrink-0" style={{ color: '#E8B866' }} />
+                <Activity className="w-5 h-5 shrink-0" style={{ color: '#AAEE2A' }} />
                 <div>
                   <p className="text-sm font-bold text-white">Site Health</p>
                   <p className="text-[10px] text-zinc-500">System status Telegram-এ পাঠান</p>
@@ -426,7 +426,7 @@ export const AdminTelegramPanel: React.FC = () => {
 
           {/* Announcement Sender */}
           <GlassCard className="p-6">
-            <h3 className="text-sm font-black uppercase tracking-[0.25em] mb-4" style={{ color: '#E8B866' }}>
+            <h3 className="text-sm font-black uppercase tracking-[0.25em] mb-4" style={{ color: '#AAEE2A' }}>
               Announcement পাঠান
             </h3>
             <textarea
@@ -435,7 +435,7 @@ export const AdminTelegramPanel: React.FC = () => {
               placeholder="Telegram-এ message লিখুন..."
               rows={4}
               disabled={!isConfigured}
-              className="w-full resize-none bg-white/04 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-zinc-600 outline-none focus:border-[#E8B866]/30 disabled:opacity-30"
+              className="w-full resize-none bg-white/04 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-zinc-600 outline-none focus:border-[#AAEE2A]/30 disabled:opacity-30"
             />
             <button
               onClick={sendAnnouncement}
@@ -452,7 +452,7 @@ export const AdminTelegramPanel: React.FC = () => {
         {/* Commands Reference */}
         <div className="lg:col-span-2">
           <GlassCard className="p-6">
-            <h3 className="text-sm font-black uppercase tracking-[0.25em] mb-6" style={{ color: '#E8B866' }}>
+            <h3 className="text-sm font-black uppercase tracking-[0.25em] mb-6" style={{ color: '#AAEE2A' }}>
               Telegram Commands Reference
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -469,7 +469,7 @@ export const AdminTelegramPanel: React.FC = () => {
                       >
                         <code
                           className="text-[11px] font-mono px-2 py-1 rounded shrink-0 cursor-pointer transition-all group-hover:bg-white/10"
-                          style={{ background: 'rgba(232,184,102,0.10)', color: '#E8B866', border: '1px solid rgba(232,184,102,0.20)' }}
+                          style={{ background: 'rgba(170,238,42,0.10)', color: '#AAEE2A', border: '1px solid rgba(170,238,42,0.20)' }}
                           onClick={() => copyCmd(item.cmd)}
                         >
                           {item.cmd}
@@ -489,14 +489,14 @@ export const AdminTelegramPanel: React.FC = () => {
             </div>
 
             {/* Note about webhook */}
-            <div className="mt-6 p-5 rounded-2xl" style={{ background: 'rgba(232,184,102,0.06)', border: '1px solid rgba(232,184,102,0.15)' }}>
+            <div className="mt-6 p-5 rounded-2xl" style={{ background: 'rgba(170,238,42,0.06)', border: '1px solid rgba(170,238,42,0.15)' }}>
               <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#E8B866' }} />
+                <Info className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#AAEE2A' }} />
                 <div>
                   <p className="text-xs font-black text-white mb-1">Webhook Setup (Server-side)</p>
                   <p className="text-[11px] text-zinc-400 leading-relaxed">
                     সম্পূর্ণ two-way Telegram control এর জন্য server-side webhook প্রয়োজন।
-                    Backend এ <code className="text-[#E8B866] font-mono text-[10px]">/api/telegram/webhook</code> endpoint set করুন।
+                    Backend এ <code className="text-[#AAEE2A] font-mono text-[10px]">/api/telegram/webhook</code> endpoint set করুন।
                     এই প্যানেল থেকে আপাতত notifications পাঠানো যাবে।
                     Full bot commands (order processing, etc.) এর জন্য server webhook configure করুন।
                   </p>

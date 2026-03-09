@@ -129,7 +129,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
                 className="w-full h-14 backdrop-blur-3xl rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
-                style={{ background: 'rgba(196,154,108,0.15)', border: '1px solid rgba(196,154,108,0.30)', color: '#EDE8DC' }}
+                style={{ background: 'rgba(154,224,48,0.15)', border: '1px solid rgba(154,224,48,0.30)', color: '#F0F8FF' }}
               >
                 <Eye className="w-4 h-4" /> {t('shop.viewDetails')}
               </motion.button>
@@ -145,8 +145,8 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   className="h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
                   style={
                     urgency.outOfStock
-                      ? { background: 'rgba(255,252,248,0.05)', border: '1px solid rgba(196,154,108,0.12)', color: 'rgba(237,232,220,0.28)', cursor: 'not-allowed' }
-                      : { background: 'linear-gradient(135deg, #6B4226, #9B6B3A, #C49A6C)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(155,107,58,0.40)' }
+                      ? { background: 'rgba(255,252,248,0.05)', border: '1px solid rgba(154,224,48,0.12)', color: 'rgba(255,255,255,0.28)', cursor: 'not-allowed' }
+                      : { background: 'linear-gradient(135deg, #071832, #9B6B3A, #9AE030)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(155,107,58,0.40)' }
                   }
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -162,7 +162,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
-                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-[#C49A6C]/25'
+                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-[#9AE030]/25'
                   }`}
                 >
                   {t('product.buyNow')}
@@ -187,7 +187,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 event.stopPropagation();
                 navigate(`/shop?brand=${slugifyValue((product as any).brandSlug || product.brand)}`);
               }}
-              className="text-[8px] font-black text-[#C49A6C] uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-white/90"
+              className="text-[8px] font-black text-[#9AE030] uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-white/90"
             >
               {product.brand}
             </button>
@@ -201,7 +201,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   event.stopPropagation();
                   navigate(`/shop?category=${slugifyValue((product as any).categorySlug || product.category)}`);
                 }}
-                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-[#C49A6C]/45 hover:text-white/90"
+                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-[#9AE030]/45 hover:text-white/90"
               >
                 {product.category}
               </button>
@@ -214,7 +214,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     const subSlug = slugifyValue((product as any).subCategorySlug || product.subCategory);
                     navigate(`/shop?category=${categorySlug}&sub=${subSlug}`);
                   }}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-[#C49A6C]/35 hover:text-white/90"
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-[#9AE030]/35 hover:text-white/90"
                 >
                   {product.subCategory}
                 </button>
@@ -227,7 +227,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.14em] ${
                       urgency.outOfStock
                         ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                        : 'border-[#C49A6C]/35 bg-[#9B6B3A]/10 text-white/90'
+                        : 'border-[#9AE030]/35 bg-[#9B6B3A]/10 text-white/90'
                     }`}
                   >
                     {urgency.outOfStock
@@ -254,10 +254,10 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             <Globe className="w-3 h-3" />
             <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">{t('product.curatedImport')}</span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-[#C49A6C]" />
+          <div className="w-1 h-1 rounded-full bg-[#9AE030]" />
           <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3 text-[#C49A6C]" />
-            <span className="text-[7px] font-black text-[#C49A6C] uppercase tracking-[0.4em]">{t('product.delivery710')}</span>
+            <Clock className="w-3 h-3 text-[#9AE030]" />
+            <span className="text-[7px] font-black text-[#9AE030] uppercase tracking-[0.4em]">{t('product.delivery710')}</span>
           </div>
         </div>
 

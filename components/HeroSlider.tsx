@@ -93,7 +93,7 @@ export const HeroSlider = () => {
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(to top, #0A0F08 0%, rgba(10,15,8,0.72) 35%, rgba(10,15,8,0.35) 65%, rgba(12,20,9,0.65) 100%)'
+                background: 'linear-gradient(to top, #0A0F08 0%, rgba(8,14,32,0.72) 35%, rgba(8,14,32,0.35) 65%, rgba(12,20,9,0.65) 100%)'
               }}
             />
             {/* Warm cognac vignette */}
@@ -122,14 +122,14 @@ export const HeroSlider = () => {
           >
             {/* Tag */}
             <div className="flex items-center gap-3">
-              <div className="h-px w-10" style={{ background: 'rgba(196,154,108,0.55)' }} />
+              <div className="h-px w-10" style={{ background: 'rgba(154,224,48,0.55)' }} />
               <span
                 className="text-[9px] font-semibold uppercase"
-                style={{ letterSpacing: '0.7em', color: 'rgba(196,154,108,0.85)' }}
+                style={{ letterSpacing: '0.7em', color: 'rgba(154,224,48,0.85)' }}
               >
                 {slides[index]?.tag || slides[index]?.tags?.[0] || 'PREMIUM COLLECTION'}
               </span>
-              <div className="h-px w-10" style={{ background: 'rgba(196,154,108,0.55)' }} />
+              <div className="h-px w-10" style={{ background: 'rgba(154,224,48,0.55)' }} />
             </div>
 
             {/* Main heading */}
@@ -138,7 +138,7 @@ export const HeroSlider = () => {
                 className="text-[clamp(2.8rem,13.5vw,10rem)] font-black tracking-tighter leading-[0.90]"
                 style={{
                   fontFamily: "'Playfair Display', Georgia, serif",
-                  color: '#EDE8DC',
+                  color: '#F0F8FF',
                   textShadow: '0 4px 40px rgba(0,0,0,0.6)',
                 }}
               >
@@ -153,7 +153,7 @@ export const HeroSlider = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.78 }}
               className="text-xs md:text-sm font-medium uppercase mt-2"
-              style={{ letterSpacing: '0.32em', color: 'rgba(237,232,220,0.78)' }}
+              style={{ letterSpacing: '0.32em', color: 'rgba(255,255,255,0.78)' }}
             >
               {slides[index]?.subtitle || 'Luxury Footwear & Bags — Bangladesh'}
             </motion.p>
@@ -164,7 +164,7 @@ export const HeroSlider = () => {
         <motion.button
           whileHover={{
             scale: 1.04,
-            boxShadow: '0 0 40px rgba(196,154,108,0.50)',
+            boxShadow: '0 0 40px rgba(154,224,48,0.50)',
           }}
           whileTap={{ scale: 0.96 }}
           onClick={() => {
@@ -177,7 +177,7 @@ export const HeroSlider = () => {
             marginTop: '2.5rem',
             padding: '1.1rem 2.5rem',
             borderRadius: '999px',
-            background: 'linear-gradient(135deg, #6B4226 0%, #9B6B3A 50%, #C49A6C 100%)',
+            background: 'linear-gradient(135deg, #071832 0%, #9B6B3A 50%, #9AE030 100%)',
             border: '1px solid rgba(212,180,122,0.40)',
             boxShadow: '0 4px 28px rgba(155,107,58,0.45), inset 0 1px 0 rgba(255,240,210,0.22)',
           }}
@@ -204,7 +204,7 @@ export const HeroSlider = () => {
               style={{
                 width: i === index ? '28px' : '6px',
                 height: '6px',
-                background: i === index ? '#C49A6C' : 'rgba(196,154,108,0.28)',
+                background: i === index ? '#9AE030' : 'rgba(154,224,48,0.28)',
               }}
             />
           ))}
@@ -217,9 +217,9 @@ export const HeroSlider = () => {
           onClick={showPrevSlide}
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
-            border: '1px solid rgba(196,154,108,0.28)',
-            background: 'rgba(10,15,8,0.55)',
-            color: '#EDE8DC',
+            border: '1px solid rgba(154,224,48,0.28)',
+            background: 'rgba(8,14,32,0.55)',
+            color: '#F0F8FF',
           }}
           aria-label="Previous slide"
         >
@@ -229,9 +229,9 @@ export const HeroSlider = () => {
           onClick={showNextSlide}
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
-            border: '1px solid rgba(196,154,108,0.42)',
-            background: 'rgba(196,154,108,0.15)',
-            color: '#EDE8DC',
+            border: '1px solid rgba(154,224,48,0.42)',
+            background: 'rgba(154,224,48,0.15)',
+            color: '#F0F8FF',
           }}
           aria-label="Next slide"
         >

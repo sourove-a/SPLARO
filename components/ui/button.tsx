@@ -6,13 +6,13 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 const variantClasses: Record<ButtonVariant, string> = {
   default:
-    'bg-[#9B6B3A] text-white border border-white/20 hover:bg-[#C49A6C] shadow-[0_8px_24px_rgba(196,154,108,0.40)]',
+    'bg-[#9B6B3A] text-white border border-white/20 hover:bg-[#9AE030] shadow-[0_8px_24px_rgba(154,224,48,0.40)]',
   secondary:
     'bg-white/10 text-white border border-white/20 hover:bg-white/18',
   ghost:
     'bg-transparent text-white border border-transparent hover:bg-white/10',
   outline:
-    'bg-transparent text-[#C49A6C] border border-white/20 hover:bg-white/08 hover:text-white',
+    'bg-transparent text-[#9AE030] border border-white/20 hover:bg-white/08 hover:text-white',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -34,7 +34,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         className={cn(
-          'interactive-control inline-flex items-center justify-center gap-2 rounded-xl font-black uppercase tracking-[0.14em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C49A6C]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:pointer-events-none touch-manipulation min-h-11',
+          'interactive-control inline-flex items-center justify-center gap-2 rounded-xl font-black uppercase tracking-[0.14em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9AE030]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50 disabled:pointer-events-none touch-manipulation min-h-11',
           variantClasses[variant],
           sizeClasses[size],
           className

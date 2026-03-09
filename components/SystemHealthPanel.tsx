@@ -386,8 +386,8 @@ const formatTime = (value: string | null | undefined) => {
 };
 
 const statusClass = (status: HealthServiceStatus | 'PASS' | 'FAIL' | 'WARNING') => {
-  if (status === 'OK' || status === 'PASS') return 'text-[#D4B47A] border-[#C49A6C]/30 bg-[#C49A6C]/10';
-  if (status === 'WARNING') return 'text-[#D4B47A] border-[#C49A6C]/30 bg-[#C49A6C]/10';
+  if (status === 'OK' || status === 'PASS') return 'text-[#D4B47A] border-[#9AE030]/30 bg-[#9AE030]/10';
+  if (status === 'WARNING') return 'text-[#D4B47A] border-[#9AE030]/30 bg-[#9AE030]/10';
   return 'text-rose-400 border-rose-500/30 bg-rose-500/10';
 };
 
@@ -579,7 +579,7 @@ export const SystemHealthPanel: React.FC = () => {
                 <button
                   onClick={() => recoverQueueMutation.mutate()}
                   disabled={recoverQueueMutation.isPending}
-                  className="w-full rounded-xl border border-[#C49A6C]/40 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/90 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-[#9AE030]/40 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/90 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {recoverQueueMutation.isPending ? 'Repairing...' : 'Repair Queue'}
                 </button>

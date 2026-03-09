@@ -47,18 +47,18 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
       <div className="hidden md:flex flex-col justify-center">
         <span
           className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase flex items-center leading-none select-none"
-          style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#EDE8DC', letterSpacing: '-0.03em' }}
+          style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F0F8FF', letterSpacing: '-0.03em' }}
         >
           SPLARO
         </span>
-        <span className="hidden md:block text-[7px] font-semibold tracking-[0.4em] uppercase mt-0.5" style={{ color: '#C49A6C', letterSpacing: '0.35em' }}>
+        <span className="hidden md:block text-[7px] font-semibold tracking-[0.4em] uppercase mt-0.5" style={{ color: '#9AE030', letterSpacing: '0.35em' }}>
           Luxury Footwear
         </span>
       </div>
 
       <div
         className="absolute inset-x-0 -bottom-2 h-[1px] scale-x-0 group-hover:scale-x-100 transition-transform duration-700"
-        style={{ background: 'linear-gradient(to right, transparent, rgba(196,154,108,0.45), transparent)' }}
+        style={{ background: 'linear-gradient(to right, transparent, rgba(154,224,48,0.45), transparent)' }}
       />
     </div>
   );
@@ -88,12 +88,12 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
       type="button"
       onClick={onClick}
       className="nav-item interactive-control w-full text-left py-4 sm:py-6 flex items-center justify-between group transition-all duration-500"
-      style={{ borderBottom: '1px solid rgba(196,154,108,0.18)' }}
+      style={{ borderBottom: '1px solid rgba(154,224,48,0.18)' }}
     >
       <div className="flex flex-col">
         <span
           className="text-[10px] font-bold uppercase mb-3 opacity-75 group-hover:opacity-100 transition-all duration-500"
-          style={{ letterSpacing: '0.44em', color: '#C49A6C' }}
+          style={{ letterSpacing: '0.44em', color: '#9AE030' }}
         >
           {language === 'BN' ? 'নেভিগেট' : 'Navigate'}
         </span>
@@ -101,7 +101,7 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
           className="text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tighter transition-all duration-500 group-hover:pl-3 leading-none"
           style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            color: 'rgba(237, 232, 220, 0.88)',
+            color: 'rgba(255, 255, 255, 0.88)',
           }}
         >
           {label}
@@ -110,9 +110,9 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
       <motion.div
         whileHover={{ x: 8, scale: 1.08 }}
         className="w-14 h-14 rounded-full liquid-glass flex items-center justify-center opacity-85 group-hover:opacity-100 transition-all duration-500"
-        style={{ border: '1px solid rgba(196,154,108,0.30)' }}
+        style={{ border: '1px solid rgba(154,224,48,0.30)' }}
       >
-        <ArrowRight className="w-5 h-5" style={{ color: '#C49A6C' }} />
+        <ArrowRight className="w-5 h-5" style={{ color: '#9AE030' }} />
       </motion.div>
     </button>
   </motion.div>
@@ -120,12 +120,12 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
 };
 
 /* ── Cognac/gold colour tokens reused in nav ── */
-const COGNAC      = '#C49A6C';
-const COGNAC_BG   = 'rgba(196,154,108,0.12)';
-const COGNAC_BDR  = 'rgba(196,154,108,0.28)';
-const SAGE        = '#D4A574'; // Luxury gold for validation states
-const NAV_GLASS   = 'rgba(255,252,248,0.05)';
-const NAV_BDR     = 'rgba(196,154,108,0.14)';
+const COGNAC      = '#9AE030';
+const COGNAC_BG   = 'rgba(154,224,48,0.10)';
+const COGNAC_BDR  = 'rgba(154,224,48,0.25)';
+const SAGE        = '#9AE030'; // Luxury gold for validation states
+const NAV_GLASS   = 'rgba(8,18,44,0.82)';
+const NAV_BDR     = 'rgba(154,224,48,0.18)';
 
 export const Navbar: React.FC = () => {
   const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage } = useApp();
@@ -268,9 +268,9 @@ export const Navbar: React.FC = () => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: isActive ? `1px solid ${COGNAC_BDR}` : '1px solid rgba(196,154,108,0.10)',
+    border: isActive ? `1px solid ${COGNAC_BDR}` : '1px solid rgba(154,224,48,0.10)',
     background: isActive ? COGNAC_BG : 'rgba(255,252,248,0.03)',
-    color: isActive ? COGNAC : 'rgba(237,232,220,0.45)',
+    color: isActive ? COGNAC : 'rgba(255,255,255,0.45)',
     transition: 'all 0.3s ease',
     position: 'relative' as const,
   });
@@ -294,7 +294,7 @@ export const Navbar: React.FC = () => {
             <div className="flex flex-col gap-1.5 items-start">
               <div
                 className="w-8 sm:w-9 md:w-10 h-[2px] transition-all group-hover:w-6"
-                style={{ background: '#EDE8DC' }}
+                style={{ background: '#F0F8FF' }}
               />
               <div
                 className="w-5 sm:w-6 h-[2px] transition-all group-hover:w-10"
@@ -319,7 +319,7 @@ export const Navbar: React.FC = () => {
                 >
                   <div
                     style={navIconStyle(isActive)}
-                    className="group-hover:!border-[rgba(196,154,108,0.40)] group-hover:!bg-[rgba(196,154,108,0.12)] group-hover:!text-[#C49A6C]"
+                    className="group-hover:!border-[rgba(154,224,48,0.40)] group-hover:!bg-[rgba(154,224,48,0.12)] group-hover:!text-[#9AE030]"
                   >
                     <item.icon className="w-4 h-4" />
                     {isActive && (
@@ -351,7 +351,7 @@ export const Navbar: React.FC = () => {
             >
               <div
                 style={navIconStyle(false)}
-                className="group-hover:!border-[rgba(196,154,108,0.40)] group-hover:!bg-[rgba(196,154,108,0.12)] group-hover:!text-[#C49A6C]"
+                className="group-hover:!border-[rgba(154,224,48,0.40)] group-hover:!bg-[rgba(154,224,48,0.12)] group-hover:!text-[#9AE030]"
               >
                 <Search className="w-4 h-4" />
               </div>
@@ -400,15 +400,15 @@ export const Navbar: React.FC = () => {
                     style={{
                       border: isActive
                         ? `2px solid ${COGNAC}`
-                        : `1px solid rgba(196,154,108,0.22)`,
+                        : `1px solid rgba(154,224,48,0.22)`,
                       background: 'rgba(255,252,248,0.05)',
-                      boxShadow: isActive ? `0 0 14px rgba(196,154,108,0.30)` : 'none',
+                      boxShadow: isActive ? `0 0 14px rgba(154,224,48,0.30)` : 'none',
                     }}
                   >
                     {user?.profileImage ? (
                       <OptimizedImage src={user.profileImage} alt="Profile" sizes="40px" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-4 h-4" style={{ color: isActive ? COGNAC : 'rgba(237,232,220,0.50)' }} />
+                      <User className="w-4 h-4" style={{ color: isActive ? COGNAC : 'rgba(255,255,255,0.50)' }} />
                     )}
                   </div>
                   <div
@@ -427,13 +427,13 @@ export const Navbar: React.FC = () => {
                 >
                   <div
                     style={navIconStyle(isActive)}
-                    className="group-hover:!border-[rgba(196,154,108,0.40)] group-hover:!bg-[rgba(196,154,108,0.12)] group-hover:!text-[#C49A6C]"
+                    className="group-hover:!border-[rgba(154,224,48,0.40)] group-hover:!bg-[rgba(154,224,48,0.12)] group-hover:!text-[#9AE030]"
                   >
                     <item.icon className="w-4 h-4" />
                     {item.label === 'CART' && cart.length > 0 && (
                       <span
                         className="absolute -top-1 -right-1 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
-                        style={{ background: COGNAC, color: '#0A0F08', border: '2px solid rgba(10,15,8,0.8)' }}
+                        style={{ background: COGNAC, color: '#0A0F08', border: '2px solid rgba(8,14,32,0.8)' }}
                       >
                         {cart.length}
                       </span>
@@ -464,7 +464,7 @@ export const Navbar: React.FC = () => {
               <Globe className="w-3.5 h-3.5 shrink-0" style={{ color: COGNAC }} />
               <span
                 className="text-[9px] font-black uppercase tracking-wider"
-                style={{ color: language === 'EN' ? '#EDE8DC' : COGNAC }}
+                style={{ color: language === 'EN' ? '#F0F8FF' : COGNAC }}
               >
                 {language === 'EN' ? 'বাং' : 'EN'}
               </span>
@@ -484,7 +484,7 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0 }}
             onClick={() => setIsSearchOpen(false)}
             className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 backdrop-blur-xl"
-            style={{ background: 'rgba(10,15,8,0.96)' }}
+            style={{ background: 'rgba(8,14,32,0.96)' }}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
@@ -495,7 +495,7 @@ export const Navbar: React.FC = () => {
             >
               <div
                 className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 liquid-glass rounded-[24px] sm:rounded-[32px]"
-                style={{ border: `1px solid rgba(196,154,108,0.28)`, boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}
+                style={{ border: `1px solid rgba(154,224,48,0.28)`, boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}
               >
                 <Search className="w-6 h-6 sm:w-8 sm:h-8 shrink-0" style={{ color: COGNAC }} />
                 <input
@@ -511,20 +511,20 @@ export const Navbar: React.FC = () => {
                     if (e.key === 'Enter') { e.preventDefault(); setIsSearchOpen(false); }
                   }}
                   className="min-w-0 flex-1 bg-transparent border-none outline-none focus-visible:outline-none text-lg sm:text-2xl md:text-3xl font-bold tracking-tight placeholder:font-normal"
-                  style={{ color: '#EDE8DC', caretColor: COGNAC }}
+                  style={{ color: '#F0F8FF', caretColor: COGNAC }}
                 />
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen(false)}
                   className="nav-item interactive-control min-h-12 min-w-12 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all"
-                  style={{ border: `1px solid rgba(196,154,108,0.22)` }}
+                  style={{ border: `1px solid rgba(154,224,48,0.22)` }}
                 >
-                  <X className="w-6 h-6 sm:w-7 sm:h-7" style={{ color: '#EDE8DC' }} />
+                  <X className="w-6 h-6 sm:w-7 sm:h-7" style={{ color: '#F0F8FF' }} />
                 </button>
               </div>
               <p
                 className="text-center mt-5 text-[10px] font-semibold uppercase tracking-[0.38em]"
-                style={{ color: 'rgba(196,154,108,0.55)' }}
+                style={{ color: 'rgba(154,224,48,0.55)' }}
               >
                 {t('nav.searchHint')}
               </p>
@@ -546,7 +546,7 @@ export const Navbar: React.FC = () => {
             style={{
               background: `
                 radial-gradient(circle at 15% 20%, rgba(61,107,61,0.26), transparent 42%),
-                radial-gradient(circle at 85% 82%, rgba(196,154,108,0.18), transparent 40%),
+                radial-gradient(circle at 85% 82%, rgba(154,224,48,0.18), transparent 40%),
                 linear-gradient(180deg, #0C1409 0%, #0A0F08 50%, #080C06 100%)
               `,
             }}
@@ -561,7 +561,7 @@ export const Navbar: React.FC = () => {
             <div
               onClick={(e) => e.stopPropagation()}
               className="px-4 sm:px-8 py-6 sm:py-8 md:px-16 md:py-10 flex justify-between items-center relative z-10"
-              style={{ borderBottom: '1px solid rgba(196,154,108,0.12)' }}
+              style={{ borderBottom: '1px solid rgba(154,224,48,0.12)' }}
             >
               <SplaroLogo className="h-8 md:h-12" />
               <motion.button
@@ -571,9 +571,9 @@ export const Navbar: React.FC = () => {
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setMenuOpen(false)}
                 className="nav-item interactive-control w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center transition-all"
-                style={{ border: `1px solid rgba(196,154,108,0.22)` }}
+                style={{ border: `1px solid rgba(154,224,48,0.22)` }}
               >
-                <X className="w-6 h-6" style={{ color: '#EDE8DC' }} />
+                <X className="w-6 h-6" style={{ color: '#F0F8FF' }} />
               </motion.button>
             </div>
 
@@ -584,7 +584,7 @@ export const Navbar: React.FC = () => {
             >
               <p
                 className="text-[9px] font-bold uppercase mb-8"
-                style={{ letterSpacing: '0.5em', color: 'rgba(196,154,108,0.55)' }}
+                style={{ letterSpacing: '0.5em', color: 'rgba(154,224,48,0.55)' }}
               >
                 — Collection & Pages —
               </p>
@@ -608,13 +608,13 @@ export const Navbar: React.FC = () => {
             <div
               onClick={(e) => e.stopPropagation()}
               className="px-4 sm:px-8 py-8 md:px-16 md:py-10 flex flex-col md:flex-row justify-between items-center gap-6 relative z-10"
-              style={{ borderTop: '1px solid rgba(196,154,108,0.10)' }}
+              style={{ borderTop: '1px solid rgba(154,224,48,0.10)' }}
             >
               <div className="flex items-center gap-4">
                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: COGNAC }} />
                 <p
                   className="text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ color: 'rgba(237,232,220,0.65)' }}
+                  style={{ color: 'rgba(255,255,255,0.65)' }}
                 >
                   Splaro — Luxury Footwear & Bags
                 </p>
@@ -633,7 +633,7 @@ export const Navbar: React.FC = () => {
                     href={social.link}
                     target={social.link.startsWith('http') ? '_blank' : undefined}
                     rel={social.link.startsWith('http') ? 'noreferrer noopener' : undefined}
-                    style={{ color: 'rgba(237,232,220,0.55)' }}
+                    style={{ color: 'rgba(255,255,255,0.55)' }}
                     className="transition-all"
                   >
                     <social.icon className="w-5 h-5" />
@@ -646,11 +646,11 @@ export const Navbar: React.FC = () => {
             <div
               onClick={(e) => e.stopPropagation()}
               className="px-4 sm:px-8 md:px-16 pb-8 pt-5"
-              style={{ borderTop: '1px solid rgba(196,154,108,0.08)' }}
+              style={{ borderTop: '1px solid rgba(154,224,48,0.08)' }}
             >
               <div
                 className="flex items-center gap-4 p-4 rounded-2xl"
-                style={{ background: 'rgba(196,154,108,0.06)', border: '1px solid rgba(196,154,108,0.14)' }}
+                style={{ background: 'rgba(154,224,48,0.06)', border: '1px solid rgba(154,224,48,0.14)' }}
               >
                 <Shield className="w-4 h-4" style={{ color: COGNAC }} />
                 <span
