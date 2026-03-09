@@ -45,7 +45,7 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 
 const RouteChunkFallback = () => (
   <div className="min-h-[45vh] w-full flex items-center justify-center px-6">
-    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-[#9AE030]/80 animate-pulse">
+    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-[#FFFFFF]/80 animate-pulse">
       Loading
     </div>
   </div>
@@ -100,7 +100,7 @@ const StoryPage = () => {
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
         <h1 className="text-4xl sm:text-6xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-10 sm:mb-20 text-white leading-[0.85]">
-          {t('story.title1')}<br /><span className="text-[#9AE030]">{t('story.title2')}</span>
+          {t('story.title1')}<br /><span className="text-[#FFFFFF]">{t('story.title2')}</span>
         </h1>
         {publishedStories.length === 0 ? (
           <GlassCard className="p-12 !bg-white/[0.02]">
@@ -110,13 +110,13 @@ const StoryPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {publishedStories.map((post) => (
               <GlassCard key={post.id} className="p-10 space-y-6 !bg-white/[0.02]">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#9AE030]">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#FFFFFF]">
                   {new Date(post.publishAt || post.createdAt).toLocaleDateString('en-GB')}
                 </p>
                 <h2 className="text-3xl font-black uppercase tracking-tight italic text-white">{post.title}</h2>
                 <p className="text-zinc-400 text-sm leading-relaxed">{post.excerpt}</p>
                 {post.imageUrl && (
-                  <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10">
+                  <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/10">
                     <OptimizedImage src={post.imageUrl} alt={post.title} sizes="(max-width: 1024px) 100vw, 50vw" className="w-full h-full object-cover" />
                   </div>
                 )}
@@ -137,7 +137,7 @@ const SupportPage = () => {
   <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }}>
       <h1 className="text-4xl sm:text-6xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-10 sm:mb-20 text-white leading-[0.85]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-        {t('support.title1')}<br /><span style={{color:'#AAEE2A'}}>{t('support.title2')}</span>
+        {t('support.title1')}<br /><span style={{color:'#FFFFFF'}}>{t('support.title2')}</span>
       </h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-16">
         {[
@@ -145,13 +145,13 @@ const SupportPage = () => {
           { label: t('support.care'), icon: MessageSquare, desc: t('support.careDesc') },
           { label: t('support.quality'), icon: Shield, desc: t('support.qualityDesc') }
         ].map((item, i) => (
-          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-[#9AE030]/50 transition-all duration-700">
-            <div className="w-20 h-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-[#9AE030] group-hover:bg-[#9AE030]/10 group-hover:border-[#9AE030]/20 transition-all duration-500">
+          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-[#FFFFFF]/50 transition-all duration-700">
+            <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-[#FFFFFF] group-hover:bg-[#FFFFFF]/10 group-hover:border-[#FFFFFF]/20 transition-all duration-500">
               <item.icon className="w-8 h-8 group-hover:scale-110 transition-transform" />
             </div>
             <div className="space-y-6">
               <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white italic">{item.label}</h3>
-              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-[#9AE030]/50 transition-all duration-700" />
+              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-[#FFFFFF]/50 transition-all duration-700" />
               <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest leading-relaxed">{item.desc}</p>
             </div>
           </GlassCard>
@@ -162,18 +162,18 @@ const SupportPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
         {[
           { icon: MessageSquare, label: t('support.whatsapp'), href: `https://wa.me/${(siteSettings.whatsappNumber || '+8801905010205').replace(/[^\d+]/g, '')}`, color: '#25D366' },
-          { icon: Mail, label: t('support.email'), href: `mailto:${siteSettings.supportEmail || 'info@splaro.co'}`, color: '#9AE030' },
-          { icon: Phone, label: t('support.phone'), href: `tel:${siteSettings.supportPhone || '+8801905010205'}`, color: '#9AE030' },
+          { icon: Mail, label: t('support.email'), href: `mailto:${siteSettings.supportEmail || 'info@splaro.co'}`, color: '#FFFFFF' },
+          { icon: Phone, label: t('support.phone'), href: `tel:${siteSettings.supportPhone || '+8801905010205'}`, color: '#FFFFFF' },
         ].map((c, i) => (
           <a
             key={i}
             href={c.href}
             target={c.href.startsWith('http') ? '_blank' : undefined}
             rel="noreferrer"
-            className="flex items-center gap-4 p-6 rounded-2xl transition-all duration-400 hover:scale-[1.02] group"
-            style={{ background: 'rgba(7,14,32,0.78)', border: '1px solid rgba(154,224,48,0.20)', textDecoration: 'none' }}
+            className="flex items-center gap-4 p-6 rounded-xl transition-all duration-400 hover:scale-[1.02] group"
+            style={{ background: 'rgba(7,14,32,0.78)', border: '1px solid rgba(255,255,255,0.14)', textDecoration: 'none' }}
           >
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(154,224,48,0.10)', border: '1px solid rgba(154,224,48,0.22)' }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
               <c.icon className="w-5 h-5" style={{ color: c.color }} />
             </div>
             <span className="text-sm font-bold" style={{ color: '#F0FAFF' }}>{c.label}</span>
@@ -207,36 +207,36 @@ const MobileDebugPage = () => {
           4. Search input, filters, and headers remain fully visible on small screens.
           5. Keyboard open on input fields does not cut off form fields or action buttons.
       */}
-      <section className="rounded-2xl border border-white/10 p-4 bg-white/[0.02]">
-        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-[#9AE030]">Mobile QA Debug Surface</h1>
+      <section className="rounded-xl border border-white/10 p-4 bg-white/[0.02]">
+        <h1 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] text-[#FFFFFF]">Mobile QA Debug Surface</h1>
         <p className="mt-2 text-xs text-zinc-400">Internal route: verify mobile overflow, spacing, sticky/fixed layers, and safe-area behavior.</p>
       </section>
 
-      <section className="rounded-2xl overflow-hidden border border-white/10">
+      <section className="rounded-xl overflow-hidden border border-white/10">
         <LazyView>
           <HeroSlider />
         </LazyView>
       </section>
 
-      <section className="rounded-2xl border border-white/10 overflow-hidden">
+      <section className="rounded-xl border border-white/10 overflow-hidden">
         <LazyView>
           <ShopPage />
         </LazyView>
       </section>
 
-      <section className="rounded-2xl border border-white/10 overflow-hidden">
+      <section className="rounded-xl border border-white/10 overflow-hidden">
         <LazyView>
           <ProductDetailPage />
         </LazyView>
       </section>
 
-      <section className="rounded-2xl border border-white/10 overflow-hidden">
+      <section className="rounded-xl border border-white/10 overflow-hidden">
         <LazyView>
           <CartPage />
         </LazyView>
       </section>
 
-      <section className="rounded-2xl border border-white/10 overflow-hidden">
+      <section className="rounded-xl border border-white/10 overflow-hidden">
         <LazyView>
           <CheckoutPage />
         </LazyView>
@@ -271,7 +271,7 @@ const OrderTrackingPage = () => {
             <PrimaryButton onClick={() => navigate('/login')} className="px-8 py-4 text-[10px]">
               LOG IN TO TRACK
             </PrimaryButton>
-            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-[#9AE030] hover:text-[#9AE030] transition-all">
+            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-[#FFFFFF] hover:text-[#FFFFFF] transition-all">
               CREATE ACCOUNT
             </button>
           </div>
@@ -281,13 +281,13 @@ const OrderTrackingPage = () => {
               <p className="text-white/50 text-sm">No orders found for your account yet.</p>
             ) : (
               userOrders.map((order) => (
-                <div key={order.id} className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div key={order.id} className="p-5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-white">{order.id}</p>
                     <p className="text-[11px] text-zinc-400 mt-2">{new Date(order.createdAt).toLocaleString('en-GB')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-[#9AE030] uppercase">{order.status}</p>
+                    <p className="text-sm font-black text-[#FFFFFF] uppercase">{order.status}</p>
                     <p className="text-[11px] text-zinc-300 mt-1">Total: ৳{order.total.toLocaleString()}</p>
                   </div>
                 </div>
@@ -320,13 +320,13 @@ const HomeView = () => {
         <HeroSlider />
       </LazyView>
       {/* Thin separator after hero */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.20), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent)' }} />
 
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-20 lg:py-32 relative overflow-hidden">
         <div>
           {/* Section header — stacks cleanly on mobile */}
           <div className="mb-8 sm:mb-16 lg:mb-24">
-            <p className="text-[9px] sm:text-[10px] font-black uppercase mb-3 sm:mb-4 tracking-[0.45em]" style={{ color: '#9AE030' }}>
+            <p className="text-[9px] sm:text-[10px] font-black uppercase mb-3 sm:mb-4 tracking-[0.45em]" style={{ color: '#FFFFFF' }}>
               — {t('home.explore')} —
             </p>
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 sm:gap-8">
@@ -335,7 +335,7 @@ const HomeView = () => {
                 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
               >
                 {t('home.headline1')}<br />
-                <span style={{ color: '#AAEE2A' }}>{t('home.headline2')}</span>
+                <span style={{ color: '#FFFFFF' }}>{t('home.headline2')}</span>
               </h2>
               <div className="flex flex-col gap-4 sm:items-end shrink-0">
                 <p className="text-xs sm:text-sm max-w-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -351,8 +351,8 @@ const HomeView = () => {
                   style={{
                     letterSpacing: '0.3em',
                     color: '#F0FAFF',
-                    background: 'rgba(154,224,48,0.12)',
-                    border: '1px solid rgba(154,224,48,0.30)',
+                    background: 'rgba(255,255,255,0.09)',
+                    border: '1px solid rgba(255,255,255,0.22)',
                   }}
                 >
                   {t('home.shopNow')} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-500" />
@@ -370,7 +370,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
 
       {/* ── About Us Section ── */}
       <section id="about" className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-40">
@@ -378,7 +378,7 @@ const HomeView = () => {
           <div>
             <p
               className="text-[10px] font-black uppercase mb-4 sm:mb-6"
-              style={{ letterSpacing: '0.5em', color: '#9AE030' }}
+              style={{ letterSpacing: '0.5em', color: '#FFFFFF' }}
             >
               আমাদের সম্পর্কে · About Us
             </p>
@@ -387,7 +387,7 @@ const HomeView = () => {
               style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
             >
               {t('about.title1')}<br />
-              <span style={{ color: '#AAEE2A' }}>{t('about.title2')}</span>
+              <span style={{ color: '#FFFFFF' }}>{t('about.title2')}</span>
             </h2>
             <p
               className="text-base leading-relaxed mb-6"
@@ -410,7 +410,7 @@ const HomeView = () => {
                 <div key={stat.label}>
                   <p
                     className="text-3xl md:text-4xl font-black mb-2"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#AAEE2A' }}
+                    style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
                   >
                     {stat.value}
                   </p>
@@ -434,18 +434,18 @@ const HomeView = () => {
             ].map((feature, i) => (
               <div
                 key={i}
-                className="p-6 rounded-2xl flex flex-col gap-4 transition-all duration-500 hover:scale-[1.02]"
+                className="p-6 rounded-xl flex flex-col gap-4 transition-all duration-500 hover:scale-[1.02]"
                 style={{
                   background: 'rgba(7,14,32,0.78)',
-                  border: '1px solid rgba(170,238,42,0.20)',
+                  border: '1px solid rgba(255,255,255,0.20)',
                   backdropFilter: 'blur(12px)'
                 }}
               >
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(170,238,42,0.12)', border: '1px solid rgba(170,238,42,0.28)' }}
+                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)' }}
                 >
-                  <feature.icon className="w-5 h-5" style={{ color: '#AAEE2A' }} />
+                  <feature.icon className="w-5 h-5" style={{ color: '#FFFFFF' }} />
                 </div>
                 <div>
                   <p className="text-sm font-black tracking-tight" style={{ color: '#FFFFFF' }}>{feature.title}</p>
@@ -458,7 +458,7 @@ const HomeView = () => {
       </section>
 
       {/* ── Why Choose Us — Service Pillars ── */}
-      <section style={{ background: 'rgba(6,14,36,0.70)', borderTop: '1px solid rgba(170,238,42,0.12)', borderBottom: '1px solid rgba(170,238,42,0.12)' }}>
+      <section style={{ background: 'rgba(6,14,36,0.70)', borderTop: '1px solid rgba(255,255,255,0.12)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-16 grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
             { icon: Truck,       title: t('why.delivery'),  sub: t('why.deliverysub') },
@@ -468,10 +468,10 @@ const HomeView = () => {
           ].map((item, i) => (
             <div key={i} className="flex flex-col items-center text-center gap-3">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1"
-                style={{ background: 'rgba(170,238,42,0.10)', border: '1px solid rgba(170,238,42,0.25)' }}
+                className="w-14 h-14 rounded-xl flex items-center justify-center mb-1"
+                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.25)' }}
               >
-                <item.icon className="w-6 h-6" style={{ color: '#AAEE2A' }} />
+                <item.icon className="w-6 h-6" style={{ color: '#FFFFFF' }} />
               </div>
               <p className="text-sm font-black tracking-tight" style={{ color: '#FFFFFF' }}>{item.title}</p>
               <p className="text-[10px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{item.sub}</p>
@@ -481,12 +481,12 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
 
       {/* ── Customer Testimonials ── */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-32">
         <div className="text-center mb-10 sm:mb-16">
-          <p className="text-[10px] font-black uppercase mb-3 sm:mb-4" style={{ letterSpacing: '0.5em', color: '#AAEE2A' }}>
+          <p className="text-[10px] font-black uppercase mb-3 sm:mb-4" style={{ letterSpacing: '0.5em', color: '#FFFFFF' }}>
             {t('testimonial.label')}
           </p>
           <h2
@@ -494,7 +494,7 @@ const HomeView = () => {
             style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
           >
             {t('testimonial.title1')}<br />
-            <span style={{ color: '#AAEE2A' }}>{t('testimonial.title2')}</span>
+            <span style={{ color: '#FFFFFF' }}>{t('testimonial.title2')}</span>
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -509,24 +509,24 @@ const HomeView = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.15, duration: 0.6 }}
-              className="p-7 rounded-2xl flex flex-col gap-5 relative"
+              className="p-7 rounded-xl flex flex-col gap-5 relative"
               style={{
                 background: 'rgba(8,18,44,0.70)',
-                border: '1px solid rgba(170,238,42,0.18)',
+                border: '1px solid rgba(255,255,255,0.18)',
                 backdropFilter: 'blur(14px)',
               }}
             >
-              <Quote className="w-6 h-6 absolute top-6 right-7 opacity-20" style={{ color: '#AAEE2A' }} />
+              <Quote className="w-6 h-6 absolute top-6 right-7 opacity-20" style={{ color: '#FFFFFF' }} />
               <div className="flex gap-1">
                 {Array.from({ length: review.rating }).map((_, s) => (
-                  <Star key={s} className="w-4 h-4 fill-current" style={{ color: '#AAEE2A' }} />
+                  <Star key={s} className="w-4 h-4 fill-current" style={{ color: '#FFFFFF' }} />
                 ))}
               </div>
               <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.82)' }}>&ldquo;{review.text}&rdquo;</p>
-              <div className="flex items-center gap-3 mt-auto pt-4" style={{ borderTop: '1px solid rgba(170,238,42,0.10)' }}>
+              <div className="flex items-center gap-3 mt-auto pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}>
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
-                  style={{ background: 'rgba(170,238,42,0.12)', border: '1px solid rgba(170,238,42,0.25)' }}
+                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)' }}
                 >
                   {review.img}
                 </div>
@@ -541,7 +541,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
 
       {/* ── Promotional Sale Banner ── */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-16 pb-12 sm:pb-20">
@@ -550,30 +550,30 @@ const HomeView = () => {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.7 }}
-          className="relative overflow-hidden rounded-3xl p-7 sm:p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10"
+          className="relative overflow-hidden rounded-xl p-7 sm:p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10"
           style={{
             background: 'linear-gradient(135deg, #0D1B3A 0%, #081528 40%, #2A1A08 100%)',
-            border: '1px solid rgba(170,238,42,0.28)',
-            boxShadow: '0 0 60px rgba(170,238,42,0.08), inset 0 1px 0 rgba(170,238,42,0.15)',
+            border: '1px solid rgba(255,255,255,0.28)',
+            boxShadow: '0 0 60px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.15)',
           }}
         >
           {/* Decorative blobs */}
           <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-10 pointer-events-none"
-            style={{ background: 'radial-gradient(circle, #AAEE2A 0%, transparent 70%)', transform: 'translate(30%,-30%)' }} />
+            style={{ background: 'radial-gradient(circle, #FFFFFF 0%, transparent 70%)', transform: 'translate(30%,-30%)' }} />
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-08 pointer-events-none"
             style={{ background: 'radial-gradient(circle, #4A8040 0%, transparent 70%)', transform: 'translate(-30%,30%)' }} />
 
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: 'rgba(170,238,42,0.18)', border: '1px solid rgba(170,238,42,0.38)' }}>
-              <Tag className="w-3 h-3" style={{ color: '#AAEE2A' }} />
-              <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#AAEE2A' }}>{t('sale.badge')}</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.38)' }}>
+              <Tag className="w-3 h-3" style={{ color: '#FFFFFF' }} />
+              <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#FFFFFF' }}>{t('sale.badge')}</span>
             </div>
             <h3
               className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4"
               style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
             >
               {t('sale.title1')}<br />
-              <span style={{ color: '#AAEE2A' }}>{t('sale.title2')}</span>
+              <span style={{ color: '#FFFFFF' }}>{t('sale.title2')}</span>
             </h3>
             <p className="text-sm max-w-sm" style={{ color: 'rgba(255,255,255,0.70)' }}>
               {t('sale.sub')}
@@ -584,7 +584,7 @@ const HomeView = () => {
               <p className="text-[11px] font-bold uppercase mb-1" style={{ letterSpacing: '0.35em', color: 'rgba(255,255,255,0.55)' }}>
                 {t('sale.offLabel')}
               </p>
-              <p className="text-6xl sm:text-8xl md:text-9xl font-black leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#AAEE2A' }}>
+              <p className="text-6xl sm:text-8xl md:text-9xl font-black leading-none" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}>
                 30%
               </p>
               <p className="text-sm font-black uppercase mt-1" style={{ letterSpacing: '0.3em', color: '#FFFFFF' }}>
@@ -603,7 +603,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
 
       {/* ── WhatsApp / Newsletter Subscribe ── */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10 sm:py-16 pb-28 sm:pb-32">
@@ -612,20 +612,20 @@ const HomeView = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="rounded-3xl p-10 md:p-14 text-center"
+          className="rounded-xl p-10 md:p-14 text-center"
           style={{
             background: 'rgba(7,14,32,0.78)',
-            border: '1px solid rgba(170,238,42,0.16)',
+            border: '1px solid rgba(255,255,255,0.16)',
             backdropFilter: 'blur(20px)',
           }}
         >
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
-            style={{ background: 'rgba(170,238,42,0.12)', border: '1px solid rgba(170,238,42,0.28)' }}
+            className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-6"
+            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)' }}
           >
-            <Bell className="w-7 h-7" style={{ color: '#AAEE2A' }} />
+            <Bell className="w-7 h-7" style={{ color: '#FFFFFF' }} />
           </div>
-          <p className="text-[10px] font-black uppercase mb-3" style={{ letterSpacing: '0.5em', color: '#AAEE2A' }}>
+          <p className="text-[10px] font-black uppercase mb-3" style={{ letterSpacing: '0.5em', color: '#FFFFFF' }}>
             {t('newsletter.label')}
           </p>
           <h3
@@ -672,11 +672,11 @@ const OrderSuccessView = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#050505] relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-[#3D6B3D]/15 via-transparent to-[#9AE030]/10 opacity-30" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-[#3D6B3D]/15 via-transparent to-[#FFFFFF]/10 opacity-30" />
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
           transition={{ duration: 10, repeat: Infinity }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#9AE030] rounded-full blur-[200px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#FFFFFF] rounded-full blur-[200px]"
         />
       </div>
 
@@ -696,9 +696,9 @@ const OrderSuccessView = () => {
           }}
           className="mb-12"
         >
-          <div className="w-32 h-32 mx-auto rounded-3xl bg-[#9AE030]/10 border border-[#9AE030]/20 flex items-center justify-center relative group shadow-[0_0_80px_rgba(16,185,129,0.3)]">
-            <CheckCircle2 className="w-16 h-16 text-[#9AE030]" />
-            <div className="absolute inset-0 bg-[#9AE030]/20 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
+          <div className="w-32 h-32 mx-auto rounded-xl bg-[#FFFFFF]/10 border border-[#FFFFFF]/20 flex items-center justify-center relative group shadow-[0_0_80px_rgba(16,185,129,0.3)]">
+            <CheckCircle2 className="w-16 h-16 text-[#FFFFFF]" />
+            <div className="absolute inset-0 bg-[#FFFFFF]/20 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
           </div>
         </motion.div>
 
@@ -710,7 +710,7 @@ const OrderSuccessView = () => {
         >
           {t('success.title')}
         </motion.h1>
-        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[#9AE030]/60 mb-16 animate-pulse">{t('success.sub')}</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[#FFFFFF]/60 mb-16 animate-pulse">{t('success.sub')}</p>
         {invoiceState === 'sent' && (
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300 mb-10">
             Invoice email delivered to your inbox.
@@ -724,7 +724,7 @@ const OrderSuccessView = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-16">
           <GlassCard className="p-10 !bg-white/[0.04]">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9AE030] mb-6">{t('success.orderSummary')}</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FFFFFF] mb-6">{t('success.orderSummary')}</h4>
             <div className="space-y-4">
               <div className="flex justify-between border-b border-white/5 pb-4">
                 <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.orderId')}</span>
@@ -740,13 +740,13 @@ const OrderSuccessView = () => {
               </div>
               <div className="flex justify-between pt-2">
                 <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.total')}</span>
-                <span className="text-xl font-black text-[#9AE030]">৳{latestOrder?.total.toLocaleString()}</span>
+                <span className="text-xl font-black text-[#FFFFFF]">৳{latestOrder?.total.toLocaleString()}</span>
               </div>
             </div>
           </GlassCard>
 
           <GlassCard className="p-10 !bg-white/[0.04] flex flex-col justify-center">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#9AE030] mb-8">{t('success.status')}</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FFFFFF] mb-8">{t('success.status')}</h4>
             <div className="space-y-8">
               {[
                 { label: t('success.step1'), status: t('checkout.cod') === 'Cash on Delivery' ? 'Completed' : 'Completed', icon: CheckCircle2, active: true },
@@ -754,7 +754,7 @@ const OrderSuccessView = () => {
                 { label: 'Delivery', status: 'Scheduled', icon: ShoppingBag, active: false }
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-6">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-[#9AE030]/10 text-[#9AE030]' : 'bg-white/5 text-zinc-800'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-[#FFFFFF]/10 text-[#FFFFFF]' : 'bg-white/5 text-zinc-800'}`}>
                     <step.icon className="w-5 h-5" />
                   </div>
                   <div>
@@ -794,8 +794,8 @@ const BrandMarquee = () => {
     <div
       className="relative w-full overflow-hidden py-10 backdrop-blur-3xl mb-24"
       style={{
-        borderTop: '1px solid rgba(154,224,48,0.12)',
-        borderBottom: '1px solid rgba(154,224,48,0.12)',
+        borderTop: '1px solid rgba(255,255,255,0.09)',
+        borderBottom: '1px solid rgba(255,255,255,0.09)',
         background: 'rgba(8,14,32,0.55)',
       }}
     >
@@ -810,7 +810,7 @@ const BrandMarquee = () => {
               key={i}
               className="text-[10px] font-semibold uppercase cursor-default transition-colors"
               style={{ letterSpacing: '0.65em', color: 'rgba(154,224,48,0.38)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#9AE030')}
+              onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
               onMouseLeave={e => (e.currentTarget.style.color = 'rgba(154,224,48,0.38)')}
             >
               {brand}
@@ -835,9 +835,9 @@ const Footer = () => {
   const { siteSettings } = useApp();
   const { t } = useTranslation();
 
-  const COGNAC      = '#AAEE2A';
-  const COGNAC_DIM  = 'rgba(170,238,42,0.55)';
-  const COGNAC_MUTE = 'rgba(170,238,42,0.38)';
+  const COGNAC      = '#FFFFFF';
+  const COGNAC_DIM  = 'rgba(255,255,255,0.55)';
+  const COGNAC_MUTE = 'rgba(255,255,255,0.38)';
   const TEXT_DIM    = 'rgba(255,255,255,0.58)';
 
   const footerLink = (label: string, path: string) => (
@@ -864,20 +864,20 @@ const Footer = () => {
       {/* Warm forest glow */}
       <div
         className="absolute -top-60 -left-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(154,224,48,0.25), transparent 60%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.18), transparent 60%)' }}
       />
       <div
         className="absolute -bottom-60 -right-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-20"
-        style={{ background: 'radial-gradient(circle, rgba(154,224,48,0.20), transparent 60%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 60%)' }}
       />
 
       <div className="max-w-[1800px] mx-auto px-2 sm:px-0">
         <BrandMarquee />
 
         <div
-          className="liquid-glass rounded-[28px] sm:rounded-[40px] md:rounded-[48px] p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden"
+          className="liquid-glass rounded-[10px] sm:rounded-[12px] md:rounded-[48px] p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden"
           style={{
-            border: '1px solid rgba(154,224,48,0.26)',
+            border: '1px solid rgba(255,255,255,0.18)',
             boxShadow: '0 50px 100px -20px rgba(0,0,0,0.55)',
           }}
         >
@@ -917,19 +917,19 @@ const Footer = () => {
                     rel="noopener noreferrer"
                     className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-400"
                     style={{
-                      background: 'rgba(154,224,48,0.08)',
-                      border: '1px solid rgba(154,224,48,0.20)',
-                      color: 'rgba(154,224,48,0.55)',
+                      background: 'rgba(255,255,255,0.07)',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      color: 'rgba(255,255,255,0.45)',
                     }}
                     onMouseEnter={e => {
                       (e.currentTarget as HTMLElement).style.color = COGNAC;
                       (e.currentTarget as HTMLElement).style.borderColor = COGNAC_DIM;
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(154,224,48,0.14)';
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
                     }}
                     onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.color = 'rgba(154,224,48,0.55)';
-                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(154,224,48,0.20)';
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(154,224,48,0.08)';
+                      (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)';
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
                     }}
                   >
                     <social.icon className="w-4 h-4" />
@@ -946,7 +946,7 @@ const Footer = () => {
               <div className="flex items-start gap-5 group">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all"
-                  style={{ background: 'rgba(154,224,48,0.10)', border: '1px solid rgba(154,224,48,0.22)' }}
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                 >
                   <MapPin className="w-4 h-4" style={{ color: COGNAC }} />
                 </div>
@@ -1028,7 +1028,7 @@ const Footer = () => {
           {/* Trust & Security Badges */}
           <div
             className="mt-12 pt-8 grid grid-cols-2 md:grid-cols-4 gap-4"
-            style={{ borderTop: '1px solid rgba(170,238,42,0.15)' }}
+            style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}
           >
             {[
               { icon: Shield,       label: t('trust.ssl'),      sub: t('trust.sslSub') },
@@ -1039,7 +1039,7 @@ const Footer = () => {
               <div
                 key={badge.label}
                 className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(170,238,42,0.08)', border: '1px solid rgba(170,238,42,0.18)' }}
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }}
               >
                 <badge.icon className="w-4 h-4 shrink-0" style={{ color: COGNAC }} />
                 <div>
@@ -1053,10 +1053,10 @@ const Footer = () => {
           {/* Footer bottom */}
           <div
             className="mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-6"
-            style={{ borderTop: '1px solid rgba(170,238,42,0.15)' }}
+            style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}
           >
             <div className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(170,238,42,0.10)', border: '1px solid rgba(170,238,42,0.22)' }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)' }}>
                 <Globe className="w-4 h-4" style={{ color: COGNAC }} />
               </div>
               <p className="text-[9px] font-medium uppercase" style={{ letterSpacing: '0.28em', color: TEXT_DIM }}>
@@ -1065,7 +1065,7 @@ const Footer = () => {
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#AAEE2A', boxShadow: '0 0 8px rgba(170,238,42,0.60)' }} />
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#FFFFFF', boxShadow: '0 0 8px rgba(255,255,255,0.60)' }} />
                 <p className="text-[8px] font-medium tracking-[0.45em] uppercase" style={{ color: COGNAC_MUTE }}>
                   {t('footer.secured')}
                 </p>
@@ -1275,13 +1275,13 @@ const AppContent = () => {
   const showFooter = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.CHECKOUT;
 
   return (
-    <div className={`min-h-screen selection:bg-[#9AE030]/30 overflow-x-hidden`}>
+    <div className={`min-h-screen selection:bg-[#FFFFFF]/30 overflow-x-hidden`}>
       {showNav && <Navbar />}
       {showMobileBar && <MobileTabBar />}
 
       {siteSettings.maintenanceMode && !isAdminRole(user?.role) && location.pathname !== '/sourove-admin' ? (
         <div className="min-h-screen flex flex-col items-center justify-center p-12 text-center bg-[#05060A]">
-          <div className="w-32 h-32 rounded-[40px] bg-[#007AFF]/10 flex items-center justify-center text-blue-500 mb-12 animate-pulse">
+          <div className="w-32 h-32 rounded-[12px] bg-[#007AFF]/10 flex items-center justify-center text-blue-500 mb-12 animate-pulse">
             <Activity className="w-16 h-16" />
           </div>
           <h1 className="text-5xl font-black uppercase italic tracking-tighter text-white mb-6">Tactical Recalibration</h1>
@@ -1402,7 +1402,7 @@ const AppContent = () => {
             target="_blank"
             rel="noreferrer noopener"
             aria-label="Chat on WhatsApp"
-            className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] rounded-[20px] sm:rounded-[30px] shadow-2xl flex items-center justify-center transition-all group overflow-hidden relative border-2 border-white/20"
+            className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] rounded-[12px] sm:rounded-[10px] shadow-2xl flex items-center justify-center transition-all group overflow-hidden relative border-2 border-white/20"
           >
             <div className="ribbed-texture absolute inset-0 opacity-20 pointer-events-none" />
             <div className="shine-sweep !opacity-40 !duration-[4s]" />

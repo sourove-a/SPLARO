@@ -386,8 +386,8 @@ const formatTime = (value: string | null | undefined) => {
 };
 
 const statusClass = (status: HealthServiceStatus | 'PASS' | 'FAIL' | 'WARNING') => {
-  if (status === 'OK' || status === 'PASS') return 'text-[#D4B47A] border-[#9AE030]/30 bg-[#9AE030]/10';
-  if (status === 'WARNING') return 'text-[#D4B47A] border-[#9AE030]/30 bg-[#9AE030]/10';
+  if (status === 'OK' || status === 'PASS') return 'text-[#D4B47A] border-[#FFFFFF]/30 bg-[#FFFFFF]/10';
+  if (status === 'WARNING') return 'text-[#D4B47A] border-[#FFFFFF]/30 bg-[#FFFFFF]/10';
   return 'text-rose-400 border-rose-500/30 bg-rose-500/10';
 };
 
@@ -579,7 +579,7 @@ export const SystemHealthPanel: React.FC = () => {
                 <button
                   onClick={() => recoverQueueMutation.mutate()}
                   disabled={recoverQueueMutation.isPending}
-                  className="w-full rounded-xl border border-[#9AE030]/40 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/90 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-[#FFFFFF]/40 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/90 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {recoverQueueMutation.isPending ? 'Repairing...' : 'Repair Queue'}
                 </button>
@@ -604,7 +604,7 @@ export const SystemHealthPanel: React.FC = () => {
               ))}
             </select>
           </div>
-          <div className="max-h-[420px] overflow-auto border border-white/10 rounded-2xl">
+          <div className="max-h-[420px] overflow-auto border border-white/10 rounded-xl">
             <table className="w-full text-xs">
               <thead className="bg-white/5 sticky top-0">
                 <tr className="text-left text-zinc-400 uppercase tracking-[0.2em] text-[10px]">
@@ -659,7 +659,7 @@ export const SystemHealthPanel: React.FC = () => {
               </select>
             </div>
           </div>
-          <div className="max-h-[420px] overflow-auto border border-white/10 rounded-2xl">
+          <div className="max-h-[420px] overflow-auto border border-white/10 rounded-xl">
             <table className="w-full text-xs">
               <thead className="bg-white/5 sticky top-0">
                 <tr className="text-left text-zinc-400 uppercase tracking-[0.2em] text-[10px]">
@@ -727,7 +727,7 @@ export const SystemHealthPanel: React.FC = () => {
 
       {selectedError && (
         <div className="fixed inset-0 z-[220] bg-black/70 backdrop-blur-sm p-4 flex items-center justify-center" onClick={() => setSelectedError(null)}>
-          <div className="w-full max-w-3xl bg-[#0a0c12] border border-white/10 rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-3xl bg-[#0a0c12] border border-white/10 rounded-xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h5 className="text-sm font-black uppercase tracking-[0.2em]">Error Context #{selectedError.id}</h5>
               <button onClick={() => setSelectedError(null)} className="text-zinc-400 hover:text-white">

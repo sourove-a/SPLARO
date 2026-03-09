@@ -84,7 +84,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       className="group relative cursor-pointer min-w-0"
     >
       {/* Image Container with Parallax */}
-      <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[18px] sm:rounded-[24px] md:rounded-[32px] mb-3 sm:mb-6 shadow-2xl transition-all duration-700">
+      <div className="aspect-[3/4] relative overflow-hidden bg-zinc-950 rounded-[12px] sm:rounded-[14px] md:rounded-[12px] mb-3 sm:mb-6 shadow-2xl transition-all duration-700">
         <motion.div
           style={{ y: smoothY }}
           animate={{
@@ -114,7 +114,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             whileHover={{ scale: 1.15, backgroundColor: 'rgba(255,255,255,0.15)' }}
             whileTap={{ scale: 0.9 }}
             onClick={(e) => e.stopPropagation()}
-            className="p-3.5 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/5 text-white/50 hover:text-rose-500 transition-all"
+            className="p-3.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/5 text-white/50 hover:text-rose-500 transition-all"
           >
             <Heart className="w-4 h-4" />
           </motion.button>
@@ -128,8 +128,8 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 initial={{ opacity: 0, y: 30, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
-                className="w-full h-14 backdrop-blur-3xl rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
-                style={{ background: 'rgba(154,224,48,0.25)', border: '1px solid rgba(154,224,48,0.30)', color: '#F0F8FF' }}
+                className="w-full h-14 backdrop-blur-3xl rounded-xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
+                style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.22)', color: '#F0F8FF' }}
               >
                 <Eye className="w-4 h-4" /> {t('shop.viewDetails')}
               </motion.button>
@@ -142,11 +142,11 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   transition={{ delay: 0.05 }}
                   onClick={(e) => handleAddToCart(e)}
                   disabled={urgency.outOfStock || isAdding}
-                  className="h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
+                  className="h-14 rounded-xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
                   style={
                     urgency.outOfStock
-                      ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(154,224,48,0.12)', color: 'rgba(255,255,255,0.28)', cursor: 'not-allowed' }
-                      : { background: 'linear-gradient(135deg, #071832, #0A2A50, #9AE030)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(154,224,48,0.40)' }
+                      ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.28)', cursor: 'not-allowed' }
+                      : { background: 'linear-gradient(135deg, #071832, #0A2A50, #FFFFFF)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(255,255,255,0.30)' }
                   }
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -159,10 +159,10 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   transition={{ delay: 0.1 }}
                   onClick={(e) => handleAddToCart(e, true)}
                   disabled={urgency.outOfStock || isAdding}
-                  className={`h-14 rounded-2xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
+                  className={`h-14 rounded-xl flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-500 ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 border border-white/10 text-zinc-500 cursor-not-allowed'
-                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-[#9AE030]/25'
+                      : 'bg-white/12 border border-white/25 text-white shadow-xl hover:bg-[#FFFFFF]/25'
                   }`}
                 >
                   {t('product.buyNow')}
@@ -187,7 +187,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 event.stopPropagation();
                 navigate(`/shop?brand=${slugifyValue((product as any).brandSlug || product.brand)}`);
               }}
-              className="text-[8px] font-black text-[#9AE030] uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-white/90"
+              className="text-[8px] font-black text-[#FFFFFF] uppercase tracking-[0.5em] mb-2 block group-hover:translate-x-1 transition-transform hover:text-white/90"
             >
               {product.brand}
             </button>
@@ -201,7 +201,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   event.stopPropagation();
                   navigate(`/shop?category=${slugifyValue((product as any).categorySlug || product.category)}`);
                 }}
-                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-[#9AE030]/45 hover:text-white/90"
+                className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/15 bg-white/[0.03] text-[8px] font-black uppercase tracking-[0.14em] text-white/75 hover:border-[#FFFFFF]/45 hover:text-white/90"
               >
                 {product.category}
               </button>
@@ -214,7 +214,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     const subSlug = slugifyValue((product as any).subCategorySlug || product.subCategory);
                     navigate(`/shop?category=${categorySlug}&sub=${subSlug}`);
                   }}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-[#9AE030]/35 hover:text-white/90"
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.02] text-[8px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-[#FFFFFF]/35 hover:text-white/90"
                 >
                   {product.subCategory}
                 </button>
@@ -227,7 +227,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.14em] ${
                       urgency.outOfStock
                         ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                        : 'border-[#9AE030]/35 bg-[#0A2A50]/10 text-white/90'
+                        : 'border-[#FFFFFF]/35 bg-[#0A2A50]/10 text-white/90'
                     }`}
                   >
                     {urgency.outOfStock
@@ -254,10 +254,10 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
             <Globe className="w-3 h-3" />
             <span className="text-[7px] font-black text-white uppercase tracking-[0.4em]">{t('product.curatedImport')}</span>
           </div>
-          <div className="w-1 h-1 rounded-full bg-[#9AE030]" />
+          <div className="w-1 h-1 rounded-full bg-[#FFFFFF]" />
           <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3 text-[#9AE030]" />
-            <span className="text-[7px] font-black text-[#9AE030] uppercase tracking-[0.4em]">{t('product.delivery710')}</span>
+            <Clock className="w-3 h-3 text-[#FFFFFF]" />
+            <span className="text-[7px] font-black text-[#FFFFFF] uppercase tracking-[0.4em]">{t('product.delivery710')}</span>
           </div>
         </div>
 

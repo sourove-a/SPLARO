@@ -44,10 +44,10 @@ type PasswordStrength = {
 
 const statusPillClass = (status: string) => {
   const normalized = String(status || '').toLowerCase();
-  if (normalized.includes('deliver')) return 'bg-[#9AE030]/10 text-[#9AE030] border-[#9AE030]/20';
-  if (normalized.includes('ship')) return 'bg-[#9AE030]/10 text-white/90 border-[#9AE030]/20';
+  if (normalized.includes('deliver')) return 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20';
+  if (normalized.includes('ship')) return 'bg-[#FFFFFF]/10 text-white/90 border-[#FFFFFF]/20';
   if (normalized.includes('cancel')) return 'bg-rose-500/10 text-rose-300 border-rose-500/20';
-  return 'bg-[#9AE030]/10 text-white/90 border-[#9AE030]/20';
+  return 'bg-[#FFFFFF]/10 text-white/90 border-[#FFFFFF]/20';
 };
 
 const normalizeUserPayload = (raw: any): User => ({
@@ -80,9 +80,9 @@ const evaluatePasswordStrength = (value: string): PasswordStrength => {
   if (/[^a-zA-Z0-9]/.test(value)) score += 1;
 
   if (score <= 2) return { score, label: 'Weak', color: 'bg-rose-500' };
-  if (score === 3) return { score, label: 'Fair', color: 'bg-[#9AE030]' };
-  if (score === 4) return { score, label: 'Good', color: 'bg-[#9AE030]' };
-  return { score, label: 'Strong', color: 'bg-[#9AE030]' };
+  if (score === 3) return { score, label: 'Fair', color: 'bg-[#FFFFFF]' };
+  if (score === 4) return { score, label: 'Good', color: 'bg-[#FFFFFF]' };
+  return { score, label: 'Strong', color: 'bg-[#FFFFFF]' };
 };
 
 const formatOrderDate = (value: string) => {
@@ -704,7 +704,7 @@ export const UserDashboard: React.FC = () => {
       <header className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
           <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">
-            Account <span className="text-[#9AE030]">Dashboard</span>
+            Account <span className="text-[#FFFFFF]">Dashboard</span>
           </h1>
           <p className="text-[10px] font-black uppercase tracking-[0.45em] text-white/35 mt-3">
             Manage your profile, orders and security settings
@@ -712,7 +712,7 @@ export const UserDashboard: React.FC = () => {
         </div>
         <button
           onClick={() => syncRegistry()}
-          className="h-12 px-6 rounded-2xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.28em] text-white/70 hover:text-white/90 hover:border-[#9AE030]/40 transition-all"
+          className="h-12 px-6 rounded-xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.28em] text-white/70 hover:text-white/90 hover:border-[#FFFFFF]/40 transition-all"
         >
           Refresh Data
         </button>
@@ -720,10 +720,10 @@ export const UserDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         <div className="xl:col-span-4 space-y-6">
-          <GlassCard className="p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
+          <GlassCard className="p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
             <div className="flex flex-col items-center">
               <div className="relative mb-6">
-                <div className="w-28 h-28 rounded-full border border-[#9AE030]/35 bg-black/50 overflow-hidden">
+                <div className="w-28 h-28 rounded-full border border-[#FFFFFF]/35 bg-black/50 overflow-hidden">
                   {profileForm.profileImage ? (
                     <OptimizedImage src={profileForm.profileImage} alt="Profile" sizes="112px" className="w-full h-full object-cover" />
                   ) : (
@@ -734,7 +734,7 @@ export const UserDashboard: React.FC = () => {
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 h-10 w-10 rounded-xl bg-[#9AE030] text-black flex items-center justify-center hover:scale-105 transition-transform"
+                  className="absolute -bottom-1 -right-1 h-10 w-10 rounded-xl bg-[#FFFFFF] text-black flex items-center justify-center hover:scale-105 transition-transform"
                   aria-label="Upload avatar"
                   type="button"
                 >
@@ -750,18 +750,18 @@ export const UserDashboard: React.FC = () => {
               </div>
 
               <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">{user.name}</h2>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9AE030] mt-1">{user.role}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#FFFFFF] mt-1">{user.role}</p>
 
               <div className="w-full mt-8 space-y-3">
-                <div className="h-14 rounded-2xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-[#9AE030]" />
+                <div className="h-14 rounded-xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-[#FFFFFF]" />
                   <div className="min-w-0">
                     <p className="text-[8px] text-white/30 font-black uppercase tracking-[0.25em]">Email</p>
                     <p className="text-sm text-white truncate">{user.email}</p>
                   </div>
                 </div>
-                <div className="h-14 rounded-2xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-[#9AE030]" />
+                <div className="h-14 rounded-xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-[#FFFFFF]" />
                   <div className="min-w-0">
                     <p className="text-[8px] text-white/30 font-black uppercase tracking-[0.25em]">Phone</p>
                     <p className="text-sm text-white truncate">{user.phone || 'N/A'}</p>
@@ -772,7 +772,7 @@ export const UserDashboard: React.FC = () => {
               <button
                 onClick={handleLogout}
                 type="button"
-                className="mt-8 w-full h-12 rounded-2xl border border-rose-400/30 bg-rose-500/10 text-rose-300 text-[10px] font-black uppercase tracking-[0.28em] hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
+                className="mt-8 w-full h-12 rounded-xl border border-rose-400/30 bg-rose-500/10 text-rose-300 text-[10px] font-black uppercase tracking-[0.28em] hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
                 Log Out
@@ -782,14 +782,14 @@ export const UserDashboard: React.FC = () => {
         </div>
 
         <div className="xl:col-span-8 space-y-6">
-          <GlassCard className="p-6 md:p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
+          <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
             <button
               type="button"
               onClick={() => toggleSection('profile')}
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <UserIcon className="w-5 h-5 text-[#9AE030]" />
+                <UserIcon className="w-5 h-5 text-[#FFFFFF]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Profile Info</h3>
               </div>
               {openSections.profile ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -842,7 +842,7 @@ export const UserDashboard: React.FC = () => {
                       <PrimaryButton
                         onClick={handleProfileSave}
                         isLoading={profileSaving}
-                        className="h-12 px-8 !rounded-2xl text-[10px] tracking-[0.26em]"
+                        className="h-12 px-8 !rounded-xl text-[10px] tracking-[0.26em]"
                       >
                         Save Profile
                       </PrimaryButton>
@@ -856,7 +856,7 @@ export const UserDashboard: React.FC = () => {
                             profileImage: user.profileImage || ''
                           });
                         }}
-                        className="h-12 px-8 rounded-2xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.24em] text-white/75 hover:border-white/30 transition-all"
+                        className="h-12 px-8 rounded-xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.24em] text-white/75 hover:border-white/30 transition-all"
                       >
                         Reset
                       </button>
@@ -867,14 +867,14 @@ export const UserDashboard: React.FC = () => {
             </AnimatePresence>
           </GlassCard>
 
-          <GlassCard className="p-6 md:p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
+          <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
             <button
               type="button"
               onClick={() => toggleSection('orders')}
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-[#9AE030]" />
+                <Package className="w-5 h-5 text-[#FFFFFF]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Order History</h3>
               </div>
               {openSections.orders ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -890,7 +890,7 @@ export const UserDashboard: React.FC = () => {
                 >
                   <div className="pt-6 space-y-4">
                     {userOrders.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-white/20 bg-white/[0.02] py-14 text-center">
+                      <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] py-14 text-center">
                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/35">No orders found yet</p>
                       </div>
                     ) : (
@@ -898,7 +898,7 @@ export const UserDashboard: React.FC = () => {
                         const isExpanded = expandedOrderId === order.id;
                         const safeItems = Array.isArray(order.items) ? order.items : [];
                         return (
-                          <div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                          <div key={order.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                               <div>
                                 <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/35">{order.id}</p>
@@ -912,14 +912,14 @@ export const UserDashboard: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => downloadInvoice(order)}
-                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-[#9AE030]/40 hover:text-white/90 transition-all"
+                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-[#FFFFFF]/40 hover:text-white/90 transition-all"
                                 >
                                   Invoice
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => navigate('/order-tracking')}
-                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-[#9AE030]/40 hover:text-white/90 transition-all"
+                                  className="h-9 px-4 rounded-full border border-white/20 bg-white/[0.03] text-[9px] font-black uppercase tracking-[0.2em] text-white/80 hover:border-[#FFFFFF]/40 hover:text-white/90 transition-all"
                                 >
                                   Track
                                 </button>
@@ -978,14 +978,14 @@ export const UserDashboard: React.FC = () => {
             </AnimatePresence>
           </GlassCard>
 
-          <GlassCard className="p-6 md:p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
+          <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
             <button
               type="button"
               onClick={() => toggleSection('security')}
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <ShieldCheck className="w-5 h-5 text-[#9AE030]" />
+                <ShieldCheck className="w-5 h-5 text-[#FFFFFF]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Account Security</h3>
               </div>
               {openSections.security ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -1006,7 +1006,7 @@ export const UserDashboard: React.FC = () => {
                           setPasswordError('');
                           setIsPasswordModalOpen(true);
                         }}
-                        className="h-12 px-8 !rounded-2xl text-[10px] tracking-[0.24em]"
+                        className="h-12 px-8 !rounded-xl text-[10px] tracking-[0.24em]"
                       >
                         Change Password
                       </PrimaryButton>
@@ -1014,7 +1014,7 @@ export const UserDashboard: React.FC = () => {
                         type="button"
                         disabled={securityLoading}
                         onClick={() => handleToggleTwoFactor(!twoFactorEnabled)}
-                        className="h-12 px-6 rounded-2xl border border-white/20 bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-white/85 hover:border-[#9AE030]/40 transition-all disabled:opacity-50"
+                        className="h-12 px-6 rounded-xl border border-white/20 bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-white/85 hover:border-[#FFFFFF]/40 transition-all disabled:opacity-50"
                       >
                         {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
                       </button>
@@ -1022,14 +1022,14 @@ export const UserDashboard: React.FC = () => {
                         type="button"
                         disabled={securityLoading}
                         onClick={handleLogoutAllSessions}
-                        className="h-12 px-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 hover:bg-rose-500/20 transition-all disabled:opacity-50"
+                        className="h-12 px-6 rounded-xl border border-rose-500/30 bg-rose-500/10 text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 hover:bg-rose-500/20 transition-all disabled:opacity-50"
                       >
                         Logout All Sessions
                       </button>
                     </div>
 
                     {twoFactorEnabled && twoFactorSecret ? (
-                      <div className="rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/10 p-4">
+                      <div className="rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/10 p-4">
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">Authenticator setup key</p>
                         <div className="mt-2 flex items-center gap-2">
                           <code className="px-3 py-2 rounded-lg bg-black/40 border border-white/10 text-sm text-white break-all">{twoFactorSecret}</code>
@@ -1048,13 +1048,13 @@ export const UserDashboard: React.FC = () => {
                       </div>
                     ) : null}
 
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
                       <div className="flex items-center justify-between gap-3 mb-3">
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/55">Active Sessions</p>
                         <button
                           type="button"
                           onClick={loadActiveSessions}
-                          className="h-8 px-3 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.18em] text-white/70 hover:border-[#9AE030]/40 hover:text-white/90 transition-all"
+                          className="h-8 px-3 rounded-lg border border-white/15 text-[9px] font-black uppercase tracking-[0.18em] text-white/70 hover:border-[#FFFFFF]/40 hover:text-white/90 transition-all"
                         >
                           Refresh
                         </button>
@@ -1070,7 +1070,7 @@ export const UserDashboard: React.FC = () => {
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">{session.ip_address || 'Unknown IP'}</span>
                                 {session.is_current ? (
-                                  <span className="px-2 h-6 rounded-full border border-[#9AE030]/30 bg-[#9AE030]/10 text-[9px] font-black uppercase tracking-[0.16em] text-white/90 inline-flex items-center">
+                                  <span className="px-2 h-6 rounded-full border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-[9px] font-black uppercase tracking-[0.16em] text-white/90 inline-flex items-center">
                                     Current
                                   </span>
                                 ) : null}
@@ -1088,14 +1088,14 @@ export const UserDashboard: React.FC = () => {
             </AnimatePresence>
           </GlassCard>
 
-          <GlassCard className="p-6 md:p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
+          <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
             <button
               type="button"
               onClick={() => toggleSection('preferences')}
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <Languages className="w-5 h-5 text-[#9AE030]" />
+                <Languages className="w-5 h-5 text-[#FFFFFF]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Preferences</h3>
               </div>
               {openSections.preferences ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -1153,7 +1153,7 @@ export const UserDashboard: React.FC = () => {
                     <PrimaryButton
                       onClick={handlePreferencesSave}
                       isLoading={preferencesSaving}
-                      className="h-12 px-8 !rounded-2xl text-[10px] tracking-[0.24em]"
+                      className="h-12 px-8 !rounded-xl text-[10px] tracking-[0.24em]"
                     >
                       Save Preferences
                     </PrimaryButton>
@@ -1163,14 +1163,14 @@ export const UserDashboard: React.FC = () => {
             </AnimatePresence>
           </GlassCard>
 
-          <GlassCard className="p-6 md:p-8 !rounded-[32px] border-white/15 bg-white/[0.03]">
+          <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
             <button
               type="button"
               onClick={() => toggleSection('support')}
               className="w-full flex items-center justify-between text-left"
             >
               <div className="flex items-center gap-3">
-                <Ticket className="w-5 h-5 text-[#9AE030]" />
+                <Ticket className="w-5 h-5 text-[#FFFFFF]" />
                 <h3 className="text-xl font-black uppercase tracking-tight text-white">Support</h3>
               </div>
               {openSections.support ? <ChevronUp className="w-5 h-5 text-white/70" /> : <ChevronDown className="w-5 h-5 text-white/70" />}
@@ -1195,20 +1195,20 @@ export const UserDashboard: React.FC = () => {
                       value={supportForm.subject}
                       onChange={(e) => setSupportForm((prev) => ({ ...prev, subject: e.target.value }))}
                       placeholder="Ticket subject"
-                      className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.03] px-4 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#9AE030]/40 transition-colors"
+                      className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.03] px-4 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#FFFFFF]/40 transition-colors"
                     />
                     <textarea
                       value={supportForm.message}
                       onChange={(e) => setSupportForm((prev) => ({ ...prev, message: e.target.value }))}
                       placeholder="Describe your issue..."
                       rows={4}
-                      className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#9AE030]/40 transition-colors resize-y"
+                      className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#FFFFFF]/40 transition-colors resize-y"
                     />
 
                     <PrimaryButton
                       onClick={handleCreateSupportTicket}
                       isLoading={supportSending}
-                      className="h-12 px-8 !rounded-2xl text-[10px] tracking-[0.24em]"
+                      className="h-12 px-8 !rounded-xl text-[10px] tracking-[0.24em]"
                     >
                       Submit Ticket
                     </PrimaryButton>
@@ -1242,13 +1242,13 @@ export const UserDashboard: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 16, scale: 0.98 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="w-full max-w-[420px] rounded-3xl border border-white/15 bg-[#0b111d] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
+              className="w-full max-w-[420px] rounded-xl border border-white/15 bg-[#0b111d] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
               role="dialog"
               aria-modal="true"
               aria-label="Change password"
             >
               <div className="flex items-center gap-3 mb-5">
-                <KeyRound className="w-5 h-5 text-[#9AE030]" />
+                <KeyRound className="w-5 h-5 text-[#FFFFFF]" />
                 <h4 className="text-xl font-black uppercase tracking-tight text-white">Change Password</h4>
               </div>
 
@@ -1261,7 +1261,7 @@ export const UserDashboard: React.FC = () => {
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
                     placeholder="Current password"
                     autoComplete="current-password"
-                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#9AE030]/45 transition-colors"
+                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#FFFFFF]/45 transition-colors"
                   />
                   <button
                     type="button"
@@ -1280,7 +1280,7 @@ export const UserDashboard: React.FC = () => {
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
                     placeholder="New password"
                     autoComplete="new-password"
-                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#9AE030]/45 transition-colors"
+                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#FFFFFF]/45 transition-colors"
                   />
                   <button
                     type="button"
@@ -1299,7 +1299,7 @@ export const UserDashboard: React.FC = () => {
                     onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                     placeholder="Confirm password"
                     autoComplete="new-password"
-                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#9AE030]/45 transition-colors"
+                    className="w-full h-12 rounded-xl border border-white/15 bg-white/[0.04] px-4 pr-12 text-sm text-white placeholder:text-white/35 outline-none focus-visible:border-[#FFFFFF]/45 transition-colors"
                   />
                   <button
                     type="button"

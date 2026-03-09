@@ -671,7 +671,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   }, [googleClientId, authMode]);
 
   const getIdentityIcon = () => {
-    return <Mail className="w-5 h-5 text-[#9AE030]" />;
+    return <Mail className="w-5 h-5 text-[#FFFFFF]" />;
   };
 
 
@@ -679,7 +679,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
     <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-[#050505]">
       {/* Dynamic Background */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-green-900/8 via-transparent to-[#9AE030]/8 opacity-30" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-green-900/8 via-transparent to-[#FFFFFF]/8 opacity-30" />
 
         {/* Floating Peripheral Assets */}
         {floatingAssets.map((asset, i) => (
@@ -696,7 +696,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               repeat: Infinity,
               ease: "linear"
             }}
-            className="absolute w-[160px] h-[160px] border border-[#9AE030]/10 rounded-full blur-sm"
+            className="absolute w-[160px] h-[160px] border border-[#FFFFFF]/10 rounded-full blur-sm"
             style={{
               top: asset.top,
               left: asset.left,
@@ -720,7 +720,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
       >
         <GlassCard className="p-8 md:p-12 !border-white/10 !bg-white/[0.08] shadow-[0_0_80px_rgba(0,0,0,0.8)] !rounded-[48px] backdrop-blur-[120px] relative overflow-hidden group">
           {/* Subtle cyan glow around the card */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#9AE030]/8 via-transparent to-[#9AE030]/8 opacity-50 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#FFFFFF]/8 via-transparent to-[#FFFFFF]/8 opacity-50 pointer-events-none" />
 
           <header className="flex flex-col items-center text-center mb-12 relative z-10 pt-4">
             <div className="h-10 md:h-14" />
@@ -728,8 +728,8 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white mb-3 italic">
               {authMode === 'login' ? 'IDENTITY' : authMode === 'signup' ? 'ARCHIVING' : 'RECOVERY'}
             </h2>
-            <div className="h-1 w-16 bg-[#9AE030] mb-6 shadow-[0_0_20px_rgba(154,224,48,0.60)]" />
-            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#9AE030] opacity-60">
+            <div className="h-1 w-16 bg-[#FFFFFF] mb-6 shadow-[0_0_20px_rgba(255,255,255,0.50)]" />
+            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#FFFFFF] opacity-60">
               {authMode === 'login' ? 'SECURE INITIALIZATION' : authMode === 'signup' ? 'ESTABLISH ARCHIVE' : 'PROTOCOL RESTORATION'}
             </p>
 
@@ -745,7 +745,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                 <button
                   type="button"
                   onClick={() => { setErrors({}); navigate('/signup'); }}
-                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-[#9AE030]/70 border border-blue-300/50 text-white' : 'text-white/50 hover:text-white'}`}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-[#FFFFFF]/70 border border-blue-300/50 text-white' : 'text-white/50 hover:text-white'}`}
                 >
                   Sign Up
                 </button>
@@ -873,7 +873,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                       <button
                         type="button"
                         onClick={handleResendEmailOtp}
-                        className="text-[#9AE030] hover:text-white/90 font-semibold transition-colors"
+                        className="text-[#FFFFFF] hover:text-white/90 font-semibold transition-colors"
                       >
                         Resend OTP
                       </button>
@@ -906,7 +906,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                         setRecoveryStep('email');
                         setAuthMode('forgot');
                       }}
-                      className="text-[10px] font-black uppercase text-[#9AE030]/80 hover:text-white/90 tracking-widest transition-colors"
+                      className="text-[10px] font-black uppercase text-[#FFFFFF]/80 hover:text-white/90 tracking-widest transition-colors"
                     >
                       Forgot Password?
                     </button>
@@ -946,7 +946,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             {googleClientId ? (
               <div id="googleSignInBtn" className="w-full max-w-sm"></div>
             ) : (
-              <div className="w-full max-w-sm h-12 rounded-full border border-white/20 bg-[#9AE030]/10 text-[10px] font-semibold tracking-wide text-blue-100 flex items-center justify-center px-4 text-center">
+              <div className="w-full max-w-sm h-12 rounded-full border border-white/20 bg-[#FFFFFF]/10 text-[10px] font-semibold tracking-wide text-blue-100 flex items-center justify-center px-4 text-center">
                 Google login সেট করতে Admin Settings এ Google Client ID দিন
               </div>
             )}
@@ -966,7 +966,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                   setErrors({});
                   navigate(authMode === 'login' ? '/signup' : '/login');
                 }}
-                className="text-[#9AE030] font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
+                className="text-[#FFFFFF] font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
               >
                 {authMode === 'login' ? 'Sign Up' : 'Log In'}
               </button>
@@ -981,7 +981,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mt-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-4"
+              className="mt-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-4"
             >
               <AlertCircle className="w-4 h-4 text-rose-500" />
               <p className="text-[11px] font-semibold text-rose-200 tracking-wide">Please correct the highlighted fields and try again.</p>

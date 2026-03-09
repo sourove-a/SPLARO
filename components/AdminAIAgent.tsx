@@ -433,13 +433,13 @@ export const AdminAIAgent: React.FC = () => {
 
         {/* Model Selector */}
         <GlassCard className="p-5">
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: '#AAEE2A' }}>
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: '#FFFFFF' }}>
             AI Model
           </p>
           <div className="relative">
             <button
               onClick={() => setModelDropdown(prev => !prev)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all"
               style={{
                 background: 'rgba(255,255,255,0.04)',
                 border: `1px solid ${currentModel.color}44`,
@@ -459,8 +459,8 @@ export const AdminAIAgent: React.FC = () => {
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="absolute top-full mt-2 w-full rounded-2xl border overflow-hidden z-50"
-                  style={{ background: '#0F1A10', border: '1px solid rgba(170,238,42,0.20)' }}
+                  className="absolute top-full mt-2 w-full rounded-xl border overflow-hidden z-50"
+                  style={{ background: '#0F1A10', border: '1px solid rgba(255,255,255,0.20)' }}
                 >
                   {AI_MODELS.map(model => (
                     <button
@@ -474,7 +474,7 @@ export const AdminAIAgent: React.FC = () => {
                         <p className="text-[9px] text-white/40">{model.provider}</p>
                       </div>
                       {selectedModelId === model.id && (
-                        <CheckCircle className="w-4 h-4 ml-auto" style={{ color: '#AAEE2A' }} />
+                        <CheckCircle className="w-4 h-4 ml-auto" style={{ color: '#FFFFFF' }} />
                       )}
                     </button>
                   ))}
@@ -505,7 +505,7 @@ export const AdminAIAgent: React.FC = () => {
 
         {/* API Key */}
         <GlassCard className="p-5">
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: '#AAEE2A' }}>
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: '#FFFFFF' }}>
             API Key — {currentModel.label}
           </p>
           {hasKey ? (
@@ -528,7 +528,7 @@ export const AdminAIAgent: React.FC = () => {
               <button
                 onClick={() => setShowSettings(true)}
                 className="w-full py-2.5 rounded-xl text-xs font-black uppercase transition-all"
-                style={{ background: 'rgba(170,238,42,0.15)', border: '1px solid rgba(170,238,42,0.30)', color: '#AAEE2A' }}
+                style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.30)', color: '#FFFFFF' }}
               >
                 <Key className="w-3.5 h-3.5 inline mr-2" />
                 API Key যোগ করুন
@@ -539,7 +539,7 @@ export const AdminAIAgent: React.FC = () => {
 
         {/* Quick Commands */}
         <GlassCard className="p-5 flex-1 overflow-y-auto">
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: '#AAEE2A' }}>
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: '#FFFFFF' }}>
             Quick Commands
           </p>
           <div className="flex flex-col gap-2">
@@ -551,7 +551,7 @@ export const AdminAIAgent: React.FC = () => {
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-white/05 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ border: '1px solid rgba(255,255,255,0.05)' }}
               >
-                <cmd.icon className="w-4 h-4 shrink-0" style={{ color: '#AAEE2A' }} />
+                <cmd.icon className="w-4 h-4 shrink-0" style={{ color: '#FFFFFF' }} />
                 <p className="text-[11px] font-semibold text-white/80">{cmd.label}</p>
               </button>
             ))}
@@ -561,7 +561,7 @@ export const AdminAIAgent: React.FC = () => {
         {/* Clear Chat */}
         <button
           onClick={clearChat}
-          className="flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-bold transition-all"
+          className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all"
           style={{ border: '1px solid rgba(239,68,68,0.20)', color: 'rgba(239,68,68,0.60)' }}
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -574,7 +574,7 @@ export const AdminAIAgent: React.FC = () => {
         {/* Header */}
         <div className="flex items-center gap-4 mb-4">
           <div
-            className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl"
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
             style={{ background: `${currentModel.color}18`, border: `1px solid ${currentModel.color}44` }}
           >
             {currentModel.logo}
@@ -617,9 +617,9 @@ export const AdminAIAgent: React.FC = () => {
                   className="w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-sm"
                   style={{
                     background: msg.role === 'user'
-                      ? 'rgba(170,238,42,0.15)'
+                      ? 'rgba(255,255,255,0.15)'
                       : `${currentModel.color}18`,
-                    border: `1px solid ${msg.role === 'user' ? 'rgba(170,238,42,0.30)' : currentModel.color + '44'}`,
+                    border: `1px solid ${msg.role === 'user' ? 'rgba(255,255,255,0.30)' : currentModel.color + '44'}`,
                   }}
                 >
                   {msg.role === 'user' ? '👤' : currentModel.logo}
@@ -628,16 +628,16 @@ export const AdminAIAgent: React.FC = () => {
                 {/* Bubble */}
                 <div className={`max-w-[75%] ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-2`}>
                   <div
-                    className="px-5 py-4 rounded-2xl text-sm leading-relaxed"
+                    className="px-5 py-4 rounded-xl text-sm leading-relaxed"
                     style={{
                       background: msg.role === 'user'
-                        ? 'rgba(170,238,42,0.12)'
+                        ? 'rgba(255,255,255,0.12)'
                         : msg.error
                           ? 'rgba(239,68,68,0.08)'
                           : 'rgba(255,255,255,0.04)',
                       border: `1px solid ${
                         msg.role === 'user'
-                          ? 'rgba(170,238,42,0.25)'
+                          ? 'rgba(255,255,255,0.25)'
                           : msg.error
                             ? 'rgba(239,68,68,0.20)'
                             : 'rgba(255,255,255,0.08)'
@@ -655,9 +655,9 @@ export const AdminAIAgent: React.FC = () => {
                       onClick={() => executeAction(msg.action!, msg.id)}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase transition-all"
                       style={{
-                        background: 'rgba(170,238,42,0.18)',
-                        border: '1px solid rgba(170,238,42,0.40)',
-                        color: '#AAEE2A',
+                        background: 'rgba(255,255,255,0.18)',
+                        border: '1px solid rgba(255,255,255,0.40)',
+                        color: '#FFFFFF',
                       }}
                     >
                       <Zap className="w-3.5 h-3.5" />
@@ -697,7 +697,7 @@ export const AdminAIAgent: React.FC = () => {
                 style={{ background: `${currentModel.color}18`, border: `1px solid ${currentModel.color}44` }}>
                 {currentModel.logo}
               </div>
-              <div className="px-5 py-4 rounded-2xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="px-5 py-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="flex gap-1.5 items-center">
                   <Loader2 className="w-4 h-4 animate-spin" style={{ color: currentModel.color }} />
                   <span className="text-xs text-zinc-400">{currentModel.label} চিন্তা করছে...</span>
@@ -710,7 +710,7 @@ export const AdminAIAgent: React.FC = () => {
 
         {/* Input Area */}
         <div
-          className="mt-4 flex gap-3 items-end p-4 rounded-2xl"
+          className="mt-4 flex gap-3 items-end p-4 rounded-xl"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           <textarea
@@ -731,8 +731,8 @@ export const AdminAIAgent: React.FC = () => {
             disabled={!input.trim() || !hasKey || isLoading}
             className="w-12 h-12 rounded-xl flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
             style={{
-              background: 'linear-gradient(135deg, #C07832, #AAEE2A)',
-              boxShadow: '0 4px 20px rgba(170,238,42,0.30)',
+              background: 'linear-gradient(135deg, #C07832, #FFFFFF)',
+              boxShadow: '0 4px 20px rgba(255,255,255,0.30)',
             }}
           >
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin text-white" /> : <Send className="w-5 h-5 text-white" />}
@@ -754,8 +754,8 @@ export const AdminAIAgent: React.FC = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-md mx-4 p-8 rounded-3xl"
-              style={{ background: '#0F1A10', border: '1px solid rgba(170,238,42,0.25)' }}
+              className="w-full max-w-md mx-4 p-8 rounded-xl"
+              style={{ background: '#0F1A10', border: '1px solid rgba(255,255,255,0.25)' }}
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -777,11 +777,11 @@ export const AdminAIAgent: React.FC = () => {
                     value={tempApiKey}
                     onChange={e => setTempApiKey(e.target.value)}
                     placeholder={`${currentModel.label} API key paste করুন...`}
-                    className="w-full px-4 py-3 rounded-xl text-sm bg-white/04 border border-white/10 text-white placeholder-zinc-600 outline-none focus:border-[#AAEE2A]/40"
+                    className="w-full px-4 py-3 rounded-xl text-sm bg-white/04 border border-white/10 text-white placeholder-zinc-600 outline-none focus:border-[#FFFFFF]/40"
                     autoFocus
                   />
                 </div>
-                <div className="p-4 rounded-xl" style={{ background: 'rgba(170,238,42,0.06)', border: '1px solid rgba(170,238,42,0.15)' }}>
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}>
                   <p className="text-[10px] text-zinc-400 leading-relaxed">
                     🔒 API key আপনার browser-এ locally সংরক্ষিত হয়। কোনো server-এ পাঠানো হয় না।
                     {currentModel.id === 'openai' && ' OpenAI dashboard: platform.openai.com'}
@@ -799,7 +799,7 @@ export const AdminAIAgent: React.FC = () => {
                     onClick={saveApiKey}
                     disabled={!tempApiKey.trim()}
                     className="flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-40"
-                    style={{ background: 'linear-gradient(135deg, #C07832, #AAEE2A)', color: '#fff' }}
+                    style={{ background: 'linear-gradient(135deg, #C07832, #FFFFFF)', color: '#fff' }}
                   >
                     Save করুন
                   </button>

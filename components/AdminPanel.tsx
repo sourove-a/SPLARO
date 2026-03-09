@@ -49,8 +49,8 @@ const SettingsSection = ({
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div id={id} className="overflow-hidden rounded-[22px]"
-      style={{ border: '1px solid rgba(154,224,48,0.28)', background: 'rgba(7,14,32,0.80)', backdropFilter: 'blur(12px)' }}
+    <div id={id} className="overflow-hidden rounded-[12px]"
+      style={{ border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)' }}
     >
       <button
         type="button"
@@ -58,12 +58,12 @@ const SettingsSection = ({
         className="w-full flex items-center gap-4 px-5 py-4 text-left transition-all hover:bg-white/[0.03] group"
       >
         <div className="w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0"
-          style={{ background: 'rgba(154,224,48,0.10)', border: '1px solid rgba(154,224,48,0.22)' }}>
-          <Icon className="w-5 h-5" style={{ color: '#AAEE2A' }} />
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
+          <Icon className="w-5 h-5" style={{ color: '#FFFFFF' }} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[9px] font-black uppercase tracking-[0.42em]" style={{ color: '#9AE030' }}>{number}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.42em]" style={{ color: '#FFFFFF' }}>{number}</span>
             <h3 className="text-sm font-black uppercase tracking-tight text-white">{title}</h3>
             {status && (
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase"
@@ -81,7 +81,7 @@ const SettingsSection = ({
         </div>
         <ChevronDown
           className="w-4 h-4 shrink-0 transition-transform duration-300"
-          style={{ color: '#9AE030', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          style={{ color: '#FFFFFF', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
         />
       </button>
       <AnimatePresence initial={false}>
@@ -92,7 +92,7 @@ const SettingsSection = ({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            style={{ borderTop: '1px solid rgba(170,238,42,0.10)', overflow: 'hidden' }}
+            style={{ borderTop: '1px solid rgba(255,255,255,0.10)', overflow: 'hidden' }}
           >
             <div className="p-5 sm:p-7 space-y-6">
               {children}
@@ -116,13 +116,13 @@ const SidebarItem: React.FC<{
     whileHover={{ scale: 1.02, x: 5 }}
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
-    className={`nav-item interactive-control w-full flex items-center gap-4 p-5 rounded-[24px] transition-all relative overflow-hidden ${active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+    className={`nav-item interactive-control w-full flex items-center gap-4 p-5 rounded-[14px] transition-all relative overflow-hidden ${active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
       }`}
   >
     {active && (
       <motion.div
         layoutId="active-pill"
-        className="absolute inset-0 -z-10" style={{ background: "linear-gradient(135deg, #071020, #0D1E40, #0A2A50)", boxShadow: "0 0 18px rgba(154,224,48,0.30), inset 0 1px 0 rgba(154,224,48,0.18)" }}
+        className="absolute inset-0 -z-10" style={{ background: "rgba(255, 255, 255, 0.14)", boxShadow: "0 0 18px rgba(255,255,255,0.22), inset 0 1px 0 rgba(255,255,255,0.13)" }}
       />
     )}
     <Icon className={`w-5 h-5 ${active ? 'scale-110' : ''}`} />
@@ -156,10 +156,10 @@ const BentoCard: React.FC<{
 }> = ({ title, value, trend, icon: Icon, color }) => (
   <GlassCard className="p-10 flex flex-col justify-between group overflow-hidden">
     <div className="flex justify-between items-start">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${color} shadow-lg`}>
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-500 ${color} shadow-lg`}>
         <Icon className="w-6 h-6 text-white" />
       </div>
-      <div className="flex items-center gap-1 text-[10px] font-black text-[#9AE030] bg-[#9AE030]/10 px-3 py-1.5 rounded-full">
+      <div className="flex items-center gap-1 text-[10px] font-black text-[#FFFFFF] bg-[#FFFFFF]/10 px-3 py-1.5 rounded-full">
         <ArrowUpRight className="w-3 h-3" /> {trend}
       </div>
     </div>
@@ -182,7 +182,7 @@ const ProductCollapsibleBox: React.FC<{
   const [isOpen, setIsOpen] = useState<boolean>(Boolean(defaultOpen));
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#08121E]/70 overflow-hidden">
+    <div className="rounded-[10px] border border-white/10 bg-[#08121E]/70 overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -190,7 +190,7 @@ const ProductCollapsibleBox: React.FC<{
         aria-expanded={isOpen}
       >
         <div>
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#9AE030]">{title}</h3>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFFFFF]">{title}</h3>
           {hint ? <p className="text-[9px] text-zinc-500 font-semibold mt-1">{hint}</p> : null}
         </div>
         <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -881,7 +881,7 @@ const ProductModal: React.FC<{
       >
         <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-[#0A2A50]/5">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-[#0A2A50] flex items-center justify-center shadow-lg shadow-blue-600/40">
+            <div className="w-16 h-16 rounded-xl bg-[#0A2A50] flex items-center justify-center shadow-lg shadow-blue-600/40">
               <LayoutDashboard className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -895,7 +895,7 @@ const ProductModal: React.FC<{
             <PrimaryButton onClick={handleSubmitProduct} isLoading={isSaving} disabled={isSaving} className="h-12 px-6 text-[9px] tracking-[0.25em]">
               Submit Product
             </PrimaryButton>
-            <button onClick={onClose} disabled={isSaving} className="p-4 rounded-2xl hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            <button onClick={onClose} disabled={isSaving} className="p-4 rounded-xl hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -946,12 +946,12 @@ const ProductModal: React.FC<{
                         setAutoSlugFromName(true);
                         setFormData({ ...formData, id: generated, productSlug: generated });
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-[#9AE030]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                      className="px-3 py-1.5 rounded-lg border border-[#FFFFFF]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                     >
                       Use Name As Slug
                     </button>
                   </div>
-                  <p className="px-6 text-[8px] font-black text-[#9AE030]/50 uppercase tracking-[0.2em]">
+                  <p className="px-6 text-[8px] font-black text-[#FFFFFF]/50 uppercase tracking-[0.2em]">
                     Live path: splaro.co/product/{resolvedBrandSlug || 'brand'}/{resolvedCategorySlug || 'category'}/{resolvedProductSlug || 'product'}
                   </p>
                   <p className="px-6 text-[9px] font-semibold text-zinc-400 tracking-[0.06em]">
@@ -961,29 +961,29 @@ const ProductModal: React.FC<{
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3 relative group">
-                    <label className="text-[10px] font-black uppercase text-[#9AE030]/70 tracking-[0.2em] pl-6 mb-2 block">Brand Presence</label>
+                    <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6 mb-2 block">Brand Presence</label>
                     <div className="relative">
                       <select
                         value={formData.brand}
                         onChange={e => setFormData({ ...formData, brand: e.target.value as any, brandSlug: slugify(e.target.value) })}
-                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#070E1E]/50 text-white outline-none focus:border-[#9AE030]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
+                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[14px] font-bold bg-[#070E1E]/50 text-white outline-none focus:border-[#FFFFFF]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
                         {availableBrands.map(b => <option key={b} value={b} className="bg-[#070E1E]">{b}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#9AE030]" />
+                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#FFFFFF]" />
                     </div>
                   </div>
                   <div className="space-y-3 relative group">
-                    <label className="text-[10px] font-black uppercase text-[#9AE030]/70 tracking-[0.2em] pl-6 mb-2 block">Category Registry</label>
+                    <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6 mb-2 block">Category Registry</label>
                     <div className="relative">
                       <select
                         value={formData.category}
                         onChange={e => setFormData({ ...formData, category: e.target.value as any, categorySlug: slugify(e.target.value) })}
-                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#070E1E]/50 text-white outline-none focus:border-[#9AE030]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
+                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[14px] font-bold bg-[#070E1E]/50 text-white outline-none focus:border-[#FFFFFF]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
                         {availableCategories.map(c => <option key={c} value={c} className="bg-[#070E1E]">{c}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#9AE030]" />
+                      <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#FFFFFF]" />
                     </div>
                   </div>
                 </div>
@@ -993,7 +993,7 @@ const ProductModal: React.FC<{
                     <button
                       key={t}
                       onClick={() => setFormData({ ...formData, type: t as any })}
-                      className={`flex-1 py-4 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest ${formData.type === t ? 'bg-[#0A2A50] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/10 text-white/30 hover:border-white/20'}`}
+                      className={`flex-1 py-4 rounded-xl border transition-all text-[9px] font-black uppercase tracking-widest ${formData.type === t ? 'bg-[#0A2A50] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/10 text-white/30 hover:border-white/20'}`}
                     >
                       {t}
                     </button>
@@ -1013,7 +1013,7 @@ const ProductModal: React.FC<{
                       <button
                         key={sc}
                         onClick={() => setFormData({ ...formData, subCategory: sc, subCategorySlug: slugify(sc) })}
-                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-[#9AE030] border-[#9AE030] text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
+                        className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${formData.subCategory === sc ? 'bg-[#FFFFFF] border-[#FFFFFF] text-black' : 'border-white/5 text-zinc-600 hover:border-white/20'}`}
                       >
                         {sc}
                       </button>
@@ -1025,7 +1025,7 @@ const ProductModal: React.FC<{
                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4">Featured Visibility</h4>
                   <button
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
-                    className={`w-full py-5 rounded-2xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-[#9AE030] border-[#9AE030] text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
+                    className={`w-full py-5 rounded-xl border transition-all flex items-center justify-center gap-4 ${formData.featured ? 'bg-[#FFFFFF] border-[#FFFFFF] text-black shadow-[0_10px_30px_rgba(6,182,212,0.3)]' : 'border-white/10 text-white/40 hover:border-white/20'}`}
                   >
                     <Sparkles className={`w-4 h-4 ${formData.featured ? 'animate-pulse' : ''}`} />
                     <span className="text-[9px] font-black uppercase tracking-[0.3em]">{formData.featured ? 'FEATURED ON HOME' : 'MARK AS FEATURED'}</span>
@@ -1112,7 +1112,7 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Media Gallery" hint="Main image + multiple gallery images" defaultOpen>
                 <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full border border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85 text-[9px] font-black uppercase tracking-[0.16em]">
+                  <span className="px-3 py-1 rounded-full border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85 text-[9px] font-black uppercase tracking-[0.16em]">
                     {galleryImagesForUi.length} image{galleryImagesForUi.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -1166,7 +1166,7 @@ const ProductModal: React.FC<{
                     icon={<ImageIcon className="w-5 h-5" />}
                   />
                   <div className="flex flex-wrap gap-3">
-                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#9AE030]/40 text-white/90 hover:bg-[#9AE030]/10'}`}>
+                    <label className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer ${isUploadingMain ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#FFFFFF]/40 text-white/90 hover:bg-[#FFFFFF]/10'}`}>
                       {isUploadingMain ? 'Uploading...' : 'Upload Main Image'}
                       <input
                         type="file"
@@ -1222,11 +1222,11 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={() => addGalleryImageByUrl(galleryUrlInput)}
-                      className="px-4 h-12 rounded-xl border border-[#9AE030]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                      className="px-4 h-12 rounded-xl border border-[#FFFFFF]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                     >
                       Add
                     </button>
-                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#9AE030]/40 text-white/90 hover:bg-[#9AE030]/10'}`}>
+                    <label className={`px-4 h-12 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] cursor-pointer flex items-center ${isUploadingGallery ? 'opacity-60 pointer-events-none border-white/20 text-zinc-400' : 'border-[#FFFFFF]/40 text-white/90 hover:bg-[#FFFFFF]/10'}`}>
                       {isUploadingGallery ? 'Uploading...' : 'Upload'}
                       <input
                         type="file"
@@ -1264,7 +1264,7 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={addGalleryImagesFromBulkInput}
-                      className="px-4 h-10 rounded-xl border border-[#9AE030]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                      className="px-4 h-10 rounded-xl border border-[#FFFFFF]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                     >
                       Add Multiple URLs
                     </button>
@@ -1285,7 +1285,7 @@ const ProductModal: React.FC<{
                               className="w-14 h-14 rounded-lg object-cover border border-white/20"
                             />
                             {img.isMain && (
-                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-[#9AE030] text-black text-[8px] font-black uppercase tracking-[0.1em]">
+                              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-[#FFFFFF] text-black text-[8px] font-black uppercase tracking-[0.1em]">
                                 Main
                               </span>
                             )}
@@ -1313,7 +1313,7 @@ const ProductModal: React.FC<{
                         setDraggingGalleryId(null);
                       }}
                       onDragEnd={() => setDraggingGalleryId(null)}
-                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-[#9AE030]/50 opacity-70' : 'border-white/15'}`}
+                      className={`flex items-center gap-3 rounded-xl border bg-[#0f1624] p-2 cursor-move ${draggingGalleryId === img.id ? 'border-[#FFFFFF]/50 opacity-70' : 'border-white/15'}`}
                     >
                       <OptimizedImage src={img.url} alt={img.altText || 'Product image'} sizes="56px" className="w-14 h-14 rounded-lg object-cover border border-white/15" />
                       <div className="flex-1 min-w-0">
@@ -1323,7 +1323,7 @@ const ProductModal: React.FC<{
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => moveGalleryImage(img.id, 'up')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↑</button>
                         <button type="button" onClick={() => moveGalleryImage(img.id, 'down')} className="px-2 py-1 rounded border border-white/20 text-zinc-300 text-[10px]">↓</button>
-                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-[#9AE030]/50 text-white/90' : 'border-white/20 text-zinc-300'}`}>Main</button>
+                        <button type="button" onClick={() => setMainImageById(img.id)} className={`px-2 py-1 rounded border text-[10px] ${img.isMain ? 'border-[#FFFFFF]/50 text-white/90' : 'border-white/20 text-zinc-300'}`}>Main</button>
                         <button type="button" onClick={() => removeGalleryImage(img.id)} className="px-2 py-1 rounded border border-rose-500/40 text-rose-300 text-[10px]">Remove</button>
                       </div>
                     </div>
@@ -1341,14 +1341,14 @@ const ProductModal: React.FC<{
                     <button
                       key={tag}
                       onClick={() => toggleTag(tag)}
-                      className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.tags?.includes(tag as any) ? 'bg-[#9AE030]/20 border-[#9AE030] text-[#9AE030]' : 'border-white/5 text-zinc-600'}`}
+                      className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.tags?.includes(tag as any) ? 'bg-[#FFFFFF]/20 border-[#FFFFFF] text-[#FFFFFF]' : 'border-white/5 text-zinc-600'}`}
                     >
                       {tag}
                     </button>
                   ))}
                   <button
                     onClick={() => setFormData({ ...formData, featured: !formData.featured })}
-                    className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.featured ? 'bg-[#9AE030]/20 border-[#9AE030] text-[#9AE030]' : 'border-white/5 text-zinc-600'}`}
+                    className={`py-3 rounded-xl border transition-all text-[8px] font-black uppercase tracking-widest ${formData.featured ? 'bg-[#FFFFFF]/20 border-[#FFFFFF] text-[#FFFFFF]' : 'border-white/5 text-zinc-600'}`}
                   >
                     FEATURED PRODUCT
                   </button>
@@ -1379,21 +1379,21 @@ const ProductModal: React.FC<{
               <ProductCollapsibleBox title="Descriptions (EN/BN)" hint="Product details in both languages" defaultOpen>
                 <div className="space-y-6">
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-[#9AE030]/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
+                  <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6">Archival Specs (EN)</label>
                   <textarea
                     placeholder="ARCHIVAL DATA (ENGLISH)..."
                     value={formData.description?.EN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, EN: e.target.value } })}
-                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
+                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[14px] font-medium text-xs outline-none resize-none focus:border-[#FFFFFF]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
                   />
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-[#9AE030]/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
+                  <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
                   <textarea
                     placeholder="আর্কিভ ডেটা (বাংলা)..."
                     value={formData.description?.BN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, BN: e.target.value } })}
-                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
+                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[14px] font-medium text-xs outline-none resize-none focus:border-[#FFFFFF]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
                   />
                 </div>
               </div>
@@ -1484,18 +1484,18 @@ const ProductModal: React.FC<{
                       navigator.clipboard.writeText(previewLiveUrl);
                       window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: 'Product URL copied' } }));
                     }}
-                    className="mt-3 px-3 py-2 rounded-lg border border-[#9AE030]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                    className="mt-3 px-3 py-2 rounded-lg border border-[#FFFFFF]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                   >
                     Copy Link
                   </button>
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-[#9AE030]/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
+                  <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6">Meta Description Manifesto</label>
                   <textarea
                     placeholder="META DESCRIPTION PROTOCOL..."
                     value={formData.seoDescription || ''}
                     onChange={e => setFormData({ ...formData, seoDescription: e.target.value })}
-                    className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-[10px] outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 uppercase bg-[#070E1E]/50 text-white"
+                    className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[14px] font-medium text-[10px] outline-none resize-none focus:border-[#FFFFFF]/50 transition-all placeholder:text-zinc-800 uppercase bg-[#070E1E]/50 text-white"
                   />
                 </div>
               </div>
@@ -1503,7 +1503,7 @@ const ProductModal: React.FC<{
 
               <ProductCollapsibleBox title="Variation Intelligence" hint="Color variants and swatches">
                 <div className="space-y-4">
-                <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
+                <div className="p-6 liquid-glass border border-white/5 rounded-[12px] space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <input
                       type="text"
@@ -1536,7 +1536,7 @@ const ProductModal: React.FC<{
                   <button
                     type="button"
                     onClick={addColorVariant}
-                    className="px-5 py-2.5 rounded-xl bg-[#0A2A50] hover:bg-[#9AE030] text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
+                    className="px-5 py-2.5 rounded-xl bg-[#0A2A50] hover:bg-[#FFFFFF] text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
                   >
                     Add Color
                   </button>
@@ -1563,7 +1563,7 @@ const ProductModal: React.FC<{
 
               <ProductCollapsibleBox title="WooCommerce Variant Matrix" hint="Manual rows + auto generated variants">
                 <div className="space-y-4">
-                <div className="p-6 liquid-glass border border-white/5 rounded-[32px] space-y-4">
+                <div className="p-6 liquid-glass border border-white/5 rounded-[12px] space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Color</label>
@@ -1623,14 +1623,14 @@ const ProductModal: React.FC<{
                     <button
                       type="button"
                       onClick={addManualVariation}
-                      className="px-4 h-10 rounded-xl border border-[#9AE030]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                      className="px-4 h-10 rounded-xl border border-[#FFFFFF]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                     >
                       Add / Update Variant
                     </button>
                     <button
                       type="button"
                       onClick={generateVariationMatrix}
-                      className="px-4 h-10 rounded-xl border border-[#9AE030]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                      className="px-4 h-10 rounded-xl border border-[#FFFFFF]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                     >
                       Auto Generate From Color + Size
                     </button>
@@ -1703,7 +1703,7 @@ const ProductModal: React.FC<{
 
 
         <div className="p-6 md:p-8 border-t border-white/5 flex gap-4 md:gap-6 bg-[#070E1E]/95 backdrop-blur-xl shrink-0">
-          <button onClick={onClose} disabled={isSaving} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">Cancel</button>
+          <button onClick={onClose} disabled={isSaving} className="flex-1 h-18 rounded-[10px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">Cancel</button>
           <PrimaryButton
             onClick={handleSubmitProduct}
             isLoading={isSaving}
@@ -2472,8 +2472,8 @@ export const AdminPanel = () => {
   const deriveInvoiceThemeFromCmsTheme = (themeSettings: any) => {
     const colors = themeSettings?.colors || {};
     return {
-      primaryColor: String(colors.primary || '#9AE030'),
-      accentColor: String(colors.accent || '#AAEE2A'),
+      primaryColor: String(colors.primary || '#FFFFFF'),
+      accentColor: String(colors.accent || '#FFFFFF'),
       backgroundColor: String(colors.background || '#FFFFFF'),
       tableHeaderColor: String(colors.primary || '#111827'),
       buttonColor: String(colors.accent || '#0A2A50')
@@ -3282,10 +3282,10 @@ export const AdminPanel = () => {
 
 
   const statusColors: Record<OrderStatus, string> = {
-    Pending: 'bg-[#9AE030]/10 text-[#9AE030] border-[#9AE030]/20',
-    Processing: 'bg-[#9AE030]/10 text-[#9AE030] border-[#9AE030]/20',
+    Pending: 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20',
+    Processing: 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20',
     Shipped: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-    Delivered: 'bg-[#9AE030]/10 text-[#9AE030] border-[#9AE030]/20',
+    Delivered: 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20',
     Cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20'
   };
 
@@ -3404,14 +3404,14 @@ export const AdminPanel = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col gap-1">
               <h4 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest text-white">System Health</h4>
-              <p className={`text-[8px] font-black uppercase tracking-widest ${dbStatus === 'MYSQL' ? 'text-[#9AE030]' : 'text-[#9AE030]'}`}>
+              <p className={`text-[8px] font-black uppercase tracking-widest ${dbStatus === 'MYSQL' ? 'text-[#FFFFFF]' : 'text-[#FFFFFF]'}`}>
                 Storage: {dbStatus === 'MYSQL' ? 'MySQL' : 'Fallback'}
               </p>
             </div>
             <div className="flex gap-1">
-              <div className={`w-1 h-3 rounded-full animate-pulse ${dbStatus === 'MYSQL' ? 'bg-[#9AE030]' : 'bg-[#9AE030]'}`} />
-              <div className={`w-1 h-5 rounded-full animate-pulse delay-75 ${dbStatus === 'MYSQL' ? 'bg-[#9AE030]' : 'bg-[#9AE030]'}`} />
-              <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'MYSQL' ? 'bg-[#9AE030]' : 'bg-[#9AE030]'}`} />
+              <div className={`w-1 h-3 rounded-full animate-pulse ${dbStatus === 'MYSQL' ? 'bg-[#FFFFFF]' : 'bg-[#FFFFFF]'}`} />
+              <div className={`w-1 h-5 rounded-full animate-pulse delay-75 ${dbStatus === 'MYSQL' ? 'bg-[#FFFFFF]' : 'bg-[#FFFFFF]'}`} />
+              <div className={`w-1 h-2 rounded-full animate-pulse delay-150 ${dbStatus === 'MYSQL' ? 'bg-[#FFFFFF]' : 'bg-[#FFFFFF]'}`} />
             </div>
           </div>
           <button
@@ -3422,7 +3422,7 @@ export const AdminPanel = () => {
               setView(View.HOME);
               navigate('/');
             }}
-            className="w-full flex items-center justify-center gap-3 p-5 rounded-[24px] bg-rose-500/10 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
+            className="w-full flex items-center justify-center gap-3 p-5 rounded-[14px] bg-rose-500/10 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
           >
             <LogOut className="w-4 h-4" /> DISCONNECT
           </button>
@@ -3434,8 +3434,8 @@ export const AdminPanel = () => {
         {/* Header Actions */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
           <div>
-            <div className="flex items-center gap-4 text-[#9AE030] mb-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#9AE030] animate-pulse shadow-[0_0_15px_rgba(154,224,48,0.5)]" />
+            <div className="flex items-center gap-4 text-[#FFFFFF] mb-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FFFFFF] animate-pulse shadow-[0_0_15px_rgba(154,224,48,0.5)]" />
               <span className="text-[10px] font-black uppercase tracking-[0.6em]">Splaro Admin · Secure</span>
             </div>
             <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase italic">
@@ -3447,8 +3447,8 @@ export const AdminPanel = () => {
             </h2>
           </div>
           <div className="flex items-center gap-6">
-            <div className="hidden lg:flex items-center bg-white/5 backdrop-blur-3xl rounded-[32px] border border-white/5 px-8 py-5 gap-5 focus-within:border-[#9AE030]/50 transition-all duration-500 group">
-              <Search className="w-6 h-6 text-zinc-600 group-focus-within:text-[#9AE030] transition-colors" />
+            <div className="hidden lg:flex items-center bg-white/5 backdrop-blur-3xl rounded-[12px] border border-white/5 px-8 py-5 gap-5 focus-within:border-[#FFFFFF]/50 transition-all duration-500 group">
+              <Search className="w-6 h-6 text-zinc-600 group-focus-within:text-[#FFFFFF] transition-colors" />
               <input
                 type="text"
                 placeholder="Search products, orders, users..."
@@ -3460,7 +3460,7 @@ export const AdminPanel = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => { switchTab('ORDERS'); setLastSeenOrderTime(new Date().toISOString()); }}
-                className="nav-item interactive-control w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center relative group"
+                className="nav-item interactive-control w-18 h-18 rounded-xl liquid-glass border border-white/5 flex items-center justify-center relative group"
               >
                 <Bell className="w-7 h-7 text-zinc-500 group-hover:text-white transition-all" />
                 {newOrdersCount > 0 && (
@@ -3471,9 +3471,9 @@ export const AdminPanel = () => {
               </button>
               <button
                 onClick={() => switchTab('SYNC')}
-                className="nav-item interactive-control w-18 h-18 rounded-3xl liquid-glass border border-white/5 flex items-center justify-center group"
+                className="nav-item interactive-control w-18 h-18 rounded-xl liquid-glass border border-white/5 flex items-center justify-center group"
               >
-                <Database className="w-7 h-7 text-zinc-500 group-hover:text-[#9AE030] transition-all" />
+                <Database className="w-7 h-7 text-zinc-500 group-hover:text-[#FFFFFF] transition-all" />
               </button>
             </div>
           </div>
@@ -3490,12 +3490,12 @@ export const AdminPanel = () => {
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8"
             >
               <BentoCard title="Logistics Revenue" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+14.2%" icon={DollarSign} color="bg-[#0A2A50]" />
-              <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-[#9AE030]" />
+              <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-[#FFFFFF]" />
               <BentoCard title="Archival Portfolio" value={products.length.toString()} trend="+2.1%" icon={ShoppingBag} color="bg-purple-600" />
               <BentoCard title="Intelligence Velocity" value="4.8h" trend="OPTIMAL" icon={Zap} color="bg-[#0A2A50]" />
 
               <GlassCard className="md:col-span-2 xl:col-span-3 p-12 min-h-[500px] relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-[#0A2A50]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-[#9AE030]/10 transition-all duration-1000" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#0A2A50]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-[#FFFFFF]/10 transition-all duration-1000" />
                 <div className="flex justify-between items-center mb-12 relative z-10">
                   <div>
                     <h3 className="text-3xl font-black italic uppercase tracking-tighter">Strategic Archive Pulse</h3>
@@ -3507,7 +3507,7 @@ export const AdminPanel = () => {
                         key={t}
                         onClick={() => setAnalyticsWindow(t)}
                         className={`px-5 py-2 rounded-full liquid-glass border text-[9px] font-black uppercase transition-all ${analyticsWindow === t
-                          ? 'border-[#9AE030]/40 bg-[#0A2A50] text-white'
+                          ? 'border-[#FFFFFF]/40 bg-[#0A2A50] text-white'
                           : 'border-white/5 hover:bg-[#0A2A50] hover:text-white'
                           }`}
                       >
@@ -3526,7 +3526,7 @@ export const AdminPanel = () => {
                       transition={{ delay: i * 0.05, duration: 1, ease: [0.16, 1, 0.3, 1] }}
                       className="flex-1 bg-gradient-to-t from-blue-700/20 via-blue-600/40 to-blue-400 rounded-t-xl group relative"
                     >
-                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#070E1E] border border-white/10 text-[#9AE030] text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#070E1E] border border-white/10 text-[#FFFFFF] text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
                         ৳{Math.floor(h * 15).toLocaleString()}k
                       </div>
                     </motion.div>
@@ -3543,20 +3543,20 @@ export const AdminPanel = () => {
                   {orders.slice(0, 5).map(order => (
                     <div key={order.id} className="flex items-center justify-between group cursor-pointer" onClick={() => switchTab('ORDERS')}>
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl liquid-glass flex items-center justify-center border border-white/5 group-hover:border-[#9AE030]/50 group-hover:bg-[#9AE030]/5 transition-all duration-500">
-                          <Package className="w-5 h-5 text-zinc-500 group-hover:text-[#9AE030]" />
+                        <div className="w-12 h-12 rounded-xl liquid-glass flex items-center justify-center border border-white/5 group-hover:border-[#FFFFFF]/50 group-hover:bg-[#FFFFFF]/5 transition-all duration-500">
+                          <Package className="w-5 h-5 text-zinc-500 group-hover:text-[#FFFFFF]" />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-white group-hover:text-[#9AE030] transition-colors uppercase italic">{order.id}</p>
+                          <p className="text-sm font-black text-white group-hover:text-[#FFFFFF] transition-colors uppercase italic">{order.id}</p>
                           <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">{order.customerName}</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-[#9AE030] group-hover:translate-x-1 transition-all" />
+                      <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-[#FFFFFF] group-hover:translate-x-1 transition-all" />
                     </div>
                   ))}
                   {orders.length === 0 && (
                     <div className="py-20 text-center space-y-4 opacity-50 italic">
-                      <div className="w-12 h-12 border border-white/5 rounded-2xl mx-auto flex items-center justify-center">
+                      <div className="w-12 h-12 border border-white/5 rounded-xl mx-auto flex items-center justify-center">
                         <Box className="w-6 h-6 text-zinc-800" />
                       </div>
                       <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">No Shipments Manifested</p>
@@ -3611,7 +3611,7 @@ export const AdminPanel = () => {
                             <p className="text-[9px] text-zinc-600 uppercase font-medium mt-1 truncate max-w-[150px]">{order.address}</p>
                           </td>
                           <td className="p-8">
-                            <p className="font-black text-[#9AE030]">৳{order.total.toLocaleString()}</p>
+                            <p className="font-black text-[#FFFFFF]">৳{order.total.toLocaleString()}</p>
                             <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mt-1">{formatTimestamp(order.createdAt)}</p>
                           </td>
                           <td className="p-8">
@@ -3630,7 +3630,7 @@ export const AdminPanel = () => {
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 onClick={() => setSelectedOrder(order)}
-                                className="p-3 liquid-glass rounded-xl border border-white/5 hover:text-[#9AE030]"
+                                className="p-3 liquid-glass rounded-xl border border-white/5 hover:text-[#FFFFFF]"
                               >
                                 <Eye className="w-4 h-4" />
                               </motion.button>
@@ -3649,7 +3649,7 @@ export const AdminPanel = () => {
 
           {activeTab === 'PRODUCTS' && (
             <motion.div key="products" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-[#070E1E]/50 p-10 rounded-[40px] border border-white/5">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-[#070E1E]/50 p-10 rounded-[12px] border border-white/5">
                 <div className="flex gap-12">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Product Catalog</span>
@@ -3658,19 +3658,19 @@ export const AdminPanel = () => {
                   <div className="w-[1px] h-12 bg-white/5" />
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Catalog Value</span>
-                    <span className="text-4xl font-black italic tracking-tighter text-[#9AE030]">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
+                    <span className="text-4xl font-black italic tracking-tighter text-[#FFFFFF]">৳{(products.reduce((acc, p) => acc + p.price, 0)).toLocaleString()}</span>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <select
                     value={brandFilter}
                     onChange={(e) => setBrandFilter(e.target.value)}
-                    className="bg-white/5 border border-white/5 rounded-[24px] px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-[#9AE030]/50 transition-all"
+                    className="bg-white/5 border border-white/5 rounded-[14px] px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-[#FFFFFF]/50 transition-all"
                   >
                     <option value="All Brands" className="bg-[#070E1E]">All Brands</option>
                     {Array.from(new Set(products.map(p => p.brand))).map(b => <option key={b} value={b} className="bg-[#070E1E]">{b}</option>)}
                   </select>
-                  <div className="hidden xl:flex items-center bg-white/5 px-6 py-4 rounded-[24px] border border-white/5 gap-4">
+                  <div className="hidden xl:flex items-center bg-white/5 px-6 py-4 rounded-[14px] border border-white/5 gap-4">
                     <Search className="w-5 h-5 text-zinc-500" />
                     <input
                       type="text"
@@ -3705,7 +3705,7 @@ export const AdminPanel = () => {
                         <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors group">
                           <td className="p-8">
                             <div className="flex items-center gap-6">
-                              <div className="w-20 h-20 rounded-[28px] overflow-hidden border border-white/10 shrink-0 group-hover:border-[#9AE030]/50 transition-colors">
+                              <div className="w-20 h-20 rounded-[10px] overflow-hidden border border-white/10 shrink-0 group-hover:border-[#FFFFFF]/50 transition-colors">
                                 <OptimizedImage src={p.image} alt={p.name} sizes="80px" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
                               </div>
                               <div>
@@ -3717,7 +3717,7 @@ export const AdminPanel = () => {
                                   >
                                     {p.brand}
                                   </a>
-                                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.14em] ${String(p.status || 'PUBLISHED').toUpperCase() === 'DRAFT' ? 'bg-[#9AE030]/15 text-white/90 border border-[#9AE030]/30' : 'bg-[#9AE030]/15 text-white/90 border border-[#9AE030]/30'}`}>
+                                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.14em] ${String(p.status || 'PUBLISHED').toUpperCase() === 'DRAFT' ? 'bg-[#FFFFFF]/15 text-white/90 border border-[#FFFFFF]/30' : 'bg-[#FFFFFF]/15 text-white/90 border border-[#FFFFFF]/30'}`}>
                                     {String(p.status || 'PUBLISHED').toUpperCase()}
                                   </span>
                                 </div>
@@ -3737,22 +3737,22 @@ export const AdminPanel = () => {
                                         navigator.clipboard.writeText((p as any).liveUrl);
                                         showToast('Product URL copied.', 'success');
                                       }}
-                                      className="px-2 py-1 rounded-md border border-[#9AE030]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-[#9AE030]/10"
+                                      className="px-2 py-1 rounded-md border border-[#FFFFFF]/35 text-white/90 text-[8px] font-black uppercase tracking-[0.14em] hover:bg-[#FFFFFF]/10"
                                     >
                                       Copy
                                     </button>
                                   )}
                                 </div>
                                 <div className="flex gap-2 mt-3">
-                                  {p.featured && <span className="px-2.5 py-1 bg-[#9AE030]/10 text-[#9AE030] rounded-lg text-[7px] font-black uppercase">Featured</span>}
-                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-[#9AE030]/10 text-[#9AE030] rounded-lg text-[7px] font-black uppercase">{t}</span>)}
+                                  {p.featured && <span className="px-2.5 py-1 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg text-[7px] font-black uppercase">Featured</span>}
+                                  {p.tags?.map(t => <span key={t} className="px-2.5 py-1 bg-[#FFFFFF]/10 text-[#FFFFFF] rounded-lg text-[7px] font-black uppercase">{t}</span>)}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="p-8">
                             <div className="space-y-2">
-                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-[#9AE030]/45">
+                              <a href={`/shop?category=${encodeURIComponent(slugifyValue((p as any).categorySlug || p.category || ''))}`} className="px-4 py-1.5 liquid-glass border border-white/10 rounded-full text-[9px] font-black text-white uppercase block w-fit hover:border-[#FFFFFF]/45">
                                 {p.category}
                               </a>
                               {p.subCategory && (
@@ -3774,16 +3774,16 @@ export const AdminPanel = () => {
                             {p.discountPercentage && <p className="text-[10px] font-black text-rose-500 mt-1">-{p.discountPercentage}% OFF</p>}
                           </td>
                           <td className="p-8 text-center">
-                            <div className="w-fit mx-auto px-6 py-3 rounded-2xl liquid-glass border border-white/5">
+                            <div className="w-fit mx-auto px-6 py-3 rounded-xl liquid-glass border border-white/5">
                               <p className="text-[10px] font-black text-white">{p.stock ?? 50}</p>
                               <div className="w-12 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
-                                <div className={`h-full ${(p.stock ?? 50) < 10 ? 'bg-rose-500' : 'bg-[#9AE030]'}`} style={{ width: `${Math.min(100, (p.stock ?? 50) * 2)}%` }} />
+                                <div className={`h-full ${(p.stock ?? 50) < 10 ? 'bg-rose-500' : 'bg-[#FFFFFF]'}`} style={{ width: `${Math.min(100, (p.stock ?? 50) * 2)}%` }} />
                               </div>
                             </div>
                           </td>
                           <td className="p-8">
                             <div className="flex gap-3">
-                              <button onClick={() => { setEditingProduct(p); setIsProductModalOpen(true); }} className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-white hover:border-[#9AE030] transition-all"><Edit className="w-5 h-5" /></button>
+                              <button onClick={() => { setEditingProduct(p); setIsProductModalOpen(true); }} className="p-4 rounded-xl bg-white/5 border border-white/5 text-zinc-500 hover:text-white hover:border-[#FFFFFF] transition-all"><Edit className="w-5 h-5" /></button>
                               <button
                                 onClick={async () => {
                                   if (deletingProductId === p.id) return;
@@ -3800,7 +3800,7 @@ export const AdminPanel = () => {
                                   }
                                 }}
                                 disabled={deletingProductId === p.id}
-                                className="p-4 rounded-2xl bg-white/5 border border-white/5 text-zinc-500 hover:text-rose-500 hover:border-rose-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="p-4 rounded-xl bg-white/5 border border-white/5 text-zinc-500 hover:text-rose-500 hover:border-rose-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="w-5 h-5" />
                               </button>
@@ -3838,7 +3838,7 @@ export const AdminPanel = () => {
                                     showToast('Demo product added to Vault Inventory.', 'success');
                                   });
                                 }}
-                                className="px-4 py-2 rounded-xl border border-[#9AE030]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/10"
+                                className="px-4 py-2 rounded-xl border border-[#FFFFFF]/45 text-white/90 text-[10px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/10"
                               >
                                 Add Demo Product
                               </button>
@@ -3868,7 +3868,7 @@ export const AdminPanel = () => {
                 {discounts.map(d => (
                   <GlassCard key={d.id} className="p-10 flex flex-col md:flex-row justify-between items-center gap-8 group">
                     <div className="flex items-center gap-8">
-                      <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center border border-white/5 ${d.active ? 'bg-[#9AE030]/10 text-[#9AE030]' : 'bg-zinc-800/10 text-zinc-700'}`}>
+                      <div className={`w-20 h-20 rounded-[12px] flex items-center justify-center border border-white/5 ${d.active ? 'bg-[#FFFFFF]/10 text-[#FFFFFF]' : 'bg-zinc-800/10 text-zinc-700'}`}>
                         <Tag className="w-8 h-8" />
                       </div>
                       <div>
@@ -3881,11 +3881,11 @@ export const AdminPanel = () => {
                     <div className="flex items-center gap-4">
                       <button
                         onClick={() => toggleDiscount(d.id)}
-                        className={`px-8 py-3 rounded-full text-[9px] font-black uppercase border transition-all ${d.active ? 'bg-[#9AE030]/10 border-[#9AE030]/50 text-[#9AE030]' : 'bg-rose-500/10 border-rose-500/50 text-rose-500'}`}
+                        className={`px-8 py-3 rounded-full text-[9px] font-black uppercase border transition-all ${d.active ? 'bg-[#FFFFFF]/10 border-[#FFFFFF]/50 text-[#FFFFFF]' : 'bg-rose-500/10 border-rose-500/50 text-rose-500'}`}
                       >
                         {d.active ? 'ACTIVE' : 'DISABLED'}
                       </button>
-                      <button onClick={() => deleteDiscount(d.id)} className="p-4 rounded-2xl hover:bg-rose-500/20 text-zinc-600 hover:text-rose-500 transition-all"><Trash2 className="w-5 h-5" /></button>
+                      <button onClick={() => deleteDiscount(d.id)} className="p-4 rounded-xl hover:bg-rose-500/20 text-zinc-600 hover:text-rose-500 transition-all"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   </GlassCard>
                 ))}
@@ -3918,7 +3918,7 @@ export const AdminPanel = () => {
                     </select>
                     <button
                       onClick={() => fetchAdminUsers()}
-                      className="h-11 px-5 rounded-xl border border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-[#9AE030]/20 transition-all"
+                      className="h-11 px-5 rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] hover:bg-[#FFFFFF]/20 transition-all"
                     >
                       Refresh
                     </button>
@@ -3950,7 +3950,7 @@ export const AdminPanel = () => {
                         return (<tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-6">
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-[#9AE030]/20 flex items-center justify-center font-black text-[#9AE030]">{avatarLetter}</div>
+                              <div className="w-10 h-10 rounded-full bg-[#FFFFFF]/20 flex items-center justify-center font-black text-[#FFFFFF]">{avatarLetter}</div>
                               <div className="min-w-0">
                                 <p className="font-black text-white truncate">{u.name || 'Unknown User'}</p>
                                 <p className="text-[10px] text-zinc-500 font-mono truncate">ID: {u.id}</p>
@@ -3967,13 +3967,13 @@ export const AdminPanel = () => {
                           </td>
                           <td className="p-6">
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-[#9AE030]/10 text-[#9AE030] border border-[#9AE030]/20'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${isAdminRole(u.role) ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-[#FFFFFF]/10 text-[#FFFFFF] border border-[#FFFFFF]/20'}`}>
                                 {u.role}
                               </span>
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.isBlocked ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85'}`}>
                                 {u.isBlocked ? 'Blocked' : 'Active'}
                               </span>
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85' : 'border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85'}`}>
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${u.emailVerified ? 'border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85' : 'border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85'}`}>
                                 Email {u.emailVerified ? 'Verified' : 'Pending'}
                               </span>
                             </div>
@@ -3994,7 +3994,7 @@ export const AdminPanel = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <button
                                 onClick={() => openCustomerProfile(u.id)}
-                                className="px-3 py-2 rounded-lg border border-[#9AE030]/30 bg-[#9AE030]/10 text-blue-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-[#9AE030]/20 transition-all"
+                                className="px-3 py-2 rounded-lg border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-blue-100 text-[9px] font-black uppercase tracking-[0.16em] hover:bg-[#FFFFFF]/20 transition-all"
                               >
                                 View
                               </button>
@@ -4003,7 +4003,7 @@ export const AdminPanel = () => {
                                 disabled={isLockedIdentity}
                                 className={`px-3 py-2 rounded-lg border text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                                   u.isBlocked
-                                    ? 'border-[#9AE030]/40 bg-[#9AE030]/10 text-white/85 hover:bg-[#9AE030]/20'
+                                    ? 'border-[#FFFFFF]/40 bg-[#FFFFFF]/10 text-white/85 hover:bg-[#FFFFFF]/20'
                                     : 'border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'
                                 } ${isLockedIdentity ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}`}
                               >
@@ -4075,7 +4075,7 @@ export const AdminPanel = () => {
                 <GlassCard className="lg:col-span-8 p-12">
                   <div className="flex justify-between items-center mb-12">
                     <h3 className="text-2xl font-black uppercase italic tracking-tighter">Strategic Archive Performance</h3>
-                    <div className="p-2 liquid-glass rounded-2xl flex gap-2">
+                    <div className="p-2 liquid-glass rounded-xl flex gap-2">
                       <button
                         type="button"
                         onClick={() => setAnalyticsChartMode('REVENUE')}
@@ -4113,7 +4113,7 @@ export const AdminPanel = () => {
                             : 'bg-gradient-to-t from-blue-600/10 via-blue-500/40 to-lime-300'
                         }`}
                       >
-                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#070E1E] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-[#9AE030] whitespace-nowrap shadow-2xl">
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#070E1E] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-[#FFFFFF] whitespace-nowrap shadow-2xl">
                           {analyticsChartMode === 'REVENUE' ? `৳${(h * 10).toLocaleString()}k` : `${h}%`}
                         </div>
                       </motion.div>
@@ -4138,7 +4138,7 @@ export const AdminPanel = () => {
                       </div>
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                         <p className="text-[10px] leading-relaxed text-zinc-400 font-bold uppercase">
-                          <span className="text-[#9AE030]">Inventory Alert:</span> Balenciaga stock levels dropping below <span className="text-white">threshold (15%)</span>.
+                          <span className="text-[#FFFFFF]">Inventory Alert:</span> Balenciaga stock levels dropping below <span className="text-white">threshold (15%)</span>.
                         </p>
                       </div>
                     </div>
@@ -4185,7 +4185,7 @@ export const AdminPanel = () => {
                       onClick={() => setFinanceRange(range)}
                       className={`px-5 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                         financeRange === range
-                          ? 'bg-[#0A2A50] border-[#9AE030] text-white'
+                          ? 'bg-[#0A2A50] border-[#FFFFFF] text-white'
                           : 'border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'
                       }`}
                     >
@@ -4194,7 +4194,7 @@ export const AdminPanel = () => {
                   ))}
                   <button
                     onClick={exportFinanceReport}
-                    className="px-5 py-2 rounded-full border border-[#9AE030]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#9AE030]/10 transition-all"
+                    className="px-5 py-2 rounded-full border border-[#FFFFFF]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#FFFFFF]/10 transition-all"
                   >
                     Export CSV
                   </button>
@@ -4236,7 +4236,7 @@ export const AdminPanel = () => {
                         type="date"
                         value={expenseForm.date}
                         onChange={(e) => setExpenseForm((prev) => ({ ...prev, date: e.target.value }))}
-                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-4 text-sm text-white outline-none focus:border-[#9AE030]/60"
+                        className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-4 text-sm text-white outline-none focus:border-[#FFFFFF]/60"
                       />
                     </div>
                   </div>
@@ -4247,7 +4247,7 @@ export const AdminPanel = () => {
                     </PrimaryButton>
                     <button
                       onClick={() => setExpenseForm({ label: '', amount: '', category: 'Operations', date: new Date().toISOString().slice(0, 10) })}
-                      className="px-6 py-4 rounded-2xl border border-white/10 text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-white hover:border-white/30 transition-all"
+                      className="px-6 py-4 rounded-xl border border-white/10 text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] hover:text-white hover:border-white/30 transition-all"
                     >
                       Clear
                     </button>
@@ -4255,12 +4255,12 @@ export const AdminPanel = () => {
 
                   <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
                     {financeExpensesFiltered.length === 0 && (
-                      <div className="p-8 rounded-2xl border border-dashed border-white/10 text-zinc-500 text-[11px] font-bold">
+                      <div className="p-8 rounded-xl border border-dashed border-white/10 text-zinc-500 text-[11px] font-bold">
                         No expense data for this range.
                       </div>
                     )}
                     {financeExpensesFiltered.map((expense) => (
-                      <div key={expense.id} className="flex justify-between items-center p-5 bg-white/5 rounded-2xl border border-white/5">
+                      <div key={expense.id} className="flex justify-between items-center p-5 bg-white/5 rounded-xl border border-white/5">
                         <div>
                           <p className="text-xs font-black text-white uppercase">{expense.label}</p>
                           <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">
@@ -4284,10 +4284,10 @@ export const AdminPanel = () => {
                 <GlassCard className="p-8 space-y-6">
                   <h3 className="text-xl font-black uppercase italic text-white">Order Breakdown</h3>
                   <div className="space-y-3 text-[11px] font-bold uppercase tracking-[0.12em]">
-                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Pending</span><span className="text-[#9AE030]">{financeSummary.statusStats.Pending}</span></div>
-                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Processing</span><span className="text-[#9AE030]">{financeSummary.statusStats.Processing}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Pending</span><span className="text-[#FFFFFF]">{financeSummary.statusStats.Pending}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Processing</span><span className="text-[#FFFFFF]">{financeSummary.statusStats.Processing}</span></div>
                     <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Shipped</span><span className="text-purple-400">{financeSummary.statusStats.Shipped}</span></div>
-                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Delivered</span><span className="text-[#9AE030]">{financeSummary.statusStats.Delivered}</span></div>
+                    <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Delivered</span><span className="text-[#FFFFFF]">{financeSummary.statusStats.Delivered}</span></div>
                     <div className="flex justify-between p-4 rounded-xl bg-white/5 border border-white/5"><span className="text-zinc-400">Cancelled</span><span className="text-rose-400">{financeSummary.statusStats.Cancelled}</span></div>
                   </div>
                   <div className="h-px bg-white/10" />
@@ -4306,7 +4306,7 @@ export const AdminPanel = () => {
 
               {/* ── Settings Header ── */}
               <div className="flex items-center gap-3 pb-1">
-                <Settings className="w-4 h-4" style={{ color: '#9AE030' }} />
+                <Settings className="w-4 h-4" style={{ color: '#FFFFFF' }} />
                 <h2 className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#F0F8FF' }}>Site Settings</h2>
                 <span className="text-[10px] text-zinc-500 hidden sm:block">— সব সেকশন খুলুন ও পরিবর্তন করুন</span>
               </div>
@@ -4315,13 +4315,13 @@ export const AdminPanel = () => {
                 <SettingsSection id="s-owner" number="①" title="Owner Profile" icon={UserIcon} subtitle="আপনার নাম ও ফোন নম্বর আপডেট করুন" defaultOpen={true}>
                   <div className="flex flex-wrap items-start justify-between gap-6">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#AAEE2A' }}>ADMIN ACCOUNT</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#FFFFFF' }}>ADMIN ACCOUNT</p>
                       <h3 className="text-2xl font-black uppercase italic tracking-tight text-white">Owner Profile</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mt-2">
                         আপনার নাম ও ফোন নম্বর আপডেট করুন
                       </p>
                     </div>
-                    <span className="px-4 py-2 rounded-full border border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
+                    <span className="px-4 py-2 rounded-full border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
                       {adminRole}
                     </span>
                   </div>
@@ -4342,7 +4342,7 @@ export const AdminPanel = () => {
                     />
                     <div className="flex items-end">
                       <PrimaryButton
-                        className="w-full h-[74px] rounded-2xl text-[10px]"
+                        className="w-full h-[74px] rounded-xl text-[10px]"
                         disabled={adminProfileSaving || !adminProfileChanged}
                         onClick={handleAdminProfileSave}
                       >
@@ -4370,7 +4370,7 @@ export const AdminPanel = () => {
                       icon={<Plus className="w-5 h-5" />}
                       placeholder="Logo image URL"
                     />
-                    <div className="flex items-center justify-between p-8 bg-rose-500/5 border border-rose-500/20 rounded-[32px] mt-8">
+                    <div className="flex items-center justify-between p-8 bg-rose-500/5 border border-rose-500/20 rounded-[12px] mt-8">
                       <div>
                         <p className="text-sm font-black uppercase text-rose-500">Maintenance Mode</p>
                         <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">Status: {siteSettings.maintenanceMode ? 'ON (Site is unavailable to public)' : 'OFF (Site is live)'}</p>
@@ -4431,7 +4431,7 @@ export const AdminPanel = () => {
                     </div>
                   </div>
                   <PrimaryButton
-                    className="mt-8 w-full rounded-2xl h-12 text-[10px]"
+                    className="mt-8 w-full rounded-xl h-12 text-[10px]"
                     onClick={() => {
                       if (!canManageProtocols) {
                         showToast('Editor role cannot change protocol settings.', 'error');
@@ -4456,16 +4456,16 @@ export const AdminPanel = () => {
 
                 <SettingsSection id="s-popup" number="④" title="New Arrival Popup" icon={Bell} subtitle="পপআপ সেটিংস — নতুন আইটেম promotion">
                   <div className="flex items-center gap-4 mb-8">
-                    <Sparkles className="w-7 h-7 text-[#9AE030]" />
+                    <Sparkles className="w-7 h-7 text-[#FFFFFF]" />
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#AAEE2A' }}>④ NEW ARRIVAL POPUP</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#FFFFFF' }}>④ NEW ARRIVAL POPUP</p>
                       <h3 className="text-2xl font-black uppercase italic">New Arrival Popup</h3>
                       <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.25em]">নতুন পণ্য পপআপ — Homepage notification</p>
                     </div>
                   </div>
 
                   {/* Enable toggle */}
-                  <div className="flex items-center justify-between p-4 rounded-xl mb-6" style={{ background: 'rgba(154,224,48,0.10)', border: '1px solid rgba(154,224,48,0.18)' }}>
+                  <div className="flex items-center justify-between p-4 rounded-xl mb-6" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.13)' }}>
                     <div>
                       <p className="text-sm font-bold text-white">Enable Popup</p>
                       <p className="text-[10px] text-zinc-400 mt-1">Show new arrival popup to visitors on the homepage</p>
@@ -4481,8 +4481,8 @@ export const AdminPanel = () => {
                       })}
                       className="w-14 h-7 rounded-full transition-all relative"
                       style={{
-                        background: siteSettings.newArrivalPopup?.enabled ? 'linear-gradient(135deg, #0A2A50, #9AE030)' : 'rgba(255,255,255,0.10)',
-                        border: '1px solid rgba(154,224,48,0.30)'
+                        background: siteSettings.newArrivalPopup?.enabled ? 'linear-gradient(135deg, #0A2A50, #FFFFFF)' : 'rgba(255,255,255,0.10)',
+                        border: '1px solid rgba(255,255,255,0.22)'
                       }}
                     >
                       <span
@@ -4537,7 +4537,7 @@ export const AdminPanel = () => {
                     </div>
                   </div>
                   <PrimaryButton
-                    className="mt-8 w-full rounded-2xl h-12 text-[10px]"
+                    className="mt-8 w-full rounded-xl h-12 text-[10px]"
                     onClick={() => updateSettings({ newArrivalPopup: siteSettings.newArrivalPopup })}
                   >
                     SAVE POPUP SETTINGS
@@ -4547,9 +4547,9 @@ export const AdminPanel = () => {
 
               <SettingsSection id="s-smtp" number="⑤" title="Email (SMTP)" icon={Mail} subtitle="Invoice ও notification পাঠানোর জন্য mail server" status={smtpSettings?.host ? 'green' : 'red'}>
                   <div className="flex items-center gap-4 mb-4">
-                    <Mail className="w-8 h-8 text-[#9AE030]" />
+                    <Mail className="w-8 h-8 text-[#FFFFFF]" />
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#AAEE2A' }}>⑤ EMAIL SERVER</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#FFFFFF' }}>⑤ EMAIL SERVER</p>
                       <h3 className="text-3xl font-black uppercase italic">Email (SMTP) Settings</h3>
                     </div>
                     {/* Status indicator */}
@@ -4591,8 +4591,8 @@ export const AdminPanel = () => {
                     Update Mail Server
                   </PrimaryButton>
 
-                  <div className="mt-8 p-5 rounded-2xl" style={{ background: 'rgba(170,238,42,0.05)', border: '1px solid rgba(170,238,42,0.12)' }}>
-                    <p className="text-[9px] font-black uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: '#AAEE2A' }}>
+                  <div className="mt-8 p-5 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                    <p className="text-[9px] font-black uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: '#FFFFFF' }}>
                       <Info className="w-3 h-3" /> Setup Notes
                     </p>
                     <p className="text-[10px] text-zinc-400 leading-relaxed">
@@ -4620,7 +4620,7 @@ export const AdminPanel = () => {
                               metro: Number.isFinite(nextValue) && nextValue >= 0 ? Math.round(nextValue) : 0
                             });
                           }}
-                          className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-base outline-none bg-white/5 text-white"
+                          className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-xl font-black text-base outline-none bg-white/5 text-white"
                         />
                       </div>
                     </div>
@@ -4639,7 +4639,7 @@ export const AdminPanel = () => {
                               regional: Number.isFinite(nextValue) && nextValue >= 0 ? Math.round(nextValue) : 0
                             });
                           }}
-                          className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-2xl font-black text-base outline-none bg-white/5 text-white"
+                          className="w-full h-12 pl-12 pr-6 liquid-glass border border-white/5 rounded-xl font-black text-base outline-none bg-white/5 text-white"
                         />
                       </div>
                     </div>
@@ -4661,18 +4661,18 @@ export const AdminPanel = () => {
 
               <SettingsSection id="s-invoice" number="⑦" title="Invoice Settings" icon={FileText} subtitle="Serial format, template & email controls" status={siteSettings.invoiceSettings.invoiceEnabled ? 'green' : 'red'}>
                   <div className="flex items-center gap-3 mb-2">
-                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#9AE030]/40 text-white/90 bg-[#9AE030]/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
+                      <span className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#FFFFFF]/40 text-white/90 bg-[#FFFFFF]/10' : 'border-rose-500/40 text-rose-300 bg-rose-500/10'}`}>
                         {siteSettings.invoiceSettings.invoiceEnabled ? 'Enabled' : 'Disabled'}
                       </span>
                       <button
                         onClick={() => updateInvoiceSettingsField({ invoiceEnabled: !siteSettings.invoiceSettings.invoiceEnabled })}
-                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#9AE030]/30 text-white/90 hover:bg-[#9AE030]/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
+                        className={`h-10 px-4 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.invoiceEnabled ? 'border-[#FFFFFF]/30 text-white/90 hover:bg-[#FFFFFF]/10' : 'border-zinc-600 text-zinc-300 hover:bg-white/5'}`}
                       >
                         Toggle
                       </button>
                   </div>
 
-                  <div className="rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5 p-4 md:p-5 space-y-4">
+                  <div className="rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5 p-4 md:p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/85">Invoice Serial Preview</p>
@@ -4687,14 +4687,14 @@ export const AdminPanel = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <button
                         onClick={applyInvoiceSerialPreset}
-                        className="h-11 rounded-xl border border-[#9AE030]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#9AE030]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-[#FFFFFF]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#FFFFFF]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         APPLY SPL-000000 FORMAT
                       </button>
                       <button
                         onClick={syncInvoiceThemeToStoreTheme}
-                        className="h-11 rounded-xl border border-[#9AE030]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#9AE030]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="h-11 rounded-xl border border-[#FFFFFF]/40 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#FFFFFF]/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         disabled={!canManageProtocols}
                       >
                         SYNC WITH THEME SETTINGS
@@ -4739,7 +4739,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Counter Mode</label>
                       <button
                         onClick={() => updateInvoiceSettingsField({ separateCounterPerType: !siteSettings.invoiceSettings.separateCounterPerType })}
-                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#9AE030]/10' : 'border-white/10 text-zinc-300 bg-[#070E1E]'}`}
+                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#FFFFFF]/10' : 'border-white/10 text-zinc-300 bg-[#070E1E]'}`}
                       >
                         {siteSettings.invoiceSettings.separateCounterPerType ? 'Separate by Type' : 'Global Counter'}
                       </button>
@@ -4813,7 +4813,7 @@ export const AdminPanel = () => {
                         ) : (
                           <button
                             onClick={() => updateInvoiceSettingsField({ [item.key]: !(siteSettings.invoiceSettings as any)[item.key] })}
-                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#9AE030]/40 text-white/85 bg-[#9AE030]/10' : 'border-white/10 text-zinc-300 bg-[#070E1E]'}`}
+                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#FFFFFF]/40 text-white/85 bg-[#FFFFFF]/10' : 'border-white/10 text-zinc-300 bg-[#070E1E]'}`}
                           >
                             {(siteSettings.invoiceSettings as any)[item.key] ? 'On' : 'Off'}
                           </button>
@@ -4827,7 +4827,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Serial Types</label>
                       <button
                         onClick={addInvoiceSerialType}
-                        className="h-10 px-4 rounded-xl border border-[#9AE030]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#9AE030]/10 transition-all"
+                        className="h-10 px-4 rounded-xl border border-[#FFFFFF]/40 text-white/90 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#FFFFFF]/10 transition-all"
                       >
                         Add Type
                       </button>
@@ -4877,7 +4877,7 @@ export const AdminPanel = () => {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#AAEE2A' }}>THEME</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#FFFFFF' }}>THEME</p>
                       <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tight">Theme Settings</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mt-2">Storefront visual controls</p>
                     </div>
@@ -5077,7 +5077,7 @@ export const AdminPanel = () => {
                         onClick={() => setCmsCategoryTab(tab)}
                         className={`h-11 rounded-xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                           cmsCategoryTab === tab
-                            ? 'bg-[#9AE030]/20 border-white/22 text-white/90'
+                            ? 'bg-[#FFFFFF]/20 border-white/22 text-white/90'
                             : 'border-white/10 text-zinc-400 hover:text-white'
                         }`}
                       >
@@ -5206,7 +5206,7 @@ export const AdminPanel = () => {
                   />
 
                   <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9AE030]">Category Override: {cmsCategoryTab.toUpperCase()}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFFFFF]">Category Override: {cmsCategoryTab.toUpperCase()}</p>
                     <LuxuryFloatingInput
                       label="Override Title"
                       value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroTitle || ''}
@@ -5266,7 +5266,7 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5 space-y-3">
+                  <div className="p-5 rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5 space-y-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">Live Hero Preview</p>
                     <p className="text-2xl font-black leading-tight text-white whitespace-pre-line">
                       {siteSettings.cmsDraft.heroSettings.heroTitleMode === 'MANUAL'
@@ -5306,7 +5306,7 @@ export const AdminPanel = () => {
             <motion.div key="pages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
               <GlassCard className="p-12">
                 <div className="flex items-center gap-4 mb-10">
-                  <FileText className="w-8 h-8 text-[#9AE030]" />
+                  <FileText className="w-8 h-8 text-[#FFFFFF]" />
                   <div>
                     <h3 className="text-3xl font-black uppercase italic tracking-tighter">Pages CMS</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mt-1">Footer link pages are editable here</p>
@@ -5315,8 +5315,8 @@ export const AdminPanel = () => {
 
                 <div className="space-y-8">
                   {cmsPageSections.map((section) => (
-                    <div key={section.key} className="p-8 rounded-[28px] border border-white/10 bg-white/[0.02] space-y-5">
-                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-[#9AE030]">{section.label}</h4>
+                    <div key={section.key} className="p-8 rounded-[10px] border border-white/10 bg-white/[0.02] space-y-5">
+                      <h4 className="text-sm font-black uppercase tracking-[0.25em] text-[#FFFFFF]">{section.label}</h4>
                       <LuxuryFloatingInput
                         label="Page Heading"
                         value={siteSettings.cmsPages[section.key].heading}
@@ -5335,7 +5335,7 @@ export const AdminPanel = () => {
                           value={siteSettings.cmsPages[section.key].body}
                           onChange={(e) => updateCmsField(section.key, 'body', e.target.value)}
                           rows={4}
-                          className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                          className="w-full rounded-xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
                         />
                       </div>
                     </div>
@@ -5362,15 +5362,15 @@ export const AdminPanel = () => {
                 {(siteSettings.storyPosts || []).map((story) => (
                   <GlassCard key={story.id} className="p-10 space-y-6 border-white/10">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#9AE030]">
+                      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[#FFFFFF]">
                         Story ID: {story.id}
                       </p>
                       <div className="flex items-center gap-4">
                         <button
                           onClick={() => upsertStoryPost(story.id, 'published', !story.published)}
                           className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${story.published
-                            ? 'bg-[#9AE030]/10 text-[#9AE030] border-[#9AE030]/30'
-                            : 'bg-[#9AE030]/10 text-[#9AE030] border-[#9AE030]/30'
+                            ? 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/30'
+                            : 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/30'
                             }`}
                         >
                           {story.published ? 'Published' : 'Draft'}
@@ -5412,7 +5412,7 @@ export const AdminPanel = () => {
                         value={story.body}
                         onChange={(e) => upsertStoryPost(story.id, 'body', e.target.value)}
                         rows={6}
-                        className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                        className="w-full rounded-xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
                       />
                     </div>
 
@@ -5423,10 +5423,10 @@ export const AdminPanel = () => {
                           type="datetime-local"
                           value={story.publishAt ? new Date(story.publishAt).toISOString().slice(0, 16) : ''}
                           onChange={(e) => upsertStoryPost(story.id, 'publishAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                          className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
                         />
                       </div>
-                      <div className="rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-[#9AE030] flex items-center">
+                      <div className="rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-[#FFFFFF] flex items-center">
                         Auto mode: draft stories publish automatically after schedule time.
                       </div>
                     </div>
@@ -5465,9 +5465,9 @@ export const AdminPanel = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {slides.map((slide, idx) => (
-                  <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-[#9AE030]/20 transition-all duration-700">
-                    <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-[#9AE030] text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
-                    <div className="aspect-[21/9] rounded-3xl overflow-hidden mb-8 border border-white/10 group-hover:scale-[1.02] transition-transform duration-700">
+                  <GlassCard key={idx} className="p-10 group relative border-white/5 hover:border-[#FFFFFF]/20 transition-all duration-700">
+                    <div className="absolute top-6 left-6 z-10 px-4 py-1.5 rounded-full bg-[#FFFFFF] text-black text-[8px] font-black uppercase">SLIDE {idx + 1}</div>
+                    <div className="aspect-[21/9] rounded-xl overflow-hidden mb-8 border border-white/10 group-hover:scale-[1.02] transition-transform duration-700">
                       <OptimizedImage src={slide.img} alt={slide.title || `Slide ${idx + 1}`} sizes="(max-width: 768px) 100vw, 50vw" className="w-full h-full object-cover" />
                     </div>
                     <div className="space-y-6">
@@ -5493,14 +5493,14 @@ export const AdminPanel = () => {
                         <button
                           onClick={() => moveSlide(idx, 'up')}
                           disabled={idx === 0}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#9AE030]/30 text-[#9AE030] hover:bg-[#9AE030]/10'}`}
+                          className={`py-4 rounded-xl border text-[10px] font-black uppercase transition-all ${idx === 0 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#FFFFFF]/30 text-[#FFFFFF] hover:bg-[#FFFFFF]/10'}`}
                         >
                           Move Up
                         </button>
                         <button
                           onClick={() => moveSlide(idx, 'down')}
                           disabled={idx === slides.length - 1}
-                          className={`py-4 rounded-2xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#9AE030]/30 text-[#9AE030] hover:bg-[#9AE030]/10'}`}
+                          className={`py-4 rounded-xl border text-[10px] font-black uppercase transition-all ${idx === slides.length - 1 ? 'border-white/5 text-zinc-700 cursor-not-allowed' : 'border-[#FFFFFF]/30 text-[#FFFFFF] hover:bg-[#FFFFFF]/10'}`}
                         >
                           Move Down
                         </button>
@@ -5514,13 +5514,13 @@ export const AdminPanel = () => {
                               updateSettings({ slides: newSlides });
                             }
                           }}
-                          className="flex-1 py-5 rounded-2xl bg-rose-500/5 text-rose-500 font-black text-[10px] uppercase border border-rose-500/10 hover:bg-rose-500 hover:text-white transition-all"
+                          className="flex-1 py-5 rounded-xl bg-rose-500/5 text-rose-500 font-black text-[10px] uppercase border border-rose-500/10 hover:bg-rose-500 hover:text-white transition-all"
                         >
                           Decommission
                         </button>
                         <button
                           onClick={() => updateSettings({ slides })}
-                          className="flex-1 py-5 rounded-2xl bg-white text-black font-black text-[10px] uppercase shadow-lg transition-all hover:bg-blue-400"
+                          className="flex-1 py-5 rounded-xl bg-white text-black font-black text-[10px] uppercase shadow-lg transition-all hover:bg-blue-400"
                         >
                           Synchronize Slide
                         </button>
@@ -5542,7 +5542,7 @@ export const AdminPanel = () => {
             <motion.div key="sync" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl space-y-8">
               <GlassCard className="p-12">
                 <div className="flex items-center gap-4 mb-10">
-                  <Database className="w-8 h-8 text-[#9AE030]" />
+                  <Database className="w-8 h-8 text-[#FFFFFF]" />
                   <h3 className="text-3xl font-black uppercase italic">Google Registry Sync</h3>
                 </div>
                 <p className="text-zinc-500 text-sm mb-10 leading-relaxed">Connect your archival database with Google Sheets for real-time inventory and order manifest synchronization.</p>
@@ -5556,12 +5556,12 @@ export const AdminPanel = () => {
                     onChange={v => setWebhookUrl(v)}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-6 rounded-3xl bg-white/5 border border-white/5 space-y-2">
-                      <p className="text-[10px] font-black text-[#9AE030] uppercase tracking-widest">Active Sync</p>
+                    <div className="p-6 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                      <p className="text-[10px] font-black text-[#FFFFFF] uppercase tracking-widest">Active Sync</p>
                       <p className="text-lg font-bold text-white uppercase">Orders manifest</p>
                     </div>
-                    <div className="p-6 rounded-3xl bg-white/5 border border-white/5 space-y-2">
-                      <p className="text-[10px] font-black text-[#9AE030] uppercase tracking-widest">Active Sync</p>
+                    <div className="p-6 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                      <p className="text-[10px] font-black text-[#FFFFFF] uppercase tracking-widest">Active Sync</p>
                       <p className="text-lg font-bold text-white uppercase">Inventory Registry</p>
                     </div>
                   </div>
@@ -5569,8 +5569,8 @@ export const AdminPanel = () => {
                     <RefreshCcw className="w-5 h-5 mr-3" /> INITIALIZE SHEET COLUMNS
                   </PrimaryButton>
 
-                  <div className="mt-6 p-8 bg-[#9AE030]/5 rounded-3xl border border-[#9AE030]/10">
-                    <h4 className="text-[10px] font-black text-[#9AE030] uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <div className="mt-6 p-8 bg-[#FFFFFF]/5 rounded-xl border border-[#FFFFFF]/10">
+                    <h4 className="text-[10px] font-black text-[#FFFFFF] uppercase tracking-widest mb-4 flex items-center gap-2">
                       <RefreshCcw className="w-3 h-3" /> Database Status
                     </h4>
                     <p className="text-[11px] text-zinc-400 leading-relaxed mb-6">
@@ -5596,7 +5596,7 @@ export const AdminPanel = () => {
             <motion.div key="traffic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <BentoCard title="Active Visitors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-[#0A2A50]" />
-                <BentoCard title="Avg Session (min)" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-[#9AE030]" />
+                <BentoCard title="Avg Session (min)" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-[#FFFFFF]" />
                 <BentoCard title="Unique Pages" value={new Set(trafficData.map(t => t.path)).size.toString()} trend="+2" icon={MapPin} color="bg-indigo-600" />
               </div>
 
@@ -5605,12 +5605,12 @@ export const AdminPanel = () => {
                   <div className="flex justify-between items-center mb-12 relative z-10">
                     <h3 className="text-2xl font-black uppercase italic">Visitor Location Map</h3>
                     <div className="flex gap-4">
-                      <span className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[9px] font-black uppercase text-[#9AE030]">Live · Real-time</span>
+                      <span className="px-4 py-2 liquid-glass border border-white/5 rounded-full text-[9px] font-black uppercase text-[#FFFFFF]">Live · Real-time</span>
                     </div>
                   </div>
 
                   <div className="absolute inset-x-20 inset-y-40 opacity-20 flex items-center justify-center">
-                    <Globe className="w-96 h-96 text-[#9AE030] animate-pulse" strokeWidth={0.5} />
+                    <Globe className="w-96 h-96 text-[#FFFFFF] animate-pulse" strokeWidth={0.5} />
                   </div>
 
                   <div className="space-y-8 relative z-10">
@@ -5625,7 +5625,7 @@ export const AdminPanel = () => {
                           <span className="text-white">{loc.active} ACTIVE</span>
                         </div>
                         <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${loc.load}%` }} className="h-full bg-[#9AE030]" />
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${loc.load}%` }} className="h-full bg-[#FFFFFF]" />
                         </div>
                       </div>
                     ))}
@@ -5636,8 +5636,8 @@ export const AdminPanel = () => {
                   <h3 className="text-xl font-black uppercase italic">Live Sessions</h3>
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                     {trafficData.length > 0 ? trafficData.map((sess, i) => (
-                      <div key={i} className="p-6 liquid-glass border border-white/5 rounded-[28px] flex items-center gap-6">
-                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
+                      <div key={i} className="p-6 liquid-glass border border-white/5 rounded-[10px] flex items-center gap-6">
+                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
                           <Smartphone className="w-5 h-5 text-zinc-500" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -5645,11 +5645,11 @@ export const AdminPanel = () => {
                           <p className="text-[9px] text-zinc-600 font-bold uppercase truncate">
                             {sess.path} • {new Date(sess.last_active).toLocaleTimeString()}
                           </p>
-                          <p className="text-[8px] text-[#9AE030]/50 font-mono truncate">{sess.ip_address}</p>
+                          <p className="text-[8px] text-[#FFFFFF]/50 font-mono truncate">{sess.ip_address}</p>
                         </div>
                       </div>
                     )) : (
-                      <div className="p-10 border border-dashed border-white/5 rounded-[28px] text-center italic opacity-50">
+                      <div className="p-10 border border-dashed border-white/5 rounded-[10px] text-center italic opacity-50">
                         <p className="text-[10px] font-black uppercase text-zinc-600">No active users found</p>
                       </div>
                     )}
@@ -5689,7 +5689,7 @@ export const AdminPanel = () => {
           {activeTab === 'API_KEYS' && (
             <motion.div key="api_keys" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
               <div className="flex items-center gap-3 pb-1">
-                <Key className="w-4 h-4" style={{ color: '#9AE030' }} />
+                <Key className="w-4 h-4" style={{ color: '#FFFFFF' }} />
                 <h2 className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#F0F8FF' }}>API Keys & Integrations</h2>
                 <span className="text-[10px] text-zinc-500 hidden sm:block">— সব API keys এক জায়গায় সংরক্ষণ ও পরিচালনা করুন</span>
               </div>
@@ -5738,7 +5738,7 @@ export const AdminPanel = () => {
               </SettingsSection>
 
               <PrimaryButton
-                className="w-full h-14 rounded-2xl text-[10px]"
+                className="w-full h-14 rounded-xl text-[10px]"
                 onClick={() => {
                   updateSettings(siteSettings);
                   showToast('API Keys saved successfully!', 'success');
@@ -5864,10 +5864,10 @@ export const AdminPanel = () => {
                 exit={{ scale: 0.96, y: 20 }}
                 className="w-full max-w-7xl max-h-[92vh] overflow-y-auto custom-scrollbar"
               >
-                <GlassCard className="p-6 md:p-10 !rounded-[36px] border-white/10 bg-[#070E1E]/95">
+                <GlassCard className="p-6 md:p-10 !rounded-[12px] border-white/10 bg-[#070E1E]/95">
                   <div className="flex items-start justify-between gap-4 mb-8">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-[#9AE030] font-black mb-2">Customer Profile</p>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-[#FFFFFF] font-black mb-2">Customer Profile</p>
                       <h3 className="text-2xl md:text-4xl font-black tracking-tight text-white">
                         {selectedCustomerProfile?.user?.name || 'Loading customer...'}
                       </h3>
@@ -5877,20 +5877,20 @@ export const AdminPanel = () => {
                     </div>
                     <button
                       onClick={closeCustomerProfile}
-                      className="w-12 h-12 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+                      className="w-12 h-12 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
 
                   {profileLoading && (
-                    <div className="h-64 rounded-3xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-zinc-400 text-sm font-semibold">
+                    <div className="h-64 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-center text-zinc-400 text-sm font-semibold">
                       Loading customer profile...
                     </div>
                   )}
 
                   {!profileLoading && profileError && (
-                    <div className="h-64 rounded-3xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-center text-rose-200 text-sm font-semibold">
+                    <div className="h-64 rounded-xl border border-rose-500/30 bg-rose-500/10 flex items-center justify-center text-rose-200 text-sm font-semibold">
                       {profileError}
                     </div>
                   )}
@@ -5957,7 +5957,7 @@ export const AdminPanel = () => {
                               disabled={selectedCustomerLocked}
                               className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.16em] ${
                                 selectedCustomerProfile.user.isBlocked
-                                  ? 'border-[#9AE030]/40 bg-[#9AE030]/10 text-white/85'
+                                  ? 'border-[#FFFFFF]/40 bg-[#FFFFFF]/10 text-white/85'
                                   : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
                               } ${selectedCustomerLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
@@ -5969,7 +5969,7 @@ export const AdminPanel = () => {
                             </button>
                             <button
                               onClick={exportCustomerOrdersCsv}
-                              className="px-4 py-2 rounded-xl border border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.16em]"
+                              className="px-4 py-2 rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.16em]"
                             >
                               Export Orders
                             </button>
@@ -6095,12 +6095,12 @@ export const AdminPanel = () => {
                               value={customerNoteDraft}
                               onChange={(event) => setCustomerNoteDraft(event.target.value)}
                               placeholder="Add admin note..."
-                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#070E1E] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-white/22 resize-none"
+                              className="w-full h-24 rounded-xl border border-white/15 bg-[#070E1E] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-white/22 resize-none"
                             />
                             <button
                               onClick={saveCustomerNote}
                               disabled={customerNoteSaving}
-                              className="h-11 px-5 rounded-xl border border-[#9AE030]/35 bg-[#9AE030]/10 text-blue-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
+                              className="h-11 px-5 rounded-xl border border-[#FFFFFF]/35 bg-[#FFFFFF]/10 text-blue-100 text-[10px] font-black uppercase tracking-[0.16em] disabled:opacity-40"
                             >
                               {customerNoteSaving ? 'Saving...' : 'Save note'}
                             </button>
@@ -6126,7 +6126,7 @@ export const AdminPanel = () => {
                         <h4 className="text-sm font-black uppercase tracking-[0.2em] text-white mb-4">Addresses</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {selectedCustomerProfile.addresses.map((address) => (
-                            <div key={address.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-2">
+                            <div key={address.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-2">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="text-[11px] uppercase tracking-[0.16em] font-black text-white/90">{address.label || 'Address'}</p>
                                 {address.isDefault && <span className="text-[9px] text-white/90 uppercase font-black">Default</span>}
@@ -6157,8 +6157,8 @@ export const AdminPanel = () => {
                 <GlassCard className="p-10 md:p-14 !rounded-[48px] bg-[#070E1E]/90 border-white/5 shadow-[0_0_100px_rgba(0, 122, 255, 0.1)]">
                   <div className="flex justify-between items-start mb-14">
                     <div>
-                      <div className="flex items-center gap-3 text-[#9AE030] mb-4">
-                        <div className="w-2 h-2 rounded-full bg-[#9AE030] shadow-[0_0_15px_#3b82f6]" />
+                      <div className="flex items-center gap-3 text-[#FFFFFF] mb-4">
+                        <div className="w-2 h-2 rounded-full bg-[#FFFFFF] shadow-[0_0_15px_#3b82f6]" />
                         <span className="text-[10px] font-black uppercase tracking-[0.4em]">Order Intelligence Report — {formatTimestamp(selectedOrder.createdAt)}</span>
                       </div>
                       <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">{selectedOrder.id}</h3>
@@ -6175,7 +6175,7 @@ export const AdminPanel = () => {
                       </h4>
                       <div className="space-y-6">
                         <div className="flex items-center gap-6 text-white group">
-                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
+                          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5">
                             <UserIcon className="w-5 h-5 text-zinc-500" />
                           </div>
                           <div>
@@ -6184,7 +6184,7 @@ export const AdminPanel = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-6 text-white group">
-                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
+                          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5">
                             <Mail className="w-5 h-5 text-zinc-500" />
                           </div>
                           <div>
@@ -6193,7 +6193,7 @@ export const AdminPanel = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-6 text-white group">
-                          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
+                          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5">
                             <Phone className="w-5 h-5 text-zinc-500" />
                           </div>
                           <div>
@@ -6208,12 +6208,12 @@ export const AdminPanel = () => {
                       <h4 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center gap-3">
                         <div className="w-4 h-[1px] bg-zinc-800" /> Logistics Terminal
                       </h4>
-                      <div className="flex items-start gap-6 text-white p-8 liquid-glass border border-white/5 rounded-[32px]">
-                        <MapPin className="w-6 h-6 text-[#9AE030] mt-2 shrink-0" />
+                      <div className="flex items-start gap-6 text-white p-8 liquid-glass border border-white/5 rounded-[12px]">
+                        <MapPin className="w-6 h-6 text-[#FFFFFF] mt-2 shrink-0" />
                         <div>
                           <p className="text-xl font-bold leading-relaxed">{selectedOrder.address}</p>
                           <div className="flex gap-3 mt-4">
-                            <span className="px-4 py-1.5 bg-[#9AE030]/10 border border-[#9AE030]/20 text-[#9AE030] rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
+                            <span className="px-4 py-1.5 bg-[#FFFFFF]/10 border border-[#FFFFFF]/20 text-[#FFFFFF] rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.district}</span>
                             <span className="px-4 py-1.5 bg-zinc-800 border border-white/5 text-zinc-400 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedOrder.thana}</span>
                           </div>
                         </div>
@@ -6225,7 +6225,7 @@ export const AdminPanel = () => {
                         <div className="w-4 h-[1px] bg-zinc-800" /> Tactical Meta-Data
                       </h4>
                       <div className="space-y-6">
-                        <div className="p-6 bg-white/5 border border-white/5 rounded-2xl">
+                        <div className="p-6 bg-white/5 border border-white/5 rounded-xl">
                           <p className="text-[9px] font-black uppercase text-zinc-500 mb-3">Collector Narrative</p>
                           <p className="text-sm font-semibold text-zinc-200 leading-relaxed whitespace-pre-wrap break-words">
                             {selectedOrder.customerComment?.trim() || 'No customer note provided.'}
@@ -6237,7 +6237,7 @@ export const AdminPanel = () => {
                           onChange={v => updateOrderMetadata(selectedOrder.id, { trackingNumber: v })}
                           placeholder="Institutional Tracking Signal"
                         />
-                        <div className="p-6 bg-white/5 border border-white/5 rounded-2xl">
+                        <div className="p-6 bg-white/5 border border-white/5 rounded-xl">
                           <p className="text-[9px] font-black uppercase text-zinc-500 mb-3">Institutional Internal Notes</p>
                           <textarea
                             value={selectedOrder.adminNotes || ''}
@@ -6250,9 +6250,9 @@ export const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white/5 rounded-[40px] border border-white/10 overflow-hidden mb-14">
+                  <div className="bg-white/5 rounded-[12px] border border-white/10 overflow-hidden mb-14">
                     <div className="p-10 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#9AE030] flex items-center gap-3">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFFFFF] flex items-center gap-3">
                         <ShoppingBag className="w-4 h-4" /> Inventory Manifest
                       </h4>
                       <span className="px-4 py-1.5 bg-zinc-800 rounded-full text-[9px] font-black text-zinc-400 uppercase tracking-widest">{selectedOrder.items.length} ASSETS</span>
@@ -6271,7 +6271,7 @@ export const AdminPanel = () => {
                             <tr key={idx} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
                               <td className="p-10">
                                 <div className="flex items-center gap-6">
-                                  <div className="w-20 h-20 rounded-2xl overflow-hidden border border-white/10 flex-shrink-0">
+                                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-white/10 flex-shrink-0">
                                     <OptimizedImage src={item.product.image} alt={item.product.name} sizes="80px" className="w-full h-full object-cover" />
                                   </div>
                                   <div>
@@ -6290,9 +6290,9 @@ export const AdminPanel = () => {
                                     <p className="text-[8px] font-black text-zinc-600 uppercase mb-1">Color</p>
                                     <span className="text-xs font-black text-white uppercase">{item.selectedColor}</span>
                                   </div>
-                                  <div className="px-4 py-2 bg-[#9AE030]/10 rounded-xl border border-[#9AE030]/20">
-                                    <p className="text-[8px] font-black text-[#9AE030]/60 uppercase mb-1">Quantity</p>
-                                    <span className="text-xs font-black text-[#9AE030]">{item.quantity}</span>
+                                  <div className="px-4 py-2 bg-[#FFFFFF]/10 rounded-xl border border-[#FFFFFF]/20">
+                                    <p className="text-[8px] font-black text-[#FFFFFF]/60 uppercase mb-1">Quantity</p>
+                                    <span className="text-xs font-black text-[#FFFFFF]">{item.quantity}</span>
                                   </div>
                                 </div>
                               </td>
@@ -6319,7 +6319,7 @@ export const AdminPanel = () => {
                         <span>Logistics Fee</span>
                         <span className="text-zinc-200">৳{selectedOrder.shippingFee.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between w-full md:w-80 pt-8 border-t border-white/10 text-4xl font-black italic text-[#9AE030] tracking-tighter">
+                      <div className="flex justify-between w-full md:w-80 pt-8 border-t border-white/10 text-4xl font-black italic text-[#FFFFFF] tracking-tighter">
                         <span>TOTAL</span>
                         <span className="shadow-[0_0_30px_rgba(0, 122, 255, 0.2)]">৳{selectedOrder.total.toLocaleString()}</span>
                       </div>
@@ -6331,7 +6331,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSslCommerzInit(selectedOrder)}
                         disabled={integrationActionKey === `${selectedOrder.id}:ssl:init`}
-                        className="h-14 rounded-2xl border border-[#9AE030]/35 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-xl border border-[#FFFFFF]/35 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#FFFFFF]/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <CreditCard className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:ssl:init` ? 'Creating...' : 'Create Payment Link'}
@@ -6339,7 +6339,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSteadfastCreate(selectedOrder, false)}
                         disabled={integrationActionKey === `${selectedOrder.id}:steadfast:create:normal`}
-                        className="h-14 rounded-2xl border border-[#9AE030]/35 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-xl border border-[#FFFFFF]/35 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#FFFFFF]/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <Truck className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:steadfast:create:normal` ? 'Booking...' : 'Send to Steadfast'}
@@ -6347,7 +6347,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSteadfastTrack(selectedOrder)}
                         disabled={integrationActionKey === `${selectedOrder.id}:steadfast:track`}
-                        className="h-14 rounded-2xl border border-violet-500/35 bg-violet-500/10 text-violet-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-violet-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-xl border border-violet-500/35 bg-violet-500/10 text-violet-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-violet-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <RefreshCcw className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:steadfast:track` ? 'Tracking...' : 'Track Shipment'}
@@ -6355,7 +6355,7 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runSteadfastSync(selectedOrder)}
                         disabled={integrationActionKey === `${selectedOrder.id}:steadfast:sync`}
-                        className="h-14 rounded-2xl border border-white/20 bg-white/5 text-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10 disabled:opacity-60 flex items-center justify-center gap-2"
+                        className="h-14 rounded-xl border border-white/20 bg-white/5 text-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10 disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         <Activity className="w-4 h-4" />
                         {integrationActionKey === `${selectedOrder.id}:steadfast:sync` ? 'Syncing...' : 'Batch Sync'}
@@ -6363,7 +6363,7 @@ export const AdminPanel = () => {
                     </div>
 
                     {(selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || selectedOrderShipment?.shipmentStatus || selectedOrderShipment?.externalStatus) && (
-                      <div className="rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5 px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em]">
                           <span className="text-white/90">Consignment</span>
                           <span className="text-zinc-100">{selectedOrderShipment?.consignmentId || selectedOrder.trackingNumber || 'N/A'}</span>
@@ -6375,7 +6375,7 @@ export const AdminPanel = () => {
                         {selectedOrderShipment?.trackingUrl && (
                           <button
                             onClick={() => window.open(selectedOrderShipment.trackingUrl, '_blank', 'noopener,noreferrer')}
-                            className="h-10 px-4 rounded-xl border border-[#9AE030]/35 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-[#9AE030]/20"
+                            className="h-10 px-4 rounded-xl border border-[#FFFFFF]/35 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.18em] transition-all hover:bg-[#FFFFFF]/20"
                           >
                             Open Tracking
                           </button>
@@ -6394,21 +6394,21 @@ export const AdminPanel = () => {
                       <button
                         onClick={() => runInvoiceAction(selectedOrder, { type: siteSettings.invoiceSettings.defaultType || 'INV', send: true, autoOpen: false })}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send`}
-                        className="h-14 rounded-2xl border border-[#9AE030]/40 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]/20 disabled:opacity-60"
+                        className="h-14 rounded-xl border border-[#FFFFFF]/40 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#FFFFFF]/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:send` ? 'Sending...' : 'Send Invoice'}
                       </button>
                       <button
                         onClick={() => downloadLatestInvoice(selectedOrder, siteSettings.invoiceSettings.defaultType || 'INV')}
                         disabled={invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest`}
-                        className="h-14 rounded-2xl border border-[#9AE030]/30 bg-[#9AE030]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]/20 disabled:opacity-60"
+                        className="h-14 rounded-xl border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#FFFFFF]/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:${(siteSettings.invoiceSettings.defaultType || 'INV').toUpperCase()}:latest` ? 'Opening...' : 'Download PDF'}
                       </button>
                       <button
                         onClick={() => runInvoiceAction(selectedOrder, { type: 'MNF', send: false, autoOpen: true })}
                         disabled={invoiceActionKey === `${selectedOrder.id}:MNF:generate`}
-                        className="h-14 rounded-2xl border border-violet-500/30 bg-violet-500/10 text-violet-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-violet-500/20 disabled:opacity-60"
+                        className="h-14 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-violet-500/20 disabled:opacity-60"
                       >
                         {invoiceActionKey === `${selectedOrder.id}:MNF:generate` ? 'Generating...' : 'Generate Manifest'}
                       </button>
@@ -6417,7 +6417,7 @@ export const AdminPanel = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       <button
                         onClick={() => window.print()}
-                        className="h-14 rounded-2xl border border-white/15 bg-white/5 text-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10"
+                        className="h-14 rounded-xl border border-white/15 bg-white/5 text-zinc-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-white/10"
                       >
                         Print Preview
                       </button>
@@ -6428,13 +6428,13 @@ export const AdminPanel = () => {
                           setSelectedOrder(null);
                           showToast(`Order ${id} moved to shipped.`, 'success');
                         }}
-                        className="h-14 rounded-2xl border border-[#9AE030]/40 bg-[#0A2A50] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]"
+                        className="h-14 rounded-xl border border-[#FFFFFF]/40 bg-[#0A2A50] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#FFFFFF]"
                       >
                         Mark Shipped
                       </button>
                       <button
                         onClick={() => { updateOrderStatus(selectedOrder.id, 'Cancelled'); setSelectedOrder(null); }}
-                        className="h-14 rounded-2xl border border-rose-500/40 bg-rose-500/10 text-rose-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-rose-500/20"
+                        className="h-14 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-rose-500/20"
                       >
                         Cancel Order
                       </button>
@@ -6448,12 +6448,12 @@ export const AdminPanel = () => {
       </main>
       {toast && (
         <div
-          className={`fixed bottom-8 left-1/2 z-[320] -translate-x-1/2 rounded-2xl border px-6 py-4 text-sm font-bold ${
+          className={`fixed bottom-8 left-1/2 z-[320] -translate-x-1/2 rounded-xl border px-6 py-4 text-sm font-bold ${
             toast.tone === 'success'
-              ? 'border-[#9AE030]/40 bg-[#9AE030]/15 text-white/85'
+              ? 'border-[#FFFFFF]/40 bg-[#FFFFFF]/15 text-white/85'
               : toast.tone === 'error'
                 ? 'border-rose-500/40 bg-rose-500/15 text-rose-200'
-                : 'border-[#9AE030]/40 bg-[#9AE030]/15 text-white/85'
+                : 'border-[#FFFFFF]/40 bg-[#FFFFFF]/15 text-white/85'
           }`}
         >
           {toast.message}

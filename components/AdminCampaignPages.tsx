@@ -38,10 +38,10 @@ const segmentLabels: Record<AudienceSegment['type'], string> = {
 };
 
 const statusChip = (status: CampaignStatus) => {
-  if (status === 'Active') return 'bg-[#9AE030]/10 text-[#D4B47A] border-[#9AE030]/20';
-  if (status === 'Paused') return 'bg-[#9AE030]/10 text-[#D4B47A] border-[#9AE030]/20';
+  if (status === 'Active') return 'bg-[#FFFFFF]/10 text-[#D4B47A] border-[#FFFFFF]/20';
+  if (status === 'Paused') return 'bg-[#FFFFFF]/10 text-[#D4B47A] border-[#FFFFFF]/20';
   if (status === 'Completed') return 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20';
-  return 'bg-[#9AE030]/10 text-[#D4B47A] border-[#9AE030]/20';
+  return 'bg-[#FFFFFF]/10 text-[#D4B47A] border-[#FFFFFF]/20';
 };
 
 const useAdminReady = () => {
@@ -110,13 +110,13 @@ const Toast: React.FC<{ toast: ToastState }> = ({ toast }) => {
   if (!toast) return null;
   const tone =
     toast.tone === 'success'
-      ? 'bg-[#9AE030]/10 border-[#9AE030]/30 text-white/90'
+      ? 'bg-[#FFFFFF]/10 border-[#FFFFFF]/30 text-white/90'
       : toast.tone === 'error'
         ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-        : 'bg-[#9AE030]/10 border-[#9AE030]/30 text-white/90';
+        : 'bg-[#FFFFFF]/10 border-[#FFFFFF]/30 text-white/90';
 
   return (
-    <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-2xl border text-sm font-bold ${tone}`}>
+    <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[300] px-6 py-4 rounded-xl border text-sm font-bold ${tone}`}>
       {toast.message}
     </div>
   );
@@ -226,7 +226,7 @@ export const AdminCampaignsPage: React.FC = () => {
                 setStatus((e.target.value as CampaignStatus) || '');
                 setPage(1);
               }}
-              className="h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
+              className="h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
             >
               <option value="">All status</option>
               <option value="Draft">Draft</option>
@@ -238,11 +238,11 @@ export const AdminCampaignsPage: React.FC = () => {
 
           <div className="space-y-4">
             {data.items.length === 0 && (
-              <div className="p-10 rounded-2xl border border-white/10 text-zinc-400">No campaigns yet.</div>
+              <div className="p-10 rounded-xl border border-white/10 text-zinc-400">No campaigns yet.</div>
             )}
 
             {data.items.map((campaign) => (
-              <div key={campaign.id} className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
+              <div key={campaign.id} className="p-6 rounded-xl border border-white/10 bg-white/[0.02] space-y-4">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="space-y-2">
                     <button className="text-left" onClick={() => navigate(`/admin/campaigns/${campaign.id}`)}>
@@ -267,7 +267,7 @@ export const AdminCampaignsPage: React.FC = () => {
                     <button
                       onClick={() => flipStatus(campaign.id, 'Active')}
                       disabled={busyId === campaign.id}
-                      className="px-4 py-2 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all disabled:opacity-40"
+                      className="px-4 py-2 rounded-full border border-[#FFFFFF]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#FFFFFF]/10 transition-all disabled:opacity-40"
                     >
                       <PlayCircle className="inline w-4 h-4 mr-2" /> Activate
                     </button>
@@ -275,7 +275,7 @@ export const AdminCampaignsPage: React.FC = () => {
                     <button
                       onClick={() => flipStatus(campaign.id, 'Paused')}
                       disabled={busyId === campaign.id}
-                      className="px-4 py-2 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all disabled:opacity-40"
+                      className="px-4 py-2 rounded-full border border-[#FFFFFF]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#FFFFFF]/10 transition-all disabled:opacity-40"
                     >
                       <PauseCircle className="inline w-4 h-4 mr-2" /> Pause
                     </button>
@@ -296,7 +296,7 @@ export const AdminCampaignsPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => navigate(`/admin/campaigns/${campaign.id}/logs`)}
-                    className="px-4 py-2 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
+                    className="px-4 py-2 rounded-full border border-[#FFFFFF]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#FFFFFF]/10 transition-all"
                   >
                     View logs
                   </button>
@@ -413,7 +413,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               <select
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="Draft">Draft</option>
                 <option value="Active">Active</option>
@@ -429,7 +429,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+              className="w-full rounded-xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
             />
           </div>
 
@@ -439,7 +439,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               <select
                 value={form.segmentType}
                 onChange={(e) => setForm((f) => ({ ...f, segmentType: e.target.value as AudienceSegment['type'] }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="ALL_USERS">All registered users</option>
                 <option value="NEW_SIGNUPS_7D">New signups (7 days)</option>
@@ -447,7 +447,7 @@ export const AdminCampaignNewPage: React.FC = () => {
                 <option value="VIP_USERS">VIP users</option>
               </select>
             </div>
-            <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5">
+            <div className="p-5 rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5">
               <p className="text-[10px] uppercase tracking-[0.25em] text-[#D4B47A] font-black">Target count</p>
               <p className="text-4xl font-black text-white mt-3">{targetCount}</p>
             </div>
@@ -473,7 +473,7 @@ export const AdminCampaignNewPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
               />
             </div>
           </div>
@@ -659,7 +659,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               <select
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="Draft">Draft</option>
                 <option value="Active">Active</option>
@@ -675,7 +675,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+              className="w-full rounded-xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
             />
           </div>
 
@@ -685,7 +685,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               <select
                 value={form.segmentType}
                 onChange={(e) => setForm((f) => ({ ...f, segmentType: e.target.value as AudienceSegment['type'] }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="ALL_USERS">All registered users</option>
                 <option value="NEW_SIGNUPS_7D">New signups (7 days)</option>
@@ -693,7 +693,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 <option value="VIP_USERS">VIP users</option>
               </select>
             </div>
-            <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5">
+            <div className="p-5 rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5">
               <p className="text-[10px] uppercase tracking-[0.25em] text-[#D4B47A] font-black">Target count</p>
               <p className="text-4xl font-black text-white mt-3">{targetCount}</p>
             </div>
@@ -719,7 +719,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                className="w-full h-16 rounded-xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#FFFFFF]/50"
               />
             </div>
           </div>
@@ -735,7 +735,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
           </label>
 
           {sending && (
-            <div className="p-5 rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5">
+            <div className="p-5 rounded-xl border border-[#FFFFFF]/20 bg-[#FFFFFF]/5">
               <p className="text-[10px] uppercase tracking-[0.2em] text-white/90 font-black mb-3">Sending in progress</p>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full bg-blue-400 transition-all" style={{ width: `${progress}%` }} />
@@ -749,13 +749,13 @@ export const AdminCampaignDetailPage: React.FC = () => {
             </PrimaryButton>
             <button
               onClick={() => simulateSend('TEST')}
-              className="px-6 py-3 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
+              className="px-6 py-3 rounded-full border border-[#FFFFFF]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#FFFFFF]/10 transition-all"
             >
               <Send className="inline w-4 h-4 mr-2" /> Send test
             </button>
             <button
               onClick={() => simulateSend('SEND_NOW')}
-              className="px-6 py-3 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
+              className="px-6 py-3 rounded-full border border-[#FFFFFF]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#FFFFFF]/10 transition-all"
             >
               <Send className="inline w-4 h-4 mr-2" /> Send now
             </button>
@@ -765,7 +765,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 updateCampaign(campaign.id, { status: next });
                 setRefreshTick((v) => v + 1);
               }}
-              className="px-6 py-3 rounded-full border border-[#9AE030]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#9AE030]/10 transition-all"
+              className="px-6 py-3 rounded-full border border-[#FFFFFF]/30 text-white/90 text-[10px] uppercase tracking-[0.2em] font-black hover:bg-[#FFFFFF]/10 transition-all"
             >
               {campaign.status === 'Active' ? 'Pause' : 'Activate'}
             </button>
@@ -808,9 +808,9 @@ export const AdminCampaignLogsPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-4">
               <h3 className="text-lg font-black uppercase tracking-[0.2em] text-white/90">Jobs</h3>
-              {jobs.length === 0 && <div className="p-6 border border-white/10 rounded-2xl text-zinc-500">No jobs yet.</div>}
+              {jobs.length === 0 && <div className="p-6 border border-white/10 rounded-xl text-zinc-500">No jobs yet.</div>}
               {jobs.map((job) => (
-                <div key={job.id} className="p-5 border border-white/10 rounded-2xl bg-white/[0.02] space-y-2">
+                <div key={job.id} className="p-5 border border-white/10 rounded-xl bg-white/[0.02] space-y-2">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400">{job.id}</p>
                   <p className="text-sm text-white font-black">{job.type}</p>
                   <p className="text-sm text-zinc-300">{job.status} • {job.progress}% • {job.totalRecipients} recipients</p>
@@ -821,10 +821,10 @@ export const AdminCampaignLogsPage: React.FC = () => {
 
             <div className="space-y-4">
               <h3 className="text-lg font-black uppercase tracking-[0.2em] text-white/90">Delivery</h3>
-              {logs.length === 0 && <div className="p-6 border border-white/10 rounded-2xl text-zinc-500">No delivery logs yet.</div>}
+              {logs.length === 0 && <div className="p-6 border border-white/10 rounded-xl text-zinc-500">No delivery logs yet.</div>}
               <div className="max-h-[560px] overflow-auto space-y-3 pr-1">
                 {logs.map((log) => (
-                  <div key={log.id} className="p-4 border border-white/10 rounded-2xl bg-white/[0.02]">
+                  <div key={log.id} className="p-4 border border-white/10 rounded-xl bg-white/[0.02]">
                     <p className="text-sm font-bold text-white">{log.recipientName}</p>
                     <p className="text-xs text-zinc-400">{log.recipientEmail} • {log.recipientPhone}</p>
                     <p className="text-[10px] uppercase tracking-[0.2em] text-white/90 mt-2">{log.status}</p>
@@ -885,7 +885,7 @@ export const AdminSearchPage: React.FC = () => {
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">Orders</h3>
               {results.orders.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No orders</div>}
               {results.orders.map((order) => (
-                <Link key={order.id} to="/admin_dashboard?tab=orders" className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#9AE030]/30 transition-all">
+                <Link key={order.id} to="/admin_dashboard?tab=orders" className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#FFFFFF]/30 transition-all">
                   <p className="text-sm text-white font-bold">{order.id}</p>
                   <p className="text-xs text-zinc-400">{order.customerEmail}</p>
                   <p className="text-xs text-zinc-500">{order.phone || '-'}</p>
@@ -897,7 +897,7 @@ export const AdminSearchPage: React.FC = () => {
               <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">Campaigns</h3>
               {results.campaigns.length === 0 && <div className="p-4 border border-white/10 rounded-xl text-zinc-500 text-sm">No campaigns</div>}
               {results.campaigns.map((campaign) => (
-                <Link key={campaign.id} to={`/admin/campaigns/${campaign.id}`} className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#9AE030]/30 transition-all">
+                <Link key={campaign.id} to={`/admin/campaigns/${campaign.id}`} className="block p-4 border border-white/10 rounded-xl bg-white/[0.02] hover:border-[#FFFFFF]/30 transition-all">
                   <p className="text-sm text-white font-bold">{campaign.name}</p>
                   <p className="text-xs text-zinc-400">{campaign.status}</p>
                 </Link>

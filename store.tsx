@@ -434,8 +434,8 @@ const INITIAL_DISCOUNTS: DiscountCode[] = [
 
 const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   colors: {
-    primary: '#9AE030',
-    accent: '#AAEE2A',
+    primary: '#FFFFFF',
+    accent: '#FFFFFF',
     background: '#07101E',
     surface: 'rgba(8, 18, 44, 0.72)',
     text: '#FFFFFF'
@@ -553,8 +553,8 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   defaultType: 'INV',
   separateCounterPerType: false,
   theme: {
-    primaryColor: '#9AE030',
-    accentColor: '#AAEE2A',
+    primaryColor: '#FFFFFF',
+    accentColor: '#FFFFFF',
     backgroundColor: '#F0FAFF',
     tableHeaderColor: '#0D1B3A',
     buttonColor: '#5AAA10'

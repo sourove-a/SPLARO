@@ -32,7 +32,7 @@ const CheckoutSuccessBurst: React.FC = () => {
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: [0, 1.4, 1.9], opacity: [0, 0.65, 0] }}
         transition={{ duration: 1.4, ease: "easeOut" }}
-        className="absolute w-[760px] h-[760px] bg-[#9AE030]/20 rounded-full blur-[110px]"
+        className="absolute w-[760px] h-[760px] bg-[#FFFFFF]/20 rounded-full blur-[110px]"
       />
       {particles.map((particle) => (
         <motion.div
@@ -51,7 +51,7 @@ const CheckoutSuccessBurst: React.FC = () => {
           {particle.id % 2 === 0 ? (
             <Heart className="text-rose-500 w-8 h-8 fill-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)]" />
           ) : (
-            <ShoppingBag className="text-[#9AE030] w-8 h-8 shadow-[0_0_20px_rgba(0, 122, 255, 0.5)]" />
+            <ShoppingBag className="text-[#FFFFFF] w-8 h-8 shadow-[0_0_20px_rgba(0, 122, 255, 0.5)]" />
           )}
         </motion.div>
       ))}
@@ -61,9 +61,9 @@ const CheckoutSuccessBurst: React.FC = () => {
         className="text-center z-10"
       >
         <h2 className="text-5xl md:text-7xl font-black italic uppercase text-white tracking-tighter leading-none mb-4">
-          ORDER<br /><span className="text-[#9AE030]">SECURED</span>
+          ORDER<br /><span className="text-[#FFFFFF]">SECURED</span>
         </h2>
-        <p className="text-[10px] font-black uppercase tracking-[0.45em] text-[#9AE030]/60">Order Confirmation In Progress</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.45em] text-[#FFFFFF]/60">Order Confirmation In Progress</p>
       </motion.div>
     </div>
   );
@@ -71,13 +71,13 @@ const CheckoutSuccessBurst: React.FC = () => {
 
 const SelectInput = ({ label, value, options, onChange, icon: Icon, error }: any) => (
   <div className="relative mb-6 w-full">
-    <div className={`relative flex items-center h-20 md:h-22 border rounded-[28px] transition-all duration-500 overflow-hidden ${error ? 'border-rose-500/40 bg-rose-500/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}>
+    <div className={`relative flex items-center h-20 md:h-22 border rounded-[10px] transition-all duration-500 overflow-hidden ${error ? 'border-rose-500/40 bg-rose-500/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}>
       <div className="ribbed-texture absolute inset-0 opacity-[0.02] pointer-events-none" />
       <div className="pl-8 text-white/20">
         <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 relative h-full">
-        <label className="absolute left-6 top-4 pointer-events-none text-[10px] font-black uppercase tracking-[0.3em] text-[#9AE030]/60 z-20">
+        <label className="absolute left-6 top-4 pointer-events-none text-[10px] font-black uppercase tracking-[0.3em] text-[#FFFFFF]/60 z-20">
           {label}
         </label>
         <select
@@ -323,7 +323,7 @@ export const CheckoutPage: React.FC = () => {
         {/* Left: Shipping Portal */}
         <div className="lg:col-span-7">
           <header className="mb-8 sm:mb-12">
-            <div className="flex items-center gap-3 text-[#9AE030] mb-6">
+            <div className="flex items-center gap-3 text-[#FFFFFF] mb-6">
               <ShieldCheck className="w-4 h-4" />
               <span className="text-[11px] font-black uppercase tracking-[0.45em]">{t('cart.secureCheckout')}</span>
             </div>
@@ -425,22 +425,22 @@ export const CheckoutPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, paymentMethod: 'COD' })}
-                  className={`p-8 rounded-[32px] border transition-all duration-500 flex items-center justify-between overflow-hidden relative ${formData.paymentMethod === 'COD' ? 'bg-[#9AE030]/10 border-[#9AE030]/50 shadow-[0_0_40px_rgba(0, 122, 255, 0.1)]' : 'bg-white/5 border-white/5'}`}
+                  className={`p-8 rounded-[12px] border transition-all duration-500 flex items-center justify-between overflow-hidden relative ${formData.paymentMethod === 'COD' ? 'bg-[#FFFFFF]/10 border-[#FFFFFF]/50 shadow-[0_0_40px_rgba(0, 122, 255, 0.1)]' : 'bg-white/5 border-white/5'}`}
                 >
                   <div className="flex items-center gap-5">
-                    <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-[#9AE030]' : 'text-white/20'}`} />
+                    <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-[#FFFFFF]' : 'text-white/20'}`} />
                     <div className="text-left">
                       <p className="text-sm font-black uppercase text-white">{t('checkout.cod')}</p>
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Pay at Threshold</p>
                     </div>
                   </div>
-                  {formData.paymentMethod === 'COD' && <CheckCircle2 className="w-6 h-6 text-[#9AE030]" />}
+                  {formData.paymentMethod === 'COD' && <CheckCircle2 className="w-6 h-6 text-[#FFFFFF]" />}
                 </button>
 
                 <button
                   type="button"
                   disabled
-                  className="p-8 rounded-[32px] border border-white/5 bg-white/[0.02] flex items-center justify-between opacity-40 cursor-not-allowed"
+                  className="p-8 rounded-[12px] border border-white/5 bg-white/[0.02] flex items-center justify-between opacity-40 cursor-not-allowed"
                 >
                   <div className="flex items-center gap-5">
                     <CreditCard className="w-7 h-7 text-white/10" />
@@ -455,8 +455,8 @@ export const CheckoutPage: React.FC = () => {
               {/* Optional Order Note */}
               <div className="md:col-span-2">
                 <div className="relative group">
-                  <div className="liquid-glass border border-white/10 rounded-[24px] sm:rounded-[32px] p-5 sm:p-8 focus-within:border-[#9AE030]/50 transition-all duration-500">
-                    <div className="flex items-center gap-4 mb-4 text-[#9AE030]/60 font-black text-[10px] uppercase tracking-[0.4em]">
+                  <div className="liquid-glass border border-white/10 rounded-[14px] sm:rounded-[12px] p-5 sm:p-8 focus-within:border-[#FFFFFF]/50 transition-all duration-500">
+                    <div className="flex items-center gap-4 mb-4 text-[#FFFFFF]/60 font-black text-[10px] uppercase tracking-[0.4em]">
                       <MessageSquare className="w-4 h-4" />
                       <span>Delivery Note (Optional)</span>
                     </div>
@@ -488,9 +488,9 @@ export const CheckoutPage: React.FC = () => {
         {/* Right: Order Summary */}
         <div className="lg:col-span-5">
           <div className="lg:sticky lg:top-36">
-            <GlassCard className="p-5 sm:p-8 md:p-10 !rounded-[24px] sm:!rounded-[36px] md:!rounded-[48px]">
+            <GlassCard className="p-5 sm:p-8 md:p-10 !rounded-[14px] sm:!rounded-[12px] md:!rounded-[48px]">
               <div className="flex items-center gap-4 mb-10">
-                <Package className="w-6 h-6 text-[#9AE030]" />
+                <Package className="w-6 h-6 text-[#FFFFFF]" />
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic">{t('checkout.summary')}</h2>
               </div>
 
@@ -498,7 +498,7 @@ export const CheckoutPage: React.FC = () => {
                 {cart.map((item, i) => (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} key={item.cartId} className="flex items-center justify-between">
                     <div className="flex items-center gap-5">
-                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/40 border border-white/5">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/40 border border-white/5">
                         <OptimizedImage src={item.product.image} alt={item.product.name} sizes="64px" className="w-full h-full object-cover" />
                       </div>
                       <div>
@@ -506,7 +506,7 @@ export const CheckoutPage: React.FC = () => {
                         <p className="text-[8px] text-white/20 font-black uppercase mt-1 tracking-widest">Size {item.selectedSize} • Qty {item.quantity}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-black text-[#9AE030]">৳{(item.product.price * item.quantity).toLocaleString()}</span>
+                    <span className="text-xs font-black text-[#FFFFFF]">৳{(item.product.price * item.quantity).toLocaleString()}</span>
                   </motion.div>
                 ))}
               </div>
@@ -514,13 +514,13 @@ export const CheckoutPage: React.FC = () => {
               {/* Enhanced Premium Discount Matrix */}
               <div className="mb-14 relative group">
                 <div className="flex items-center gap-3 mb-6">
-                  <Tag className="w-4 h-4 text-[#9AE030]" />
+                  <Tag className="w-4 h-4 text-[#FFFFFF]" />
                   <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Coupon Code</span>
                 </div>
 
-                <div className="flex gap-4 p-2 liquid-glass border border-white/10 rounded-[28px] group-focus-within:border-[#9AE030]/50 transition-all duration-700">
+                <div className="flex gap-4 p-2 liquid-glass border border-white/10 rounded-[10px] group-focus-within:border-[#FFFFFF]/50 transition-all duration-700">
                   <div className="flex-1 relative flex items-center">
-                    <Command className="w-5 h-5 ml-6 text-white/20 group-focus-within:text-[#9AE030] transition-colors" />
+                    <Command className="w-5 h-5 ml-6 text-white/20 group-focus-within:text-[#FFFFFF] transition-colors" />
                     <input
                       type="text"
                       placeholder="Enter coupon code"
@@ -531,7 +531,7 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                   <button
                     onClick={handleApplyDiscount}
-                    className="px-6 sm:px-10 min-h-12 bg-white/12 border border-white/30 text-white rounded-[16px] sm:rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-400/25 transition-all shadow-xl active:scale-95 whitespace-nowrap"
+                    className="px-6 sm:px-10 min-h-12 bg-white/12 border border-white/30 text-white rounded-[10px] sm:rounded-[12px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-400/25 transition-all shadow-xl active:scale-95 whitespace-nowrap"
                   >
                     Apply
                   </button>
@@ -544,7 +544,7 @@ export const CheckoutPage: React.FC = () => {
                     </motion.div>
                   )}
                   {appliedDiscount && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-4 mt-6 p-4 rounded-2xl bg-[#9AE030]/10 border border-[#9AE030]/20 text-[#9AE030]">
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-4 mt-6 p-4 rounded-xl bg-[#FFFFFF]/10 border border-[#FFFFFF]/20 text-[#FFFFFF]">
                       <CheckCircle2 className="w-4 h-4 animate-pulse" />
                       <div className="flex-1">
                         <p className="text-[9px] font-black uppercase tracking-[0.2em]">Coupon Applied: {appliedDiscount.code}</p>
@@ -562,10 +562,10 @@ export const CheckoutPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
                   <span>{t('cart.shipping')} {formData.district ? `(${formData.district})` : ''}</span>
-                  <span className="text-[#9AE030]">৳{Number(shippingFee || 0).toLocaleString()}</span>
+                  <span className="text-[#FFFFFF]">৳{Number(shippingFee || 0).toLocaleString()}</span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-[10px] font-black uppercase text-[#9AE030] tracking-widest">
+                  <div className="flex justify-between text-[10px] font-black uppercase text-[#FFFFFF] tracking-widest">
                     <span>Discount ({appliedDiscount?.code})</span>
                     <span>-৳{Number(discountAmount || 0).toLocaleString()}</span>
                   </div>
@@ -581,17 +581,17 @@ export const CheckoutPage: React.FC = () => {
 
 
               <div className="mt-10 grid grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
+                <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
                   <Truck className="w-4 h-4 text-white/20" />
                   <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Fast Shipping</span>
                 </div>
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
+                <div className="p-5 rounded-xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
                   <RotateCcw className="w-4 h-4 text-white/20" />
                   <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Returns</span>
                 </div>
               </div>
 
-              <div className="mt-8 p-6 rounded-[28px] bg-[#9AE030]/5 border border-[#9AE030]/10 flex items-start gap-4">
+              <div className="mt-8 p-6 rounded-[10px] bg-[#FFFFFF]/5 border border-[#FFFFFF]/10 flex items-start gap-4">
                 <AlertCircle className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-800/60 font-bold leading-relaxed uppercase tracking-wider">
                   Please verify contact details before placing order.

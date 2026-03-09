@@ -262,7 +262,7 @@ export const CampaignForm: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-[26px] border border-white/10 bg-[#0A0C12]/80 p-6 md:p-8">
+      <div className="rounded-[14px] border border-white/10 bg-[#0A0C12]/80 p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h4 className="text-xl md:text-2xl font-black uppercase tracking-tight text-white">Campaign Builder</h4>
@@ -374,7 +374,7 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('send_now')}
-            className="h-11 px-4 rounded-xl bg-[#9AE030] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-[#FFFFFF] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Send className="w-4 h-4" /> Send Now
           </button>
@@ -382,14 +382,14 @@ export const CampaignForm: React.FC = () => {
             type="button"
             disabled={busy || !canWrite}
             onClick={() => createCampaign('schedule')}
-            className="h-11 px-4 rounded-xl bg-[#9AE030] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
+            className="h-11 px-4 rounded-xl bg-[#FFFFFF] text-black font-black disabled:opacity-60 inline-flex items-center gap-2"
           >
             <Clock3 className="w-4 h-4" /> Schedule
           </button>
         </div>
 
         {preview && (
-          <div className="mt-4 rounded-xl border border-[#9AE030]/25 bg-[#9AE030]/10 p-4">
+          <div className="mt-4 rounded-xl border border-[#FFFFFF]/25 bg-[#FFFFFF]/10 p-4">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/90 font-black">Preview</p>
             <p className="text-sm text-zinc-200 mt-1">Users: {preview.users} | Subscriptions: {preview.subscriptions}</p>
             {preview.sample_user_ids?.length > 0 && (
@@ -402,7 +402,7 @@ export const CampaignForm: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="rounded-[24px] border border-white/10 bg-[#0A0C12]/80 p-5">
+        <div className="rounded-[14px] border border-white/10 bg-[#0A0C12]/80 p-5">
           <div className="flex items-center justify-between mb-4">
             <h5 className="text-sm font-black uppercase tracking-[0.18em] text-white">Campaigns</h5>
             <div className="flex items-center gap-2">
@@ -459,7 +459,7 @@ export const CampaignForm: React.FC = () => {
                       type="button"
                       disabled={busy || !canWrite}
                       onClick={() => sendExistingCampaignNow(campaign.id)}
-                      className="h-8 px-3 rounded-lg border border-[#9AE030]/35 text-[10px] text-white/90 disabled:opacity-60"
+                      className="h-8 px-3 rounded-lg border border-[#FFFFFF]/35 text-[10px] text-white/90 disabled:opacity-60"
                     >
                       Send Now
                     </button>
@@ -470,7 +470,7 @@ export const CampaignForm: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-white/10 bg-[#0A0C12]/80 p-5">
+        <div className="rounded-[14px] border border-white/10 bg-[#0A0C12]/80 p-5">
           <div className="flex items-center justify-between mb-4">
             <h5 className="text-sm font-black uppercase tracking-[0.18em] text-white">Delivery Logs</h5>
             <div className="flex items-center gap-2">

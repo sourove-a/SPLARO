@@ -87,8 +87,8 @@ export const MobileTabBar: React.FC = () => {
             background: 'rgba(7,14,32,0.92)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
-            borderRadius: '22px',
-            border: '1px solid rgba(154,224,48,0.18)',
+            borderRadius: '12px',
+            border: '1px solid rgba(255,255,255,0.13)',
             boxShadow: '0 -4px 32px rgba(0,0,0,0.55), 0 12px 28px rgba(0,0,0,0.45)',
           }}
         >
@@ -96,8 +96,8 @@ export const MobileTabBar: React.FC = () => {
 
           {navItems.map((item) => {
             const isActive = getIsActive(item);
-            const GOLD = '#9AE030';
-            const GOLD_BRIGHT = '#AAEE2A';
+            const GOLD = '#FFFFFF';
+            const GOLD_BRIGHT = '#FFFFFF';
 
             return (
               <button
@@ -143,9 +143,9 @@ export const MobileTabBar: React.FC = () => {
                   }
                   navigate(path);
                 }}
-                className="relative z-10 flex-1 h-full flex flex-col items-center justify-center gap-0.5 outline-none touch-manipulation transition-all duration-300 rounded-[18px]"
+                className="relative z-10 flex-1 h-full flex flex-col items-center justify-center gap-0.5 outline-none touch-manipulation transition-all duration-300 rounded-[12px]"
                 style={{
-                  background: isActive ? 'rgba(154,224,48,0.10)' : 'transparent',
+                  background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
                 }}
               >
                 {/* Icon with badge */}
@@ -198,7 +198,7 @@ export const MobileTabBar: React.FC = () => {
           })}
         </div>
         {/* Ambient glow */}
-        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#9AE030]/15 blur-xl rounded-full -z-10" />
+        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#FFFFFF]/15 blur-xl rounded-full -z-10" />
       </div>
     </motion.div>
   );

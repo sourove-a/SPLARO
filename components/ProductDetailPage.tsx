@@ -180,7 +180,7 @@ export const ProductDetailPage: React.FC = () => {
   if (!product) return (
     <div className="pt-40 text-center">
       <h2 className="text-2xl font-black uppercase text-zinc-500 tracking-tighter italic">UNIT NOT ENCOUNTERED</h2>
-      <button onClick={() => navigate('/shop')} className="mt-8 px-12 py-5 border border-zinc-800 rounded-full font-black uppercase text-[10px] tracking-[0.4em] hover:border-[#9AE030] hover:text-[#D4B47A] transition-all">Back to Collective</button>
+      <button onClick={() => navigate('/shop')} className="mt-8 px-12 py-5 border border-zinc-800 rounded-full font-black uppercase text-[10px] tracking-[0.4em] hover:border-[#FFFFFF] hover:text-[#D4B47A] transition-all">Back to Collective</button>
     </div>
   );
 
@@ -209,7 +209,7 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 key={i}
                 onClick={() => setActiveImg(img)}
-                className={`w-16 sm:w-20 md:w-24 aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-[#9AE030]' : 'border-white/5 hover:border-white/20'}`}
+                className={`w-16 sm:w-20 md:w-24 aspect-square rounded-xl sm:rounded-xl overflow-hidden border-2 transition-all shrink-0 ${activeImg === img ? 'border-[#FFFFFF]' : 'border-white/5 hover:border-white/20'}`}
               >
                 <OptimizedImage src={img} alt={`${product.name} thumbnail ${i + 1}`} sizes="96px" className="w-full h-full object-cover" />
               </button>
@@ -222,7 +222,7 @@ export const ProductDetailPage: React.FC = () => {
               key={activeImg}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-zinc-950 rounded-[24px] sm:rounded-[32px] md:rounded-[40px] overflow-hidden aspect-[4/5] sm:aspect-square border border-white/5 flex items-center justify-center relative group max-w-full"
+              className="bg-zinc-950 rounded-[14px] sm:rounded-[12px] md:rounded-[12px] overflow-hidden aspect-[4/5] sm:aspect-square border border-white/5 flex items-center justify-center relative group max-w-full"
             >
               <ProductImageZoom
                 src={activeImg}
@@ -262,7 +262,7 @@ export const ProductDetailPage: React.FC = () => {
           <p className="text-2xl md:text-3xl font-black text-[#D4B47A] mb-8">Tk {Number(product.price || 0).toLocaleString()}.00</p>
 
           <div className="space-y-10">
-            <div className="rounded-[28px] border border-white/10 bg-[#0b111c]/80 backdrop-blur-2xl p-5 sm:p-6 space-y-5 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
+            <div className="rounded-[10px] border border-white/10 bg-[#0b111c]/80 backdrop-blur-2xl p-5 sm:p-6 space-y-5 shadow-[0_25px_60px_rgba(0,0,0,0.45)]">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Select Size</h3>
@@ -317,7 +317,7 @@ export const ProductDetailPage: React.FC = () => {
                   <h3 className="text-[10px] font-black text-white/70 uppercase tracking-[0.28em]">Quantity</h3>
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#D4B47A]">{quantity} PCS</span>
                 </div>
-                <div className="h-14 rounded-2xl border border-white/15 bg-black/25 px-2 flex items-center">
+                <div className="h-14 rounded-xl border border-white/15 bg-black/25 px-2 flex items-center">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="w-11 h-11 rounded-xl border border-white/10 text-white/85 hover:border-white/18 hover:text-white/90 transition-all flex items-center justify-center"
@@ -351,7 +351,7 @@ export const ProductDetailPage: React.FC = () => {
                   disabled={urgency.outOfStock || isAdding}
                   variant={urgency.outOfStock ? 'secondary' : 'default'}
                   size="lg"
-                  className={`w-full h-14 rounded-2xl font-black tracking-[0.22em] transition-all ${
+                  className={`w-full h-14 rounded-xl font-black tracking-[0.22em] transition-all ${
                     urgency.outOfStock
                       ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed border border-white/10 hover:bg-zinc-800'
                       : 'bg-gradient-to-r from-blue-500 to-blue-400 text-white hover:brightness-110 shadow-[0_12px_30px_rgba(0, 122, 255, 0.35)]'
@@ -365,7 +365,7 @@ export const ProductDetailPage: React.FC = () => {
                   disabled={urgency.outOfStock || isAdding}
                   variant="secondary"
                   size="lg"
-                  className={`w-full h-14 rounded-2xl font-black tracking-[0.3em] transition-all ${
+                  className={`w-full h-14 rounded-xl font-black tracking-[0.3em] transition-all ${
                     urgency.outOfStock
                       ? 'bg-zinc-900 text-zinc-500 border border-white/10 cursor-not-allowed hover:bg-zinc-900'
                       : 'bg-white/12 border border-white/30 text-white hover:bg-blue-100/25 shadow-[0_18px_36px_rgba(0,0,0,0.28)]'
@@ -392,7 +392,7 @@ export const ProductDetailPage: React.FC = () => {
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.max(8, Math.min(100, (urgency.knownStock / Math.max(urgency.threshold, 1)) * 100))}%` }}
-                          className="h-full bg-[#9AE030]/70"
+                          className="h-full bg-[#FFFFFF]/70"
                         />
                       </div>
                     )}
@@ -432,19 +432,19 @@ export const ProductDetailPage: React.FC = () => {
             {/* Trust Icons */}
             <div className="pt-10 flex justify-between">
               <div className="flex flex-col items-center gap-2 group cursor-default">
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#9AE030] transition-colors">
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#FFFFFF] transition-colors">
                   <Truck className="w-5 h-5 text-zinc-400" />
                 </div>
                 <span className="text-[9px] font-black uppercase text-zinc-600">Free Ship</span>
               </div>
               <div className="flex flex-col items-center gap-2 group cursor-default">
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#9AE030] transition-colors">
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#FFFFFF] transition-colors">
                   <RotateCcw className="w-5 h-5 text-zinc-400" />
                 </div>
                 <span className="text-[9px] font-black uppercase text-zinc-600">Returns</span>
               </div>
               <div className="flex flex-col items-center gap-2 group cursor-default">
-                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#9AE030] transition-colors">
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[#FFFFFF] transition-colors">
                   <ShieldCheck className="w-5 h-5 text-zinc-400" />
                 </div>
                 <span className="text-[9px] font-black uppercase text-zinc-600">Secure</span>

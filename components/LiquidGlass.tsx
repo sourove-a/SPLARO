@@ -4,11 +4,11 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 export const GlassCard: React.FC<{ children: React.ReactNode; className?: string; id?: string }> = ({ children, className = "", id }) => (
   <div
     id={id}
-    className={`card liquid-glass rounded-[32px] relative overflow-hidden ${className}`}
+    className={`card liquid-glass rounded-[12px] relative overflow-hidden ${className}`}
     style={{
-      border: '1px solid rgba(154,224,48,0.28)',
-      background: 'rgba(7, 16, 30, 0.72)',
-      boxShadow: '0 16px 48px rgba(0,0,0,0.75), 0 0 32px rgba(154,224,48,0.10), inset 0 1px 0 rgba(154,224,48,0.12)',
+      border: '1px solid rgba(255,255,255,0.15)',
+      background: 'rgba(255, 255, 255, 0.07)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.16)',
     }}
   >
     <div className="ribbed-texture absolute inset-0 pointer-events-none opacity-[0.02]" />
@@ -39,7 +39,7 @@ export const RibbedCard: React.FC<{ children: React.ReactNode; className?: strin
       onMouseMove={interactive ? handleMouse : undefined}
       onMouseLeave={interactive ? () => { x.set(0); y.set(0); } : undefined}
       style={interactive ? { rotateX, rotateY, transformStyle: "preserve-3d" } : {}}
-      className={`card group liquid-glass rounded-[40px] p-10 relative overflow-hidden ${className}`}
+      className={`card group liquid-glass rounded-[12px] p-10 relative overflow-hidden ${className}`}
     >
       <div className="ribbed-texture absolute inset-0 pointer-events-none opacity-[0.02]" />
       <div className="shine-sweep opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -75,13 +75,13 @@ export const LuxuryFloatingInput: React.FC<{
     <div className="relative mb-4 group w-full">
       <motion.div
         animate={{
-          borderColor: focused ? 'rgba(154, 224, 48, 0.85)' : error ? 'rgba(192, 97, 74, 0.70)' : isValid ? 'rgba(154, 224, 48, 0.60)' : 'rgba(154, 224, 48, 0.22)',
+          borderColor: focused ? 'rgba(154, 224, 48, 0.85)' : error ? 'rgba(192, 97, 74, 0.70)' : isValid ? 'rgba(255, 255, 255, 0.50)' : 'rgba(255, 255, 255, 0.15)',
           backgroundColor: focused ? 'rgba(8, 14, 32, 0.98)' : error ? 'rgba(8, 14, 38, 0.55)' : 'rgba(8, 14, 32, 0.92)',
-          boxShadow: focused ? '0 0 0 2px rgba(154, 224, 48, 0.20), 0 10px 26px rgba(0, 0, 0, 0.52)' : '0 8px 18px rgba(0, 0, 0, 0.38)'
+          boxShadow: focused ? '0 0 0 2px rgba(255, 255, 255, 0.14), 0 10px 26px rgba(0, 0, 0, 0.52)' : '0 8px 18px rgba(0, 0, 0, 0.38)'
         }}
-        className="relative flex items-center h-20 md:h-24 border rounded-[24px] transition-all duration-200 ease-out overflow-hidden"
+        className="relative flex items-center h-20 md:h-24 border rounded-[14px] transition-all duration-200 ease-out overflow-hidden"
       >
-        <div className={`pl-8 transition-all duration-300 ${focused ? 'scale-105' : ''}`} style={{ color: focused ? '#9AE030' : error ? '#C0614A' : isValid ? '#9AE030' : 'rgba(255,255,255,0.55)' }}>
+        <div className={`pl-8 transition-all duration-300 ${focused ? 'scale-105' : ''}`} style={{ color: focused ? '#FFFFFF' : error ? '#C0614A' : isValid ? '#FFFFFF' : 'rgba(255,255,255,0.55)' }}>
           {icon}
         </div>
 
@@ -92,7 +92,7 @@ export const LuxuryFloatingInput: React.FC<{
               y: (focused || isFilled) ? -24 : 0,
               scale: (focused || isFilled) ? 0.58 : 1,
               x: (focused || isFilled) ? -20 : 0,
-              color: (focused || isFilled) ? '#9AE030' : error ? '#C0614A' : isValid ? '#9AE030' : 'rgba(255,255,255,0.50)'
+              color: (focused || isFilled) ? '#FFFFFF' : error ? '#C0614A' : isValid ? '#FFFFFF' : 'rgba(255,255,255,0.50)'
             }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none text-[11px] font-black uppercase tracking-[0.18em] origin-left z-20 whitespace-nowrap"
@@ -141,7 +141,7 @@ export const LuxuryFloatingInput: React.FC<{
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-gradient-to-r from-[#3A8A10]/05 via-transparent to-transparent pointer-events-none"
+              className="absolute inset-0 bg-gradient-to-r from-[#FFFFFF]/05 via-transparent to-transparent pointer-events-none"
             />
           )}
         </AnimatePresence>
@@ -177,7 +177,7 @@ export const PrimaryButton: React.FC<{
     whileHover={!disabled && !isLoading ? {
       scale: 1.012,
       y: -2,
-      boxShadow: "0 14px 32px rgba(154,224,48,0.55)"
+      boxShadow: "0 14px 32px rgba(255,255,255,0.45)"
     } : {}}
     whileTap={!disabled && !isLoading ? {
       scale: 0.988,
@@ -186,18 +186,18 @@ export const PrimaryButton: React.FC<{
     } : {}}
     onClick={onClick}
     disabled={disabled || isLoading}
-    className={`interactive-control relative rounded-[32px] font-bold overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group ${className}`}
+    className={`interactive-control relative rounded-[12px] font-bold overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group ${className}`}
     style={{
-      background: 'linear-gradient(135deg, #0A1E14 0%, #1A5010 40%, #3A8A10 70%, #9AE030 100%)',
-      border: '1px solid rgba(154,224,48,0.55)',
+      background: 'rgba(255, 255, 255, 0.16)',
+      border: '1px solid rgba(255,255,255,0.28)',
       color: '#FFFFFF',
-      boxShadow: '0 0 28px rgba(154,224,48,0.35), inset 0 1px 0 rgba(154,224,48,0.20)',
+      boxShadow: '0 0 28px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.14)',
     }}
   >
     <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
     <div
       className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-      style={{ background: 'rgba(154,224,48,0.10)' }}
+      style={{ background: 'rgba(255,255,255,0.08)' }}
     />
 
     <div className="relative z-10 flex items-center justify-center gap-4 px-10 uppercase tracking-[0.38em]">
@@ -226,7 +226,7 @@ export const SocialButton: React.FC<{
     whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.10)', borderColor: 'rgba(255,255,255,0.28)', y: -2 }}
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
-    className="interactive-control w-full h-18 bg-white/[0.06] backdrop-blur-xl rounded-2xl border border-white/[0.15] flex items-center justify-center gap-4 transition-all group shadow-[0_8px_24px_rgba(0,0,0,0.40)]"
+    className="interactive-control w-full h-18 bg-white/[0.06] backdrop-blur-xl rounded-xl border border-white/[0.15] flex items-center justify-center gap-4 transition-all group shadow-[0_8px_24px_rgba(0,0,0,0.40)]"
   >
     <div className="shrink-0 transition-transform duration-500 group-hover:scale-110">{icon}</div>
     <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/75 group-hover:text-white transition-colors">{label}</span>

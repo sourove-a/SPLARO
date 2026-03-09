@@ -29,19 +29,19 @@ const FilterPill: React.FC<{
     whileHover={{ scale: 1.05, y: -2 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
-    className="relative px-5 py-3 rounded-2xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group"
+    className="relative px-5 py-3 rounded-xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group"
     style={{
-      background: isSelected ? 'rgba(154,224,48,0.28)' : 'rgba(255,255,255,0.04)',
-      borderColor: isSelected ? 'rgba(154,224,48,0.52)' : 'rgba(154,224,48,0.12)',
+      background: isSelected ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.04)',
+      borderColor: isSelected ? 'rgba(154,224,48,0.52)' : 'rgba(255,255,255,0.09)',
       color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.48)',
-      boxShadow: isSelected ? '0 0 24px rgba(154,224,48,0.14)' : 'none',
+      boxShadow: isSelected ? '0 0 24px rgba(255,255,255,0.10)' : 'none',
     }}
   >
     {isSelected && (
       <motion.div
         layoutId={`pill-glow-${label}`}
         className="absolute inset-0 blur-xl pointer-events-none"
-        style={{ background: 'rgba(154,224,48,0.08)' }}
+        style={{ background: 'rgba(255,255,255,0.07)' }}
       />
     )}
     {colorHex ? (
@@ -53,7 +53,7 @@ const FilterPill: React.FC<{
       <div
         className="w-2 h-2 rounded-full transition-all"
         style={{
-          background: isSelected ? '#9AE030' : 'rgba(154,224,48,0.22)',
+          background: isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.15)',
           transform: isSelected ? 'scale(1.3)' : 'scale(1)',
         }}
       />
@@ -75,14 +75,14 @@ const SizeBox: React.FC<{
     whileHover={isAvailable ? { scale: 1.08, y: -3 } : {}}
     whileTap={isAvailable ? { scale: 0.92 } : {}}
     onClick={isAvailable ? onClick : undefined}
-    className="relative w-16 h-16 flex items-center justify-center rounded-2xl border transition-all duration-500 overflow-hidden"
+    className="relative w-16 h-16 flex items-center justify-center rounded-xl border transition-all duration-500 overflow-hidden"
     style={{
       opacity: !isAvailable ? 0.14 : 1,
       cursor: !isAvailable ? 'not-allowed' : 'pointer',
-      background: isSelected ? 'rgba(154,224,48,0.20)' : 'rgba(255,255,255,0.03)',
-      borderColor: isSelected ? 'rgba(154,224,48,0.55)' : 'rgba(154,224,48,0.14)',
+      background: isSelected ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.03)',
+      borderColor: isSelected ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.10)',
       color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.45)',
-      boxShadow: isSelected ? '0 8px 28px rgba(154,224,48,0.22)' : 'none',
+      boxShadow: isSelected ? '0 8px 28px rgba(255,255,255,0.15)' : 'none',
     }}
   >
     <span className="text-sm font-bold relative z-10">{size}</span>
@@ -96,16 +96,16 @@ const ActiveFilterPill: React.FC<{ label: string; onRemove: () => void }> = ({ l
     exit={{ scale: 0, opacity: 0 }}
     className="flex items-center gap-2 px-4 py-2 rounded-full text-[9px] font-bold uppercase tracking-widest"
     style={{
-      background: 'rgba(154,224,48,0.14)',
-      border: '1px solid rgba(154,224,48,0.35)',
-      color: '#9AE030',
+      background: 'rgba(255,255,255,0.10)',
+      border: '1px solid rgba(255,255,255,0.25)',
+      color: '#FFFFFF',
     }}
   >
     {label}
     <button
       onClick={onRemove}
       className="hover:opacity-100 transition-opacity"
-      style={{ color: '#9AE030', opacity: 0.7 }}
+      style={{ color: '#FFFFFF', opacity: 0.7 }}
     >
       <X className="w-3 h-3" />
     </button>
@@ -515,12 +515,12 @@ export const ShopPage: React.FC = () => {
     <div className="pt-28 sm:pt-36 px-4 sm:px-6 pb-10 sm:pb-16 splaro-shell min-h-screen overflow-x-hidden">
       <div className="mb-10 sm:mb-16">
         <div
-          className="rounded-[28px] sm:rounded-[36px] border border-white/10 px-5 sm:px-8 lg:px-12 py-8 sm:py-10 liquid-glass"
+          className="rounded-[10px] sm:rounded-[12px] border border-white/10 px-5 sm:px-8 lg:px-12 py-8 sm:py-10 liquid-glass"
           style={heroBackgroundStyle}
         >
           <div className={`flex flex-col md:flex-row justify-between ${resolvedHero.heroAlignment === 'CENTER' ? 'items-center text-center md:text-center' : 'items-start md:items-end text-left'} gap-10`}>
           <div className="max-w-xl">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-6" style={{ color: '#9AE030' }}>
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-6" style={{ color: '#FFFFFF' }}>
               <Sparkles className="w-5 h-5" />
               <span className="text-[10px] font-bold uppercase tracking-[0.4em]">{resolvedHero.heroBadge}</span>
             </motion.div>
@@ -531,7 +531,7 @@ export const ShopPage: React.FC = () => {
             >
               {resolvedHero.titleLines.map((line: string, index: number) => (
                 <React.Fragment key={`hero-line-${index}`}>
-                  <span style={index === resolvedHero.titleLines.length - 1 ? { color: '#9AE030' } : {}}>{line}</span>
+                  <span style={index === resolvedHero.titleLines.length - 1 ? { color: '#FFFFFF' } : {}}>{line}</span>
                   {index < resolvedHero.titleLines.length - 1 ? <br /> : null}
                 </React.Fragment>
               ))}
@@ -552,7 +552,7 @@ export const ShopPage: React.FC = () => {
                   }
                 }}
                 className="mt-6 min-h-12 px-6 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
-                style={{ border: '1px solid rgba(154,224,48,0.30)', background: 'rgba(154,224,48,0.10)', color: '#F0F8FF' }}
+                style={{ border: '1px solid rgba(255,255,255,0.22)', background: 'rgba(255,255,255,0.08)', color: '#F0F8FF' }}
               >
                 {resolvedHero.heroCtaLabel}
               </button>
@@ -563,7 +563,7 @@ export const ShopPage: React.FC = () => {
             <div className="flex flex-wrap gap-4 w-full md:w-auto">
               <div
                 className="flex rounded-full p-1 max-w-full overflow-x-auto liquid-glass"
-                style={{ border: '1px solid rgba(154,224,48,0.28)' }}
+                style={{ border: '1px solid rgba(255,255,255,0.20)' }}
               >
                 {SORT_OPTIONS.map((option) => (
                   <button
@@ -571,9 +571,9 @@ export const ShopPage: React.FC = () => {
                     onClick={() => setSortOption(option)}
                     className="px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-bold tracking-widest whitespace-nowrap"
                     style={{
-                      background: sortOption === option ? 'rgba(154,224,48,0.22)' : 'transparent',
+                      background: sortOption === option ? 'rgba(255,255,255,0.15)' : 'transparent',
                       color: sortOption === option ? '#D4B47A' : 'rgba(220,210,190,0.45)',
-                      border: sortOption === option ? '1px solid rgba(154,224,48,0.40)' : '1px solid transparent',
+                      border: sortOption === option ? '1px solid rgba(255,255,255,0.30)' : '1px solid transparent',
                     }}
                   >
                     {sortButtonLabel[option]}
@@ -583,7 +583,7 @@ export const ShopPage: React.FC = () => {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="lg:hidden min-h-12 px-6 py-3 liquid-glass rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-3 touch-manipulation"
-                style={{ border: '1px solid rgba(154,224,48,0.22)', color: '#9AE030' }}
+                style={{ border: '1px solid rgba(255,255,255,0.15)', color: '#FFFFFF' }}
               >
                 <Filter className="w-4 h-4" /> {showFilters ? t('shop.hideFilters') : t('shop.filters')}
               </button>
@@ -606,10 +606,10 @@ export const ShopPage: React.FC = () => {
         <aside
           className={`lg:w-80 shrink-0 space-y-6 ${
             showFilters
-              ? 'fixed lg:static inset-x-3 top-24 bottom-[calc(var(--mobile-nav-height)+var(--mobile-safe-bottom)+16px)] z-[130] block overflow-y-auto rounded-[24px] p-4'
+              ? 'fixed lg:static inset-x-3 top-24 bottom-[calc(var(--mobile-nav-height)+var(--mobile-safe-bottom)+16px)] z-[130] block overflow-y-auto rounded-[14px] p-4'
               : 'hidden lg:block'
           }`}
-          style={showFilters ? { border: '1px solid rgba(154,224,48,0.22)', background: 'rgba(12,20,9,0.97)' } : {}}
+          style={showFilters ? { border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(12,20,9,0.97)' } : {}}
         >
           <div className={`space-y-8 ${showFilters ? '' : 'lg:sticky lg:top-48'}`}>
             <div className="lg:hidden flex items-center justify-between pb-2 border-b border-white/10">
@@ -623,8 +623,8 @@ export const ShopPage: React.FC = () => {
               </button>
             </div>
             <div className="space-y-6">
-              <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(255,255,255,0.90)', borderBottom: '1px solid rgba(154,224,48,0.14)' }}>
-                <Layers className="w-4 h-4" style={{ color: '#9AE030' }} /> {t('shop.category')}
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(255,255,255,0.90)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
+                <Layers className="w-4 h-4" style={{ color: '#FFFFFF' }} /> {t('shop.category')}
               </h4>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
                 <FilterPill label={t('shop.allProducts')} isSelected={!activeCategory} onClick={() => handleCategorySelect(null)} />
@@ -650,8 +650,8 @@ export const ShopPage: React.FC = () => {
 
                 return (
                   <div className="space-y-6" key={filter.id}>
-                    <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(255,255,255,0.90)', borderBottom: '1px solid rgba(154,224,48,0.14)' }}>
-                      <Tag className="w-4 h-4" style={{ color: '#9AE030' }} /> {filter.label}
+                    <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(255,255,255,0.90)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
+                      <Tag className="w-4 h-4" style={{ color: '#FFFFFF' }} /> {filter.label}
                     </h4>
                     {isSizeFilter(filter) ? (
                       <div className="grid grid-cols-4 lg:grid-cols-4 gap-3">
@@ -670,16 +670,16 @@ export const ShopPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setOpenMultiFilterId((prev) => (prev === filter.id ? null : filter.id))}
-                            className="w-full min-h-12 px-4 rounded-2xl transition-all flex items-center justify-between"
-                            style={{ border: '1px solid rgba(154,224,48,0.28)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.80)' }}
+                            className="w-full min-h-12 px-4 rounded-xl transition-all flex items-center justify-between"
+                            style={{ border: '1px solid rgba(255,255,255,0.20)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.80)' }}
                           >
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">
                               {selectedValues.length > 0 ? `${selectedValues.length} Selected` : 'Select Brand'}
                             </span>
                             {openMultiFilterId === filter.id ? (
-                              <ChevronUp className="w-4 h-4" style={{ color: '#9AE030' }} />
+                              <ChevronUp className="w-4 h-4" style={{ color: '#FFFFFF' }} />
                             ) : (
-                              <ChevronDown className="w-4 h-4" style={{ color: '#9AE030' }} />
+                              <ChevronDown className="w-4 h-4" style={{ color: '#FFFFFF' }} />
                             )}
                           </button>
 
@@ -694,15 +694,15 @@ export const ShopPage: React.FC = () => {
                                     onClick={() => toggleMultiFilter(filter.id, option)}
                                     className="w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between"
                                     style={{
-                                      borderColor: isChecked ? 'rgba(154,224,48,0.52)' : 'rgba(154,224,48,0.14)',
-                                      background: isChecked ? 'rgba(154,224,48,0.14)' : 'rgba(255,255,255,0.03)',
+                                      borderColor: isChecked ? 'rgba(154,224,48,0.52)' : 'rgba(255,255,255,0.10)',
+                                      background: isChecked ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)',
                                       color: isChecked ? '#D4B47A' : 'rgba(220,210,190,0.72)',
                                     }}
                                   >
                                     <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-left">{option}</span>
                                     <span
                                       className="w-2.5 h-2.5 rounded-full"
-                                      style={{ background: isChecked ? '#9AE030' : 'rgba(154,224,48,0.22)' }}
+                                      style={{ background: isChecked ? '#FFFFFF' : 'rgba(255,255,255,0.15)' }}
                                     />
                                   </button>
                                 );
@@ -730,12 +730,12 @@ export const ShopPage: React.FC = () => {
 
             {priceFilter && priceRange && (
               <div className="space-y-6">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(255,255,255,0.90)', borderBottom: '1px solid rgba(154,224,48,0.14)' }}>
-                  <SortAsc className="w-4 h-4" style={{ color: '#9AE030' }} /> Price Range (৳)
+                <h4 className="text-[11px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 pb-4" style={{ color: 'rgba(255,255,255,0.90)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
+                  <SortAsc className="w-4 h-4" style={{ color: '#FFFFFF' }} /> Price Range (৳)
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(154,224,48,0.28)' }}>
-                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(154,224,48,0.55)' }}>Min ৳</p>
+                  <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.20)' }}>
+                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>Min ৳</p>
                     <input
                       type="number"
                       value={priceRange.min}
@@ -750,11 +750,11 @@ export const ShopPage: React.FC = () => {
                         });
                       }}
                       className="w-full bg-transparent text-sm font-bold outline-none"
-                      style={{ color: '#9AE030' }}
+                      style={{ color: '#FFFFFF' }}
                     />
                   </div>
-                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(154,224,48,0.28)' }}>
-                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(154,224,48,0.55)' }}>Max ৳</p>
+                  <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.20)' }}>
+                    <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>Max ৳</p>
                     <input
                       type="number"
                       value={priceRange.max}
@@ -769,7 +769,7 @@ export const ShopPage: React.FC = () => {
                         });
                       }}
                       className="w-full bg-transparent text-sm font-bold outline-none"
-                      style={{ color: '#9AE030' }}
+                      style={{ color: '#FFFFFF' }}
                     />
                   </div>
                 </div>
@@ -782,7 +782,7 @@ export const ShopPage: React.FC = () => {
                   clearAllFilters();
                   setShowFilters(false);
                 }}
-                className="w-full min-h-12 flex items-center justify-center gap-3 px-5 py-3 border border-rose-500/20 rounded-2xl text-[10px] font-black uppercase text-rose-500 tracking-widest hover:bg-rose-500/5 transition-all touch-manipulation"
+                className="w-full min-h-12 flex items-center justify-center gap-3 px-5 py-3 border border-rose-500/20 rounded-xl text-[10px] font-black uppercase text-rose-500 tracking-widest hover:bg-rose-500/5 transition-all touch-manipulation"
               >
                 <Trash2 className="w-4 h-4" /> {t('shop.clearFilters')}
               </button>

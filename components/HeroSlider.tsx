@@ -122,14 +122,14 @@ export const HeroSlider = () => {
           >
             {/* Tag */}
             <div className="flex items-center gap-3">
-              <div className="h-px w-10" style={{ background: 'rgba(154,224,48,0.55)' }} />
+              <div className="h-px w-10" style={{ background: 'rgba(255,255,255,0.45)' }} />
               <span
                 className="text-[9px] font-semibold uppercase"
                 style={{ letterSpacing: '0.7em', color: 'rgba(154,224,48,0.85)' }}
               >
                 {slides[index]?.tag || slides[index]?.tags?.[0] || 'PREMIUM COLLECTION'}
               </span>
-              <div className="h-px w-10" style={{ background: 'rgba(154,224,48,0.55)' }} />
+              <div className="h-px w-10" style={{ background: 'rgba(255,255,255,0.45)' }} />
             </div>
 
             {/* Main heading */}
@@ -164,7 +164,7 @@ export const HeroSlider = () => {
         <motion.button
           whileHover={{
             scale: 1.04,
-            boxShadow: '0 0 40px rgba(154,224,48,0.50)',
+            boxShadow: '0 0 40px rgba(255,255,255,0.40)',
           }}
           whileTap={{ scale: 0.96 }}
           onClick={() => {
@@ -177,9 +177,9 @@ export const HeroSlider = () => {
             marginTop: '2.5rem',
             padding: '1.1rem 2.5rem',
             borderRadius: '999px',
-            background: 'linear-gradient(135deg, #071832 0%, #0A2A50 50%, #9AE030 100%)',
+            background: 'linear-gradient(135deg, #071832 0%, #0A2A50 50%, #FFFFFF 100%)',
             border: '1px solid rgba(212,180,122,0.40)',
-            boxShadow: '0 4px 28px rgba(154,224,48,0.45), inset 0 1px 0 rgba(255,240,210,0.22)',
+            boxShadow: '0 4px 28px rgba(255,255,255,0.35), inset 0 1px 0 rgba(255,240,210,0.22)',
           }}
         >
           <span
@@ -204,7 +204,7 @@ export const HeroSlider = () => {
               style={{
                 width: i === index ? '28px' : '6px',
                 height: '6px',
-                background: i === index ? '#9AE030' : 'rgba(154,224,48,0.28)',
+                background: i === index ? '#FFFFFF' : 'rgba(255,255,255,0.20)',
               }}
             />
           ))}
@@ -217,7 +217,7 @@ export const HeroSlider = () => {
           onClick={showPrevSlide}
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
-            border: '1px solid rgba(154,224,48,0.28)',
+            border: '1px solid rgba(255,255,255,0.20)',
             background: 'rgba(8,14,32,0.55)',
             color: '#F0F8FF',
           }}
@@ -230,7 +230,7 @@ export const HeroSlider = () => {
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
             border: '1px solid rgba(154,224,48,0.42)',
-            background: 'rgba(154,224,48,0.25)',
+            background: 'rgba(255,255,255,0.18)',
             color: '#F0F8FF',
           }}
           aria-label="Next slide"

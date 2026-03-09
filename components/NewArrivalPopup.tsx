@@ -51,17 +51,17 @@ export const NewArrivalPopup: React.FC = () => {
           className="fixed bottom-28 sm:bottom-8 right-4 sm:right-8 z-[700] w-[calc(100vw-2rem)] sm:w-[380px] max-w-sm"
         >
           <div
-            className="relative overflow-hidden rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+            className="relative overflow-hidden rounded-xl shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
             style={{
               background: 'linear-gradient(135deg, #0C1409 0%, #08121E 60%, #12200F 100%)',
-              border: '1px solid rgba(154,224,48,0.28)',
+              border: '1px solid rgba(255,255,255,0.20)',
             }}
           >
             {/* Badge */}
             <div className="absolute top-4 left-4 z-10">
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ background: 'rgba(154,224,48,0.28)', border: '1px solid rgba(154,224,48,0.35)' }}
+                style={{ background: 'rgba(255,255,255,0.20)', border: '1px solid rgba(255,255,255,0.25)' }}
               >
                 <Sparkles className="w-3 h-3" style={{ color: '#D4B47A' }} />
                 <span
@@ -79,7 +79,7 @@ export const NewArrivalPopup: React.FC = () => {
               aria-label="Close popup"
               onClick={handleDismiss}
               className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(154,224,48,0.28)' }}
+              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(255,255,255,0.20)' }}
             >
               <X className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
             </button>
@@ -121,9 +121,9 @@ export const NewArrivalPopup: React.FC = () => {
                   onClick={handleCta}
                   className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all group"
                   style={{
-                    background: 'linear-gradient(135deg, #071832 0%, #0A2A50 45%, #9AE030 75%, #0A2A50 100%)',
+                    background: 'linear-gradient(135deg, #071832 0%, #0A2A50 45%, #FFFFFF 75%, #0A2A50 100%)',
                     color: '#0A0F08',
-                    boxShadow: '0 6px 20px rgba(154,224,48,0.30)',
+                    boxShadow: '0 6px 20px rgba(255,255,255,0.22)',
                   }}
                 >
                   {popup.ctaLabel || 'Shop Now'}
@@ -134,7 +134,7 @@ export const NewArrivalPopup: React.FC = () => {
                   onClick={handleDismiss}
                   className="h-11 px-4 rounded-xl text-[10px] font-bold uppercase tracking-[0.18em] transition-all"
                   style={{
-                    border: '1px solid rgba(154,224,48,0.22)',
+                    border: '1px solid rgba(255,255,255,0.15)',
                     color: 'rgba(255,255,255,0.55)',
                   }}
                 >
@@ -146,7 +146,7 @@ export const NewArrivalPopup: React.FC = () => {
             {/* Decorative corner glow */}
             <div
               className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full blur-2xl pointer-events-none"
-              style={{ background: 'rgba(154,224,48,0.12)' }}
+              style={{ background: 'rgba(255,255,255,0.09)' }}
             />
           </div>
         </motion.div>

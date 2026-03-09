@@ -35,7 +35,7 @@ export const CartPage: React.FC = () => {
         {/* Left: Cart Items List */}
         <div className="lg:col-span-8">
           <header className="mb-8 sm:mb-12">
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-[#9AE030]">Cart.</span></h1>
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-[#FFFFFF]">Cart.</span></h1>
             <p className="text-white/30 font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[9px]">{cart.length} {t('cart.items')}</p>
           </header>
 
@@ -43,7 +43,7 @@ export const CartPage: React.FC = () => {
             {cart.map((item) => (
               <GlassCard key={item.cartId} className="p-4 sm:p-6 group">
                 <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden border border-white/5 bg-zinc-900 shrink-0">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-white/5 bg-zinc-900 shrink-0">
                     <OptimizedImage
                       src={item.product.image}
                       alt={item.product.name}
@@ -53,7 +53,7 @@ export const CartPage: React.FC = () => {
                   </div>
 
                   <div className="flex-1 text-center sm:text-left">
-                    <span className="text-[#9AE030] text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
+                    <span className="text-[#FFFFFF] text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
                     <h3 className="text-lg sm:text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
                     <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest text-white/60">
                       <span>{t('cart.size')}: {item.selectedSize}</span>
@@ -133,10 +133,10 @@ export const CartPage: React.FC = () => {
 
               <div className="mt-10 flex flex-col gap-4">
                 <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
-                  <ShieldCheck className="w-4 h-4 text-[#9AE030]" /> {t('cart.secureCheckout')}
+                  <ShieldCheck className="w-4 h-4 text-[#FFFFFF]" /> {t('cart.secureCheckout')}
                 </div>
                 <div className="flex items-center gap-4 text-[9px] font-black uppercase tracking-widest text-white/40">
-                  <HelpCircle className="w-4 h-4 text-[#9AE030]" /> {t('cart.support')}
+                  <HelpCircle className="w-4 h-4 text-[#FFFFFF]" /> {t('cart.support')}
                 </div>
               </div>
             </GlassCard>
