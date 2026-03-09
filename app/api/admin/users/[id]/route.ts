@@ -5,6 +5,8 @@ import { jsonError, jsonSuccess, requireAdmin } from '../../../../../lib/env';
 import { fallbackStore } from '../../../../../lib/fallbackStore';
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  
   return withApiHandler(request, async ({ request: req }) => {
     const routeParams = await context.params;
     const admin = requireAdmin(req.headers);

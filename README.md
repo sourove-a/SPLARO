@@ -128,3 +128,92 @@ Key groups:
 
 No open-source license is declared in this repository yet.
 All rights reserved unless a `LICENSE` file is added by the owner.
+
+---
+
+## Splaro Admin Panel
+
+### How to Run
+
+```bash
+# Install dependencies
+npm install
+
+# Setup database
+npx prisma migrate dev --name init
+npx prisma db seed
+
+# Start development server
+npm run dev
+```
+
+### Default Admin Login
+
+| Field    | Value                |
+|----------|---------------------|
+| Email    | admin@splaro.co     |
+| Password | splaro@admin2025    |
+| Role     | Super Admin         |
+
+**Staff User:**
+| Field    | Value                |
+|----------|---------------------|
+| Email    | staff@splaro.co     |
+| Password | staff@splaro2025    |
+
+### Admin Routes
+
+| Route                        | Description              | Role Required |
+|-----------------------------|--------------------------|---------------|
+| `/admin`                    | Redirect to dashboard    | VIEWER+       |
+| `/admin/dashboard`          | KPIs, charts, summary    | VIEWER+       |
+| `/admin/products`           | Product catalog CRUD     | EDITOR+       |
+| `/admin/categories`         | Category management      | EDITOR+       |
+| `/admin/orders`             | Order management         | EDITOR+       |
+| `/admin/customers`          | Customer CRM             | EDITOR+       |
+| `/admin/inventory`          | Stock tracking           | EDITOR+       |
+| `/admin/reviews`            | Review moderation        | EDITOR+       |
+| `/admin/returns`            | Returns & exchanges      | EDITOR+       |
+| `/admin/coupons-discounts`  | Promo codes              | EDITOR+       |
+| `/admin/content`            | CMS / banners            | EDITOR+       |
+| `/admin/media`              | Media library            | EDITOR+       |
+| `/admin/marketing`          | Email campaigns          | EDITOR+       |
+| `/admin/shipping-logistics` | Shipping zones           | EDITOR+       |
+| `/admin/payments`           | Payment settings         | SUPER_ADMIN   |
+| `/admin/integrations`       | API health & integrations| VIEWER+       |
+| `/admin/settings`           | Store configuration      | SUPER_ADMIN   |
+| `/admin/security`           | Admin users & audit logs | SUPER_ADMIN   |
+
+### Admin API Endpoints
+
+All `/api/admin/*` endpoints require one of:
+- Header: `x-admin-key: <ADMIN_KEY>`
+- Header: `Authorization: Bearer <ADMIN_KEY>`
+
+Set `ADMIN_KEY` in your `.env` file.
+
+### Key Features Added
+
+- ✅ Complete Prisma schema (Product, Category, Coupon, Review, Return, Media, ContentBlock, ShippingZone, AdminNotification, InventoryLog)
+- ✅ Product management with variants, SEO, stock tracking
+- ✅ Category hierarchy (parent/child)
+- ✅ Inventory logging with movement types
+- ✅ Review moderation workflow
+- ✅ Return/Exchange/Cancellation workflow
+- ✅ Media library with file upload
+- ✅ Content/CMS management
+- ✅ Coupon & promotion engine
+- ✅ Shipping zone configuration
+- ✅ Admin notification center
+- ✅ Role-based access (SUPER_ADMIN / EDITOR / VIEWER)
+- ✅ Audit trail logging
+- ✅ Secure API key authentication
+
+### Environment Variables (`.env`)
+
+```env
+ADMIN_KEY=your-secure-admin-key-here
+DATABASE_URL=mysql://user:pass@localhost:3306/splaro
+NEXT_PUBLIC_BACKEND_MODE=prisma
+```
+

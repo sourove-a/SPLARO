@@ -1,195 +1,100 @@
-import { NextRequest } from 'next/server';
-import { randomUUID } from 'node:crypto';
-import { withApiHandler } from '../../../../lib/apiRoute';
-import { getDbPool } from '../../../../lib/db';
-import { jsonError, jsonSuccess, parsePagination, requireAdmin } from '../../../../lib/env';
-import { fallbackStore } from '../../../../lib/fallbackStore';
-import { writeAuditLog, writeSystemLog } from '../../../../lib/log';
-import { productCreateSchema } from '../../../../lib/validators';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-function slugify(input: string): string {
-  return String(input || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9-\s]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
+export const runtime = 'nodejs';
+
+function adminOk(req: NextRequest): boolean {
+  const key = req.headers.get('x-admin-key') || req.headers.get('authorization')?.replace('Bearer ', '');
+  return key === process.env.ADMIN_KEY;
 }
 
-export async function GET(request: NextRequest) {
-  return withApiHandler(request, async ({ request: req }) => {
-    const admin = requireAdmin(req.headers);
-    if (admin.ok === false) return admin.response;
+function slugify(s: string): string {
+  return s.toLowerCase().trim()
+    .replace(/[^a-z0-9\u0980-\u09FF\s-]/g, '')
+    .replace(/\s+/g, '-').replace(/-+/g, '-');
+}
 
-    const { page, pageSize } = parsePagination(req.nextUrl.searchParams);
-    const q = String(req.nextUrl.searchParams.get('q') || '').trim();
-    const category = String(req.nextUrl.searchParams.get('category') || '').trim();
-    const type = String(req.nextUrl.searchParams.get('type') || '').trim();
-    const sort = String(req.nextUrl.searchParams.get('sort') || 'newest').trim().toLowerCase();
+export async function GET(req: NextRequest) {
+  if (!adminOk(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { searchParams } = new URL(req.url);
+  const page = Math.max(1, Number(searchParams.get('page') || 1));
+  const limit = Math.min(100, Number(searchParams.get('limit') || 20));
+  const search = searchParams.get('q') || '';
+  const categoryId = searchParams.get('categoryId');
+  const status = searchParams.get('status');
+  const stock = searchParams.get('stock');
+  const skip = (page - 1) * limit;
 
-    const db = await getDbPool();
-    if (!db) {
-      const mem = fallbackStore();
-      let rows = mem.products;
-      if (q) {
-        const term = q.toLowerCase();
-        rows = rows.filter((row) => row.name.toLowerCase().includes(term) || row.slug.toLowerCase().includes(term));
-      }
-      if (category) rows = rows.filter((row) => row.category_id === category);
-      if (type) rows = rows.filter((row) => row.product_type === type);
+  const where: any = { isArchived: false };
+  if (search) where.OR = [
+    { name: { contains: search } },
+    { sku: { contains: search } },
+    { tags: { contains: search } },
+  ];
+  if (categoryId) where.categoryId = Number(categoryId);
+  if (status === 'draft') where.isDraft = true;
+  else if (status === 'published') { where.isPublished = true; where.isDraft = false; }
+  else if (status === 'archived') { (where as any).isArchived = true; }
+  if (stock === 'out') where.stockQty = 0;
+  else if (stock === 'low') where.AND = [{ stockQty: { gt: 0 } }, { stockQty: { lte: 5 } }];
 
-      const total = rows.length;
-      const totalPages = Math.max(1, Math.ceil(total / pageSize));
-      const safePage = Math.min(page, totalPages);
-      const start = (safePage - 1) * pageSize;
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: { category: { select: { id: true, name: true } } },
+    }),
+    prisma.product.count({ where }),
+  ]);
 
-      return jsonSuccess({
-        storage: 'fallback',
-        items: rows.slice(start, start + pageSize),
-        total,
-        page: safePage,
-        pageSize,
-        totalPages,
-      });
-    }
+  return NextResponse.json({ products, total, page, limit, pages: Math.ceil(total / limit) });
+}
 
-    const where: string[] = [];
-    const params: unknown[] = [];
+export async function POST(req: NextRequest) {
+  if (!adminOk(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const body = await req.json();
+    const { name, categoryId, regularPrice, stockQty } = body;
+    if (!name || regularPrice === undefined) return NextResponse.json({ error: 'name and regularPrice required' }, { status: 400 });
 
-    if (q) {
-      where.push('(name LIKE ? OR slug LIKE ?)');
-      const term = `%${q}%`;
-      params.push(term, term);
-    }
-    if (category) {
-      where.push('category_id = ?');
-      params.push(category);
-    }
-    if (type) {
-      where.push('product_type = ?');
-      params.push(type);
-    }
-
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-
-    const [countRows] = await db.execute(`SELECT COUNT(*) AS total FROM products ${whereSql}`, params);
-    const total = Array.isArray(countRows) && countRows[0] ? Number((countRows[0] as any).total || 0) : 0;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const safePage = Math.min(page, totalPages);
-
-    const safeOffset = (safePage - 1) * pageSize;
-    const [rows] = await db.execute(
-      `SELECT id, name, slug, category_id, product_type, image_url, product_url, price, active, created_at, updated_at
-       , discount_price, stock_quantity, variants_json, seo_title, seo_description, meta_keywords
-       FROM products
-       ${whereSql}
-       ORDER BY ${sort === 'price_asc' ? 'price ASC' : sort === 'price_desc' ? 'price DESC' : 'created_at DESC'}
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, safeOffset],
-    );
-
-    return jsonSuccess({
-      storage: 'mysql',
-      items: Array.isArray(rows) ? rows : [],
-      total,
-      page: safePage,
-      pageSize,
-      totalPages,
+    const slug = body.slug ? body.slug.trim() : slugify(name) + '-' + Date.now();
+    const product = await prisma.product.create({
+      data: {
+        name: name.trim(),
+        slug,
+        shortDescription: body.shortDescription || null,
+        description: body.description || null,
+        sku: body.sku || null,
+        categoryId: categoryId ? Number(categoryId) : null,
+        brand: body.brand || null,
+        fabric: body.fabric || null,
+        color: body.color || null,
+        sizeInfo: body.sizeInfo || null,
+        blousePiece: Boolean(body.blousePiece),
+        regularPrice: Number(regularPrice),
+        salePrice: body.salePrice ? Number(body.salePrice) : null,
+        costPrice: body.costPrice ? Number(body.costPrice) : null,
+        stockQty: Number(stockQty) || 0,
+        lowStockThreshold: Number(body.lowStockThreshold) || 5,
+        imageUrl: body.imageUrl || null,
+        imageUrls: body.imageUrls ? JSON.stringify(body.imageUrls) : null,
+        isFeatured: Boolean(body.isFeatured),
+        isNewArrival: Boolean(body.isNewArrival),
+        isBestseller: Boolean(body.isBestseller),
+        isPublished: body.isPublished !== false,
+        isDraft: Boolean(body.isDraft),
+        seoTitle: body.seoTitle || null,
+        metaDescription: body.metaDescription || null,
+        tags: body.tags || null,
+        careInstructions: body.careInstructions || null,
+        displayOrder: Number(body.displayOrder) || 0,
+      },
     });
-  });
-}
-
-export async function POST(request: NextRequest) {
-  return withApiHandler(request, async ({ request: req, ip }) => {
-    const admin = requireAdmin(req.headers);
-    if (admin.ok === false) return admin.response;
-
-    const body = await req.json().catch(() => null);
-    const parsed = productCreateSchema.safeParse(body);
-    if (!parsed.success) {
-      return jsonError('VALIDATION_ERROR', 'Invalid product payload.', 400, {
-        details: parsed.error.flatten(),
-      });
-    }
-
-    const payload = parsed.data;
-    const id = randomUUID();
-    const slug = payload.slug || slugify(payload.name);
-    if (!slug) return jsonError('INVALID_SLUG', 'Product slug is required.', 400);
-    const db = await getDbPool();
-
-    if (!db) {
-      const mem = fallbackStore();
-      const exists = mem.products.some((item) => item.slug === slug);
-      if (exists) return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
-
-      const now = new Date().toISOString();
-      const next = {
-        id,
-        name: payload.name,
-        slug,
-        category_id: payload.category_id,
-        product_type: payload.product_type,
-        image_url: payload.image_url,
-        product_url: payload.product_url,
-        price: payload.price,
-        discount_price: payload.discount_price ?? null,
-        stock_quantity: payload.stock_quantity ?? 0,
-        variants_json: payload.variants_json || '',
-        seo_title: payload.seo_title || '',
-        seo_description: payload.seo_description || '',
-        meta_keywords: payload.meta_keywords || '',
-        active: payload.active,
-        created_at: now,
-        updated_at: now,
-      };
-      mem.products.unshift(next);
-
-      await writeAuditLog({ actorId: null, action: 'PRODUCT_CREATED', entityType: 'product', entityId: id, after: next, ipAddress: ip });
-      await writeSystemLog({ eventType: 'PRODUCT_CREATED_FALLBACK', description: `Product created: ${slug}`, ipAddress: ip });
-
-      return jsonSuccess({ storage: 'fallback', item: next }, 201);
-    }
-
-    const [existingRows] = await db.execute('SELECT id FROM products WHERE slug = ? LIMIT 1', [slug]);
-    if (Array.isArray(existingRows) && existingRows.length > 0) {
-      return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
-    }
-
-    await db.execute(
-      `INSERT INTO products
-       (id, name, slug, category_id, product_type, image_url, product_url, price, discount_price, stock_quantity, variants_json, seo_title, seo_description, meta_keywords, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        payload.name,
-        slug,
-        payload.category_id,
-        payload.product_type,
-        payload.image_url,
-        payload.product_url,
-        payload.price,
-        payload.discount_price ?? null,
-        payload.stock_quantity ?? 0,
-        payload.variants_json || null,
-        payload.seo_title || null,
-        payload.seo_description || null,
-        payload.meta_keywords || null,
-        payload.active ? 1 : 0,
-      ],
-    );
-
-    await writeAuditLog({ actorId: null, action: 'PRODUCT_CREATED', entityType: 'product', entityId: id, after: payload, ipAddress: ip });
-    await writeSystemLog({ eventType: 'PRODUCT_CREATED', description: `Product created: ${slug}`, ipAddress: ip });
-
-    const [rows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
-    const item = Array.isArray(rows) && rows[0] ? rows[0] : null;
-
-    return jsonSuccess({ storage: 'mysql', item }, 201);
-  }, {
-    rateLimitScope: 'admin_products_write',
-    rateLimitLimit: 60,
-    rateLimitWindowMs: 60_000,
-  });
+    return NextResponse.json({ product }, { status: 201 });
+  } catch (e: any) {
+    if (e.code === 'P2002') return NextResponse.json({ error: 'SKU or slug already exists' }, { status: 409 });
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }

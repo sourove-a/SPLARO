@@ -1,144 +1,59 @@
-import { NextRequest } from 'next/server';
-import { withApiHandler } from '../../../../../lib/apiRoute';
-import { getDbPool } from '../../../../../lib/db';
-import { jsonError, jsonSuccess, requireAdmin } from '../../../../../lib/env';
-import { fallbackStore } from '../../../../../lib/fallbackStore';
-import { writeAuditLog, writeSystemLog } from '../../../../../lib/log';
-import { productUpdateSchema } from '../../../../../lib/validators';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-function slugify(input: string): string {
-  return String(input || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9-\s]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
+export const runtime = 'nodejs';
+
+function adminOk(req: NextRequest): boolean {
+  const key = req.headers.get('x-admin-key') || req.headers.get('authorization')?.replace('Bearer ', '');
+  return key === process.env.ADMIN_KEY;
 }
 
-export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  return withApiHandler(request, async ({ request: req, ip }) => {
-    const routeParams = await context.params;
-    const admin = requireAdmin(req.headers);
-    if (admin.ok === false) return admin.response;
-
-    const id = String(routeParams.id || '').trim();
-    if (!id) return jsonError('INVALID_ID', 'Invalid product id.', 400);
-
-    const body = await req.json().catch(() => null);
-    const parsed = productUpdateSchema.safeParse(body);
-    if (!parsed.success) {
-      return jsonError('VALIDATION_ERROR', 'Invalid product payload.', 400, {
-        details: parsed.error.flatten(),
-      });
-    }
-
-    const payload: Record<string, unknown> = { ...parsed.data };
-    if (typeof payload.name === 'string' && !payload.slug) {
-      payload.slug = slugify(payload.name);
-    }
-    const db = await getDbPool();
-
-    if (!db) {
-      const mem = fallbackStore();
-      const idx = mem.products.findIndex((item) => item.id === id);
-      if (idx < 0) return jsonError('NOT_FOUND', 'Product not found.', 404);
-      const before = { ...mem.products[idx] };
-      if (payload.slug) {
-        const slugExists = mem.products.some((item) => item.id !== id && item.slug === payload.slug);
-        if (slugExists) return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
-      }
-
-      mem.products[idx] = {
-        ...mem.products[idx],
-        ...payload,
-        updated_at: new Date().toISOString(),
-      } as any;
-      const after = mem.products[idx];
-
-      await writeAuditLog({ actorId: null, action: 'PRODUCT_UPDATED', entityType: 'product', entityId: id, before, after, ipAddress: ip });
-      await writeSystemLog({ eventType: 'PRODUCT_UPDATED_FALLBACK', description: `Product updated: ${id}`, ipAddress: ip });
-      return jsonSuccess({ storage: 'fallback', item: after });
-    }
-
-    const [existingRows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
-    const existing = Array.isArray(existingRows) && existingRows[0] ? (existingRows[0] as any) : null;
-    if (!existing) return jsonError('NOT_FOUND', 'Product not found.', 404);
-
-    if (typeof payload.slug === 'string' && payload.slug.trim()) {
-      const [slugRows] = await db.execute('SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1', [payload.slug, id]);
-      if (Array.isArray(slugRows) && slugRows.length > 0) {
-        return jsonError('SLUG_EXISTS', 'Product slug already exists.', 409);
-      }
-    }
-
-    const fields: string[] = [];
-    const params: unknown[] = [];
-    for (const [key, value] of Object.entries(payload)) {
-      if (typeof value === 'undefined') continue;
-      fields.push(`${key} = ?`);
-      params.push(key === 'active' ? (value ? 1 : 0) : value);
-    }
-    fields.push('updated_at = CURRENT_TIMESTAMP');
-
-    if (fields.length > 0) {
-      await db.execute(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
-    }
-
-    const [updatedRows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
-    const updated = Array.isArray(updatedRows) && updatedRows[0] ? updatedRows[0] : null;
-
-    await writeAuditLog({ actorId: null, action: 'PRODUCT_UPDATED', entityType: 'product', entityId: id, before: existing, after: updated, ipAddress: ip });
-    await writeSystemLog({ eventType: 'PRODUCT_UPDATED', description: `Product updated: ${id}`, ipAddress: ip });
-
-    return jsonSuccess({ storage: 'mysql', item: updated });
-  }, {
-    rateLimitScope: 'admin_products_write',
-    rateLimitLimit: 60,
-    rateLimitWindowMs: 60_000,
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!adminOk(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id } = await params;
+  const product = await prisma.product.findUnique({
+    where: { id: Number(id) },
+    include: {
+      category: true,
+      mediaFiles: { orderBy: { sortOrder: 'asc' } },
+      reviews: { where: { status: 'APPROVED' }, take: 5, orderBy: { createdAt: 'desc' } },
+      inventory: { take: 10, orderBy: { createdAt: 'desc' } },
+    },
   });
+  if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json({ product });
 }
 
-export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  return withApiHandler(request, async ({ request: req, ip }) => {
-    const routeParams = await context.params;
-    const admin = requireAdmin(req.headers);
-    if (admin.ok === false) return admin.response;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!adminOk(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const updateData: any = {};
+    const fields = ['name','slug','shortDescription','description','sku','brand','fabric','color','sizeInfo','imageUrl','seoTitle','metaDescription','tags','careInstructions'];
+    fields.forEach(f => { if (body[f] !== undefined) updateData[f] = body[f] || null; });
+    const bools = ['blousePiece','isFeatured','isNewArrival','isBestseller','isPublished','isDraft','isArchived'];
+    bools.forEach(f => { if (body[f] !== undefined) updateData[f] = Boolean(body[f]); });
+    const nums = ['categoryId','regularPrice','salePrice','costPrice','stockQty','lowStockThreshold','displayOrder'];
+    nums.forEach(f => { if (body[f] !== undefined) updateData[f] = body[f] ? Number(body[f]) : null; });
+    if (body.imageUrls !== undefined) updateData.imageUrls = Array.isArray(body.imageUrls) ? JSON.stringify(body.imageUrls) : body.imageUrls;
 
-    const id = String(routeParams.id || '').trim();
-    if (!id) return jsonError('INVALID_ID', 'Invalid product id.', 400);
+    const updatedProduct = await prisma.product.update({ where: { id: Number(id) }, data: updateData });
+    return NextResponse.json({ product: updatedProduct });
+  } catch (e: any) {
+    if (e.code === 'P2025') return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
 
-    const db = await getDbPool();
-
-    if (!db) {
-      const mem = fallbackStore();
-      const idx = mem.products.findIndex((item) => item.id === id);
-      if (idx < 0) return jsonError('NOT_FOUND', 'Product not found.', 404);
-      const before = { ...mem.products[idx] };
-      mem.products[idx] = { ...mem.products[idx], active: false, updated_at: new Date().toISOString() };
-      const after = mem.products[idx];
-
-      await writeAuditLog({ actorId: null, action: 'PRODUCT_SOFT_DELETED', entityType: 'product', entityId: id, before, after, ipAddress: ip });
-      await writeSystemLog({ eventType: 'PRODUCT_SOFT_DELETED_FALLBACK', description: `Product soft delete: ${id}`, ipAddress: ip });
-
-      return jsonSuccess({ storage: 'fallback', item: after });
-    }
-
-    const [existingRows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
-    const existing = Array.isArray(existingRows) && existingRows[0] ? (existingRows[0] as any) : null;
-    if (!existing) return jsonError('NOT_FOUND', 'Product not found.', 404);
-
-    await db.execute('UPDATE products SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [id]);
-    const [updatedRows] = await db.execute('SELECT * FROM products WHERE id = ? LIMIT 1', [id]);
-    const updated = Array.isArray(updatedRows) && updatedRows[0] ? updatedRows[0] : null;
-
-    await writeAuditLog({ actorId: null, action: 'PRODUCT_SOFT_DELETED', entityType: 'product', entityId: id, before: existing, after: updated, ipAddress: ip });
-    await writeSystemLog({ eventType: 'PRODUCT_SOFT_DELETED', description: `Product soft delete: ${id}`, ipAddress: ip });
-
-    return jsonSuccess({ storage: 'mysql', item: updated });
-  }, {
-    rateLimitScope: 'admin_products_write',
-    rateLimitLimit: 60,
-    rateLimitWindowMs: 60_000,
-  });
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!adminOk(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const { id } = await params;
+    await prisma.product.update({ where: { id: Number(id) }, data: { isArchived: true, isPublished: false } });
+    return NextResponse.json({ ok: true, message: 'Product archived' });
+  } catch (e: any) {
+    if (e.code === 'P2025') return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }

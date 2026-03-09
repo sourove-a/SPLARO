@@ -1,243 +1,155 @@
-import {
-  deleteHeroSlideAction,
-  moveHeroSlideAction,
-  deleteStoryPostAction,
-  saveHeroContentAction,
-  saveHeroSlideAction,
-  saveStoryPostAction,
-} from '@/app/admin/module-actions';
-import { readAdminSetting } from '@/app/admin/_lib/settings-store';
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit2, Trash2, Eye, EyeOff, RefreshCw, Globe } from 'lucide-react';
 
-type HeroSettings = {
+interface Page {
+  id: number;
   title: string;
-  subtitle: string;
-  badge: string;
-  ctaLabel: string;
-  ctaUrl: string;
-  alignment: string;
-  maxLines: number;
-  autoBalance: boolean;
-};
-
-type StoryPost = {
-  id: string;
-  title: string;
-  excerpt: string;
-  body: string;
-  imageUrl: string;
-  published: boolean;
-  publishAt?: string;
+  slug: string;
+  content?: string;
+  metaDescription?: string;
+  isPublished: boolean;
+  isFeatured: boolean;
   createdAt: string;
   updatedAt: string;
-};
+}
 
-type HeroSlide = {
-  id: string;
-  img: string;
-  title: string;
-  subtitle: string;
-  tag: string;
-  linkUrl?: string;
-};
+function getAdminKey() {
+  if (typeof window !== 'undefined') return localStorage.getItem('splaro_admin_key') || '';
+  return '';
+}
 
-export default async function AdminContentPage() {
-  const [hero, posts, slides] = await Promise.all([
-    readAdminSetting<HeroSettings>('hero_content_settings', {
-      title: 'Luxury in Motion',
-      subtitle: 'Premium footwear and bags with clean lines and elevated finish.',
-      badge: 'New Season',
-      ctaLabel: 'Enter the Shop',
-      ctaUrl: '/shop',
-      alignment: 'LEFT',
-      maxLines: 2,
-      autoBalance: true,
-    }),
-    readAdminSetting<StoryPost[]>('story_posts', []),
-    readAdminSetting<HeroSlide[]>('hero_slides', []),
-  ]);
+export default function ContentPage() {
+  const [pages, setPages] = useState<Page[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Page | null>(null);
+  const [form, setForm] = useState({ title: '', slug: '', content: '', metaDescription: '', isPublished: true, isFeatured: false });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const orderedPosts = [...posts].sort((a, b) => +new Date(b.updatedAt || b.createdAt) - +new Date(a.updatedAt || a.createdAt));
-  const orderedSlides = [...(Array.isArray(slides) ? slides : [])].filter((slide) => String(slide?.img || '').trim() !== '');
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch('/api/admin/content', { headers: { 'x-admin-key': getAdminKey() } });
+    const d = await r.json();
+    setPages(d.pages || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  function slugify(s: string) {
+    return s.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
+  function openNew() {
+    setEditing(null);
+    setForm({ title: '', slug: '', content: '', metaDescription: '', isPublished: true, isFeatured: false });
+    setShowForm(true);
+  }
+
+  function openEdit(p: Page) {
+    setEditing(p);
+    setForm({ title: p.title, slug: p.slug, content: p.content || '', metaDescription: p.metaDescription || '', isPublished: p.isPublished, isFeatured: p.isFeatured });
+    setShowForm(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError('');
+    const url = editing ? `/api/admin/content/${editing.id}` : '/api/admin/content';
+    const method = editing ? 'PATCH' : 'POST';
+    const r = await fetch(url, { method, headers: { 'content-type': 'application/json', 'x-admin-key': getAdminKey() }, body: JSON.stringify(form) });
+    if (r.ok) {
+      setShowForm(false);
+      load();
+    } else {
+      const d = await r.json();
+      setError(d.error || 'Save failed');
+    }
+    setSaving(false);
+  }
+
+  async function del(id: number) {
+    if (!confirm('Delete this page?')) return;
+    await fetch(`/api/admin/content/${id}`, { method: 'DELETE', headers: { 'x-admin-key': getAdminKey() } });
+    load();
+  }
+
+  async function togglePublish(p: Page) {
+    await fetch(`/api/admin/content/${p.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json', 'x-admin-key': getAdminKey() }, body: JSON.stringify({ isPublished: !p.isPublished }) });
+    load();
+  }
 
   return (
-    <div className="space-y-6">
-      <section className="admin-panel-card p-6 md:p-8">
-        <p className="admin-kicker">Content</p>
-        <h2 className="admin-heading mt-2 text-[#f6e8ca]">Hero & Story CMS</h2>
-        <p className="mt-3 max-w-3xl text-sm text-[#9d927c]">
-          Manage storefront headline, badge, CTA and story feed with a clean draft/publish workflow.
-        </p>
-      </section>
-
-      <section className="admin-panel-card p-6">
-        <p className="admin-kicker">Hero Section</p>
-        <h3 className="admin-heading mt-2 text-xl text-[#f3e5c2]">Homepage Hero Controls</h3>
-        <form action={saveHeroContentAction} className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <input className="admin-input md:col-span-2" name="title" defaultValue={hero.title || ''} placeholder="Hero title" />
-          <input className="admin-input" name="badge" defaultValue={hero.badge || ''} placeholder="Badge text" />
-          <select className="admin-select" name="alignment" defaultValue={hero.alignment || 'LEFT'}>
-            <option value="LEFT">Left aligned</option>
-            <option value="CENTER">Center aligned</option>
-          </select>
-          <input className="admin-input md:col-span-2" name="subtitle" defaultValue={hero.subtitle || ''} placeholder="Hero subtitle" />
-          <input className="admin-input" name="ctaLabel" defaultValue={hero.ctaLabel || ''} placeholder="CTA label" />
-          <input className="admin-input" name="ctaUrl" defaultValue={hero.ctaUrl || ''} placeholder="CTA URL" />
-          <input className="admin-input" type="number" min={1} max={3} name="maxLines" defaultValue={hero.maxLines || 2} />
-          <label className="flex items-center gap-2 rounded-xl border border-[#3a2f1b] bg-[#0f0d08] px-3 text-sm text-[#ccb989]">
-            <input type="checkbox" name="autoBalance" defaultChecked={Boolean(hero.autoBalance)} className="h-4 w-4" />
-            Auto balance headline wrap
-          </label>
-          <button type="submit" className="admin-button admin-button-primary justify-center md:col-span-2 xl:col-span-4">
-            Save Hero Content
-          </button>
-        </form>
-      </section>
-
-      <section className="admin-panel-card p-6">
-        <p className="admin-kicker">Hero Slider</p>
-        <h3 className="admin-heading mt-2 text-xl text-[#f3e5c2]">Manual Slide Manager</h3>
-        <p className="mt-2 text-sm text-[#9d927c]">
-          Add slider image manually by URL (Cloudinary/direct CDN link), then set title, subtitle, tag and optional link.
-        </p>
-        <div className="mt-3 rounded-xl border border-[#3a2f1b] bg-[#0f0d08] px-4 py-3 text-xs text-[#c7b185]">
-          Recommended image size: <span className="font-semibold text-[#f2e2bf]">1920x900</span>. Use direct image URL
-          (for example Cloudinary secure URL) for the fastest load.
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Content Pages</h1>
+          <p className="text-white/50 text-sm mt-1">Manage static pages and content</p>
         </div>
-
-        <form action={saveHeroSlideAction} className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <input type="hidden" name="index" value="-1" />
-          <input className="admin-input md:col-span-2 xl:col-span-4" name="img" placeholder="Image URL (https://...)" required />
-          <input className="admin-input" name="title" placeholder="Slide title" required />
-          <input className="admin-input" name="subtitle" placeholder="Slide subtitle" />
-          <input className="admin-input" name="tag" placeholder="Tag (e.g. NEW)" />
-          <input className="admin-input" name="linkUrl" placeholder="Slide link URL (/shop or https://...)" />
-          <button type="submit" className="admin-button admin-button-primary justify-center md:col-span-2 xl:col-span-4">
-            Add Slide
+        <div className="flex gap-3">
+          <button onClick={load} className="p-2 rounded-xl bg-white/8 border border-white/14 text-white/70 hover:text-white"><RefreshCw size={16}/></button>
+          <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 border border-white/28 text-white font-semibold text-sm hover:bg-white/22 transition-all">
+            <Plus size={16}/> New Page
           </button>
-        </form>
-
-        <div className="mt-5 space-y-3">
-          {orderedSlides.map((slide, index) => (
-            <article key={slide.id || `${slide.img}-${index}`} className="rounded-2xl border border-[#342a17] bg-[#0e0c09] p-4">
-              <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
-                <div className="overflow-hidden rounded-xl border border-[#2f2618] bg-[#090806]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={slide.img} alt={slide.title || `Slide ${index + 1}`} className="h-36 w-full object-cover" />
-                </div>
-
-                <div className="space-y-3">
-                  <form action={saveHeroSlideAction} className="grid gap-3 md:grid-cols-2">
-                    <input type="hidden" name="index" value={index} />
-                    <input type="hidden" name="id" value={slide.id || ''} />
-                    <input className="admin-input md:col-span-2" name="img" defaultValue={slide.img || ''} placeholder="Image URL" required />
-                    <input className="admin-input" name="title" defaultValue={slide.title || ''} placeholder="Title" required />
-                    <input className="admin-input" name="subtitle" defaultValue={slide.subtitle || ''} placeholder="Subtitle" />
-                    <input className="admin-input" name="tag" defaultValue={slide.tag || ''} placeholder="Tag" />
-                    <input className="admin-input" name="linkUrl" defaultValue={slide.linkUrl || ''} placeholder="Slide link URL" />
-                    <button type="submit" className="admin-button admin-button-secondary md:col-span-2">Update Slide</button>
-                  </form>
-
-                  <div className="flex flex-wrap gap-2">
-                    <form action={moveHeroSlideAction}>
-                      <input type="hidden" name="index" value={index} />
-                      <input type="hidden" name="direction" value="up" />
-                      <button type="submit" className="admin-button admin-button-secondary" disabled={index === 0}>Move Up</button>
-                    </form>
-                    <form action={moveHeroSlideAction}>
-                      <input type="hidden" name="index" value={index} />
-                      <input type="hidden" name="direction" value="down" />
-                      <button type="submit" className="admin-button admin-button-secondary" disabled={index === orderedSlides.length - 1}>Move Down</button>
-                    </form>
-                    <a
-                      href={slide.img}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="admin-button admin-button-secondary"
-                    >
-                      Open Image
-                    </a>
-                    <form action={deleteHeroSlideAction}>
-                      <input type="hidden" name="id" value={slide.id || ''} />
-                      <button type="submit" className="admin-button admin-button-secondary">Delete</button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
-
-          {orderedSlides.length === 0 ? (
-            <div className="rounded-xl border border-[#342a17] bg-[#0e0c09] px-4 py-10 text-center text-[#8c8069]">
-              No slider image added yet.
-            </div>
-          ) : null}
         </div>
-      </section>
+      </div>
 
-      <section className="admin-panel-card p-6">
-        <p className="admin-kicker">Story Posts</p>
-        <h3 className="admin-heading mt-2 text-xl text-[#f3e5c2]">Create Story / CMS Post</h3>
-        <form action={saveStoryPostAction} className="mt-5 grid gap-3 md:grid-cols-2">
-          <input className="admin-input" name="title" placeholder="Story title" required />
-          <input className="admin-input" name="imageUrl" placeholder="Image URL" />
-          <input className="admin-input md:col-span-2" name="excerpt" placeholder="Short excerpt" />
-          <textarea className="admin-textarea md:col-span-2 min-h-[120px]" name="body" placeholder="Story body (supports markdown/plain text)" />
-          <input className="admin-input" type="datetime-local" name="publishAt" />
-          <label className="flex items-center gap-2 rounded-xl border border-[#3a2f1b] bg-[#0f0d08] px-3 text-sm text-[#ccb989]">
-            <input type="checkbox" name="published" className="h-4 w-4" />
-            Publish now
-          </label>
-          <button type="submit" className="admin-button admin-button-primary justify-center md:col-span-2">
-            Save Story Post
-          </button>
-        </form>
-      </section>
-
-      <section className="admin-panel-card p-5 md:p-6">
-        <div className="mb-4">
-          <p className="admin-kicker">Published + Draft</p>
-          <h3 className="text-lg font-semibold text-[#f3e5c2]">Story Library</h3>
-        </div>
-
-        <div className="space-y-3">
-          {orderedPosts.map((post) => (
-            <article key={post.id} className="rounded-2xl border border-[#342a17] bg-[#0e0c09] p-4">
-              <form action={saveStoryPostAction} className="grid gap-3 md:grid-cols-2">
-                <input type="hidden" name="id" value={post.id} />
-                <input className="admin-input" name="title" defaultValue={post.title || ''} placeholder="Title" required />
-                <input className="admin-input" name="imageUrl" defaultValue={post.imageUrl || ''} placeholder="Image URL" />
-                <input className="admin-input md:col-span-2" name="excerpt" defaultValue={post.excerpt || ''} placeholder="Excerpt" />
-                <textarea className="admin-textarea md:col-span-2 min-h-[96px]" name="body" defaultValue={post.body || ''} />
-                <input
-                  className="admin-input"
-                  type="datetime-local"
-                  name="publishAt"
-                  defaultValue={post.publishAt ? new Date(post.publishAt).toISOString().slice(0, 16) : ''}
-                />
-                <label className="flex items-center gap-2 rounded-xl border border-[#3a2f1b] bg-[#0f0d08] px-3 text-sm text-[#ccb989]">
-                  <input type="checkbox" name="published" defaultChecked={Boolean(post.published)} className="h-4 w-4" />
-                  Published
+      {showForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-[#0D1B3A] border border-white/15 rounded-[16px] p-6 w-full max-w-2xl shadow-2xl my-6">
+            <h2 className="text-lg font-bold text-white mb-4">{editing ? 'Edit Page' : 'New Page'}</h2>
+            {error && <div className="mb-3 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">{error}</div>}
+            <div className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <input value={form.title} onChange={e => { setForm(f => ({ ...f, title: e.target.value, slug: slugify(e.target.value) })) }} placeholder="Page title" className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30"/>
+              <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} placeholder="slug" className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30"/>
+              <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} placeholder="Content (supports markdown)" rows={6} className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30 resize-none font-mono"/>
+              <textarea value={form.metaDescription} onChange={e => setForm(f => ({ ...f, metaDescription: e.target.value }))} placeholder="Meta description (SEO)" rows={2} className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30 resize-none"/>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
+                  <input type="checkbox" checked={form.isPublished} onChange={e => setForm(f => ({ ...f, isPublished: e.target.checked }))} className="w-4 h-4 rounded"/> Published
                 </label>
-                <div className="md:col-span-2 flex flex-wrap items-center gap-2">
-                  <button type="submit" className="admin-button admin-button-secondary">Update</button>
-                  <span className="text-xs text-[#8f826a]">
-                    Updated {post.updatedAt ? new Date(post.updatedAt).toLocaleString() : '-'}
-                  </span>
-                </div>
-              </form>
-              <form action={deleteStoryPostAction} className="mt-2">
-                <input type="hidden" name="id" value={post.id} />
-                <button type="submit" className="admin-button admin-button-secondary">Delete</button>
-              </form>
-            </article>
-          ))}
-          {orderedPosts.length === 0 ? (
-            <div className="rounded-xl border border-[#342a17] bg-[#0e0c09] px-4 py-10 text-center text-[#8c8069]">
-              No story posts yet.
+                <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
+                  <input type="checkbox" checked={form.isFeatured} onChange={e => setForm(f => ({ ...f, isFeatured: e.target.checked }))} className="w-4 h-4 rounded"/> Featured
+                </label>
+              </div>
             </div>
-          ) : null}
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowForm(false)} className="flex-1 py-2.5 rounded-xl border border-white/15 text-white/70 text-sm hover:bg-white/8">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex-1 py-2.5 rounded-xl bg-white/15 border border-white/28 text-white font-semibold text-sm hover:bg-white/22 disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
         </div>
-      </section>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center h-40 text-white/50">Loading…</div>
+      ) : (
+        <div className="space-y-3">
+          {pages.length === 0 ? (
+            <div className="text-center py-12 text-white/40">No pages yet. Create your first one!</div>
+          ) : pages.map(p => (
+            <div key={p.id} className="flex items-center gap-4 p-4 bg-white/7 border border-white/12 rounded-[12px] hover:bg-white/10 transition-all">
+              <Globe size={16} className="text-white/40"/>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="font-semibold text-white">{p.title}</span>
+                  {p.isFeatured && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">Featured</span>}
+                </div>
+                <div className="text-xs text-white/40">/pages/{p.slug}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => togglePublish(p)} className={`p-1.5 rounded-lg transition-colors ${p.isPublished ? 'text-emerald-400 hover:text-emerald-300' : 'text-white/40 hover:text-white'}`}>
+                  {p.isPublished ? <Eye size={16}/> : <EyeOff size={16}/>}
+                </button>
+                <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg text-white/40 hover:text-white transition-colors"><Edit2 size={16}/></button>
+                <button onClick={() => del(p.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

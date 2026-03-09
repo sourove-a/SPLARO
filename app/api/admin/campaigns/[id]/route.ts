@@ -36,6 +36,7 @@ async function computeTargetCount(db: any, segment: 'ALL_USERS' | 'NEW_SIGNUPS_7
 }
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  
   return withApiHandler(request, async ({ request: req }) => {
     const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  
   return withApiHandler(request, async ({ request: req, ip }) => {
     const routeParams = await context.params;
     const admin = requireAdmin(req.headers);

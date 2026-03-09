@@ -7,12 +7,14 @@ import { writeAuditLog, writeSystemLog } from '../../../../../lib/log';
 import { couponUpdateSchema } from '../../../../../lib/validators';
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const routeParams = await context.params;
+  const { id: couponId } = routeParams;
+  
   return withApiHandler(request, async ({ request: req, ip }) => {
-    const routeParams = await context.params;
     const admin = requireAdmin(req.headers);
     if (admin.ok === false) return admin.response;
 
-    const id = String(routeParams.id || '').trim();
+    const id = String(couponId || '').trim();
     if (!id) return jsonError('INVALID_ID', 'Invalid coupon id.', 400);
 
     const body = await req.json().catch(() => null);
@@ -57,26 +59,26 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     }
 
     const fields: string[] = [];
-    const params: unknown[] = [];
+    const dbParams: unknown[] = [];
     for (const [key, value] of Object.entries(payload)) {
       if (typeof value === 'undefined') continue;
       if (key === 'code') {
         fields.push('code = ?');
-        params.push(String(value).toUpperCase());
+        dbParams.push(String(value).toUpperCase());
         continue;
       }
       if (key === 'is_active') {
         fields.push('is_active = ?');
-        params.push(value ? 1 : 0);
+        dbParams.push(value ? 1 : 0);
         continue;
       }
       fields.push(`${key} = ?`);
-      params.push(value);
+      dbParams.push(value);
     }
     fields.push('updated_at = CURRENT_TIMESTAMP');
 
     if (fields.length > 0) {
-      await db.execute(`UPDATE coupons SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+      await db.execute(`UPDATE coupons SET ${fields.join(', ')} WHERE id = ?`, [...dbParams, id]);
     }
 
     const [updatedRows] = await db.execute('SELECT * FROM coupons WHERE id = ? LIMIT 1', [id]);
