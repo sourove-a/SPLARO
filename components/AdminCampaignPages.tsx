@@ -226,7 +226,7 @@ export const AdminCampaignsPage: React.FC = () => {
                 setStatus((e.target.value as CampaignStatus) || '');
                 setPage(1);
               }}
-              className="h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none"
+              className="h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
             >
               <option value="">All status</option>
               <option value="Draft">Draft</option>
@@ -413,7 +413,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               <select
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="Draft">Draft</option>
                 <option value="Active">Active</option>
@@ -429,7 +429,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+              className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
             />
           </div>
 
@@ -439,7 +439,7 @@ export const AdminCampaignNewPage: React.FC = () => {
               <select
                 value={form.segmentType}
                 onChange={(e) => setForm((f) => ({ ...f, segmentType: e.target.value as AudienceSegment['type'] }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="ALL_USERS">All registered users</option>
                 <option value="NEW_SIGNUPS_7D">New signups (7 days)</option>
@@ -473,7 +473,7 @@ export const AdminCampaignNewPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
               />
             </div>
           </div>
@@ -659,7 +659,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               <select
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as CampaignStatus }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="Draft">Draft</option>
                 <option value="Active">Active</option>
@@ -675,7 +675,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+              className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
             />
           </div>
 
@@ -685,7 +685,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
               <select
                 value={form.segmentType}
                 onChange={(e) => setForm((f) => ({ ...f, segmentType: e.target.value as AudienceSegment['type'] }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none"
               >
                 <option value="ALL_USERS">All registered users</option>
                 <option value="NEW_SIGNUPS_7D">New signups (7 days)</option>
@@ -719,7 +719,7 @@ export const AdminCampaignDetailPage: React.FC = () => {
                 type="datetime-local"
                 value={form.scheduleTime}
                 onChange={(e) => setForm((f) => ({ ...f, scheduleTime: e.target.value }))}
-                className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
               />
             </div>
           </div>

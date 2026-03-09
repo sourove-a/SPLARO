@@ -31,7 +31,7 @@ const FilterPill: React.FC<{
     onClick={onClick}
     className="relative px-5 py-3 rounded-2xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group"
     style={{
-      background: isSelected ? 'rgba(154,224,48,0.18)' : 'rgba(255,252,248,0.04)',
+      background: isSelected ? 'rgba(154,224,48,0.28)' : 'rgba(255,255,255,0.04)',
       borderColor: isSelected ? 'rgba(154,224,48,0.52)' : 'rgba(154,224,48,0.12)',
       color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.48)',
       boxShadow: isSelected ? '0 0 24px rgba(154,224,48,0.14)' : 'none',
@@ -79,7 +79,7 @@ const SizeBox: React.FC<{
     style={{
       opacity: !isAvailable ? 0.14 : 1,
       cursor: !isAvailable ? 'not-allowed' : 'pointer',
-      background: isSelected ? 'rgba(154,224,48,0.20)' : 'rgba(255,252,248,0.03)',
+      background: isSelected ? 'rgba(154,224,48,0.20)' : 'rgba(255,255,255,0.03)',
       borderColor: isSelected ? 'rgba(154,224,48,0.55)' : 'rgba(154,224,48,0.14)',
       color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.45)',
       boxShadow: isSelected ? '0 8px 28px rgba(154,224,48,0.22)' : 'none',
@@ -563,7 +563,7 @@ export const ShopPage: React.FC = () => {
             <div className="flex flex-wrap gap-4 w-full md:w-auto">
               <div
                 className="flex rounded-full p-1 max-w-full overflow-x-auto liquid-glass"
-                style={{ border: '1px solid rgba(154,224,48,0.18)' }}
+                style={{ border: '1px solid rgba(154,224,48,0.28)' }}
               >
                 {SORT_OPTIONS.map((option) => (
                   <button
@@ -671,7 +671,7 @@ export const ShopPage: React.FC = () => {
                             type="button"
                             onClick={() => setOpenMultiFilterId((prev) => (prev === filter.id ? null : filter.id))}
                             className="w-full min-h-12 px-4 rounded-2xl transition-all flex items-center justify-between"
-                            style={{ border: '1px solid rgba(154,224,48,0.18)', background: 'rgba(255,252,248,0.03)', color: 'rgba(255,255,255,0.80)' }}
+                            style={{ border: '1px solid rgba(154,224,48,0.28)', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.80)' }}
                           >
                             <span className="text-[10px] font-black uppercase tracking-[0.2em]">
                               {selectedValues.length > 0 ? `${selectedValues.length} Selected` : 'Select Brand'}
@@ -695,7 +695,7 @@ export const ShopPage: React.FC = () => {
                                     className="w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between"
                                     style={{
                                       borderColor: isChecked ? 'rgba(154,224,48,0.52)' : 'rgba(154,224,48,0.14)',
-                                      background: isChecked ? 'rgba(154,224,48,0.14)' : 'rgba(255,252,248,0.03)',
+                                      background: isChecked ? 'rgba(154,224,48,0.14)' : 'rgba(255,255,255,0.03)',
                                       color: isChecked ? '#D4B47A' : 'rgba(220,210,190,0.72)',
                                     }}
                                   >
@@ -734,7 +734,7 @@ export const ShopPage: React.FC = () => {
                   <SortAsc className="w-4 h-4" style={{ color: '#9AE030' }} /> Price Range (৳)
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,252,248,0.03)', border: '1px solid rgba(154,224,48,0.18)' }}>
+                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(154,224,48,0.28)' }}>
                     <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(154,224,48,0.55)' }}>Min ৳</p>
                     <input
                       type="number"
@@ -753,7 +753,7 @@ export const ShopPage: React.FC = () => {
                       style={{ color: '#9AE030' }}
                     />
                   </div>
-                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,252,248,0.03)', border: '1px solid rgba(154,224,48,0.18)' }}>
+                  <div className="px-4 py-3 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(154,224,48,0.28)' }}>
                     <p className="text-[8px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: 'rgba(154,224,48,0.55)' }}>Max ৳</p>
                     <input
                       type="number"

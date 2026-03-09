@@ -53,7 +53,7 @@ export const NewArrivalPopup: React.FC = () => {
           <div
             className="relative overflow-hidden rounded-2xl shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
             style={{
-              background: 'linear-gradient(135deg, #0C1409 0%, #0F1A0D 60%, #12200F 100%)',
+              background: 'linear-gradient(135deg, #0C1409 0%, #08121E 60%, #12200F 100%)',
               border: '1px solid rgba(154,224,48,0.28)',
             }}
           >
@@ -61,7 +61,7 @@ export const NewArrivalPopup: React.FC = () => {
             <div className="absolute top-4 left-4 z-10">
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ background: 'rgba(154,224,48,0.18)', border: '1px solid rgba(154,224,48,0.35)' }}
+                style={{ background: 'rgba(154,224,48,0.28)', border: '1px solid rgba(154,224,48,0.35)' }}
               >
                 <Sparkles className="w-3 h-3" style={{ color: '#D4B47A' }} />
                 <span
@@ -79,7 +79,7 @@ export const NewArrivalPopup: React.FC = () => {
               aria-label="Close popup"
               onClick={handleDismiss}
               className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(154,224,48,0.18)' }}
+              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(154,224,48,0.28)' }}
             >
               <X className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
             </button>
@@ -121,7 +121,7 @@ export const NewArrivalPopup: React.FC = () => {
                   onClick={handleCta}
                   className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all group"
                   style={{
-                    background: 'linear-gradient(135deg, #071832 0%, #9B6B3A 45%, #9AE030 75%, #9B6B3A 100%)',
+                    background: 'linear-gradient(135deg, #071832 0%, #0A2A50 45%, #9AE030 75%, #0A2A50 100%)',
                     color: '#0A0F08',
                     boxShadow: '0 6px 20px rgba(154,224,48,0.30)',
                   }}

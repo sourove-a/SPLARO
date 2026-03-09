@@ -269,7 +269,7 @@ export const Navbar: React.FC = () => {
     alignItems: 'center',
     justifyContent: 'center',
     border: isActive ? `1px solid ${COGNAC_BDR}` : '1px solid rgba(154,224,48,0.10)',
-    background: isActive ? COGNAC_BG : 'rgba(255,252,248,0.03)',
+    background: isActive ? COGNAC_BG : 'rgba(255,255,255,0.03)',
     color: isActive ? COGNAC : 'rgba(255,255,255,0.45)',
     transition: 'all 0.3s ease',
     position: 'relative' as const,
@@ -401,7 +401,7 @@ export const Navbar: React.FC = () => {
                       border: isActive
                         ? `2px solid ${COGNAC}`
                         : `1px solid rgba(154,224,48,0.22)`,
-                      background: 'rgba(255,252,248,0.05)',
+                      background: 'rgba(255,255,255,0.05)',
                       boxShadow: isActive ? `0 0 14px rgba(154,224,48,0.30)` : 'none',
                     }}
                   >

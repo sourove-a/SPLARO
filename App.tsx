@@ -171,7 +171,7 @@ const SupportPage = () => {
             target={c.href.startsWith('http') ? '_blank' : undefined}
             rel="noreferrer"
             className="flex items-center gap-4 p-6 rounded-2xl transition-all duration-400 hover:scale-[1.02] group"
-            style={{ background: 'rgba(8,18,44,0.65)', border: '1px solid rgba(154,224,48,0.20)', textDecoration: 'none' }}
+            style={{ background: 'rgba(7,14,32,0.78)', border: '1px solid rgba(154,224,48,0.20)', textDecoration: 'none' }}
           >
             <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(154,224,48,0.10)', border: '1px solid rgba(154,224,48,0.22)' }}>
               <c.icon className="w-5 h-5" style={{ color: c.color }} />
@@ -370,7 +370,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.15), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
 
       {/* ── About Us Section ── */}
       <section id="about" className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-40">
@@ -436,7 +436,7 @@ const HomeView = () => {
                 key={i}
                 className="p-6 rounded-2xl flex flex-col gap-4 transition-all duration-500 hover:scale-[1.02]"
                 style={{
-                  background: 'rgba(8,18,44,0.65)',
+                  background: 'rgba(7,14,32,0.78)',
                   border: '1px solid rgba(170,238,42,0.20)',
                   backdropFilter: 'blur(12px)'
                 }}
@@ -481,7 +481,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.15), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
 
       {/* ── Customer Testimonials ── */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-32">
@@ -541,7 +541,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.15), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
 
       {/* ── Promotional Sale Banner ── */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-16 pb-12 sm:pb-20">
@@ -603,7 +603,7 @@ const HomeView = () => {
       </section>
 
       {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.15), transparent)' }} />
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(154,224,48,0.25), transparent)' }} />
 
       {/* ── WhatsApp / Newsletter Subscribe ── */}
       <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10 sm:py-16 pb-28 sm:pb-32">
@@ -614,7 +614,7 @@ const HomeView = () => {
           transition={{ duration: 0.6 }}
           className="rounded-3xl p-10 md:p-14 text-center"
           style={{
-            background: 'rgba(8,18,44,0.65)',
+            background: 'rgba(7,14,32,0.78)',
             border: '1px solid rgba(170,238,42,0.16)',
             backdropFilter: 'blur(20px)',
           }}
@@ -864,7 +864,7 @@ const Footer = () => {
       {/* Warm forest glow */}
       <div
         className="absolute -top-60 -left-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(61,107,61,0.25), transparent 60%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(154,224,48,0.25), transparent 60%)' }}
       />
       <div
         className="absolute -bottom-60 -right-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-20"
@@ -877,7 +877,7 @@ const Footer = () => {
         <div
           className="liquid-glass rounded-[28px] sm:rounded-[40px] md:rounded-[48px] p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden"
           style={{
-            border: '1px solid rgba(154,224,48,0.16)',
+            border: '1px solid rgba(154,224,48,0.26)',
             boxShadow: '0 50px 100px -20px rgba(0,0,0,0.55)',
           }}
         >

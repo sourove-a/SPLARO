@@ -177,9 +177,9 @@ export const HeroSlider = () => {
             marginTop: '2.5rem',
             padding: '1.1rem 2.5rem',
             borderRadius: '999px',
-            background: 'linear-gradient(135deg, #071832 0%, #9B6B3A 50%, #9AE030 100%)',
+            background: 'linear-gradient(135deg, #071832 0%, #0A2A50 50%, #9AE030 100%)',
             border: '1px solid rgba(212,180,122,0.40)',
-            boxShadow: '0 4px 28px rgba(155,107,58,0.45), inset 0 1px 0 rgba(255,240,210,0.22)',
+            boxShadow: '0 4px 28px rgba(154,224,48,0.45), inset 0 1px 0 rgba(255,240,210,0.22)',
           }}
         >
           <span
@@ -230,7 +230,7 @@ export const HeroSlider = () => {
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
             border: '1px solid rgba(154,224,48,0.42)',
-            background: 'rgba(154,224,48,0.15)',
+            background: 'rgba(154,224,48,0.25)',
             color: '#F0F8FF',
           }}
           aria-label="Next slide"

@@ -129,7 +129,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.9 }}
                 className="w-full h-14 backdrop-blur-3xl rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
-                style={{ background: 'rgba(154,224,48,0.15)', border: '1px solid rgba(154,224,48,0.30)', color: '#F0F8FF' }}
+                style={{ background: 'rgba(154,224,48,0.25)', border: '1px solid rgba(154,224,48,0.30)', color: '#F0F8FF' }}
               >
                 <Eye className="w-4 h-4" /> {t('shop.viewDetails')}
               </motion.button>
@@ -145,8 +145,8 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   className="h-14 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-500"
                   style={
                     urgency.outOfStock
-                      ? { background: 'rgba(255,252,248,0.05)', border: '1px solid rgba(154,224,48,0.12)', color: 'rgba(255,255,255,0.28)', cursor: 'not-allowed' }
-                      : { background: 'linear-gradient(135deg, #071832, #9B6B3A, #9AE030)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(155,107,58,0.40)' }
+                      ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(154,224,48,0.12)', color: 'rgba(255,255,255,0.28)', cursor: 'not-allowed' }
+                      : { background: 'linear-gradient(135deg, #071832, #0A2A50, #9AE030)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(154,224,48,0.40)' }
                   }
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -227,7 +227,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                     className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-[0.14em] ${
                       urgency.outOfStock
                         ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                        : 'border-[#9AE030]/35 bg-[#9B6B3A]/10 text-white/90'
+                        : 'border-[#9AE030]/35 bg-[#0A2A50]/10 text-white/90'
                     }`}
                   >
                     {urgency.outOfStock

@@ -50,7 +50,7 @@ const SettingsSection = ({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div id={id} className="overflow-hidden rounded-[22px]"
-      style={{ border: '1px solid rgba(154,224,48,0.18)', background: 'rgba(8,16,38,0.70)', backdropFilter: 'blur(12px)' }}
+      style={{ border: '1px solid rgba(154,224,48,0.28)', background: 'rgba(7,14,32,0.80)', backdropFilter: 'blur(12px)' }}
     >
       <button
         type="button"
@@ -122,7 +122,7 @@ const SidebarItem: React.FC<{
     {active && (
       <motion.div
         layoutId="active-pill"
-        className="absolute inset-0 -z-10" style={{ background: "linear-gradient(135deg, #0D2A0A, #1A5810, #2E8A18)", boxShadow: "0 0 18px rgba(100,190,20,0.40)" }}
+        className="absolute inset-0 -z-10" style={{ background: "linear-gradient(135deg, #071020, #0D1E40, #0A2A50)", boxShadow: "0 0 18px rgba(154,224,48,0.30), inset 0 1px 0 rgba(154,224,48,0.18)" }}
       />
     )}
     <Icon className={`w-5 h-5 ${active ? 'scale-110' : ''}`} />
@@ -182,7 +182,7 @@ const ProductCollapsibleBox: React.FC<{
   const [isOpen, setIsOpen] = useState<boolean>(Boolean(defaultOpen));
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#0F1A0D]/70 overflow-hidden">
+    <div className="rounded-[28px] border border-white/10 bg-[#08121E]/70 overflow-hidden">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
@@ -877,11 +877,11 @@ const ProductModal: React.FC<{
     >
       <motion.div
         initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] bg-[#0A0C12] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(0, 122, 255, 0.2)] flex flex-col"
+        className="w-full max-w-[96vw] 2xl:max-w-[1720px] max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] bg-[#070E1E] border border-white/10 rounded-[44px] overflow-hidden shadow-[0_0_100px_rgba(0, 122, 255, 0.2)] flex flex-col"
       >
-        <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-[#9B6B3A]/5">
+        <div className="p-8 md:p-10 border-b border-white/5 flex justify-between items-center bg-[#0A2A50]/5">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 rounded-2xl bg-[#9B6B3A] flex items-center justify-center shadow-lg shadow-blue-600/40">
+            <div className="w-16 h-16 rounded-2xl bg-[#0A2A50] flex items-center justify-center shadow-lg shadow-blue-600/40">
               <LayoutDashboard className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -966,9 +966,9 @@ const ProductModal: React.FC<{
                       <select
                         value={formData.brand}
                         onChange={e => setFormData({ ...formData, brand: e.target.value as any, brandSlug: slugify(e.target.value) })}
-                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-[#9AE030]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
+                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#070E1E]/50 text-white outline-none focus:border-[#9AE030]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
-                        {availableBrands.map(b => <option key={b} value={b} className="bg-[#0A0C12]">{b}</option>)}
+                        {availableBrands.map(b => <option key={b} value={b} className="bg-[#070E1E]">{b}</option>)}
                       </select>
                       <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#9AE030]" />
                     </div>
@@ -979,9 +979,9 @@ const ProductModal: React.FC<{
                       <select
                         value={formData.category}
                         onChange={e => setFormData({ ...formData, category: e.target.value as any, categorySlug: slugify(e.target.value) })}
-                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#0A0C12]/50 text-white outline-none focus:border-[#9AE030]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
+                        className="w-full h-18 px-8 liquid-glass border border-white/10 rounded-[24px] font-bold bg-[#070E1E]/50 text-white outline-none focus:border-[#9AE030]/50 transition-all appearance-none cursor-pointer uppercase text-[11px] tracking-widest"
                       >
-                        {availableCategories.map(c => <option key={c} value={c} className="bg-[#0A0C12]">{c}</option>)}
+                        {availableCategories.map(c => <option key={c} value={c} className="bg-[#070E1E]">{c}</option>)}
                       </select>
                       <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none group-focus-within:text-[#9AE030]" />
                     </div>
@@ -993,7 +993,7 @@ const ProductModal: React.FC<{
                     <button
                       key={t}
                       onClick={() => setFormData({ ...formData, type: t as any })}
-                      className={`flex-1 py-4 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest ${formData.type === t ? 'bg-[#9B6B3A] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/10 text-white/30 hover:border-white/20'}`}
+                      className={`flex-1 py-4 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest ${formData.type === t ? 'bg-[#0A2A50] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/10 text-white/30 hover:border-white/20'}`}
                     >
                       {t}
                     </button>
@@ -1367,7 +1367,7 @@ const ProductModal: React.FC<{
                     <button
                       key={size}
                       onClick={() => toggleSize(size)}
-                      className={`h-12 rounded-xl border transition-all text-[10px] font-black ${formData.sizes?.includes(size) ? 'bg-[#9B6B3A] border-blue-600 text-white shadow-[0_0_15px_rgba(0, 122, 255, 0.4)]' : 'border-white/10 text-zinc-600 hover:border-white/30'}`}
+                      className={`h-12 rounded-xl border transition-all text-[10px] font-black ${formData.sizes?.includes(size) ? 'bg-[#0A2A50] border-blue-600 text-white shadow-[0_0_15px_rgba(0, 122, 255, 0.4)]' : 'border-white/10 text-zinc-600 hover:border-white/30'}`}
                     >
                       {size}
                     </button>
@@ -1384,7 +1384,7 @@ const ProductModal: React.FC<{
                     placeholder="ARCHIVAL DATA (ENGLISH)..."
                     value={formData.description?.EN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, EN: e.target.value } })}
-                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 bg-[#0A0C12]/50 text-white"
+                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
                   />
                 </div>
                 <div className="space-y-4">
@@ -1393,7 +1393,7 @@ const ProductModal: React.FC<{
                     placeholder="আর্কিভ ডেটা (বাংলা)..."
                     value={formData.description?.BN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, BN: e.target.value } })}
-                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 bg-[#0A0C12]/50 text-white"
+                    className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-xs outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
                   />
                 </div>
               </div>
@@ -1495,7 +1495,7 @@ const ProductModal: React.FC<{
                     placeholder="META DESCRIPTION PROTOCOL..."
                     value={formData.seoDescription || ''}
                     onChange={e => setFormData({ ...formData, seoDescription: e.target.value })}
-                    className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-[10px] outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 uppercase bg-[#0A0C12]/50 text-white"
+                    className="w-full h-24 p-6 liquid-glass border border-white/10 rounded-[24px] font-medium text-[10px] outline-none resize-none focus:border-[#9AE030]/50 transition-all placeholder:text-zinc-800 uppercase bg-[#070E1E]/50 text-white"
                   />
                 </div>
               </div>
@@ -1510,14 +1510,14 @@ const ProductModal: React.FC<{
                       placeholder="Color name (e.g. Midnight Black)"
                       value={colorNameInput}
                       onChange={(e) => setColorNameInput(e.target.value)}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-blue-400/55 text-white"
+                      className="bg-[#070E1E]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-blue-400/55 text-white"
                     />
                     <input
                       type="text"
                       placeholder="#111827"
                       value={colorHexInput}
                       onChange={(e) => setColorHexInput(e.target.value)}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-blue-400/55 text-white uppercase"
+                      className="bg-[#070E1E]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-blue-400/55 text-white uppercase"
                     />
                     <input
                       type="text"
@@ -1530,13 +1530,13 @@ const ProductModal: React.FC<{
                           addColorVariant();
                         }
                       }}
-                      className="bg-[#0A0C12]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-blue-400/55 text-white"
+                      className="bg-[#070E1E]/70 border border-white/15 rounded-xl px-4 py-3 text-xs font-semibold outline-none focus-visible:ring-0 focus-visible:border-blue-400/55 text-white"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={addColorVariant}
-                    className="px-5 py-2.5 rounded-xl bg-[#9B6B3A] hover:bg-[#9AE030] text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
+                    className="px-5 py-2.5 rounded-xl bg-[#0A2A50] hover:bg-[#9AE030] text-white text-[10px] font-black uppercase tracking-[0.16em] transition-all shadow-lg shadow-blue-600/20"
                   >
                     Add Color
                   </button>
@@ -1702,7 +1702,7 @@ const ProductModal: React.FC<{
         </div>
 
 
-        <div className="p-6 md:p-8 border-t border-white/5 flex gap-4 md:gap-6 bg-[#0A0C12]/95 backdrop-blur-xl shrink-0">
+        <div className="p-6 md:p-8 border-t border-white/5 flex gap-4 md:gap-6 bg-[#070E1E]/95 backdrop-blur-xl shrink-0">
           <button onClick={onClose} disabled={isSaving} className="flex-1 h-18 rounded-[28px] border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/5 transition-all text-zinc-500 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed">Cancel</button>
           <PrimaryButton
             onClick={handleSubmitProduct}
@@ -2476,7 +2476,7 @@ export const AdminPanel = () => {
       accentColor: String(colors.accent || '#AAEE2A'),
       backgroundColor: String(colors.background || '#FFFFFF'),
       tableHeaderColor: String(colors.primary || '#111827'),
-      buttonColor: String(colors.accent || '#9B6B3A')
+      buttonColor: String(colors.accent || '#0A2A50')
     };
   };
 
@@ -3369,7 +3369,7 @@ export const AdminPanel = () => {
 
 
   return (
-    <div className="min-h-screen pt-32 pb-20 px-6 max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-12 text-white">
+    <div className="min-h-screen pt-32 pb-20 px-6 max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-12 text-white" style={{ background: "transparent" }}>
       {/* Sidebar Navigation */}
       <aside className="w-full lg:w-80 shrink-0 flex flex-col gap-8">
         <div className="h-10" />
@@ -3464,7 +3464,7 @@ export const AdminPanel = () => {
               >
                 <Bell className="w-7 h-7 text-zinc-500 group-hover:text-white transition-all" />
                 {newOrdersCount > 0 && (
-                  <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-7 h-7 rounded-full flex items-center justify-center border-4 border-[#0A0C12] shadow-[0_0_15px_rgba(244,63,94,0.5)]">
+                  <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black w-7 h-7 rounded-full flex items-center justify-center border-4 border-[#070E1E] shadow-[0_0_15px_rgba(244,63,94,0.5)]">
                     {newOrdersCount}
                   </div>
                 )}
@@ -3489,13 +3489,13 @@ export const AdminPanel = () => {
               exit={{ opacity: 0, y: -20 }}
               className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8"
             >
-              <BentoCard title="Logistics Revenue" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+14.2%" icon={DollarSign} color="bg-[#9B6B3A]" />
+              <BentoCard title="Logistics Revenue" value={`৳${orders.reduce((acc, o) => acc + o.total, 0).toLocaleString()}`} trend="+14.2%" icon={DollarSign} color="bg-[#0A2A50]" />
               <BentoCard title="Asset Deployments" value={orders.length.toString()} trend="+8.4%" icon={Package} color="bg-[#9AE030]" />
               <BentoCard title="Archival Portfolio" value={products.length.toString()} trend="+2.1%" icon={ShoppingBag} color="bg-purple-600" />
-              <BentoCard title="Intelligence Velocity" value="4.8h" trend="OPTIMAL" icon={Zap} color="bg-[#9B6B3A]" />
+              <BentoCard title="Intelligence Velocity" value="4.8h" trend="OPTIMAL" icon={Zap} color="bg-[#0A2A50]" />
 
               <GlassCard className="md:col-span-2 xl:col-span-3 p-12 min-h-[500px] relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-[#9B6B3A]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-[#9AE030]/10 transition-all duration-1000" />
+                <div className="absolute top-0 right-0 w-96 h-96 bg-[#0A2A50]/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 group-hover:bg-[#9AE030]/10 transition-all duration-1000" />
                 <div className="flex justify-between items-center mb-12 relative z-10">
                   <div>
                     <h3 className="text-3xl font-black italic uppercase tracking-tighter">Strategic Archive Pulse</h3>
@@ -3507,8 +3507,8 @@ export const AdminPanel = () => {
                         key={t}
                         onClick={() => setAnalyticsWindow(t)}
                         className={`px-5 py-2 rounded-full liquid-glass border text-[9px] font-black uppercase transition-all ${analyticsWindow === t
-                          ? 'border-[#9AE030]/40 bg-[#9B6B3A] text-white'
-                          : 'border-white/5 hover:bg-[#9B6B3A] hover:text-white'
+                          ? 'border-[#9AE030]/40 bg-[#0A2A50] text-white'
+                          : 'border-white/5 hover:bg-[#0A2A50] hover:text-white'
                           }`}
                       >
                         {t}
@@ -3526,7 +3526,7 @@ export const AdminPanel = () => {
                       transition={{ delay: i * 0.05, duration: 1, ease: [0.16, 1, 0.3, 1] }}
                       className="flex-1 bg-gradient-to-t from-blue-700/20 via-blue-600/40 to-blue-400 rounded-t-xl group relative"
                     >
-                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#0A0C12] border border-white/10 text-[#9AE030] text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#070E1E] border border-white/10 text-[#9AE030] text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
                         ৳{Math.floor(h * 15).toLocaleString()}k
                       </div>
                     </motion.div>
@@ -3577,7 +3577,7 @@ export const AdminPanel = () => {
                       <button
                         key={s}
                         onClick={() => setOrderFilter(s)}
-                        className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${orderFilter === s ? 'bg-[#9B6B3A] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/5 text-zinc-500 hover:border-white/20'}`}
+                        className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${orderFilter === s ? 'bg-[#0A2A50] border-blue-600 text-white shadow-[0_10px_30px_rgba(0, 122, 255, 0.3)]' : 'border-white/5 text-zinc-500 hover:border-white/20'}`}
                       >
                         {s}
                       </button>
@@ -3621,7 +3621,7 @@ export const AdminPanel = () => {
                               className={`px-6 py-2 rounded-full text-[10px] font-black uppercase border transition-all cursor-pointer outline-none bg-transparent ${statusColors[order.status]}`}
                             >
                               {['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
-                                <option key={s} value={s} className="bg-[#0A0C12]">{s}</option>
+                                <option key={s} value={s} className="bg-[#070E1E]">{s}</option>
                               ))}
                             </select>
                           </td>
@@ -3649,7 +3649,7 @@ export const AdminPanel = () => {
 
           {activeTab === 'PRODUCTS' && (
             <motion.div key="products" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-[#0A0C12]/50 p-10 rounded-[40px] border border-white/5">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 bg-[#070E1E]/50 p-10 rounded-[40px] border border-white/5">
                 <div className="flex gap-12">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Product Catalog</span>
@@ -3667,8 +3667,8 @@ export const AdminPanel = () => {
                     onChange={(e) => setBrandFilter(e.target.value)}
                     className="bg-white/5 border border-white/5 rounded-[24px] px-6 py-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-[#9AE030]/50 transition-all"
                   >
-                    <option value="All Brands" className="bg-[#0A0C12]">All Brands</option>
-                    {Array.from(new Set(products.map(p => p.brand))).map(b => <option key={b} value={b} className="bg-[#0A0C12]">{b}</option>)}
+                    <option value="All Brands" className="bg-[#070E1E]">All Brands</option>
+                    {Array.from(new Set(products.map(p => p.brand))).map(b => <option key={b} value={b} className="bg-[#070E1E]">{b}</option>)}
                   </select>
                   <div className="hidden xl:flex items-center bg-white/5 px-6 py-4 rounded-[24px] border border-white/5 gap-4">
                     <Search className="w-5 h-5 text-zinc-500" />
@@ -3907,7 +3907,7 @@ export const AdminPanel = () => {
                     <select
                       value={userStatusFilter}
                       onChange={(event) => setUserStatusFilter(event.target.value as any)}
-                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#0A0C12] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-white/22"
+                      className="h-11 px-4 rounded-xl border border-white/15 bg-[#070E1E] text-xs font-black uppercase tracking-[0.16em] text-zinc-200 outline-none focus-visible:border-white/22"
                     >
                       <option value="ALL">All users</option>
                       <option value="ACTIVE">Active</option>
@@ -4013,7 +4013,7 @@ export const AdminPanel = () => {
                                 value={u.role}
                                 onChange={(event) => updateCustomerRole(u, event.target.value as User['role'])}
                                 disabled={isLockedIdentity}
-                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#0A0C12] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-white/22 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                className={`h-9 px-2 rounded-lg border border-white/15 bg-[#070E1E] text-[9px] font-black uppercase tracking-[0.14em] text-zinc-200 outline-none focus-visible:border-white/22 ${isLockedIdentity ? 'opacity-40 cursor-not-allowed' : ''}`}
                               >
                                 {u.role === 'OWNER' && <option value="OWNER">OWNER</option>}
                                 <option value="USER">USER</option>
@@ -4065,8 +4065,8 @@ export const AdminPanel = () => {
               {/* Advanced Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 <BentoCard title="Gross Pipeline" value={`৳${(orders.reduce((acc, o) => acc + o.total, 0) * 1.2).toLocaleString()}`} trend="+22%" icon={TrendingUp} color="bg-indigo-600" />
-                <BentoCard title="Avg Asset Value" value={`৳${products.length > 0 ? Math.floor(products.reduce((acc, p) => acc + p.price, 0) / products.length).toLocaleString() : '0'}`} trend="+5%" icon={DollarSign} color="bg-[#9B6B3A]" />
-                <BentoCard title="Collector LTV" value="৳85,400" trend="+12%" icon={Users} color="bg-[#9B6B3A]" />
+                <BentoCard title="Avg Asset Value" value={`৳${products.length > 0 ? Math.floor(products.reduce((acc, p) => acc + p.price, 0) / products.length).toLocaleString() : '0'}`} trend="+5%" icon={DollarSign} color="bg-[#0A2A50]" />
+                <BentoCard title="Collector LTV" value="৳85,400" trend="+12%" icon={Users} color="bg-[#0A2A50]" />
                 <BentoCard title="Refill Velocity" value="84%" trend="STABLE" icon={RefreshCcw} color="bg-rose-500" />
               </div>
 
@@ -4082,7 +4082,7 @@ export const AdminPanel = () => {
                         aria-pressed={analyticsChartMode === 'REVENUE'}
                         className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                           analyticsChartMode === 'REVENUE'
-                            ? 'bg-[#9B6B3A] text-white shadow-[0_10px_24px_rgba(0, 122, 255, 0.28)]'
+                            ? 'bg-[#0A2A50] text-white shadow-[0_10px_24px_rgba(0, 122, 255, 0.28)]'
                             : 'hover:bg-white/5 text-zinc-500'
                         }`}
                       >
@@ -4094,7 +4094,7 @@ export const AdminPanel = () => {
                         aria-pressed={analyticsChartMode === 'ROTATION'}
                         className={`px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                           analyticsChartMode === 'ROTATION'
-                            ? 'bg-[#9B6B3A] text-white shadow-[0_10px_24px_rgba(52, 170, 220, 0.28)]'
+                            ? 'bg-[#0A2A50] text-white shadow-[0_10px_24px_rgba(52, 170, 220, 0.28)]'
                             : 'hover:bg-white/5 text-zinc-500'
                         }`}
                       >
@@ -4113,7 +4113,7 @@ export const AdminPanel = () => {
                             : 'bg-gradient-to-t from-blue-600/10 via-blue-500/40 to-lime-300'
                         }`}
                       >
-                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#0A0C12] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-[#9AE030] whitespace-nowrap shadow-2xl">
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all bg-[#070E1E] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-black text-[#9AE030] whitespace-nowrap shadow-2xl">
                           {analyticsChartMode === 'REVENUE' ? `৳${(h * 10).toLocaleString()}k` : `${h}%`}
                         </div>
                       </motion.div>
@@ -4158,7 +4158,7 @@ export const AdminPanel = () => {
                             <span>{s.val}%</span>
                           </div>
                           <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                            <motion.div initial={{ width: 0 }} animate={{ width: `${s.val}%` }} className="h-full bg-[#9B6B3A]" />
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${s.val}%` }} className="h-full bg-[#0A2A50]" />
                           </div>
                         </div>
                       ))}
@@ -4185,7 +4185,7 @@ export const AdminPanel = () => {
                       onClick={() => setFinanceRange(range)}
                       className={`px-5 py-2 rounded-full border text-[10px] font-black uppercase tracking-[0.2em] transition-all ${
                         financeRange === range
-                          ? 'bg-[#9B6B3A] border-[#9AE030] text-white'
+                          ? 'bg-[#0A2A50] border-[#9AE030] text-white'
                           : 'border-white/10 text-zinc-400 hover:border-white/30 hover:text-white'
                       }`}
                     >
@@ -4202,9 +4202,9 @@ export const AdminPanel = () => {
               </GlassCard>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <BentoCard title="Gross Sales" value={`৳${financeSummary.grossSales.toLocaleString()}`} trend={`${financeSummary.totalOrders} orders`} icon={DollarSign} color="bg-[#9B6B3A]" />
+                <BentoCard title="Gross Sales" value={`৳${financeSummary.grossSales.toLocaleString()}`} trend={`${financeSummary.totalOrders} orders`} icon={DollarSign} color="bg-[#0A2A50]" />
                 <BentoCard title="Total Expenses" value={`৳${financeSummary.expensesTotal.toLocaleString()}`} trend={`${financeExpensesFiltered.length} entries`} icon={LogOut} color="bg-rose-600" />
-                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-[#9B6B3A]" />
+                <BentoCard title="Net Profit" value={`৳${financeSummary.netProfit.toLocaleString()}`} trend={`AOV ৳${Math.round(financeSummary.avgOrderValue).toLocaleString()}`} icon={TrendingUp} color="bg-[#0A2A50]" />
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -4236,7 +4236,7 @@ export const AdminPanel = () => {
                         type="date"
                         value={expenseForm.date}
                         onChange={(e) => setExpenseForm((prev) => ({ ...prev, date: e.target.value }))}
-                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-4 text-sm text-white outline-none focus:border-[#9AE030]/60"
+                        className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-4 text-sm text-white outline-none focus:border-[#9AE030]/60"
                       />
                     </div>
                   </div>
@@ -4465,7 +4465,7 @@ export const AdminPanel = () => {
                   </div>
 
                   {/* Enable toggle */}
-                  <div className="flex items-center justify-between p-4 rounded-xl mb-6" style={{ background: 'rgba(154,224,48,0.06)', border: '1px solid rgba(154,224,48,0.18)' }}>
+                  <div className="flex items-center justify-between p-4 rounded-xl mb-6" style={{ background: 'rgba(154,224,48,0.10)', border: '1px solid rgba(154,224,48,0.18)' }}>
                     <div>
                       <p className="text-sm font-bold text-white">Enable Popup</p>
                       <p className="text-[10px] text-zinc-400 mt-1">Show new arrival popup to visitors on the homepage</p>
@@ -4481,7 +4481,7 @@ export const AdminPanel = () => {
                       })}
                       className="w-14 h-7 rounded-full transition-all relative"
                       style={{
-                        background: siteSettings.newArrivalPopup?.enabled ? 'linear-gradient(135deg, #9B6B3A, #9AE030)' : 'rgba(255,255,255,0.10)',
+                        background: siteSettings.newArrivalPopup?.enabled ? 'linear-gradient(135deg, #0A2A50, #9AE030)' : 'rgba(255,255,255,0.10)',
                         border: '1px solid rgba(154,224,48,0.30)'
                       }}
                     >
@@ -4709,7 +4709,7 @@ export const AdminPanel = () => {
                         type="text"
                         value={siteSettings.invoiceSettings.invoicePrefix}
                         onChange={(e) => updateInvoiceSettingsField({ invoicePrefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       />
                     </div>
                     <div className="space-y-2">
@@ -4720,7 +4720,7 @@ export const AdminPanel = () => {
                         max={10}
                         value={siteSettings.invoiceSettings.numberPadding}
                         onChange={(e) => updateInvoiceSettingsField({ numberPadding: Math.max(3, Math.min(10, Number(e.target.value) || 6)) })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       />
                     </div>
                     <div className="space-y-2">
@@ -4728,7 +4728,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.invoiceSettings.defaultType}
                         onChange={(e) => updateInvoiceSettingsField({ defaultType: e.target.value })}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         {(siteSettings.invoiceSettings.serialTypes || []).map((item) => (
                           <option key={item.code} value={item.code}>{item.code} - {item.label}</option>
@@ -4739,7 +4739,7 @@ export const AdminPanel = () => {
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Counter Mode</label>
                       <button
                         onClick={() => updateInvoiceSettingsField({ separateCounterPerType: !siteSettings.invoiceSettings.separateCounterPerType })}
-                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#9AE030]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                        className={`w-full h-12 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${siteSettings.invoiceSettings.separateCounterPerType ? 'border-blue-400/50 text-white/85 bg-[#9AE030]/10' : 'border-white/10 text-zinc-300 bg-[#070E1E]'}`}
                       >
                         {siteSettings.invoiceSettings.separateCounterPerType ? 'Separate by Type' : 'Global Counter'}
                       </button>
@@ -4776,13 +4776,13 @@ export const AdminPanel = () => {
                             type="color"
                             value={/^#[0-9a-fA-F]{6}$/.test(String((siteSettings.invoiceSettings.theme as any)[item.key] || '')) ? String((siteSettings.invoiceSettings.theme as any)[item.key]) : '#000000'}
                             onChange={(e) => updateInvoiceThemeField(item.key, e.target.value.toUpperCase())}
-                            className="h-11 w-12 rounded-xl border border-white/10 bg-[#0A0C12] p-1 cursor-pointer"
+                            className="h-11 w-12 rounded-xl border border-white/10 bg-[#070E1E] p-1 cursor-pointer"
                           />
                           <input
                             type="text"
                             value={(siteSettings.invoiceSettings.theme as any)[item.key]}
                             onChange={(e) => updateInvoiceThemeField(item.key, e.target.value.toUpperCase())}
-                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                            className="flex-1 h-11 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                         </div>
                       </div>
@@ -4808,12 +4808,12 @@ export const AdminPanel = () => {
                             step={0.25}
                             value={siteSettings.invoiceSettings.taxRate}
                             onChange={(e) => updateInvoiceSettingsField({ taxRate: Math.max(0, Math.min(50, Number(e.target.value) || 0)) })}
-                            className="w-full h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                            className="w-full h-11 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                         ) : (
                           <button
                             onClick={() => updateInvoiceSettingsField({ [item.key]: !(siteSettings.invoiceSettings as any)[item.key] })}
-                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#9AE030]/40 text-white/85 bg-[#9AE030]/10' : 'border-white/10 text-zinc-300 bg-[#0A0C12]'}`}
+                            className={`w-full h-11 rounded-xl border text-xs font-black uppercase tracking-[0.2em] transition-all ${(siteSettings.invoiceSettings as any)[item.key] ? 'border-[#9AE030]/40 text-white/85 bg-[#9AE030]/10' : 'border-white/10 text-zinc-300 bg-[#070E1E]'}`}
                           >
                             {(siteSettings.invoiceSettings as any)[item.key] ? 'On' : 'Off'}
                           </button>
@@ -4839,13 +4839,13 @@ export const AdminPanel = () => {
                             type="text"
                             value={serialType.code}
                             onChange={(e) => updateInvoiceSerialType(index, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })}
-                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                            className="h-11 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                           <input
                             type="text"
                             value={serialType.label}
                             onChange={(e) => updateInvoiceSerialType(index, { label: e.target.value })}
-                            className="h-11 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                            className="h-11 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                           <button
                             onClick={() => removeInvoiceSerialType(index)}
@@ -4917,7 +4917,7 @@ export const AdminPanel = () => {
                           type="text"
                           value={field.value}
                           onChange={(e) => updateThemeSettingsField(field.key, e.target.value)}
-                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                         />
                       </div>
                     ))}
@@ -4929,7 +4929,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.themeSettings.typography.fontFamily}
                         onChange={(e) => updateThemeSettingsField('typography.fontFamily', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         {['Inter', 'Manrope', 'Plus Jakarta Sans', 'Urbanist', 'Poppins'].map((font) => (
                           <option key={font} value={font}>{font}</option>
@@ -4941,7 +4941,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.themeSettings.containerWidth}
                         onChange={(e) => updateThemeSettingsField('containerWidth', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         {['LG', 'XL', '2XL', 'FULL'].map((width) => (
                           <option key={width} value={width}>{width}</option>
@@ -4976,7 +4976,7 @@ export const AdminPanel = () => {
                               max={20}
                               value={siteSettings.cmsDraft.themeSettings.typography.baseSize}
                               onChange={(e) => updateThemeSettingsField('typography.baseSize', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4988,7 +4988,7 @@ export const AdminPanel = () => {
                               step={0.05}
                               value={siteSettings.cmsDraft.themeSettings.typography.headingScale}
                               onChange={(e) => updateThemeSettingsField('typography.headingScale', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                           <div className="space-y-2">
@@ -4999,7 +4999,7 @@ export const AdminPanel = () => {
                               max={40}
                               value={siteSettings.cmsDraft.themeSettings.borderRadius}
                               onChange={(e) => updateThemeSettingsField('borderRadius', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                           <div className="space-y-2">
@@ -5010,7 +5010,7 @@ export const AdminPanel = () => {
                               max={100}
                               value={siteSettings.cmsDraft.themeSettings.shadowIntensity}
                               onChange={(e) => updateThemeSettingsField('shadowIntensity', Number(e.target.value))}
-                              className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                              className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                             />
                           </div>
                         </div>
@@ -5050,7 +5050,7 @@ export const AdminPanel = () => {
                             max={50}
                             value={siteSettings.cmsDraft.themeSettings.lowStockThreshold}
                             onChange={(e) => updateThemeSettingsField('lowStockThreshold', Number(e.target.value))}
-                            className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                            className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                           />
                           <p className="text-[10px] text-zinc-500">
                             Show “Low stock” only when stock is known and at or below this value.
@@ -5098,7 +5098,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroTitleMode}
                         onChange={(e) => updateHeroField('heroTitleMode', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="AUTO">AUTO</option>
                         <option value="MANUAL">MANUAL</option>
@@ -5109,7 +5109,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroAlignment}
                         onChange={(e) => updateHeroField('heroAlignment', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="LEFT">LEFT</option>
                         <option value="CENTER">CENTER</option>
@@ -5123,7 +5123,7 @@ export const AdminPanel = () => {
                       value={siteSettings.cmsDraft.heroSettings.heroTitleManualBreaks}
                       onChange={(e) => updateHeroField('heroTitleManualBreaks', e.target.value)}
                       rows={3}
-                      className="w-full rounded-xl border border-white/10 bg-[#0A0C12] px-4 py-3 text-xs text-white outline-none focus:border-white/22"
+                      className="w-full rounded-xl border border-white/10 bg-[#070E1E] px-4 py-3 text-xs text-white outline-none focus:border-white/22"
                     />
                   </div>
 
@@ -5179,7 +5179,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.heroSettings.heroBgType}
                         onChange={(e) => updateHeroField('heroBgType', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="GRADIENT">GRADIENT</option>
                         <option value="IMAGE">IMAGE</option>
@@ -5193,7 +5193,7 @@ export const AdminPanel = () => {
                         max={4}
                         value={siteSettings.cmsDraft.heroSettings.heroMaxLines}
                         onChange={(e) => updateHeroField('heroMaxLines', Number(e.target.value))}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       />
                     </div>
                   </div>
@@ -5240,7 +5240,7 @@ export const AdminPanel = () => {
                         <select
                           value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.heroBgType || 'GRADIENT'}
                           onChange={(e) => updateCategoryOverrideField('heroBgType', e.target.value)}
-                          className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                          className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                         >
                           <option value="GRADIENT">GRADIENT</option>
                           <option value="IMAGE">IMAGE</option>
@@ -5257,7 +5257,7 @@ export const AdminPanel = () => {
                       <select
                         value={siteSettings.cmsDraft.categoryHeroOverrides[cmsCategoryTab]?.sortDefault || 'Newest'}
                         onChange={(e) => updateCategoryOverrideField('sortDefault', e.target.value)}
-                        className="w-full h-12 rounded-xl border border-white/10 bg-[#0A0C12] px-3 text-xs text-white outline-none focus:border-white/22"
+                        className="w-full h-12 rounded-xl border border-white/10 bg-[#070E1E] px-3 text-xs text-white outline-none focus:border-white/22"
                       >
                         <option value="Newest">Newest</option>
                         <option value="PriceLowToHigh">PriceLowToHigh</option>
@@ -5335,7 +5335,7 @@ export const AdminPanel = () => {
                           value={siteSettings.cmsPages[section.key].body}
                           onChange={(e) => updateCmsField(section.key, 'body', e.target.value)}
                           rows={4}
-                          className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                          className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
                         />
                       </div>
                     </div>
@@ -5412,7 +5412,7 @@ export const AdminPanel = () => {
                         value={story.body}
                         onChange={(e) => upsertStoryPost(story.id, 'body', e.target.value)}
                         rows={6}
-                        className="w-full rounded-2xl border border-white/10 bg-[#0A0C12] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                        className="w-full rounded-2xl border border-white/10 bg-[#070E1E] p-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
                       />
                     </div>
 
@@ -5423,7 +5423,7 @@ export const AdminPanel = () => {
                           type="datetime-local"
                           value={story.publishAt ? new Date(story.publishAt).toISOString().slice(0, 16) : ''}
                           onChange={(e) => upsertStoryPost(story.id, 'publishAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
-                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#0A0C12] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
+                          className="w-full h-16 rounded-2xl border border-white/10 bg-[#070E1E] px-5 text-sm text-white outline-none focus:border-[#9AE030]/50"
                         />
                       </div>
                       <div className="rounded-2xl border border-[#9AE030]/20 bg-[#9AE030]/5 p-5 text-[10px] uppercase tracking-[0.2em] font-black text-[#9AE030] flex items-center">
@@ -5595,7 +5595,7 @@ export const AdminPanel = () => {
           {activeTab === 'TRAFFIC' && (
             <motion.div key="traffic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <BentoCard title="Active Visitors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-[#9B6B3A]" />
+                <BentoCard title="Active Visitors" value={trafficData.length.toString()} trend={`+${Math.floor(trafficData.length / 5)}`} icon={Eye} color="bg-[#0A2A50]" />
                 <BentoCard title="Avg Session (min)" value={`${(trafficData.length * 1.5).toFixed(1)}m`} trend="STABLE" icon={Clock} color="bg-[#9AE030]" />
                 <BentoCard title="Unique Pages" value={new Set(trafficData.map(t => t.path)).size.toString()} trend="+2" icon={MapPin} color="bg-indigo-600" />
               </div>
@@ -5864,7 +5864,7 @@ export const AdminPanel = () => {
                 exit={{ scale: 0.96, y: 20 }}
                 className="w-full max-w-7xl max-h-[92vh] overflow-y-auto custom-scrollbar"
               >
-                <GlassCard className="p-6 md:p-10 !rounded-[36px] border-white/10 bg-[#0A0C12]/95">
+                <GlassCard className="p-6 md:p-10 !rounded-[36px] border-white/10 bg-[#070E1E]/95">
                   <div className="flex items-start justify-between gap-4 mb-8">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.28em] text-[#9AE030] font-black mb-2">Customer Profile</p>
@@ -6095,7 +6095,7 @@ export const AdminPanel = () => {
                               value={customerNoteDraft}
                               onChange={(event) => setCustomerNoteDraft(event.target.value)}
                               placeholder="Add admin note..."
-                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#0A0C12] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-white/22 resize-none"
+                              className="w-full h-24 rounded-2xl border border-white/15 bg-[#070E1E] px-4 py-3 text-sm text-zinc-100 outline-none focus-visible:border-white/22 resize-none"
                             />
                             <button
                               onClick={saveCustomerNote}
@@ -6154,7 +6154,7 @@ export const AdminPanel = () => {
           {selectedOrder && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-3xl">
               <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="w-full max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <GlassCard className="p-10 md:p-14 !rounded-[48px] bg-[#0A0C12]/90 border-white/5 shadow-[0_0_100px_rgba(0, 122, 255, 0.1)]">
+                <GlassCard className="p-10 md:p-14 !rounded-[48px] bg-[#070E1E]/90 border-white/5 shadow-[0_0_100px_rgba(0, 122, 255, 0.1)]">
                   <div className="flex justify-between items-start mb-14">
                     <div>
                       <div className="flex items-center gap-3 text-[#9AE030] mb-4">
@@ -6428,7 +6428,7 @@ export const AdminPanel = () => {
                           setSelectedOrder(null);
                           showToast(`Order ${id} moved to shipped.`, 'success');
                         }}
-                        className="h-14 rounded-2xl border border-[#9AE030]/40 bg-[#9B6B3A] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]"
+                        className="h-14 rounded-2xl border border-[#9AE030]/40 bg-[#0A2A50] text-white text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:bg-[#9AE030]"
                       >
                         Mark Shipped
                       </button>

@@ -6,9 +6,9 @@ export const GlassCard: React.FC<{ children: React.ReactNode; className?: string
     id={id}
     className={`card liquid-glass rounded-[32px] relative overflow-hidden ${className}`}
     style={{
-      border: '1px solid rgba(154,224,48,0.16)',
-      background: 'rgba(255,252,248,0.05)',
-      boxShadow: '0 16px 48px rgba(0,0,0,0.68), 0 0 28px rgba(61,107,61,0.06)',
+      border: '1px solid rgba(154,224,48,0.28)',
+      background: 'rgba(7, 16, 30, 0.72)',
+      boxShadow: '0 16px 48px rgba(0,0,0,0.75), 0 0 32px rgba(154,224,48,0.10), inset 0 1px 0 rgba(154,224,48,0.12)',
     }}
   >
     <div className="ribbed-texture absolute inset-0 pointer-events-none opacity-[0.02]" />
@@ -188,16 +188,16 @@ export const PrimaryButton: React.FC<{
     disabled={disabled || isLoading}
     className={`interactive-control relative rounded-[32px] font-bold overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group ${className}`}
     style={{
-      background: 'linear-gradient(135deg, #071832 0%, #3A8A10 45%, #9AE030 78%, #3A8A10 100%)',
-      border: '1px solid rgba(212,180,122,0.38)',
-      color: '#F8F0E0',
-      boxShadow: '0 0 28px rgba(155,107,58,0.38), inset 0 1px 0 rgba(255,240,210,0.22)',
+      background: 'linear-gradient(135deg, #0A1E14 0%, #1A5010 40%, #3A8A10 70%, #9AE030 100%)',
+      border: '1px solid rgba(154,224,48,0.55)',
+      color: '#FFFFFF',
+      boxShadow: '0 0 28px rgba(154,224,48,0.35), inset 0 1px 0 rgba(154,224,48,0.20)',
     }}
   >
     <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
     <div
       className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-      style={{ background: 'rgba(255,240,210,0.10)' }}
+      style={{ background: 'rgba(154,224,48,0.10)' }}
     />
 
     <div className="relative z-10 flex items-center justify-center gap-4 px-10 uppercase tracking-[0.38em]">
@@ -208,7 +208,7 @@ export const PrimaryButton: React.FC<{
             transition={{ repeat: Infinity, duration: 1.4, ease: "linear" }}
             className="w-6 h-6 border-2 border-transparent border-t-[#F8F0E0] rounded-full"
           />
-          <span className="text-[10px] animate-pulse" style={{ color: '#F8F0E0' }}>Processing...</span>
+          <span className="text-[10px] animate-pulse" style={{ color: '#FFFFFF' }}>Processing...</span>
         </div>
       ) : children}
     </div>
