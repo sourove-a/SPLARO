@@ -1,0 +1,47 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: splaro-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USERNAME }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_SSH_PORT || 22 }}
+          script: |
+            set -e
+
+            # ─── Go to project directory ───────────────────────────────────────
+            cd ~/splaro || cd ~/domains/splaro.co/public_html || cd ~/public_html
+
+            echo "📥 Pulling latest code..."
+            git pull origin main
+
+            echo "📦 Installing dependencies..."
+            npm ci --no-audit --no-fund
+
+            echo "🔨 Building..."
+            npm run build
+
+            echo "🔄 Restarting server..."
+            if command -v pm2 &> /dev/null; then
+              pm2 reload all --update-env || pm2 start ecosystem.config.js || pm2 start npm --name splaro -- start
+            else
+              echo "pm2 not found – please restart manually"
+            fi
+
+            echo "✅ Deployment complete!"
