@@ -75,9 +75,9 @@ export const LuxuryFloatingInput: React.FC<{
     <div className="relative mb-4 group w-full">
       <motion.div
         animate={{
-          borderColor: focused ? 'rgba(154, 224, 48, 0.85)' : error ? 'rgba(192, 97, 74, 0.70)' : isValid ? 'rgba(255, 255, 255, 0.50)' : 'rgba(255, 255, 255, 0.15)',
-          backgroundColor: focused ? 'rgba(8, 14, 32, 0.98)' : error ? 'rgba(8, 14, 38, 0.55)' : 'rgba(8, 14, 32, 0.92)',
-          boxShadow: focused ? '0 0 0 2px rgba(255, 255, 255, 0.14), 0 10px 26px rgba(0, 0, 0, 0.52)' : '0 8px 18px rgba(0, 0, 0, 0.38)'
+          borderColor: focused ? 'rgba(201, 169, 110, 0.85)' : error ? 'rgba(192, 97, 74, 0.70)' : isValid ? 'rgba(201, 169, 110, 0.50)' : 'rgba(201, 169, 110, 0.18)',
+          backgroundColor: focused ? 'rgba(8, 6, 4, 0.98)' : error ? 'rgba(12, 8, 4, 0.55)' : 'rgba(8, 6, 4, 0.92)',
+          boxShadow: focused ? '0 0 0 2px rgba(201, 169, 110, 0.16), 0 10px 26px rgba(0, 0, 0, 0.65)' : '0 8px 18px rgba(0, 0, 0, 0.45)'
         }}
         className="relative flex items-center h-20 md:h-24 border rounded-[14px] transition-all duration-200 ease-out overflow-hidden"
       >
@@ -177,21 +177,21 @@ export const PrimaryButton: React.FC<{
     whileHover={!disabled && !isLoading ? {
       scale: 1.012,
       y: -2,
-      boxShadow: "0 14px 32px rgba(255,255,255,0.45)"
+      boxShadow: "0 14px 32px rgba(201,169,110,0.35)"
     } : {}}
     whileTap={!disabled && !isLoading ? {
       scale: 0.988,
       y: 1,
-      boxShadow: "0 6px 18px rgba(154,224,48,0.32)"
+      boxShadow: "0 6px 18px rgba(201,169,110,0.28)"
     } : {}}
     onClick={onClick}
     disabled={disabled || isLoading}
     className={`interactive-control relative rounded-[12px] font-bold overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed group ${className}`}
     style={{
-      background: 'rgba(255, 255, 255, 0.16)',
-      border: '1px solid rgba(255,255,255,0.28)',
-      color: '#FFFFFF',
-      boxShadow: '0 0 28px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.14)',
+      background: 'linear-gradient(135deg, rgba(201,169,110,0.25) 0%, rgba(160,120,64,0.15) 100%)',
+      border: '1px solid rgba(201,169,110,0.45)',
+      color: '#E8C987',
+      boxShadow: '0 0 28px rgba(201,169,110,0.18), inset 0 1px 0 rgba(232,201,135,0.14)',
     }}
   >
     <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />

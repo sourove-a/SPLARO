@@ -98,7 +98,7 @@ export default function ContentPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-[#0D1B3A] border border-white/15 rounded-[16px] p-6 w-full max-w-2xl shadow-2xl my-6">
+          <div className="bg-[#130F09] border border-white/15 rounded-[16px] p-6 w-full max-w-2xl shadow-2xl my-6">
             <h2 className="text-lg font-bold text-white mb-4">{editing ? 'Edit Page' : 'New Page'}</h2>
             {error && <div className="mb-3 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">{error}</div>}
             <div className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">

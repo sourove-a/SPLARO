@@ -445,8 +445,8 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex items-center gap-5">
                     <CreditCard className="w-7 h-7 text-white/10" />
                     <div className="text-left">
-                      <p className="text-sm font-black uppercase text-white/20">Digital Gateway</p>
-                      <p className="text-[9px] text-white/10 font-bold uppercase tracking-widest">Unavailable</p>
+                      <p className="text-sm font-black uppercase text-white/20">bKash / Nagad</p>
+                      <p className="text-[9px] text-white/10 font-bold uppercase tracking-widest">Coming Soon</p>
                     </div>
                   </div>
                 </button>

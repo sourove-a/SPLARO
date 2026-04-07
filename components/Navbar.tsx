@@ -4,7 +4,7 @@ import {
   ShoppingBag, User, Menu, X, Search, ArrowRight, Instagram, Facebook, Globe,
   MessageSquare, ChevronDown, Eye, User as UserIcon, MapPin, Phone, Database,
   RefreshCcw, BarChart3, Zap, Shield, HelpCircle, Home, BookOpen, ShoppingCart,
-  Layers, Footprints, Briefcase, Tag, Percent, Star
+  Layers, Footprints, Briefcase, Tag, Percent, Star, Heart
 } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
@@ -119,16 +119,16 @@ const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
   );
 };
 
-/* ── Cognac/gold colour tokens reused in nav ── */
-const COGNAC      = '#FFFFFF';
-const COGNAC_BG   = 'rgba(255,255,255,0.10)';
-const COGNAC_BDR  = 'rgba(255,255,255,0.18)';
-const SAGE        = '#FFFFFF'; // Luxury gold for validation states
-const NAV_GLASS   = 'rgba(7,14,30,0.85)';
-const NAV_BDR     = 'rgba(255,255,255,0.12)';
+/* ── Luxury gold colour tokens reused in nav ── */
+const COGNAC      = '#C9A96E';
+const COGNAC_BG   = 'rgba(201,169,110,0.12)';
+const COGNAC_BDR  = 'rgba(201,169,110,0.22)';
+const SAGE        = '#E8C987'; // Luxury gold for validation states
+const NAV_GLASS   = 'rgba(8,6,4,0.90)';
+const NAV_BDR     = 'rgba(201,169,110,0.14)';
 
 export const Navbar: React.FC = () => {
-  const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage } = useApp();
+  const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage, wishlist } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -173,6 +173,14 @@ export const Navbar: React.FC = () => {
     setSearchQuery('');
     if (category) setSelectedCategory(category);
     else setSelectedCategory(null);
+
+    // Special case: wishlist goes to /wishlist
+    if (label === 'WISHLIST') {
+      setMenuOpen(false);
+      setIsSearchOpen(false);
+      navigate('/wishlist');
+      return;
+    }
 
     const pathMap: Partial<Record<View, string>> = {
       [View.HOME]: '/',
@@ -238,6 +246,7 @@ export const Navbar: React.FC = () => {
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
+    { label: 'WISHLIST', view: View.USER_DASHBOARD, icon: Heart },
     { label: 'IDENTITY', view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
@@ -433,9 +442,17 @@ export const Navbar: React.FC = () => {
                     {item.label === 'CART' && cart.length > 0 && (
                       <span
                         className="absolute -top-1 -right-1 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
-                        style={{ background: COGNAC, color: '#0A0F08', border: '2px solid rgba(8,14,32,0.8)' }}
+                        style={{ background: COGNAC, color: '#080604', border: '2px solid rgba(8,6,4,0.8)' }}
                       >
                         {cart.length}
+                      </span>
+                    )}
+                    {item.label === 'WISHLIST' && wishlist.length > 0 && (
+                      <span
+                        className="absolute -top-1 -right-1 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black"
+                        style={{ background: '#f43f5e', color: '#fff', border: '2px solid rgba(8,6,4,0.8)' }}
+                      >
+                        {wishlist.length}
                       </span>
                     )}
                   </div>
@@ -484,7 +501,7 @@ export const Navbar: React.FC = () => {
             exit={{ opacity: 0 }}
             onClick={() => setIsSearchOpen(false)}
             className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 backdrop-blur-xl"
-            style={{ background: 'rgba(8,14,32,0.96)' }}
+            style={{ background: 'rgba(8,6,4,0.97)' }}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
@@ -545,9 +562,9 @@ export const Navbar: React.FC = () => {
             className="fixed inset-0 z-[500] overflow-y-auto overscroll-contain flex flex-col"
             style={{
               background: `
-                radial-gradient(circle at 15% 20%, rgba(61,107,61,0.26), transparent 42%),
-                radial-gradient(circle at 85% 82%, rgba(255,255,255,0.13), transparent 40%),
-                linear-gradient(180deg, #0C1409 0%, #0A0F08 50%, #080C06 100%)
+                radial-gradient(circle at 15% 20%, rgba(160,110,40,0.18), transparent 42%),
+                radial-gradient(circle at 85% 82%, rgba(201,169,110,0.08), transparent 40%),
+                linear-gradient(180deg, #0C0A06 0%, #080604 50%, #060402 100%)
               `,
             }}
           >

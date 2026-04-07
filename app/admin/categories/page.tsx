@@ -103,7 +103,7 @@ export default function CategoriesPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0D1B3A] border border-white/15 rounded-[16px] p-6 w-full max-w-md shadow-2xl">
+          <div className="bg-[#130F09] border border-white/15 rounded-[16px] p-6 w-full max-w-md shadow-2xl">
             <h2 className="text-lg font-bold text-white mb-4">{editing ? 'Edit Category' : 'New Category'}</h2>
             {error && <div className="mb-3 p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm">{error}</div>}
             <div className="space-y-3">
@@ -111,7 +111,7 @@ export default function CategoriesPage() {
               <input value={form.slug} onChange={e=>setForm(f=>({...f,slug:e.target.value}))} placeholder="slug" className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30"/>
               <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Description (optional)" rows={2} className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30 resize-none"/>
               <input value={form.imageUrl} onChange={e=>setForm(f=>({...f,imageUrl:e.target.value}))} placeholder="Image URL (optional)" className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30"/>
-              <select value={form.parentId} onChange={e=>setForm(f=>({...f,parentId:e.target.value}))} className="w-full bg-[#0D1B3A] border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30">
+              <select value={form.parentId} onChange={e=>setForm(f=>({...f,parentId:e.target.value}))} className="w-full bg-[#130F09] border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30">
                 <option value="">— No parent (top-level) —</option>
                 {categories.filter(c=>!c.parentId && c.id !== editing?.id).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>

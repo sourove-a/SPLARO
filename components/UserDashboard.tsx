@@ -8,6 +8,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Heart,
   KeyRound,
   Languages,
   LogOut,
@@ -26,6 +27,7 @@ import { useApp } from '../store';
 import { Order, User } from '../types';
 import { GlassCard, LuxuryFloatingInput, PrimaryButton } from './LiquidGlass';
 import { OptimizedImage } from './OptimizedImage';
+import { buildProductRoute } from '../lib/productRoute';
 
 type DashboardSession = {
   session_id: string;
@@ -92,7 +94,7 @@ const formatOrderDate = (value: string) => {
 };
 
 export const UserDashboard: React.FC = () => {
-  const { user, setUser, orders, syncRegistry, siteSettings } = useApp();
+  const { user, setUser, orders, syncRegistry, siteSettings, wishlist, removeFromWishlist, products, setSelectedProduct, addRecentlyViewed } = useApp();
   const navigate = useNavigate();
   const isProd = shouldUsePhpApi();
 
@@ -865,6 +867,66 @@ export const UserDashboard: React.FC = () => {
                 </motion.div>
               )}
             </AnimatePresence>
+          </GlassCard>
+
+          {/* ── Wishlist Section ── */}
+          <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
+            <div className="flex items-center gap-3 mb-6">
+              <Heart className="w-5 h-5" style={{ color: '#C9A96E' }} />
+              <h3 className="text-xl font-black uppercase tracking-tight text-white">My Wishlist</h3>
+              {wishlist.length > 0 && (
+                <span className="ml-auto text-[10px] font-black px-2.5 py-1 rounded-full" style={{ background: 'rgba(201,169,110,0.15)', border: '1px solid rgba(201,169,110,0.30)', color: '#E8C987' }}>
+                  {wishlist.length} item{wishlist.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {wishlist.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] py-12 text-center">
+                <Heart className="w-8 h-8 mx-auto mb-3 text-white/20" />
+                <p className="text-sm font-black uppercase tracking-widest text-white/40">Your wishlist is empty</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/shop')}
+                  className="mt-4 text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full transition-all"
+                  style={{ background: 'rgba(201,169,110,0.12)', border: '1px solid rgba(201,169,110,0.30)', color: '#E8C987' }}
+                >
+                  Browse Collection
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {wishlist.map(id => {
+                  const p = products.find(pr => pr.id === id);
+                  if (!p) return null;
+                  return (
+                    <div key={id} className="group relative cursor-pointer">
+                      <div
+                        className="aspect-[3/4] rounded-xl overflow-hidden mb-2 bg-zinc-950"
+                        onClick={() => { setSelectedProduct(p); addRecentlyViewed(p.id); navigate(buildProductRoute(p)); }}
+                      >
+                        <OptimizedImage
+                          src={p.image}
+                          alt={p.name}
+                          sizes="(max-width: 640px) 50vw, 25vw"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFromWishlist(id)}
+                        className="absolute top-2 right-2 p-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-rose-400 hover:text-rose-300 transition-colors"
+                        aria-label="Remove from wishlist"
+                      >
+                        <Heart className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                      <p className="text-[8px] font-black uppercase tracking-widest" style={{ color: '#C9A96E' }}>{p.brand}</p>
+                      <p className="text-xs font-black uppercase tracking-tight leading-tight group-hover:text-[#D4B47A] transition-colors">{p.name}</p>
+                      <p className="text-xs font-black mt-0.5">৳{p.price.toLocaleString()}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </GlassCard>
 
           <GlassCard className="p-6 md:p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">

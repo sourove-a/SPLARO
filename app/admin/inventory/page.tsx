@@ -125,11 +125,11 @@ export default function InventoryPage() {
       {/* Movement form modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0D1B3A] border border-white/15 rounded-[16px] p-6 w-full max-w-md">
+          <div className="bg-[#130F09] border border-white/15 rounded-[16px] p-6 w-full max-w-md">
             <h2 className="text-lg font-bold text-white mb-4">Log Stock Movement</h2>
             <div className="space-y-3">
               <input value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))} placeholder="Product ID" type="number" className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30"/>
-              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full bg-[#0D1B3A] border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30">
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full bg-[#130F09] border border-white/15 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-white/30">
                 {MOVEMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <input value={form.qty} onChange={e => setForm(f => ({ ...f, qty: e.target.value }))} placeholder="Quantity" type="number" className="w-full bg-white/8 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/30"/>

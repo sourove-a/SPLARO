@@ -6,13 +6,13 @@ type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 const variantClasses: Record<ButtonVariant, string> = {
   default:
-    'bg-[#0A2A50] text-white border border-white/20 hover:bg-[#FFFFFF] shadow-[0_8px_24px_rgba(255,255,255,0.30)]',
+    'bg-gradient-to-r from-[rgba(201,169,110,0.22)] to-[rgba(160,120,64,0.14)] text-[#E8C987] border border-[rgba(201,169,110,0.45)] hover:from-[rgba(201,169,110,0.35)] hover:to-[rgba(160,120,64,0.25)] shadow-[0_8px_24px_rgba(201,169,110,0.20)]',
   secondary:
-    'bg-white/10 text-white border border-white/20 hover:bg-white/18',
+    'bg-white/8 text-white border border-[rgba(201,169,110,0.20)] hover:bg-[rgba(201,169,110,0.10)] hover:border-[rgba(201,169,110,0.35)]',
   ghost:
-    'bg-transparent text-white border border-transparent hover:bg-white/10',
+    'bg-transparent text-[#F5F0E8] border border-transparent hover:bg-[rgba(201,169,110,0.08)]',
   outline:
-    'bg-transparent text-[#FFFFFF] border border-white/20 hover:bg-white/08 hover:text-white',
+    'bg-transparent text-[#C9A96E] border border-[rgba(201,169,110,0.35)] hover:bg-[rgba(201,169,110,0.10)] hover:text-[#E8C987]',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

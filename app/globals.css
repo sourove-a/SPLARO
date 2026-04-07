@@ -1,49 +1,49 @@
 /* ════════════════════════════════════════════════════════════════
-   SPLARO — Electric Luxury Theme
-   Palette: Deep Navy · Lime Green · Electric Blue · White
+   SPLARO — Luxury Black & Gold Theme
+   Palette: Deep Black (#080604) · Cognac Gold (#C9A96E) · Champagne (#E8C987) · Ivory (#F5F0E8)
    ════════════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,700;1,800;1,900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-    /* ── Core Palette — ELECTRIC LUXURY NAVY + LIME ── */
-    --ng-bg:              #07101E;     /* deep navy night */
-    --ng-bg2:             #0D1B3A;     /* navy mid */
-    --ng-surface:         rgba(10, 22, 52, 0.75);
-    --ng-surface-hov:     rgba(14, 30, 65, 0.85);
-    --ng-primary:         #FFFFFF;     /* lime green */
-    --ng-primary-deep:    #6AB810;     /* deep lime */
-    --ng-gold:            #7EC820;     /* lime medium */
-    --ng-gold-bright:     #FFFFFF;     /* bright lime */
-    --ng-amber:           #FFFFFF;     /* electric lime hi */
-    --ng-text:            #FFFFFF;     /* pure white */
-    --ng-text-dim:        rgba(255, 255, 255, 0.72);
-    --ng-text-muted:      rgba(200, 225, 255, 0.50);
-    --ng-border:          rgba(255, 255, 255, 0.15);
-    --ng-border-bright:   rgba(255, 255, 255, 0.45);
+    /* ── Core Palette — BLACK GOLD LUXURY ── */
+    --ng-bg:              #080604;     /* deep warm black */
+    --ng-bg2:             #110E08;     /* slightly lighter warm black */
+    --ng-surface:         rgba(18, 14, 8, 0.82);
+    --ng-surface-hov:     rgba(28, 22, 14, 0.90);
+    --ng-primary:         #C9A96E;     /* cognac gold */
+    --ng-primary-deep:    #A07840;     /* dark leather gold */
+    --ng-gold:            #C9A96E;     /* cognac gold */
+    --ng-gold-bright:     #E8C987;     /* champagne gold */
+    --ng-amber:           #F5D78E;     /* light amber gold */
+    --ng-text:            #F5F0E8;     /* warm ivory */
+    --ng-text-dim:        rgba(245, 240, 232, 0.68);
+    --ng-text-muted:      rgba(220, 205, 180, 0.50);
+    --ng-border:          rgba(201, 169, 110, 0.18);
+    --ng-border-bright:   rgba(201, 169, 110, 0.55);
     --ng-red:             #FF4444;
-    --ng-glass:           rgba(10, 22, 52, 0.65);
-    --ng-glass-border:    rgba(255, 255, 255, 0.18);
+    --ng-glass:           rgba(12, 9, 5, 0.72);
+    --ng-glass-border:    rgba(201, 169, 110, 0.20);
     --ng-radius:          24px;
     --ng-radius-sm:       16px;
     --ng-radius-lg:       36px;
 
     /* ── Legacy tokens (keep for compatibility) ── */
     --obsidian:           #000000;
-    --midnight:           #050505;
-    --pearl:              #E8F8FF;
+    --midnight:           #050402;
+    --pearl:              #F5F0E8;
     --mobile-nav-height:  78px;
     --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
     --mobile-safe-top:    env(safe-area-inset-top, 0px);
-    --ui-focus-outline:   rgba(255, 255, 255, 0.70);
-    --ui-focus-shadow:    0 0 0 4px rgba(255, 255, 255, 0.15);
+    --ui-focus-outline:   rgba(201, 169, 110, 0.80);
+    --ui-focus-shadow:    0 0 0 4px rgba(201, 169, 110, 0.18);
 
-    /* ── System tokens (mapped to natural theme) ── */
-    --splaro-primary:       #FFFFFF;
-    --splaro-accent:        #FFFFFF;
-    --splaro-bg:            #07101E;
-    --splaro-surface:       rgba(10, 22, 52, 0.75);
-    --splaro-text:          #FFFFFF;
+    /* ── System tokens ── */
+    --splaro-primary:       #C9A96E;
+    --splaro-accent:        #E8C987;
+    --splaro-bg:            #080604;
+    --splaro-surface:       rgba(18, 14, 8, 0.82);
+    --splaro-text:          #F5F0E8;
     --splaro-radius:        24px;
     --splaro-shadow-strength: 72;
     --splaro-font-base-size: 16px;
@@ -65,8 +65,8 @@
 
 /* ── Focus States ── */
 :root[data-splaro-focus="bright"] {
-    --ui-focus-outline: rgba(255, 255, 255, 1);
-    --ui-focus-shadow:  0 0 0 4px rgba(154, 224, 48, 0.24);
+    --ui-focus-outline: rgba(232, 201, 135, 1);
+    --ui-focus-shadow:  0 0 0 4px rgba(201, 169, 110, 0.28);
 }
 
 :root[data-splaro-glow="reduced"] {
@@ -103,11 +103,11 @@ body {
     margin: 0;
     background-color: var(--bg-main);
     background-image:
-        radial-gradient(ellipse at 15% 8%,  rgba(40, 100, 200, 0.28), transparent 42%),
-        radial-gradient(ellipse at 85% 92%, rgba(255, 255, 255, 0.10), transparent 40%),
-        radial-gradient(ellipse at 50% 45%, rgba(30, 70, 160, 0.12), transparent 55%),
-        radial-gradient(ellipse at 70% 20%, rgba(255, 255, 255, 0.08), transparent 35%),
-        linear-gradient(180deg, #0A1525 0%, #07101E 45%, #050C16 100%);
+        radial-gradient(ellipse at 15% 8%,  rgba(180, 130, 60, 0.13), transparent 42%),
+        radial-gradient(ellipse at 85% 92%, rgba(180, 130, 60, 0.08), transparent 40%),
+        radial-gradient(ellipse at 50% 45%, rgba(100, 70, 30, 0.06), transparent 55%),
+        radial-gradient(ellipse at 70% 20%, rgba(200, 155, 70, 0.05), transparent 35%),
+        linear-gradient(180deg, #0C0A06 0%, #080604 45%, #050402 100%);
     color: var(--text-main);
     transition: background-color 0.35s ease, color 0.25s ease;
     -webkit-font-smoothing: antialiased;
@@ -198,9 +198,9 @@ h1, h2, h3, h4 {
     background:
         linear-gradient(
             135deg,
-            rgba(255, 255, 255, 0.14) 0%,
-            rgba(255, 255, 255, 0.05) 40%,
-            rgba(212, 160, 86, 0.09) 100%
+            rgba(255, 255, 255, 0.10) 0%,
+            rgba(255, 255, 255, 0.03) 40%,
+            rgba(201, 169, 110, 0.08) 100%
         ),
         var(--glass-bg);
     backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
@@ -208,10 +208,10 @@ h1, h2, h3, h4 {
     border: 1px solid var(--glass-border);
     border-radius: var(--splaro-radius, 24px);
     box-shadow:
-        0 0 0 0.5px rgba(255, 255, 255, 0.10),
-        inset 0 1px 0 rgba(255, 255, 255, 0.20),
-        0 24px 52px rgba(0, 0, 0, 0.65),
-        0 0 40px rgba(74, 128, 80, 0.12);
+        0 0 0 0.5px rgba(201, 169, 110, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 24px 52px rgba(0, 0, 0, 0.75),
+        0 0 40px rgba(201, 169, 110, 0.06);
 }
 
 .ribbed-texture {
@@ -279,7 +279,7 @@ h1, h2, h3, h4 {
 :where(input, select, textarea):focus-visible {
     outline: none;
     box-shadow: none !important;
-    border-color: rgba(154, 224, 48, 0.75) !important;
+    border-color: rgba(201, 169, 110, 0.80) !important;
 }
 
 :where(button, [role="button"], .nav-item, .interactive-control):active:not(:disabled) {
@@ -361,7 +361,7 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 
 .placeholder\:text-zinc-700::placeholder,
 .placeholder\:text-zinc-800::placeholder,
-.placeholder\:text-zinc-900::placeholder { color: rgba(154, 224, 48, 0.38) !important; }
+.placeholder\:text-zinc-900::placeholder { color: rgba(201, 169, 110, 0.40) !important; }
 
 .hover\:text-black:hover, .group:hover .group-hover\:text-black { color: #F0F8FF !important; }
 .hover\:bg-white:hover, .group:hover .group-hover\:bg-white { background-color: rgba(255, 255, 255, 0.10) !important; }
@@ -370,75 +370,75 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
     border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Remap cyan/blue → cognac gold for natural theme */
+/* Remap cyan/blue → cognac gold for luxury theme */
 .text-cyan-400, .text-cyan-500 { color: var(--ng-gold) !important; }
-.text-cyan-200, .text-cyan-300 { color: rgba(220, 190, 140, 0.90) !important; }
-.text-cyan-100                  { color: rgba(236, 210, 170, 0.95) !important; }
+.text-cyan-200, .text-cyan-300 { color: rgba(232, 201, 135, 0.90) !important; }
+.text-cyan-100                  { color: rgba(245, 215, 142, 0.95) !important; }
 
-/* Remap blue → sage green */
+/* Remap blue → gold */
 .text-blue-400, .text-blue-500  { color: var(--ng-primary) !important; }
-.text-blue-300, .text-blue-200  { color: rgba(165, 210, 160, 0.90) !important; }
+.text-blue-300, .text-blue-200  { color: rgba(232, 201, 135, 0.90) !important; }
 
-/* Remap green → sage / forest */
-.text-white, .text-white { color: var(--ng-primary) !important; }
-.text-green-300                   { color: rgba(160, 205, 155, 0.90) !important; }
+/* Remap green → gold */
+.text-white, .text-white { color: var(--ng-text) !important; }
+.text-green-300                   { color: rgba(232, 201, 135, 0.90) !important; }
 
-.border-cyan-200\/35, .border-cyan-200\/80 { border-color: rgba(255, 255, 255, 0.22) !important; }
-.border-white\/10 { border-color: rgba(255, 255, 255, 0.10) !important; }
-.border-white\/5  { border-color: rgba(255, 255, 255, 0.07) !important; }
-.border-white\/15 { border-color: rgba(255, 255, 255, 0.13) !important; }
-.border-white\/20 { border-color: rgba(154, 224, 48, 0.24) !important; }
+.border-cyan-200\/35, .border-cyan-200\/80 { border-color: rgba(201, 169, 110, 0.28) !important; }
+.border-white\/10 { border-color: rgba(201, 169, 110, 0.10) !important; }
+.border-white\/5  { border-color: rgba(201, 169, 110, 0.07) !important; }
+.border-white\/15 { border-color: rgba(201, 169, 110, 0.15) !important; }
+.border-white\/20 { border-color: rgba(201, 169, 110, 0.22) !important; }
 
 /* Background remaps */
 .bg-\[\#050505\], .bg-black, .bg-zinc-950 { background-color: var(--ng-bg) !important; }
 .bg-\[\#0A0C12\], .bg-\[\#0a0c12\],
 .bg-black\/25, .bg-black\/30,
-.bg-black\/40, .bg-black\/50 { background-color: rgba(8, 14, 32, 0.65) !important; }
+.bg-black\/40, .bg-black\/50 { background-color: rgba(8, 6, 4, 0.65) !important; }
 
 /* Gradient remaps */
 .from-\[\#050505\]  { --tw-gradient-from: var(--ng-bg) var(--tw-gradient-from-position) !important; }
 .to-\[\#050505\]    { --tw-gradient-to:   var(--ng-bg) var(--tw-gradient-to-position) !important; }
 .from-\[\#0a0c12\], .from-\[\#0A0C12\] {
-    --tw-gradient-from: rgba(10, 20, 8, 0.96) var(--tw-gradient-from-position) !important;
+    --tw-gradient-from: rgba(8, 6, 4, 0.96) var(--tw-gradient-from-position) !important;
 }
 .to-\[\#0a0c12\], .to-\[\#0A0C12\] {
-    --tw-gradient-to:   rgba(10, 20, 8, 0.96) var(--tw-gradient-to-position) !important;
+    --tw-gradient-to:   rgba(8, 6, 4, 0.96) var(--tw-gradient-to-position) !important;
 }
 
 /* ══════════════════════════════════════════
-   CTA BUTTON — Cognac/Leather Premium
+   CTA BUTTON — Gold Luxury
    ══════════════════════════════════════════ */
 .btn-green-primary {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, rgba(201, 169, 110, 0.22) 0%, rgba(201, 169, 110, 0.08) 100%);
+  border: 1px solid rgba(201, 169, 110, 0.45);
+  color: #E8C987;
   font-weight: 600;
   letter-spacing: 0.04em;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.22);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(232, 201, 135, 0.18);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transition: all 0.2s ease;
 }
 .btn-green-primary:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.40);
-  box-shadow: 0 6px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.30);
+  background: linear-gradient(135deg, rgba(201, 169, 110, 0.35) 0%, rgba(201, 169, 110, 0.15) 100%);
+  border-color: rgba(232, 201, 135, 0.65);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 24px rgba(201, 169, 110, 0.18), inset 0 1px 0 rgba(232, 201, 135, 0.25);
   transform: translateY(-1px);
 }
 
-/* ── Natural badges ── */
+/* ── Gold luxury badges ── */
 .green-badge {
-    background: rgba(255, 255, 255, 0.10);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: var(--ng-primary);
+    background: rgba(201, 169, 110, 0.12);
+    border: 1px solid rgba(201, 169, 110, 0.32);
+    color: var(--ng-gold);
     backdrop-filter: blur(8px);
 }
 
 /* ── Cognac/leather badge ── */
 .cognac-badge {
-    background: rgba(255, 255, 255, 0.09);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    color: var(--ng-gold);
+    background: rgba(201, 169, 110, 0.10);
+    border: 1px solid rgba(201, 169, 110, 0.28);
+    color: var(--ng-gold-bright);
     backdrop-filter: blur(8px);
 }
 
@@ -446,17 +446,17 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
    SEARCH BAR
    ══════════════════════════════════════════ */
 .search-premium {
-    background: rgba(8, 18, 42, 0.80);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(8, 6, 4, 0.88);
+    border: 1px solid rgba(201, 169, 110, 0.20);
     backdrop-filter: blur(30px) saturate(170%);
     border-radius: 999px;
     transition: border-color 240ms ease, box-shadow 240ms ease;
 }
 .search-premium:focus-within {
-    border-color: rgba(154, 224, 48, 0.85);
+    border-color: rgba(201, 169, 110, 0.80);
     box-shadow:
-        0 0 0 3px rgba(154, 224, 48, 0.16),
-        0 8px 32px rgba(255, 255, 255, 0.13);
+        0 0 0 3px rgba(201, 169, 110, 0.15),
+        0 8px 32px rgba(0, 0, 0, 0.55);
 }
 
 /* ══════════════════════════════════════════
@@ -466,45 +466,45 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 
 .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(154, 224, 48, 0.32) rgba(154, 224, 48, 0.05);
+    scrollbar-color: rgba(201, 169, 110, 0.38) rgba(201, 169, 110, 0.06);
     scrollbar-gutter: stable both-edges;
 }
 .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
 .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.04);
     border-radius: 999px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg,
-        rgba(154, 224, 48, 0.52),
-        rgba(255, 255, 255, 0.20));
+        rgba(201, 169, 110, 0.58),
+        rgba(160, 120, 64, 0.35));
     border-radius: 999px;
-    border: 2px solid rgba(8, 14, 32, 0.6);
+    border: 2px solid rgba(8, 6, 4, 0.6);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg,
-        rgba(255, 255, 255, 0.70),
-        rgba(255, 255, 255, 0.55));
+        rgba(232, 201, 135, 0.80),
+        rgba(201, 169, 110, 0.65));
 }
 
 /* ══════════════════════════════════════════
-   NATURAL FILTER PILL (Shop Page)
+   GOLD FILTER PILL (Shop Page)
    ══════════════════════════════════════════ */
 .filter-pill-active {
-    background: rgba(255, 255, 255, 0.22);
-    border-color: rgba(255, 255, 255, 0.70);
-    color: #F5CC82;
-    box-shadow: 0 0 28px rgba(255, 255, 255, 0.28), inset 0 0 8px rgba(255, 255, 255, 0.08);
+    background: rgba(201, 169, 110, 0.18);
+    border-color: rgba(201, 169, 110, 0.70);
+    color: #E8C987;
+    box-shadow: 0 0 28px rgba(201, 169, 110, 0.22), inset 0 0 8px rgba(201, 169, 110, 0.08);
 }
 .filter-pill-inactive {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(201, 169, 110, 0.16);
+    color: rgba(245, 240, 232, 0.52);
 }
 .filter-pill-inactive:hover {
-    border-color: rgba(255, 255, 255, 0.48);
+    border-color: rgba(201, 169, 110, 0.48);
     color: var(--ng-text);
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(201, 169, 110, 0.08);
 }
 
 /* ══════════════════════════════════════════
@@ -513,24 +513,24 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 .product-hover-overlay {
     background: linear-gradient(
         to top,
-        rgba(30, 50, 20, 0.60) 0%,
-        rgba(30, 50, 20, 0.20) 50%,
+        rgba(8, 5, 2, 0.70) 0%,
+        rgba(8, 5, 2, 0.25) 50%,
         transparent 100%
     );
 }
 
 /* ══════════════════════════════════════════
-   ADMIN PANEL NATURAL
+   ADMIN PANEL GOLD
    ══════════════════════════════════════════ */
 .admin-sidebar-active {
-    background: linear-gradient(135deg, #071832 0%, #0A2A50 50%, #FFFFFF 100%);
-    box-shadow: 0 0 24px rgba(192, 154, 108, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.20);
-    border-left: 2px solid rgba(255, 255, 255, 0.60);
+    background: linear-gradient(135deg, #110E08 0%, #1C1508 50%, rgba(201, 169, 110, 0.15) 100%);
+    box-shadow: 0 0 24px rgba(201, 169, 110, 0.30), inset 0 1px 0 rgba(232, 201, 135, 0.18);
+    border-left: 2px solid rgba(201, 169, 110, 0.60);
 }
 .admin-trend-badge {
-    background: rgba(139, 168, 136, 0.15);
-    border: 1px solid rgba(139, 168, 136, 0.30);
-    color: var(--ng-primary);
+    background: rgba(201, 169, 110, 0.12);
+    border: 1px solid rgba(201, 169, 110, 0.28);
+    color: var(--ng-gold);
 }
 
 /* ══════════════════════════════════════════
@@ -539,13 +539,13 @@ select:-webkit-autofill, select:-webkit-autofill:hover, select:-webkit-autofill:
 button, a { touch-action: manipulation; }
 
 .cognac-glow {
-    box-shadow: 0 0 28px rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 28px rgba(201, 169, 110, 0.35);
 }
 .sage-glow {
-    box-shadow: 0 0 24px rgba(139, 168, 136, 0.30);
+    box-shadow: 0 0 24px rgba(201, 169, 110, 0.25);
 }
 .forest-glow {
-    box-shadow: 0 0 32px rgba(255, 255, 255, 0.18);
+    box-shadow: 0 0 32px rgba(201, 169, 110, 0.20);
 }
 
 .border-cognac    { border-color: var(--ng-border) !important; }
@@ -560,9 +560,9 @@ button, a { touch-action: manipulation; }
         backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
         -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
         box-shadow:
-            0 0 0 0.5px rgba(255, 255, 255, 0.07),
-            0 10px 28px rgba(0, 0, 0, 0.62),
-            0 0 20px rgba(30, 80, 180, 0.08);
+            0 0 0 0.5px rgba(201, 169, 110, 0.08),
+            0 10px 28px rgba(0, 0, 0, 0.72),
+            0 0 20px rgba(201, 169, 110, 0.05);
     }
     .shine-sweep { animation-duration: 12s; opacity: 0.06; }
 }
@@ -570,17 +570,17 @@ button, a { touch-action: manipulation; }
 @media (max-width: 768px) {
     body {
         background-image:
-            radial-gradient(ellipse at 18% 8%,  rgba(30, 80, 180, 0.20), transparent 38%),
-            radial-gradient(ellipse at 82% 92%, rgba(255, 255, 255, 0.07), transparent 34%),
-            linear-gradient(180deg, #091420 0%, #07101E 100%);
+            radial-gradient(ellipse at 18% 8%,  rgba(180, 130, 60, 0.10), transparent 38%),
+            radial-gradient(ellipse at 82% 92%, rgba(180, 130, 60, 0.06), transparent 34%),
+            linear-gradient(180deg, #0C0A06 0%, #080604 100%);
     }
     .liquid-glass {
         backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
         -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.02);
         box-shadow:
-            0 0 0 0.5px rgba(255, 255, 255, 0.06),
-            0 8px 22px rgba(0, 0, 0, 0.58),
-            0 0 14px rgba(30, 80, 180, 0.06);
+            0 0 0 0.5px rgba(201, 169, 110, 0.07),
+            0 8px 22px rgba(0, 0, 0, 0.70),
+            0 0 14px rgba(201, 169, 110, 0.04);
     }
     .shine-sweep { display: none; }
 }
@@ -599,27 +599,27 @@ button, a { touch-action: manipulation; }
     }
 }
 
-/* Premium Navy Liquid Glass Components */
+/* Premium Luxury Black-Gold Glass Components */
 .glass-card-premium {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(201, 169, 110, 0.05);
+  border: 1px solid rgba(201, 169, 110, 0.16);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.60), inset 0 1px 0 rgba(232, 201, 135, 0.10);
   border-radius: 16px;
   transition: all 0.25s ease;
 }
 .glass-card-premium:hover {
-  border-color: rgba(255, 255, 255, 0.30);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 32px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  border-color: rgba(201, 169, 110, 0.36);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 32px rgba(201, 169, 110, 0.12), inset 0 1px 0 rgba(232, 201, 135, 0.12);
   transform: translateY(-2px);
 }
 .lime-glow {
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.25), 0 0 40px rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 20px rgba(201, 169, 110, 0.28), 0 0 40px rgba(201, 169, 110, 0.12);
 }
 .nav-glass {
-  background: rgba(7, 16, 30, 0.88);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(8, 6, 4, 0.92);
+  border-bottom: 1px solid rgba(201, 169, 110, 0.14);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
 }

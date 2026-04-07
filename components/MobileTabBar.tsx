@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Home, Search, ShoppingBag, User } from 'lucide-react';
+import { Home, Search, ShoppingBag, User, Heart } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
 import { isAdminRole } from '../lib/roles';
@@ -11,7 +11,7 @@ import { useTranslation } from '../lib/useTranslation';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export const MobileTabBar: React.FC = () => {
-  const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory, cart } = useApp();
+  const { view, user, setIsSearchOpen, setSelectedCategory, setSearchQuery, selectedCategory, cart, wishlist } = useApp();
   const { t, isBN } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,26 +28,28 @@ export const MobileTabBar: React.FC = () => {
     {
       icon: Home,
       view: View.HOME,
-      label: isBN ? 'হোম' : 'Home',
+      label: 'Home',
       key: 'HOME'
     },
     {
       icon: ShoppingBag,
       view: View.SHOP,
-      label: isBN ? 'শপ' : 'Shop',
+      label: 'Shop',
       key: 'SHOP',
       badge: cart.length
     },
     {
-      icon: Search,
-      view: View.SHOP,
-      label: isBN ? 'খুঁজুন' : 'Search',
-      key: 'DISCOVER'
+      icon: Heart,
+      view: View.USER_DASHBOARD,
+      label: 'Wishlist',
+      key: 'WISHLIST',
+      badge: wishlist.length,
+      path: '/wishlist'
     },
     {
       icon: User,
       view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN,
-      label: user ? (isBN ? 'একাউন্ট' : 'Account') : (isBN ? 'লগইন' : 'Login'),
+      label: user ? 'Account' : 'Login',
       key: user ? 'IDENTITY' : 'LOGIN'
     }
   ];
@@ -84,20 +86,20 @@ export const MobileTabBar: React.FC = () => {
         <div
           className="absolute inset-0 flex justify-around items-center px-2 overflow-hidden"
           style={{
-            background: 'rgba(7,14,32,0.92)',
+            background: 'rgba(8,6,4,0.94)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             borderRadius: '12px',
-            border: '1px solid rgba(255,255,255,0.13)',
-            boxShadow: '0 -4px 32px rgba(0,0,0,0.55), 0 12px 28px rgba(0,0,0,0.45)',
+            border: '1px solid rgba(201,169,110,0.16)',
+            boxShadow: '0 -4px 32px rgba(0,0,0,0.70), 0 12px 28px rgba(0,0,0,0.55)',
           }}
         >
           <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
 
           {navItems.map((item) => {
             const isActive = getIsActive(item);
-            const GOLD = '#FFFFFF';
-            const GOLD_BRIGHT = '#FFFFFF';
+            const GOLD = '#C9A96E';
+            const GOLD_BRIGHT = '#E8C987';
 
             return (
               <button
@@ -110,6 +112,12 @@ export const MobileTabBar: React.FC = () => {
                     setSelectedCategory((item as any).category);
                   } else if (item.view === View.SHOP) {
                     setSelectedCategory(null);
+                  }
+
+                  if (item.key === 'WISHLIST') {
+                    setIsSearchOpen(false);
+                    navigate('/wishlist');
+                    return;
                   }
 
                   if (item.key === 'DISCOVER') {
@@ -166,7 +174,18 @@ export const MobileTabBar: React.FC = () => {
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       className="absolute -top-1.5 -right-2 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
-                      style={{ background: GOLD, color: '#0A0F08', border: '1.5px solid rgba(7,14,32,0.8)' }}
+                      style={{ background: GOLD, color: '#080604', border: '1.5px solid rgba(8,6,4,0.8)' }}
+                    >
+                      {item.badge}
+                    </motion.span>
+                  )}
+                  {/* Wishlist badge */}
+                  {item.key === 'WISHLIST' && (item.badge || 0) > 0 && (
+                    <motion.span
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1.5 -right-2 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black"
+                      style={{ background: '#f43f5e', color: '#fff', border: '1.5px solid rgba(8,6,4,0.8)' }}
                     >
                       {item.badge}
                     </motion.span>
@@ -198,7 +217,7 @@ export const MobileTabBar: React.FC = () => {
           })}
         </div>
         {/* Ambient glow */}
-        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#FFFFFF]/15 blur-xl rounded-full -z-10" />
+        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#C9A96E]/12 blur-xl rounded-full -z-10" />
       </div>
     </motion.div>
   );
