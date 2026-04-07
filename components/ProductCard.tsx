@@ -12,7 +12,7 @@ import { useTranslation } from '../lib/useTranslation';
 
 export const ProductCard: React.FC<{ product: Product; index?: number; language?: string }> = ({ product, index = 0, language = 'EN' }) => {
 
-  const { setSelectedProduct, addToCart, siteSettings } = useApp();
+  const { setSelectedProduct, addToCart, siteSettings, addToWishlist, removeFromWishlist, isInWishlist, addRecentlyViewed } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
@@ -79,6 +79,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => {
         setSelectedProduct(product);
+        addRecentlyViewed(product.id);
         navigate(buildProductRoute(product));
       }}
       className="group relative cursor-pointer min-w-0"
@@ -111,12 +112,22 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
         {/* Wishlist Icon */}
         <div className="absolute top-6 right-6 z-20">
           <motion.button
-            whileHover={{ scale: 1.15, backgroundColor: 'rgba(255,255,255,0.15)' }}
+            whileHover={{ scale: 1.15 }}
             whileTap={{ scale: 0.9 }}
-            onClick={(e) => e.stopPropagation()}
-            className="p-3.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/5 text-white/50 hover:text-rose-500 transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isInWishlist(product.id)) {
+                removeFromWishlist(product.id);
+              } else {
+                addToWishlist(product.id);
+                window.dispatchEvent(new CustomEvent('splaro-toast', { detail: { tone: 'success', message: `${product.name} saved to wishlist` } }));
+              }
+            }}
+            className="p-3.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/5 transition-all"
+            style={{ color: isInWishlist(product.id) ? '#f43f5e' : 'rgba(255,255,255,0.5)' }}
+            aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
           >
-            <Heart className="w-4 h-4" />
+            <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? 'fill-current' : ''}`} />
           </motion.button>
         </div>
 

@@ -1005,6 +1005,16 @@ interface AppContextType {
   setLastSeenOrderTime: (t: string) => void;
   initializeSheets: () => Promise<void>;
   syncRegistry: () => Promise<void>;
+
+  /* ── Wishlist ── */
+  wishlist: string[];
+  addToWishlist: (productId: string) => void;
+  removeFromWishlist: (productId: string) => void;
+  isInWishlist: (productId: string) => boolean;
+
+  /* ── Recently Viewed ── */
+  recentlyViewed: string[];
+  addRecentlyViewed: (productId: string) => void;
 }
 
 
@@ -1063,6 +1073,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>(loadFromStorage('splaro-wishlist', []));
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(loadFromStorage('splaro-recently-viewed', []));
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(
     normalizeSiteSettings(loadFromStorage('splaro-site-settings', createDefaultSiteSettings()))
   );
@@ -1121,6 +1133,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('splaro-site-settings', JSON.stringify(siteSettings));
   }, [siteSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('splaro-wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  useEffect(() => {
+    localStorage.setItem('splaro-recently-viewed', JSON.stringify(recentlyViewed));
+  }, [recentlyViewed]);
 
   useEffect(() => {
     const autoPublishStories = () => {
@@ -2026,6 +2046,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const addToWishlist = (productId: string) => {
+    setWishlist(prev => prev.includes(productId) ? prev : [...prev, productId]);
+  };
+
+  const removeFromWishlist = (productId: string) => {
+    setWishlist(prev => prev.filter(id => id !== productId));
+  };
+
+  const isInWishlist = (productId: string) => wishlist.includes(productId);
+
+  const addRecentlyViewed = (productId: string) => {
+    setRecentlyViewed(prev => {
+      const filtered = prev.filter(id => id !== productId);
+      return [productId, ...filtered].slice(0, 12);
+    });
+  };
+
   const addDiscount = (d: DiscountCode) => {
     setDiscounts(prev => [d, ...prev]);
   };
@@ -2205,8 +2242,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata,
     dbStatus, initializeSheets, syncRegistry, logs, trafficData,
-    lastSeenOrderTime, setLastSeenOrderTime
-  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime, syncRegistry]);
+    lastSeenOrderTime, setLastSeenOrderTime,
+    wishlist, addToWishlist, removeFromWishlist, isInWishlist,
+    recentlyViewed, addRecentlyViewed,
+  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime, syncRegistry, wishlist, recentlyViewed]);
 
 
 

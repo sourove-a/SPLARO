@@ -308,6 +308,105 @@ const ScrollToTop = () => {
   return null;
 };
 
+const NewsletterSection = () => {
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setError('');
+    setSubmitted(true);
+  };
+
+  return (
+    <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10 sm:py-16 pb-28 sm:pb-32">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="relative overflow-hidden rounded-xl p-10 md:p-16 text-center"
+        style={{
+          background: 'linear-gradient(135deg, #110E08 0%, #1A1408 50%, #110E08 100%)',
+          border: '1px solid rgba(201,169,110,0.22)',
+        }}
+      >
+        {/* Background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full opacity-10 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse, #C9A96E 0%, transparent 70%)', top: '-50px' }} />
+
+        <div
+          className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-6 relative z-10"
+          style={{ background: 'rgba(201,169,110,0.12)', border: '1px solid rgba(201,169,110,0.28)' }}
+        >
+          <Bell className="w-6 h-6" style={{ color: '#C9A96E' }} />
+        </div>
+        <p className="text-[10px] font-black uppercase mb-3 relative z-10" style={{ letterSpacing: '0.5em', color: '#C9A96E' }}>
+          — Exclusive Access —
+        </p>
+        <h3
+          className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-4 relative z-10"
+          style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F5F0E8' }}
+        >
+          Stay In The<br /><span style={{ color: '#E8C987' }}>Know.</span>
+        </h3>
+        <p className="text-sm mb-8 max-w-md mx-auto relative z-10" style={{ color: 'rgba(245,240,232,0.60)' }}>
+          New arrivals, exclusive drops, and member-only offers delivered straight to your inbox.
+        </p>
+
+        {submitted ? (
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full relative z-10"
+            style={{ background: 'rgba(201,169,110,0.15)', border: '1px solid rgba(201,169,110,0.40)' }}
+          >
+            <CheckCircle2 className="w-4 h-4" style={{ color: '#C9A96E' }} />
+            <span className="text-sm font-black uppercase tracking-widest" style={{ color: '#E8C987' }}>You&rsquo;re on the list!</span>
+          </motion.div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto relative z-10">
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(''); }}
+              placeholder="Enter your email address"
+              className="flex-1 h-14 px-5 rounded-xl text-sm font-medium outline-none transition-colors"
+              style={{
+                background: 'rgba(8,6,4,0.78)',
+                border: `1px solid ${error ? 'rgba(244,63,94,0.50)' : 'rgba(201,169,110,0.28)'}`,
+                color: '#F5F0E8',
+              }}
+              aria-label="Email address for newsletter"
+            />
+            <button
+              type="submit"
+              className="h-14 px-7 rounded-xl text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-all"
+              style={{ background: 'linear-gradient(135deg, rgba(201,169,110,0.30), rgba(160,120,64,0.20))', border: '1px solid rgba(201,169,110,0.55)', color: '#E8C987' }}
+            >
+              Subscribe
+            </button>
+          </form>
+        )}
+
+        {error && !submitted && (
+          <p className="mt-3 text-[11px] font-bold" style={{ color: 'rgba(244,63,94,0.80)' }}>{error}</p>
+        )}
+
+        <p className="text-[9px] mt-5 relative z-10" style={{ color: 'rgba(245,240,232,0.30)' }}>
+          We respect your privacy. Unsubscribe at any time. No spam, ever.
+        </p>
+      </motion.div>
+    </section>
+  );
+};
+
 const HomeView = () => {
   const { products, setSelectedCategory, setSearchQuery } = useApp();
   const { t } = useTranslation();
@@ -380,7 +479,7 @@ const HomeView = () => {
               className="text-[10px] font-black uppercase mb-4 sm:mb-6"
               style={{ letterSpacing: '0.5em', color: '#FFFFFF' }}
             >
-              আমাদের সম্পর্কে · About Us
+              {t('about.tagBN')}
             </p>
             <h2
               className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-tight uppercase mb-6 sm:mb-8"
@@ -605,53 +704,8 @@ const HomeView = () => {
       {/* Section separator */}
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
 
-      {/* ── WhatsApp / Newsletter Subscribe ── */}
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10 sm:py-16 pb-28 sm:pb-32">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="rounded-xl p-10 md:p-14 text-center"
-          style={{
-            background: 'rgba(7,14,32,0.78)',
-            border: '1px solid rgba(255,255,255,0.16)',
-            backdropFilter: 'blur(20px)',
-          }}
-        >
-          <div
-            className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-6"
-            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)' }}
-          >
-            <Bell className="w-7 h-7" style={{ color: '#FFFFFF' }} />
-          </div>
-          <p className="text-[10px] font-black uppercase mb-3" style={{ letterSpacing: '0.5em', color: '#FFFFFF' }}>
-            {t('newsletter.label')}
-          </p>
-          <h3
-            className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-4"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
-          >
-            {t('newsletter.title')}
-          </h3>
-          <p className="text-sm mb-10 max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.65)' }}>
-            {t('newsletter.sub')}
-          </p>
-          <a
-            href="https://wa.me/8801XXXXXXXXX?text=Splaro%20Newsletter%20Subscribe"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-green-primary inline-flex items-center gap-3 px-8 py-4 rounded-full text-sm font-black uppercase"
-            style={{ letterSpacing: '0.2em' }}
-          >
-            <MessageSquare className="w-4 h-4" />
-            {t('newsletter.cta')}
-          </a>
-          <p className="text-[10px] mt-5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            {t('newsletter.note')}
-          </p>
-        </motion.div>
-      </section>
+      {/* ── Email Newsletter Subscribe ── */}
+      <NewsletterSection />
     </div>
   );
 };

@@ -42,7 +42,7 @@ export const translations = {
 
   /* ── About Us ── */
   'about.tag':         { EN: 'About Us',      BN: 'আমাদের সম্পর্কে' },
-  'about.tagBN':       { EN: 'আমাদের সম্পর্কে · About Us', BN: 'আমাদের সম্পর্কে · About Us' },
+  'about.tagBN':       { EN: 'Our Story · About Us', BN: 'আমাদের সম্পর্কে · About Us' },
   'about.title1':      { EN: 'SPLARO',        BN: 'স্প্লারো' },
   'about.title2':      { EN: 'LUXURY.',       BN: 'লাক্সারি।' },
   'about.body1':       { EN: 'Splaro is Bangladesh\'s premium destination for directly imported luxury footwear and bags. We source the finest pieces from global markets — Nike, Adidas, Jordan, Gucci, Louis Vuitton and more — and bring them straight to you without middlemen.', BN: 'স্প্লারো বাংলাদেশের প্রিমিয়াম ফুটওয়্যার ও ব্যাগের সর্বোচ্চ গন্তব্য। আমরা নাইকি, আডিডাস, জর্ডান, গুচি, লুই ভিটন সহ বিশ্বের সেরা ব্র্যান্ড সরাসরি আমদানি করি।' },
