@@ -654,7 +654,10 @@ export const ProductDetailPage: React.FC = () => {
             />
             <button
               type="button"
-              onClick={() => { if (reviewName.trim() && reviewText.trim()) setReviewSubmitted(true); }}
+              onClick={() => {
+                // Note: Review submission is a UI placeholder — backend integration can be added when a reviews API is available
+                if (reviewName.trim() && reviewText.trim()) setReviewSubmitted(true);
+              }}
               className="px-8 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all"
               style={{ background: 'linear-gradient(135deg, rgba(201,169,110,0.25), rgba(160,120,64,0.15))', border: '1px solid rgba(201,169,110,0.45)', color: '#E8C987' }}
             >
