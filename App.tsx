@@ -1399,6 +1399,7 @@ const AppContent = () => {
                 <Route path="/sourove-admin" element={<Navigate to="/login" replace />} />
                 <Route path="/signup" element={<LazyView><SignupForm /></LazyView>} />
                 <Route path="/user_dashboard" element={<LazyView><UserDashboard /></LazyView>} />
+                <Route path="/wishlist" element={<LazyView><UserDashboard /></LazyView>} />
                 <Route path="/admin_dashboard" element={<Navigate to={storefrontIdentityPath} replace />} />
                 <Route path="/admin" element={<Navigate to={storefrontIdentityPath} replace />} />
                 <Route path="/admin/users" element={<Navigate to={storefrontIdentityPath} replace />} />

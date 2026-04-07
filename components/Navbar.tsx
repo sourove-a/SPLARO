@@ -174,6 +174,14 @@ export const Navbar: React.FC = () => {
     if (category) setSelectedCategory(category);
     else setSelectedCategory(null);
 
+    // Special case: wishlist goes to /wishlist
+    if (label === 'WISHLIST') {
+      setMenuOpen(false);
+      setIsSearchOpen(false);
+      navigate('/wishlist');
+      return;
+    }
+
     const pathMap: Partial<Record<View, string>> = {
       [View.HOME]: '/',
       [View.SHOP]: '/shop',
