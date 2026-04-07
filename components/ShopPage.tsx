@@ -31,10 +31,10 @@ const FilterPill: React.FC<{
     onClick={onClick}
     className="relative px-5 py-3 rounded-xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group"
     style={{
-      background: isSelected ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.04)',
-      borderColor: isSelected ? 'rgba(154,224,48,0.52)' : 'rgba(255,255,255,0.09)',
-      color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.48)',
-      boxShadow: isSelected ? '0 0 24px rgba(255,255,255,0.10)' : 'none',
+      background: isSelected ? 'rgba(201,169,110,0.18)' : 'rgba(255,255,255,0.04)',
+      borderColor: isSelected ? 'rgba(201,169,110,0.60)' : 'rgba(201,169,110,0.14)',
+      color: isSelected ? '#E8C987' : 'rgba(220,205,180,0.48)',
+      boxShadow: isSelected ? '0 0 24px rgba(201,169,110,0.15)' : 'none',
     }}
   >
     {isSelected && (
@@ -694,7 +694,7 @@ export const ShopPage: React.FC = () => {
                                     onClick={() => toggleMultiFilter(filter.id, option)}
                                     className="w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between"
                                     style={{
-                                      borderColor: isChecked ? 'rgba(154,224,48,0.52)' : 'rgba(255,255,255,0.10)',
+                                      borderColor: isChecked ? 'rgba(201,169,110,0.60)' : 'rgba(201,169,110,0.14)',
                                       background: isChecked ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)',
                                       color: isChecked ? '#D4B47A' : 'rgba(220,210,190,0.72)',
                                     }}

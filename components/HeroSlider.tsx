@@ -71,7 +71,7 @@ export const HeroSlider = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden" style={{ background: '#0A0F08' }}>
+    <div className="relative min-h-screen w-full overflow-hidden" style={{ background: '#080604' }}>
       <AnimatePresence mode="wait">
         <motion.div
           key={index}
@@ -89,22 +89,22 @@ export const HeroSlider = () => {
               sizes="100vw"
               className="w-full h-full object-cover opacity-[0.52] contrast-110 saturate-[0.95]"
             />
-            {/* Natural forest-toned gradient overlay */}
+            {/* Deep luxury gradient overlay */}
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(to top, #0A0F08 0%, rgba(8,14,32,0.72) 35%, rgba(8,14,32,0.35) 65%, rgba(12,20,9,0.65) 100%)'
+                background: 'linear-gradient(to top, #080604 0%, rgba(8,6,4,0.78) 35%, rgba(8,6,4,0.38) 65%, rgba(12,10,6,0.65) 100%)'
               }}
             />
-            {/* Warm cognac vignette */}
+            {/* Warm gold vignette */}
             <div
               className="absolute inset-0"
-              style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(100,60,20,0.18) 0%, transparent 65%)' }}
+              style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(120,80,30,0.22) 0%, transparent 65%)' }}
             />
-            {/* Subtle green ambience */}
+            {/* Subtle amber ambience top */}
             <div
               className="absolute inset-0"
-              style={{ background: 'radial-gradient(ellipse at 20% 20%, rgba(40,80,35,0.14) 0%, transparent 55%)' }}
+              style={{ background: 'radial-gradient(ellipse at 20% 15%, rgba(160,110,40,0.10) 0%, transparent 55%)' }}
             />
           </div>
         </motion.div>
@@ -125,7 +125,7 @@ export const HeroSlider = () => {
               <div className="h-px w-10" style={{ background: 'rgba(255,255,255,0.45)' }} />
               <span
                 className="text-[9px] font-semibold uppercase"
-                style={{ letterSpacing: '0.7em', color: 'rgba(154,224,48,0.85)' }}
+                style={{ letterSpacing: '0.7em', color: 'rgba(201,169,110,0.90)' }}
               >
                 {slides[index]?.tag || slides[index]?.tags?.[0] || 'PREMIUM COLLECTION'}
               </span>
@@ -177,20 +177,20 @@ export const HeroSlider = () => {
             marginTop: '2.5rem',
             padding: '1.1rem 2.5rem',
             borderRadius: '999px',
-            background: 'linear-gradient(135deg, #071832 0%, #0A2A50 50%, #FFFFFF 100%)',
-            border: '1px solid rgba(212,180,122,0.40)',
-            boxShadow: '0 4px 28px rgba(255,255,255,0.35), inset 0 1px 0 rgba(255,240,210,0.22)',
+            background: 'linear-gradient(135deg, rgba(201,169,110,0.22) 0%, rgba(160,120,64,0.12) 100%)',
+            border: '1px solid rgba(201,169,110,0.50)',
+            boxShadow: '0 4px 28px rgba(0,0,0,0.55), 0 0 24px rgba(201,169,110,0.18), inset 0 1px 0 rgba(232,201,135,0.20)',
           }}
         >
           <span
             className="font-bold text-[10px] sm:text-[11px] uppercase"
-            style={{ letterSpacing: '0.42em', color: '#F8F0E0' }}
+            style={{ letterSpacing: '0.42em', color: '#E8C987' }}
           >
             Discover Collection
           </span>
           <ArrowRight
             className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-500"
-            style={{ color: '#F8F0E0' }}
+            style={{ color: '#E8C987' }}
           />
         </motion.button>
 
@@ -204,7 +204,7 @@ export const HeroSlider = () => {
               style={{
                 width: i === index ? '28px' : '6px',
                 height: '6px',
-                background: i === index ? '#FFFFFF' : 'rgba(255,255,255,0.20)',
+                background: i === index ? '#C9A96E' : 'rgba(201,169,110,0.22)',
               }}
             />
           ))}
@@ -217,9 +217,9 @@ export const HeroSlider = () => {
           onClick={showPrevSlide}
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
-            border: '1px solid rgba(255,255,255,0.20)',
-            background: 'rgba(8,14,32,0.55)',
-            color: '#F0F8FF',
+            border: '1px solid rgba(201,169,110,0.22)',
+            background: 'rgba(8,6,4,0.60)',
+            color: '#E8C987',
           }}
           aria-label="Previous slide"
         >
@@ -229,9 +229,9 @@ export const HeroSlider = () => {
           onClick={showNextSlide}
           className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
           style={{
-            border: '1px solid rgba(154,224,48,0.42)',
-            background: 'rgba(255,255,255,0.18)',
-            color: '#F0F8FF',
+            border: '1px solid rgba(201,169,110,0.55)',
+            background: 'rgba(201,169,110,0.15)',
+            color: '#E8C987',
           }}
           aria-label="Next slide"
         >
@@ -242,7 +242,7 @@ export const HeroSlider = () => {
       {/* Bottom fade into page */}
       <div
         className="absolute bottom-0 inset-x-0 h-32 pointer-events-none"
-        style={{ background: 'linear-gradient(to top, #0A0F08, transparent)' }}
+        style={{ background: 'linear-gradient(to top, #080604, transparent)' }}
       />
     </div>
   );

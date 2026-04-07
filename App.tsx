@@ -171,9 +171,9 @@ const SupportPage = () => {
             target={c.href.startsWith('http') ? '_blank' : undefined}
             rel="noreferrer"
             className="flex items-center gap-4 p-6 rounded-xl transition-all duration-400 hover:scale-[1.02] group"
-            style={{ background: 'rgba(7,14,32,0.78)', border: '1px solid rgba(255,255,255,0.14)', textDecoration: 'none' }}
+            style={{ background: 'rgba(8,6,4,0.88)', border: '1px solid rgba(201,169,110,0.18)', textDecoration: 'none' }}
           >
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.20)' }}>
               <c.icon className="w-5 h-5" style={{ color: c.color }} />
             </div>
             <span className="text-sm font-bold" style={{ color: '#F0FAFF' }}>{c.label}</span>
@@ -458,7 +458,7 @@ const HomeView = () => {
       </section>
 
       {/* ── Why Choose Us — Service Pillars ── */}
-      <section style={{ background: 'rgba(6,14,36,0.70)', borderTop: '1px solid rgba(255,255,255,0.12)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+      <section style={{ background: 'rgba(6,4,2,0.70)', borderTop: '1px solid rgba(201,169,110,0.12)', borderBottom: '1px solid rgba(201,169,110,0.12)' }}>
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-16 grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
             { icon: Truck,       title: t('why.delivery'),  sub: t('why.deliverysub') },
@@ -469,9 +469,9 @@ const HomeView = () => {
             <div key={i} className="flex flex-col items-center text-center gap-3">
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center mb-1"
-                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.25)' }}
+                style={{ background: 'rgba(201,169,110,0.10)', border: '1px solid rgba(201,169,110,0.28)' }}
               >
-                <item.icon className="w-6 h-6" style={{ color: '#FFFFFF' }} />
+                <item.icon className="w-6 h-6" style={{ color: '#C9A96E' }} />
               </div>
               <p className="text-sm font-black tracking-tight" style={{ color: '#FFFFFF' }}>{item.title}</p>
               <p className="text-[10px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{item.sub}</p>
@@ -552,21 +552,21 @@ const HomeView = () => {
           transition={{ duration: 0.7 }}
           className="relative overflow-hidden rounded-xl p-7 sm:p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10"
           style={{
-            background: 'linear-gradient(135deg, #0D1B3A 0%, #081528 40%, #2A1A08 100%)',
-            border: '1px solid rgba(255,255,255,0.28)',
-            boxShadow: '0 0 60px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.15)',
+            background: 'linear-gradient(135deg, #110E08 0%, #1A1408 40%, #211808 100%)',
+            border: '1px solid rgba(201,169,110,0.28)',
+            boxShadow: '0 0 60px rgba(201,169,110,0.08), inset 0 1px 0 rgba(232,201,135,0.12)',
           }}
         >
           {/* Decorative blobs */}
           <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-10 pointer-events-none"
-            style={{ background: 'radial-gradient(circle, #FFFFFF 0%, transparent 70%)', transform: 'translate(30%,-30%)' }} />
+            style={{ background: 'radial-gradient(circle, #C9A96E 0%, transparent 70%)', transform: 'translate(30%,-30%)' }} />
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-08 pointer-events-none"
-            style={{ background: 'radial-gradient(circle, #4A8040 0%, transparent 70%)', transform: 'translate(-30%,30%)' }} />
+            style={{ background: 'radial-gradient(circle, #A07840 0%, transparent 70%)', transform: 'translate(-30%,30%)' }} />
 
           <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.38)' }}>
-              <Tag className="w-3 h-3" style={{ color: '#FFFFFF' }} />
-              <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#FFFFFF' }}>{t('sale.badge')}</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: 'rgba(201,169,110,0.15)', border: '1px solid rgba(201,169,110,0.40)' }}>
+              <Tag className="w-3 h-3" style={{ color: '#C9A96E' }} />
+              <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#E8C987' }}>{t('sale.badge')}</span>
             </div>
             <h3
               className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4"
@@ -794,9 +794,9 @@ const BrandMarquee = () => {
     <div
       className="relative w-full overflow-hidden py-10 backdrop-blur-3xl mb-24"
       style={{
-        borderTop: '1px solid rgba(255,255,255,0.09)',
-        borderBottom: '1px solid rgba(255,255,255,0.09)',
-        background: 'rgba(8,14,32,0.55)',
+        borderTop: '1px solid rgba(201,169,110,0.10)',
+        borderBottom: '1px solid rgba(201,169,110,0.10)',
+        background: 'rgba(8,6,4,0.55)',
       }}
     >
       <div className="flex whitespace-nowrap">
@@ -809,9 +809,9 @@ const BrandMarquee = () => {
             <span
               key={i}
               className="text-[10px] font-semibold uppercase cursor-default transition-colors"
-              style={{ letterSpacing: '0.65em', color: 'rgba(154,224,48,0.38)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(154,224,48,0.38)')}
+              style={{ letterSpacing: '0.65em', color: 'rgba(201,169,110,0.42)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#E8C987')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(201,169,110,0.42)')}
             >
               {brand}
             </span>
@@ -820,11 +820,11 @@ const BrandMarquee = () => {
       </div>
       <div
         className="absolute inset-y-0 left-0 w-32 z-10"
-        style={{ background: 'linear-gradient(to right, rgba(8,14,32,1), transparent)' }}
+        style={{ background: 'linear-gradient(to right, rgba(8,6,4,1), transparent)' }}
       />
       <div
         className="absolute inset-y-0 right-0 w-32 z-10"
-        style={{ background: 'linear-gradient(to left, rgba(8,14,32,1), transparent)' }}
+        style={{ background: 'linear-gradient(to left, rgba(8,6,4,1), transparent)' }}
       />
     </div>
   );
@@ -835,10 +835,10 @@ const Footer = () => {
   const { siteSettings } = useApp();
   const { t } = useTranslation();
 
-  const COGNAC      = '#FFFFFF';
-  const COGNAC_DIM  = 'rgba(255,255,255,0.55)';
-  const COGNAC_MUTE = 'rgba(255,255,255,0.38)';
-  const TEXT_DIM    = 'rgba(255,255,255,0.58)';
+  const COGNAC      = '#C9A96E';
+  const COGNAC_DIM  = 'rgba(201,169,110,0.60)';
+  const COGNAC_MUTE = 'rgba(201,169,110,0.42)';
+  const TEXT_DIM    = 'rgba(245,240,232,0.55)';
 
   const footerLink = (label: string, path: string) => (
     <motion.span
@@ -858,17 +858,17 @@ const Footer = () => {
       {/* Natural gradient background */}
       <div
         className="absolute inset-x-0 top-0 bottom-0 -z-10"
-        style={{ background: 'linear-gradient(180deg, rgba(8,14,32,0.5) 0%, #080C06 100%)' }}
+        style={{ background: 'linear-gradient(180deg, rgba(8,6,4,0.5) 0%, #060402 100%)' }}
       />
 
       {/* Warm forest glow */}
       <div
         className="absolute -top-60 -left-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.18), transparent 60%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(201,169,110,0.14), transparent 60%)' }}
       />
       <div
         className="absolute -bottom-60 -right-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-20"
-        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 60%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(160,120,64,0.10), transparent 60%)' }}
       />
 
       <div className="max-w-[1800px] mx-auto px-2 sm:px-0">
@@ -877,8 +877,8 @@ const Footer = () => {
         <div
           className="liquid-glass rounded-[10px] sm:rounded-[12px] md:rounded-[48px] p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden"
           style={{
-            border: '1px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 50px 100px -20px rgba(0,0,0,0.55)',
+            border: '1px solid rgba(201,169,110,0.18)',
+            boxShadow: '0 50px 100px -20px rgba(0,0,0,0.65)',
           }}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 md:gap-16 lg:gap-12 relative z-10">
@@ -917,19 +917,19 @@ const Footer = () => {
                     rel="noopener noreferrer"
                     className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-400"
                     style={{
-                      background: 'rgba(255,255,255,0.07)',
-                      border: '1px solid rgba(255,255,255,0.14)',
-                      color: 'rgba(255,255,255,0.45)',
+                      background: 'rgba(201,169,110,0.06)',
+                      border: '1px solid rgba(201,169,110,0.16)',
+                      color: 'rgba(201,169,110,0.50)',
                     }}
                     onMouseEnter={e => {
                       (e.currentTarget as HTMLElement).style.color = COGNAC;
                       (e.currentTarget as HTMLElement).style.borderColor = COGNAC_DIM;
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,169,110,0.12)';
                     }}
                     onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
-                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)';
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
+                      (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,110,0.50)';
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,110,0.16)';
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,169,110,0.06)';
                     }}
                   >
                     <social.icon className="w-4 h-4" />
@@ -946,7 +946,7 @@ const Footer = () => {
               <div className="flex items-start gap-5 group">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
+                  style={{ background: 'rgba(201,169,110,0.08)', border: '1px solid rgba(201,169,110,0.18)' }}
                 >
                   <MapPin className="w-4 h-4" style={{ color: COGNAC }} />
                 </div>

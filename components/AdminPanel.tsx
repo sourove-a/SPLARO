@@ -3435,7 +3435,7 @@ export const AdminPanel = () => {
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8">
           <div>
             <div className="flex items-center gap-4 text-[#FFFFFF] mb-3">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#FFFFFF] animate-pulse shadow-[0_0_15px_rgba(154,224,48,0.5)]" />
+              <div className="w-2.5 h-2.5 rounded-full bg-[#C9A96E] animate-pulse shadow-[0_0_15px_rgba(201,169,110,0.55)]" />
               <span className="text-[10px] font-black uppercase tracking-[0.6em]">Splaro Admin · Secure</span>
             </div>
             <h2 className="text-6xl md:text-8xl font-black tracking-tighter text-white uppercase italic">

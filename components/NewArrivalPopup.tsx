@@ -79,7 +79,7 @@ export const NewArrivalPopup: React.FC = () => {
               aria-label="Close popup"
               onClick={handleDismiss}
               className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(255,255,255,0.20)' }}
+              style={{ background: 'rgba(8,6,4,0.6)', border: '1px solid rgba(201,169,110,0.20)' }}
             >
               <X className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
             </button>
@@ -121,9 +121,10 @@ export const NewArrivalPopup: React.FC = () => {
                   onClick={handleCta}
                   className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all group"
                   style={{
-                    background: 'linear-gradient(135deg, #071832 0%, #0A2A50 45%, #FFFFFF 75%, #0A2A50 100%)',
-                    color: '#0A0F08',
-                    boxShadow: '0 6px 20px rgba(255,255,255,0.22)',
+                    background: 'linear-gradient(135deg, rgba(201,169,110,0.28) 0%, rgba(160,120,64,0.18) 100%)',
+                    color: '#E8C987',
+                    border: '1px solid rgba(201,169,110,0.50)',
+                    boxShadow: '0 6px 20px rgba(201,169,110,0.22)',
                   }}
                 >
                   {popup.ctaLabel || 'Shop Now'}

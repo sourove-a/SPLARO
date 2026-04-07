@@ -434,11 +434,11 @@ const INITIAL_DISCOUNTS: DiscountCode[] = [
 
 const DEFAULT_THEME_SETTINGS: ThemeSettings = {
   colors: {
-    primary: '#FFFFFF',
-    accent: '#FFFFFF',
-    background: '#07101E',
-    surface: 'rgba(8, 18, 44, 0.72)',
-    text: '#FFFFFF'
+    primary: '#C9A96E',
+    accent: '#E8C987',
+    background: '#080604',
+    surface: 'rgba(18, 14, 8, 0.82)',
+    text: '#F5F0E8'
   },
   typography: {
     fontFamily: 'Inter',
@@ -553,11 +553,11 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   defaultType: 'INV',
   separateCounterPerType: false,
   theme: {
-    primaryColor: '#FFFFFF',
-    accentColor: '#FFFFFF',
-    backgroundColor: '#F0FAFF',
-    tableHeaderColor: '#0D1B3A',
-    buttonColor: '#5AAA10'
+    primaryColor: '#C9A96E',
+    accentColor: '#E8C987',
+    backgroundColor: '#F5F0E8',
+    tableHeaderColor: '#110E08',
+    buttonColor: '#C9A96E'
   },
   logoUrl: '',
   footerText: 'SPLARO • Luxury Footwear & Bags • www.splaro.co',

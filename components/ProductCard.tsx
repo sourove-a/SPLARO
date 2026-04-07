@@ -146,7 +146,7 @@ export const ProductCard: React.FC<{ product: Product; index?: number; language?
                   style={
                     urgency.outOfStock
                       ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(255,255,255,0.28)', cursor: 'not-allowed' }
-                      : { background: 'linear-gradient(135deg, #071832, #0A2A50, #FFFFFF)', border: '1px solid rgba(212,180,122,0.35)', color: '#F8F0E0', boxShadow: '0 4px 18px rgba(255,255,255,0.30)' }
+                      : { background: 'linear-gradient(135deg, rgba(201,169,110,0.22), rgba(160,120,64,0.15))', border: '1px solid rgba(201,169,110,0.45)', color: '#E8C987', boxShadow: '0 4px 18px rgba(201,169,110,0.22)' }
                   }
                 >
                   <ShoppingBag className="w-4 h-4" />

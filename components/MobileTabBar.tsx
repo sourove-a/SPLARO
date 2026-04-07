@@ -84,20 +84,20 @@ export const MobileTabBar: React.FC = () => {
         <div
           className="absolute inset-0 flex justify-around items-center px-2 overflow-hidden"
           style={{
-            background: 'rgba(7,14,32,0.92)',
+            background: 'rgba(8,6,4,0.94)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             borderRadius: '12px',
-            border: '1px solid rgba(255,255,255,0.13)',
-            boxShadow: '0 -4px 32px rgba(0,0,0,0.55), 0 12px 28px rgba(0,0,0,0.45)',
+            border: '1px solid rgba(201,169,110,0.16)',
+            boxShadow: '0 -4px 32px rgba(0,0,0,0.70), 0 12px 28px rgba(0,0,0,0.55)',
           }}
         >
           <div className="ribbed-texture absolute inset-0 opacity-[0.04] pointer-events-none" />
 
           {navItems.map((item) => {
             const isActive = getIsActive(item);
-            const GOLD = '#FFFFFF';
-            const GOLD_BRIGHT = '#FFFFFF';
+            const GOLD = '#C9A96E';
+            const GOLD_BRIGHT = '#E8C987';
 
             return (
               <button
@@ -166,7 +166,7 @@ export const MobileTabBar: React.FC = () => {
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       className="absolute -top-1.5 -right-2 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
-                      style={{ background: GOLD, color: '#0A0F08', border: '1.5px solid rgba(7,14,32,0.8)' }}
+                      style={{ background: GOLD, color: '#080604', border: '1.5px solid rgba(8,6,4,0.8)' }}
                     >
                       {item.badge}
                     </motion.span>
@@ -198,7 +198,7 @@ export const MobileTabBar: React.FC = () => {
           })}
         </div>
         {/* Ambient glow */}
-        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#FFFFFF]/15 blur-xl rounded-full -z-10" />
+        <div className="absolute inset-x-8 -bottom-1 h-4 bg-[#C9A96E]/12 blur-xl rounded-full -z-10" />
       </div>
     </motion.div>
   );
