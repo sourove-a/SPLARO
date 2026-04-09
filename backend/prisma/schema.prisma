@@ -1,0 +1,308 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// USER & IDENTITY
+// ---------------------------------------------------------
+
+enum Role {
+  USER
+  VIP_CUSTOMER
+  SUPPORT_AGENT
+  CONTENT_MANAGER
+  INVENTORY_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id                String          @id @default(uuid())
+  email             String          @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  roles             Role[]          @default([USER])
+  isEmailVerified   Boolean         @default(false)
+  profileImage      String?
+  addresses         Address[]
+  orders            Order[]
+  wishlist          Wishlist?
+  reviews           Review[]
+  ai_sessions       AiSession[]
+  loyaltyProfile    LoyaltyProfile?
+  loyalty_points    Int             @default(0)
+  vip_tier          String?         @default("BRONZE")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model Address {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  type              String    // BILLING or SHIPPING
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  state             String
+  postalCode        String
+  country           String
+  isDefault         Boolean   @default(false)
+}
+
+// ---------------------------------------------------------
+// CATALOG & PRODUCTS
+// ---------------------------------------------------------
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  UNLISTED
+  ARCHIVED
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  products    Product[]
+}
+
+model Collection {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  isFeatured  Boolean   @default(false)
+  products    Product[]
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  name              String
+  slug              String          @unique
+  shortDescription  String?         @db.Text
+  longDescription   String?         @db.Text
+  materials         String?
+  craftsmanship     String?
+  brand             String          @default("SPLARO")
+  status            ProductStatus   @default(DRAFT)
+  basePrice         Decimal         @db.Decimal(10, 2)
+  salePrice         Decimal?        @db.Decimal(10, 2)
+  category          Category?       @relation(fields: [categoryId], references: [id])
+  categoryId        String?
+  collections       Collection[]
+  variants          ProductVariant[]
+  images            ProductImage[]
+  tags              String[]
+  isLimitedDrop     Boolean         @default(false)
+  isFeatured        Boolean         @default(false)
+  isBestSeller      Boolean         @default(false)
+  isNewArrival      Boolean         @default(false)
+  releaseDate       DateTime?
+  seoTitle          String?
+  seoDescription    String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model ProductVariant {
+  id          String    @id @default(uuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  sku         String    @unique
+  size        String
+  color       String
+  stock       Int       @default(0)
+  price       Decimal?  @db.Decimal(10, 2)
+  orderItems  OrderItem[]
+}
+
+model ProductImage {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  url         String
+  altText     String?
+  isPrimary   Boolean  @default(false)
+}
+
+// ---------------------------------------------------------
+// SALES & ORDERS
+// ---------------------------------------------------------
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  status          OrderStatus @default(PENDING_PAYMENT)
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  taxAmount       Decimal     @db.Decimal(10, 2)
+  shippingAmount  Decimal     @db.Decimal(10, 2)
+  couponId        String?
+  coupon          Coupon?     @relation(fields: [couponId], references: [id])
+  paymentId       String?
+  shippingMethod  String?
+  trackingNumber  String?
+  items           OrderItem[]
+  shipment        Shipment?
+  returns         Return[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id          String         @id @default(uuid())
+  orderId     String
+  order       Order          @relation(fields: [orderId], references: [id])
+  variantId   String
+  variant     ProductVariant @relation(fields: [variantId], references: [id])
+  quantity    Int
+  price       Decimal        @db.Decimal(10, 2)
+}
+
+// ---------------------------------------------------------
+// AI & ANALYTICS
+// ---------------------------------------------------------
+
+model AiSession {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  messages    AiMessage[]
+  createdAt   DateTime    @default(now())
+}
+
+model AiMessage {
+  id          String    @id @default(uuid())
+  sessionId   String
+  session     AiSession @relation(fields: [sessionId], references: [id])
+  role        String    // user or assistant
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+}
+
+model Wishlist {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id])
+  products  String[]  // Product IDs
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  productId   String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  rating      Int      @default(5)
+  comment     String?
+  isVerified  Boolean  @default(false)
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------
+// PROMOTIONS & LOYALTY
+// ---------------------------------------------------------
+
+model Coupon {
+  id              String      @id @default(uuid())
+  code            String      @unique
+  discountType    String      // PERCENTAGE, FIXED, FREE_SHIPPING
+  value           Decimal     @db.Decimal(10, 2)
+  minPurchase     Decimal?    @db.Decimal(10, 2)
+  maxUsage        Int?
+  usageCount      Int         @default(0)
+  expiryDate      DateTime?
+  isActive        Boolean     @default(true)
+  orders          Order[]
+}
+
+model Return {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  reason      String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+}
+
+model LoyaltyProfile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id])
+  points          Int       @default(0)
+  tier            String    @default("SILVER") // SILVER, GOLD, PLATINUM, NOIR
+  pointsHistory   Json[]    // Stores log of points earned/spent
+}
+
+// ---------------------------------------------------------
+// SHIPPING & LOGISTICS
+// ---------------------------------------------------------
+
+model Shipment {
+  id              String    @id @default(uuid())
+  orderId         String    @unique
+  order           Order     @relation(fields: [orderId], references: [id])
+  courierName     String
+  trackingId      String    @unique
+  status          String    // PENDING, SHIPPED, IN_TRANSIT, DELIVERED
+  shippedAt       DateTime?
+  estimatedDelivery DateTime?
+}
+
+// ---------------------------------------------------------
+// NOTIFICATIONS & AUDIT
+// ---------------------------------------------------------
+
+model Notification {
+  id              String    @id @default(uuid())
+  userId          String
+  title           String
+  message         String
+  type            String    // ORDER_UPDATE, PROMO, SECURITY
+  isRead          Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+}
+
+model AuditLog {
+  id              String    @id @default(uuid())
+  adminId         String
+  action          String
+  metadata        Json?
+  ipAddress       String?
+  createdAt       DateTime  @default(now())
+}
+
+// ---------------------------------------------------------
+// SETTINGS (Admin Dynamic Config)
+// ---------------------------------------------------------
+
+model Settings {
+  id          String    @id @default(uuid())
+  key         String    @unique
+  value       Json
+  updatedAt   DateTime  @updatedAt
+}

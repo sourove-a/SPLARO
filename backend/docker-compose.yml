@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: splaro-db
+    environment:
+      POSTGRES_USER: splaro_admin
+      POSTGRES_PASSWORD: splaro_secret_password
+      POSTGRES_DB: splaro_production
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - splaro-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: splaro-cache
+    ports:
+      - "6379:6379"
+    networks:
+      - splaro-network
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: splaro-search
+    environment:
+      - MEILI_MASTER_KEY=splaro_master_search_key
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+    networks:
+      - splaro-network
+
+networks:
+  splaro-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  meili_data:

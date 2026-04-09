@@ -14,7 +14,7 @@ export enum View {
   SUPPORT = 'SUPPORT'
 }
 
-export type Language = 'EN' | 'BN';
+export type Language = 'EN';
 export type Theme = 'DARK' | 'LIGHT';
 
 export interface ProductImage {
@@ -40,7 +40,7 @@ export interface Product {
   name: string;
   slug?: string;
   productSlug?: string;
-  productType?: 'shoe' | 'bag' | string;
+  productType?: 'shoe' | string;
   brand: 'Nike' | 'Adidas' | 'Jordan' | 'Splaro' | 'Luxury Imports' | 'New Balance' | 'Yeezy' | 'Balenciaga' | 'Gucci' | 'Prada' | 'Louis Vuitton' |
   'Anta' | 'Li-Ning' | '361 Degrees' | 'Xtep' | 'Peak' | 'Qiaodan' | 'Bmai' | 'ERKE' | 'Feiyue' | 'Warrior' | 'Belle' | 'Red Dragonfly' | 'Aokang' | 'Fuguiniao' | 'Staccato' | 'Teenmix' | 'Do-win' | 'Dynafish' |
   'Dior' | 'Versace' | 'Fendi' | 'Hermes' | 'Saint Laurent' | 'Burberry' | 'Chanel' | 'Valentino' | 'Givenchy' | 'Off-White' | 'Alexander McQueen' | string;
@@ -53,7 +53,7 @@ export interface Product {
   image: string;
   mainImageId?: string;
   galleryImages?: ProductImage[];
-  category: 'Sneakers' | 'Running' | 'Casual' | 'Basketball' | 'Sandals' | 'Boots' | 'Formal' | 'Shoes' | 'Bags' | string;
+  category: 'Sneakers' | 'Running' | 'Casual' | 'Basketball' | 'Sandals' | 'Boots' | 'Formal' | 'Shoes' | string;
   categorySlug?: string;
   subCategory?: string;
   subCategorySlug?: string;
@@ -197,7 +197,6 @@ export interface CmsBundle {
   categoryHeroOverrides: {
     all: CategoryHeroOverride;
     shoes: CategoryHeroOverride;
-    bags: CategoryHeroOverride;
   };
 }
 

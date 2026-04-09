@@ -98,7 +98,7 @@ export const productCreateSchema = z.object({
   name: z.string().trim().min(1).max(255),
   slug: z.string().trim().min(1).max(255),
   category_id: z.string().trim().max(64).optional().default(''),
-  product_type: z.enum(['shoe', 'bag']),
+  product_type: z.enum(['shoe']),
   image_url: z.string().trim().max(1000).optional().default(''),
   product_url: z.string().trim().max(1000).optional().default(''),
   price: z.coerce.number().min(0),

@@ -105,7 +105,7 @@ const buildSystemPrompt = (stats: {
   pendingOrders: number;
   totalUsers: number;
   siteName: string;
-}) => `You are the Master AI Copilot for ${stats.siteName} — a premium luxury footwear & bags e-commerce site in Bangladesh. You are the admin's personal assistant with full control over the website.
+}) => `You are the Master AI Copilot for ${stats.siteName} — a premium luxury footwear e-commerce site in Bangladesh. You are the admin's personal assistant with full control over the website.
 
 CURRENT SITE STATUS:
 - Total Products: ${stats.totalProducts}
@@ -245,12 +245,12 @@ function cleanContent(text: string): string {
 
 /* ─── Quick Commands ─────────────────────────────────────── */
 const QUICK_COMMANDS = [
-  { icon: Package,     label: 'আজকের অর্ডার', cmd: 'আজকের সব অর্ডার দেখাও' },
-  { icon: RefreshCcw,  label: 'Pending প্রসেস', cmd: 'সব pending অর্ডার processing করো' },
-  { icon: BarChart3,   label: 'Revenue সারাংশ', cmd: 'আজকের revenue এবং order summary দেখাও' },
-  { icon: ShoppingBag, label: 'Products দেখুন', cmd: 'সব products এর list দেখাও' },
-  { icon: Users,       label: 'Customers', cmd: 'নতুন customer list দেখাও' },
-  { icon: Bell,        label: 'Announcement', cmd: 'customers কে একটা announcement পাঠাতে চাই' },
+  { icon: Package,     label: "Today's Orders", cmd: "Show all orders for today" },
+  { icon: RefreshCcw,  label: 'Process Pending', cmd: 'Process all pending orders' },
+  { icon: BarChart3,   label: 'Revenue Summary', cmd: "Show today's revenue and order summary" },
+  { icon: ShoppingBag, label: 'View Products', cmd: 'Show list of all products' },
+  { icon: Users,       label: 'Customers', cmd: 'Show recent customer list' },
+  { icon: Bell,        label: 'Announcement', cmd: 'I want to send an announcement to customers' },
 ];
 
 /* ─── Main Component ─────────────────────────────────────── */
@@ -268,7 +268,7 @@ export const AdminAIAgent: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([{
     id: 'welcome',
     role: 'assistant',
-    content: `স্বাগতম! আমি Splaro-র Master AI Copilot। আপনি আমাকে বাংলা বা ইংরেজিতে যেকোনো কাজ বলতে পারেন:\n\n• অর্ডার দেখা, প্রসেস করা\n• Products যোগ বা মুছে ফেলা\n• Sales analytics দেখা\n• Site settings আপডেট\n• Customers সম্পর্কে তথ্য\n\nপ্রথমে বাম দিকে আপনার পছন্দের AI model ও API key সেট করুন।`,
+    content: `Welcome! I am Splaro's Master AI Copilot. You can command me in natural English to manage the boutique:\n\n• View and process orders\n• Add or modify products\n• View sales analytics\n• Update site settings\n• Access customer profiles\n\nPlease configure your preferred AI model and API key in the configuration panel on the left to begin.`,
     timestamp: new Date(),
   }]);
   const [input, setInput] = useState('');
@@ -395,7 +395,7 @@ export const AdminAIAgent: React.FC = () => {
       setMessages(prev => [...prev, {
         id: `err-${Date.now()}`,
         role: 'assistant',
-        content: `❌ Error: ${errMsg}\n\nAPI key সঠিক কিনা দেখুন অথবা model selection পরিবর্তন করুন।`,
+        content: `❌ Error: ${errMsg}\n\nPlease verify your API key or try selecting a different model version.`,
         timestamp: new Date(),
         error: true,
       }]);
@@ -419,7 +419,7 @@ export const AdminAIAgent: React.FC = () => {
   const clearChat = () => setMessages([{
     id: 'welcome-new',
     role: 'assistant',
-    content: 'Chat পরিষ্কার করা হয়েছে। আবার শুরু করুন!',
+    content: 'Contextual memory cleared. How can I assist you further?',
     timestamp: new Date(),
   }]);
 
@@ -512,7 +512,7 @@ export const AdminAIAgent: React.FC = () => {
             <div className="flex items-center gap-2 p-3 rounded-xl" style={{ background: 'rgba(16,163,127,0.08)', border: '1px solid rgba(16,163,127,0.25)' }}>
               <CheckCircle className="w-4 h-4 shrink-0" style={{ color: '#10A37F' }} />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-white">API Key সেট আছে</p>
+                <p className="text-xs font-bold text-white">API Key Verified</p>
                 <p className="text-[9px] text-zinc-500 truncate">{apiKeys[selectedModelId].slice(0, 10)}••••</p>
               </div>
               <button onClick={() => { setTempApiKey(apiKeys[selectedModelId]); setShowSettings(true); }} className="text-zinc-400 hover:text-white transition-colors">
@@ -523,7 +523,7 @@ export const AdminAIAgent: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 p-3 rounded-xl mb-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-                <p className="text-xs font-bold text-rose-300">API Key দরকার</p>
+                <p className="text-xs font-bold text-rose-300">Key Required</p>
               </div>
               <button
                 onClick={() => setShowSettings(true)}
@@ -531,7 +531,7 @@ export const AdminAIAgent: React.FC = () => {
                 style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.30)', color: '#FFFFFF' }}
               >
                 <Key className="w-3.5 h-3.5 inline mr-2" />
-                API Key যোগ করুন
+                Initialize Key
               </button>
             </div>
           )}
@@ -565,7 +565,7 @@ export const AdminAIAgent: React.FC = () => {
           style={{ border: '1px solid rgba(239,68,68,0.20)', color: 'rgba(239,68,68,0.60)' }}
         >
           <Trash2 className="w-3.5 h-3.5" />
-          Chat পরিষ্কার করুন
+          Clear Registry
         </button>
       </div>
 
@@ -700,7 +700,7 @@ export const AdminAIAgent: React.FC = () => {
               <div className="px-5 py-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="flex gap-1.5 items-center">
                   <Loader2 className="w-4 h-4 animate-spin" style={{ color: currentModel.color }} />
-                  <span className="text-xs text-zinc-400">{currentModel.label} চিন্তা করছে...</span>
+                  <span className="text-xs text-zinc-400">{currentModel.label} is indexing...</span>
                 </div>
               </div>
             </motion.div>
@@ -719,8 +719,8 @@ export const AdminAIAgent: React.FC = () => {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={hasKey
-              ? `${currentModel.label} কে জিজ্ঞেস করুন... (Enter পাঠান, Shift+Enter নতুন লাইন)`
-              : 'প্রথমে API key যোগ করুন →'
+              ? `Ask ${currentModel.label}... (Enter to send, Shift+Enter for new line)`
+              : 'Please configure your API key to proceed →'
             }
             disabled={!hasKey || isLoading}
             rows={2}
@@ -776,24 +776,24 @@ export const AdminAIAgent: React.FC = () => {
                     type="password"
                     value={tempApiKey}
                     onChange={e => setTempApiKey(e.target.value)}
-                    placeholder={`${currentModel.label} API key paste করুন...`}
+                    placeholder={`Paste ${currentModel.label} API key here...`}
                     className="w-full px-4 py-3 rounded-xl text-sm bg-white/04 border border-white/10 text-white placeholder-zinc-600 outline-none focus:border-[#FFFFFF]/40"
                     autoFocus
                   />
                 </div>
                 <div className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}>
                   <p className="text-[10px] text-zinc-400 leading-relaxed">
-                    🔒 API key আপনার browser-এ locally সংরক্ষিত হয়। কোনো server-এ পাঠানো হয় না।
-                    {currentModel.id === 'openai' && ' OpenAI dashboard: platform.openai.com'}
-                    {currentModel.id === 'google' && ' Google AI Studio: aistudio.google.com'}
-                    {currentModel.id === 'xai' && ' xAI Console: console.x.ai'}
-                    {currentModel.id === 'deepseek' && ' DeepSeek Platform: platform.deepseek.com'}
-                    {currentModel.id === 'anthropic' && ' Anthropic Console: console.anthropic.com'}
+                    🔒 API keys are stored locally in your browser. They are nunca transit through our servers.
+                    {currentModel.id === 'openai' && ' Access: platform.openai.com'}
+                    {currentModel.id === 'google' && ' Access: aistudio.google.com'}
+                    {currentModel.id === 'xai' && ' Access: console.x.ai'}
+                    {currentModel.id === 'deepseek' && ' Access: platform.deepseek.com'}
+                    {currentModel.id === 'anthropic' && ' Access: console.anthropic.com'}
                   </p>
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setShowSettings(false)} className="flex-1 py-3 rounded-xl text-xs font-bold border border-white/10 text-zinc-400">
-                    বাতিল
+                    Cancel
                   </button>
                   <button
                     onClick={saveApiKey}
@@ -801,7 +801,7 @@ export const AdminAIAgent: React.FC = () => {
                     className="flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all disabled:opacity-40"
                     style={{ background: 'linear-gradient(135deg, #C07832, #FFFFFF)', color: '#fff' }}
                   >
-                    Save করুন
+                    Save Key
                   </button>
                 </div>
                 {apiKeys[selectedModelId] && (
@@ -816,7 +816,7 @@ export const AdminAIAgent: React.FC = () => {
                     }}
                     className="w-full py-2 text-[10px] font-bold text-rose-400 hover:text-rose-300 transition-colors"
                   >
-                    API Key মুছে ফেলুন
+                    Revoke API Key
                   </button>
                 )}
               </div>

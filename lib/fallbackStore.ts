@@ -18,7 +18,7 @@ export type FallbackProduct = {
   name: string;
   slug: string;
   category_id: string;
-  product_type: 'shoe' | 'bag';
+  product_type: 'shoe';
   image_url: string;
   product_url: string;
   price: number;

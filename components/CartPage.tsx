@@ -16,11 +16,11 @@ export const CartPage: React.FC = () => {
 
   if (cart.length === 0) {
     return (
-      <div className="pt-32 sm:pt-36 flex flex-col items-center justify-center min-h-screen text-center px-4 sm:px-6 pb-24 bg-[#050505] text-white">
-        <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-10">
-          <ShoppingBag className="w-10 h-10 text-zinc-700" />
+      <div className="pt-32 sm:pt-36 flex flex-col items-center justify-center min-h-screen text-center px-4 sm:px-6 pb-24 bg-[var(--splaro-emerald)] text-white">
+        <div className="w-24 h-24 rounded-full bg-[var(--splaro-gold)]/10 border border-[var(--splaro-gold)]/20 flex items-center justify-center mb-10">
+          <ShoppingBag className="w-10 h-10 text-[var(--splaro-gold)]" />
         </div>
-        <h2 className="text-3xl sm:text-5xl font-black tracking-tighter mb-4 uppercase italic">{t('cart.empty')}</h2>
+        <h2 className="text-3xl sm:text-5xl font-black tracking-tighter mb-4 uppercase italic text-white">{t('cart.empty')}</h2>
         <p className="text-white/40 text-sm font-bold uppercase tracking-widest mb-10">{t('cart.emptyDiscover')}</p>
         <PrimaryButton onClick={() => navigate('/shop')} className="px-12 py-6 text-[10px]">
           {t('cart.startShopping')}
@@ -30,12 +30,12 @@ export const CartPage: React.FC = () => {
   }
 
   return (
-    <div className="pt-24 sm:pt-32 pb-20 min-h-screen bg-[#050505] text-white">
+    <div className="pt-24 sm:pt-32 pb-20 min-h-screen bg-[var(--splaro-emerald)] text-white">
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 lg:gap-16">
         {/* Left: Cart Items List */}
         <div className="lg:col-span-8">
           <header className="mb-8 sm:mb-12">
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-[#FFFFFF]">Cart.</span></h1>
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-[0.9] mb-4">Your<br /><span className="text-[var(--splaro-gold)]">Cart.</span></h1>
             <p className="text-white/30 font-bold uppercase tracking-[0.3em] sm:tracking-[0.5em] text-[9px]">{cart.length} {t('cart.items')}</p>
           </header>
 
@@ -53,8 +53,8 @@ export const CartPage: React.FC = () => {
                   </div>
 
                   <div className="flex-1 text-center sm:text-left">
-                    <span className="text-[#FFFFFF] text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
-                    <h3 className="text-lg sm:text-2xl font-black tracking-tight mb-2 uppercase italic">{item.product.name}</h3>
+                    <span className="text-[var(--splaro-gold)] text-[10px] font-black uppercase tracking-[0.3em] mb-2 block">{item.product.brand}</span>
+                    <h3 className="text-lg sm:text-2xl font-black tracking-tight mb-2 uppercase italic text-white">{item.product.name}</h3>
                     <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-[10px] font-black uppercase tracking-widest text-white/60">
                       <span>{t('cart.size')}: {item.selectedSize}</span>
                       <span>{t('cart.color')}: {item.selectedColor}</span>
@@ -126,7 +126,7 @@ export const CartPage: React.FC = () => {
                 onClick={() => {
                   navigate('/checkout');
                 }}
-                className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(0, 122, 255, 0.25)] hover:shadow-[0_0_60px_rgba(0, 122, 255, 0.45)]"
+                className="w-full min-h-14 h-14 sm:h-16 text-[10px] shadow-[0_0_35px_rgba(218,185,123,0.15)]"
               >
                 {t('cart.proceedBilling')} <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-2 transition-transform" />
               </PrimaryButton>

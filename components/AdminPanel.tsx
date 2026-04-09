@@ -30,7 +30,7 @@ import { AdminTelegramPanel } from './AdminTelegramPanel';
 
 import { GlassCard, PrimaryButton, LuxuryFloatingInput } from './LiquidGlass';
 
-const ADMIN_TABS = ['DASHBOARD', 'AI_AGENT', 'ORDERS', 'PRODUCTS', 'ANALYTICS', 'FINANCE', 'USERS', 'DISCOUNTS', 'SLIDER', 'CAMPAIGNS', 'PAGES', 'STORY', 'HEALTH', 'SYNC', 'TRAFFIC', 'TELEGRAM', 'API_KEYS', 'SETTINGS'] as const;
+const ADMIN_TABS = ['DASHBOARD', 'AI_AGENT', 'PROTOCOLS', 'ORDERS', 'PRODUCTS', 'ANALYTICS', 'FINANCE', 'USERS', 'DISCOUNTS', 'SLIDER', 'CAMPAIGNS', 'PAGES', 'STORY', 'HEALTH', 'SYNC', 'TRAFFIC', 'TELEGRAM', 'API_KEYS', 'SETTINGS'] as const;
 type AdminTab = typeof ADMIN_TABS[number];
 type CmsCategoryTab = 'all' | 'shoes' | 'bags';
 
@@ -1269,7 +1269,7 @@ const ProductModal: React.FC<{
                       Add Multiple URLs
                     </button>
                   </div>
-                  <p className="text-[10px] text-zinc-500">Drag করে reorder করতে পারবে, সাথে up/down controls ও থাকবে.</p>
+                  <p className="text-[10px] text-zinc-500">Drag to reorder assets manually. Up/down controls are also available.</p>
                   {galleryImagesForUi.length > 0 && (
                     <div className="rounded-xl border border-white/10 bg-[#0f1624] p-3 space-y-2">
                       <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-400">
@@ -1361,7 +1361,7 @@ const ProductModal: React.FC<{
             <div className="space-y-12">
               <ProductCollapsibleBox title="Attributes (Size/Color/Gender)" hint="Size options by category" defaultOpen>
                 <div className="space-y-6">
-                <p className="text-[10px] text-zinc-500 font-semibold">Size সেট category অনুযায়ী load হবে: {sizeSetKey === 'bags' ? 'Bags' : 'Shoes'}.</p>
+                <p className="text-[10px] text-zinc-500 font-semibold">Sizing matrix will load based on category: {sizeSetKey === 'bags' ? 'Bags' : 'Shoes'}.</p>
                 <div className="grid grid-cols-4 gap-3">
                   {activeSizeOptions.map(size => (
                     <button
@@ -1388,9 +1388,9 @@ const ProductModal: React.FC<{
                   />
                 </div>
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6">আর্কিভ Specs (BN)</label>
+                  <label className="text-[10px] font-black uppercase text-[#FFFFFF]/70 tracking-[0.2em] pl-6">Archive Specs (Secondary)</label>
                   <textarea
-                    placeholder="আর্কিভ ডেটা (বাংলা)..."
+                    placeholder="Archive data (secondary)..."
                     value={formData.description?.BN}
                     onChange={e => setFormData({ ...formData, description: { ...formData.description!, BN: e.target.value } })}
                     className="w-full h-28 p-6 liquid-glass border border-white/10 rounded-[14px] font-medium text-xs outline-none resize-none focus:border-[#FFFFFF]/50 transition-all placeholder:text-zinc-800 bg-[#070E1E]/50 text-white"
@@ -1973,7 +1973,7 @@ export const AdminPanel = () => {
       type: 'Unisex',
       description: {
         EN: 'Demo product for vault inventory verification.',
-        BN: 'Vault Inventory যাচাই করার জন্য ডেমো প্রোডাক্ট।'
+        BN: 'Demo product for vault inventory verification.'
       },
       sizes: ['40', '41', '42', '43'],
       colors: ['Black'],
@@ -2238,7 +2238,7 @@ export const AdminPanel = () => {
     if (!selectedCustomerId) return;
     const note = customerNoteDraft.trim();
     if (!note) {
-      showToast('Note লিখে save করো।', 'error');
+      showToast('Please include a note before saving.', 'error');
       return;
     }
     setCustomerNoteSaving(true);
@@ -3223,7 +3223,7 @@ export const AdminPanel = () => {
     const label = expenseForm.label.trim();
     const amount = Number(expenseForm.amount);
     if (!label || !Number.isFinite(amount) || amount <= 0) {
-      showToast('Expense name and valid amount লাগবে।', 'error');
+      showToast('Expense name and a valid amount are required.', 'error');
       return;
     }
 
@@ -3516,24 +3516,76 @@ export const AdminPanel = () => {
                     ))}
                   </div>
                 </div>
-                {/* Simulated Chart */}
-                <div className="relative h-64 flex items-end gap-5 px-4">
-                  {chartSeries.map((h, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ height: 0 }}
-                      animate={{ height: `${h}%` }}
-                      transition={{ delay: i * 0.05, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex-1 bg-gradient-to-t from-blue-700/20 via-blue-600/40 to-blue-400 rounded-t-xl group relative"
-                    >
-                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#070E1E] border border-white/10 text-[#FFFFFF] text-[9px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-2xl whitespace-nowrap">
-                        ৳{Math.floor(h * 15).toLocaleString()}k
+                {/* Advanced Archival Pulse Chart — MAXIMALIST UPGRADE */}
+                <div className="relative h-80 w-full mt-4">
+                  {/* Grid Lines */}
+                  <div className="absolute inset-0 flex flex-col justify-between py-2 opacity-10">
+                    {[0, 1, 2, 3, 4].map(i => <div key={i} className="w-full h-px bg-white" />)}
+                  </div>
+                  
+                  <svg className="w-full h-full p-4 overflow-visible" viewBox="0 0 1200 300" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="neural-gradient" x1="0" y1="0" x2="0" y2="1">
+                         <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.4" />
+                         <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+                      </linearGradient>
+                      <filter id="neural-glow">
+                         <feGaussianBlur stdDeviation="6" result="blur" />
+                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      </filter>
+                    </defs>
+                    
+                    {/* The Pulse Path */}
+                    <motion.path 
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 1 }}
+                      transition={{ duration: 2, ease: "easeInOut" }}
+                      d={`M 0,${300 - chartSeries[0] * 2} ${chartSeries.map((h, i) => `L ${i * 100},${300 - h * 2.5}`).join(' ')}`}
+                      fill="none" 
+                      stroke="#FFFFFF" 
+                      strokeWidth="3" 
+                      filter="url(#neural-glow)"
+                    />
+                    
+                    {/* Area under the path */}
+                    <motion.path 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.5, duration: 1 }}
+                      d={`M 0,300 L 0,${300 - chartSeries[0] * 2} ${chartSeries.map((h, i) => `L ${i * 100},${300 - h * 2.5}`).join(' ')} L 1100,300 Z`}
+                      fill="url(#neural-gradient)"
+                    />
+                    
+                    {/* Data Nodes */}
+                    {chartSeries.map((h, i) => (
+                      <motion.circle 
+                        key={i}
+                        cx={i * 100} 
+                        cy={300 - h * 2.5} 
+                        r="6" 
+                        fill="#FFFFFF"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 2 + i * 0.1 }}
+                        className="cursor-pointer hover:r-10 transition-all"
+                      >
+                         <title>Volume: ৳{Math.floor(h * 15).toLocaleString()}k</title>
+                      </motion.circle>
+                    ))}
+                  </svg>
+                  
+                  {/* Floating Metric Badge */}
+                  <div className="absolute top-4 left-4 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Peak Performance Index</p>
+                      <div className="flex items-center gap-2 mt-1">
+                         <TrendingUp className="w-4 h-4 text-emerald-400" />
+                         <p className="text-xl font-black text-white">92.4%</p>
                       </div>
-                    </motion.div>
-                  ))}
+                  </div>
                 </div>
-                <div className="mt-8 flex justify-between text-[10px] font-black text-zinc-700 uppercase tracking-[0.3em] px-2">
-                  {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => <span key={m}>{m}</span>)}
+                
+                <div className="mt-8 flex justify-between text-[10px] font-black text-zinc-700 uppercase tracking-[0.3em] px-2 border-t border-white/5 pt-6">
+                  {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'].map(m => <span key={m} className="hover:text-white transition-colors cursor-default">{m}</span>)}
                 </div>
               </GlassCard>
 
@@ -4308,17 +4360,17 @@ export const AdminPanel = () => {
               <div className="flex items-center gap-3 pb-1">
                 <Settings className="w-4 h-4" style={{ color: '#FFFFFF' }} />
                 <h2 className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#F0F8FF' }}>Site Settings</h2>
-                <span className="text-[10px] text-zinc-500 hidden sm:block">— সব সেকশন খুলুন ও পরিবর্তন করুন</span>
+                <span className="text-[10px] text-zinc-500 hidden sm:block">— Open and configure all site parameters</span>
               </div>
 
               <div className="space-y-3">
-                <SettingsSection id="s-owner" number="①" title="Owner Profile" icon={UserIcon} subtitle="আপনার নাম ও ফোন নম্বর আপডেট করুন" defaultOpen={true}>
+                <SettingsSection id="s-owner" number="①" title="Owner Profile" icon={UserIcon} subtitle="Update your identity and access credentials" defaultOpen={true}>
                   <div className="flex flex-wrap items-start justify-between gap-6">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#FFFFFF' }}>ADMIN ACCOUNT</p>
                       <h3 className="text-2xl font-black uppercase italic tracking-tight text-white">Owner Profile</h3>
                       <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mt-2">
-                        আপনার নাম ও ফোন নম্বর আপডেট করুন
+                        Update your name and phone number
                       </p>
                     </div>
                     <span className="px-4 py-2 rounded-full border border-[#FFFFFF]/30 bg-[#FFFFFF]/10 text-white/85 text-[10px] font-black uppercase tracking-[0.2em]">
@@ -4388,7 +4440,40 @@ export const AdminPanel = () => {
                   </div>
                 </SettingsSection>
 
-                <SettingsSection id="s-contact" number="③" title="Contact & Social" icon={Phone} subtitle="Phone, WhatsApp, Email & Social links">
+                <SettingsSection id="s-sensory" number="③" title="Sensory Protocols" icon={Cpu} subtitle="Global overrides for cinematic overlays and neural gloom">
+                   <div className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                            <label className="text-[10px] font-black uppercase text-white/40 tracking-widest pl-4">Spectral Noise Base (Sensory)</label>
+                            <input type="range" min="0" max="1" step="0.01" value="0.65" className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[var(--splaro-gold)]" />
+                            <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-zinc-500">
+                               <span>Low-Res Frequency</span>
+                               <span>Institutional Standard: 0.65</span>
+                            </div>
+                         </div>
+                         <div className="space-y-4">
+                            <label className="text-[10px] font-black uppercase text-white/40 tracking-widest pl-4">Neural Gloom Intensity</label>
+                            <input type="range" min="0" max="0.5" step="0.01" value="0.15" className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[var(--splaro-gold)]" />
+                            <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-zinc-500">
+                               <span>Subtle Luminescence</span>
+                               <span>Deep Archival: 0.15</span>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="p-6 rounded-2xl liquid-glass border border-white/5 flex items-center justify-between">
+                         <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Registry Pulse Synchronization</p>
+                            <p className="text-[8px] text-zinc-500 uppercase mt-1">Institutional Heartbeat Frequency Override</p>
+                         </div>
+                         <div className="flex gap-4">
+                            <button className="px-6 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-[#FFFFFF]">3000ms</button>
+                            <button className="px-6 py-2 rounded-xl bg-[#FFFFFF]/10 border border-[#FFFFFF]/30 text-[9px] font-black uppercase tracking-widest text-white">1500ms (High Performance)</button>
+                         </div>
+                      </div>
+                   </div>
+                </SettingsSection>
+
+                <SettingsSection id="s-contact" number="④" title="Contact & Social" icon={Phone} subtitle="Phone, WhatsApp, Email & Social links">
 
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -4454,13 +4539,13 @@ export const AdminPanel = () => {
                   </PrimaryButton>
                 </SettingsSection>
 
-                <SettingsSection id="s-popup" number="④" title="New Arrival Popup" icon={Bell} subtitle="পপআপ সেটিংস — নতুন আইটেম promotion">
+                <SettingsSection id="s-popup" number="④" title="New Arrival Popup" icon={Bell} subtitle="Popup configuration — Promote new inventory items">
                   <div className="flex items-center gap-4 mb-8">
                     <Sparkles className="w-7 h-7 text-[#FFFFFF]" />
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.45em] mb-1" style={{ color: '#FFFFFF' }}>④ NEW ARRIVAL POPUP</p>
                       <h3 className="text-2xl font-black uppercase italic">New Arrival Popup</h3>
-                      <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.25em]">নতুন পণ্য পপআপ — Homepage notification</p>
+                      <p className="text-[10px] text-zinc-400 mt-1 uppercase tracking-[0.25em]">New Inventory Popup — Homepage alert</p>
                     </div>
                   </div>
 
@@ -4545,7 +4630,7 @@ export const AdminPanel = () => {
                 </SettingsSection>
               </div>
 
-              <SettingsSection id="s-smtp" number="⑤" title="Email (SMTP)" icon={Mail} subtitle="Invoice ও notification পাঠানোর জন্য mail server" status={smtpSettings?.host ? 'green' : 'red'}>
+              <SettingsSection id="s-smtp" number="⑤" title="Email (SMTP)" icon={Mail} subtitle="Mail server for transactional invoices and alerts" status={smtpSettings?.host ? 'green' : 'red'}>
                   <div className="flex items-center gap-4 mb-4">
                     <Mail className="w-8 h-8 text-[#FFFFFF]" />
                     <div>
@@ -4563,7 +4648,7 @@ export const AdminPanel = () => {
                       {smtpSettings?.host ? 'Configured' : 'Not Set'}
                     </div>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mb-8">ইমেইল invoice ও notifications পাঠানোর জন্য SMTP server setup করুন।</p>
+                  <p className="text-[10px] text-zinc-500 mb-8">Configure your SMTP server to dispatch invoices and system notifications.</p>
                   <div className="space-y-6">
                     <LuxuryFloatingInput label="SMTP Server Host" value={smtpSettings?.host || ''} onChange={v => setSmtpSettings({ ...smtpSettings, host: v })} />
                     <div className="grid grid-cols-2 gap-6">
@@ -4596,17 +4681,17 @@ export const AdminPanel = () => {
                       <Info className="w-3 h-3" /> Setup Notes
                     </p>
                     <p className="text-[10px] text-zinc-400 leading-relaxed">
-                      এই SMTP settings গুলো backend server এ Nodemailer বা PHPMailer দিয়ে কাজ করে।
-                      Gmail ব্যবহার করলে: host = smtp.gmail.com, port = 587, এবং App Password ব্যবহার করুন।
+                      These SMTP parameters are utilized by the backend server for email dispatch.
+                      For Gmail: host = smtp.gmail.com, port = 587, and use an App Password.
                     </p>
                   </div>
                 </SettingsSection>
 
-              <SettingsSection id="s-delivery" number="⑥" title="Delivery Fees" icon={Truck} subtitle="ডেলিভারি চার্জ সেট করুন — ঢাকার ভেতরে ও বাইরে" status={(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'green' : 'red'}>
+              <SettingsSection id="s-delivery" number="⑥" title="Logistics Config" icon={Truck} subtitle="Configure delivery parameters for Metro and regional zones" status={(logisticsConfig?.metro > 0 || logisticsConfig?.regional > 0) ? 'green' : 'red'}>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-4">ঢাকার মধ্যে ডেলিভারি চার্জ (Dhaka)</label>
+                      <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest pl-4">Metro Zone Delivery Fee (Dhaka)</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">৳</span>
                         <input
@@ -4625,7 +4710,7 @@ export const AdminPanel = () => {
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest pl-4">ঢাকার বাইরে ডেলিভারি চার্জ (Outside Dhaka)</label>
+                      <label className="text-[10px] font-black uppercase text-white/40 tracking-widest pl-4">Regional Zone Delivery Fee (Outside Dhaka)</label>
                       <div className="relative">
                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40 font-bold">৳</span>
                         <input
@@ -4873,7 +4958,7 @@ export const AdminPanel = () => {
                   </PrimaryButton>
               </SettingsSection>
 
-              <SettingsSection id="s-theme" number="⑧" title="Theme & Appearance" icon={Palette} subtitle="রঙ, layout, product UX সেটিংস">
+              <SettingsSection id="s-theme" number="⑧" title="Theme & Aesthetics" icon={Palette} subtitle="Visual tokens, layout, and UX configuration">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -5302,6 +5387,98 @@ export const AdminPanel = () => {
             </motion.div>
           )}
 
+          {activeTab === 'PROTOCOLS' && (
+            <motion.div key="protocols" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
+               <div className="flex items-center gap-6 mb-12">
+                  <div className="w-16 h-16 rounded-[22px] bg-[var(--splaro-gold)]/10 border border-[var(--splaro-gold)]/20 flex items-center justify-center">
+                     <Cpu className="w-8 h-8 text-[var(--splaro-gold)]" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.5em] text-[var(--splaro-gold)]">Institutional Level 4</p>
+                    <h2 className="text-4xl font-black uppercase italic tracking-tighter text-white">Tactical Protocols</h2>
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                  <div className="xl:col-span-2 space-y-8">
+                     <GlassCard className="p-10 border-white/5 bg-[#070E1E]/40">
+                        <h3 className="text-xl font-black uppercase tracking-tight text-white mb-8 border-b border-white/5 pb-6 flex items-center gap-4">
+                           <Shield className="w-5 h-5 text-zinc-600" /> Administrative Identity Mantras
+                        </h3>
+                        <div className="space-y-10">
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <LuxuryFloatingInput label="Registry Serial Prefix" value="SPL" onChange={()=>{}} />
+                              <LuxuryFloatingInput label="Terminal Node Identifier" value="DHAKA-001" onChange={()=>{}} />
+                           </div>
+                           <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5">
+                              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600 mb-6">Discovery Threshold (Global)</p>
+                              <div className="flex items-center gap-6">
+                                 <div className="flex-1 h-3 bg-zinc-900 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 w-[85%]" />
+                                 </div>
+                                 <span className="text-xs font-black text-emerald-500">85% OPTIMIZED</span>
+                              </div>
+                           </div>
+                        </div>
+                     </GlassCard>
+                     
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <GlassCard className="p-8 border-white/5 bg-[#070E1E]/40 group hover:border-white/20 transition-all">
+                           <div className="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center mb-6">
+                              <AlertTriangle className="w-6 h-6 text-rose-500" />
+                            </div>
+                            <h4 className="text-sm font-black uppercase tracking-widest text-[#FFFFFF]">Emergency Archive Lock</h4>
+                            <p className="text-[10px] text-zinc-600 uppercase mt-2 leading-relaxed tracking-widest">Restrict all storefront assets immediately during structural emergencies.</p>
+                            <button className="mt-8 w-full py-4 rounded-xl border border-rose-500/30 text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all">INITIATE LOCKDOWN</button>
+                        </GlassCard>
+                        <GlassCard className="p-8 border-white/5 bg-[#070E1E]/40 group hover:border-white/20 transition-all">
+                           <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6">
+                              <RefreshCcw className="w-6 h-6 text-blue-500" />
+                            </div>
+                            <h4 className="text-sm font-black uppercase tracking-widest text-[#FFFFFF]">Global Sync Override</h4>
+                            <p className="text-[10px] text-zinc-600 uppercase mt-2 leading-relaxed tracking-widest">Force immediate synchronization across all institutional node clusters.</p>
+                            <button className="mt-8 w-full py-4 rounded-xl border border-blue-500/30 text-blue-500 text-[9px] font-black uppercase tracking-widest hover:bg-blue-500/10 transition-all">TERMINATE & REBOOT</button>
+                        </GlassCard>
+                     </div>
+                  </div>
+
+                  <div className="space-y-8">
+                     <GlassCard className="p-8 border-white/5 bg-[#070E1E]/40">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 mb-8">Signal Intel</h4>
+                        <div className="space-y-8">
+                           {[
+                             { label: 'Uptime', val: '99.98%', stat: 'active' },
+                             { label: 'Latency', val: '14ms', stat: 'nominal' },
+                             { label: 'Registry', val: '2.4.8-X', stat: 'stable' },
+                             { label: 'Active Keys', val: '12-Active', stat: 'secure' }
+                           ].map((intel, i) => (
+                             <div key={i} className="flex justify-between items-center pb-6 border-b border-white/5 last:border-0 last:pb-0">
+                                <div>
+                                   <p className="text-[9px] font-black uppercase tracking-widest text-zinc-700">{intel.label}</p>
+                                   <p className="text-sm font-black italic text-white uppercase mt-1">{intel.val}</p>
+                                </div>
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10B981]" />
+                             </div>
+                           ))}
+                        </div>
+                     </GlassCard>
+
+                     <div className="p-8 rounded-3xl liquid-glass border border-white/5 bg-[var(--splaro-gold)]/5">
+                        <Bot className="w-10 h-10 text-[var(--splaro-gold)] mb-6" />
+                        <h4 className="text-sm font-black uppercase italic tracking-tight text-white">AI Neural Assistant</h4>
+                        <p className="text-[10px] text-zinc-500 uppercase mt-2 leading-relaxed tracking-widest">Active neural monitoring is patrolling for protocol violations.</p>
+                        <div className="mt-8 pt-8 border-t border-white/10 flex items-center gap-4">
+                           <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                           </div>
+                           <span className="text-[8px] font-black uppercase tracking-[0.3em] text-[#FFFFFF]/40 underline italic">Signal: Decrypted</span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </motion.div>
+          )}
+
           {activeTab === 'PAGES' && (
             <motion.div key="pages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
               <GlassCard className="p-12">
@@ -5574,7 +5751,7 @@ export const AdminPanel = () => {
                       <RefreshCcw className="w-3 h-3" /> Database Status
                     </h4>
                     <p className="text-[11px] text-zinc-400 leading-relaxed mb-6">
-                      Splaro database Hostinger MySQL-এ চলছে। সব orders, products, users এখানে সংরক্ষিত।
+                      Splaro database initialized on Hostinger MySQL. All archival assets indexed here.
                     </p>
                     <ul className="space-y-3 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
                       <li className="flex items-center gap-3">
@@ -5691,7 +5868,7 @@ export const AdminPanel = () => {
               <div className="flex items-center gap-3 pb-1">
                 <Key className="w-4 h-4" style={{ color: '#FFFFFF' }} />
                 <h2 className="text-xs font-black uppercase tracking-[0.3em]" style={{ color: '#F0F8FF' }}>API Keys & Integrations</h2>
-                <span className="text-[10px] text-zinc-500 hidden sm:block">— সব API keys এক জায়গায় সংরক্ষণ ও পরিচালনা করুন</span>
+                <span className="text-[10px] text-zinc-500 hidden sm:block">— Centralized API protocol management</span>
               </div>
 
               <SettingsSection number="①" title="Payment Gateways" icon={CreditCard} subtitle="bKash, Nagad, SSLCommerz" status={(siteSettings.bkashNumber || siteSettings.sslcommerzStoreId) ? 'green' : 'red'} defaultOpen={true}>

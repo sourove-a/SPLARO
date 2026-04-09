@@ -31,10 +31,10 @@ const FilterPill: React.FC<{
     onClick={onClick}
     className="relative px-5 py-3 rounded-xl border transition-all duration-500 flex items-center gap-3 overflow-hidden group"
     style={{
-      background: isSelected ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.04)',
-      borderColor: isSelected ? 'rgba(154,224,48,0.52)' : 'rgba(255,255,255,0.09)',
-      color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.48)',
-      boxShadow: isSelected ? '0 0 24px rgba(255,255,255,0.10)' : 'none',
+      background: isSelected ? 'var(--splaro-gold)' : 'rgba(255,255,255,0.04)',
+      borderColor: isSelected ? 'var(--splaro-gold)' : 'rgba(255,255,255,0.09)',
+      color: isSelected ? 'var(--splaro-emerald)' : 'rgba(220,210,190,0.48)',
+      boxShadow: isSelected ? '0 0 24px rgba(218,185,123,0.3)' : 'none',
     }}
   >
     {isSelected && (
@@ -79,10 +79,10 @@ const SizeBox: React.FC<{
     style={{
       opacity: !isAvailable ? 0.14 : 1,
       cursor: !isAvailable ? 'not-allowed' : 'pointer',
-      background: isSelected ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.03)',
-      borderColor: isSelected ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.10)',
-      color: isSelected ? '#D4B47A' : 'rgba(220,210,190,0.45)',
-      boxShadow: isSelected ? '0 8px 28px rgba(255,255,255,0.15)' : 'none',
+      background: isSelected ? 'var(--splaro-gold)' : 'rgba(255,255,255,0.03)',
+      borderColor: isSelected ? 'var(--splaro-gold)' : 'rgba(255,255,255,0.10)',
+      color: isSelected ? 'var(--splaro-emerald)' : 'rgba(220,210,190,0.45)',
+      boxShadow: isSelected ? '0 8px 28px rgba(218,185,123,0.3)' : 'none',
     }}
   >
     <span className="text-sm font-bold relative z-10">{size}</span>
@@ -286,9 +286,8 @@ export const ShopPage: React.FC = () => {
 
   const activeCategory = useMemo(() => getCategoryConfig(selectedCategory), [selectedCategory]);
   const activeFilterSet = useMemo(() => getFilterSetForCategory(activeCategory?.name || null), [activeCategory]);
-  const categoryKey = useMemo<'all' | 'shoes' | 'bags'>(() => {
+  const categoryKey = useMemo<'all' | 'shoes'>(() => {
     if (activeCategory?.name === 'Shoes') return 'shoes';
-    if (activeCategory?.name === 'Bags') return 'bags';
     return 'all';
   }, [activeCategory?.name]);
 
@@ -515,9 +514,15 @@ export const ShopPage: React.FC = () => {
     <div className="pt-28 sm:pt-36 px-4 sm:px-6 pb-10 sm:pb-16 splaro-shell min-h-screen overflow-x-hidden">
       <div className="mb-10 sm:mb-16">
         <div
-          className="rounded-[10px] sm:rounded-[12px] border border-white/10 px-5 sm:px-8 lg:px-12 py-8 sm:py-10 liquid-glass"
+          className="rounded-[10px] sm:rounded-[12px] border border-white/10 px-5 sm:px-8 lg:px-12 py-8 sm:py-10 liquid-glass relative overflow-hidden"
           style={heroBackgroundStyle}
         >
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-2 text-[9px] font-black tracking-widest text-white/40 mb-10 overflow-x-auto whitespace-nowrap scrollbar-hide">
+            <button onClick={() => navigate('/')} className="hover:text-[var(--splaro-gold)] transition-colors uppercase">Home</button>
+            <span className="opacity-30">/</span>
+            <span className="text-white uppercase">{activeCategory?.name || 'All Collections'}</span>
+          </div>
           <div className={`flex flex-col md:flex-row justify-between ${resolvedHero.heroAlignment === 'CENTER' ? 'items-center text-center md:text-center' : 'items-start md:items-end text-left'} gap-10`}>
           <div className="max-w-xl">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 mb-6" style={{ color: '#FFFFFF' }}>
@@ -571,9 +576,9 @@ export const ShopPage: React.FC = () => {
                     onClick={() => setSortOption(option)}
                     className="px-5 sm:px-8 min-h-12 rounded-full transition-all text-[10px] font-bold tracking-widest whitespace-nowrap"
                     style={{
-                      background: sortOption === option ? 'rgba(255,255,255,0.15)' : 'transparent',
-                      color: sortOption === option ? '#D4B47A' : 'rgba(220,210,190,0.45)',
-                      border: sortOption === option ? '1px solid rgba(255,255,255,0.30)' : '1px solid transparent',
+                      background: sortOption === option ? 'var(--splaro-gold)' : 'transparent',
+                      color: sortOption === option ? 'var(--splaro-emerald)' : 'rgba(220,210,190,0.45)',
+                      border: sortOption === option ? '1px solid var(--splaro-gold)' : '1px solid transparent',
                     }}
                   >
                     {sortButtonLabel[option]}
@@ -609,7 +614,7 @@ export const ShopPage: React.FC = () => {
               ? 'fixed lg:static inset-x-3 top-24 bottom-[calc(var(--mobile-nav-height)+var(--mobile-safe-bottom)+16px)] z-[130] block overflow-y-auto rounded-[14px] p-4'
               : 'hidden lg:block'
           }`}
-          style={showFilters ? { border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(12,20,9,0.97)' } : {}}
+          style={showFilters ? { border: '1px solid rgba(255,255,255,0.15)', background: 'var(--splaro-emerald)' } : {}}
         >
           <div className={`space-y-8 ${showFilters ? '' : 'lg:sticky lg:top-48'}`}>
             <div className="lg:hidden flex items-center justify-between pb-2 border-b border-white/10">
@@ -694,9 +699,9 @@ export const ShopPage: React.FC = () => {
                                     onClick={() => toggleMultiFilter(filter.id, option)}
                                     className="w-full min-h-11 px-4 rounded-xl border transition-all flex items-center justify-between"
                                     style={{
-                                      borderColor: isChecked ? 'rgba(154,224,48,0.52)' : 'rgba(255,255,255,0.10)',
-                                      background: isChecked ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.03)',
-                                      color: isChecked ? '#D4B47A' : 'rgba(220,210,190,0.72)',
+                                      borderColor: isChecked ? 'var(--splaro-gold)' : 'rgba(255,255,255,0.10)',
+                                      background: isChecked ? 'var(--splaro-gold)' : 'rgba(255,255,255,0.03)',
+                                      color: isChecked ? 'var(--splaro-emerald)' : 'rgba(220,210,190,0.72)',
                                     }}
                                   >
                                     <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-left">{option}</span>

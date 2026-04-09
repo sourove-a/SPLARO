@@ -32,7 +32,7 @@ const CheckoutSuccessBurst: React.FC = () => {
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: [0, 1.4, 1.9], opacity: [0, 0.65, 0] }}
         transition={{ duration: 1.4, ease: "easeOut" }}
-        className="absolute w-[760px] h-[760px] bg-[#FFFFFF]/20 rounded-full blur-[110px]"
+        className="absolute w-[760px] h-[760px] bg-[var(--splaro-gold)]/10 rounded-full blur-[110px]"
       />
       {particles.map((particle) => (
         <motion.div
@@ -49,9 +49,9 @@ const CheckoutSuccessBurst: React.FC = () => {
           className="absolute"
         >
           {particle.id % 2 === 0 ? (
-            <Heart className="text-rose-500 w-8 h-8 fill-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)]" />
+            <Sparkles className="text-[var(--splaro-gold)] w-8 h-8 filter drop-shadow-[0_0_15px_rgba(218,185,123,0.6)]" />
           ) : (
-            <ShoppingBag className="text-[#FFFFFF] w-8 h-8 shadow-[0_0_20px_rgba(0, 122, 255, 0.5)]" />
+            <ShoppingBag className="text-white w-8 h-8 filter drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
           )}
         </motion.div>
       ))}
@@ -61,9 +61,9 @@ const CheckoutSuccessBurst: React.FC = () => {
         className="text-center z-10"
       >
         <h2 className="text-5xl md:text-7xl font-black italic uppercase text-white tracking-tighter leading-none mb-4">
-          ORDER<br /><span className="text-[#FFFFFF]">SECURED</span>
+          ORDER<br /><span className="text-[var(--splaro-gold)]">SECURED</span>
         </h2>
-        <p className="text-[10px] font-black uppercase tracking-[0.45em] text-[#FFFFFF]/60">Order Confirmation In Progress</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.45em] text-white/40">Identity Verified & Logged</p>
       </motion.div>
     </div>
   );
@@ -425,16 +425,16 @@ export const CheckoutPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, paymentMethod: 'COD' })}
-                  className={`p-8 rounded-[12px] border transition-all duration-500 flex items-center justify-between overflow-hidden relative ${formData.paymentMethod === 'COD' ? 'bg-[#FFFFFF]/10 border-[#FFFFFF]/50 shadow-[0_0_40px_rgba(0, 122, 255, 0.1)]' : 'bg-white/5 border-white/5'}`}
+                  className={`p-8 rounded-[12px] border transition-all duration-500 flex items-center justify-between overflow-hidden relative ${formData.paymentMethod === 'COD' ? 'bg-[var(--splaro-gold)]/10 border-[var(--splaro-gold)]/50 shadow-[0_0_40px_rgba(218,185,123,0.1)]' : 'bg-white/5 border-white/5'}`}
                 >
                   <div className="flex items-center gap-5">
-                    <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-[#FFFFFF]' : 'text-white/20'}`} />
+                    <Wallet className={`w-7 h-7 ${formData.paymentMethod === 'COD' ? 'text-[var(--splaro-gold)]' : 'text-white/20'}`} />
                     <div className="text-left">
                       <p className="text-sm font-black uppercase text-white">{t('checkout.cod')}</p>
                       <p className="text-[9px] text-white/30 font-bold uppercase tracking-widest">Pay at Threshold</p>
                     </div>
                   </div>
-                  {formData.paymentMethod === 'COD' && <CheckCircle2 className="w-6 h-6 text-[#FFFFFF]" />}
+                  {formData.paymentMethod === 'COD' && <CheckCircle2 className="w-6 h-6 text-[var(--splaro-gold)]" />}
                 </button>
 
                 <button
@@ -475,7 +475,7 @@ export const CheckoutPage: React.FC = () => {
             <PrimaryButton
               type="submit"
               isLoading={status === 'processing'}
-              className="w-full min-h-14 h-14 sm:h-16 text-[11px] sm:text-[13px] uppercase tracking-[0.35em] sm:tracking-[0.55em] shadow-[0_25px_50px_rgba(0, 122, 255, 0.25)]"
+              className="w-full min-h-14 h-14 sm:h-16 text-[11px] sm:text-[13px] uppercase tracking-[0.35em] sm:tracking-[0.55em] shadow-[0_25px_50px_rgba(218,185,123,0.15)]"
             >
               {t('checkout.place').toUpperCase()} <Sparkles className="w-5 h-5 ml-4" />
             </PrimaryButton>
@@ -506,7 +506,7 @@ export const CheckoutPage: React.FC = () => {
                         <p className="text-[8px] text-white/20 font-black uppercase mt-1 tracking-widest">Size {item.selectedSize} • Qty {item.quantity}</p>
                       </div>
                     </div>
-                    <span className="text-xs font-black text-[#FFFFFF]">৳{(item.product.price * item.quantity).toLocaleString()}</span>
+                    <span className="text-xs font-black text-[var(--splaro-gold)]">৳{(item.product.price * item.quantity).toLocaleString()}</span>
                   </motion.div>
                 ))}
               </div>
@@ -544,7 +544,7 @@ export const CheckoutPage: React.FC = () => {
                     </motion.div>
                   )}
                   {appliedDiscount && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-4 mt-6 p-4 rounded-xl bg-[#FFFFFF]/10 border border-[#FFFFFF]/20 text-[#FFFFFF]">
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-4 mt-6 p-4 rounded-xl bg-[var(--splaro-gold)]/10 border border-[var(--splaro-gold)]/20 text-[var(--splaro-gold)]">
                       <CheckCircle2 className="w-4 h-4 animate-pulse" />
                       <div className="flex-1">
                         <p className="text-[9px] font-black uppercase tracking-[0.2em]">Coupon Applied: {appliedDiscount.code}</p>
@@ -562,7 +562,7 @@ export const CheckoutPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-[10px] font-black uppercase text-white/40 tracking-widest">
                   <span>{t('cart.shipping')} {formData.district ? `(${formData.district})` : ''}</span>
-                  <span className="text-[#FFFFFF]">৳{Number(shippingFee || 0).toLocaleString()}</span>
+                  <span className="text-[var(--splaro-gold)]">৳{Number(shippingFee || 0).toLocaleString()}</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-[10px] font-black uppercase text-[#FFFFFF] tracking-widest">

@@ -2,19 +2,18 @@ import { useApp } from '../store';
 import { createTranslator, TranslationKey } from './i18n';
 
 /**
- * useTranslation — React hook for bilingual EN/BN support.
+ * useTranslation — React hook for English support.
  *
  * Usage:
  *   const { t, lang } = useTranslation();
- *   t('nav.home') // → "হোম" (if BN) or "Home" (if EN)
+ *   t('nav.home') // → "Home"
  */
 export function useTranslation() {
-  const { language } = useApp();
-  const translate = createTranslator(language);
+  const translate = createTranslator('EN');
   return {
     t: (key: TranslationKey) => translate(key),
-    lang: language,
-    isBN: language === 'BN',
-    isEN: language === 'EN',
+    lang: 'EN',
+    isBN: false,
+    isEN: true,
   };
 }

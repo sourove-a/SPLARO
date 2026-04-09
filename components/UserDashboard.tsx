@@ -1,24 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Camera,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Eye,
-  EyeOff,
-  KeyRound,
-  Languages,
-  LogOut,
-  Mail,
-  MapPin,
-  Package,
-  Phone,
-  ShieldCheck,
-  Smartphone,
-  Ticket,
-  User as UserIcon
+  Camera, Check, ChevronDown, ChevronUp, Copy, Eye, EyeOff, KeyRound, Languages,
+  LogOut, Mail, MapPin, Package, Phone, ShieldCheck, Smartphone, Ticket,
+  User as UserIcon, Star, Award, CreditCard, Activity, ArrowUpRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { shouldUsePhpApi } from '../lib/runtime';
@@ -44,10 +29,10 @@ type PasswordStrength = {
 
 const statusPillClass = (status: string) => {
   const normalized = String(status || '').toLowerCase();
-  if (normalized.includes('deliver')) return 'bg-[#FFFFFF]/10 text-[#FFFFFF] border-[#FFFFFF]/20';
-  if (normalized.includes('ship')) return 'bg-[#FFFFFF]/10 text-white/90 border-[#FFFFFF]/20';
+  if (normalized.includes('deliver')) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  if (normalized.includes('ship')) return 'bg-[var(--splaro-gold)]/10 text-[var(--splaro-gold)] border-[var(--splaro-gold)]/20';
   if (normalized.includes('cancel')) return 'bg-rose-500/10 text-rose-300 border-rose-500/20';
-  return 'bg-[#FFFFFF]/10 text-white/90 border-[#FFFFFF]/20';
+  return 'bg-white/10 text-white/90 border-white/20';
 };
 
 const normalizeUserPayload = (raw: any): User => ({
@@ -157,6 +142,8 @@ export const UserDashboard: React.FC = () => {
     () => evaluatePasswordStrength(passwordForm.newPassword || ''),
     [passwordForm.newPassword]
   );
+  
+  const [showPassport, setShowPassport] = useState(false);
 
   const userEmail = (user?.email || '').toLowerCase().trim();
   const userOrders = useMemo(
@@ -700,83 +687,109 @@ export const UserDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen pt-28 pb-40 px-4 sm:px-6 max-w-7xl mx-auto">
-      <header className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">
-            Account <span className="text-[#FFFFFF]">Dashboard</span>
-          </h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.45em] text-white/35 mt-3">
-            Manage your profile, orders and security settings
-          </p>
+    <div className="min-h-screen pt-32 pb-40 px-4 sm:px-6 max-w-7xl mx-auto">
+      <header className="mb-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px w-8 bg-[var(--splaro-gold)]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[var(--splaro-gold)]">Private Client Lounge</span>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-white leading-none">
+              Splaro <span className="text-[var(--splaro-gold)]">Circle</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right hidden md:block">
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Tier Status</p>
+              <p className="text-lg font-black italic text-white uppercase tracking-tighter">Elite Member</p>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-[var(--splaro-gold)] shadow-[0_0_20px_var(--splaro-gold)]/30 flex items-center justify-center">
+              <Award className="w-6 h-6 text-[var(--splaro-emerald)]" />
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => syncRegistry()}
-          className="h-12 px-6 rounded-xl border border-white/15 bg-white/[0.04] text-[10px] font-black uppercase tracking-[0.28em] text-white/70 hover:text-white/90 hover:border-[#FFFFFF]/40 transition-all"
-        >
-          Refresh Data
-        </button>
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        <div className="xl:col-span-4 space-y-6">
-          <GlassCard className="p-8 !rounded-[12px] border-white/15 bg-white/[0.03]">
+        <div className="xl:col-span-4 space-y-8">
+          {/* ELITE IDENTITY CARD */}
+          <motion.div
+            whileHover={{ rotateY: 5, rotateX: -5 }}
+            onClick={() => setShowPassport(true)}
+            className="relative aspect-[1.6/1] w-full rounded-2xl overflow-hidden shadow-2xl preserve-3d group cursor-pointer"
+            style={{ perspective: '1000px' }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--splaro-gold)]/20 via-[var(--splaro-emerald)] to-black z-0" />
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay" />
+
+            <div className="relative h-full w-full p-8 flex flex-col justify-between z-10 border border-white/10 backdrop-blur-sm">
+              <div className="flex justify-between items-start">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black uppercase tracking-[0.6em] text-[var(--splaro-gold)] mb-1">Membership ID</span>
+                  <span className="text-xs font-mono text-white/60">SP-2024-{(user.id || 'XXXX').slice(-4)}</span>
+                </div>
+                <div className="w-10 h-10 border border-[var(--splaro-gold)]/40 rounded-lg flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-[var(--splaro-gold)]" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-2xl font-black italic tracking-tighter text-white uppercase leading-none">{user.name}</h3>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="text-[7px] font-black uppercase tracking-widest text-white/40 mb-1">Splaro Points</p>
+                    <p className="text-sm font-black text-[var(--splaro-gold)] italic">2,450 XP</p>
+                  </div>
+                  <div>
+                    <p className="text-[7px] font-black uppercase tracking-widest text-white/40 mb-1">Privileges</p>
+                    <p className="text-sm font-black text-white italic">L3 Gilded</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+          </motion.div>
+
+          <GlassCard className="p-8 !rounded-2xl border-white/5 bg-white/[0.02]">
             <div className="flex flex-col items-center">
-              <div className="relative mb-6">
-                <div className="w-28 h-28 rounded-full border border-[#FFFFFF]/35 bg-black/50 overflow-hidden">
-                  {profileForm.profileImage ? (
-                    <OptimizedImage src={profileForm.profileImage} alt="Profile" sizes="112px" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl font-black text-white/40">
-                      {user.name?.[0] || 'U'}
-                    </div>
-                  )}
+              <div className="relative mb-8">
+                <div className="w-24 h-24 rounded-full border-2 border-[var(--splaro-gold)] bg-black p-1">
+                  <div className="w-full h-full rounded-full overflow-hidden">
+                    {profileForm.profileImage ? (
+                      <OptimizedImage src={profileForm.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl font-black text-white/20">{user.name?.[0]}</div>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 h-10 w-10 rounded-xl bg-[#FFFFFF] text-black flex items-center justify-center hover:scale-105 transition-transform"
-                  aria-label="Upload avatar"
-                  type="button"
+                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-[var(--splaro-gold)] text-[var(--splaro-emerald)] flex items-center justify-center hover:scale-110 transition-transform shadow-lg"
                 >
-                  <Camera className="w-4 h-4" />
+                  <Camera className="w-3.5 h-3.5" />
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
               </div>
 
-              <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">{user.name}</h2>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#FFFFFF] mt-1">{user.role}</p>
-
-              <div className="w-full mt-8 space-y-3">
-                <div className="h-14 rounded-xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-[#FFFFFF]" />
-                  <div className="min-w-0">
-                    <p className="text-[8px] text-white/30 font-black uppercase tracking-[0.25em]">Email</p>
-                    <p className="text-sm text-white truncate">{user.email}</p>
+              <div className="w-full space-y-4 mb-8">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <Activity className="w-4 h-4 text-[var(--splaro-gold)]" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Registry Health</span>
                   </div>
-                </div>
-                <div className="h-14 rounded-xl border border-white/10 bg-white/5 px-4 flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-[#FFFFFF]" />
-                  <div className="min-w-0">
-                    <p className="text-[8px] text-white/30 font-black uppercase tracking-[0.25em]">Phone</p>
-                    <p className="text-sm text-white truncate">{user.phone || 'N/A'}</p>
-                  </div>
+                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Optimal</span>
                 </div>
               </div>
 
-              <button
-                onClick={handleLogout}
-                type="button"
-                className="mt-8 w-full h-12 rounded-xl border border-rose-400/30 bg-rose-500/10 text-rose-300 text-[10px] font-black uppercase tracking-[0.28em] hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Log Out
-              </button>
+              <div className="w-full grid grid-cols-2 gap-3">
+                <button onClick={() => syncRegistry()} className="col-span-2 py-4 rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-[0.3em] text-white hover:bg-white/5 transition-all">Synchronize</button>
+                <button onClick={handleLogout} className="col-span-2 py-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-[10px] font-black uppercase tracking-[0.3em] text-rose-400 hover:bg-rose-500/10 transition-all flex items-center justify-center gap-2">
+                  <LogOut className="w-3.5 h-3.5" /> De-Authenticate
+                </button>
+              </div>
             </div>
           </GlassCard>
         </div>
@@ -822,7 +835,7 @@ export const UserDashboard: React.FC = () => {
                       <LuxuryFloatingInput
                         label="Email"
                         value={user.email}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         icon={<Mail className="w-4 h-4" />}
                       />
                       <LuxuryFloatingInput
@@ -1369,6 +1382,51 @@ export const UserDashboard: React.FC = () => {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Institutional Travel Logs / Passport Modal — MAXIMALIST UPGRADE */}
+      <AnimatePresence>
+        {showPassport && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPassport(false)} className="absolute inset-0 bg-black/95 backdrop-blur-2xl" />
+            <motion.div 
+               initial={{ scale: 0.9, y: 40, opacity: 0 }} 
+               animate={{ scale: 1, y: 0, opacity: 1 }} 
+               exit={{ scale: 0.9, y: 40, opacity: 0 }}
+               className="relative w-full max-w-sm aspect-[0.7/1] rounded-[40px] border border-white/10 bg-[#0A1428] overflow-hidden shadow-2xl"
+            >
+               <div className="p-8 border-b border-white/5 flex flex-col items-center">
+                  <SplaroLogo className="h-10 text-[var(--splaro-gold)] mb-6" />
+                  <h3 className="text-xl font-black italic uppercase tracking-tighter">Institutional Passport</h3>
+               </div>
+               <div className="p-8 flex flex-col items-center gap-10">
+                  <div className="w-48 h-48 p-4 rounded-3xl bg-white flex items-center justify-center mix-blend-screen opacity-90">
+                     {/* Simulated QR Pattern */}
+                     <div className="grid grid-cols-8 gap-1 w-full h-full opacity-80">
+                        {Array.from({ length: 64 }).map((_, i) => (
+                           <div key={i} className={`rounded-sm ${Math.random() > 0.6 ? 'bg-black' : 'bg-transparent'}`} />
+                        ))}
+                     </div>
+                  </div>
+                  <div className="w-full space-y-4">
+                     {[
+                       { label: 'Asset Tier', val: 'GOLD-IV' },
+                       { label: 'Index Status', val: 'SYNCED' },
+                       { label: 'Archival Node', val: 'DHAKA-01' }
+                     ].map((row, i) => (
+                        <div key={i} className="flex justify-between border-b border-white/5 pb-2">
+                           <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{row.label}</span>
+                           <span className="text-[10px] font-black uppercase text-white">{row.val}</span>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+               <div className="absolute bottom-0 inset-x-0 p-8 pt-0">
+                  <button onClick={() => setShowPassport(false)} className="w-full py-5 rounded-2xl bg-white text-black text-[10px] font-black uppercase tracking-[0.4em]">Close Registry</button>
+               </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -4,27 +4,28 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../store';
 import { OptimizedImage } from './OptimizedImage';
+import { useScroll, useTransform } from 'framer-motion';
 
 const FALLBACK_SLIDES = [
   {
-    id: "nike",
-    title: "NIKE AIR FLOW",
-    subtitle: "Imported Premium – Bangladesh Exclusive",
-    tag: "AERODYNAMIC COMFORT",
+    id: "step-1",
+    title: "ELITE PERFORMANCE",
+    subtitle: "Imported Mastery — Engineered for the Elite",
+    tag: "AERODYNAMIC PRECISION",
     img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1920"
   },
   {
-    id: "adidas",
-    title: "ADIDAS PULSE",
-    subtitle: "Infinite Energy – Global Standard",
-    tag: "URBAN EXPLORATION",
+    id: "step-2",
+    title: "URBAN HYPER-IMPORT",
+    subtitle: "Global Standards — Redefining City Culture",
+    tag: "STREET ARCHITECTURE",
     img: "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?q=80&w=1920"
   },
   {
-    id: "jordan",
-    title: "JORDAN LEGACY",
-    subtitle: "Court Classics – Redefined for the Elite",
-    tag: "STREET ROYALTY",
+    id: "step-3",
+    title: "CLASSIC SOVEREIGN",
+    subtitle: "Timeless Sophistication — Verified Luxury",
+    tag: "LEGENDARY HERITAGE",
     img: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=1920"
   }
 ];
@@ -52,198 +53,121 @@ export const HeroSlider = () => {
   const navigate = useNavigate();
   const slides = Array.isArray(cmsSlides) && cmsSlides.length > 0 ? cmsSlides : FALLBACK_SLIDES;
 
+  const { scrollY } = useScroll();
+  const scale = useTransform(scrollY, [0, 500], [1, 1.15]);
+  const yTranslate = useTransform(scrollY, [0, 500], [0, 50]);
+
   useEffect(() => {
     if (!slides || slides.length === 0) return;
     const timer = setInterval(() => {
       setIndex((prev) => (prev + 1) % slides.length);
-    }, 6000);
+    }, 10000);
     return () => clearInterval(timer);
   }, [slides]);
 
   if (!slides || slides.length === 0) return null;
 
-  const showPrevSlide = () => {
-    setIndex((prev) => (prev - 1 + slides.length) % slides.length);
-  };
-
-  const showNextSlide = () => {
-    setIndex((prev) => (prev + 1) % slides.length);
-  };
+  const showPrevSlide = () => setIndex((prev) => (prev - 1 + slides.length) % slides.length);
+  const showNextSlide = () => setIndex((prev) => (prev + 1) % slides.length);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden" style={{ background: '#0A0F08' }}>
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#010205]">
       <AnimatePresence mode="wait">
         <motion.div
-          key={index}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.2, ease: 'linear' }}
-          className="absolute inset-0"
+           key={index}
+           initial={{ opacity: 0, filter: 'blur(20px)' }}
+           animate={{ opacity: 1, filter: 'blur(0px)' }}
+           exit={{ opacity: 0, filter: 'blur(20px)' }}
+           transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+           className="absolute inset-0"
         >
-          <div className="w-full h-full relative">
+          <motion.div style={{ scale, y: yTranslate }} className="w-full h-full relative">
             <OptimizedImage
               src={slides[index]?.img || ''}
-              alt={slides[index]?.title || 'SPLARO hero image'}
+              alt={slides[index]?.title || 'SPLARO hero'}
               priority={index === 0}
-              sizes="100vw"
-              className="w-full h-full object-cover opacity-[0.52] contrast-110 saturate-[0.95]"
+              className="w-full h-full object-cover opacity-[0.45] contrast-125 saturate-[0.9]"
             />
-            {/* Natural forest-toned gradient overlay */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(to top, #0A0F08 0%, rgba(8,14,32,0.72) 35%, rgba(8,14,32,0.35) 65%, rgba(12,20,9,0.65) 100%)'
-              }}
-            />
-            {/* Warm cognac vignette */}
-            <div
-              className="absolute inset-0"
-              style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(100,60,20,0.18) 0%, transparent 65%)' }}
-            />
-            {/* Subtle green ambience */}
-            <div
-              className="absolute inset-0"
-              style={{ background: 'radial-gradient(ellipse at 20% 20%, rgba(40,80,35,0.14) 0%, transparent 55%)' }}
-            />
-          </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#010205] via-transparent to-[#010205]/40" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)]" />
+          </motion.div>
         </motion.div>
       </AnimatePresence>
 
-      {/* Slide content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-20 pointer-events-none">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`meta-${index}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="mb-6 flex flex-col items-center gap-5"
-          >
-            {/* Tag */}
-            <div className="flex items-center gap-3">
-              <div className="h-px w-10" style={{ background: 'rgba(255,255,255,0.45)' }} />
-              <span
-                className="text-[9px] font-semibold uppercase"
-                style={{ letterSpacing: '0.7em', color: 'rgba(154,224,48,0.85)' }}
-              >
-                {slides[index]?.tag || slides[index]?.tags?.[0] || 'PREMIUM COLLECTION'}
-              </span>
-              <div className="h-px w-10" style={{ background: 'rgba(255,255,255,0.45)' }} />
-            </div>
+      {/* Slide content — DESIGN MONKS STYLE */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-20 pointer-events-none">
+        <div className="max-w-6xl w-full">
+           <AnimatePresence mode="wait">
+             <motion.div
+               key={`meta-${index}`}
+               initial={{ opacity: 0, y: 40 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: -40 }}
+               transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+             >
+                <div className="flex items-center justify-center gap-6 mb-10">
+                   <div className="h-[2px] w-12 bg-[var(--splaro-gold)]/30 rounded-full" />
+                   <span className="text-[10px] font-black uppercase tracking-[0.8em] text-[var(--splaro-gold)]">
+                      {slides[index]?.tag || 'OFFICIAL ARCHIVE'}
+                   </span>
+                   <div className="h-[2px] w-12 bg-[var(--splaro-gold)]/30 rounded-full" />
+                </div>
 
-            {/* Main heading */}
-            <div className="overflow-hidden max-w-[90vw]">
-              <h1
-                className="text-[clamp(2.8rem,13.5vw,10rem)] font-black tracking-tighter leading-[0.90]"
-                style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  color: '#F0F8FF',
-                  textShadow: '0 4px 40px rgba(0,0,0,0.6)',
-                }}
-              >
-                {(slides[index]?.title || 'SPLARO').split('').map((char, i) => (
-                  <KineticLetter key={i} letter={char} index={i} active={true} />
-                ))}
-              </h1>
-            </div>
+                <h1 className="text-[clamp(3rem,14vw,12rem)] font-black tracking-[-0.05em] leading-[0.85] uppercase italic text-white mb-10 drop-shadow-2xl">
+                   {slides[index]?.title?.split(' ').map((word, i) => (
+                      <span key={i} className={i % 2 === 1 ? 'block text-[var(--splaro-gold)]' : 'block'}>
+                         {word}
+                      </span>
+                   ))}
+                </h1>
 
-            {/* Subtitle */}
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.78 }}
-              className="text-xs md:text-sm font-medium uppercase mt-2"
-              style={{ letterSpacing: '0.32em', color: 'rgba(255,255,255,0.78)' }}
-            >
-              {slides[index]?.subtitle || 'Luxury Footwear & Bags — Bangladesh'}
-            </motion.p>
-          </motion.div>
-        </AnimatePresence>
+                <p className="text-sm md:text-lg font-medium text-white/50 uppercase tracking-[0.5em] mb-16 max-w-2xl mx-auto leading-relaxed">
+                   {slides[index]?.subtitle || 'Precision Crafted Exotic Footwear'}
+                </p>
 
-        {/* CTA Button */}
-        <motion.button
-          whileHover={{
-            scale: 1.04,
-            boxShadow: '0 0 40px rgba(255,255,255,0.40)',
-          }}
-          whileTap={{ scale: 0.96 }}
-          onClick={() => {
-            setSelectedCategory(null);
-            setSearchQuery('');
-            navigate('/shop');
-          }}
-          className="pointer-events-auto group relative flex items-center gap-4 sm:gap-6 transition-all"
-          style={{
-            marginTop: '2.5rem',
-            padding: '1.1rem 2.5rem',
-            borderRadius: '999px',
-            background: 'linear-gradient(135deg, #071832 0%, #0A2A50 50%, #FFFFFF 100%)',
-            border: '1px solid rgba(212,180,122,0.40)',
-            boxShadow: '0 4px 28px rgba(255,255,255,0.35), inset 0 1px 0 rgba(255,240,210,0.22)',
-          }}
-        >
-          <span
-            className="font-bold text-[10px] sm:text-[11px] uppercase"
-            style={{ letterSpacing: '0.42em', color: '#F8F0E0' }}
-          >
-            Discover Collection
-          </span>
-          <ArrowRight
-            className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-500"
-            style={{ color: '#F8F0E0' }}
-          />
-        </motion.button>
-
-        {/* Slide indicators */}
-        <div className="flex gap-2 mt-10 pointer-events-auto">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className="transition-all duration-500 rounded-full"
-              style={{
-                width: i === index ? '28px' : '6px',
-                height: '6px',
-                background: i === index ? '#FFFFFF' : 'rgba(255,255,255,0.20)',
-              }}
-            />
-          ))}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/shop')}
+                  className="pointer-events-auto h-20 px-12 rounded-[24px] bg-white text-black font-black uppercase tracking-[0.4em] text-[11px] flex items-center gap-6 mx-auto group shadow-[0_30px_60px_rgba(255,255,255,0.2)] transition-all hover:bg-[var(--splaro-gold)]"
+                >
+                   EXPLORE ASSETS <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                </motion.button>
+             </motion.div>
+           </AnimatePresence>
         </div>
       </div>
 
-      {/* Slide controls */}
-      <div className="absolute bottom-8 right-8 z-30 flex items-center gap-3 pointer-events-auto">
-        <button
-          onClick={showPrevSlide}
-          className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
-          style={{
-            border: '1px solid rgba(255,255,255,0.20)',
-            background: 'rgba(8,14,32,0.55)',
-            color: '#F0F8FF',
-          }}
-          aria-label="Previous slide"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <button
-          onClick={showNextSlide}
-          className="w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all"
-          style={{
-            border: '1px solid rgba(154,224,48,0.42)',
-            background: 'rgba(255,255,255,0.18)',
-            color: '#F0F8FF',
-          }}
-          aria-label="Next slide"
-        >
-          <ArrowRight className="w-5 h-5" />
-        </button>
+      {/* Numerical Navigation — ELITE UI */}
+      <div className="absolute left-12 bottom-12 z-30 hidden lg:flex flex-col gap-6">
+         {slides.map((_, i) => (
+           <button
+             key={i}
+             onClick={() => setIndex(i)}
+             className="flex items-center gap-6 group pointer-events-auto"
+           >
+              <span className={`text-[10px] font-black tracking-widest transition-all ${i === index ? 'text-white scale-125' : 'text-white/20'}`}>
+                 0{i + 1}
+              </span>
+              <div className={`h-[2px] transition-all duration-700 ${i === index ? 'w-16 bg-white' : 'w-4 bg-white/10 group-hover:w-8 group-hover:bg-white/40'}`} />
+           </button>
+         ))}
       </div>
 
-      {/* Bottom fade into page */}
-      <div
-        className="absolute bottom-0 inset-x-0 h-32 pointer-events-none"
-        style={{ background: 'linear-gradient(to top, #0A0F08, transparent)' }}
-      />
+      {/* Control Buttons — GLASS STYLE */}
+      <div className="absolute right-12 bottom-12 z-30 flex items-center gap-4 pointer-events-auto">
+         <button onClick={showPrevSlide} className="w-16 h-16 rounded-[22px] liquid-glass flex items-center justify-center text-white/40 hover:text-white transition-colors">
+            <ArrowLeft className="w-6 h-6" />
+         </button>
+         <button onClick={showNextSlide} className="w-16 h-16 rounded-[22px] liquid-glass flex items-center justify-center text-white/40 hover:text-white transition-colors">
+            <ArrowRight className="w-6 h-6" />
+         </button>
+      </div>
+
+      {/* Noise Grain */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.05] contrast-150 saturate-0 mix-blend-overlay">
+         <div className="w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
+      </div>
     </div>
   );
 };

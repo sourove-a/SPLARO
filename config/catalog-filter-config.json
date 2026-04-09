@@ -7,13 +7,6 @@
       "slug": "shoes",
       "productType": "shoe",
       "filterSetId": "filters_shoes"
-    },
-    {
-      "id": "bags",
-      "name": "Bags",
-      "slug": "bags",
-      "productType": "bag",
-      "filterSetId": "filters_bags"
     }
   ],
   "filterSets": [
@@ -66,56 +59,6 @@
           "options": ["Newest", "PriceLowToHigh", "PriceHighToLow"]
         }
       ]
-    },
-    {
-      "id": "filters_bags",
-      "appliesToCategoryIds": ["bags"],
-      "filters": [
-        {
-          "id": "brand",
-          "label": "Brand",
-          "type": "multi",
-          "source": "brand"
-        },
-        {
-          "id": "bag_type",
-          "label": "Bag Type",
-          "type": "multi",
-          "source": "subCategory"
-        },
-        {
-          "id": "bag_size",
-          "label": "Size",
-          "type": "multi",
-          "source": "sizes"
-        },
-        {
-          "id": "bag_material",
-          "label": "Material",
-          "type": "multi",
-          "source": "materials"
-        },
-        {
-          "id": "color",
-          "label": "Color",
-          "type": "multi",
-          "source": "colors"
-        },
-        {
-          "id": "price",
-          "label": "Price",
-          "type": "range",
-          "min": 0,
-          "max": 500000,
-          "step": 500
-        },
-        {
-          "id": "sort",
-          "label": "Sort",
-          "type": "single",
-          "options": ["Newest", "PriceLowToHigh", "PriceHighToLow"]
-        }
-      ]
     }
   ],
   "productValidation": {
@@ -125,11 +68,6 @@
         "name": "category-productType-match",
         "if": { "categoryId": "shoes" },
         "then": { "productTypeMustBe": "shoe" }
-      },
-      {
-        "name": "category-productType-match",
-        "if": { "categoryId": "bags" },
-        "then": { "productTypeMustBe": "bag" }
       }
     ]
   }

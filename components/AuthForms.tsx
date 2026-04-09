@@ -671,15 +671,15 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
   }, [googleClientId, authMode]);
 
   const getIdentityIcon = () => {
-    return <Mail className="w-5 h-5 text-[#FFFFFF]" />;
+    return <Mail className="w-5 h-5 text-black/40" />;
   };
 
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-[#050505]">
+    <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-white">
       {/* Dynamic Background */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-green-900/8 via-transparent to-[#FFFFFF]/8 opacity-30" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-black/5 via-transparent to-black/5 opacity-30" />
 
         {/* Floating Peripheral Assets */}
         {floatingAssets.map((asset, i) => (
@@ -689,14 +689,14 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
               y: [0, -28, 0],
               x: [0, 14, 0],
               rotate: [0, 120, 240],
-              opacity: [0.1, 0.2, 0.1]
+              opacity: [0.03, 0.08, 0.03]
             }}
             transition={{
               duration: 12 + i * 1.8,
               repeat: Infinity,
               ease: "linear"
             }}
-            className="absolute w-[160px] h-[160px] border border-[#FFFFFF]/10 rounded-full blur-sm"
+            className="absolute w-[160px] h-[160px] border border-black/5 rounded-full blur-sm"
             style={{
               top: asset.top,
               left: asset.left,
@@ -705,9 +705,9 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         ))}
 
         <motion.div
-          animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.15, 0.1] }}
+          animate={{ scale: [1, 1.1, 1], opacity: [0.05, 0.1, 0.05] }}
           transition={{ duration: 15, repeat: Infinity }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#3D6B3D] rounded-full blur-[180px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#C9A96E]/10 rounded-full blur-[180px]"
         />
         <div className="ribbed-texture absolute inset-0 opacity-[0.02]" />
       </div>
@@ -718,34 +718,34 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-[480px] z-10"
       >
-        <GlassCard className="p-8 md:p-12 !border-white/10 !bg-white/[0.08] shadow-[0_0_80px_rgba(0,0,0,0.8)] !rounded-[48px] backdrop-blur-[120px] relative overflow-hidden group">
+        <GlassCard className="p-8 md:p-12 !border-black/5 !bg-white/40 shadow-[0_20px_80px_rgba(0,0,0,0.06)] !rounded-[48px] backdrop-blur-[120px] relative overflow-hidden group">
           {/* Subtle cyan glow around the card */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#FFFFFF]/8 via-transparent to-[#FFFFFF]/8 opacity-50 pointer-events-none" />
 
           <header className="flex flex-col items-center text-center mb-12 relative z-10 pt-4">
             <div className="h-10 md:h-14" />
 
-            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white mb-3 italic">
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-[#061D15] mb-3 italic">
               {authMode === 'login' ? 'IDENTITY' : authMode === 'signup' ? 'ARCHIVING' : 'RECOVERY'}
             </h2>
-            <div className="h-1 w-16 bg-[#FFFFFF] mb-6 shadow-[0_0_20px_rgba(255,255,255,0.50)]" />
-            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#FFFFFF] opacity-60">
+            <div className="h-1 w-16 bg-[#C9A96E] mb-6 shadow-[0_0_20px_rgba(201,169,110,0.20)]" />
+            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[#061D15] opacity-40">
               {authMode === 'login' ? 'SECURE INITIALIZATION' : authMode === 'signup' ? 'ESTABLISH ARCHIVE' : 'PROTOCOL RESTORATION'}
             </p>
 
             {authMode !== 'forgot' && (
-              <div className="mt-6 grid grid-cols-2 gap-2 w-full max-w-xs p-1 rounded-full border border-white/10 bg-white/5">
+              <div className="mt-6 grid grid-cols-2 gap-2 w-full max-w-xs p-1 rounded-full border border-black/5 bg-black/5">
                 <button
                   type="button"
                   onClick={() => { setErrors({}); navigate('/login'); }}
-                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'login' ? 'bg-white/15 border border-white/30 text-white' : 'text-white/50 hover:text-white'}`}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'login' ? 'bg-white border border-black/10 text-black shadow-sm' : 'text-black/40 hover:text-black'}`}
                 >
                   Log In
                 </button>
                 <button
                   type="button"
                   onClick={() => { setErrors({}); navigate('/signup'); }}
-                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-[#FFFFFF]/70 border border-blue-300/50 text-white' : 'text-white/50 hover:text-white'}`}
+                  className={`h-10 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${authMode === 'signup' ? 'bg-[#121212] border border-black/10 text-white shadow-xl' : 'text-black/40 hover:text-black'}`}
                 >
                   Sign Up
                 </button>
@@ -822,7 +822,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                   error={errors.password}
                   placeholder="••••••••"
                   suffix={
-                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="text-black/20 hover:text-black/40 p-2">
                       {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   }
@@ -843,7 +843,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                       error={errors.password}
                       placeholder="••••••••"
                       suffix={
-                        <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                        <button type="button" onClick={() => setShowPass(!showPass)} className="text-black/20 hover:text-black/40 p-2">
                           {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       }
@@ -869,11 +869,11 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                       placeholder="6-digit code"
                     />
                     <div className="flex items-center justify-between gap-4 text-[10px] uppercase tracking-wider">
-                      <p className="text-white/50">Check your email inbox for OTP</p>
+                      <p className="text-black/30">Check your email inbox for OTP</p>
                       <button
                         type="button"
                         onClick={handleResendEmailOtp}
-                        className="text-[#FFFFFF] hover:text-white/90 font-semibold transition-colors"
+                        className="text-[#C9A96E] hover:text-[#C9A96E]/90 font-semibold transition-colors"
                       >
                         Resend OTP
                       </button>
@@ -889,7 +889,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                     error={errors.password}
                     placeholder="••••••••"
                     suffix={
-                      <button type="button" onClick={() => setShowPass(!showPass)} className="text-white/40 hover:text-white p-2">
+                      <button type="button" onClick={() => setShowPass(!showPass)} className="text-black/20 hover:text-black/40 p-2">
                         {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     }
@@ -906,7 +906,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                         setRecoveryStep('email');
                         setAuthMode('forgot');
                       }}
-                      className="text-[10px] font-black uppercase text-[#FFFFFF]/80 hover:text-white/90 tracking-widest transition-colors"
+                      className="text-[10px] font-black uppercase text-[#C9A96E] hover:text-[#C9A96E]/80 tracking-widest transition-colors"
                     >
                       Forgot Password?
                     </button>
@@ -936,29 +936,29 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
             </div>
           </form>
 
-          <div className="mt-8 flex items-center gap-4 text-white/5">
-            <div className="h-[1px] flex-1 bg-white/5" />
-            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">OR</span>
-            <div className="h-[1px] flex-1 bg-white/5" />
+          <div className="mt-8 flex items-center gap-4 text-black/5">
+            <div className="h-[1px] flex-1 bg-black/5" />
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-black/20">OR</span>
+            <div className="h-[1px] flex-1 bg-black/5" />
           </div>
 
           <div className="mt-8 flex justify-center">
             {googleClientId ? (
               <div id="googleSignInBtn" className="w-full max-w-sm"></div>
             ) : (
-              <div className="w-full max-w-sm h-12 rounded-full border border-white/20 bg-[#FFFFFF]/10 text-[10px] font-semibold tracking-wide text-blue-100 flex items-center justify-center px-4 text-center">
-                Google login সেট করতে Admin Settings এ Google Client ID দিন
+              <div className="w-full max-w-sm h-12 rounded-full border border-black/10 bg-black/5 text-[10px] font-semibold tracking-wide text-zinc-400 flex items-center justify-center px-4 text-center">
+                To enable Google login, provide a Google Client ID in Admin Settings.
               </div>
             )}
             {googleClientId && googleButtonState === 'unavailable' && (
               <div className="w-full max-w-sm mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-[10px] text-rose-200 text-center">
-                Google sign in এখন unavailable. কিছুক্ষণ পর আবার try করুন।
+                Google sign in is currently unavailable. Please try again later.
               </div>
             )}
           </div>
 
           <footer className="mt-10 text-center">
-            <p className="text-xs text-white/40 font-medium">
+            <p className="text-xs text-black/40 font-medium">
               {authMode === 'login' ? "Don't have an account?" : "Ready to sign in?"}{' '}
               <button
                 type="button"
@@ -966,7 +966,7 @@ export const LoginForm: React.FC<AuthFormProps> = ({ forcedMode }) => {
                   setErrors({});
                   navigate(authMode === 'login' ? '/signup' : '/login');
                 }}
-                className="text-[#FFFFFF] font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
+                className="text-[#C9A96E] font-black uppercase tracking-widest text-[10px] ml-2 hover:underline"
               >
                 {authMode === 'login' ? 'Sign Up' : 'Log In'}
               </button>

@@ -4,7 +4,7 @@ import {
   ShoppingBag, User, Menu, X, Search, ArrowRight, Instagram, Facebook, Globe,
   MessageSquare, ChevronDown, Eye, User as UserIcon, MapPin, Phone, Database,
   RefreshCcw, BarChart3, Zap, Shield, HelpCircle, Home, BookOpen, ShoppingCart,
-  Layers, Footprints, Briefcase, Tag, Percent, Star
+  Layers, Footprints, Briefcase, Tag, Percent, Star, Heart as HeartIcon
 } from 'lucide-react';
 import { useApp } from '../store';
 import { View } from '../types';
@@ -14,6 +14,7 @@ import { isAdminRole } from '../lib/roles';
 import { isAdminSubdomainHost } from '../lib/runtime';
 import { OptimizedImage } from './OptimizedImage';
 import { useTranslation } from '../lib/useTranslation';
+import { buildProductRoute } from '../lib/productRoute';
 
 export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string }) => {
   const { siteSettings } = useApp();
@@ -46,13 +47,10 @@ export const SplaroLogo = ({ className = "h-10 md:h-14" }: { className?: string 
 
       <div className="hidden md:flex flex-col justify-center">
         <span
-          className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase flex items-center leading-none select-none"
-          style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F0F8FF', letterSpacing: '-0.03em' }}
+          className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase flex items-center leading-none select-none"
+          style={{ fontFamily: "var(--font-primary)", color: 'var(--splaro-white)', letterSpacing: '-0.04em' }}
         >
           SPLARO
-        </span>
-        <span className="hidden md:block text-[7px] font-semibold tracking-[0.4em] uppercase mt-0.5" style={{ color: '#FFFFFF', letterSpacing: '0.35em' }}>
-          Luxury Footwear
         </span>
       </div>
 
@@ -71,69 +69,64 @@ interface NavItemProps {
   onClick: () => void;
 }
 
-const NavItem = ({ label, view, index, onClick }: NavItemProps) => {
-  const { language } = useApp();
-  return (<motion.div
-    initial={{ x: -24, opacity: 0 }}
-    animate={{ x: 0, opacity: 1 }}
-    exit={{ x: 12, opacity: 0 }}
-    transition={{
-      delay: index * 0.04,
-      duration: 0.45,
-      ease: [0.16, 1, 0.3, 1]
-    }}
-    className="w-full"
-  >
-    <button
-      type="button"
-      onClick={onClick}
-      className="nav-item interactive-control w-full text-left py-4 sm:py-6 flex items-center justify-between group transition-all duration-500"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.13)' }}
+const NavItem = ({ label, view, index, onClick, onMouseEnter }: NavItemProps & { onMouseEnter?: () => void }) => {
+  return (
+    <motion.div
+      initial={{ x: -40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: 40, opacity: 0 }}
+      transition={{
+        delay: index * 0.05,
+        duration: 0.6,
+        ease: [0.16, 1, 0.3, 1]
+      }}
+      className="w-full"
     >
-      <div className="flex flex-col">
-        <span
-          className="text-[10px] font-bold uppercase mb-3 opacity-75 group-hover:opacity-100 transition-all duration-500"
-          style={{ letterSpacing: '0.44em', color: '#FFFFFF' }}
-        >
-          {language === 'BN' ? 'নেভিগেট' : 'Navigate'}
-        </span>
-        <span
-          className="text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tighter transition-all duration-500 group-hover:pl-3 leading-none"
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            color: 'rgba(255, 255, 255, 0.88)',
-          }}
-        >
-          {label}
-        </span>
-      </div>
-      <motion.div
-        whileHover={{ x: 8, scale: 1.08 }}
-        className="w-14 h-14 rounded-full liquid-glass flex items-center justify-center opacity-85 group-hover:opacity-100 transition-all duration-500"
-        style={{ border: '1px solid rgba(255,255,255,0.22)' }}
+      <button
+        type="button"
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        className="nav-item interactive-control w-full text-left py-6 sm:py-8 flex items-center justify-between group transition-all duration-500"
       >
-        <ArrowRight className="w-5 h-5" style={{ color: '#FFFFFF' }} />
-      </motion.div>
-    </button>
-  </motion.div>
+        <div className="flex flex-col">
+          <span
+            className="text-[11px] font-black uppercase mb-4 opacity-40 group-hover:opacity-100 group-hover:text-[var(--splaro-gold)] transition-all duration-500"
+            style={{ letterSpacing: '0.6em' }}
+          >
+            {label.startsWith('P') ? 'Asset-Class' : 'Manifesto'}
+          </span>
+
+          <span
+            className="text-4xl sm:text-7xl md:text-8xl font-black italic tracking-tighter transition-all duration-700 group-hover:pl-6 leading-none text-white/90 group-hover:text-white"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+          >
+            {label}
+          </span>
+        </div>
+        <motion.div
+          whileHover={{ x: 12, scale: 1.1 }}
+          className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center group-hover:border-[var(--splaro-gold)] group-hover:bg-[var(--splaro-gold)]/10 transition-all duration-500"
+        >
+          <ArrowRight className="w-6 h-6 text-white/40 group-hover:text-[var(--splaro-gold)]" />
+        </motion.div>
+      </button>
+    </motion.div>
   );
 };
 
-/* ── Cognac/gold colour tokens reused in nav ── */
-const COGNAC      = '#FFFFFF';
-const COGNAC_BG   = 'rgba(255,255,255,0.10)';
-const COGNAC_BDR  = 'rgba(255,255,255,0.18)';
-const SAGE        = '#FFFFFF'; // Luxury gold for validation states
-const NAV_GLASS   = 'rgba(7,14,30,0.85)';
-const NAV_BDR     = 'rgba(255,255,255,0.12)';
+/* ── Champagne Gold & Obsidian Emerald tokens ── */
+const LUXURY_GOLD = 'var(--splaro-gold)';
+const NAV_GLASS = 'rgba(4, 8, 17, 0.65)';
+const NAV_BDR = 'rgba(255, 255, 255, 0.08)';
 
 export const Navbar: React.FC = () => {
-  const { cart, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage } = useApp();
+  const { cart, wishlist, user, setSelectedCategory, selectedCategory, view, searchQuery, setSearchQuery, isSearchOpen, setIsSearchOpen, siteSettings, language, setLanguage, products, setSelectedProduct } = useApp();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const adminDomain = isAdminSubdomainHost();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
 
   if (adminDomain) return null;
 
@@ -227,10 +220,9 @@ export const Navbar: React.FC = () => {
   };
 
   const leftItems = [
-    { label: 'HOME',  view: View.HOME, icon: Home },
-    { label: 'ALL',   view: View.SHOP, icon: ShoppingBag },
+    { label: 'HOME', view: View.HOME, icon: Home },
+    { label: 'ALL', view: View.SHOP, icon: ShoppingBag },
     { label: 'SHOES', view: View.SHOP, category: 'Shoes', icon: Footprints },
-    { label: 'BAGS',  view: View.SHOP, category: 'Bags',  icon: Briefcase },
   ];
 
   const hasAdminAccess = isAdminRole(user?.role);
@@ -238,26 +230,26 @@ export const Navbar: React.FC = () => {
 
   const rightItems = [
     { label: 'STORY', view: View.STORY, icon: BookOpen },
+    { label: 'WISHLIST', view: View.SHOP, icon: HeartIcon },
     { label: 'IDENTITY', view: user ? (allowAdminPanel ? View.ADMIN_DASHBOARD : View.USER_DASHBOARD) : View.LOGIN, icon: UserIcon },
     { label: 'CART', view: View.CART, icon: ShoppingCart },
   ];
 
   const menuItems = [
-    { label: t('nav.home').toUpperCase(),         view: View.HOME, icon: Home },
-    { label: t('nav.all').toUpperCase(),          view: View.SHOP, icon: ShoppingBag },
-    { label: t('nav.shoes').toUpperCase(),        view: View.SHOP, category: 'Shoes', icon: Footprints },
-    { label: t('nav.bags').toUpperCase(),         view: View.SHOP, category: 'Bags',  icon: Briefcase },
-    { label: t('nav.newArrivals').toUpperCase(),  view: View.SHOP, icon: Star },
-    { label: t('nav.story').toUpperCase(),        view: View.STORY,   icon: BookOpen },
-    { label: t('nav.support').toUpperCase(),      view: View.SUPPORT, icon: MessageSquare },
-    ...(allowAdminPanel
+    { label: t('nav.home').toUpperCase(), view: View.HOME, icon: Home },
+    { label: t('nav.all').toUpperCase(), view: View.SHOP, icon: ShoppingBag },
+    { label: t('nav.shoes').toUpperCase(), view: View.SHOP, category: 'Shoes', icon: Footprints },
+    { label: t('nav.newArrivals').toUpperCase(), view: View.SHOP, icon: Star },
+    { label: t('nav.story').toUpperCase(), view: View.STORY, icon: BookOpen },
+    { label: t('nav.support').toUpperCase(), view: View.SUPPORT, icon: MessageSquare },
+    ...(hasAdminAccess
       ? [{ label: t('nav.admin').toUpperCase(), view: View.ADMIN_DASHBOARD, icon: BarChart3 }]
       : user
         ? [{ label: t('nav.account').toUpperCase(), view: View.USER_DASHBOARD, icon: UserIcon }]
         : [
-            { label: t('nav.signUp').toUpperCase(),  view: View.SIGNUP, icon: UserIcon },
-            { label: t('nav.signIn').toUpperCase(),  view: View.LOGIN,  icon: Shield },
-          ]
+          { label: t('nav.signUp').toUpperCase(), view: View.SIGNUP, icon: UserIcon },
+          { label: t('nav.signIn').toUpperCase(), view: View.LOGIN, icon: Shield },
+        ]
     )
   ];
 
@@ -268,9 +260,9 @@ export const Navbar: React.FC = () => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: isActive ? `1px solid ${COGNAC_BDR}` : '1px solid rgba(255,255,255,0.08)',
-    background: isActive ? COGNAC_BG : 'rgba(255,255,255,0.03)',
-    color: isActive ? COGNAC : 'rgba(255,255,255,0.45)',
+    border: isActive ? `1px solid ${NAV_BDR}` : '1px solid rgba(255,255,255,0.08)',
+    background: isActive ? 'rgba(218, 185, 123, 0.15)' : 'rgba(255,255,255,0.03)',
+    color: isActive ? LUXURY_GOLD : 'rgba(255,255,255,0.45)',
     transition: 'all 0.3s ease',
     position: 'relative' as const,
   });
@@ -298,7 +290,7 @@ export const Navbar: React.FC = () => {
               />
               <div
                 className="w-5 sm:w-6 h-[2px] transition-all group-hover:w-10"
-                style={{ background: COGNAC }}
+                style={{ background: LUXURY_GOLD }}
               />
             </div>
           </button>
@@ -325,13 +317,13 @@ export const Navbar: React.FC = () => {
                     {isActive && (
                       <span
                         className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                        style={{ background: COGNAC }}
+                        style={{ background: LUXURY_GOLD }}
                       />
                     )}
                   </div>
                   <div
                     className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold uppercase tracking-[0.25em] whitespace-nowrap pointer-events-none"
-                    style={{ color: COGNAC }}
+                    style={{ color: LUXURY_GOLD }}
                   >
                     {item.label}
                   </div>
@@ -357,7 +349,7 @@ export const Navbar: React.FC = () => {
               </div>
               <div
                 className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold uppercase tracking-[0.25em] whitespace-nowrap pointer-events-none"
-                style={{ color: COGNAC }}
+                style={{ color: LUXURY_GOLD }}
               >
                 SEARCH
               </div>
@@ -390,8 +382,6 @@ export const Navbar: React.FC = () => {
                   onClick={() => {
                     if (user) navigate(allowAdminPanel ? '/admin_dashboard' : '/user_dashboard');
                     else navigate('/login');
-                    setIsSearchOpen(false);
-                    setMenuOpen(false);
                   }}
                   className="nav-item interactive-control relative group p-2"
                 >
@@ -399,138 +389,78 @@ export const Navbar: React.FC = () => {
                     className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center transition-all duration-400"
                     style={{
                       border: isActive
-                        ? `2px solid ${COGNAC}`
+                        ? `2px solid ${LUXURY_GOLD}`
                         : `1px solid rgba(255,255,255,0.15)`,
                       background: 'rgba(255,255,255,0.05)',
-                      boxShadow: isActive ? `0 0 14px rgba(255,255,255,0.22)` : 'none',
                     }}
                   >
                     {user?.profileImage ? (
                       <OptimizedImage src={user.profileImage} alt="Profile" sizes="40px" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-4 h-4" style={{ color: isActive ? COGNAC : 'rgba(255,255,255,0.50)' }} />
+                      <User className="w-4 h-4" style={{ color: isActive ? LUXURY_GOLD : 'rgba(255,255,255,0.50)' }} />
                     )}
-                  </div>
-                  <div
-                    className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold uppercase tracking-[0.25em] whitespace-nowrap pointer-events-none"
-                    style={{ color: COGNAC }}
-                  >
-                    {user ? t('nav.profile').toUpperCase() : t('nav.signIn').toUpperCase()}
                   </div>
                 </button>
               ) : (
                 <button
                   key={item.label}
                   type="button"
-                  onClick={() => handleNav(item.label, item.view)}
+                  onClick={() => {
+                    if (item.label === 'WISHLIST') navigate('/wishlist');
+                    else handleNav(item.label, item.view);
+                  }}
                   className="nav-item interactive-control relative group p-2"
                 >
-                  <div
-                    style={navIconStyle(isActive)}
-                    className="group-hover:!border-[rgba(255,255,255,0.30)] group-hover:!bg-[rgba(255,255,255,0.09)] group-hover:!text-[#FFFFFF]"
-                  >
-                    <item.icon className="w-4 h-4" />
+                  <div style={navIconStyle(isActive)}>
+                    <item.icon className={`w-4 h-4 ${item.label === 'WISHLIST' && wishlist.length > 0 ? 'text-[var(--splaro-gold)] fill-[var(--splaro-gold)]' : ''}`} />
                     {item.label === 'CART' && cart.length > 0 && (
                       <span
                         className="absolute -top-1 -right-1 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
-                        style={{ background: COGNAC, color: '#0A0F08', border: '2px solid rgba(8,14,32,0.8)' }}
+                        style={{ background: LUXURY_GOLD, color: '#0A0F08', border: '2px solid rgba(8,14,32,0.8)' }}
                       >
                         {cart.length}
                       </span>
                     )}
-                  </div>
-                  <div
-                    className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold uppercase tracking-[0.25em] whitespace-nowrap pointer-events-none"
-                    style={{ color: COGNAC }}
-                  >
-                    {item.label}
+                    {item.label === 'WISHLIST' && wishlist.length > 0 && (
+                      <span
+                        className="absolute -top-1 -right-1 text-[8px] w-5 h-5 rounded-full flex items-center justify-center font-black"
+                        style={{ background: '#FFFFFF', color: '#000000', border: '2px solid rgba(8,14,32,0.8)' }}
+                      >
+                        {wishlist.length}
+                      </span>
+                    )}
                   </div>
                 </button>
               );
             })}
-          </div>
 
-          {/* Mobile Actions — Language toggle only */}
-          <div className="lg:hidden flex items-center gap-2 pointer-events-auto">
-            {/* Language Toggle */}
+          {/* Mobile Icons */}
+          <div className="flex lg:hidden items-center gap-2">
             <button
-              type="button"
-              aria-label="Toggle language"
-              onClick={() => setLanguage(language === 'EN' ? 'BN' : 'EN')}
-              className="nav-item interactive-control min-h-11 px-3 py-2 backdrop-blur-3xl rounded-[14px] transition-all shadow-xl touch-manipulation flex items-center gap-1.5"
-              style={{ background: NAV_GLASS, border: `1px solid ${NAV_BDR}` }}
-              title={language === 'EN' ? 'Switch to Bengali' : 'Switch to English'}
+               type="button"
+               onClick={() => setIsSearchOpen(true)}
+               className="p-3 backdrop-blur-xl rounded-xl border border-white/5 bg-white/5"
             >
-              <Globe className="w-3.5 h-3.5 shrink-0" style={{ color: COGNAC }} />
-              <span
-                className="text-[9px] font-black uppercase tracking-wider"
-                style={{ color: language === 'EN' ? '#F0F8FF' : COGNAC }}
-              >
-                {language === 'EN' ? 'বাং' : 'EN'}
-              </span>
+               <Search className="w-5 h-5 text-white/60" />
+            </button>
+            <button
+               type="button"
+               onClick={() => navigate('/cart')}
+               className="relative p-3 backdrop-blur-xl rounded-xl border border-white/5 bg-white/5"
+            >
+               <ShoppingCart className="w-5 h-5 text-white/60" />
+               {cart.length > 0 && (
+                 <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--splaro-gold)] text-[8px] font-black text-black flex items-center justify-center">
+                    {cart.length}
+                 </span>
+               )}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════════
-          SEARCH OVERLAY
-          ══════════════════════════════════════════ */}
-      <AnimatePresence>
-        {isSearchOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsSearchOpen(false)}
-            className="fixed inset-0 z-[600] flex items-center justify-center p-4 sm:p-6 backdrop-blur-xl"
-            style={{ background: 'rgba(8,14,32,0.96)' }}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-3xl"
-            >
-              <div
-                className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 liquid-glass rounded-[14px] sm:rounded-[12px]"
-                style={{ border: `1px solid rgba(255,255,255,0.20)`, boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}
-              >
-                <Search className="w-6 h-6 sm:w-8 sm:h-8 shrink-0" style={{ color: COGNAC }} />
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder={t('nav.search')}
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    if (location.pathname !== '/shop') navigate('/shop');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); setIsSearchOpen(false); }
-                  }}
-                  className="min-w-0 flex-1 bg-transparent border-none outline-none focus-visible:outline-none text-lg sm:text-2xl md:text-3xl font-bold tracking-tight placeholder:font-normal"
-                  style={{ color: '#F0F8FF', caretColor: COGNAC }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsSearchOpen(false)}
-                  className="nav-item interactive-control min-h-12 min-w-12 w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all"
-                  style={{ border: `1px solid rgba(255,255,255,0.15)` }}
-                >
-                  <X className="w-6 h-6 sm:w-7 sm:h-7" style={{ color: '#F0F8FF' }} />
-                </button>
-              </div>
-              <p
-                className="text-center mt-5 text-[10px] font-semibold uppercase tracking-[0.38em]"
-                style={{ color: 'rgba(255,255,255,0.45)' }}
-              >
-                {t('nav.searchHint')}
-              </p>
-            </motion.div>
-          </motion.div>
-        )}
+
+
 
         {/* ══════════════════════════════════════════
             FULL SCREEN MENU OVERLAY
@@ -543,64 +473,123 @@ export const Navbar: React.FC = () => {
             transition={{ duration: 0.45, ease: 'easeInOut' }}
             onClick={() => setMenuOpen(false)}
             className="fixed inset-0 z-[500] overflow-y-auto overscroll-contain flex flex-col"
-            style={{
-              background: `
-                radial-gradient(circle at 15% 20%, rgba(61,107,61,0.26), transparent 42%),
-                radial-gradient(circle at 85% 82%, rgba(255,255,255,0.13), transparent 40%),
-                linear-gradient(180deg, #0C1409 0%, #0A0F08 50%, #080C06 100%)
-              `,
-            }}
+              style={{
+                background: `
+                  radial-gradient(circle at 15% 20%, rgba(74, 144, 226, 0.18), transparent 42%),
+                  radial-gradient(circle at 85% 82%, rgba(212, 180, 122, 0.12), transparent 40%),
+                  linear-gradient(180deg, #050A14 0%, #060E1D 50%, #020408 100%)
+                `,
+              }}
           >
-            {/* Subtle grain overlay */}
-            <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
-              style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")',
-                backgroundSize: '200px' }}
-            />
+            {/* Dynamic Background Reveal */}
+            <AnimatePresence>
+              {hoveredCategory && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 1.1 }}
+                  animate={{ opacity: 0.15, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.1 }}
+                  className="fixed inset-0 z-0 overflow-hidden pointer-events-none"
+                >
+                  <div className="absolute inset-0 bg-black/60 z-10" />
+                  <OptimizedImage
+                    src={hoveredCategory === 'SHOES' ? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1920' : 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=1920'}
+                    alt="Category background"
+                    className="w-full h-full object-cover"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Menu Header */}
             <div
               onClick={(e) => e.stopPropagation()}
-              className="px-4 sm:px-8 py-6 sm:py-8 md:px-16 md:py-10 flex justify-between items-center relative z-10"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.09)' }}
+              className="px-6 md:px-14 py-8 md:py-12 flex justify-between items-center relative z-20"
             >
-              <SplaroLogo className="h-8 md:h-12" />
+              <div onClick={() => navigate('/')} className="cursor-pointer">
+                <SplaroLogo className="h-10 md:h-16" />
+              </div>
               <motion.button
                 type="button"
                 aria-label="Close menu"
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setMenuOpen(false)}
-                className="nav-item interactive-control w-14 h-14 rounded-xl liquid-glass flex items-center justify-center transition-all"
-                style={{ border: `1px solid rgba(255,255,255,0.15)` }}
+                className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center bg-white/5 backdrop-blur-3xl transition-all"
               >
-                <X className="w-6 h-6" style={{ color: '#F0F8FF' }} />
+                <X className="w-7 h-7 text-white" />
               </motion.button>
             </div>
 
-            {/* Menu Items */}
+            {/* Main Discovery Web */}
             <div
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 px-4 sm:px-8 md:px-16 flex flex-col justify-center max-w-5xl relative z-10 py-8"
+              className="flex-1 flex flex-col lg:flex-row relative z-20 px-4 md:px-14 overflow-y-auto"
             >
-              <p
-                className="text-[9px] font-bold uppercase mb-8"
-                style={{ letterSpacing: '0.5em', color: 'rgba(255,255,255,0.45)' }}
-              >
-                — Collection & Pages —
-              </p>
-              <div className="space-y-1">
-                {menuItems.map((item, i) => (
-                  <NavItem
-                    key={item.label}
-                    label={item.label}
-                    view={item.view}
-                    index={i}
-                    onClick={() => {
-                      handleNav(item.label, item.view, (item as any).category);
-                      setMenuOpen(false);
-                    }}
-                  />
-                ))}
+              {/* Main Links */}
+              <div className="flex-1 flex flex-col justify-center py-6 md:py-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.8em] text-[var(--splaro-gold)] mb-8 md:mb-12 animate-pulse glow-text">— Discovery Hub —</p>
+                <div className="space-y-4 md:space-y-6">
+                  {menuItems.slice(0, 7).map((item, i) => (
+                    <motion.button
+                      key={item.label}
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      onMouseEnter={() => setHoveredCategory(item.label)}
+                      onClick={() => {
+                        handleNav(item.label, item.view, (item as any).category);
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between p-6 md:p-8 backlit-surface rounded-[32px] md:rounded-[40px] group transition-all duration-500 hover:scale-[1.02] hover:border-white/20"
+                    >
+                      <span className="text-2xl md:text-5xl font-black uppercase italic tracking-tighter text-white group-hover:text-[var(--splaro-gold)] group-hover:px-4 transition-all duration-500">
+                        {item.label}
+                      </span>
+                      <ArrowRight className="w-6 h-6 md:w-8 md:h-8 text-white/20 group-hover:text-[var(--splaro-gold)] group-hover:translate-x-2 transition-all" />
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bento Sidebar (Desktop) */}
+              <div className="hidden lg:flex w-1/3 flex-col justify-center gap-6 py-10 opacity-80 border-l border-white/5 pl-14">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-4">
+                    <div className="h-40 rounded-2xl bg-white/5 border border-white/10 group overflow-hidden cursor-pointer">
+                      <OptimizedImage src="https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=800" alt="Quick link" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    </div>
+                    <div className="h-64 rounded-2xl bg-white/5 border border-white/10 group overflow-hidden cursor-pointer relative">
+                      <OptimizedImage src="https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=800" alt="Quick link" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white">Elite Collective</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-4 pt-8">
+                    <div className="h-64 rounded-2xl bg-white/5 border border-white/10 group overflow-hidden cursor-pointer relative">
+                      <OptimizedImage src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=800" alt="Quick link" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white">Essentials</p>
+                      </div>
+                    </div>
+                    <div className="h-40 rounded-2xl bg-white/5 border border-white/10 group overflow-hidden cursor-pointer">
+                      <OptimizedImage src="https://images.unsplash.com/photo-1512374382149-4332c6c02151?q=80&w=800" alt="Quick link" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 space-y-4">
+                  {menuItems.slice(5).map((item, i) => (
+                    <button
+                      key={item.label}
+                      onClick={() => handleNav(item.label, item.view)}
+                      className="flex items-center gap-4 group text-[11px] font-black uppercase tracking-[0.4em] text-white/40 hover:text-[var(--splaro-gold)] transition-all"
+                    >
+                      <item.icon className="w-4 h-4 opacity-40 group-hover:opacity-100" />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -611,12 +600,12 @@ export const Navbar: React.FC = () => {
               style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
             >
               <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: COGNAC }} />
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: LUXURY_GOLD }} />
                 <p
                   className="text-[10px] font-semibold uppercase tracking-widest"
                   style={{ color: 'rgba(255,255,255,0.65)' }}
                 >
-                  Splaro — Luxury Footwear & Bags
+                  Splaro — Luxury Footwear
                 </p>
               </div>
 
@@ -629,7 +618,7 @@ export const Navbar: React.FC = () => {
                 ].map((social, idx) => (
                   <motion.a
                     key={idx}
-                    whileHover={{ scale: 1.2, color: COGNAC }}
+                    whileHover={{ scale: 1.2, color: LUXURY_GOLD }}
                     href={social.link}
                     target={social.link.startsWith('http') ? '_blank' : undefined}
                     rel={social.link.startsWith('http') ? 'noreferrer noopener' : undefined}
@@ -652,10 +641,10 @@ export const Navbar: React.FC = () => {
                 className="flex items-center gap-4 p-4 rounded-xl"
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
               >
-                <Shield className="w-4 h-4" style={{ color: COGNAC }} />
+                <Shield className="w-4 h-4" style={{ color: LUXURY_GOLD }} />
                 <span
                   className="text-[10px] font-semibold uppercase tracking-[0.3em]"
-                  style={{ color: COGNAC }}
+                  style={{ color: LUXURY_GOLD }}
                 >
                   {t('nav.trust')}
                 </span>

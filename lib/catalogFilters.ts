@@ -37,14 +37,11 @@ export const catalogConfig = catalogConfigJson as CatalogConfig;
 const CATEGORY_ALIAS_MAP: Record<string, string> = {
   shoes: 'Shoes',
   shoe: 'Shoes',
-  footwear: 'Shoes',
-  bags: 'Bags',
-  bag: 'Bags'
+  footwear: 'Shoes'
 };
 
 const PRODUCT_TYPE_BY_CATEGORY: Record<string, string> = {
-  Shoes: 'shoe',
-  Bags: 'bag'
+  Shoes: 'shoe'
 };
 
 export const normalizeCategoryName = (value: string | null | undefined): string | null => {

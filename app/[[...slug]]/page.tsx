@@ -6,12 +6,12 @@ export const fetchCache = 'default-cache';
 
 const metadataByRoute: Record<string, { title: string; description: string }> = {
   '/': {
-    title: 'SPLARO | Luxury Footwear & Bags',
-    description: 'Premium imported footwear and bags with refined design and elevated finish.',
+    title: 'SPLARO | Premium Footwear',
+    description: 'Premium imported footwear with refined design and elevated finish.',
   },
   '/shop': {
     title: 'Shop | SPLARO',
-    description: 'Explore premium footwear and bag collections from SPLARO.',
+    description: 'Explore premium footwear collections from SPLARO.',
   },
   '/cart': {
     title: 'Cart | SPLARO',
@@ -74,7 +74,7 @@ export async function generateMetadata({
         }
       : undefined) || {
       title: 'SPLARO',
-      description: 'Luxury footwear and bags.',
+      description: 'Luxury footwear.',
     };
 
   return {

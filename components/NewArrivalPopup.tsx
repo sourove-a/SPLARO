@@ -51,24 +51,23 @@ export const NewArrivalPopup: React.FC = () => {
           className="fixed bottom-28 sm:bottom-8 right-4 sm:right-8 z-[700] w-[calc(100vw-2rem)] sm:w-[380px] max-w-sm"
         >
           <div
-            className="relative overflow-hidden rounded-xl shadow-[0_24px_64px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+            className="relative overflow-hidden rounded-2xl shadow-[0_40px_100px_rgba(0,0,0,0.8)] backdrop-blur-3xl"
             style={{
-              background: 'linear-gradient(135deg, #0C1409 0%, #08121E 60%, #12200F 100%)',
-              border: '1px solid rgba(255,255,255,0.20)',
+              background: 'rgba(3, 9, 7, 0.9)',
+              border: '1px solid rgba(229, 197, 138, 0.25)',
             }}
           >
             {/* Badge */}
             <div className="absolute top-4 left-4 z-10">
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.20)', border: '1px solid rgba(255,255,255,0.25)' }}
+                style={{ background: 'rgba(229, 197, 138, 0.1)', border: '1px solid rgba(229, 197, 138, 0.2)' }}
               >
-                <Sparkles className="w-3 h-3" style={{ color: '#D4B47A' }} />
+                <Sparkles className="w-3 h-3 text-[var(--splaro-gold)]" />
                 <span
-                  className="text-[8px] font-black uppercase tracking-[0.3em]"
-                  style={{ color: '#D4B47A' }}
+                  className="text-[8px] font-black uppercase tracking-[0.3em] text-[var(--splaro-gold)]"
                 >
-                  {popup.badge || 'New Arrival'}
+                  {popup.badge || 'Elite Access'}
                 </span>
               </div>
             </div>
@@ -78,75 +77,63 @@ export const NewArrivalPopup: React.FC = () => {
               type="button"
               aria-label="Close popup"
               onClick={handleDismiss}
-              className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-              style={{ background: 'rgba(8,14,32,0.6)', border: '1px solid rgba(255,255,255,0.20)' }}
+              className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 hover:bg-white/10 border border-white/10"
             >
-              <X className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
+              <X className="w-4 h-4 text-white/40" />
             </button>
 
             {/* Image */}
             {popup.imageUrl && (
-              <div className="w-full h-40 overflow-hidden">
+              <div className="w-full h-48 overflow-hidden">
                 <OptimizedImage
                   src={popup.imageUrl}
                   alt={popup.title}
                   sizes="380px"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-[3s] hover:scale-110"
                 />
                 <div
-                  className="absolute inset-x-0 bottom-0 h-24"
-                  style={{ background: 'linear-gradient(to top, #0C1409, transparent)' }}
+                  className="absolute inset-x-0 bottom-0 h-32"
+                  style={{ background: 'linear-gradient(to top, rgba(3, 9, 7, 0.9), transparent)' }}
                 />
               </div>
             )}
 
             {/* Content */}
-            <div className={`px-5 pb-5 ${popup.imageUrl ? 'pt-3' : 'pt-12'}`}>
+            <div className={`px-6 pb-6 ${popup.imageUrl ? 'pt-2' : 'pt-16'}`}>
               <h3
-                className="text-xl font-black uppercase tracking-tight leading-tight mb-2"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F0F8FF' }}
+                className="text-2xl font-black uppercase tracking-tight leading-tight mb-2 text-white italic"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
               >
-                {popup.title || 'New Arrivals'}
+                {popup.title || 'New Archives'}
               </h3>
               <p
-                className="text-[11px] font-medium leading-relaxed mb-4"
-                style={{ color: 'rgba(255,255,255,0.65)', letterSpacing: '0.05em' }}
+                className="text-[11px] font-medium leading-relaxed mb-6 text-white/50 tracking-wider uppercase font-black"
               >
-                {popup.subtitle || 'Fresh collection just landed. Be the first to explore.'}
+                {popup.subtitle || 'Hyper-import collection just indexed. Join the elite.'}
               </p>
 
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleCta}
-                  className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all group"
-                  style={{
-                    background: 'linear-gradient(135deg, #071832 0%, #0A2A50 45%, #FFFFFF 75%, #0A2A50 100%)',
-                    color: '#0A0F08',
-                    boxShadow: '0 6px 20px rgba(255,255,255,0.22)',
-                  }}
+                  className="flex-1 h-12 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] transition-all group bg-[var(--splaro-gold)] text-[var(--splaro-emerald)] shadow-[0_12px_40px_rgba(229,197,138,0.25)] hover:brightness-110"
                 >
-                  {popup.ctaLabel || 'Shop Now'}
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  {popup.ctaLabel || 'Explore'}
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className="h-11 px-4 rounded-xl text-[10px] font-bold uppercase tracking-[0.18em] transition-all"
-                  style={{
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    color: 'rgba(255,255,255,0.55)',
-                  }}
+                  className="h-12 px-5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border border-white/10 text-white/40 hover:border-white/20 hover:text-white/60"
                 >
-                  Later
+                  Dismiss
                 </button>
               </div>
             </div>
 
             {/* Decorative corner glow */}
             <div
-              className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full blur-2xl pointer-events-none"
-              style={{ background: 'rgba(255,255,255,0.09)' }}
+              className="absolute -bottom-10 -right-10 w-40 h-40 rounded-full blur-3xl pointer-events-none bg-[var(--splaro-gold)]/10"
             />
           </div>
         </motion.div>

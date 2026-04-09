@@ -1,6 +1,6 @@
 # SPLARO
 
-SPLARO is a luxury footwear and bags ecommerce platform running on **Next.js 15 App Router + TypeScript + MySQL**.
+SPLARO is a luxury footwear ecommerce platform running on **Next.js 15 App Router + TypeScript + MySQL**.
 
 - Live: [https://splaro.co](https://splaro.co)
 - Runtime: Next.js route handlers (Node), no Vite runtime, no PHP runtime dependency

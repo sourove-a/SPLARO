@@ -461,7 +461,7 @@ const DEFAULT_HERO_SETTINGS: HeroSettings = {
   heroTitle: 'Premium Collection',
   heroTitleMode: 'AUTO',
   heroTitleManualBreaks: 'Premium\nCollection',
-  heroSubtitle: 'Imported premium footwear and bags, curated for modern city style.',
+  heroSubtitle: 'Imported premium footwear, curated for the modern stride.',
   heroBadge: 'SPLARO Premium Selection',
   heroCtaLabel: 'Explore Collection',
   heroCtaUrl: '/shop',
@@ -476,7 +476,7 @@ const DEFAULT_HERO_SETTINGS: HeroSettings = {
 const DEFAULT_CATEGORY_HERO_OVERRIDES: CmsBundle['categoryHeroOverrides'] = {
   all: {
     heroTitle: 'Premium Collection',
-    heroSubtitle: 'Imported premium footwear and bags, curated for modern city style.',
+    heroSubtitle: 'Imported premium footwear, curated for the modern stride.',
     heroBadge: 'SPLARO Premium Selection',
     heroCtaLabel: 'Explore Collection',
     heroCtaUrl: '/shop',
@@ -488,14 +488,6 @@ const DEFAULT_CATEGORY_HERO_OVERRIDES: CmsBundle['categoryHeroOverrides'] = {
     heroBadge: 'Footwear Focus',
     heroCtaLabel: 'Shop Shoes',
     heroCtaUrl: '/shop?category=shoes',
-    sortDefault: 'Newest'
-  },
-  bags: {
-    heroTitle: 'Bags Collection',
-    heroSubtitle: 'Premium imported bags with refined finish and utility-first form.',
-    heroBadge: 'Bags Focus',
-    heroCtaLabel: 'Shop Bags',
-    heroCtaUrl: '/shop?category=bags',
     sortDefault: 'Newest'
   }
 };
@@ -560,7 +552,7 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
     buttonColor: '#5AAA10'
   },
   logoUrl: '',
-  footerText: 'SPLARO • Luxury Footwear & Bags • www.splaro.co',
+  footerText: 'SPLARO • Luxury Footwear • www.splaro.co',
   policyText: 'For support and returns, please contact support@splaro.co.',
   showProductImages: true,
   showOrderId: false,
@@ -579,8 +571,7 @@ const createDefaultCmsBundle = (): CmsBundle => ({
   heroSettings: { ...DEFAULT_HERO_SETTINGS },
   categoryHeroOverrides: {
     all: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.all },
-    shoes: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.shoes },
-    bags: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.bags }
+    shoes: { ...DEFAULT_CATEGORY_HERO_OVERRIDES.shoes }
   }
 });
 
@@ -779,8 +770,7 @@ const normalizeCmsBundle = (raw: any): CmsBundle => {
     heroSettings: normalizeHeroSettings(input.heroSettings || input.hero_settings),
     categoryHeroOverrides: {
       all: normalizeCategoryOverride(input.categoryHeroOverrides?.all || input.category_hero_overrides?.all, base.categoryHeroOverrides.all),
-      shoes: normalizeCategoryOverride(input.categoryHeroOverrides?.shoes || input.category_hero_overrides?.shoes, base.categoryHeroOverrides.shoes),
-      bags: normalizeCategoryOverride(input.categoryHeroOverrides?.bags || input.category_hero_overrides?.bags, base.categoryHeroOverrides.bags)
+      shoes: normalizeCategoryOverride(input.categoryHeroOverrides?.shoes || input.category_hero_overrides?.shoes, base.categoryHeroOverrides.shoes)
     }
   };
 };
@@ -964,6 +954,10 @@ interface AppContextType {
   addToCart: (item: any) => void;
   removeFromCart: (cartId: string) => void;
   updateCartItemQuantity: (cartId: string, quantity: number) => void;
+  clearCart: () => void;
+  wishlist: string[];
+  toggleWishlist: (productId: string) => void;
+  isInWishlist: (productId: string) => boolean;
   orders: Order[];
   addOrder: (o: Order) => Promise<AddOrderResult>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
@@ -1003,6 +997,10 @@ interface AppContextType {
   trafficData: any[];
   lastSeenOrderTime: string;
   setLastSeenOrderTime: (t: string) => void;
+  recentlyViewed: Product[];
+  addToRecentlyViewed: (p: Product) => void;
+  isHeritageVerified: boolean;
+  verifyHeritage: () => Promise<boolean>;
   initializeSheets: () => Promise<void>;
   syncRegistry: () => Promise<void>;
 }
@@ -1045,7 +1043,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [view, setView] = useState<View>(View.HOME);
   const [language, setLanguage] = useState<Language>(loadFromStorage('splaro-language', 'EN'));
   const [theme, setTheme] = useState<Theme>(loadFromStorage('splaro-theme', 'DARK'));
-  const [cart, setCart] = useState<any[]>(loadFromStorage('splaro-cart', []));
+  const [cart, setCart] = useState<any[]>(() => {
+    const saved = localStorage.getItem('splaro_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    const saved = localStorage.getItem('splaro_wishlist');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [products, setProducts] = useState<Product[]>(() => sanitizeProducts(loadFromStorage('splaro-products', FALLBACK_SEED_PRODUCTS)));
   const [orders, setOrders] = useState<Order[]>(loadFromStorage('splaro-orders', []));
   const [user, setUser] = useState<User | null>(loadFromStorage('splaro-user', null));
@@ -1066,6 +1071,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(
     normalizeSiteSettings(loadFromStorage('splaro-site-settings', createDefaultSiteSettings()))
   );
+  
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>(() => {
+    return loadFromStorage('splaro-recent-assets', []);
+  });
+  const [isHeritageVerified, setIsHeritageVerified] = useState(false);
 
   const [dbStatus, setDbStatus] = useState<'MYSQL' | 'FALLBACK' | 'OFFLINE'>('FALLBACK');
   const lastCartMutationRef = useRef<{ signature: string; at: number }>({ signature: '', at: 0 });
@@ -1099,8 +1109,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [discounts]);
 
   useEffect(() => {
-    localStorage.setItem('splaro-cart', JSON.stringify(cart));
+    localStorage.setItem('splaro_cart', JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    localStorage.setItem('splaro_wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
 
   useEffect(() => {
     localStorage.setItem('splaro-slides', JSON.stringify(slides));
@@ -1121,6 +1135,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('splaro-site-settings', JSON.stringify(siteSettings));
   }, [siteSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('splaro-recent-assets', JSON.stringify(recentlyViewed.slice(0, 10)));
+  }, [recentlyViewed]);
 
   useEffect(() => {
     const autoPublishStories = () => {
@@ -1294,6 +1312,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return { ok: false, result: lastResult, message: lastMessage || `${action.toUpperCase()}_FAILED` };
+  };
+
+  const addToRecentlyViewed = (p: Product) => {
+    setRecentlyViewed(prev => {
+      const filtered = prev.filter(item => item.id !== p.id);
+      return [p, ...filtered].slice(0, 12);
+    });
+  };
+
+  const verifyHeritage = async (): Promise<boolean> => {
+    // Cinematic verification simulation
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setIsHeritageVerified(true);
+        resolve(true);
+      }, 1800);
+    });
   };
 
   const emitToast = (message: string, tone: 'success' | 'error' | 'info' = 'info') => {
@@ -2026,6 +2061,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const clearCart = () => setCart([]);
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
+  };
+
+  const isInWishlist = (productId: string) => wishlist.includes(productId);
+
   const addDiscount = (d: DiscountCode) => {
     setDiscounts(prev => [d, ...prev]);
   };
@@ -2194,7 +2237,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const value = useMemo(() => ({
     view, setView, products, addOrUpdateProduct, deleteProduct, language, setLanguage, theme, setTheme,
-    cart, addToCart, removeFromCart, updateCartItemQuantity, orders, addOrder, updateOrderStatus, deleteOrder, user, setUser,
+    cart, addToCart, removeFromCart, updateCartItemQuantity, clearCart, wishlist, toggleWishlist, isInWishlist,
+    orders, addOrder, updateOrderStatus, deleteOrder, user, setUser,
     users, deleteUser, updateUser,
     registerUser: (u: User) => setUsers(prev => [u, ...prev]),
     selectedProduct, setSelectedProduct, discounts, addDiscount, toggleDiscount, deleteDiscount,
@@ -2205,8 +2249,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     siteSettings, setSiteSettings, updateSettings,
     updateOrderMetadata,
     dbStatus, initializeSheets, syncRegistry, logs, trafficData,
-    lastSeenOrderTime, setLastSeenOrderTime
-  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime, syncRegistry]);
+    lastSeenOrderTime, setLastSeenOrderTime,
+    recentlyViewed, addToRecentlyViewed, isHeritageVerified, verifyHeritage
+  }), [view, language, theme, cart, orders, products, user, users, selectedProduct, discounts, slides, selectedCategory, smtpSettings, logisticsConfig, searchQuery, isSearchOpen, siteSettings, dbStatus, logs, trafficData, lastSeenOrderTime, recentlyViewed, isHeritageVerified, syncRegistry]);
 
 
 

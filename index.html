@@ -20,44 +20,43 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&family=Outfit:wght@100;200;300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
         rel="stylesheet">
     <style>
         :root {
-            --obsidian: #000000;
-            --midnight: #050505;
-            --pearl: #FFFFFF;
-            --mobile-nav-height: 70px;
+            --splaro-midnight: #01040A;
+            --splaro-navy: #060D1F;
+            --splaro-steel: #E2E8F0;
+            --splaro-gold: #D4B47A;
+            --splaro-gold-soft: rgba(212, 180, 122, 0.4);
+            --splaro-obsidian: #000000;
+            --splaro-white: #FFFFFF;
+            --splaro-accent: #6366f1;
+            
+            --glass-bg: rgba(4, 10, 20, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-blur: 64px;
+            
+            --mobile-nav-height: 80px;
             --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
             --mobile-safe-top: env(safe-area-inset-top, 0px);
-            --ui-focus-outline: rgba(132, 228, 255, 0.94);
-            --ui-focus-shadow: 0 0 0 4px rgba(90, 200, 250, 0.22);
-            --splaro-primary: #0a84ff;
-            --splaro-accent: #64d2ff;
-            --splaro-bg: #07142a;
-            --splaro-surface: rgba(20, 39, 67, 0.78);
-            --splaro-text: #F3F8FF;
-            --splaro-radius: 24px;
-            --splaro-shadow-strength: 60;
-            --splaro-font-base-size: 16px;
-            --splaro-heading-scale: 1;
-            --splaro-font-family: 'Inter', sans-serif;
-            --splaro-container-max: 1280px;
-            --splaro-spacing-scale: 1;
-
-            /* Liquid glass tokens */
-            --bg-main: var(--splaro-bg);
-            --text-main: var(--splaro-text);
-            --text-dim: rgba(227, 236, 250, 0.74);
-            --glass-bg: var(--splaro-surface);
-            --glass-border: rgba(148, 222, 255, 0.62);
-            --ribbed-opacity: 0.035;
-            --glow-strength: 1;
+            
+            --bg-main: var(--splaro-midnight);
+            --text-main: var(--splaro-white);
+            --font-primary: 'Outfit', sans-serif;
+            --font-serif: 'Playfair Display', serif;
         }
 
-        :root[data-splaro-focus="bright"] {
-            --ui-focus-outline: rgba(65, 220, 255, 1);
-            --ui-focus-shadow: 0 0 0 4px rgba(65, 220, 255, 0.22);
+        .dark {
+            --bg-main: #000000;
+            --text-main: #FFFFFF;
+        }
+
+        .light {
+            --bg-main: #F9FAFB;
+            --text-main: #000000;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(0, 0, 0, 0.05);
         }
 
         :root[data-splaro-glow="reduced"] {
@@ -85,14 +84,14 @@
         }
 
         body {
-            font-family: var(--splaro-font-family, 'Inter', sans-serif);
+            font-family: var(--font-primary);
             font-size: var(--splaro-font-base-size, 16px);
             margin: 0;
             background-color: var(--bg-main);
             background-image:
-                radial-gradient(circle at 14% 16%, rgba(95, 186, 255, 0.26), transparent 38%),
-                radial-gradient(circle at 86% 82%, rgba(126, 226, 255, 0.2), transparent 34%),
-                linear-gradient(180deg, #0a1a35 0%, #071327 52%, #050d1a 100%);
+                radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.15), transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(212, 180, 122, 0.1), transparent 40%),
+                linear-gradient(180deg, #000000 0%, #050A14 100%);
             color: var(--text-main);
             transition: background-color 0.35s ease, color 0.25s ease;
             -webkit-font-smoothing: antialiased;
@@ -172,19 +171,119 @@
             bottom: calc(var(--mobile-nav-height) + var(--mobile-safe-bottom) + 20px);
         }
 
+        /* Advanced Maximalist Reveal System */
+        [data-reveal] {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s var(--reveal-ease, cubic-bezier(0.16, 1, 0.3, 1)), transform 0.8s var(--reveal-ease, cubic-bezier(0.16, 1, 0.3, 1));
+            will-change: opacity, transform;
+        }
+        [data-reveal="true"] {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .elite-grid-texture {
+            background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+
         .liquid-glass {
-            background:
-                linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 38%, rgba(148, 222, 255, 0.16) 100%),
-                var(--glass-bg);
-            backdrop-filter: blur(34px) saturate(180%);
-            -webkit-backdrop-filter: blur(34px) saturate(180%);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--splaro-radius, 24px);
-            box-shadow:
-                0 0 0 1px rgba(160, 228, 255, 0.22),
-                inset 0 1px 0 rgba(255, 255, 255, 0.28),
-                0 22px calc(18px + (var(--splaro-shadow-strength, 60) * 0.75px)) rgba(5, 8, 18, 0.52),
-                0 0 calc(10px + (var(--splaro-shadow-strength, 60) * 0.45px)) rgba(110, 206, 255, 0.24);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%), var(--glass-bg);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--splaro-radius, 32px);
+            box-shadow: 
+                0 40px 100px -30px rgba(0, 0, 0, 0.8),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+                inset 0 1px 1px rgba(255, 255, 255, 0.2),
+                inset 0 -1px 20px rgba(111, 224, 255, 0.05);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .liquid-glass:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%), var(--glass-bg);
+            box-shadow: 
+                0 50px 120px -40px rgba(0, 0, 0, 0.9),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+                inset 0 1px 2px rgba(255, 255, 255, 0.3),
+                inset 0 -1px 30px rgba(111, 224, 255, 0.1);
+        }
+
+        .backlit-surface {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 1px rgba(255, 255, 255, 0.15);
+        }
+
+        .glow-text {
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3), 0 0 40px rgba(111, 224, 255, 0.2);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+            transition: all 0.4s ease;
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.2), 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .technical-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .ticker-marquee {
+            display: flex;
+            overflow: hidden;
+            white-space: nowrap;
+            padding: 1rem 0;
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .ticker-content {
+            display: flex;
+            animation: ticker 40s linear infinite;
+            gap: 100px;
+        }
+
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .bento-wide { grid-column: span 2; }
+        .bento-tall { grid-row: span 2; }
+
+        @media (max-width: 768px) {
+            .bento-wide, .bento-tall { grid-column: span 1; grid-row: span 1; }
         }
 
         .ribbed-texture {
@@ -199,7 +298,7 @@
             }
 
             50% {
-                opacity: 0.09;
+                opacity: 0.12;
             }
 
             100% {

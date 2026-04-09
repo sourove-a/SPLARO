@@ -1,8 +1,8 @@
-
-import React, { Suspense, lazy, useEffect, useMemo } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import Lenis from 'lenis';
 import { motion, AnimatePresence } from 'framer-motion';
 // Added ArrowRight to imports to fix line 103 error
-import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone, Star, Quote, Tag, Bell, Truck, Headphones, RefreshCw, Award } from 'lucide-react';
+import { MessageSquare, Sun, Moon, MapPin, Mail, Phone, CheckCircle2, ShoppingBag, Sparkles, ArrowRight, CreditCard, Briefcase, Settings2, Command, Instagram, Facebook, Globe, Shield, Box, Activity, Smartphone, Star, Quote, Tag, Bell, Truck, Headphones, RefreshCw, Award, Footprints, Cpu, Fingerprint } from 'lucide-react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider, useApp } from './store';
@@ -10,12 +10,28 @@ import { View } from './types';
 import { Navbar, SplaroLogo } from './components/Navbar';
 import { MobileTabBar } from './components/MobileTabBar';
 import { ProductCard } from './components/ProductCard';
-import { PrimaryButton, GlassCard } from './components/LiquidGlass';
+import { CartDrawer } from './components/CartDrawer';
+import { PrimaryButton, GlassCard, RibbedCard } from './components/LiquidGlass';
 import { OptimizedImage } from './components/OptimizedImage';
 import { MOBILE_CONTENT_SAFE_CLASS, MOBILE_NAV_HEIGHT_PX } from './lib/mobileLayout';
 import { canWriteCms, isAdminRole } from './lib/roles';
 import { isAdminSubdomainHost } from './lib/runtime';
 import { useTranslation } from './lib/useTranslation';
+import { DiamondReceipt } from './components/DiamondReceipt';
+import { LuxuryStoryPage } from './components/LuxuryStoryPage';
+import { SupportPage } from './components/SupportPage';
+import { SizeGuideHub } from './components/SizeGuideHub';
+import { ServiceShowcase } from './components/ServiceShowcase';
+import { LuxuryNewsletter } from './components/LuxuryNewsletter';
+import { CustomCursor, AnimatedBackground, AnimatedText, Magnetic } from './components/EliteEffects';
+import { FeaturedCategories } from './components/FeaturedCategories';
+import { InstagramGallery } from './components/InstagramGallery';
+import { OrderTrackingPageContent } from './components/OrderTrackingPageContent';
+import { AiStylistButton, AiStylistDrawer } from './components/AiStylist';
+import { LimitedDropSection } from './components/LimitedDrop';
+import { VipClubSection } from './components/VipClub';
+import { TrendingCarousel } from './components/TrendingCarousel';
+import { SearchOverlay } from './components/SearchOverlay';
 
 const HeroSlider = lazy(() => import('./components/HeroSlider').then((m) => ({ default: m.HeroSlider })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel })));
@@ -32,6 +48,12 @@ const AdminCampaignDetailPage = lazy(() => import('./components/AdminCampaignPag
 const AdminCampaignLogsPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignLogsPage })));
 const AdminCampaignNewPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminCampaignNewPage })));
 const AdminSearchPage = lazy(() => import('./components/AdminCampaignPages').then((m) => ({ default: m.AdminSearchPage })));
+const WishlistPage = lazy(() => import('./components/WishlistPage').then((m) => ({ default: m.WishlistPage })));
+const JournalPage = lazy(() => import('./components/JournalPage').then((m) => ({ default: m.JournalPage })));
+const FAQPage = lazy(() => import('./components/FAQPage').then((m) => ({ default: m.FAQPage })));
+const ContactPage = lazy(() => import('./components/ContactPage').then((m) => ({ default: m.ContactPage })));
+const ReturnExchangePage = lazy(() => import('./components/ReturnExchangePage').then((m) => ({ default: m.ReturnExchangePage })));
+const NotFoundPage = lazy(() => import('./components/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 const PageWrapper = ({ children }: { children: React.ReactNode }) => (
   <motion.div
     initial={{ opacity: 0, y: 10 }}
@@ -44,8 +66,8 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 const RouteChunkFallback = () => (
-  <div className="min-h-[45vh] w-full flex items-center justify-center px-6">
-    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-[#FFFFFF]/80 animate-pulse">
+  <div className="min-h-[45vh] w-full flex items-center justify-center px-6 bg-[var(--splaro-emerald)]">
+    <div className="text-[10px] font-black uppercase tracking-[0.38em] text-[var(--splaro-gold)] animate-pulse">
       Loading
     </div>
   </div>
@@ -62,10 +84,10 @@ const CmsContentPage = ({ pageKey }: { pageKey: 'manifest' | 'privacyPolicy' | '
 
   return (
     <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
-      <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-8 sm:mb-10">
+      <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-8 sm:mb-10" style={{ fontFamily: "'Playfair Display', serif" }}>
         {page.heading}
       </h1>
-      <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
+      <GlassCard className="p-10 space-y-6 !bg-white/5">
         <p className="text-white/70 text-sm leading-relaxed">{page.subheading}</p>
         {paragraphs.map((line, idx) => (
           <p key={`${pageKey}-line-${idx}`} className="text-white/60 text-sm leading-relaxed">
@@ -77,113 +99,11 @@ const CmsContentPage = ({ pageKey }: { pageKey: 'manifest' | 'privacyPolicy' | '
   );
 };
 
-const StoryPage = () => {
-  const { siteSettings } = useApp();
-  const { t } = useTranslation();
-  const publishedStories = useMemo(() => {
-    const now = Date.now();
-    return (siteSettings.storyPosts || [])
-      .filter((post) => {
-        if (post.published) return true;
-        if (!post.publishAt) return false;
-        const publishTime = new Date(post.publishAt).getTime();
-        return Number.isFinite(publishTime) && publishTime <= now;
-      })
-      .sort((a, b) => {
-        const aTime = new Date(a.publishAt || a.createdAt).getTime();
-        const bTime = new Date(b.publishAt || b.createdAt).getTime();
-        return bTime - aTime;
-      });
-  }, [siteSettings.storyPosts]);
 
-  return (
-    <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-        <h1 className="text-4xl sm:text-6xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-10 sm:mb-20 text-white leading-[0.85]">
-          {t('story.title1')}<br /><span className="text-[#FFFFFF]">{t('story.title2')}</span>
-        </h1>
-        {publishedStories.length === 0 ? (
-          <GlassCard className="p-12 !bg-white/[0.02]">
-            <p className="text-zinc-400 text-sm uppercase tracking-[0.2em]">{t('story.empty')}</p>
-          </GlassCard>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            {publishedStories.map((post) => (
-              <GlassCard key={post.id} className="p-10 space-y-6 !bg-white/[0.02]">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#FFFFFF]">
-                  {new Date(post.publishAt || post.createdAt).toLocaleDateString('en-GB')}
-                </p>
-                <h2 className="text-3xl font-black uppercase tracking-tight italic text-white">{post.title}</h2>
-                <p className="text-zinc-400 text-sm leading-relaxed">{post.excerpt}</p>
-                {post.imageUrl && (
-                  <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/10">
-                    <OptimizedImage src={post.imageUrl} alt={post.title} sizes="(max-width: 1024px) 100vw, 50vw" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-line">{post.body}</p>
-              </GlassCard>
-            ))}
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-};
 
-const SupportPage = () => {
-  const { t } = useTranslation();
-  const { siteSettings } = useApp();
-  return (
-  <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }}>
-      <h1 className="text-4xl sm:text-6xl md:text-[9rem] font-black italic tracking-tighter uppercase mb-10 sm:mb-20 text-white leading-[0.85]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-        {t('support.title1')}<br /><span style={{color:'#FFFFFF'}}>{t('support.title2')}</span>
-      </h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-16">
-        {[
-          { label: t('support.track'), icon: Box, desc: t('support.trackDesc') },
-          { label: t('support.care'), icon: MessageSquare, desc: t('support.careDesc') },
-          { label: t('support.quality'), icon: Shield, desc: t('support.qualityDesc') }
-        ].map((item, i) => (
-          <GlassCard key={i} className="p-10 md:p-14 group flex flex-col items-center gap-10 text-center hover:!border-[#FFFFFF]/50 transition-all duration-700">
-            <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-600 group-hover:text-[#FFFFFF] group-hover:bg-[#FFFFFF]/10 group-hover:border-[#FFFFFF]/20 transition-all duration-500">
-              <item.icon className="w-8 h-8 group-hover:scale-110 transition-transform" />
-            </div>
-            <div className="space-y-6">
-              <h3 className="text-xs font-black uppercase tracking-[0.4em] text-white italic">{item.label}</h3>
-              <div className="w-10 h-[1px] bg-white/10 mx-auto group-hover:w-20 group-hover:bg-[#FFFFFF]/50 transition-all duration-700" />
-              <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest leading-relaxed">{item.desc}</p>
-            </div>
-          </GlassCard>
-        ))}
-      </div>
 
-      {/* Contact Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-        {[
-          { icon: MessageSquare, label: t('support.whatsapp'), href: `https://wa.me/${(siteSettings.whatsappNumber || '+8801905010205').replace(/[^\d+]/g, '')}`, color: '#25D366' },
-          { icon: Mail, label: t('support.email'), href: `mailto:${siteSettings.supportEmail || 'info@splaro.co'}`, color: '#FFFFFF' },
-          { icon: Phone, label: t('support.phone'), href: `tel:${siteSettings.supportPhone || '+8801905010205'}`, color: '#FFFFFF' },
-        ].map((c, i) => (
-          <a
-            key={i}
-            href={c.href}
-            target={c.href.startsWith('http') ? '_blank' : undefined}
-            rel="noreferrer"
-            className="flex items-center gap-4 p-6 rounded-xl transition-all duration-400 hover:scale-[1.02] group"
-            style={{ background: 'rgba(7,14,32,0.78)', border: '1px solid rgba(255,255,255,0.14)', textDecoration: 'none' }}
-          >
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-              <c.icon className="w-5 h-5" style={{ color: c.color }} />
-            </div>
-            <span className="text-sm font-bold" style={{ color: '#F0FAFF' }}>{c.label}</span>
-          </a>
-        ))}
-      </div>
-    </motion.div>
-  </div>
-  );
-};
+
+
 
 const ManifestPage = () => <CmsContentPage pageKey="manifest" />;
 const PrivacyPolicyPage = () => <CmsContentPage pageKey="privacyPolicy" />;
@@ -245,60 +165,11 @@ const MobileDebugPage = () => {
   );
 };
 
-const OrderTrackingPage = () => {
-  const { user, orders, siteSettings } = useApp();
-  const navigate = useNavigate();
-
-  const userOrders = useMemo(() => {
-    if (!user) return [];
-    return orders
-      .filter((order) => order.userId === user.id || order.customerEmail.toLowerCase() === user.email.toLowerCase())
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [orders, user]);
-
-  const page = siteSettings.cmsPages.orderTracking;
-
-  return (
-    <div className="min-h-screen pt-28 sm:pt-36 px-4 sm:px-6 max-w-screen-xl mx-auto">
-      <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-white mb-8 sm:mb-10">
-        {page.heading}
-      </h1>
-      <GlassCard className="p-10 space-y-6 !bg-white/[0.03]">
-        <p className="text-white/70 text-sm leading-relaxed">{page.subheading}</p>
-        <p className="text-white/60 text-sm leading-relaxed">{page.body}</p>
-        {!user ? (
-          <div className="pt-4 flex flex-wrap gap-4">
-            <PrimaryButton onClick={() => navigate('/login')} className="px-8 py-4 text-[10px]">
-              LOG IN TO TRACK
-            </PrimaryButton>
-            <button onClick={() => navigate('/signup')} className="px-8 py-4 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:border-[#FFFFFF] hover:text-[#FFFFFF] transition-all">
-              CREATE ACCOUNT
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4 pt-2">
-            {userOrders.length === 0 ? (
-              <p className="text-white/50 text-sm">No orders found for your account yet.</p>
-            ) : (
-              userOrders.map((order) => (
-                <div key={order.id} className="p-5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-white">{order.id}</p>
-                    <p className="text-[11px] text-zinc-400 mt-2">{new Date(order.createdAt).toLocaleString('en-GB')}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-[#FFFFFF] uppercase">{order.status}</p>
-                    <p className="text-[11px] text-zinc-300 mt-1">Total: ৳{order.total.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </GlassCard>
-    </div>
-  );
-};
+const OrderTrackingPage = () => (
+  <LazyView>
+    <OrderTrackingPageContent />
+  </LazyView>
+);
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -315,170 +186,159 @@ const HomeView = () => {
   const displayProducts = products;
 
   return (
-    <div className="relative">
+    <nav className="relative">
       <LazyView>
         <HeroSlider />
       </LazyView>
-      {/* Thin separator after hero */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent)' }} />
 
-      <section className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-20 lg:py-32 relative overflow-hidden">
-        <div>
-          {/* Section header — stacks cleanly on mobile */}
-          <div className="mb-8 sm:mb-16 lg:mb-24">
-            <p className="text-[9px] sm:text-[10px] font-black uppercase mb-3 sm:mb-4 tracking-[0.45em]" style={{ color: '#FFFFFF' }}>
-              — {t('home.explore')} —
-            </p>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 sm:gap-8">
-              <h2
-                className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.92] uppercase"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
-              >
-                {t('home.headline1')}<br />
-                <span style={{ color: '#FFFFFF' }}>{t('home.headline2')}</span>
-              </h2>
-              <div className="flex flex-col gap-4 sm:items-end shrink-0">
-                <p className="text-xs sm:text-sm max-w-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                  {t('home.subheadline')}
-                </p>
-                <button
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setSearchQuery('');
-                    navigate('/shop');
-                  }}
-                  className="group inline-flex items-center gap-3 text-[10px] sm:text-xs font-black uppercase px-6 py-3 rounded-full transition-all duration-500 w-fit"
-                  style={{
-                    letterSpacing: '0.3em',
-                    color: '#F0FAFF',
-                    background: 'rgba(255,255,255,0.09)',
-                    border: '1px solid rgba(255,255,255,0.22)',
-                  }}
-                >
-                  {t('home.shopNow')} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-500" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-10">
-            {displayProducts.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Section separator */}
-      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
-
-      {/* ── About Us Section ── */}
-      <section id="about" className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-24 lg:py-40">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-24 items-center">
-          <div>
-            <p
-              className="text-[10px] font-black uppercase mb-4 sm:mb-6"
-              style={{ letterSpacing: '0.5em', color: '#FFFFFF' }}
-            >
-              আমাদের সম্পর্কে · About Us
-            </p>
-            <h2
-              className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-tight uppercase mb-6 sm:mb-8"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
-            >
-              {t('about.title1')}<br />
-              <span style={{ color: '#FFFFFF' }}>{t('about.title2')}</span>
-            </h2>
-            <p
-              className="text-base leading-relaxed mb-6"
-              style={{ color: 'rgba(255,255,255,0.80)', fontFamily: "'Inter', sans-serif" }}
-            >
-              {t('about.body1')}
-            </p>
-            <p
-              className="text-base leading-relaxed mb-10"
-              style={{ color: 'rgba(255,255,255,0.70)', fontFamily: "'Inter', sans-serif" }}
-            >
-              {t('about.body2')}
-            </p>
-            <div className="grid grid-cols-3 gap-4 sm:gap-8">
-              {[
-                { value: '500+', label: t('about.stat1sub') },
-                { value: '100%', label: t('about.stat2sub') },
-                { value: '24/7', label: t('about.stat3sub') }
-              ].map((stat) => (
-                <div key={stat.label}>
-                  <p
-                    className="text-3xl md:text-4xl font-black mb-2"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
-                  >
-                    {stat.value}
-                  </p>
-                  <p
-                    className="text-[9px] font-semibold uppercase"
-                    style={{ letterSpacing: '0.35em', color: 'rgba(255,255,255,0.55)' }}
-                  >
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-5">
-            {[
-              { icon: Shield, title: t('about.feat1t'), subtitle: t('about.feat1d') },
-              { icon: Box, title: t('about.feat2t'), subtitle: t('about.feat2d') },
-              { icon: CreditCard, title: t('about.feat3t'), subtitle: t('about.feat3d') },
-              { icon: Smartphone, title: t('about.feat4t'), subtitle: t('about.feat4d') }
-            ].map((feature, i) => (
-              <div
-                key={i}
-                className="p-6 rounded-xl flex flex-col gap-4 transition-all duration-500 hover:scale-[1.02]"
-                style={{
-                  background: 'rgba(7,14,32,0.78)',
-                  border: '1px solid rgba(255,255,255,0.20)',
-                  backdropFilter: 'blur(12px)'
-                }}
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.28)' }}
-                >
-                  <feature.icon className="w-5 h-5" style={{ color: '#FFFFFF' }} />
-                </div>
-                <div>
-                  <p className="text-sm font-black tracking-tight" style={{ color: '#FFFFFF' }}>{feature.title}</p>
-                  <p className="text-[11px] font-medium leading-relaxed mt-2" style={{ color: 'rgba(255,255,255,0.62)' }}>{feature.subtitle}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Why Choose Us — Service Pillars ── */}
-      <section style={{ background: 'rgba(6,14,36,0.70)', borderTop: '1px solid rgba(255,255,255,0.12)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-16 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {[
-            { icon: Truck,       title: t('why.delivery'),  sub: t('why.deliverysub') },
-            { icon: RefreshCw,   title: t('why.returns'),   sub: t('why.returnssub')  },
-            { icon: Award,       title: t('why.quality'),   sub: t('why.qualitysub')  },
-            { icon: Headphones,  title: t('why.support'),   sub: t('why.supportsub')  },
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col items-center text-center gap-3">
-              <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center mb-1"
-                style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.25)' }}
-              >
-                <item.icon className="w-6 h-6" style={{ color: '#FFFFFF' }} />
-              </div>
-              <p className="text-sm font-black tracking-tight" style={{ color: '#FFFFFF' }}>{item.title}</p>
-              <p className="text-[10px] leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>{item.sub}</p>
+      {/* Agency Ticker — DESIGN MONKS STYLE */}
+      <div className="ticker-marquee">
+        <div className="ticker-content">
+          {[ 'ELITE ASSETS', 'INSTITUTIONAL GRADE', 'AUTHENTICATED ARCHIVE', 'GLOBAL NODES', 'VERIFIED IMPORT', 'ELITE ASSETS', 'INSTITUTIONAL GRADE', 'AUTHENTICATED ARCHIVE' ].map((label, idx) => (
+            <div key={idx} className="flex items-center gap-6">
+              <span className="text-[11px] font-black uppercase tracking-[0.5em] text-white/40">{label}</span>
+              <div className="w-2 h-2 rounded-full bg-[var(--splaro-gold)]/20" />
             </div>
           ))}
         </div>
+      </div>
+
+      <section className="max-w-screen-2xl mx-auto px-6 py-32 lg:py-48 relative overflow-hidden">
+        <div className="relative z-10">
+          {/* Section header — Design Monks Inspired */}
+          <div className="mb-24 sm:mb-32">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="flex items-center gap-6 mb-12"
+            >
+              <div className="h-[1px] w-12 bg-[var(--splaro-gold)]" />
+              <span className="text-[11px] font-black uppercase tracking-[0.8em] text-[var(--splaro-gold)] uppercase">Featured Assets // 2026 Archive</span>
+            </motion.div>
+            
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-16">
+              <h2
+                className="text-6xl sm:text-8xl md:text-9xl lg:text-[10rem] font-black italic tracking-[-0.05em] leading-[0.85] uppercase text-white shadow-2xl"
+              >
+                CURATED <br />
+                <span className="text-[var(--splaro-gold)]">SELECTION</span>
+              </h2>
+              
+              <div className="flex flex-col gap-10 items-start lg:items-end lg:text-right shrink-0">
+                <p className="text-sm sm:text-lg max-w-sm leading-relaxed font-medium text-white/30 uppercase tracking-[0.3em]">
+                  A rigorous selection of athletic mastery and imported craft, authenticated for the modern elite.
+                </p>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/shop')}
+                  className="pointer-events-auto h-20 px-12 rounded-[24px] bg-white text-black font-black uppercase tracking-[0.4em] text-[11px] flex items-center gap-6 group hover:bg-[var(--splaro-gold)] transition-all"
+                >
+                  DISCOVER MORE <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                </motion.button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bento-grid">
+            {displayProducts.map((p, i) => (
+              <div key={p.id} className={`${i % 5 === 0 ? 'bento-wide' : i % 7 === 0 ? 'bento-tall' : ''}`}>
+                <ProductCard product={p} index={i} />
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
+
+      {/* ── Trending Carousel ── */}
+      <TrendingCarousel />
+
+      {/* ── Brand Statement / Manifesto — Cinematic Typography ── */}
+      <section className="py-24 relative overflow-hidden bg-white text-black">
+         <div className="absolute inset-0 bg-[#F9FAFB]" />
+         <div className="max-w-[1800px] mx-auto px-6 relative z-10 flex flex-col gap-12">
+            <div className="flex items-center gap-6">
+               <div className="w-16 h-[2px] bg-black" />
+               <p className="text-[11px] font-black uppercase tracking-[0.8em]">Splaro Philosophy</p>
+            </div>
+            
+            <h2 className="text-[clamp(3.5rem,10vw,16rem)] font-black italic tracking-tighter leading-[0.85] uppercase">
+              Move Like <br />
+              <span className="text-zinc-300">Absolute</span> <br />
+              Luxury.
+            </h2>
+            
+            <div className="flex flex-col md:flex-row items-end justify-between gap-12 mt-12">
+               <p className="text-xl md:text-3xl font-bold uppercase tracking-tighter max-w-xl leading-tight">
+                 We don't just sell footwear. <br />
+                 We curate the intersection of <br />
+                 <span className="text-zinc-500 underline decoration-2 underline-offset-8">Applied Engineering</span> and <span className="text-zinc-500 underline decoration-2 underline-offset-8">Archival Artistry.</span>
+               </p>
+               
+               <div className="flex flex-col gap-6 text-right items-end">
+                  <div className="text-[10px] font-black uppercase tracking-[0.4em] px-5 py-2.5 rounded-full border border-black/10">Est. 2026 Archive</div>
+                  <motion.button 
+                    whileHover={{ x: 10 }}
+                    className="flex items-center gap-6 text-[11px] font-black uppercase tracking-[0.5em]"
+                  >
+                    Our Story <ArrowRight className="w-6 h-6" />
+                  </motion.button>
+               </div>
+            </div>
+         </div>
+      </section>
+
+      {/* ── Limited Drop ── */}
+      <LimitedDropSection />
+
+      {/* ── Featured Categories ── */}
+      <FeaturedCategories />
+      
+      {/* ── VIP Membership ── */}
+      <VipClubSection />
+
+      <InstagramGallery />
+      <ServiceShowcase />
+      
+      <div className="py-24 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-baseline justify-between gap-6 mb-16">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[var(--splaro-gold)] mb-4">— Elite Craftsmanship —</p>
+            <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic leading-none">
+              Unrivaled <br /><span className="text-white/40">Heritage.</span>
+            </h2>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch">
+          <div className="md:col-span-8 h-[500px] rounded-3xl overflow-hidden relative group">
+            <OptimizedImage 
+              src="https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=1920" 
+              alt="Elite Footwear" 
+              className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-12 flex flex-col justify-end">
+               <h3 className="text-3xl font-black uppercase italic text-white mb-4">The Performance Lab</h3>
+               <p className="text-white/60 text-sm max-w-lg">Each unit undergoes rigorous authenticity screening and performance indexing before entering our archives.</p>
+            </div>
+          </div>
+          <div className="md:col-span-4 h-[500px] rounded-3xl overflow-hidden relative group">
+            <OptimizedImage 
+              src="https://images.unsplash.com/photo-1512374382149-4332c6c02151?q=80&w=1920" 
+              alt="Luxury Detail" 
+              className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-12 flex flex-col justify-end">
+               <h3 className="text-3xl font-black uppercase italic text-white mb-4">Archival Grade</h3>
+               <p className="text-white/60 text-sm">Finest materials selected from global heritage manufacturers.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <LuxuryNewsletter />
 
       {/* Section separator */}
       <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)' }} />
@@ -511,7 +371,7 @@ const HomeView = () => {
               transition={{ delay: i * 0.15, duration: 0.6 }}
               className="p-7 rounded-xl flex flex-col gap-5 relative"
               style={{
-                background: 'rgba(8,18,44,0.70)',
+                background: 'rgba(8,18,44,0.40)',
                 border: '1px solid rgba(255,255,255,0.18)',
                 backdropFilter: 'blur(14px)',
               }}
@@ -569,11 +429,11 @@ const HomeView = () => {
               <span className="text-[10px] font-black uppercase" style={{ letterSpacing: '0.4em', color: '#FFFFFF' }}>{t('sale.badge')}</span>
             </div>
             <h3
-              className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#FFFFFF' }}
+              className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tighter uppercase mb-4 text-white"
+              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
             >
               {t('sale.title1')}<br />
-              <span style={{ color: '#FFFFFF' }}>{t('sale.title2')}</span>
+              <span className="text-[var(--splaro-gold)]">{t('sale.title2')}</span>
             </h3>
             <p className="text-sm max-w-sm" style={{ color: 'rgba(255,255,255,0.70)' }}>
               {t('sale.sub')}
@@ -670,13 +530,13 @@ const OrderSuccessView = () => {
   }, [location.search]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#050505] relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-[var(--splaro-midnight)] relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-[#3D6B3D]/15 via-transparent to-[#FFFFFF]/10 opacity-30" />
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-[var(--splaro-gold)]/5 via-transparent to-black/5 opacity-30" />
         <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.03, 0.08, 0.03] }}
           transition={{ duration: 10, repeat: Infinity }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#FFFFFF] rounded-full blur-[200px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[var(--splaro-gold)]/10 rounded-full blur-[200px]"
         />
       </div>
 
@@ -706,11 +566,11 @@ const OrderSuccessView = () => {
           initial={{ x: -200, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 1, duration: 1 }}
-          className="text-4xl sm:text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
+          className="text-4xl sm:text-6xl md:text-[10rem] font-black tracking-tighter uppercase leading-none mb-6 italic text-white"
         >
           {t('success.title')}
         </motion.h1>
-        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[#FFFFFF]/60 mb-16 animate-pulse">{t('success.sub')}</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.8em] text-[var(--splaro-gold)]/60 mb-16 animate-pulse">{t('success.sub')}</p>
         {invoiceState === 'sent' && (
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300 mb-10">
             Invoice email delivered to your inbox.
@@ -722,50 +582,8 @@ const OrderSuccessView = () => {
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left mb-16">
-          <GlassCard className="p-10 !bg-white/[0.04]">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FFFFFF] mb-6">{t('success.orderSummary')}</h4>
-            <div className="space-y-4">
-              <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.orderId')}</span>
-                <span className="text-xs font-black text-white uppercase tracking-wider">#{latestOrder?.id}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.customer')}</span>
-                <span className="text-xs font-black text-white uppercase">{latestOrder?.customerName}</span>
-              </div>
-              <div className="flex justify-between border-b border-white/5 pb-4">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.address')}</span>
-                <span className="text-xs font-black text-white uppercase">{latestOrder?.district}</span>
-              </div>
-              <div className="flex justify-between pt-2">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase">{t('success.total')}</span>
-                <span className="text-xl font-black text-[#FFFFFF]">৳{latestOrder?.total.toLocaleString()}</span>
-              </div>
-            </div>
-          </GlassCard>
+        <DiamondReceipt order={latestOrder} />
 
-          <GlassCard className="p-10 !bg-white/[0.04] flex flex-col justify-center">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FFFFFF] mb-8">{t('success.status')}</h4>
-            <div className="space-y-8">
-              {[
-                { label: t('success.step1'), status: t('checkout.cod') === 'Cash on Delivery' ? 'Completed' : 'Completed', icon: CheckCircle2, active: true },
-                { label: 'Processing', status: 'In Progress', icon: Sparkles, active: true },
-                { label: 'Delivery', status: 'Scheduled', icon: ShoppingBag, active: false }
-              ].map((step, i) => (
-                <div key={i} className="flex items-center gap-6">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${step.active ? 'bg-[#FFFFFF]/10 text-[#FFFFFF]' : 'bg-white/5 text-zinc-800'}`}>
-                    <step.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className={`text-[11px] font-black uppercase tracking-widest ${step.active ? 'text-white' : 'text-zinc-800'}`}>{step.label}</p>
-                    <p className="text-[9px] font-bold uppercase text-zinc-600">{step.status}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </GlassCard>
-        </div>
 
         <div className="flex flex-col sm:flex-row gap-6 justify-center">
           <PrimaryButton onClick={() => navigate('/')} className="px-16 py-7 text-[10px] !bg-white/5 !border !border-white/10 hover:!bg-white/10">
@@ -830,266 +648,180 @@ const BrandMarquee = () => {
   );
 };
 
+const InstitutionalIntelligence = () => {
+  const [pulse, setPulse] = React.useState(0);
+  React.useEffect(() => {
+    const int = setInterval(() => setPulse(p => (p + 1) % 100), 3000);
+    return () => clearInterval(int);
+  }, []);
+
+  return (
+    <div className="fixed bottom-32 left-8 z-[100] hidden xl:flex flex-col gap-4 pointer-events-none group">
+       <div className="flex items-center gap-3 p-4 rounded-xl liquid-glass border border-white/5 opacity-40 group-hover:opacity-100 transition-opacity">
+          <div className="relative w-2 h-2">
+             <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping" />
+             <div className="absolute inset-0 bg-emerald-500 rounded-full" />
+          </div>
+          <div className="space-y-1">
+             <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[var(--splaro-gold)]">Splaro Registry</p>
+             <p className="text-[10px] font-black text-white uppercase italic">Active Node: 0x{pulse.toString(16).padStart(2, '0')}FE</p>
+          </div>
+       </div>
+       <div className="flex items-center gap-3 p-4 rounded-xl liquid-glass border border-white/5 opacity-20 group-hover:opacity-100 transition-opacity delay-75">
+          <Activity className="w-4 h-4 text-zinc-500" />
+          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Neutralizing Latency...</p>
+       </div>
+    </div>
+  );
+};
+
 const Footer = () => {
-  const navigate = useNavigate();
   const { siteSettings } = useApp();
   const { t } = useTranslation();
 
-  const COGNAC      = '#FFFFFF';
-  const COGNAC_DIM  = 'rgba(255,255,255,0.55)';
-  const COGNAC_MUTE = 'rgba(255,255,255,0.38)';
-  const TEXT_DIM    = 'rgba(255,255,255,0.58)';
-
-  const footerLink = (label: string, path: string) => (
-    <motion.span
-      whileHover={{ x: 5, color: COGNAC }}
-      onClick={() => navigate(path)}
-      className="cursor-pointer transition-all duration-300 text-[10px] font-medium uppercase"
-      style={{ letterSpacing: '0.32em', color: TEXT_DIM }}
-    >
-      {label}
-    </motion.span>
-  );
-
   return (
-    <footer
-      className="relative mt-40 md:mt-60 pb-20 px-0 sm:px-4 md:px-10 lg:px-12 overflow-hidden"
-    >
-      {/* Natural gradient background */}
-      <div
-        className="absolute inset-x-0 top-0 bottom-0 -z-10"
-        style={{ background: 'linear-gradient(180deg, rgba(8,14,32,0.5) 0%, #080C06 100%)' }}
-      />
+    <footer className="relative mt-40 md:mt-60 pb-20 px-6 sm:px-12 lg:px-24 overflow-hidden border-t border-white/5">
+      {/* Neural Ambience — Institutional Grade */}
+      <div className="absolute inset-x-0 top-0 bottom-0 -z-10 bg-[#050A14]" />
+      <div className="absolute -top-[600px] left-1/3 -translate-x-1/2 w-[1400px] h-[1400px] bg-[var(--splaro-gold)]/5 blur-[300px] rounded-full" />
+      <div className="absolute bottom-0 right-0 w-[60vw] h-[60vw] bg-emerald-500/5 blur-[250px] rounded-full pointer-events-none" />
 
-      {/* Warm forest glow */}
-      <div
-        className="absolute -top-60 -left-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-30"
-        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.18), transparent 60%)' }}
-      />
-      <div
-        className="absolute -bottom-60 -right-60 w-[800px] h-[800px] rounded-full blur-[160px] pointer-events-none opacity-20"
-        style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 60%)' }}
-      />
+      <div className="max-w-[1800px] mx-auto pt-32">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-16 lg:gap-32 mb-40">
+          
+          {/* Institution Identity */}
+          <div className="lg:col-span-4 space-y-16">
+            <div>
+              <h2 className="text-6xl font-black italic tracking-[-0.08em] uppercase text-white mb-4">SPLARO.</h2>
+              <div className="flex items-center gap-4">
+                 <div className="h-[1px] w-8 bg-[var(--splaro-gold)]" />
+                 <p className="technical-id text-[var(--splaro-gold)]">Global Archive Registry // Est. 2026</p>
+              </div>
+            </div>
+            
+            <p className="text-[13px] font-medium text-zinc-500 leading-relaxed max-w-sm uppercase tracking-[0.3em]">
+              Bangladesh's premier digital gateway to curated global footwear engineering and archival fashion heritage.
+            </p>
 
-      <div className="max-w-[1800px] mx-auto px-2 sm:px-0">
-        <BrandMarquee />
-
-        <div
-          className="liquid-glass rounded-[10px] sm:rounded-[12px] md:rounded-[48px] p-5 sm:p-10 md:p-16 lg:p-20 relative overflow-hidden"
-          style={{
-            border: '1px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 50px 100px -20px rgba(0,0,0,0.55)',
-          }}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 md:gap-16 lg:gap-12 relative z-10">
-
-            {/* Brand Column */}
-            <div className="lg:col-span-3 space-y-8">
-              <div className="cursor-pointer inline-block" onClick={() => navigate('/')}>
-                <span
-                  className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase select-none"
-                  style={{ fontFamily: "'Playfair Display', Georgia, serif", color: '#F0FAFF' }}
+            <div className="flex gap-4">
+              {[Instagram, Facebook, Globe, MessageSquare].map((Icon, i) => (
+                <motion.a 
+                  key={i} 
+                  whileHover={{ y: -8, scale: 1.1, backgroundColor: 'rgba(255,255,255,0.05)' }} 
+                  className="w-16 h-16 rounded-2xl backlit-surface flex items-center justify-center text-zinc-500 border border-white/5 hover:text-white transition-all duration-500"
                 >
-                  SPLARO
-                </span>
-                <p className="text-[8px] font-medium uppercase mt-1" style={{ letterSpacing: '0.35em', color: COGNAC }}>
-                  Luxury Footwear &amp; Bags
-                </p>
-              </div>
-              <p
-                className="text-[10px] font-medium leading-relaxed max-w-xs"
-                style={{ letterSpacing: '0.12em', color: TEXT_DIM }}
-              >
-                {t('footer.tagline')}
-              </p>
-              <div className="flex gap-3">
-                {[
-                  { icon: Instagram, link: siteSettings.instagramLink || 'https://www.instagram.com/splaro.bd' },
-                  { icon: Facebook, link: siteSettings.facebookLink || 'https://facebook.com/splaro.co' },
-                  { icon: Globe, link: 'https://splaro.co' }
-                ].map((social, idx) => (
-                  <motion.a
-                    key={idx}
-                    whileHover={{ scale: 1.1, y: -3 }}
-                    whileTap={{ scale: 0.95 }}
-                    href={social.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-400"
-                    style={{
-                      background: 'rgba(255,255,255,0.07)',
-                      border: '1px solid rgba(255,255,255,0.14)',
-                      color: 'rgba(255,255,255,0.45)',
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.color = COGNAC;
-                      (e.currentTarget as HTMLElement).style.borderColor = COGNAC_DIM;
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.10)';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.45)';
-                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)';
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)';
-                    }}
-                  >
-                    <social.icon className="w-4 h-4" />
-                  </motion.a>
-                ))}
-              </div>
-            </div>
-
-            {/* Headquarters */}
-            <div className="lg:col-span-3 space-y-8">
-              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                {t('footer.office')}
-              </h4>
-              <div className="flex items-start gap-5 group">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                >
-                  <MapPin className="w-4 h-4" style={{ color: COGNAC }} />
-                </div>
-                <div>
-                  <p className="text-xs font-medium leading-relaxed" style={{ letterSpacing: '0.12em', color: 'rgba(240,248,255,0.85)' }}>
-                    Sector 13, Road 16
-                  </p>
-                  <p className="text-xs font-medium leading-relaxed" style={{ letterSpacing: '0.12em', color: 'rgba(240,248,255,0.85)' }}>
-                    Uttara, Dhaka 1230
-                  </p>
-                  <p className="text-[9px] font-medium uppercase mt-2" style={{ letterSpacing: '0.28em', color: COGNAC_MUTE }}>
-                    Bangladesh
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact */}
-            <div className="lg:col-span-2 space-y-8">
-              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                {t('footer.contact')}
-              </h4>
-              <div className="space-y-5">
-                <div className="flex items-center gap-4 group">
-                  <Mail className="w-4 h-4 shrink-0" style={{ color: COGNAC_MUTE }} />
-                  <a
-                    href="mailto:info@splaro.co"
-                    className="text-[10px] font-medium uppercase transition-colors"
-                    style={{ letterSpacing: '0.18em', color: TEXT_DIM }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#F0FAFF')}
-                    onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}
-                  >
-                    info@splaro.co
-                  </a>
-                </div>
-                <div className="flex items-center gap-4 group">
-                  <Phone className="w-4 h-4 shrink-0" style={{ color: COGNAC_MUTE }} />
-                  <a
-                    href="tel:+8801905010205"
-                    className="text-[10px] font-medium uppercase transition-colors whitespace-nowrap"
-                    style={{ letterSpacing: '0.18em', color: TEXT_DIM }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#F0FAFF')}
-                    onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}
-                  >
-                    +880 1905 010 205
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div className="lg:col-span-2 space-y-8">
-              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                {t('footer.collection')}
-              </h4>
-              <div className="flex flex-col gap-4">
-                {footerLink(t('footer.allProducts'), '/shop')}
-                {footerLink(t('footer.shoes'), '/shop?category=shoes')}
-                {footerLink(t('footer.bags'), '/shop?category=bags')}
-                {footerLink(t('footer.tracking'), '/order-tracking')}
-              </div>
-            </div>
-
-            {/* Support */}
-            <div className="lg:col-span-2 space-y-8">
-              <h4 className="text-[10px] font-bold uppercase" style={{ letterSpacing: '0.55em', color: COGNAC }}>
-                {t('footer.support')}
-              </h4>
-              <div className="flex flex-col gap-4">
-                {footerLink(t('footer.about'), '/manifest')}
-                {footerLink(t('footer.privacy'), '/privacy')}
-                {footerLink(t('footer.terms'), '/terms')}
-                {footerLink(t('footer.refund'), '/refund-policy')}
-              </div>
-            </div>
-
-          </div>
-
-          {/* Trust & Security Badges */}
-          <div
-            className="mt-12 pt-8 grid grid-cols-2 md:grid-cols-4 gap-4"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}
-          >
-            {[
-              { icon: Shield,       label: t('trust.ssl'),      sub: t('trust.sslSub') },
-              { icon: CheckCircle2, label: t('trust.auth'),     sub: t('trust.authSub') },
-              { icon: CreditCard,   label: t('trust.payment'),  sub: t('trust.paymentSub') },
-              { icon: Box,          label: t('trust.delivery'), sub: t('trust.deliverySub') }
-            ].map((badge) => (
-              <div
-                key={badge.label}
-                className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)' }}
-              >
-                <badge.icon className="w-4 h-4 shrink-0" style={{ color: COGNAC }} />
-                <div>
-                  <p className="text-[9px] font-bold uppercase" style={{ letterSpacing: '0.2em', color: '#FFFFFF' }}>{badge.label}</p>
-                  <p className="text-[8px] font-medium mt-0.5" style={{ color: COGNAC_MUTE }}>{badge.sub}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer bottom */}
-          <div
-            className="mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-6"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)' }}>
-                <Globe className="w-4 h-4" style={{ color: COGNAC }} />
-              </div>
-              <p className="text-[9px] font-medium uppercase" style={{ letterSpacing: '0.28em', color: TEXT_DIM }}>
-                <span style={{ color: '#FFFFFF', fontWeight: 700 }}>{t('footer.imported')}</span> — {t('footer.grade')}
-              </p>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#FFFFFF', boxShadow: '0 0 8px rgba(255,255,255,0.60)' }} />
-                <p className="text-[8px] font-medium tracking-[0.45em] uppercase" style={{ color: COGNAC_MUTE }}>
-                  {t('footer.secured')}
-                </p>
-              </div>
-              <span
-                onClick={() => navigate('/login')}
-                className="text-[8px] font-medium uppercase tracking-[0.45em] cursor-pointer transition-all opacity-30"
-                style={{ color: '#F0FAFF' }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.70')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '0.30')}
-              >
-                Admin
-              </span>
+                  <Icon className="w-5 h-5" />
+                </motion.a>
+              ))}
             </div>
           </div>
+
+          {/* Directory Sections */}
+          <div className="lg:col-span-2 space-y-12 pt-4">
+            <h4 className="technical-id text-white/40">Archive // 01</h4>
+            <div className="flex flex-col gap-6">
+              {['Catalogue', 'New Arrivals', 'Limited Drops', 'Journal', 'Our Story'].map((link) => (
+                <FooterLink key={link} label={link} />
+              ))}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-12 pt-4">
+            <h4 className="technical-id text-white/40">Protocol // 02</h4>
+            <div className="flex flex-col gap-6">
+              {['Order Tracking', 'Returns & Exchanges', 'FAQ', 'Contact', 'Privacy Policy'].map((link) => (
+                <FooterLink key={link} label={link} />
+              ))}
+            </div>
+          </div>
+
+          {/* Institutional Status Terminal */}
+          <div className="lg:col-span-4 space-y-12 pt-4">
+            <h4 className="technical-id text-white/40">Security Status // 03</h4>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: 'Uptime Index', val: '99.98% Active', icon: Activity },
+                { label: 'Network G-Sync', val: 'Proprietary', icon: Cpu },
+                { label: 'Security Tier', val: 'Elite-AES-256', icon: Shield },
+                { label: 'Registry Node', val: 'Dhaka-Alp-01', icon: Fingerprint }
+              ].map((stat, i) => (
+                <div key={i} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 group hover:bg-white/[0.05] transition-all duration-700">
+                  <div className="flex items-center justify-between mb-4">
+                     <stat.icon className="w-4 h-4 text-zinc-700 group-hover:text-[var(--splaro-gold)] transition-colors" />
+                     <div className="w-1.5 h-1.5 rounded-full bg-zinc-800 group-hover:bg-emerald-500 transition-colors" />
+                  </div>
+                  <p className="technical-id text-zinc-600 mb-1">{stat.label}</p>
+                  <p className="text-xs font-black text-white uppercase italic tracking-tighter">{stat.val}</p>
+                </div>
+              ))}
+            </div>
+            
+            <div className="backlit-surface p-6 rounded-3xl border border-white/10 flex items-center justify-between group">
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
+                     <Box className="w-5 h-5 text-[var(--splaro-gold)]" />
+                  </div>
+                  <div>
+                     <p className="technical-id text-white">Registry Ready</p>
+                     <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">Verified Import Channel</p>
+                  </div>
+               </div>
+               <ArrowRight className="w-5 h-5 text-zinc-800 group-hover:text-white transition-colors group-hover:translate-x-1" />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Legal & Versioning */}
+        <div className="pt-16 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-10">
+           <div className="flex flex-col md:flex-row items-center gap-10">
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-700">© 2026 SPLARO INSTITUTION. COLLECTIVE AUTHENTICITY.</p>
+              <div className="hidden md:block w-[1px] h-4 bg-white/10" />
+              <div className="flex items-center gap-4">
+                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                 <span className="technical-id text-emerald-500/40">Registry Health: Optimal</span>
+              </div>
+           </div>
+           
+           <div className="flex items-center gap-8">
+              <p className="technical-id">Ver: 2.8.4-X Arch</p>
+              <p className="technical-id text-[var(--splaro-gold)]">Institutional Grade Asset</p>
+           </div>
         </div>
       </div>
     </footer>
+};
+
+const footerRouteMap: Record<string, string> = {
+  'Catalogue': '/shop',
+  'New Arrivals': '/shop',
+  'Limited Drops': '/shop',
+  'Journal': '/journal',
+  'Our Story': '/story',
+  'Order Tracking': '/order-tracking',
+  'Returns & Exchanges': '/returns',
+  'FAQ': '/faq',
+  'Contact': '/contact',
+  'Privacy Policy': '/privacy',
+};
+
+const FooterLink = ({ label }: { label: string }) => {
+  const navigate = useNavigate();
+  return (
+    <motion.button 
+      whileHover={{ x: 6, color: 'var(--splaro-gold)' }}
+      onClick={() => navigate(footerRouteMap[label] || '/')}
+      className="technical-id text-zinc-600 text-left transition-colors whitespace-nowrap cursor-pointer"
+    >
+      {label}
+    </motion.button>
   );
 };
 
 const AppContent = () => {
-  const { view, setView, products, theme, setTheme, selectedProduct, siteSettings, user } = useApp();
+  const { view, setView, products, theme, setTheme, selectedProduct, siteSettings, user, isSearchOpen, setIsSearchOpen } = useApp();
   const navigate = useNavigate();
+  const [isAiStylistOpen, setIsAiStylistOpen] = useState(false);
   const location = useLocation();
   const adminDomain = isAdminSubdomainHost();
   const hasAdminIdentity = isAdminRole(user?.role);
@@ -1110,11 +842,33 @@ const AppContent = () => {
   }, [siteSettings.cmsPublished, siteSettings.cmsDraft, siteSettings.cmsActiveVersion, user?.role, isAdminSurface]);
 
   useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.8,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1.2,
+      touchMultiplier: 2,
+      lerp: 0.1,
+    });
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
     // App initialized
-    console.log('Splaro app loaded.');
+    console.log('Splaro app loaded with Smooth Scroll.');
     if (typeof window !== 'undefined') {
       (window as any).__SPLARO_APP_BOOTED = true;
     }
+
+    return () => {
+      lenis.destroy();
+    };
   }, []);
 
   useEffect(() => {
@@ -1275,112 +1029,160 @@ const AppContent = () => {
   const showFooter = !isAdminSurface && view !== View.ORDER_SUCCESS && view !== View.CHECKOUT;
 
   return (
-    <div className={`min-h-screen selection:bg-[#FFFFFF]/30 overflow-x-hidden`}>
+    <div className={`min-h-screen selection:bg-[#FFFFFF]/30 overflow-x-hidden relative`}>
+      <CustomCursor />
+      <AnimatedBackground />
+
+      {/* Cinematic Spectral Noise Overlay — MAXIMALIST UPGRADE */}
+      <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-[9999] mix-blend-overlay">
+         <svg className="w-full h-full"> 
+            <filter id="spectral-noise">
+              <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+              <feColorMatrix type="saturate" values="0" />
+            </filter>
+            <rect width="100%" height="100%" filter="url(#spectral-noise)" />
+         </svg>
+      </div>
+
+      {/* Floating Neural Gloom Spots — DESIGN MONKS UPGRADE */}
+      {!isAdminSurface && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <motion.div 
+             animate={{ x: [-200, 200, -200], y: [-100, 100, -100], opacity: [0.08, 0.22, 0.08] }}
+             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+             className="absolute -top-1/4 -left-1/4 w-[100vw] h-[100vw] bg-[var(--splaro-gold)]/15 blur-[250px] rounded-full" 
+          />
+          <motion.div 
+             animate={{ x: [200, -200, 200], y: [100, -100, 100], opacity: [0.08, 0.15, 0.08] }}
+             transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+             className="absolute -bottom-1/4 -right-1/4 w-[80vw] h-[80vw] bg-[var(--splaro-gold)]/10 blur-[250px] rounded-full" 
+          />
+        </div>
+      )}
+
+      <InstitutionalIntelligence />
+
       {showNav && <Navbar />}
       {showMobileBar && <MobileTabBar />}
 
       {siteSettings.maintenanceMode && !isAdminRole(user?.role) && location.pathname !== '/sourove-admin' ? (
-        <div className="min-h-screen flex flex-col items-center justify-center p-12 text-center bg-[#05060A]">
-          <div className="w-32 h-32 rounded-[12px] bg-[#007AFF]/10 flex items-center justify-center text-blue-500 mb-12 animate-pulse">
+        <div className="min-h-screen flex flex-col items-center justify-center p-12 text-center bg-[#010408]">
+          <div className="w-40 h-40 rounded-[32px] bg-[var(--splaro-gold)]/10 flex items-center justify-center text-[var(--splaro-gold)] mb-12 animate-pulse liquid-glass">
             <Activity className="w-16 h-16" />
           </div>
-          <h1 className="text-5xl font-black uppercase italic tracking-tighter text-white mb-6">Tactical Recalibration</h1>
-          <p className="max-w-xl text-zinc-500 text-sm font-black uppercase tracking-[0.4em] leading-relaxed">
-            Institutional registry is currently undergoing a scheduled archival synchronization. Discovery terminals restricted during maintenance window.
+          <h1 className="text-4xl sm:text-6xl md:text-8xl font-black uppercase italic tracking-tighter text-white mb-6" style={{ fontFamily: 'var(--font-primary)' }}>Tactical Sync</h1>
+          <p className="max-w-xl text-zinc-500 text-sm font-medium uppercase tracking-[0.4em] leading-relaxed">
+            Registry is undergoing archival synchronization. Nodes restricted.
           </p>
           <div className="mt-20 flex gap-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-700">
-            <span>SIGNAL STRENGTH: STABLE</span>
+            <span>STRENGTH: STABLE</span>
             <span className="w-1 h-1 rounded-full bg-zinc-800 self-center" />
-            <span>ENCRYPTION: ACTIVE</span>
+            <span>ENCRYPTION: ELITE</span>
           </div>
-          <button
-            onClick={() => navigate('/sourove-admin')}
-            className="mt-20 px-10 py-4 bg-white/5 border border-white/10 rounded-full text-[8px] font-black uppercase tracking-[0.5em] text-zinc-600 hover:text-white transition-all"
-          >
-            Terminal Authorization
-          </button>
         </div>
       ) : (
-        <main className={isAdminSurface ? '' : MOBILE_CONTENT_SAFE_CLASS}>
-          <Routes location={location}>
-            {adminDomain ? (
-              <>
-                <Route
-                  path="/"
-                  element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
-                />
-                <Route path="/sourove-admin" element={<LazyView><LoginForm /></LazyView>} />
-                <Route path="/login" element={<Navigate to="/sourove-admin" replace />} />
-                <Route path="/admin_dashboard" element={<LazyView><AdminPanel /></LazyView>} />
-                <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
-                <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
-                <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
-                <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
-                <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
-                <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
-                <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
-                <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
-                <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
-                <Route path="/admin/campaigns" element={<LazyView><AdminCampaignsPage /></LazyView>} />
-                <Route path="/admin/campaigns/new" element={<LazyView><AdminCampaignNewPage /></LazyView>} />
-                <Route path="/admin/campaigns/:id" element={<LazyView><AdminCampaignDetailPage /></LazyView>} />
-                <Route path="/admin/campaigns/:id/logs" element={<LazyView><AdminCampaignLogsPage /></LazyView>} />
-                <Route path="/admin/search" element={<LazyView><AdminSearchPage /></LazyView>} />
-                <Route
-                  path="*"
-                  element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
-                />
-              </>
-            ) : (
-              <>
-                <Route path="/" element={<HomeView />} />
-                <Route path="/shop" element={<LazyView><ShopPage /></LazyView>} />
-                <Route path="/search" element={<Navigate to="/shop" replace />} />
-                <Route path="/detail" element={<LazyView><ProductDetailPage /></LazyView>} />
-                <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<LazyView><ProductDetailPage /></LazyView>} />
-                <Route path="/product/:id" element={<LazyView><ProductDetailPage /></LazyView>} />
-                <Route path="/cart" element={<LazyView><CartPage /></LazyView>} />
-                <Route path="/checkout" element={<LazyView><CheckoutPage /></LazyView>} />
-                <Route path="/login" element={<LazyView><LoginForm /></LazyView>} />
-                <Route path="/sourove-admin" element={<Navigate to="/login" replace />} />
-                <Route path="/signup" element={<LazyView><SignupForm /></LazyView>} />
-                <Route path="/user_dashboard" element={<LazyView><UserDashboard /></LazyView>} />
-                <Route path="/admin_dashboard" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/users" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/products" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/orders" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/coupons" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/reports" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/settings" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/system" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/system-health" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/campaigns" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/campaigns/new" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/campaigns/:id" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/campaigns/:id/logs" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/admin/search" element={<Navigate to={storefrontIdentityPath} replace />} />
-                <Route path="/order_success" element={<OrderSuccessView />} />
-                <Route path="/story" element={<StoryPage />} />
-                <Route path="/support" element={<SupportPage />} />
-                <Route path="/manifest" element={<ManifestPage />} />
-                <Route path="/privacy" element={<PrivacyPolicyPage />} />
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/order-tracking" element={<OrderTrackingPage />} />
-                <Route path="/refund-policy" element={<RefundPolicyPage />} />
-                <Route path="/debug/mobile" element={<MobileDebugPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </>
+        <main className={`${isAdminSurface ? '' : MOBILE_CONTENT_SAFE_CLASS} ${!isAdminSurface ? 'px-4 sm:px-6 md:px-12 py-6' : ''}`}>
+          <div className={isAdminSurface ? '' : "liquid-glass min-h-screen relative overflow-hidden flex flex-col pt-0 transition-all duration-700 shadow-[0_60px_150px_-30px_rgba(0,0,0,0.9)]"}>
+            {/* Structural Highlight */}
+            {!isAdminSurface && (
+              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--splaro-gold)]/40 to-transparent z-[10]" />
             )}
-          </Routes>
+            
+            <Routes location={location}>
+              {adminDomain ? (
+                <>
+                  <Route
+                    path="/"
+                    element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
+                  />
+                  <Route path="/sourove-admin" element={<LazyView><LoginForm /></LazyView>} />
+                  <Route path="/login" element={<Navigate to="/sourove-admin" replace />} />
+                  <Route path="/admin_dashboard" element={<LazyView><AdminPanel /></LazyView>} />
+                  <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
+                  <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
+                  <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
+                  <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
+                  <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
+                  <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
+                  <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
+                  <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
+                  <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
+                  <Route path="/admin/campaigns" element={<LazyView><AdminCampaignsPage /></LazyView>} />
+                  <Route path="/admin/campaigns/new" element={<LazyView><AdminCampaignNewPage /></LazyView>} />
+                  <Route path="/admin/campaigns/:id" element={<LazyView><AdminCampaignDetailPage /></LazyView>} />
+                  <Route path="/admin/campaigns/:id/logs" element={<LazyView><AdminCampaignLogsPage /></LazyView>} />
+                  <Route path="/admin/search" element={<LazyView><AdminSearchPage /></LazyView>} />
+                  <Route
+                    path="*"
+                    element={<Navigate to={isAdminRole(user?.role) ? "/admin_dashboard?tab=DASHBOARD" : "/sourove-admin"} replace />}
+                  />
+                </>
+              ) : (
+                <>
+                  <Route path="/" element={<HomeView />} />
+                  <Route path="/shop" element={<LazyView><ShopPage /></LazyView>} />
+                  <Route path="/search" element={<Navigate to="/shop" replace />} />
+                  <Route path="/detail" element={<LazyView><ProductDetailPage /></LazyView>} />
+                  <Route path="/product/:brandSlug/:categorySlug/:productSlug" element={<LazyView><ProductDetailPage /></LazyView>} />
+                  <Route path="/product/:id" element={<LazyView><ProductDetailPage /></LazyView>} />
+                  <Route path="/cart" element={<LazyView><PageWrapper><CartPage /></PageWrapper></LazyView>} />
+                  <Route path="/wishlist" element={<LazyView><PageWrapper><WishlistPage /></PageWrapper></LazyView>} />
+                  <Route path="/checkout" element={<LazyView><PageWrapper><CheckoutPage /></PageWrapper></LazyView>} />
+                  <Route path="/login" element={<LazyView><LoginForm /></LazyView>} />
+                  <Route path="/sourove-admin" element={<Navigate to="/login" replace />} />
+                  <Route path="/signup" element={<LazyView><SignupForm /></LazyView>} />
+                  <Route path="/user_dashboard" element={<LazyView><UserDashboard /></LazyView>} />
+                  <Route path="/admin_dashboard" element={isAdminRole(user?.role) ? <LazyView><AdminPanel /></LazyView> : <Navigate to={storefrontIdentityPath} replace />} />
+                  <Route path="/admin" element={<Navigate to="/admin_dashboard?tab=DASHBOARD" replace />} />
+                  <Route path="/admin/users" element={<Navigate to="/admin_dashboard?tab=USERS" replace />} />
+                  <Route path="/admin/products" element={<Navigate to="/admin_dashboard?tab=PRODUCTS" replace />} />
+                  <Route path="/admin/orders" element={<Navigate to="/admin_dashboard?tab=ORDERS" replace />} />
+                  <Route path="/admin/coupons" element={<Navigate to="/admin_dashboard?tab=DISCOUNTS" replace />} />
+                  <Route path="/admin/reports" element={<Navigate to="/admin_dashboard?tab=ANALYTICS" replace />} />
+                  <Route path="/admin/settings" element={<Navigate to="/admin_dashboard?tab=SETTINGS" replace />} />
+                  <Route path="/admin/system" element={<Navigate to="/admin_dashboard?tab=SYNC" replace />} />
+                  <Route path="/admin/system-health" element={<Navigate to="/admin_dashboard?tab=HEALTH" replace />} />
+                  <Route path="/admin/campaigns" element={isAdminRole(user?.role) ? <LazyView><AdminCampaignsPage /></LazyView> : <Navigate to={storefrontIdentityPath} replace />} />
+                  <Route path="/admin/campaigns/new" element={isAdminRole(user?.role) ? <LazyView><AdminCampaignNewPage /></LazyView> : <Navigate to={storefrontIdentityPath} replace />} />
+                  <Route path="/admin/campaigns/:id" element={isAdminRole(user?.role) ? <LazyView><AdminCampaignDetailPage /></LazyView> : <Navigate to={storefrontIdentityPath} replace />} />
+                  <Route path="/admin/campaigns/:id/logs" element={isAdminRole(user?.role) ? <LazyView><AdminCampaignLogsPage /></LazyView> : <Navigate to={storefrontIdentityPath} replace />} />
+                  <Route path="/admin/search" element={isAdminRole(user?.role) ? <LazyView><AdminSearchPage /></LazyView> : <Navigate to={storefrontIdentityPath} replace />} />
+                  <Route path="/order_success" element={<OrderSuccessView />} />
+                  <Route path="/story" element={<LuxuryStoryPage />} />
+                  <Route path="/support" element={<SupportPage />} />
+                  <Route path="/size-guide" element={<SizeGuideHub />} />
+                  <Route path="/manifest" element={<ManifestPage />} />
+                  <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/order-tracking" element={<OrderTrackingPage />} />
+                  <Route path="/refund-policy" element={<RefundPolicyPage />} />
+                  <Route path="/journal" element={<LazyView><PageWrapper><JournalPage /></PageWrapper></LazyView>} />
+                  <Route path="/faq" element={<LazyView><PageWrapper><FAQPage /></PageWrapper></LazyView>} />
+                  <Route path="/contact" element={<LazyView><PageWrapper><ContactPage /></PageWrapper></LazyView>} />
+                  <Route path="/returns" element={<LazyView><PageWrapper><ReturnExchangePage /></PageWrapper></LazyView>} />
+                  <Route path="/debug/mobile" element={<MobileDebugPage />} />
+                  <Route path="*" element={<LazyView><NotFoundPage /></LazyView>} />
+                </>
+              )}
+            </Routes>
+          </div>
         </main>
       )}
+
+      {showFooter && <Footer />}
 
       {!isAdminSurface && (
         <LazyView>
           <NewArrivalPopup />
         </LazyView>
       )}
+
+      {/* AI Stylist Component */}
+      <AiStylistButton onClick={() => setIsAiStylistOpen(true)} />
+      <AiStylistDrawer isOpen={isAiStylistOpen} onClose={() => setIsAiStylistOpen(false)} />
+
+      {/* Full-Screen Search Overlay */}
+      <SearchOverlay isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       {/* Global Controls & Redesigned WhatsApp Orb */}
       {showWhatsAppFab && (
@@ -1402,7 +1204,7 @@ const AppContent = () => {
             target="_blank"
             rel="noreferrer noopener"
             aria-label="Chat on WhatsApp"
-            className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] rounded-[12px] sm:rounded-[10px] shadow-2xl flex items-center justify-center transition-all group overflow-hidden relative border-2 border-white/20"
+            className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-br from-[#10B981] via-[#059669] to-[#047857] rounded-[16px] shadow-2xl flex items-center justify-center transition-all group overflow-hidden relative border-2 border-white/20"
           >
             <div className="ribbed-texture absolute inset-0 opacity-20 pointer-events-none" />
             <div className="shine-sweep !opacity-40 !duration-[4s]" />
@@ -1415,13 +1217,7 @@ const AppContent = () => {
               className="absolute inset-0 bg-white rounded-full pointer-events-none"
             />
           </motion.a>
-
         </div>
-      )}
-
-
-      {showFooter && (
-        <Footer />
       )}
     </div>
   );
