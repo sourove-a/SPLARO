@@ -1,0 +1,17 @@
+{
+  "name": "@splaro/worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node --env-file=../../.env dist/index.js",
+    "dev": "tsx --env-file=../../.env src/index.ts"
+  },
+  "dependencies": {
+    "@splaro/database": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

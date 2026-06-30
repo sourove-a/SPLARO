@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: splaro_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d splaro_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/splaro_db
+      REDIS_URL: redis://localhost:6379
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      REDIS_ENABLED: 'true'
+      JWT_SECRET: ci-jwt-secret-min-32-characters-long
+      JWT_REFRESH_SECRET: ci-refresh-secret-min-32-characters
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_STORE_ID: splaro
+      API_PORT: 4000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: CSS pipeline
+        run: node scripts/verify-css.mjs
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint web
+        run: pnpm --filter @splaro/web lint
+
+      - name: Database push
+        run: pnpm db:push
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Verify built CSS artifacts
+        run: |
+          test -d apps/web/.next/static/css && ls apps/web/.next/static/css/*.css
+          test -d apps/admin/.next/static/css && ls apps/admin/.next/static/css/*.css
+
+      - name: Start API and smoke test
+        run: |
+          node scripts/api-preflight.mjs
+          cd apps/api && node dist/main.js &
+          sleep 8
+          curl -sf http://localhost:4000/api/v1/health | grep -q ok
+          curl -sf "http://localhost:4000/api/v1/health/routes?storeId=splaro" | grep -q healthy

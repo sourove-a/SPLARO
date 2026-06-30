@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Receipt {{INVOICE_NUMBER}}</title>
+  <style>{{CSS}}</style>
+</head>
+<body>
+  {{TOOLBAR}}
+  <article class="receipt-80">
+    <div class="center">
+      <strong>{{BRAND_NAME}}</strong><br />
+      <span style="font-size:9px;">{{BRAND_TAGLINE}}</span>
+    </div>
+    <hr />
+    <div class="line"><span>Invoice</span><span>{{INVOICE_NUMBER}}</span></div>
+    <div class="line"><span>Date</span><span>{{ISSUE_DATE}}</span></div>
+    <div class="line"><span>Customer</span><span>{{CUSTOMER_NAME}}</span></div>
+    <div class="line"><span>Phone</span><span>{{CUSTOMER_PHONE}}</span></div>
+    <hr />
+    {{RECEIPT_LINES}}
+    <hr />
+    <div class="line"><span>Subtotal</span><span>{{SUBTOTAL}}</span></div>
+    <div class="line"><span>Delivery</span><span>{{DELIVERY}}</span></div>
+    <div class="line"><span>Discount</span><span>{{DISCOUNT}}</span></div>
+    <div class="line total"><span>TOTAL</span><span>{{TOTAL}}</span></div>
+    <hr />
+    <div class="center" style="font-size:9px;">{{PAYMENT_METHOD}} · {{PAYMENT_STATUS}}</div>
+    <div class="center" style="margin-top:8px;font-size:9px;">{{BRAND_WEBSITE}}</div>
+  </article>
+  {{AUTO_PRINT}}
+</body>
+</html>

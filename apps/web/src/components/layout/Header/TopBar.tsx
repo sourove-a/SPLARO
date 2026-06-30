@@ -1,0 +1,54 @@
+'use client'
+
+import Link from 'next/link'
+import { Mail, Phone, Truck } from 'lucide-react'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+
+const linkClass = 'site-topbar__link'
+
+export function TopBar() {
+  const settings = useStorefrontSettings()
+  const email =
+    settings.store.email?.trim() ||
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ||
+    'support@splaro.com.bd'
+  const phone =
+    settings.store.phone?.trim() ||
+    process.env.NEXT_PUBLIC_SUPPORT_PHONE ||
+    '+880 1700-000000'
+
+  return (
+    <div
+      className="site-topbar z-chrome-header"
+      data-site-chrome
+      data-top-bar
+    >
+      <div className="site-topbar__inner">
+        <div className="site-topbar__group">
+          <span className="site-topbar__label">BDT · ৳</span>
+          <span className="site-topbar__divider" aria-hidden="true" />
+          <Link href={`mailto:${email}`} className={linkClass}>
+            <Mail className="h-4 w-4 shrink-0" strokeWidth={1.85} />
+            <span className="max-w-[14rem] truncate normal-case tracking-[0.04em]">{email}</span>
+          </Link>
+          <span className="site-topbar__divider" aria-hidden="true" />
+          <Link href={`tel:${phone.replace(/\s/g, '')}`} className={linkClass}>
+            <Phone className="h-4 w-4 shrink-0" strokeWidth={1.85} />
+            Contact
+          </Link>
+        </div>
+
+        <div className="site-topbar__group">
+          <span className={`${linkClass} cursor-default`}>
+            <Truck className="h-4 w-4 shrink-0" strokeWidth={1.85} />
+            Fast delivery
+          </span>
+          <span className="site-topbar__divider" aria-hidden="true" />
+          <Link href="/track-order" className={linkClass}>
+            Track order
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}

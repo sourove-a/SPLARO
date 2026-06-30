@@ -1,0 +1,29 @@
+{
+  "defaultPrinter": "thermal-main",
+  "printers": [
+    {
+      "id": "thermal-main",
+      "name": "Counter Thermal 80mm",
+      "type": "thermal",
+      "host": "192.168.0.100",
+      "port": 9100,
+      "driver": "EPSON",
+      "enabled": true
+    },
+    {
+      "id": "office-a4",
+      "name": "Office Network A4",
+      "type": "network",
+      "host": "192.168.0.50",
+      "port": 631,
+      "enabled": false
+    },
+    {
+      "id": "pdf-archive",
+      "name": "PDF Archive",
+      "type": "pdf",
+      "outputDir": "./output/pdf",
+      "enabled": true
+    }
+  ]
+}

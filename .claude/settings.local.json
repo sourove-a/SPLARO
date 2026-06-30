@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "Bash(npm --version)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/sourove/.local/share/pnpm/**)",
+      "Bash(npx pnpm *)",
+      "Read(//Users/sourove/.nvm/versions/node/v22.22.2/bin/**)",
+      "Bash(PATH=/Users/sourove/.nvm/versions/node/v22.22.2/bin:__TRACKED_VAR__ npm install -g pnpm@9.4.0)",
+      "Bash(PATH=/Users/sourove/.nvm/versions/node/v22.22.2/bin:__TRACKED_VAR__ pnpm --version)",
+      "Bash(PATH=/Users/sourove/.nvm/versions/node/v22.22.2/bin:__TRACKED_VAR__ pnpm install)",
+      "Bash(PATH=/Users/sourove/.nvm/versions/node/v22.22.2/bin:__TRACKED_VAR__ pnpm dev:web)",
+      "Bash(echo \"Dev server starting in background, PID: $!\")",
+      "Bash(xargs -I{} head -1 {})",
+      "Bash(xargs -I{} sh -c 'head -1 {} | grep -q \"use client\" || echo {}')",
+      "WebFetch(domain:ilyn.global)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(echo \"started PID: $!\")",
+      "mcp__visualize__read_me",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s \"https://ilyn.global/\")",
+      "Bash(curl -s \"https://ilyn.global/s/premium-panjabi\")",
+      "Bash(python3 -c ' *)",
+      "Bash(pnpm --filter web exec tsc --noEmit)",
+      "Bash(npx tsx *)",
+      "Bash(DATABASE_URL=postgresql://postgres:postgres@localhost:5432/splaro_db npx tsx packages/database/prisma/seed.ts)",
+      "Bash(DATABASE_URL=postgresql://postgres:postgres@localhost:5432/splaro_db npx tsx -e ' *)",
+      "Bash(DATABASE_URL=postgresql://postgres:postgres@localhost:5432/splaro_db pnpm --filter database exec prisma db seed)",
+      "Bash(DATABASE_URL=postgresql://postgres:postgres@localhost:5432/splaro_db pnpm --filter database exec prisma studio)",
+      "Bash(psql postgresql://postgres:postgres@localhost:5432/splaro_db -c ' *)",
+      "mcp__visualize__show_widget",
+      "Bash(pnpm --filter web tsc --noEmit)",
+      "Bash(xargs ls)"
+    ]
+  }
+}

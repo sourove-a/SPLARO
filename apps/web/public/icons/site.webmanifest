@@ -1,0 +1,21 @@
+{
+  "name": "SPLARO — Luxury Women's Fashion",
+  "short_name": "SPLARO",
+  "description": "Timeless luxury women's fashion crafted for the modern woman.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF8F5",
+  "theme_color": "#FAF8F5",
+  "icons": [
+    {
+      "src": "/icons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

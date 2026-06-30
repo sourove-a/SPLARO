@@ -1,0 +1,715 @@
+'use client'
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchDashboardStats, fetchDashboardInsights, periodFromLabel } from './dashboard'
+import { fetchOrders, fetchOrder, updateOrderStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus } from './orders'
+import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant } from './products'
+import { fetchCategories, createCategory, updateCategory, deleteCategory } from './categories'
+import { fetchCollections, createCollection, updateCollection } from './collections'
+import { fetchBrands, createBrand, updateBrand } from './brands'
+import { createBanner, fetchBanners } from './banners'
+import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer } from './customers'
+import { fetchAutomationRules } from './automation'
+import { fetchCampaigns } from './marketing'
+import { fetchCourierShipments, fetchCourierStats } from './courier'
+import { fetchInvoices, fetchTransactions, fetchReturns } from './commerce-finance'
+import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
+import { revalidateWebCache } from './revalidate'
+import {
+  fetchSaaS,
+  fetchSecurity,
+  fetchMedia,
+  fetchMarketplace,
+  fetchDeveloper,
+  fetchObservability,
+  fetchIntegrations,
+  fetchSystemLogs,
+  fetchTelegramLogs,
+} from './platform'
+import {
+  fetchWmsOverview,
+  fetchProcurementOverview,
+  fetchHelpdeskOverview,
+  fetchCompanyOverview,
+  fetchProductionOverview,
+  fetchDeliveryOverview,
+  fetchExecutiveDashboard,
+} from './commerce-os'
+import {
+  fetchContentOverview,
+  createBlogPost,
+  fetchSeoOverview,
+  fetchMarketingOverview,
+  createAffiliate,
+  createSupplier,
+  createSupportTicket,
+  fetchNotificationsOverview,
+  fetchCommerceSubscriptions,
+} from './admin-hub'
+import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
+import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
+
+export function useDashboardStats(periodLabel: string) {
+  const period = periodFromLabel(periodLabel)
+  return useQuery({
+    queryKey: ['dashboard-stats', period],
+    queryFn: () => fetchDashboardStats(period),
+    staleTime: 60_000,
+  })
+}
+
+export function useDashboardInsights(periodLabel: string) {
+  const period = periodFromLabel(periodLabel)
+  return useQuery({
+    queryKey: ['dashboard-insights', period],
+    queryFn: () => fetchDashboardInsights(period),
+    staleTime: 60_000,
+  })
+}
+
+export function useOrders(params?: { status?: string; search?: string; limit?: number; page?: number }) {
+  return useQuery({
+    queryKey: ['orders', params],
+    queryFn: () =>
+      fetchOrders({
+        ...params,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 50,
+      }),
+    staleTime: 30_000,
+  })
+}
+
+export function useOrder(id: string) {
+  return useQuery({
+    queryKey: ['order', id],
+    queryFn: () => fetchOrder(id),
+    enabled: Boolean(id),
+    staleTime: 15_000,
+  })
+}
+
+export function useUpdateOrderStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: string; note?: string }) =>
+      updateOrderStatus(id, status, note),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['order', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useDeleteOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteOrder(id),
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['order', id] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      void qc.invalidateQueries({ queryKey: ['customers'] })
+    },
+  })
+}
+
+export function useBookCourier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, provider }: { id: string; provider?: Parameters<typeof bookOrderCourier>[1] }) =>
+      bookOrderCourier(id, provider),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['order'] })
+      void qc.invalidateQueries({ queryKey: ['courier-shipments'] })
+      void qc.invalidateQueries({ queryKey: ['courier-stats'] })
+    },
+  })
+}
+
+export function useBookCourierBulk() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderIds, provider }: { orderIds: string[]; provider?: Parameters<typeof bookOrdersCourierBulk>[1] }) =>
+      bookOrdersCourierBulk(orderIds, provider),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['courier-shipments'] })
+      void qc.invalidateQueries({ queryKey: ['courier-stats'] })
+    },
+  })
+}
+
+export function useCourierShipments(params?: {
+  status?: string
+  provider?: string
+  search?: string
+  page?: number
+  limit?: number
+}) {
+  return useQuery({
+    queryKey: ['courier-shipments', params],
+    queryFn: () => fetchCourierShipments(params),
+    staleTime: 20_000,
+    retry: 1,
+  })
+}
+
+export function useCourierStats(days = 30) {
+  return useQuery({
+    queryKey: ['courier-stats', days],
+    queryFn: () => fetchCourierStats(days),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createOrder,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      void qc.invalidateQueries({ queryKey: ['customers'] })
+    },
+  })
+}
+
+export function useBulkUpdateOrderStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ orderIds, status, note }: { orderIds: string[]; status: string; note?: string }) =>
+      bulkUpdateOrderStatus(orderIds, status, note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useBlockCustomer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, blocked }: { id: string; blocked: boolean }) => blockCustomer(id, blocked),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['customers'] })
+      void qc.invalidateQueries({ queryKey: ['customer', vars.id] })
+    },
+  })
+}
+
+export function useWmsOverview() {
+  return useQuery({
+    queryKey: ['wms-overview'],
+    queryFn: fetchWmsOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useExecutiveDashboard() {
+  return useQuery({
+    queryKey: ['executive-dashboard'],
+    queryFn: fetchExecutiveDashboard,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useProcurementOverview() {
+  return useQuery({
+    queryKey: ['procurement-overview'],
+    queryFn: fetchProcurementOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useHelpdeskOverview() {
+  return useQuery({
+    queryKey: ['helpdesk-overview'],
+    queryFn: fetchHelpdeskOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCompanyOverview() {
+  return useQuery({
+    queryKey: ['company-overview'],
+    queryFn: fetchCompanyOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useProductionOverview() {
+  return useQuery({
+    queryKey: ['production-overview'],
+    queryFn: fetchProductionOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useDeliveryOverview() {
+  return useQuery({
+    queryKey: ['delivery-overview'],
+    queryFn: fetchDeliveryOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useContentOverview() {
+  return useQuery({
+    queryKey: ['content-overview'],
+    queryFn: fetchContentOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useLegalPages() {
+  return useQuery({
+    queryKey: ['legal-pages'],
+    queryFn: fetchLegalPages,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useLegalPage(slug: LegalPageSlug) {
+  return useQuery({
+    queryKey: ['legal-page', slug],
+    queryFn: () => fetchLegalPage(slug),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useSaveLegalPage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ slug, body }: { slug: LegalPageSlug; body: LegalPageContent }) => saveLegalPage(slug, body),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: ['legal-pages'] })
+      void qc.invalidateQueries({ queryKey: ['legal-page', variables.slug] })
+    },
+  })
+}
+
+export function useFootwearConfig() {
+  return useQuery({
+    queryKey: ['footwear-config'],
+    queryFn: async () => {
+      const res = await fetch('/api/footwear-config', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Footwear config unavailable')
+      return res.json() as Promise<Record<string, unknown>>
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateBlogPost() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createBlogPost,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['content-overview'] }),
+  })
+}
+
+export function useSeoOverview() {
+  return useQuery({
+    queryKey: ['seo-overview'],
+    queryFn: fetchSeoOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useMarketingOverview() {
+  return useQuery({
+    queryKey: ['marketing-overview'],
+    queryFn: fetchMarketingOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateAffiliate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createAffiliate,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['marketing-overview'] })
+    },
+  })
+}
+
+export function useCreateSupplier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createSupplier,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
+  })
+}
+
+export function useCreateSupportTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createSupportTicket,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['helpdesk-overview'] }),
+  })
+}
+
+export function useNotificationsOverview() {
+  return useQuery({
+    queryKey: ['notifications-overview'],
+    queryFn: fetchNotificationsOverview,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCommerceSubscriptions() {
+  return useQuery({
+    queryKey: ['commerce-subscriptions'],
+    queryFn: fetchCommerceSubscriptions,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCustomers(params?: { search?: string; limit?: number }) {
+  return useQuery({
+    queryKey: ['customers', params],
+    queryFn: () => fetchCustomers({ ...params, limit: params?.limit ?? 100 }),
+    staleTime: 30_000,
+  })
+}
+
+export function useCustomer(id: string) {
+  return useQuery({
+    queryKey: ['customer', id],
+    queryFn: () => fetchCustomer(id),
+    enabled: Boolean(id),
+    staleTime: 30_000,
+  })
+}
+
+export function useDeleteCustomer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) =>
+      deleteCustomer(id, force ? { force: true } : undefined),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['customers'] })
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useAutomationRules() {
+  return useQuery({
+    queryKey: ['automation-rules'],
+    queryFn: fetchAutomationRules,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCampaigns() {
+  return useQuery({
+    queryKey: ['campaigns'],
+    queryFn: fetchCampaigns,
+    staleTime: 30_000,
+  })
+}
+
+export function useInvoices(search?: string) {
+  return useQuery({
+    queryKey: ['invoices', search],
+    queryFn: () => fetchInvoices(search),
+    staleTime: 30_000,
+  })
+}
+
+export function useTransactions(search?: string) {
+  return useQuery({
+    queryKey: ['transactions', search],
+    queryFn: () => fetchTransactions(search),
+    staleTime: 30_000,
+  })
+}
+
+export function useReturns(search?: string) {
+  return useQuery({
+    queryKey: ['returns', search],
+    queryFn: () => fetchReturns(search),
+    staleTime: 30_000,
+  })
+}
+
+export function useProducts(params?: { search?: string; status?: 'published' | 'draft'; limit?: number }) {
+  return useQuery({
+    queryKey: ['products', params],
+    queryFn: () => fetchProducts({ ...params, page: 1, limit: params?.limit ?? 50 }),
+    staleTime: 30_000,
+  })
+}
+
+export function useProduct(id: string) {
+  return useQuery({
+    queryKey: ['product', id],
+    queryFn: () => fetchProduct(id),
+    enabled: Boolean(id),
+    staleTime: 15_000,
+  })
+}
+
+export function useSettings() {
+  return useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: fetchSettings,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    retry: 2,
+  })
+}
+
+export function useUpdateSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Partial<AdminSettingsData>) => updateSettings(data),
+    onSuccess: (data) => {
+      qc.setQueryData(['admin-settings'], data)
+      void qc.invalidateQueries({ queryKey: ['admin-settings'] })
+      void revalidateWebCache(['storefront-settings'])
+    },
+  })
+}
+
+export function useNewsletterSubscribers(enabled = true) {
+  return useQuery({
+    queryKey: ['newsletter-subscribers'],
+    queryFn: fetchNewsletterSubscribers,
+    enabled,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCatalogChannelStats(enabled = true) {
+  return useQuery({
+    queryKey: ['catalog-channel-stats'],
+    queryFn: fetchCatalogChannelStats,
+    enabled,
+    staleTime: 20_000,
+    retry: 1,
+  })
+}
+
+export function useCreateProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createProduct,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useUpdateProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & Parameters<typeof updateProduct>[1]) =>
+      updateProduct(id, input),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product', vars.id] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useUpdateProductVariant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      productId,
+      variantId,
+      ...data
+    }: { productId: string; variantId: string; stock?: number; price?: number; isActive?: boolean }) =>
+      updateProductVariant(productId, variantId, data),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
+    },
+  })
+}
+
+export function useDeleteProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteProduct,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useCategories() {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const res = await fetchCategories()
+      return res.categories
+    },
+    staleTime: 60_000,
+  })
+}
+
+export function useCreateCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => createCategory(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  })
+}
+
+export function useUpdateCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean }) =>
+      updateCategory(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  })
+}
+
+export function useDeleteCategory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  })
+}
+
+export function useSaaS() {
+  return useQuery({ queryKey: ['platform-saas'], queryFn: fetchSaaS, staleTime: 60_000, retry: 1 })
+}
+
+export function useSecurity() {
+  return useQuery({ queryKey: ['platform-security'], queryFn: fetchSecurity, staleTime: 30_000, retry: 1 })
+}
+
+export function useMedia() {
+  return useQuery({ queryKey: ['platform-media'], queryFn: fetchMedia, staleTime: 30_000, retry: 1 })
+}
+
+export function useMarketplace() {
+  return useQuery({ queryKey: ['platform-marketplace'], queryFn: fetchMarketplace, staleTime: 60_000, retry: 1 })
+}
+
+export function useDeveloper() {
+  return useQuery({ queryKey: ['platform-developer'], queryFn: fetchDeveloper, staleTime: 60_000, retry: 1 })
+}
+
+export function useObservability() {
+  return useQuery({ queryKey: ['platform-observability'], queryFn: fetchObservability, staleTime: 30_000, retry: 1 })
+}
+
+export function useIntegrations() {
+  return useQuery({ queryKey: ['platform-integrations'], queryFn: fetchIntegrations, staleTime: 30_000, retry: 1 })
+}
+
+export function useSystemLogs() {
+  return useQuery({ queryKey: ['platform-system-logs'], queryFn: () => fetchSystemLogs(), staleTime: 15_000, retry: 1 })
+}
+
+export function useTelegramLogs() {
+  return useQuery({ queryKey: ['platform-telegram-logs'], queryFn: () => fetchTelegramLogs(), staleTime: 15_000, retry: 1 })
+}
+
+export function useCollections() {
+  return useQuery({
+    queryKey: ['collections'],
+    queryFn: fetchCollections,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateCollection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { name: string; description?: string; image?: string }) =>
+      createCollection(data.name, data.description, data.image),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['collections'] }),
+  })
+}
+
+export function useUpdateCollection() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean }) =>
+      updateCollection(id, data),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['collections'] }),
+  })
+}
+
+export function useBrands() {
+  return useQuery({
+    queryKey: ['brands'],
+    queryFn: fetchBrands,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateBrand() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createBrand,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['brands'] }),
+  })
+}
+
+export function useUpdateBrand() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; vendorLabel?: string; isActive?: boolean }) =>
+      updateBrand(id, data),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['brands'] }),
+  })
+}
+
+export function useBanners() {
+  return useQuery({
+    queryKey: ['banners'],
+    queryFn: async () => {
+      const res = await fetchBanners()
+      return res.banners
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateBanner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createBanner,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-media'] })
+      void qc.invalidateQueries({ queryKey: ['banners'] })
+    },
+  })
+}

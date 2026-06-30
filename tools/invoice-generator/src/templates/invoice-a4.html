@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice {{INVOICE_NUMBER}} — {{BRAND_NAME}}</title>
+  <style>{{CSS}}</style>
+</head>
+<body>
+  {{TOOLBAR}}
+  <article class="invoice-a4">
+    <header class="invoice-a4__head">
+      <div class="brand">
+        <img src="{{LOGO_URL}}" alt="{{BRAND_NAME}}" />
+        <h1>{{BRAND_NAME}}</h1>
+        <p>{{BRAND_TAGLINE}} · {{BRAND_OFFICE}}</p>
+      </div>
+      <div class="meta">
+        <strong>INVOICE</strong>
+        <div>{{INVOICE_NUMBER}}</div>
+        <div>{{ISSUE_DATE}}</div>
+        <div style="margin-top:8px;">Status: {{ORDER_STATUS}}</div>
+        <div>Payment: {{PAYMENT_STATUS}}</div>
+      </div>
+    </header>
+
+    <section class="invoice-a4__grid">
+      <div class="card">
+        <h3>Bill To</h3>
+        <p><strong>{{CUSTOMER_NAME}}</strong><br />{{CUSTOMER_PHONE}}<br />{{CUSTOMER_EMAIL}}</p>
+      </div>
+      <div class="card">
+        <h3>Ship To</h3>
+        <p>{{SHIPPING_ADDRESS}}<br />{{SHIPPING_CITY}}, {{SHIPPING_DISTRICT}}</p>
+      </div>
+      <div class="card">
+        <h3>Payment</h3>
+        <p>{{PAYMENT_METHOD}}</p>
+      </div>
+      <div class="card">
+        <h3>Courier</h3>
+        <p>{{COURIER}}<br />Tracking: {{TRACKING}}</p>
+      </div>
+    </section>
+
+    <table class="items">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>SKU</th>
+          <th>Size</th>
+          <th>Color</th>
+          <th class="num">Qty</th>
+          <th class="num">Unit</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>{{ITEM_ROWS}}</tbody>
+    </table>
+
+    <div class="summary">
+      <div class="summary-row"><span>Subtotal</span><strong>{{SUBTOTAL}}</strong></div>
+      <div class="summary-row"><span>Delivery</span><strong>{{DELIVERY}}</strong></div>
+      {{COUPON_ROW}}
+      <div class="summary-row summary-row--total"><span>Grand Total</span><strong>{{TOTAL}}</strong></div>
+    </div>
+
+    <footer class="footer">
+      <p>{{THANK_YOU}}</p>
+      <p style="margin-top:6px;">{{BRAND_PHONE}} · {{BRAND_EMAIL}} · {{BRAND_WEBSITE}}</p>
+    </footer>
+  </article>
+  {{AUTO_PRINT}}
+</body>
+</html>

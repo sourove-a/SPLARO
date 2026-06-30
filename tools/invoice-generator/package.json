@@ -1,0 +1,20 @@
+{
+  "name": "@splaro/invoice-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SPLARO invoice & receipt HTML generator (A4, 80mm, shipping label)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.mjs",
+    "test": "pnpm build && node dist/cli.js --sample",
+    "generate": "node dist/cli.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}

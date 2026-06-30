@@ -1,0 +1,210 @@
+:root {
+  --gold: #c8a97e;
+  --black: #111111;
+  --muted: #6b6560;
+  --beige: #f5f0e8;
+  --border: rgba(17, 17, 17, 0.1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--black);
+  background: var(--beige);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.no-print { }
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar button {
+  border: 1px solid var(--black);
+  background: var(--black);
+  color: #fff;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── A4 Invoice ── */
+.invoice-a4 {
+  max-width: 820px;
+  margin: 24px auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(17, 17, 17, 0.08);
+}
+
+.invoice-a4__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 32px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #fff 0%, #faf8f5 100%);
+}
+
+.brand img { height: 52px; width: auto; object-fit: contain; }
+.brand h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 28px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+.brand p { color: var(--muted); font-size: 11px; margin-top: 4px; }
+
+.meta { text-align: right; font-size: 11px; }
+.meta strong { display: block; font-size: 18px; margin-bottom: 6px; }
+
+.invoice-a4__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px 32px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fafafa;
+}
+.card h3 {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.card p { font-size: 12px; line-height: 1.5; }
+
+table.items {
+  width: calc(100% - 64px);
+  margin: 0 32px 20px;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+table.items th,
+table.items td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 8px;
+  text-align: left;
+}
+table.items th {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+table.items .num { text-align: right; white-space: nowrap; }
+
+.summary {
+  margin: 0 32px 28px;
+  margin-left: auto;
+  width: min(320px, 100%);
+}
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 12px;
+}
+.summary-row--accent strong { color: #b45309; }
+.summary-row--total {
+  border-bottom: none;
+  padding-top: 12px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.footer {
+  padding: 18px 32px 28px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── 80mm Receipt ── */
+.receipt-80 {
+  width: 80mm;
+  margin: 12px auto;
+  background: #fff;
+  padding: 10px 8px 16px;
+  font-size: 11px;
+  font-family: 'Courier New', Courier, monospace;
+}
+.receipt-80 .center { text-align: center; }
+.receipt-80 .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0;
+}
+.receipt-80 .meta { font-size: 9px; color: var(--muted); margin-bottom: 6px; }
+.receipt-80 hr {
+  border: none;
+  border-top: 1px dashed #999;
+  margin: 8px 0;
+}
+.receipt-80 .total { font-weight: 800; font-size: 13px; }
+
+/* ── Shipping label ── */
+.shipping-label {
+  width: 100mm;
+  margin: 12px auto;
+  background: #fff;
+  border: 2px solid var(--black);
+  padding: 12px;
+  font-size: 12px;
+}
+.shipping-label h2 {
+  text-align: center;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  margin-bottom: 10px;
+}
+.shipping-label .to {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+.shipping-label .from {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #999;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+@media print {
+  .invoice-a4, .receipt-80, .shipping-label {
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+}

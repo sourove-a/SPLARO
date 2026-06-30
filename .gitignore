@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files — NEVER COMMIT
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# Next.js
+.next/
+out/
+dist/
+
+# NestJS build
+apps/api/dist/
+
+# Turborepo
+.turbo/
+
+# TypeScript
+*.tsbuildinfo
+
+# Database
+*.db
+*.sqlite
+
+# Prisma
+packages/database/prisma/migrations/*.sql
+# Keep migrations dir but not generated migration SQLs locally
+!packages/database/prisma/migrations/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+infrastructure/pm2/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dev screenshots accidentally saved in repo root
+/*.png
+
+# Local tool / MCP caches
+.playwright-mcp/
+.tmp-pillow/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Uploads / generated files
+uploads/
+temp/
+tmp/
+.data/
+
+# Google credentials — SENSITIVE
+tools/google-sheets-sync/credentials/*.json
+!tools/google-sheets-sync/credentials/.gitkeep
+apps/api/secrets/
+
+# Generated invoices / PDFs
+apps/api/invoices/*.pdf
+tools/invoice-generator/dist/*.pdf
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# PM2
+.pm2/

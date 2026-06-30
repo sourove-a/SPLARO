@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Label {{INVOICE_NUMBER}}</title>
+  <style>{{CSS}}</style>
+</head>
+<body>
+  {{TOOLBAR}}
+  <article class="shipping-label">
+    <h2>SHIPPING LABEL</h2>
+    <div class="to">
+      TO:<br />
+      {{CUSTOMER_NAME}}<br />
+      {{CUSTOMER_PHONE}}<br />
+      {{SHIPPING_ADDRESS}}<br />
+      {{SHIPPING_CITY}}, {{SHIPPING_DISTRICT}}
+    </div>
+    <div class="line"><span>Order</span><span>{{INVOICE_NUMBER}}</span></div>
+    <div class="line"><span>Courier</span><span>{{COURIER}}</span></div>
+    <div class="line"><span>Tracking</span><span>{{TRACKING}}</span></div>
+    <div class="line total"><span>COD</span><span>{{TOTAL}}</span></div>
+    <div class="from">
+      FROM: {{BRAND_NAME}}<br />
+      {{BRAND_OFFICE}}<br />
+      {{BRAND_PHONE}}
+    </div>
+  </article>
+  {{AUTO_PRINT}}
+</body>
+</html>
