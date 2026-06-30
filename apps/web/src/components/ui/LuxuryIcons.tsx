@@ -31,7 +31,7 @@ export function BagPlusIcon({ className }: IconProps) {
 }
 
 export function SupportBubbleIcon({ className }: IconProps) {
-  return <LiveSupportBubble className={className} />
+  return <LiveSupportBubble {...(className ? { className } : {})} />
 }
 
 /** Three-dot live typing wave — ILLIYEEN-style support FAB */

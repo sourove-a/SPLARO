@@ -123,7 +123,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
             onMouseLeave={scheduleClose}
           >
             <MegaMenu
-              menuKey={navItems[openIndex]?.label}
+              {...(navItems[openIndex]?.label ? { menuKey: navItems[openIndex].label } : {})}
               config={activeMegaMenu}
               isOpen
               onClose={closeMenu}

@@ -23,7 +23,6 @@ import {
   getShopSizeOptions,
   isStorefrontBestSeller,
   isStorefrontNewArrival,
-  isStorefrontProductInStock,
   PRICE_FILTER_HIGH,
   PRICE_FILTER_LOW,
   products,
@@ -31,6 +30,7 @@ import {
   type Category,
   type StorefrontProduct,
 } from '@/data/storefront'
+import { isStorefrontProductInStock } from '@/lib/catalog/index'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import { usePublishedShopCategories } from '@/lib/storefront/catalog-channels'

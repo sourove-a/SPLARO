@@ -33,6 +33,7 @@ import { mapPaymentMethod, type ApiOrder } from '@/lib/api/orders'
 import { cn } from '@/lib/utils/cn'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { OrderPreviewCard, CustomerAvatar } from '@/components/orders/OrderPreviewCard'
+import { OrderStatusDropdown } from '@/components/orders/OrderStatusDropdown'
 import { ProductThumbs } from '@/components/orders/OrderProductThumb'
 
 type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'packed' | 'shipped' | 'delivered' | 'cancelled'
@@ -73,16 +74,6 @@ const PIPELINE: { key: OrderStatus | 'all'; label: string; count: (rows: OrderRo
   { key: 'shipped', label: 'Shipped', count: (r) => r.filter((o) => o.status === 'shipped').length },
   { key: 'delivered', label: 'Delivered', count: (r) => r.filter((o) => o.status === 'delivered').length },
 ]
-
-const STATUS_CLASS: Record<OrderStatus, string> = {
-  pending: 'admin-status admin-status--pending',
-  confirmed: 'admin-status admin-status--processing',
-  processing: 'admin-status admin-status--processing',
-  packed: 'admin-status admin-status--shipped',
-  shipped: 'admin-status admin-status--shipped',
-  delivered: 'admin-status admin-status--delivered',
-  cancelled: 'admin-status admin-status--pending',
-}
 
 const ORDER_API_STATUS: Partial<Record<OrderStatus, string>> = {
   pending: 'PENDING',
@@ -225,25 +216,13 @@ export function OrdersPanel() {
   const [previewOrder, setPreviewOrder] = useState<OrderRow | null>(null)
   const [sortBy, setSortBy] = useState<'updated' | 'total'>('updated')
 
-  const handleConfirm = (order: OrderRow) => {
+  const handleStatusChange = (order: OrderRow, apiStatus: string, label: string) => {
     const id = order.linkId ?? order.id
-    const next =
-      order.status === 'pending'
-        ? 'CONFIRMED'
-        : order.status === 'confirmed'
-          ? 'PROCESSING'
-          : order.status === 'processing'
-            ? 'PACKED'
-            : order.status === 'packed'
-              ? 'SHIPPED'
-              : order.status === 'shipped'
-                ? 'DELIVERED'
-                : 'CONFIRMED'
     updateStatus.mutate(
-      { id, status: next, note: 'Updated from orders list' },
+      { id, status: apiStatus, note: `Set to ${label} from orders list` },
       {
-        onSuccess: () => toastOk(`${order.id} updated.`),
-        onError: () => toastFail('Could not update order.'),
+        onSuccess: () => toastOk(`${order.id} → ${label}.`),
+        onError: () => toastFail('Could not update order status.'),
       },
     )
   }
@@ -600,24 +579,12 @@ export function OrdersPanel() {
                         {order.payment === 'COD' ? 'COD' : 'Shipping'}
                       </span>
                     </td>
-                    <td>
-                      {order.status === 'cancelled' ? (
-                        <span className="admin-status admin-status--cancelled">Cancelled</span>
-                      ) : order.payment === 'Paid' || order.status === 'delivered' ? (
-                        <span className="admin-status admin-status--paid">Paid</span>
-                      ) : (
-                        <button
-                          type="button"
-                          className={cn(STATUS_CLASS[order.status], 'cursor-pointer')}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleConfirm(order)
-                          }}
-                          title="Move to next order status"
-                        >
-                          {order.status}
-                        </button>
-                      )}
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <OrderStatusDropdown
+                        status={order.status}
+                        loading={updateStatus.isPending}
+                        onSelect={(apiStatus, label) => handleStatusChange(order, apiStatus, label)}
+                      />
                     </td>
                     <td>
                       <ProductThumbs images={order.itemThumbs} count={order.itemCount} />
