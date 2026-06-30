@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Award, ChevronRight, Eye, Heart, Shield, ShoppingBag, Zap } from 'lucide-react'
@@ -17,6 +16,7 @@ import { formatBDT } from '@/lib/utils/currency'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
+import { IlynProductCard } from '@/components/product/ProductCard/IlynProductCard'
 
 const PAGE_SIZE = 12
 
@@ -115,8 +115,9 @@ function CategoryPlaceholder({ categorySlug }: { categorySlug?: string }) {
 }
 
 function WishlistButton({ productId }: { productId: string }) {
+  const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
-  const active = isInWishlist(productId)
+  const active = wishlistHydrated && isInWishlist(productId)
 
   return (
     <button
@@ -160,68 +161,74 @@ function AddToCartButton({ product }: { product: CatalogProduct }) {
 }
 
 function AccessoryProductCard({ product, index }: { product: CatalogProduct; index: number }) {
-  const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
-  const colorCount = product.colorOptions?.length ?? 0
+  const colorHexes = product.colorOptions?.map((c) => c.hex) ?? product.colors ?? []
+  const collection = product.categoryName ?? product.category
+
+  // No image → keep the category placeholder card (with original quick actions)
+  if (!product.image) {
+    const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
+    return (
+      <motion.article
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.35, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] }}
+        className="group"
+      >
+        <div className="relative">
+          <Link href={`/products/${product.slug}`} className="block text-inherit no-underline">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-white">
+              <CategoryPlaceholder {...(product.categorySlug ? { categorySlug: product.categorySlug } : {})} />
+            </div>
+            <div className="pt-3">
+              <h3 className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[#111111]">
+                {product.name}
+              </h3>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-sm font-bold text-[#111111]">{formatBDT(product.price)}</span>
+                {hasDiscount ? (
+                  <span className="text-xs text-[#9CA3AF] line-through">
+                    {formatBDT(product.compareAtPrice)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </Link>
+          <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[4/5]">
+            <div className="pointer-events-auto absolute bottom-3 left-3">
+              <AddToCartButton product={product} />
+            </div>
+            <div className="pointer-events-auto absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+              <WishlistButton productId={product.id} />
+            </div>
+          </div>
+        </div>
+      </motion.article>
+    )
+  }
 
   return (
-    <motion.article
+    <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.35, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] }}
-      className="group"
     >
-      <div className="relative">
-        <Link href={`/products/${product.slug}`} className="block text-inherit no-underline">
-          <div className="relative aspect-[4/5] overflow-hidden bg-white">
-            {product.image ? (
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                sizes="(max-width: 640px) 50vw, 25vw"
-                className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-              />
-            ) : (
-              <CategoryPlaceholder {...(product.categorySlug ? { categorySlug: product.categorySlug } : {})} />
-            )}
-          </div>
-
-          <div className="pt-3">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[#111111]">
-                {product.name}
-              </h3>
-              {product.code ? (
-                <span className="shrink-0 text-[0.6875rem] text-[#6B7280]">{product.code}</span>
-              ) : null}
-            </div>
-            {colorCount > 0 ? (
-              <p className="mt-1 text-xs text-[#6B7280]">
-                {colorCount} color{colorCount > 1 ? 's' : ''}
-              </p>
-            ) : null}
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-sm font-bold text-[#111111]">{formatBDT(product.price)}</span>
-              {hasDiscount ? (
-                <span className="text-xs text-[#9CA3AF] line-through">
-                  {formatBDT(product.compareAtPrice)}
-                </span>
-              ) : null}
-            </div>
-          </div>
-        </Link>
-
-        <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[4/5]">
-          <div className="pointer-events-auto absolute bottom-3 left-3">
-            <AddToCartButton product={product} />
-          </div>
-          <div className="pointer-events-auto absolute right-3 top-3 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            <WishlistButton productId={product.id} />
-          </div>
-        </div>
-      </div>
-    </motion.article>
+      <IlynProductCard
+        id={product.id}
+        slug={product.slug}
+        name={product.name}
+        price={product.price}
+        {...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {})}
+        image={product.image}
+        {...(product.hoverImage ? { imageHover: product.hoverImage } : {})}
+        {...(collection ? { collection } : {})}
+        {...(product.code ? { productCode: product.code } : {})}
+        colorHexes={colorHexes}
+        status={product.status}
+        fit="cover"
+      />
+    </motion.div>
   )
 }
 

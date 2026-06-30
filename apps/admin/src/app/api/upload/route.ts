@@ -7,6 +7,13 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/sessio
 const MAX_BYTES = 8 * 1024 * 1024
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 
+const MIME_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
+
 function uploadRoot() {
   if (process.env.UPLOAD_DIR) return process.env.UPLOAD_DIR
   return path.join(process.cwd(), '..', 'web', 'public', 'uploads')
@@ -56,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Max file size is 8MB' }, { status: 400 })
   }
 
-  let ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  let ext = MIME_EXT[file.type] ?? 'jpg'
   let bytes = Buffer.from(await file.arrayBuffer()) as Buffer
 
   if (optimize && file.type !== 'image/gif') {

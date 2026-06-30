@@ -1,19 +1,36 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Loader2, Save, Package,
-  ImageIcon, Tag, Star, Layers, AlertTriangle,
-  CheckCircle2, Circle, Pencil, X, Sparkles, Link2,
+  ImageIcon, Star, Layers, AlertTriangle,
+  CheckCircle2, Circle, Pencil, X, Link2,
   BarChart3, ShieldAlert,
 } from 'lucide-react'
+import { buildCategoryPicker } from '@/lib/admin/category-picker'
+import {
+  buildDescriptionDraft,
+  formatBilingualDescription,
+  polishBanglaDescription,
+  splitBilingualDescription,
+} from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useProduct, useUpdateProduct, useDeleteProduct, useUpdateProductVariant } from '@/lib/api/hooks'
+import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useUpdateProductVariant } from '@/lib/api/hooks'
+import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
+import {
+  displayPriceFields,
+  formatTagsInput,
+  mergeFitAndProductType,
+  parseProductSchemaMarkup,
+  parseTagsInput,
+  resolveSellingPrices,
+  splitFitAndProductType,
+} from '@/lib/admin/product-form-utils'
 import { generateAIProduct } from '@/lib/api/finance'
 import { ProductAIAssist } from '@/components/agent/ProductAIAssist'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
@@ -99,25 +116,45 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const { navigate } = useAdminNavigate()
   const { data: product, isLoading, isError } = useProduct(productId)
   const { data: categories = [] } = useCategories()
+  const { data: collectionsData } = useCollections()
+  const collections = collectionsData?.collections ?? []
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
   const updateVariant = useUpdateProductVariant()
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({})
+  const [skuEdits, setSkuEdits] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [fillAllLoading, setFillAllLoading] = useState(false)
   const [slugEdited, setSlugEdited] = useState(false)
+  const [departmentId, setDepartmentId] = useState('')
+  const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
 
   const [form, setForm] = useState({
     name: '',
+    nameBn: '',
     slug: '',
-    description: '',
+    shortDescription: '',
+    descriptionEn: '',
+    descriptionBn: '',
+    descriptionNotes: '',
     basePrice: '',
     compareAtPrice: '',
+    costPrice: '',
+    sku: '',
+    defaultStock: '10',
+    lowStockThreshold: '5',
+    tags: '',
+    weavingType: '',
+    collectionId: '',
+    productType: '',
     categoryId: '',
+    sizes: '',
     imageUrl: '',
     isPublished: false,
+    status: 'DRAFT',
+    isHidden: false,
     isFeatured: false,
     isNewArrival: false,
     isBestSeller: false,
@@ -129,36 +166,77 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     metaDescription: '',
   })
 
+  const categoryPicker = useMemo(() => buildCategoryPicker(categories), [categories])
+
+  const subcategories = useMemo(
+    () => (departmentId ? categoryPicker.subcategoriesForDepartment(departmentId) : []),
+    [departmentId, categoryPicker],
+  )
+
+  const fullDescription = useMemo(
+    () => formatBilingualDescription(form.descriptionEn, form.descriptionBn),
+    [form.descriptionEn, form.descriptionBn],
+  )
+
   useEffect(() => {
     if (!product) return
-    const p = product as unknown as Record<string, unknown>
+    const p = product
+    const extra = p
+    const { en, bn } = splitBilingualDescription(p.description ?? '')
+    const categoryId = p.category?.id ?? p.categoryId ?? ''
+    const schema = parseProductSchemaMarkup(extra.schemaMarkup)
+    const prices = displayPriceFields(p.basePrice, extra.compareAtPrice)
+    const fitSplit = splitFitAndProductType(p.fitType)
     setForm({
-      name: product.name,
-      slug: String(p.slug ?? slugify(product.name)),
-      description: product.description ?? '',
-      basePrice: String(product.basePrice),
-      compareAtPrice: String(p.compareAtPrice ?? ''),
-      categoryId: product.category?.id ?? product.categoryId ?? '',
-      imageUrl: product.images?.[0]?.url ?? '',
-      isPublished: product.isPublished,
-      isFeatured: p.isFeatured === true,
-      isNewArrival: p.isNewArrival === true,
-      isBestSeller: p.isBestSeller === true,
+      name: p.name,
+      nameBn: schema.nameBn,
+      slug: String(extra.slug ?? slugify(p.name)),
+      shortDescription: String(extra.shortDescription ?? ''),
+      descriptionEn: en,
+      descriptionBn: bn,
+      descriptionNotes: '',
+      basePrice: prices.regular,
+      compareAtPrice: prices.sale,
+      costPrice: extra.costPrice != null ? String(extra.costPrice) : '',
+      sku: String(p.sku ?? ''),
+      defaultStock: '10',
+      lowStockThreshold: String(extra.lowStockThreshold ?? 5),
+      tags: formatTagsInput(extra.tags),
+      weavingType: schema.weavingType,
+      collectionId: extra.collections?.[0]?.collectionId ?? '',
+      productType: fitSplit.productType,
+      categoryId,
+      sizes: '',
+      imageUrl: p.images?.[0]?.url ?? '',
+      isPublished: p.isPublished,
+      status: p.status ?? (p.isPublished ? 'PUBLISHED' : 'DRAFT'),
+      isHidden: Boolean(extra.isHidden),
+      isFeatured: Boolean(extra.isFeatured),
+      isNewArrival: Boolean(extra.isNewArrival),
+      isBestSeller: Boolean(extra.isBestSeller),
       fabricContent: String(p.fabricContent ?? ''),
-      fitType: String(p.fitType ?? ''),
+      fitType: fitSplit.fitType,
       season: String(p.season ?? ''),
       occasion: String(p.occasion ?? ''),
       metaTitle: String(p.metaTitle ?? ''),
       metaDescription: String(p.metaDescription ?? ''),
     })
     const stocks: Record<string, string> = {}
+    const skus: Record<string, string> = {}
     product.variants?.forEach((v) => {
-      if (v.id) stocks[v.id] = String(v.stock ?? v.stockQuantity ?? 0)
+      if (v.id) {
+        stocks[v.id] = String(v.stock ?? v.stockQuantity ?? 0)
+        skus[v.id] = String(v.sku ?? '')
+      }
     })
     setStockEdits(stocks)
+    setSkuEdits(skus)
     setSlugEdited(false)
     setDirty(false)
-  }, [product])
+    if (categoryId && categories.length) {
+      setDepartmentId(categoryPicker.departmentForCategory(categoryId))
+    }
+  }, [product, categories.length, categoryPicker])
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -179,6 +257,56 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     set('slug', slugify(slug))
   }
 
+  const handleDepartmentChange = (deptId: string) => {
+    setDepartmentId(deptId)
+    set('categoryId', '')
+  }
+
+  const handleSubcategoryChange = (categoryId: string) => {
+    set('categoryId', categoryId)
+  }
+
+  const appendBanglaPhrase = (phrase: string) => {
+    setForm((prev) => ({
+      ...prev,
+      descriptionBn: prev.descriptionBn.trim() ? `${prev.descriptionBn.trim()}\n\n${phrase}` : phrase,
+    }))
+    setDirty(true)
+  }
+
+  const applyDescriptionDraft = () => {
+    const categoryName = categories.find((c) => c.id === form.categoryId)?.name ?? ''
+    const full = buildDescriptionDraft({
+      name: form.name,
+      notes: form.descriptionNotes,
+      fabric: form.fabricContent,
+      fit: form.fitType,
+      occasion: form.occasion,
+      category: categoryName,
+    })
+    const { en, bn } = splitBilingualDescription(full)
+    setForm((prev) => ({ ...prev, descriptionEn: en, descriptionBn: bn }))
+    setDirty(true)
+    toastOk('Description draft ready', 'desc-draft-edit')
+  }
+
+  const applyBanglaPolish = () => {
+    if (!form.name.trim() && !form.descriptionBn.trim()) {
+      toast.error('Product name বা কিছু বাংলা লিখুন।')
+      return
+    }
+    const bn = polishBanglaDescription({
+      name: form.name,
+      fabric: form.fabricContent,
+      fit: form.fitType,
+      occasion: form.occasion,
+      notes: form.descriptionNotes,
+      existing: form.descriptionBn,
+    })
+    set('descriptionBn', bn)
+    toastOk('বাংলা বিবরণ polished', 'bn-polish-edit')
+  }
+
   const handleGenerateDescription = useCallback(async () => {
     if (!form.name.trim()) { toast.error('Enter product name first.'); return }
     setAiLoading(true)
@@ -195,8 +323,15 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         return
       }
       const parsed = parseAiProductOutput(job.outputData ?? {})
-      if (parsed.description) {
-        set('description', parsed.description)
+      const en = parsed.description ?? parsed.longDescription
+      const bn = parsed.descriptionBn as string | undefined
+      if (en || bn) {
+        setForm((prev) => ({
+          ...prev,
+          ...(en ? { descriptionEn: en as string } : {}),
+          ...(bn ? { descriptionBn: bn } : {}),
+        }))
+        setDirty(true)
         toastOk('AI description generated', 'ai-desc-ok')
       } else {
         toastFail('AI returned no description. Check API key in Command Brain.', 'ai-desc-empty')
@@ -225,9 +360,12 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         return
       }
       const out = parseAiProductOutput(job.outputData ?? {})
+      const en = out.description ?? out.longDescription
+      const bn = out.descriptionBn as string | undefined
       setForm((prev) => ({
         ...prev,
-        description: out.description ?? prev.description,
+        descriptionEn: (en as string) || prev.descriptionEn,
+        descriptionBn: bn || prev.descriptionBn,
         metaTitle: out.metaTitle ?? (prev.metaTitle || `${prev.name} | SPLARO Bangladesh`).slice(0, 60),
         metaDescription: out.metaDescription ?? prev.metaDescription,
         slug: prev.slug || slugify(prev.name),
@@ -246,17 +384,41 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Product name required.'); return }
-    const price = Number(form.basePrice)
-    if (!price || price <= 0) { toast.error('Enter a valid price.'); return }
+    if (!form.nameBn.trim()) { toast.error('নাম (বাংলা) লিখুন।'); setActiveTab('basic'); return }
+    const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
+    if (!sellingPrice || sellingPrice <= 0) { toast.error('Enter a valid price.'); return }
     setSaving(true)
     try {
+      const tags = parseTagsInput(form.tags)
+      const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
       await updateProduct.mutateAsync({
         id: productId,
         name: form.name.trim(),
-        basePrice: price,
+        slug: form.slug,
+        nameBn: form.nameBn.trim(),
+        shortDescription: form.shortDescription.trim(),
+        description: fullDescription.trim(),
+        basePrice: sellingPrice,
+        compareAtPrice: compareAt ?? null,
+        ...(costPrice && costPrice > 0 ? { costPrice } : {}),
+        ...(form.sku.trim() ? { sku: form.sku.trim() } : {}),
+        lowStockThreshold: Number(form.lowStockThreshold) || 5,
+        tags,
+        weavingType: form.weavingType,
+        collectionId: form.collectionId || '',
+        categoryId: form.categoryId,
+        fabricContent: form.fabricContent,
+        fitType: mergeFitAndProductType(form.productType, form.fitType),
+        occasion: form.occasion,
+        season: form.season,
+        metaTitle: form.metaTitle,
+        metaDescription: form.metaDescription,
         isPublished: form.isPublished,
-        ...(form.description.trim() ? { description: form.description.trim() } : {}),
-        ...(form.categoryId ? { categoryId: form.categoryId } : {}),
+        isHidden: form.isHidden,
+        status: form.status,
+        isFeatured: form.isFeatured,
+        isNewArrival: form.isNewArrival,
+        isBestSeller: form.isBestSeller,
         ...(form.imageUrl.trim() ? { imageUrl: form.imageUrl.trim() } : {}),
       })
       toastApiSaved('Product')
@@ -279,14 +441,15 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     }
   }
 
-  const saveVariantStock = (variantId: string) => {
+  const saveVariantRow = (variantId: string) => {
     const stock = Number(stockEdits[variantId])
     if (Number.isNaN(stock) || stock < 0) { toast.error('Invalid stock number.'); return }
+    const sku = skuEdits[variantId]?.trim() ?? ''
     updateVariant.mutate(
-      { productId, variantId, stock },
+      { productId, variantId, stock, ...(sku ? { sku } : {}) },
       {
-        onSuccess: () => toast.success('Stock updated.'),
-        onError: () => toast.error('Could not update stock.'),
+        onSuccess: () => toastOk('Variant saved to server.'),
+        onError: () => toastFail('Could not update variant.'),
       },
     )
   }
@@ -355,61 +518,69 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
           {/* 1 — Product Info */}
           <FormSection title="Product Info" icon={Package} number={1}>
-            <div className="space-y-4">
-
-              {/* Name + auto-slug */}
-              <div>
-                <label className="admin-field">
-                  <FieldLabel required>Product name</FieldLabel>
-                  <input
-                    className="admin-input text-[15px] font-bold"
-                    value={form.name}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="e.g. Silk Blend Anarkali Dress"
-                  />
-                </label>
-                {form.slug && (
-                  <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-[rgba(17,17,17,0.03)] px-3 py-2">
-                    <Link2 className="h-3 w-3 flex-shrink-0 text-[#9a7b52]" strokeWidth={2} />
-                    <span className="text-[11px] text-[#6B6B6B]">splaro.com.bd/products/</span>
-                    <input
-                      className="flex-1 bg-transparent text-[11px] font-black text-[#111111] outline-none"
-                      value={form.slug}
-                      onChange={(e) => handleSlugChange(e.target.value)}
-                    />
-                    {!slugEdited && (
-                      <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600">Auto</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Description + AI */}
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <FieldLabel>Description</FieldLabel>
-                  <button
-                    type="button"
-                    onClick={handleGenerateDescription}
-                    disabled={aiLoading}
-                    className="flex items-center gap-1.5 rounded-full bg-[rgba(200,169,126,0.14)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#9a7b52] transition-all hover:bg-[rgba(200,169,126,0.26)] disabled:opacity-50"
-                  >
-                    {aiLoading
-                      ? <Loader2 className="h-3 w-3 animate-spin" />
-                      : <Sparkles className="h-3 w-3" />
-                    }
-                    {aiLoading ? 'Generating…' : 'AI Write'}
-                  </button>
-                </div>
-                <textarea
-                  className="admin-input min-h-[110px] resize-y"
-                  value={form.description}
-                  onChange={(e) => set('description', e.target.value)}
-                  placeholder="Product description — or click AI Write to auto-generate"
-                />
+            <div className="product-form-shell">
+              <ProductCreateTabbedForm
+                tab={activeTab}
+                onTabChange={setActiveTab}
+                form={form}
+                set={(key, value) => {
+                  if (key === 'name') {
+                    handleNameChange(String(value))
+                    return
+                  }
+                  set(key as keyof typeof form, value as (typeof form)[typeof key])
+                }}
+                onNameChange={handleNameChange}
+                departmentId={departmentId}
+                catsLoading={false}
+                departments={categoryPicker.departments}
+                subcategories={subcategories}
+                selectedCategoryName={categories.find((c) => c.id === form.categoryId)?.name}
+                sizeList={[]}
+                allSizeChips={[]}
+                variantCount={product.variants?.length ?? 0}
+                collections={collections}
+                colorsOpen={false}
+                onColorsOpenToggle={() => undefined}
+                colorRows={[]}
+                activeColorId=""
+                imageUrls={form.imageUrl ? [form.imageUrl] : []}
+                onDepartmentChange={handleDepartmentChange}
+                onSubcategoryChange={handleSubcategoryChange}
+                onNameBlur={() => undefined}
+                onApplyDescriptionDraft={applyDescriptionDraft}
+                onApplyBanglaPolish={applyBanglaPolish}
+                onAIGenerate={handleGenerateDescription}
+                aiLoading={aiLoading}
+                onAddColorRow={() => undefined}
+                onActiveColor={() => undefined}
+                onUpdateColorRow={() => undefined}
+                onRemoveColorRow={() => undefined}
+                onAppendBanglaPhrase={appendBanglaPhrase}
+                descriptionPlaceholderEn="Premium English description…"
+                descriptionPlaceholderBn="বাংলায় সুন্দর বিবরণ…"
+                showVariantControls={false}
+                headerSlot={
+                  form.slug ? (
+                    <div className="product-form-slug-row">
+                      <Link2 className="h-3.5 w-3.5 flex-shrink-0 text-[var(--admin-accent)]" strokeWidth={2} />
+                      <span className="text-[11px] text-[var(--admin-text-muted)]">splaro.com.bd/products/</span>
+                      <input
+                        className="flex-1 bg-transparent text-[11px] font-black text-[var(--admin-text)] outline-none"
+                        value={form.slug}
+                        onChange={(e) => handleSlugChange(e.target.value)}
+                      />
+                      {!slugEdited ? (
+                        <span className="product-form-slug-row__auto">Auto</span>
+                      ) : null}
+                    </div>
+                  ) : null
+                }
+              />
+              <div className="mt-4">
                 <ProductAIAssist
                   name={form.name}
-                  description={form.description}
+                  description={fullDescription}
                   metaTitle={form.metaTitle}
                   metaDescription={form.metaDescription}
                   fabricContent={form.fabricContent}
@@ -418,60 +589,20 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                   fillLoading={fillAllLoading}
                 />
               </div>
-
-              {/* Price */}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="admin-field">
-                  <FieldLabel required>Price (BDT)</FieldLabel>
-                  <input className="admin-input font-black" type="number" min="0" value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} placeholder="0" />
-                </label>
-                <label className="admin-field">
-                  <FieldLabel>Compare at (BDT)</FieldLabel>
-                  <input className="admin-input" type="number" min="0" value={form.compareAtPrice} onChange={(e) => set('compareAtPrice', e.target.value)} placeholder="0" />
-                </label>
-              </div>
-
-              <label className="admin-field">
-                <FieldLabel>Category</FieldLabel>
-                <select className="admin-input" value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
-                  <option value="">Uncategorized</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </FormSection>
-
-          {/* 2 — Product Details */}
-          <FormSection title="Product Details" icon={Tag} number={2}>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="admin-field">
-                <FieldLabel>Fabric / Material</FieldLabel>
-                <input className="admin-input" value={form.fabricContent} onChange={(e) => set('fabricContent', e.target.value)} placeholder="e.g. 100% Silk" />
-              </label>
-              <label className="admin-field">
-                <FieldLabel>Fit type</FieldLabel>
-                <input className="admin-input" value={form.fitType} onChange={(e) => set('fitType', e.target.value)} placeholder="e.g. Regular, Loose" />
-              </label>
-              <label className="admin-field">
+              <label className="admin-field mt-4">
                 <FieldLabel>Season</FieldLabel>
-                <select className="admin-input" value={form.season} onChange={(e) => set('season', e.target.value)}>
+                <select className="admin-input admin-input--premium" value={form.season} onChange={(e) => set('season', e.target.value)}>
                   <option value="">All Season</option>
-                  <option>Summer</option><option>Winter</option><option>Eid</option><option>Puja</option>
-                </select>
-              </label>
-              <label className="admin-field">
-                <FieldLabel>Occasion</FieldLabel>
-                <select className="admin-input" value={form.occasion} onChange={(e) => set('occasion', e.target.value)}>
-                  <option value="">Any</option>
-                  <option>Casual</option><option>Formal</option><option>Eid</option><option>Wedding</option><option>Party</option>
+                  <option>Summer</option>
+                  <option>Winter</option>
+                  <option>Eid</option>
+                  <option>Puja</option>
                 </select>
               </label>
             </div>
           </FormSection>
 
-          {/* 3 — Variants & Stock */}
+          {/* 2 — Variants */}
           {product.variants && product.variants.length > 0 && (
             <FormSection title={`Variants & Stock${lowStock ? ' — ⚠ Low' : ''}`} icon={Layers} number={3}>
               <div className="overflow-hidden rounded-xl border border-[rgba(17,17,17,0.06)]">
@@ -488,7 +619,14 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                       const stock = Number(v.id ? stockEdits[v.id] ?? '0' : '0')
                       return (
                         <tr key={v.id ?? i} className="border-b border-[rgba(17,17,17,0.04)] last:border-0 transition-colors hover:bg-[rgba(200,169,126,0.04)]">
-                          <td className="px-3 py-2.5 font-mono text-[11px] text-[#6B6B6B]">{v.sku ?? '—'}</td>
+                          <td className="px-3 py-2.5">
+                            <input
+                              className="admin-input w-full min-w-[100px] font-mono text-[11px]"
+                              placeholder="Your SKU"
+                              value={v.id ? skuEdits[v.id] ?? '' : ''}
+                              onChange={(e) => v.id && setSkuEdits((prev) => ({ ...prev, [v.id!]: e.target.value }))}
+                            />
+                          </td>
                           <td className="px-3 py-2.5 text-sm font-semibold">{v.size ?? '—'}</td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-1.5">
@@ -513,7 +651,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                           <td className="px-3 py-2.5">
                             {v.id && (
                               <button
-                                onClick={() => saveVariantStock(v.id!)}
+                                onClick={() => saveVariantRow(v.id!)}
                                 disabled={updateVariant.isPending}
                                 className="rounded-lg bg-[rgba(200,169,126,0.12)] px-2.5 py-1 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50"
                               >
@@ -549,7 +687,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                   <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-[#6B6B6B]">Google Preview</p>
                   <p className="text-sm font-bold text-blue-600 underline">{form.metaTitle || form.name}</p>
                   <p className="text-[11px] text-green-700">splaro.com.bd/products/{form.slug}</p>
-                  <p className="mt-0.5 text-[11px] text-[#6B6B6B] line-clamp-2">{form.metaDescription || form.description || 'No description set.'}</p>
+                  <p className="mt-0.5 text-[11px] text-[#6B6B6B] line-clamp-2">{form.metaDescription || fullDescription || 'No description set.'}</p>
                 </div>
               )}
             </div>

@@ -44,7 +44,7 @@ export class CategoriesController {
   @Patch(':id')
   async update(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string; isActive?: boolean },
+    @Body() body: { name?: string; description?: string; isActive?: boolean; image?: string | null },
   ) {
     const category = await this.prisma.category.findUnique({ where: { id } })
     if (!category) throw new NotFoundException('Category not found')
@@ -55,6 +55,7 @@ export class CategoriesController {
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
         ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
+        ...(body.image !== undefined ? { image: body.image } : {}),
       },
     })
   }

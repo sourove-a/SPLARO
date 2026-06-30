@@ -7,6 +7,8 @@ import { Loader2, Mail, Phone, UserRound } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { AuthField } from '@/components/auth/AuthField'
 import { AuthModeSwitch } from '@/components/auth/AuthModeSwitch'
+import { loadCheckoutCustomerDraft } from '@/lib/checkout/customer-draft'
+import { formatBdPhoneInput } from '@/lib/checkout/phone'
 import { useAuthStore } from '@/store/authStore'
 
 type AuthMode = 'login' | 'signup'
@@ -71,6 +73,14 @@ export function AuthExperience() {
     setError('')
   }, [mode])
 
+  useEffect(() => {
+    if (nextPath !== '/checkout' || mode !== 'signup') return
+    const draft = loadCheckoutCustomerDraft()
+    if (draft.name) setName(draft.name)
+    if (draft.email) setEmail(draft.email)
+    if (draft.phone) setPhone(formatBdPhoneInput(draft.phone))
+  }, [mode, nextPath])
+
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
@@ -96,7 +106,6 @@ export function AuthExperience() {
       signIn(payload.user)
       const destination = nextPath.startsWith('/') ? nextPath : '/account'
       router.replace(destination)
-      router.refresh()
     } catch {
       setError('Network error. Please try again.')
     } finally {
@@ -142,7 +151,6 @@ export function AuthExperience() {
       )
       const destination = nextPath.startsWith('/') ? nextPath : '/account'
       router.replace(destination)
-      router.refresh()
     } catch {
       setError('Network error. Please try again.')
     } finally {
@@ -271,10 +279,11 @@ export function AuthExperience() {
                 <AuthField
                   required
                   type="tel"
+                  inputMode="numeric"
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="Phone number"
-                  autoComplete="tel"
+                  onChange={(event) => setPhone(formatBdPhoneInput(event.target.value))}
+                  placeholder="01XXXXXXXXX"
+                  autoComplete="tel-national"
                   trailing={
                     <span className="auth-field__icon-chip">
                       <Phone className="h-4 w-4" strokeWidth={2.1} />

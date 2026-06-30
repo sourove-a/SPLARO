@@ -71,6 +71,37 @@ export function GeneralSection({ draft, setDraft, save, saving, apiOnline }: Sec
         </FieldGrid>
         <SaveBar label="Save region" saving={saving} disabled={!apiOnline} onClick={() => save({ store: draft.store }, 'Region settings')} />
       </SectionCard>
+
+      <SectionCard
+        title="Catalog & SKU policy"
+        subtitle="Live launch: type your own SKU codes. Auto-generate stays off unless you enable it."
+      >
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-black/8 bg-white/50 p-3 dark:border-white/10 dark:bg-white/5">
+          <input
+            type="checkbox"
+            checked={draft.catalog.autoGenerateSku}
+            onChange={(e) =>
+              setDraft((p) => ({
+                ...p,
+                catalog: { ...p.catalog, autoGenerateSku: e.target.checked },
+              }))
+            }
+            className="mt-1"
+          />
+          <div>
+            <p className="text-sm font-bold text-[var(--admin-text-primary)]">Auto-generate SKUs</p>
+            <p className="mt-1 text-xs font-medium text-[var(--admin-text-muted)]">
+              Off (recommended): you write SKU on each variant in product edit. On: admin can bulk-fill empty variant SKUs.
+            </p>
+          </div>
+        </label>
+        <SaveBar
+          label="Save catalog policy"
+          saving={saving}
+          disabled={!apiOnline}
+          onClick={() => save({ catalog: draft.catalog }, 'Catalog policy')}
+        />
+      </SectionCard>
     </div>
   )
 }

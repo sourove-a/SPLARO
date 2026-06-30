@@ -1,9 +1,10 @@
 import type { CartItem } from '@/store/cartStore'
 import { buildInvoiceUrl } from '@/lib/invoice-url'
 
-export type DeliveryStage = 'Confirmed' | 'Packed' | 'Shipped' | 'In Transit' | 'Delivered'
+export type DeliveryStage = 'Pending' | 'Confirmed' | 'Packed' | 'Shipped' | 'In Transit' | 'Delivered'
 
 export const DELIVERY_STAGES: DeliveryStage[] = [
+  'Pending',
   'Confirmed',
   'Packed',
   'Shipped',
@@ -109,10 +110,8 @@ export async function fetchUserOrders(): Promise<StoredOrder[]> {
     if (!response.ok) return loadOrders()
     const payload = (await response.json()) as { orders?: ApiOrder[] }
     const orders = (payload.orders ?? []).map(normalizeOrder)
-    if (orders.length) {
-      window.localStorage.setItem('splaro-orders', JSON.stringify(orders))
-    }
-    return orders.length ? orders : loadOrders()
+    window.localStorage.setItem('splaro-orders', JSON.stringify(orders))
+    return orders
   } catch {
     return loadOrders()
   }
@@ -265,15 +264,17 @@ function mapStatusToDeliveryStage(status: string): DeliveryStage | null {
   if (['IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes(normalized)) return 'In Transit'
   if (['SHIPPED', 'PICKED_UP', 'COURIER_BOOKED'].includes(normalized)) return 'Shipped'
   if (['PACKED', 'PROCESSING'].includes(normalized)) return 'Packed'
-  if (['CONFIRMED', 'PENDING'].includes(normalized)) return 'Confirmed'
-  if (['CANCELLED', 'RETURNED', 'REFUNDED'].includes(normalized)) return 'Confirmed'
+  if (normalized === 'CONFIRMED') return 'Confirmed'
+  if (normalized === 'PENDING') return 'Pending'
+  if (['CANCELLED', 'RETURNED', 'REFUNDED'].includes(normalized)) return 'Pending'
 
   const lower = status.trim().toLowerCase()
   if (lower === 'delivered') return 'Delivered'
   if (lower === 'in_transit') return 'In Transit'
   if (lower === 'shipped') return 'Shipped'
-  if (lower === 'packed') return 'Packed'
-  if (lower === 'confirmed' || lower === 'pending') return 'Confirmed'
+  if (lower === 'packed' || lower === 'processing') return 'Packed'
+  if (lower === 'confirmed') return 'Confirmed'
+  if (lower === 'pending') return 'Pending'
 
   return null
 }
@@ -303,7 +304,7 @@ export function getDeliveryStage(
     if (fromTracking) return fromTracking
   }
 
-  return 'Confirmed'
+  return 'Pending'
 }
 
 export function isActiveOrder(stage: DeliveryStage) {

@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 import { fadeUp, staggerContainer } from '@/lib/motion/variants'
 import { ScrollReveal } from '@/components/motion/ScrollReveal'
+import { IlynProductCard } from '@/components/product/ProductCard/IlynProductCard'
 
 type Category = 'All' | 'Sarees' | 'Three Piece' | 'Luxury Pret' | 'Accessories'
 
@@ -161,45 +160,19 @@ export function BestSellers() {
           key={active}
         >
           {filtered.map((product) => (
-            <motion.article key={product.id} variants={cardVariants} className="group">
-              <Link href={`/products/${product.slug}`} aria-label={product.name}>
-                {/* Image with hover swap */}
-                <div className="relative mb-4 aspect-[3/4] overflow-hidden bg-[#F0EDE8]" style={{ borderRadius: '16px' }}>
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover object-top transition-opacity duration-600 ease-out group-hover:opacity-0"
-                  />
-                  <Image
-                    src={product.imageHover}
-                    alt={`${product.name} — alternate view`}
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="object-cover object-top opacity-0 transition-opacity duration-600 ease-out group-hover:opacity-100"
-                  />
-                </div>
-
-                {/* Info */}
-                <div className="space-y-1.5">
-                  <p className="text-[0.5rem] uppercase tracking-[0.2em] text-luxury-gray">
-                    {product.category}
-                  </p>
-                  <h3 className="text-[0.8125rem] font-semibold tracking-wide text-[#111] transition-colors duration-200 group-hover:text-[#6B6B6B]">
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[0.8125rem] font-medium text-luxury-black">
-                      {formatBDT(product.price)}
-                    </span>
-                    <span className="text-[0.5rem] text-luxury-gray/60 uppercase tracking-[0.1em]">
-                      {product.sold} sold
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            </motion.article>
+            <motion.div key={product.id} variants={cardVariants}>
+              <IlynProductCard
+                id={product.id}
+                slug={product.slug}
+                name={product.name}
+                price={product.price}
+                image={product.image}
+                imageHover={product.imageHover}
+                collection={product.category}
+                {...(product.sold ? { meta: `${product.sold} sold` } : {})}
+                fit="cover"
+              />
+            </motion.div>
           ))}
         </motion.div>
       </div>

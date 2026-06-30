@@ -2,18 +2,22 @@
 
 import { ShopCatalog, type ShopCatalogPreset } from '@/components/shop/ShopCatalog'
 import { ShopCollectionsSection } from '@/components/shop/ShopCollectionsSection'
-import { sortOptions, type Category } from '@/data/storefront'
+import type { Category } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
+import type { CatalogSortOption } from '@/lib/shop/mobile-filter'
 
 interface ShopExperienceProps {
   initialCategory?: Category
   showCollections?: boolean
   initialCatalog?: CachedCatalog
   catalogPreset?: ShopCatalogPreset
-  initialSort?: (typeof sortOptions)[number]
+  initialSort?: CatalogSortOption
   pageEyebrow?: string
   pageTitle?: string
   pageDescription?: string
+  collectionSlug?: string
+  categorySlug?: string
+  listingMode?: 'full' | 'scoped'
 }
 
 export function ShopExperience({
@@ -25,6 +29,9 @@ export function ShopExperience({
   pageEyebrow,
   pageTitle,
   pageDescription,
+  collectionSlug,
+  categorySlug,
+  listingMode = collectionSlug || categorySlug ? 'scoped' : 'full',
 }: ShopExperienceProps) {
   return (
     <div className="shop-page-shell">
@@ -44,6 +51,9 @@ export function ShopExperience({
         {...(initialCatalog ? { initialCatalog } : {})}
         {...(catalogPreset ? { catalogPreset } : {})}
         {...(initialSort ? { initialSort } : {})}
+        {...(collectionSlug ? { collectionSlug } : {})}
+        {...(categorySlug ? { categorySlug } : {})}
+        listingMode={listingMode}
       />
     </div>
   )

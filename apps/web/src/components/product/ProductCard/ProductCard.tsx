@@ -11,8 +11,15 @@ import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { trackAddToCart } from '@/lib/analytics/meta-pixel'
 import { fadeUp } from '@/lib/motion/variants'
+import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import type { ProductCardData } from '@/types/product'
 import type { ProductStatus } from '@/data/storefront'
+
+function productImages(product: ProductCardData): string[] {
+  const fromList = (product.images ?? []).map((url) => url?.trim()).filter(Boolean) as string[]
+  if (fromList.length) return fromList
+  return [PRODUCT_IMAGE_PLACEHOLDER]
+}
 
 interface ProductCardProps {
   product: ProductCardData
@@ -59,10 +66,12 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
   const [hovered, setHovered] = useState(false)
   const [imgIndex, setImgIndex] = useState(0)
   const reducedMotion = useReducedMotion()
+  const images = productImages(product)
 
   const addToCart = useCartStore((s) => s.addItem)
+  const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
-  const inWishlist = isInWishlist(product.id)
+  const inWishlist = wishlistHydrated && isInWishlist(product.id)
 
   const handleAddToCart = useCallback(
     (e: React.MouseEvent) => {
@@ -74,12 +83,12 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         quantity: 1,
         name: product.name,
         price: product.price,
-        image: product.images[0] ?? '',
+        image: images[0] ?? PRODUCT_IMAGE_PLACEHOLDER,
         slug: product.slug,
       })
       trackAddToCart({ id: product.id, name: product.name, price: product.price })
     },
-    [addToCart, product],
+    [addToCart, product, images],
   )
 
   const handleWishlist = useCallback(
@@ -95,18 +104,18 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      setImgIndex((i) => (i === 0 ? product.images.length - 1 : i - 1))
+      setImgIndex((i) => (i === 0 ? images.length - 1 : i - 1))
     },
-    [product.images.length],
+    [images.length],
   )
 
   const nextImg = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      setImgIndex((i) => (i === product.images.length - 1 ? 0 : i + 1))
+      setImgIndex((i) => (i === images.length - 1 ? 0 : i + 1))
     },
-    [product.images.length],
+    [images.length],
   )
 
   const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
@@ -115,8 +124,8 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     : 0
 
   const colorCount = product.colorOptions?.length ?? 0
-  const hasMultipleImages = product.images.length > 1
-  const currentImage = product.images[imgIndex] ?? product.images[0] ?? ''
+  const hasMultipleImages = images.length > 1
+  const currentImage = images[imgIndex] ?? images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
 
   const revealMotion = reducedMotion
     ? { initial: false as const }
@@ -184,13 +193,10 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         </button>
 
         <motion.button
-          className={cn('pc-wish-btn', inWishlist && 'pc-wish-btn--saved')}
+          className={cn('pc-wish-btn', 'pc-wish-btn--touch', inWishlist && 'pc-wish-btn--saved')}
           onClick={handleWishlist}
           aria-label={inWishlist ? 'Remove from wishlist' : 'Save'}
           aria-pressed={inWishlist}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: hovered || inWishlist ? 1 : 0 }}
-          transition={{ duration: 0.18 }}
         >
           <Heart size={14} strokeWidth={1.6} className={cn(inWishlist && 'fill-current')} />
         </motion.button>
@@ -239,10 +245,12 @@ function ProductCardShop({
   productHref: string
   onShopAddToBag?: (size?: string, color?: string) => void
 }) {
+  const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
-  const saved = isInWishlist(product.id)
-  const primaryImage = product.images[0] ?? ''
-  const hoverImage = product.images[1] ?? primaryImage
+  const saved = wishlistHydrated && isInWishlist(product.id)
+  const images = productImages(product)
+  const primaryImage = images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
+  const hoverImage = images[1] ?? primaryImage
   const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
 
   const handleBag = (size?: string, color?: string) => {

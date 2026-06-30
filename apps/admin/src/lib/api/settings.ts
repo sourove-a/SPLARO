@@ -161,6 +161,9 @@ export interface AdminSettingsData {
   ourStory: OurStoryConfig
   homepage: HomepageSectionsConfig
   catalogChannels: CatalogChannel[]
+  catalog: {
+    autoGenerateSku: boolean
+  }
   payments: {
     cod: boolean
     bkash: boolean

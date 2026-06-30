@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { Crown, Gift, PieChart, RefreshCw, Search, Share2, Sparkles, Users } from 'lucide-react'
+import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { useCustomers, useMarketingOverview } from '@/lib/api/hooks'
+import { useCustomers, useLoyaltySummary, useReferralStats, useReferrals } from '@/lib/api/hooks'
 import type { ApiCustomer } from '@/lib/api/customers'
 import { formatBDT } from '@/lib/utils/currency'
 
@@ -215,7 +216,14 @@ function VipMembersView({ customers }: { customers: ApiCustomer[] }) {
 
 // ─── Loyalty Program ──────────────────────────────────────────────────────────
 function LoyaltyProgramView({ customers }: { customers: ApiCustomer[] }) {
+  const { data: loyalty, isError: loyaltyOffline, isLoading: loyaltyLoading } = useLoyaltySummary()
+
   const tiers = useMemo(() => {
+    if (loyalty?.tierBreakdown?.length) {
+      return loyalty.tierBreakdown
+        .map((row) => [row.tier, { count: row.count, revenue: 0 }] as const)
+        .sort((a, b) => b[1].count - a[1].count)
+    }
     const map = new Map<string, { count: number; revenue: number }>()
     for (const c of customers) {
       const row = map.get(c.loyaltyTier) ?? { count: 0, revenue: 0 }
@@ -224,8 +232,10 @@ function LoyaltyProgramView({ customers }: { customers: ApiCustomer[] }) {
       map.set(c.loyaltyTier, row)
     }
     return [...map.entries()].sort((a, b) => b[1].revenue - a[1].revenue)
-  }, [customers])
+  }, [customers, loyalty])
 
+  const enrolled = loyalty?.totalCustomers ?? customers.length
+  const totalPoints = loyalty?.totalPointsIssued ?? customers.reduce((s, c) => s + (c.loyaltyPoints ?? 0), 0)
   const avgOrders = customers.length > 0
     ? (customers.reduce((s, c) => s + c.totalOrders, 0) / customers.length).toFixed(1)
     : '0'
@@ -233,10 +243,14 @@ function LoyaltyProgramView({ customers }: { customers: ApiCustomer[] }) {
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {loyaltyOffline ? (
+        <ApiOfflineHint message="Loyalty API offline — tier counts may be incomplete until pnpm dev:api runs." />
+      ) : null}
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
         <PanelHeader icon={Gift} title="Loyalty Program" />
         <KpiStrip items={[
-          ['Enrolled', customers.length, 'default'],
+          ['Enrolled', loyaltyLoading ? '…' : enrolled, 'default'],
+          ['Points issued', loyaltyLoading ? '…' : totalPoints.toLocaleString(), 'default'],
           ['Avg orders', avgOrders, 'default'],
           ['Repeat buyers', customers.filter((c) => c.totalOrders >= 2).length, 'success'],
           ['Total CLV', formatBDT(totalClv), 'gold'],
@@ -266,7 +280,9 @@ function LoyaltyProgramView({ customers }: { customers: ApiCustomer[] }) {
                 <tr key={tier} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
                   <td style={{ padding: '12px 24px' }}><TierBadge tier={tier} /></td>
                   <td style={{ padding: '12px 24px', fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)' }}>{stats.count}</td>
-                  <td style={{ padding: '12px 24px', fontSize: 14, fontWeight: 800, color: GOLD }}>{formatBDT(stats.revenue)}</td>
+                  <td style={{ padding: '12px 24px', fontSize: 14, fontWeight: 800, color: GOLD }}>
+                    {'revenue' in stats && stats.revenue > 0 ? formatBDT(stats.revenue) : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -279,12 +295,13 @@ function LoyaltyProgramView({ customers }: { customers: ApiCustomer[] }) {
 
 // ─── Referrals ────────────────────────────────────────────────────────────────
 function ReferralsView() {
-  const { data, isError, isLoading } = useMarketingOverview()
-  const affiliates = data?.affiliates ?? []
-  const totalEarned = affiliates.reduce((s, a) => s + Number(a.totalEarned), 0)
-  const active = affiliates.filter((a) => a.status === 'ACTIVE').length
+  const { data: stats, isError: statsOffline, isLoading: statsLoading } = useReferralStats()
+  const { data: list, isError: listOffline, isLoading: listLoading } = useReferrals({ limit: 50 })
+  const referrals = list?.items ?? []
+  const isOffline = statsOffline || listOffline
+  const isLoading = statsLoading || listLoading
 
-  if (isError) return (
+  if (isOffline && !isLoading) return (
     <div className="settings-card admin-panel-glass" style={{ padding: 24, borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>
       Referral API offline — start pnpm dev:api
     </div>
@@ -292,56 +309,56 @@ function ReferralsView() {
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {isOffline ? (
+        <ApiOfflineHint message="Referral API partially offline — counts may be stale." />
+      ) : null}
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
-        <PanelHeader icon={Share2} title="Referral Partners" />
+        <PanelHeader icon={Share2} title="Customer Referrals" />
         <KpiStrip items={[
-          ['Partners', isLoading ? '…' : affiliates.length, 'default'],
-          ['Active', active, 'success'],
-          ['Total earned', formatBDT(totalEarned), 'gold'],
-          ['Pending payout', formatBDT(affiliates.reduce((s, a) => s + Number(a.pendingPayout), 0)), 'warning'],
+          ['Total referrals', isLoading ? '…' : (stats?.total ?? referrals.length), 'default'],
+          ['Converted', isLoading ? '…' : (stats?.converted ?? 0), 'success'],
+          ['Conversion rate', isLoading ? '…' : `${stats?.conversionRate ?? 0}%`, 'default'],
+          ['Reward points', isLoading ? '…' : (stats?.totalRewardPoints ?? 0).toLocaleString(), 'gold'],
         ]} />
       </div>
 
-      {affiliates.length === 0 ? (
+      {referrals.length === 0 && !isLoading ? (
         <EmptyState
           icon={Share2}
-          title="No referral partners yet"
-          hint="Affiliate partners act as referral sources — add partners in Marketing → Affiliate."
-          action={
-            <Link href="/dashboard/affiliate" className="admin-catalog-action inline-flex items-center" style={{ padding: '8px 20px', fontSize: 12, fontWeight: 800, textDecoration: 'none', display: 'inline-block',
-             }}>
-              Manage affiliates
-            </Link>
-          }
+          title="No referrals yet"
+          hint="Customer referral links will appear here once shoppers invite friends."
         />
       ) : (
         <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.5)' }}>
-                {['Partner', 'Code', 'Earned', 'Status'].map((h) => (
+                {['Referrer', 'Referred', 'Status', 'Points', 'Date'].map((h) => (
                   <th key={h} style={{ padding: '10px 24px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {affiliates.map((a) => (
-                <tr key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
-                  <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{a.name}</td>
-                  <td style={{ padding: '12px 24px', fontFamily: 'monospace', fontSize: 12, color: 'var(--admin-text-secondary)' }}>{a.code}</td>
-                  <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 800, color: GOLD }}>{formatBDT(Number(a.totalEarned))}</td>
-                  <td style={{ padding: '12px 24px' }}>
-                    <span style={{
-                      background: a.status === 'ACTIVE' ? 'rgba(22,163,74,0.10)' : 'rgba(156,163,175,0.10)',
-                      border: `1px solid ${a.status === 'ACTIVE' ? 'rgba(22,163,74,0.30)' : 'rgba(156,163,175,0.30)'}`,
-                      color: a.status === 'ACTIVE' ? '#15803D' : '#6B7280',
-                      borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 800,
-                    }}>
-                      {a.status.toLowerCase()}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {referrals.map((row) => {
+                const referrer = row.referrer
+                const referrerName = referrer
+                  ? [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || referrer.phone || 'Customer'
+                  : '—'
+                const referred = row.referredEmail || row.referredPhone || '—'
+                return (
+                  <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
+                    <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{referrerName}</td>
+                    <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-secondary)' }}>{referred}</td>
+                    <td style={{ padding: '12px 24px', fontSize: 12, fontWeight: 800, color: row.isConverted ? '#15803D' : 'var(--admin-text-muted)' }}>
+                      {row.isConverted ? 'Converted' : 'Pending'}
+                    </td>
+                    <td style={{ padding: '12px 24px', fontSize: 13, fontWeight: 800, color: GOLD }}>{row.rewardPoints ?? 0}</td>
+                    <td style={{ padding: '12px 24px', fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+                      {new Date(row.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

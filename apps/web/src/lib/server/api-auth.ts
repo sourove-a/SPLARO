@@ -13,6 +13,9 @@ export interface ApiAuthUser {
   email: string
   phone: string
   customerId?: string
+  avatar?: string | null
+  phoneVerified?: boolean
+  loyaltyTier?: string
 }
 
 function apiUrl(path: string): string {
@@ -30,7 +33,7 @@ export async function getPhoneAccessToken(): Promise<string | undefined> {
   return cookieStore.get(PHONE_ACCESS_COOKIE)?.value
 }
 
-function sessionHeaders(sessionToken?: string): Record<string, string> {
+export function sessionHeaders(sessionToken?: string): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',

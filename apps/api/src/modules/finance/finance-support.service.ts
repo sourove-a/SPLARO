@@ -98,6 +98,23 @@ export class DailyClosingService {
   }
 }
 
+const SHEET_TYPE_TO_TAB: Partial<Record<GoogleSheetType, string>> = {
+  ORDERS: 'Orders',
+  CUSTOMERS: 'Customers',
+  PRODUCTS: 'Products & Stock',
+  INVENTORY: 'Products & Stock',
+  PARTNER_ACCOUNTS: 'Partner Accounts',
+  EXPENSES: 'Expenses',
+  PROFIT_LOSS: 'Profit & Loss',
+  COURIER: 'Courier',
+  PAYMENT: 'Payments',
+  DAILY_SUMMARY: 'Daily Summary',
+  TELEGRAM_LOGS: 'Telegram Logs',
+  AI_JOBS: 'AI Jobs',
+}
+
+const CORE_WORKSPACE_TABS = new Set(['Orders', 'Customers', 'Products & Stock', 'Subscribers', 'Dashboard'])
+
 @Injectable()
 export class GoogleSheetsFinanceService {
   private sheetEnvMap: Record<GoogleSheetType, string> = {
@@ -120,36 +137,98 @@ export class GoogleSheetsFinanceService {
     private readonly audit: FinanceAuditService,
   ) {}
 
+  async getWorkspaceContext(storeId: string) {
+    const [workspaceConn, sheetConfigs] = await Promise.all([
+      this.prisma.googleWorkspaceConnection.findUnique({ where: { storeId } }),
+      this.prisma.googleSheetConfig.findMany({ where: { storeId } }),
+    ])
+
+    const spreadsheetId = workspaceConn?.spreadsheetId?.trim() || null
+    const configByTab = new Map(sheetConfigs.map((row) => [row.sheetTab, row]))
+
+    return {
+      workspaceConn,
+      spreadsheetId,
+      spreadsheetUrl: workspaceConn?.spreadsheetUrl ?? null,
+      workspaceConnected: Boolean(workspaceConn?.isConnected),
+      autoSyncEnabled: workspaceConn?.autoSyncEnabled ?? false,
+      configByTab,
+    }
+  }
+
   async getDashboard(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    const logs = await this.prisma.googleSheetSyncLog.findMany({
-      where: { storeId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    })
+    const [logs, workspace] = await Promise.all([
+      this.prisma.googleSheetSyncLog.findMany({
+        where: { storeId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      this.getWorkspaceContext(storeId),
+    ])
+
+    const { spreadsheetId, configByTab, workspaceConn } = workspace
 
     const byType = Object.keys(this.sheetEnvMap).map((type) => {
       const sheetType = type as GoogleSheetType
-      const last = logs.find((l) => l.sheetType === sheetType)
+      const tab = SHEET_TYPE_TO_TAB[sheetType]
+      const wsConfig = tab ? configByTab.get(tab) : undefined
       const envKey = this.sheetEnvMap[sheetType]
+      const envConfigured = Boolean(process.env[envKey])
+      const wsConfigured = Boolean(
+        spreadsheetId &&
+          (wsConfig?.enabled ||
+            (tab && CORE_WORKSPACE_TABS.has(tab)) ||
+            wsConfig?.spreadsheetId),
+      )
+      const configured = envConfigured || wsConfigured
+
+      const last = logs.find((l) => l.sheetType === sheetType)
+      const wsLastSync = wsConfig?.lastSyncAt ?? workspaceConn?.lastSyncAt ?? null
+      const wsLastError = wsConfig?.lastError ?? workspaceConn?.lastError ?? null
+
+      let lastStatus = last?.status ?? null
+      if (!lastStatus && configured) {
+        if (wsLastError) lastStatus = 'FAILED' as SyncStatus
+        else if (wsLastSync) lastStatus = 'COMPLETED' as SyncStatus
+        else lastStatus = 'PENDING' as SyncStatus
+      }
+
       return {
         sheetType,
-        sheetId: process.env[envKey] ?? null,
-        configured: Boolean(process.env[envKey]),
-        lastSync: last?.syncedAt ?? last?.createdAt ?? null,
-        lastStatus: last?.status ?? null,
-        lastError: last?.errorMsg ?? null,
+        sheetId: process.env[envKey] ?? wsConfig?.spreadsheetId ?? spreadsheetId ?? null,
+        configured,
+        configuredVia: envConfigured ? 'env' : wsConfigured ? 'workspace' : null,
+        lastSync: last?.syncedAt ?? last?.createdAt ?? wsLastSync ?? null,
+        lastStatus,
+        lastError: last?.errorMsg ?? wsLastError ?? null,
       }
     })
 
     const stats = {
-      total: logs.length,
-      completed: logs.filter((l) => l.status === 'COMPLETED').length,
-      failed: logs.filter((l) => l.status === 'FAILED').length,
-      pending: logs.filter((l) => l.status === 'PENDING').length,
+      total: byType.length,
+      configured: byType.filter((row) => row.configured).length,
+      completed: byType.filter((row) => row.lastStatus === 'COMPLETED').length,
+      failed: byType.filter((row) => row.lastStatus === 'FAILED').length,
+      pending: byType.filter(
+        (row) =>
+          !row.lastStatus ||
+          row.lastStatus === 'PENDING' ||
+          row.lastStatus === 'SYNCING',
+      ).length,
     }
 
-    return { sheets: byType, stats, recentLogs: logs.slice(0, 20) }
+    const connection = {
+      workspaceConnected: workspace.workspaceConnected,
+      spreadsheetLinked: Boolean(spreadsheetId),
+      spreadsheetUrl: workspace.spreadsheetUrl,
+      googleEmail: workspaceConn?.googleEmail ?? null,
+      autoSyncEnabled: workspace.autoSyncEnabled,
+      tokenHealth: workspaceConn?.tokenHealth ?? null,
+      setupHref: '/dashboard/google-workspace/sheets-sync',
+    }
+
+    return { sheets: byType, stats, recentLogs: logs.slice(0, 20), connection }
   }
 
   async queueSync(

@@ -14,8 +14,18 @@ function relTime(date: Date | null | undefined): string {
   return `${days}d ago`
 }
 
-function roleLabel(role: string): string {
-  return role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+const CEO_EMAIL = 'splaro.bd@gmail.com'
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Admin',
+  MANAGER: 'Manager',
+  STAFF: 'Editor',
+}
+
+function roleLabel(role: string, email?: string | null): string {
+  if (email?.toLowerCase() === CEO_EMAIL) return 'CEO'
+  return ROLE_LABELS[role] ?? role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 @Injectable()
@@ -127,7 +137,7 @@ export class PlatformService {
       id: s.user.id,
       name: `${s.user.firstName} ${s.user.lastName}`.trim(),
       email: s.user.email ?? '—',
-      role: roleLabel(s.role),
+      role: roleLabel(s.role, s.user.email),
       status: s.user.isActive ? 'active' : 'inactive',
       lastLogin: relTime(s.user.lastLoginAt),
       twoFA: s.user.twoFAEnabled,
@@ -211,6 +221,8 @@ export class PlatformService {
         altText: img.altText ?? '',
         source: `Product · ${img.product.slug}`,
         updated: relTime(img.createdAt),
+        productId: img.productId,
+        productSlug: img.product.slug,
       })),
       ...banners.map((b) => ({
         id: b.id,
@@ -218,7 +230,7 @@ export class PlatformService {
         name: b.title ?? 'Hero banner',
         url: b.image,
         altText: b.title ?? '',
-        source: `Banner · ${b.position}`,
+        source: b.position === 'library' ? 'Media library' : `Banner · ${b.position}`,
         updated: relTime(b.updatedAt),
       })),
       ...categories

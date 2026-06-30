@@ -8,6 +8,8 @@ import {
   ChevronLeft, ChevronRight,
   Heart, Minus, Plus, Ruler, Share2, ShoppingBag, X,
 } from 'lucide-react'
+import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
+import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { products, type ColorOption } from '@/data/storefront'
@@ -76,6 +78,7 @@ export function ProductDetailPanel({
   onSelectProduct, onToggleSaved,
 }: ProductDetailPanelProps) {
   const router = useRouter()
+  const user = useAuthStore((state) => state.user)
   const [activeImage, setActiveImage] = useState(0)
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [addedPulse, setAddedPulse] = useState(false)
@@ -139,7 +142,7 @@ export function ProductDetailPanel({
   const handleCheckout = () => {
     if (onCheckout) { onCheckout(); return }
     onAddToBag(quantity)
-    router.push('/checkout')
+    router.push(getCheckoutEntryPath(Boolean(user)))
   }
 
   const prevImage = () => setActiveImage((i) => (i - 1 + media.length) % media.length)

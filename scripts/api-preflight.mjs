@@ -6,6 +6,7 @@ import { spawnSync } from 'child_process'
 import { existsSync, readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { checkApiHealth, getApiPort, getListeningPids, reclaimPort } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_PKG = resolve(ROOT, 'apps/api/package.json')
@@ -28,10 +29,23 @@ if (process.env.NODE_OPTIONS?.includes('tsx')) {
   fail('NODE_OPTIONS contains tsx loader — unset it before starting the API.')
 }
 
-const port = Number(process.env.API_PORT ?? process.env.PORT_API ?? 4000)
-const portCheck = spawnSync('lsof', ['-ti', `:${port}`], { encoding: 'utf8' })
-if (portCheck.status === 0 && portCheck.stdout.trim()) {
-  warn(`Port ${port} is in use (PID ${portCheck.stdout.trim().split('\n')[0]}). Stop the old API or set API_PORT.`)
+const port = getApiPort()
+const listeners = getListeningPids(port)
+if (listeners.length) {
+  const healthy = await checkApiHealth(port)
+  if (healthy) {
+    warn(
+      `Port ${port} already serves SPLARO API (PID ${listeners[0]}). ` +
+        `Stop the other dev:api / dev:stack before starting another instance.`,
+    )
+  } else {
+    const reclaim = await reclaimPort(port)
+    if (reclaim.reclaimed) {
+      console.log(`🔧 Cleared stale listener on :${port}`)
+    } else {
+      warn(`Port ${port} is in use (PID ${listeners[0]}). Stop the old API or set API_PORT.`)
+    }
+  }
 }
 
 const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'

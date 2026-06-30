@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff, Save, RotateCcw, ExternalLink, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import toast from 'react-hot-toast'
+import { toastFail, toastWarn } from '@/lib/admin/feedback'
+import { revalidateWebCache } from '@/lib/api/revalidate'
 import { cn } from '@/lib/utils/cn'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -166,7 +167,7 @@ export function FootwearPagePanel() {
       })
       .then((data) => { setConfig(data); setLoading(false) })
       .catch(() => {
-        toast.error('Failed to load footwear config', { id: 'footwear-config-load' })
+        toastFail('Failed to load footwear config', 'footwear-config-load')
         setLoading(false)
       })
   }, [])
@@ -185,11 +186,13 @@ export function FootwearPagePanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       })
-      if (!res.ok) throw new Error('Save failed')
-      toast.success('Footwear page saved')
+      const payload = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? 'Save failed')
+      await revalidateWebCache(['storefront-settings'])
+      toastWarn('Footwear page saved to local config file — refresh storefront to preview.')
       setDirty(false)
     } catch {
-      toast.error('Save failed')
+      toastFail('Footwear save failed')
     } finally {
       setSaving(false)
     }
@@ -214,6 +217,9 @@ export function FootwearPagePanel() {
 
   return (
     <div className="space-y-4">
+      <p className="rounded-[14px] border border-amber-200/60 bg-amber-50/70 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+        Local config file — saves to storefront JSON, not NestJS API. Use for dev/content edits; deploy or restart web to go live.
+      </p>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <a
           href={`${WEB_BASE}/footwear`}

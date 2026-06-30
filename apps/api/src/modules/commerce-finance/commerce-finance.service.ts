@@ -5,6 +5,8 @@ import { resolveStoreId } from '../../common/store.util'
 import type {
   InvoiceListRow,
   RmaListRow,
+  TransactionDetailRow,
+  TransactionHealthRow,
   TransactionListRow,
   TransactionStats,
 } from './commerce-finance.types'
@@ -79,18 +81,17 @@ export class CommerceFinanceService {
     stats: TransactionStats
   }> {
     const storeId = await this.sid(storeIdRaw)
-    const where: Prisma.PaymentWhereInput = {
-      order: {
-        storeId,
-        ...(search
-          ? {
-              OR: [
-                { invoiceNumber: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-    }
+    const where: Prisma.PaymentWhereInput = search
+      ? {
+          order: { storeId },
+          OR: [
+            { id: { contains: search, mode: 'insensitive' } },
+            { transactionId: { contains: search, mode: 'insensitive' } },
+            { order: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
+            { order: { shippingName: { contains: search, mode: 'insensitive' } } },
+          ],
+        }
+      : { order: { storeId } }
 
     const rows = await this.prisma.payment.findMany({
       where,
@@ -127,6 +128,61 @@ export class CommerceFinanceService {
         pending: transactions.filter((row) => row.status === 'pending').length,
         failed: transactions.filter((row) => row.status === 'failed').length,
       },
+    }
+  }
+
+  async transactionHealth(storeIdRaw?: string): Promise<TransactionHealthRow> {
+    const storeId = await this.sid(storeIdRaw)
+    const [paymentCount, latest, methods] = await Promise.all([
+      this.prisma.payment.count({ where: { order: { storeId } } }),
+      this.prisma.payment.findFirst({
+        where: { order: { storeId } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, transactionId: true },
+      }),
+      this.prisma.payment.findMany({
+        where: { order: { storeId } },
+        distinct: ['method'],
+        select: { method: true },
+      }),
+    ])
+
+    return {
+      status: 'ok',
+      paymentCount,
+      latestTxnId: latest?.transactionId ?? latest?.id ?? null,
+      gateways: methods.map((row) => gatewayLabel(row.method)),
+    }
+  }
+
+  async getTransaction(storeIdRaw: string | undefined, id: string): Promise<TransactionDetailRow> {
+    const storeId = await this.sid(storeIdRaw)
+    const row = await this.prisma.payment.findFirst({
+      where: {
+        OR: [{ id }, { transactionId: id }],
+        order: { storeId },
+      },
+      include: {
+        order: { select: { id: true, invoiceNumber: true } },
+      },
+    })
+    if (!row) throw new NotFoundException('Transaction not found')
+
+    return {
+      id: row.id,
+      orderId: row.order.id,
+      orderNumber: row.order.invoiceNumber,
+      gateway: gatewayLabel(row.method),
+      method: row.method,
+      type: mapPaymentType(row.status, row.refundedAt),
+      amount: Math.round(Number(row.refundAmount ?? row.amount)),
+      status: mapPaymentStatus(row.status),
+      ref: row.transactionId ?? '—',
+      time: row.createdAt.toISOString(),
+      currency: row.currency,
+      failureReason: row.failureReason,
+      paidAt: row.paidAt?.toISOString() ?? null,
+      gatewayResponse: row.gatewayResponse,
     }
   }
 

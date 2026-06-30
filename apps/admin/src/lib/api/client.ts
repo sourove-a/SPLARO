@@ -56,8 +56,7 @@ function shouldRetry(error: unknown, attempt: number, method: string): boolean {
   if (attempt >= MAX_RETRIES) return false
   if (method !== 'GET' && method !== 'HEAD') return false
   if (error instanceof ApiError) {
-    if (error.isNetworkError) return false
-    return error.isServerError
+    return error.isNetworkError || error.isServerError
   }
   return true
 }

@@ -1,43 +1,81 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
+import { useEffect, useMemo, useState, type SVGProps } from 'react'
+import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
-  Heart,
-  Minus,
+  Maximize2,
   Plus,
   Ruler,
+  Heart,
   ShoppingBag,
   Star,
+  X as CloseIcon,
 } from 'lucide-react'
 import { ProductCard } from '@/components/product/ProductCard/ProductCard'
 import { trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { collectionHref } from '@/lib/storefront/collection-paths'
-import { useCartStore } from '@/store/cartStore'
-import { useUiStore } from '@/store/uiStore'
+import { useCartStore, type CartItem } from '@/store/cartStore'
+import { useAuthStore } from '@/store/authStore'
+import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
+import { stageCheckoutItems } from '@/lib/cart/checkout-intent'
 import { useWishlistStore } from '@/store/wishlistStore'
+import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { trackAddToCart, trackViewContent } from '@/lib/analytics/meta-pixel'
-import type { ProductDetailData } from '@/types/product'
+import type { ProductDetailData, ProductCardData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
+import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
 
 interface ProductPageClientProps {
   product: ProductDetailData
   reviews?: ProductReview[]
-  relatedProducts?: ProductDetailData[]
+  relatedProducts?: ProductCardData[]
 }
 
 const PANEL_EASE = [0.22, 1, 0.36, 1] as const
 const PANEL_MS = 0.3
+
+function FacebookIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="currentColor"
+        d="M14.1 22v-8h2.7l.4-3.1h-3.1V8.9c0-.9.3-1.5 1.6-1.5h1.7V4.6c-.8-.1-1.6-.2-2.4-.2-2.5 0-4.2 1.5-4.2 4.3v2.2H8v3.1h2.8v8h3.3Z"
+      />
+    </svg>
+  )
+}
+
+function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="currentColor"
+        d="M12.1 3.2a8.7 8.7 0 0 0-7.4 13.3L3.8 21l4.6-1.2a8.7 8.7 0 1 0 3.7-16.6Zm0 15.7a7 7 0 0 1-3.6-1l-.3-.2-2.7.7.7-2.6-.2-.3a7 7 0 1 1 6.1 3.4Zm3.9-5.2c-.2-.1-1.3-.7-1.5-.7-.2-.1-.4-.1-.5.1l-.7.8c-.1.2-.3.2-.5.1a5.7 5.7 0 0 1-2.8-2.4c-.2-.3 0-.4.1-.6l.4-.4.2-.4c.1-.1 0-.3 0-.4l-.7-1.6c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.9 2.3 1 2.5a8 8 0 0 0 3.1 2.8c1.2.5 1.7.6 2.3.5.4-.1 1.3-.5 1.5-1 .2-.5.2-.9.1-1-.1-.1-.2-.1-.5-.2Z"
+      />
+    </svg>
+  )
+}
+
+function XSocialIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="currentColor"
+        d="M17.7 3h3.1l-6.8 7.8 8 10.2h-6.3l-4.9-6.2L5.3 21H2.2l7.2-8.3L1.8 3h6.5l4.4 5.7L17.7 3Zm-1.1 16.2h1.7L7.4 4.7H5.6l11 14.5Z"
+      />
+    </svg>
+  )
+}
 
 export default function ProductPageClient({
   product,
@@ -45,9 +83,14 @@ export default function ProductPageClient({
   relatedProducts = [],
 }: ProductPageClientProps) {
   const router = useRouter()
-  const addItem = useCartStore((state) => state.addItem)
+  const user = useAuthStore((state) => state.user)
+  const authHydrated = useAuthStore((state) => state._hydrated)
+  const { addItem, replaceItems } = useCartStore()
   const setCartOpen = useUiStore((state) => state.setCartOpen)
-  const { toggleWishlist, isInWishlist } = useWishlistStore()
+  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist)
+  const saved = useWishlistStore(
+    (state) => state._hydrated && state.productIds.includes(product.id),
+  )
 
   const [activeImage, setActiveImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
@@ -56,6 +99,8 @@ export default function ProductPageClient({
   const [addedPulse, setAddedPulse] = useState(false)
   const [descExpanded, setDescExpanded] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const [lightboxZoom, setLightboxZoom] = useState<'fit' | 'deep'>('fit')
 
   const fullDescription = product.description?.trim() ?? ''
   const shortDesc =
@@ -164,7 +209,6 @@ export default function ProductPageClient({
       ? baseGallery
       : [{ type: 'image' as const, url: PRODUCT_IMAGE_PLACEHOLDER }]
   }, [colorMediaMap, product.images, product.media, selectedColor])
-  const saved = isInWishlist(product.id)
 
   const sizes = useMemo(() => {
     const unique = new Set(product.variants.map((v) => v.size).filter(Boolean))
@@ -207,6 +251,14 @@ export default function ProductPageClient({
     ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
     : 0
 
+  const [shareUrl, setShareUrl] = useState('')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setShareUrl(window.location.href)
+    }
+  }, [product.slug])
+
   useEffect(() => {
     trackRecentlyViewed(product.id)
     trackViewContent({ id: product.id, name: product.name, price: product.price })
@@ -233,6 +285,7 @@ export default function ProductPageClient({
 
     const detailsParts = [
       fullDescription,
+      product.weavingType ? `Weaving · ${product.weavingType}` : null,
       product.fabricContent ? `Materials · ${product.fabricContent}` : null,
       product.occasion ? `Occasion · ${product.occasion}` : null,
       product.season ? `Season · ${product.season}` : null,
@@ -264,15 +317,16 @@ export default function ProductPageClient({
     fullDescription,
     product.careInstructions,
     product.fabricContent,
+    product.weavingType,
     product.fitType,
     product.occasion,
     product.origin,
     product.season,
   ])
 
-  const handleAddToCart = () => {
-    if (!inStock) return
-    addItem({
+  const buildSelectedCartItem = (): CartItem | null => {
+    if (!inStock) return null
+    const item: CartItem = {
       productId: product.id,
       variantId: activeVariant?.id ?? product.id,
       quantity,
@@ -280,28 +334,91 @@ export default function ProductPageClient({
       price: product.price,
       image: activeVariant?.image ?? activeColorOption?.image ?? product.images[0] ?? '',
       slug: product.slug,
-      ...(selectedSize ? { size: selectedSize } : {}),
-      // Store the readable colour name (e.g. "Brown"), not the raw hex, for the cart line.
-      ...(selectedColor ? { color: selectedColorName !== '—' ? selectedColorName : selectedColor } : {}),
-    })
+    }
+    if (selectedSize) item.size = selectedSize
+    if (selectedColor) {
+      item.color = selectedColorName !== '—' ? selectedColorName : selectedColor
+    }
+    return item
+  }
+
+  const addSelectedItemToCart = () => {
+    const item = buildSelectedCartItem()
+    if (!item) return false
+    addItem(item)
     trackAddToCart({ id: product.id, name: product.name, price: product.price })
+    return true
+  }
+
+  const handleAddToCart = () => {
+    if (!addSelectedItemToCart()) return
     setCartOpen(true)
     setAddedPulse(true)
     setTimeout(() => setAddedPulse(false), 1200)
   }
 
-  const handleCheckout = () => {
-    handleAddToCart()
-    router.push('/checkout')
+  const handleBuyNow = () => {
+    const item = buildSelectedCartItem()
+    if (!item) return
+    stageCheckoutItems([item])
+    replaceItems([item])
+    trackAddToCart({ id: product.id, name: product.name, price: product.price })
+    router.push(getCheckoutEntryPath(Boolean(user)))
   }
 
-  const prevImage = () => setActiveImage((i) => (i - 1 + media.length) % media.length)
-  const nextImage = () => setActiveImage((i) => (i + 1) % media.length)
+  const prevImage = () => {
+    setLightboxZoom('fit')
+    setActiveImage((i) => (i - 1 + media.length) % media.length)
+  }
+  const nextImage = () => {
+    setLightboxZoom('fit')
+    setActiveImage((i) => (i + 1) % media.length)
+  }
+  const openLightbox = () => {
+    setLightboxZoom('fit')
+    setIsLightboxOpen(true)
+  }
+  const closeLightbox = () => {
+    setIsLightboxOpen(false)
+    setLightboxZoom('fit')
+  }
+  const toggleLightboxZoom = () => {
+    if (media[activeImage]?.type === 'video') return
+    setLightboxZoom((z) => (z === 'fit' ? 'deep' : 'fit'))
+  }
+  const openGalleryZoom = () => {
+    if (media[activeImage]?.type === 'video') return
+    openLightbox()
+  }
+
+  useEffect(() => {
+    if (!isLightboxOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeLightbox()
+      }
+      if (event.key === 'ArrowLeft') {
+        setActiveImage((i) => (i - 1 + media.length) % media.length)
+      }
+      if (event.key === 'ArrowRight') {
+        setActiveImage((i) => (i + 1) % media.length)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isLightboxOpen, media.length])
 
   return (
-    <div className="pp-root">
-      <div className="pp-root__ambient" aria-hidden="true" />
-
+    <div className="pp-root pp-view">
       <div className="pp-wrap">
         <nav className="pp-breadcrumb" aria-label="Breadcrumb">
           <Link href="/">Home</Link>
@@ -314,134 +431,146 @@ export default function ProductPageClient({
         <div className="pp-grid">
           {/* ─── Gallery ─────────────────────────────────── */}
           <div className="pp-gallery">
-            <div className="pp-gallery__inner">
-              <div className="pp-gallery__main">
-                <div className="pp-gallery__sheen" aria-hidden />
-                <div className="pp-gallery__badges">
-                  {product.isNewArrival && (
-                    <span className="pp-badge pp-badge--new">New</span>
+            <div className="pp-gallery__main">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${selectedColor ?? 'default'}-${media[activeImage]?.type}-${media[activeImage]?.url}`}
+                  className={cn(
+                    'pp-gallery__stage',
+                    media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
                   )}
-                  {hasDiscount && (
-                    <span className="pp-badge pp-badge--sale">-{discountPct}%</span>
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
+                  onClick={openGalleryZoom}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation()
+                    openLightbox()
+                    setLightboxZoom('deep')
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      openGalleryZoom()
+                    }
+                  }}
+                  role={media[activeImage]?.type !== 'video' ? 'button' : undefined}
+                  tabIndex={media[activeImage]?.type !== 'video' ? 0 : undefined}
+                  aria-label={media[activeImage]?.type !== 'video' ? 'Open product image zoom' : undefined}
+                >
+                  {media[activeImage]?.type === 'video' ? (
+                    <video
+                      src={media[activeImage]!.url}
+                      className="pp-gallery__video"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      controls
+                    />
+                  ) : (
+                    <StorefrontImage
+                      src={media[activeImage]!.url}
+                      alt={product.name}
+                      profile="gallery"
+                      fill
+                      className="pp-gallery__img"
+                      priority
+                    />
                   )}
-                </div>
+                </motion.div>
+              </AnimatePresence>
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`${selectedColor ?? 'default'}-${media[activeImage]?.type}-${media[activeImage]?.url}`}
-                    className="pp-gallery__stage"
-                    initial={{ opacity: 0, scale: 1.02 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
-                  >
-                    {media[activeImage]?.type === 'video' ? (
-                      <video
-                        src={media[activeImage]!.url}
-                        className="pp-gallery__video"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        controls
-                      />
-                    ) : (
-                      <Image
-                        src={media[activeImage]!.url}
-                        alt={product.name}
-                        fill
-                        sizes="(max-width: 1024px) 92vw, 58vw"
-                        className="pp-gallery__img"
-                        priority
-                      />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-
-                {media.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={prevImage}
-                      className="pp-gallery__nav pp-gallery__nav--prev"
-                      aria-label="Previous image"
-                    >
-                      <ChevronLeft size={18} strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={nextImage}
-                      className="pp-gallery__nav pp-gallery__nav--next"
-                      aria-label="Next image"
-                    >
-                      <ChevronRight size={18} strokeWidth={2} />
-                    </button>
-
-                    <div className="pp-gallery__counter" aria-live="polite">
-                      {activeImage + 1} / {media.length}
-                    </div>
-                  </>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  openLightbox()
+                }}
+                className="pp-gallery__zoom pp-pressable"
+                aria-label="Open product image fullscreen"
+              >
+                <Maximize2 size={17} strokeWidth={1.8} />
+              </button>
 
               {media.length > 1 && (
-                <div className="pp-gallery__thumbstrip" aria-label="Product images">
-                  {media.map((item, i) => (
-                    <button
-                      key={`${item.type}-${item.url}-${i}`}
-                      type="button"
-                      onClick={() => setActiveImage(i)}
-                      aria-label={`View ${item.type} ${i + 1} of ${media.length}`}
-                      aria-current={i === activeImage ? 'true' : undefined}
-                      className={cn(
-                        'pp-gallery__thumb',
-                        i === activeImage && 'pp-gallery__thumb--active',
-                      )}
-                    >
-                      {item.type === 'video' ? (
-                        <>
-                          <video src={item.url} muted playsInline className="pp-gallery__thumb-img" />
-                          <span className="pp-gallery__thumb-play" aria-hidden>Play</span>
-                        </>
-                      ) : (
-                        <Image src={item.url} alt="" fill sizes="80px" className="pp-gallery__thumb-img" />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      prevImage()
+                    }}
+                    className="pp-gallery__nav pp-gallery__nav--prev pp-pressable"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft size={18} strokeWidth={1.75} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      nextImage()
+                    }}
+                    className="pp-gallery__nav pp-gallery__nav--next pp-pressable"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight size={18} strokeWidth={1.75} />
+                  </button>
+                </>
               )}
             </div>
-          </div>
 
-          {/* ─── Product info card ─────────────────────── */}
-          <aside className="pp-info">
-            <div className="pp-info__sheen" aria-hidden />
-
-            <div className="pp-info__header">
-              <p className="pp-info__brand">SPLARO</p>
-              <h1 className="pp-info__name">{product.name}</h1>
-              <p className="pp-info__code">Product Code · {productCode}</p>
-            </div>
-
-            {product.reviewCount > 0 && (
-              <div className="pp-info__rating">
-                <div className="pp-info__stars">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        'pp-info__star',
-                        i < Math.round(product.rating) && 'pp-info__star--filled',
-                      )}
-                      strokeWidth={1.5}
-                    />
-                  ))}
+            {media.length > 1 && (
+              <div className="pp-gallery__progress" aria-live="polite">
+                <span className="pp-gallery__progress-label">
+                  {activeImage + 1} / {media.length}
+                </span>
+                <div className="pp-gallery__progress-track">
+                  <div
+                    className="pp-gallery__progress-fill"
+                    style={{ width: `${((activeImage + 1) / media.length) * 100}%` }}
+                  />
                 </div>
-                <span>{product.rating.toFixed(1)}</span>
-                <span className="pp-info__rating-sep">·</span>
-                <span>{product.reviewCount} reviews</span>
               </div>
             )}
+          </div>
+
+          {/* ─── Product info ─────────────────────────────── */}
+          <aside className="pp-info">
+            <div className="pp-info__header">
+              <h1 className="pp-info__name">{product.name}</h1>
+              {product.nameBn ? (
+                <p className="pp-info__name-bn" lang="bn">{product.nameBn}</p>
+              ) : null}
+              {product.weavingType ? (
+                <p className="pp-info__weave">{product.weavingType}</p>
+              ) : null}
+              <p className="pp-info__code">Product Code: {productCode}</p>
+              {(product.reviewCount > 0 || reviews.length > 0) && (
+                <a href="#product-reviews-heading" className="pp-info__rating">
+                  <span className="pp-info__stars" aria-hidden>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          'pp-info__star',
+                          i < Math.round(product.rating > 0 ? product.rating : 4.5) && 'pp-info__star--filled',
+                        )}
+                        strokeWidth={1.5}
+                      />
+                    ))}
+                  </span>
+                  <span>{(product.rating > 0 ? product.rating : 4.5).toFixed(1)}</span>
+                  <span className="pp-info__rating-sep">·</span>
+                  <span>
+                    {product.reviewCount || reviews.length} review
+                    {(product.reviewCount || reviews.length) === 1 ? '' : 's'}
+                  </span>
+                </a>
+              )}
+            </div>
 
             <div className="pp-info__lead">
               <div className="pp-info__price-row">
@@ -462,240 +591,215 @@ export default function ProductPageClient({
 
             <div className="pp-info__options">
               {showColorPicker && (
-                <fieldset className="pp-variant-fieldset">
-                  <legend className="pp-info__option-label">
-                    Colour ·{' '}
-                    <span className="pp-info__option-value">{selectedColorName}</span>
-                  </legend>
-                  <div className="shopify-color-swatches" role="list">
+                <div className="pp-info__option">
+                  <p className="pp-info__option-label">
+                    Color: <span className="pp-info__option-value">{selectedColorName}</span>
+                  </p>
+                  <div className="pp-color-row">
                     {colorOptions.map((opt) => (
                       <button
                         key={opt.hex}
                         type="button"
-                        role="listitem"
                         onClick={() => setSelectedColor(opt.hex)}
                         aria-label={`${opt.name} colour`}
                         aria-pressed={selectedColor === opt.hex}
                         className={cn(
-                          'shopify-color-swatch',
-                          selectedColor === opt.hex && 'shopify-color-swatch--active',
+                          'pp-color-thumb pp-pressable',
+                          selectedColor === opt.hex && 'pp-color-thumb--active',
                         )}
                       >
-                        <span className="shopify-color-swatch__frame">
-                          <Image
-                            src={opt.image}
-                            alt=""
-                            fill
-                            sizes="80px"
-                            className="shopify-color-swatch__img"
-                          />
-                        </span>
-                        <span className="shopify-color-swatch__label">{opt.name}</span>
+                        <StorefrontImage
+                          src={opt.image}
+                          alt=""
+                          profile="thumb"
+                          width={56}
+                          height={56}
+                          className="pp-color-thumb__img"
+                        />
                       </button>
                     ))}
                   </div>
-                </fieldset>
+                </div>
               )}
 
               {sizes.length > 0 && (
                 <div className="pp-info__option">
                   <div className="pp-info__option-head">
-                    <p className="pp-info__option-label pp-info__option-label--inline">Size</p>
-                    <Link href="/size-guide" className="pdp-size-guide">
-                      <Ruler className="h-3 w-3" strokeWidth={2} />
+                    <p className="pp-info__option-label pp-info__option-label--inline">Select Size</p>
+                    <Link href="/size-guide" className="pp-size-guide">
+                      <Ruler className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Size Guide
                     </Link>
                   </div>
-                  <div className="pdp-size-row">
+                  <div className="pp-size-row">
                     {sizes.map((size) => {
                       const qty = sizeStock.get(size) ?? stock
                       const disabled = qty === 0
                       return (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => !disabled && setSelectedSize(size)}
-                        aria-pressed={selectedSize === size}
-                        disabled={disabled}
-                        className={cn(
-                          'pdp-size-btn',
-                          selectedSize === size && 'pdp-size-btn--active',
-                          disabled && 'pdp-size-btn--unavailable',
-                        )}
-                      >
-                        {size}
-                      </button>
-                    )})}
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => !disabled && setSelectedSize(size)}
+                          aria-pressed={selectedSize === size}
+                          disabled={disabled}
+                          className={cn(
+                            'pp-size-btn pp-pressable',
+                            selectedSize === size && 'pp-size-btn--active',
+                            disabled && 'pp-size-btn--unavailable',
+                          )}
+                        >
+                          {size}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
-
-              <div className="pp-info__option">
-                <p className="pp-info__option-label">Quantity</p>
-                <div className="pp-qty">
-                  <button
-                    type="button"
-                    className="pp-qty__btn"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    aria-label="Decrease quantity"
-                    disabled={quantity <= 1}
-                  >
-                    <Minus className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </button>
-                  <span className="pp-qty__value" aria-live="polite">
-                    {quantity}
-                  </span>
-                  <button
-                    type="button"
-                    className="pp-qty__btn"
-                    onClick={() => setQuantity((q) => Math.min(stock || 99, q + 1))}
-                    aria-label="Increase quantity"
-                    disabled={!inStock || quantity >= stock}
-                  >
-                    <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </button>
-                </div>
-              </div>
             </div>
 
             <div className="pp-info__ctas">
-              <div className="pdp-trust" aria-label="Shopping assurances">
-                <span>Easy returns</span>
-                <span>Secure checkout</span>
-                <span>Fast delivery</span>
-              </div>
-
               <button
                 type="button"
-                className={cn('pdp-cta-add', addedPulse && 'pdp-cta-add--added')}
+                className={cn('pp-btn-add pp-pressable', addedPulse && 'pp-btn-add--added')}
                 onClick={handleAddToCart}
                 disabled={!inStock}
               >
-                <ShoppingBag className="h-4 w-4" strokeWidth={2} />
-                {addedPulse ? 'Added to Bag!' : 'Add to Bag'}
+                <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
+                {addedPulse ? 'Added to Bag!' : 'Add to bag'}
               </button>
 
-              <div className="pp-info__cta-row">
-                <button
-                  type="button"
-                  className="pdp-cta-secondary pp-info__buy"
-                  onClick={handleCheckout}
-                  disabled={!inStock}
-                >
-                  Buy Now
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleWishlist(product.id)}
-                  aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
-                  className={cn('pdp-cta-icon', saved && 'pdp-cta-icon--saved')}
-                >
-                  <Heart
-                    className={cn('h-[1rem] w-[1rem]', saved && 'fill-[#C8A97E] text-[#C8A97E]')}
-                    strokeWidth={2}
-                  />
-                </button>
-              </div>
+              <button
+                type="button"
+                className="pp-btn-store pp-pressable"
+                onClick={handleBuyNow}
+                disabled={!inStock}
+              >
+                Buy Now
+              </button>
+
+              <button
+                type="button"
+                className={cn('pp-btn-wish pp-pressable', saved && 'pp-btn-wish--saved')}
+                onClick={() => toggleWishlist(product.id)}
+                aria-pressed={saved}
+                aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
+              >
+                <Heart className={cn('h-4 w-4', saved && 'fill-current')} strokeWidth={1.75} />
+              </button>
+
+              {shareUrl ? (
+                <div className="pp-share" aria-label="Share product">
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pp-share__btn"
+                    aria-label="Share on Facebook"
+                  >
+                    <FacebookIcon className="pp-share__icon" />
+                  </a>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`${product.name} ${shareUrl}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pp-share__btn"
+                    aria-label="Share on WhatsApp"
+                  >
+                    <WhatsAppIcon className="pp-share__icon" />
+                  </a>
+                  <a
+                    href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="pp-share__btn"
+                    aria-label="Share on X"
+                  >
+                    <XSocialIcon className="pp-share__icon" />
+                  </a>
+                </div>
+              ) : null}
             </div>
+
+            {(shortDesc || detailSections.length > 0) && (
+              <section className="pp-info__details" aria-label="Product details">
+                {shortDesc && (
+                  <div className="pp-info__desc-block">
+                    <p
+                      className={cn(
+                        'pp-info__desc',
+                        descExpanded && 'pp-info__desc--expanded',
+                      )}
+                    >
+                      {descExpanded || !showReadMore ? fullDescription || shortDesc : shortDesc}
+                    </p>
+                    {showReadMore && (
+                      <button
+                        type="button"
+                        className="pp-info__read-more"
+                        onClick={() => setDescExpanded((v) => !v)}
+                      >
+                        {descExpanded ? 'Read less' : 'Read more'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {detailSections.length > 0 && (
+                  <div className="pp-info__accordions">
+                    {detailSections.map((section) => {
+                      const open = openSection === section.id
+                      return (
+                        <div
+                          key={section.id}
+                          className={cn('pp-accordion', open && 'pp-accordion--open')}
+                        >
+                          <button
+                            type="button"
+                            className="pp-accordion__trigger pp-pressable"
+                            onClick={() => setOpenSection(open ? null : section.id)}
+                            aria-expanded={open}
+                          >
+                            <span>{section.id}</span>
+                            <motion.span
+                              animate={{ rotate: open ? 45 : 0 }}
+                              transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
+                              className="pp-accordion__icon"
+                            >
+                              <Plus className="h-3 w-3" strokeWidth={2} />
+                            </motion.span>
+                          </button>
+                          <AnimatePresence initial={false}>
+                            {open && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
+                                className="pp-accordion__panel"
+                              >
+                                <p className="pp-accordion__body">{section.content}</p>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
           </aside>
         </div>
 
-        {(shortDesc || detailSections.length > 0) && (
-          <section className="pp-details" aria-label="Product details">
-            {shortDesc && (
-              <div className="pp-info__desc-block">
-                <p className="pp-info__desc">
-                  {descExpanded || !showReadMore ? fullDescription || shortDesc : shortDesc}
-                </p>
-                {showReadMore && (
-                  <button
-                    type="button"
-                    className="pp-info__read-more"
-                    onClick={() => setDescExpanded((v) => !v)}
-                  >
-                    {descExpanded ? 'Read less' : 'Read more'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {detailSections.length > 0 && (
-              <div className="pp-info__accordions">
-                {detailSections.map((section) => {
-                  const open = openSection === section.id
-                  return (
-                    <div
-                      key={section.id}
-                      className={cn('pp-accordion', open && 'pp-accordion--open')}
-                    >
-                      <button
-                        type="button"
-                        className="pp-accordion__trigger"
-                        onClick={() => setOpenSection(open ? null : section.id)}
-                        aria-expanded={open}
-                      >
-                        <span>{section.id}</span>
-                        <motion.span
-                          animate={{ rotate: open ? 45 : 0 }}
-                          transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
-                          className="pp-accordion__icon"
-                        >
-                          <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
-                        </motion.span>
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {open && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
-                            className="pp-accordion__panel"
-                          >
-                            <p className="pp-accordion__body">{section.content}</p>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
-        {reviews.length > 0 && (
-          <section className="pp-reviews" aria-labelledby="product-reviews-heading">
-            <h2 id="product-reviews-heading" className="pp-related__title">
-              Customer reviews
-            </h2>
-            <div className="pp-reviews__list">
-              {reviews.map((review, index) => (
-                <article key={`${review.name}-${index}`} className="pp-reviews__item account-glass">
-                  <div className="pp-reviews__head">
-                    <div className="pp-info__stars">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            'pp-info__star',
-                            i < Math.round(review.rating) && 'pp-info__star--filled',
-                          )}
-                          strokeWidth={1.5}
-                        />
-                      ))}
-                    </div>
-                    <p className="pp-reviews__author">
-                      {review.name}
-                      {review.city ? ` · ${review.city}` : ''}
-                    </p>
-                  </div>
-                  <p className="pp-reviews__body">{review.text}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <ProductReviews
+          productId={product.id}
+          productSlug={product.slug}
+          productName={product.name}
+          rating={product.rating}
+          reviewCount={product.reviewCount}
+          reviews={reviews}
+          isLoggedIn={authHydrated && Boolean(user)}
+        />
 
         {relatedProducts.length > 0 && (
           <section className="pp-related">
@@ -708,6 +812,103 @@ export default function ProductPageClient({
           </section>
         )}
       </div>
+
+      {isLightboxOpen && (
+        <div
+          className="pp-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${product.name} fullscreen preview`}
+          onClick={closeLightbox}
+        >
+          <button
+            type="button"
+            className="pp-lightbox__close pp-pressable"
+            onClick={(event) => {
+              event.stopPropagation()
+              closeLightbox()
+            }}
+            aria-label="Close fullscreen preview"
+          >
+            <CloseIcon size={22} strokeWidth={1.8} />
+          </button>
+
+          {media.length > 1 && (
+            <button
+              type="button"
+              className="pp-lightbox__nav pp-lightbox__nav--prev pp-pressable"
+              onClick={(event) => {
+                event.stopPropagation()
+                prevImage()
+              }}
+              aria-label="Previous image"
+            >
+              <ChevronLeft size={30} strokeWidth={1.55} />
+            </button>
+          )}
+
+          <div
+            className={cn(
+              'pp-lightbox__stage',
+              lightboxZoom === 'deep' && 'pp-lightbox__stage--deep',
+            )}
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={toggleLightboxZoom}
+          >
+            {media[activeImage]?.type === 'video' ? (
+              <video
+                src={media[activeImage]!.url}
+                className="pp-lightbox__media"
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+              />
+            ) : (
+              <div
+                className={cn(
+                  'pp-lightbox__media-wrap',
+                  lightboxZoom === 'deep' && 'pp-lightbox__media-wrap--deep',
+                )}
+              >
+                <StorefrontImage
+                  src={media[activeImage]?.url ?? PRODUCT_IMAGE_PLACEHOLDER}
+                  alt={product.name}
+                  profile="lightbox"
+                  fill
+                  className="pp-lightbox__media"
+                  draggable={false}
+                />
+              </div>
+            )}
+          </div>
+
+          {media[activeImage]?.type !== 'video' && (
+            <p className="pp-lightbox__hint">
+              {lightboxZoom === 'fit' ? 'Double-click to zoom in' : 'Double-click to zoom out'}
+            </p>
+          )}
+
+          {media.length > 1 && (
+            <button
+              type="button"
+              className="pp-lightbox__nav pp-lightbox__nav--next pp-pressable"
+              onClick={(event) => {
+                event.stopPropagation()
+                nextImage()
+              }}
+              aria-label="Next image"
+            >
+              <ChevronRight size={30} strokeWidth={1.55} />
+            </button>
+          )}
+
+          <div className="pp-lightbox__counter">
+            {activeImage + 1} / {media.length}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -62,3 +62,56 @@ export function buildSeoDraft(name: string, description: string): { title: strin
     description: meta || `Shop ${cleanName} at SPLARO — premium fashion delivered across Bangladesh.`,
   }
 }
+
+export function splitBilingualDescription(description: string): { en: string; bn: string } {
+  const parts = description.split('\n\n\n')
+  if (parts.length >= 2) {
+    return { en: parts[0]?.trim() ?? '', bn: parts.slice(1).join('\n\n\n').trim() }
+  }
+  const hasBangla = /[\u0980-\u09FF]/.test(description)
+  if (hasBangla && !/[a-zA-Z]{4,}/.test(description.slice(0, 40))) {
+    return { en: '', bn: description.trim() }
+  }
+  return { en: description.trim(), bn: '' }
+}
+
+export const BANGLA_PHRASE_CHIPS = [
+  'প্রিমিয়াম কোয়ালিটি কাপড়ে তৈরি',
+  'ইদ, বিবাহ ও পার্টির জন্য একদম পারফেক্ট',
+  'skin-friendly, breathable ও আরামদায়ক',
+  'বাংলাদেশে boutique finishing সহ tailored',
+  'SPLARO quality assurance — confidently order করুন',
+  'limited stock — আজই order করুন',
+] as const
+
+export function polishBanglaDescription(input: {
+  name: string
+  fabric?: string
+  fit?: string
+  occasion?: string
+  notes?: string
+  existing?: string
+}): string {
+  const name = input.name.trim() || 'এই পিস'
+  const fabric = input.fabric?.trim() || 'প্রিমিয়াম কাপড়'
+  const fit = input.fit?.trim() || 'Regular'
+  const occasion = input.occasion?.trim() || 'ইদ, বিবাহ ও পার্টি'
+  const notes = input.notes?.trim()
+  const existing = input.existing?.trim()
+
+  if (existing) {
+    const trimmed = existing.replace(/\s+/g, ' ').trim()
+    if (trimmed.endsWith('।') || trimmed.endsWith('!')) return trimmed
+    return `${trimmed}।`
+  }
+
+  const lines = [
+  notes
+    ? `${name} — ${notes}।`
+    : `SPLARO ${name} — refined look যেখানে premium tailoring meets everyday luxury।`,
+  `${fabric} তৈরি, ${fit} fit — skin-friendly, breathable, এক season-এর বেশি lasting।`,
+  `${occasion}-এ perfect। SPLARO quality assurance সহ confidently order করুন।`,
+  ]
+
+  return lines.join('\n\n')
+}

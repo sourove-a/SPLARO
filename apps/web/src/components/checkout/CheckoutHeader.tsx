@@ -25,11 +25,14 @@ export function CheckoutHeader({ userName, isSignedIn }: CheckoutHeaderProps) {
             </>
           ) : (
             <>
-              Checking out as guest ·{' '}
-              <Link href="/login?next=/checkout" className="checkout-subtitle__link">
-                Sign in
+              Account required ·{' '}
+              <Link href="/signup?next=/checkout" className="checkout-subtitle__link">
+                Create account
               </Link>{' '}
-              for faster reorder
+              or{' '}
+              <Link href="/login?next=/checkout" className="checkout-subtitle__link">
+                sign in
+              </Link>
             </>
           )}
         </p>

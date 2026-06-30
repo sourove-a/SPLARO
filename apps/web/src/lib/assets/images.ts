@@ -1,4 +1,5 @@
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 
 /** Known dead Unsplash IDs in legacy seed/content data. */
 const BROKEN_IMAGE_REWRITES: Array<{ match: string; replacement: string }> = [
@@ -31,7 +32,10 @@ export function sanitizeRemoteImageUrl(
 export function sanitizeStorefrontProduct<T extends { image: string; hoverImage?: string }>(
   product: T,
 ): T {
-  const image = sanitizeRemoteImageUrl(product.image)
-  const hoverImage = sanitizeRemoteImageUrl(product.hoverImage ?? product.image, image)
+  const image = optimizeImageSrc(sanitizeRemoteImageUrl(product.image), 'card')
+  const hoverImage = optimizeImageSrc(
+    sanitizeRemoteImageUrl(product.hoverImage ?? product.image, image),
+    'card',
+  )
   return { ...product, image, hoverImage }
 }

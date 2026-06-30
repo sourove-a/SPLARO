@@ -1,10 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ShopFilterBar } from '@/components/shop/ShopFilterBar'
-import { ProductCard } from '@/components/product/ProductCard/ProductCard'
+import { IlynProductCard } from '@/components/product/ProductCard/IlynProductCard'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
+import {
+  buildListingSearchParams,
+  LISTING_PAGE_SIZE,
+} from '@/lib/catalog/listing'
 import {
   isMobilePriceRangeActive,
   type CatalogSortOption,
@@ -18,11 +23,11 @@ import {
   getShopSizeOptions,
   isStorefrontBestSeller,
   isStorefrontNewArrival,
+  isStorefrontProductInStock,
   PRICE_FILTER_HIGH,
   PRICE_FILTER_LOW,
   products,
   shopFilterMenuCategories,
-  sortOptions,
   type Category,
   type StorefrontProduct,
 } from '@/data/storefront'
@@ -30,7 +35,7 @@ import { sanitizeStorefrontProduct } from '@/lib/assets/images'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import { usePublishedShopCategories } from '@/lib/storefront/catalog-channels'
 
-const PAGE_SIZE = 24
+const PAGE_SIZE = LISTING_PAGE_SIZE
 
 type FilterKey = 'color' | 'size' | 'price' | 'sort' | null
 
@@ -43,7 +48,10 @@ interface ShopCatalogProps {
   showStickyBar?: boolean
   initialCatalog?: CachedCatalog
   catalogPreset?: ShopCatalogPreset
-  initialSort?: (typeof sortOptions)[number]
+  initialSort?: CatalogSortOption
+  collectionSlug?: string
+  categorySlug?: string
+  listingMode?: 'full' | 'scoped'
 }
 
 type ShopProduct = StorefrontProduct & { slug?: string }
@@ -60,9 +68,13 @@ export function ShopCatalog({
   initialCatalog,
   catalogPreset,
   initialSort = 'Default',
+  collectionSlug,
+  categorySlug,
+  listingMode = 'full',
 }: ShopCatalogProps) {
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
+  const useApiListing = listingMode === 'scoped' && Boolean(collectionSlug || categorySlug)
 
   const [activeCategory, setActiveCategory] = useState<Category>(initialCategory)
   const [openFilter, setOpenFilter] = useState<FilterKey>(null)
@@ -76,9 +88,13 @@ export function ShopCatalog({
     (initialCatalog?.products ?? products).map(sanitizeStorefrontProduct),
   )
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [apiPage, setApiPage] = useState(initialCatalog?.page ?? 1)
+  const [apiTotalPages, setApiTotalPages] = useState(initialCatalog?.totalPages ?? 1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const visibleCategories = usePublishedShopCategories()
 
   useEffect(() => {
+    if (initialCatalog?.source === 'api') return
     fetch('/api/products', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data: { products?: StorefrontProduct[]; source?: string }) => {
@@ -87,7 +103,15 @@ export function ShopCatalog({
         }
       })
       .catch(() => undefined)
-  }, [])
+  }, [initialCatalog?.source])
+
+  useEffect(() => {
+    if (!initialCatalog) return
+    setCatalogProducts(initialCatalog.products.map(sanitizeStorefrontProduct))
+    setApiPage(initialCatalog.page ?? 1)
+    setApiTotalPages(initialCatalog.totalPages ?? 1)
+    setVisibleCount(PAGE_SIZE)
+  }, [initialCatalog])
 
   useEffect(() => {
     if (controlledCategory !== undefined) return
@@ -237,6 +261,68 @@ export function ShopCatalog({
     setVisibleCount(PAGE_SIZE)
   }
 
+  const fetchMoreFromApi = useCallback(async () => {
+    if (!useApiListing || loadingMore || apiPage >= apiTotalPages) return false
+
+    setLoadingMore(true)
+    try {
+      const nextPage = apiPage + 1
+      const params = buildListingSearchParams({
+        page: nextPage,
+        limit: PAGE_SIZE,
+        ...(collectionSlug ? { collectionSlug } : {}),
+        ...(categorySlug ? { categorySlug } : {}),
+      })
+      const res = await fetch(`/api/products?${params.toString()}`, { cache: 'no-store' })
+      if (!res.ok) return false
+      const data = (await res.json()) as {
+        products?: ShopProduct[]
+        totalPages?: number
+        page?: number
+      }
+      const incoming = (data.products ?? []).map(sanitizeStorefrontProduct)
+      if (!incoming.length) return false
+
+      setCatalogProducts((current) => {
+        const seen = new Set(current.map((product) => product.id))
+        const merged = [...current]
+        for (const product of incoming) {
+          if (!seen.has(product.id)) merged.push(product)
+        }
+        return merged
+      })
+      setApiPage(data.page ?? nextPage)
+      setApiTotalPages(data.totalPages ?? apiTotalPages)
+      return true
+    } catch {
+      return false
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [
+    apiPage,
+    apiTotalPages,
+    categorySlug,
+    collectionSlug,
+    loadingMore,
+    useApiListing,
+  ])
+
+  const handleLoadMore = async () => {
+    if (useApiListing && apiPage < apiTotalPages) {
+      const loaded = await fetchMoreFromApi()
+      if (loaded) {
+        setVisibleCount((count) => count + PAGE_SIZE)
+        return
+      }
+    }
+    setVisibleCount((count) => count + PAGE_SIZE)
+  }
+
+  const canLoadMore = useApiListing
+    ? filteredProducts.length > visibleCount || apiPage < apiTotalPages
+    : filteredProducts.length > visibleCount
+
   return (
     <>
       <section id="products" data-section="shopCatalog" className="shop-catalog">
@@ -326,32 +412,51 @@ export function ShopCatalog({
         )}
 
         <div className="shop-product-grid">
-          {visibleProducts.map((product, index) => (
-            <ProductCard
-              key={product.id}
-              variant="shop"
-              product={storefrontToCardData(product)}
-              productCode={product.code}
-              productStatus={product.status}
-              sizes={product.sizes}
-              colorHexes={product.colors}
-              productHref={getProductHref(product)}
-              priority={index < 4}
-              onShopAddToBag={(size, color) =>
-                addProductToBag(product, size ?? product.sizes[0], color ?? product.colors[0], true)
-              }
-            />
-          ))}
+          {visibleProducts.map((product, index) => {
+            const card = storefrontToCardData(product)
+            return (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.38, delay: Math.min(index * 0.03, 0.24), ease: [0.16, 1, 0.3, 1] }}
+                whileHover={{ y: -4 }}
+              >
+                <IlynProductCard
+                  id={card.id}
+                  slug={card.slug}
+                  name={card.name}
+                  price={card.price}
+                  {...(card.compareAtPrice ? { compareAtPrice: card.compareAtPrice } : {})}
+                  image={card.images[0] ?? ''}
+                  {...(card.images[1] ? { imageHover: card.images[1] } : {})}
+                  {...(card.category ? { collection: card.category } : {})}
+                  {...(product.code ? { productCode: product.code } : {})}
+                  colorHexes={product.colors}
+                  status={product.status}
+                  inStock={product.inStock ?? isStorefrontProductInStock(product)}
+                  sizes={product.sizes}
+                  href={getProductHref(product)}
+                  priority={index < 4}
+                  fit="cover"
+                  onAddToBag={() =>
+                    addProductToBag(product, product.sizes[0], product.colors[0], true)
+                  }
+                />
+              </motion.div>
+            )
+          })}
         </div>
 
-        {filteredProducts.length > visibleCount ? (
+        {canLoadMore ? (
           <div className="mt-8 flex justify-center">
             <button
               type="button"
-              className="glass-action glass-action-dark"
-              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+              className="btn-luxury-outline glass-action glass-action-dark"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
             >
-              Load more products
+              {loadingMore ? 'Loading…' : 'Load more products'}
             </button>
           </div>
         ) : null}

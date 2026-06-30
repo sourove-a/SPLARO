@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ShopFilterDropdown } from '@/components/shop/ShopFilterDropdown'
@@ -65,8 +65,18 @@ export function ShopFilterBar({
   onClearFilters,
 }: ShopFilterBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const sortLabel = sortBy === 'Default' ? 'Sort: Default' : `Sort: ${sortBy}`
+  const sortDisplay = sortBy === 'Best Selling' ? 'Default' : sortBy
   const mobilePriceRangeActive = isMobilePriceRangeActive(priceMin, priceMax, priceBounds)
+
+  useEffect(() => {
+    const filterOpen = drawerOpen || openFilter !== null
+    if (filterOpen) {
+      document.body.setAttribute('data-filter-open', 'true')
+    } else {
+      document.body.removeAttribute('data-filter-open')
+    }
+    return () => document.body.removeAttribute('data-filter-open')
+  }, [drawerOpen, openFilter])
 
   const activeFilterCount = useMemo(() => {
     let count = 0
@@ -187,7 +197,9 @@ export function ShopFilterBar({
               onChange={onPriceChange}
             />
             <ShopFilterDropdown
-              label={sortLabel}
+              label="Sort"
+              labelVariant="sort"
+              sortDisplay={sortDisplay}
               panelTitle="Sort Products"
               value={sortBy === 'Best Selling' ? 'Default' : sortBy}
               options={sortOptions}

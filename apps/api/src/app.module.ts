@@ -85,11 +85,13 @@ import { SettingsController } from './modules/settings/settings.controller'
 import { StorefrontController } from './modules/storefront/storefront.controller'
 import { StorefrontOrdersService } from './modules/storefront/storefront-orders.service'
 import { StorefrontAuthService } from './modules/storefront/storefront-auth.service'
+import { StorefrontWishlistService } from './modules/storefront/storefront-wishlist.service'
 import { StorefrontOtpService } from './modules/storefront/storefront-otp.service'
 import { CategoriesController } from './modules/categories/categories.controller'
 import { CollectionsController } from './modules/collections/collections.controller'
 import { BrandsController } from './modules/brands/brands.controller'
 import { BannersController } from './modules/banners/banners.controller'
+import { RedirectsController } from './modules/redirects/redirects.controller'
 import { PlatformController } from './modules/platform/platform.controller'
 import { PlatformService } from './modules/platform/platform.service'
 import { CouponsController, StorefrontCouponsController } from './modules/coupons/coupons.controller'
@@ -226,6 +228,7 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
     CollectionsController,
     BrandsController,
     BannersController,
+    RedirectsController,
     PlatformController,
     CouponsController,
     StorefrontCouponsController,
@@ -299,6 +302,7 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
     PlatformService,
     StorefrontOrdersService,
     StorefrontAuthService,
+    StorefrontWishlistService,
     StorefrontOtpService,
     CustomersService,
     AdminHubService,

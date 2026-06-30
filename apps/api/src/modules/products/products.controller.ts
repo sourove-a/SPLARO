@@ -4,10 +4,63 @@ import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
 import { SearchService } from '../search/search.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { mergeStorefrontConfig } from '../settings/storefront-config'
 
 const MAX_PRODUCT_IMAGES = 10
 const MEDIA_VIDEO_ALT = 'media:video'
 const MEDIA_IMAGE_ALT = 'media:image'
+
+type AdminProductWriteBody = {
+  name?: string
+  nameBn?: string
+  description?: string
+  shortDescription?: string
+  basePrice?: number
+  compareAtPrice?: number | null
+  costPrice?: number | null
+  sku?: string
+  lowStockThreshold?: number
+  tags?: string[]
+  weavingType?: string
+  collectionId?: string
+  categoryId?: string
+  isPublished?: boolean
+  isHidden?: boolean
+  status?: string
+  imageUrl?: string
+  imageUrls?: string[]
+  videoUrl?: string
+  fabricContent?: string
+  fitType?: string
+  occasion?: string
+  metaTitle?: string
+  metaDescription?: string
+  season?: string
+  slug?: string
+  isFeatured?: boolean
+  isNewArrival?: boolean
+  isBestSeller?: boolean
+}
+
+function mergeSchemaMarkup(
+  existing: unknown,
+  nameBn?: string,
+  weavingType?: string,
+): Record<string, string> | undefined {
+  const base =
+    existing && typeof existing === 'object' && !Array.isArray(existing)
+      ? { ...(existing as Record<string, string>) }
+      : {}
+  if (nameBn !== undefined) {
+    if (nameBn.trim()) base.nameBn = nameBn.trim()
+    else delete base.nameBn
+  }
+  if (weavingType !== undefined) {
+    if (weavingType.trim()) base.weavingType = weavingType.trim()
+    else delete base.weavingType
+  }
+  return Object.keys(base).length ? base : undefined
+}
 
 @Controller('admin/products')
 export class ProductsController {
@@ -48,7 +101,7 @@ export class ProductsController {
             take: 1,
           },
           category: { select: { name: true } },
-          variants: { select: { id: true, stock: true, sku: true, size: true, color: true, colorName: true, price: true } },
+          variants: { select: { id: true, stock: true, reservedStock: true, sku: true, size: true, color: true, colorName: true, price: true } },
           _count: { select: { variants: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -61,17 +114,124 @@ export class ProductsController {
     return { products, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
   }
 
+  // ── Reviews (admin) — must be registered before :id routes ──
+
+  @Get('reviews')
+  async listReviews(
+    @Query('storeId') storeId: string,
+    @Query('status') status?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const where = {
+      product: { storeId: sid },
+      ...(status ? { status: status as never } : {}),
+    }
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        where,
+        include: {
+          product: { select: { id: true, name: true, slug: true } },
+          customer: { select: { firstName: true, lastName: true, phone: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
+      }),
+      this.prisma.review.count({ where }),
+    ])
+    return { reviews, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
+  }
+
+  @Patch('reviews/:id')
+  async updateReview(
+    @Param('id') id: string,
+    @Body() body: {
+      status?: 'APPROVED' | 'REJECTED' | 'PENDING'
+      adminReply?: string | null
+    },
+  ) {
+    const data: {
+      status?: 'APPROVED' | 'REJECTED' | 'PENDING'
+      adminReply?: string | null
+      adminReplyAt?: Date | null
+    } = {}
+
+    if (body.status) data.status = body.status
+    if (body.adminReply !== undefined) {
+      const reply = body.adminReply?.trim() || null
+      data.adminReply = reply
+      data.adminReplyAt = reply ? new Date() : null
+    }
+
+    const review = await this.prisma.review.update({ where: { id }, data })
+    const product = await this.prisma.product.findUnique({
+      where: { id: review.productId },
+      select: { storeId: true },
+    })
+    if (body.status === 'APPROVED' || body.status === 'REJECTED') {
+      const stats = await this.prisma.review.aggregate({
+        where: { productId: review.productId, status: 'APPROVED' },
+        _avg: { rating: true },
+        _count: { id: true },
+      })
+      await this.prisma.product.update({
+        where: { id: review.productId },
+        data: {
+          rating: Number((stats._avg.rating ?? 0).toFixed(2)),
+          reviewCount: stats._count.id,
+        },
+      })
+    }
+    if (product) await this.bustProductCache(product.storeId)
+    return review
+  }
+
+  @Delete('reviews/:id')
+  async deleteReview(@Param('id') id: string) {
+    const review = await this.prisma.review.delete({ where: { id } })
+    const product = await this.prisma.product.findUnique({
+      where: { id: review.productId },
+      select: { storeId: true },
+    })
+    const stats = await this.prisma.review.aggregate({
+      where: { productId: review.productId, status: 'APPROVED' },
+      _avg: { rating: true },
+      _count: { id: true },
+    })
+    await this.prisma.product.update({
+      where: { id: review.productId },
+      data: {
+        rating: Number((stats._avg.rating ?? 0).toFixed(2)),
+        reviewCount: stats._count.id,
+      },
+    })
+    if (product) await this.bustProductCache(product.storeId)
+    return { deleted: true }
+  }
+
   @Post()
   async create(
     @Query('storeId') storeId: string,
     @Body()
     body: {
       name: string
+      nameBn?: string
       description?: string
+      shortDescription?: string
       basePrice: number
       compareAtPrice?: number
+      costPrice?: number
+      sku?: string
+      lowStockThreshold?: number
+      tags?: string[]
+      weavingType?: string
+      collectionId?: string
       categoryId?: string
       isPublished?: boolean
+      isHidden?: boolean
+      status?: string
       imageUrl?: string
       imageUrls?: string[]
       videoUrl?: string
@@ -83,6 +243,9 @@ export class ProductsController {
       metaTitle?: string
       metaDescription?: string
       defaultStock?: number
+      isFeatured?: boolean
+      isNewArrival?: boolean
+      isBestSeller?: boolean
     },
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
@@ -123,21 +286,38 @@ export class ProductsController {
       }
     })
 
+    const schemaExtras: Record<string, string> = {}
+    if (body.nameBn?.trim()) schemaExtras.nameBn = body.nameBn.trim()
+    if (body.weavingType?.trim()) schemaExtras.weavingType = body.weavingType.trim()
+
+    const productSku = body.sku?.trim()
+
     const product = await this.prisma.product.create({
       data: {
         storeId: sid,
         name: body.name,
         slug,
         description: body.description,
+        shortDescription: body.shortDescription,
         basePrice: body.basePrice,
         compareAtPrice: body.compareAtPrice,
+        costPrice: body.costPrice,
+        sku: productSku || undefined,
+        lowStockThreshold: body.lowStockThreshold ?? 5,
+        tags: body.tags ?? [],
         categoryId: body.categoryId,
         isPublished: body.isPublished ?? false,
+        isHidden: body.isHidden ?? false,
+        status: body.status ?? (body.isPublished ? 'PUBLISHED' : 'DRAFT'),
         fabricContent: body.fabricContent,
         fitType: body.fitType,
         occasion: body.occasion,
         metaTitle: body.metaTitle,
         metaDescription: body.metaDescription,
+        isFeatured: body.isFeatured ?? false,
+        isNewArrival: body.isNewArrival ?? false,
+        isBestSeller: body.isBestSeller ?? false,
+        ...(Object.keys(schemaExtras).length ? { schemaMarkup: schemaExtras } : {}),
         images: mediaRows.length
           ? { create: mediaRows }
           : undefined,
@@ -151,12 +331,25 @@ export class ProductsController {
               price: body.basePrice,
               stock: variantStock,
               image: color.image ?? primaryImage,
+              ...(productSku
+                ? { sku: `${productSku}-${size}-${color.name}`.replace(/\s+/g, '-').slice(0, 80) }
+                : {}),
             })),
           ),
         },
       },
       include: { images: true, variants: true, category: true },
     })
+
+    if (body.collectionId) {
+      await this.prisma.collectionProduct.upsert({
+        where: {
+          collectionId_productId: { collectionId: body.collectionId, productId: product.id },
+        },
+        create: { collectionId: body.collectionId, productId: product.id },
+        update: {},
+      })
+    }
 
     void this.search?.indexProducts(sid)
     await this.bustProductCache(sid)
@@ -172,22 +365,18 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string
-      description?: string
-      basePrice?: number
-      categoryId?: string
-      isPublished?: boolean
-      imageUrl?: string
-      imageUrls?: string[]
-      videoUrl?: string
-      fabricContent?: string
-      fitType?: string
-    },
-  ) {
+  async update(@Param('id') id: string, @Body() body: AdminProductWriteBody) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+      select: { storeId: true, schemaMarkup: true },
+    })
+    if (!existing) throw new NotFoundException('Product not found')
+
+    const schemaMarkup =
+      body.nameBn !== undefined || body.weavingType !== undefined
+        ? mergeSchemaMarkup(existing.schemaMarkup, body.nameBn, body.weavingType)
+        : undefined
+
     const imageUrls = Array.from(
       new Set(
         [body.imageUrl, ...(body.imageUrls ?? [])]
@@ -201,15 +390,48 @@ export class ProductsController {
       where: { id },
       data: {
         ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(body.slug !== undefined ? { slug: slugify(body.slug) } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
+        ...(body.shortDescription !== undefined ? { shortDescription: body.shortDescription } : {}),
         ...(body.basePrice !== undefined ? { basePrice: body.basePrice } : {}),
-        ...(body.categoryId !== undefined ? { categoryId: body.categoryId } : {}),
+        ...(body.compareAtPrice !== undefined ? { compareAtPrice: body.compareAtPrice } : {}),
+        ...(body.costPrice !== undefined ? { costPrice: body.costPrice } : {}),
+        ...(body.sku !== undefined ? { sku: body.sku.trim() || null } : {}),
+        ...(body.lowStockThreshold !== undefined ? { lowStockThreshold: body.lowStockThreshold } : {}),
+        ...(body.tags !== undefined ? { tags: body.tags } : {}),
+        ...(schemaMarkup !== undefined ? { schemaMarkup } : {}),
+        ...(body.categoryId !== undefined ? { categoryId: body.categoryId || null } : {}),
         ...(body.isPublished !== undefined ? { isPublished: body.isPublished } : {}),
+        ...(body.isHidden !== undefined ? { isHidden: body.isHidden } : {}),
+        ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.fabricContent !== undefined ? { fabricContent: body.fabricContent } : {}),
         ...(body.fitType !== undefined ? { fitType: body.fitType } : {}),
+        ...(body.occasion !== undefined ? { occasion: body.occasion } : {}),
+        ...(body.season !== undefined ? { season: body.season } : {}),
+        ...(body.metaTitle !== undefined ? { metaTitle: body.metaTitle } : {}),
+        ...(body.metaDescription !== undefined ? { metaDescription: body.metaDescription } : {}),
+        ...(body.isFeatured !== undefined ? { isFeatured: body.isFeatured } : {}),
+        ...(body.isNewArrival !== undefined ? { isNewArrival: body.isNewArrival } : {}),
+        ...(body.isBestSeller !== undefined ? { isBestSeller: body.isBestSeller } : {}),
       },
-      include: { images: true, variants: true, category: true },
+      include: { images: true, variants: true, category: true, collections: true },
     })
+
+    if (body.collectionId !== undefined) {
+      await this.prisma.collectionProduct.deleteMany({ where: { productId: id } })
+      if (body.collectionId) {
+        await this.prisma.collectionProduct.create({
+          data: { collectionId: body.collectionId, productId: id },
+        })
+      }
+    }
+
+    if (body.basePrice !== undefined) {
+      await this.prisma.productVariant.updateMany({
+        where: { productId: id },
+        data: { price: body.basePrice },
+      })
+    }
 
     if (imageUrls.length || videoUrl) {
       await this.prisma.productImage.deleteMany({ where: { productId: id } })
@@ -246,7 +468,7 @@ export class ProductsController {
     await this.bustProductCache(product.storeId)
     return this.prisma.product.findUnique({
       where: { id },
-      include: { images: true, variants: true, category: true },
+      include: { images: true, variants: true, category: true, collections: true },
     })
   }
 
@@ -299,6 +521,23 @@ export class ProductsController {
 
   @Post(':id/generate-skus')
   async generateSKUs(@Param('id') id: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: { storeId: true },
+    })
+    if (!product) throw new NotFoundException('Product not found')
+
+    const settings = await this.prisma.siteSettings.findUnique({
+      where: { storeId: product.storeId },
+      select: { storefrontConfig: true },
+    })
+    const config = mergeStorefrontConfig(settings?.storefrontConfig)
+    if (config.catalog?.autoGenerateSku === false) {
+      throw new BadRequestException(
+        'SKU auto-generation is off. Enter SKUs manually in product edit or SKU manager.',
+      )
+    }
+
     const updated = await this.productAdvanced.ensureVariantSKUs(id)
     return { updated }
   }
@@ -431,64 +670,5 @@ export class ProductsController {
     void this.search?.indexProducts(sid)
     await this.bustProductCache(sid)
     return { updated: count }
-  }
-
-  // ── Reviews (admin) ─────────────────────────────────────────
-
-  @Get('reviews')
-  async listReviews(
-    @Query('storeId') storeId: string,
-    @Query('status') status?: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 50,
-  ) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const where = {
-      product: { storeId: sid },
-      ...(status ? { status: status as never } : {}),
-    }
-    const [reviews, total] = await Promise.all([
-      this.prisma.review.findMany({
-        where,
-        include: {
-          product: { select: { id: true, name: true, slug: true } },
-          customer: { select: { firstName: true, lastName: true, phone: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (Number(page) - 1) * Number(limit),
-        take: Number(limit),
-      }),
-      this.prisma.review.count({ where }),
-    ])
-    return { reviews, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
-  }
-
-  @Patch('reviews/:id')
-  async updateReview(
-    @Param('id') id: string,
-    @Body() body: { status: 'APPROVED' | 'REJECTED' | 'PENDING' },
-  ) {
-    const review = await this.prisma.review.update({ where: { id }, data: { status: body.status } })
-    if (body.status === 'APPROVED' || body.status === 'REJECTED') {
-      const stats = await this.prisma.review.aggregate({
-        where: { productId: review.productId, status: 'APPROVED' },
-        _avg: { rating: true },
-        _count: { id: true },
-      })
-      await this.prisma.product.update({
-        where: { id: review.productId },
-        data: {
-          rating: Number((stats._avg.rating ?? 0).toFixed(2)),
-          reviewCount: stats._count.id,
-        },
-      })
-    }
-    return review
-  }
-
-  @Delete('reviews/:id')
-  async deleteReview(@Param('id') id: string) {
-    await this.prisma.review.delete({ where: { id } })
-    return { deleted: true }
   }
 }

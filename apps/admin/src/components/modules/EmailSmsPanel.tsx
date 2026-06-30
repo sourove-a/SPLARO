@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toastFail, toastInfo, toastNotImplemented } from '@/lib/admin/feedback'
 import { Mail, MessageSquare, Send, Users, Filter } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -112,10 +112,10 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
         createLabel="New broadcast"
         onCreate={() => {
           setShowComposer(true)
-          toast('Create email campaigns in Marketing → Campaigns.', { icon: '📧' })
+          toastInfo('Create email campaigns in Marketing → Campaigns.')
         }}
         onRefresh={() => void refetch()}
-        onExport={() => toast.error('This action is not available yet — feature pending.')}
+        onExport={() => toastFail('Export not available yet.')}
         tableIcon={Mail}
         tableTitle={`Broadcasts · ${filtered.length} results`}
         footer="Live from campaigns + notification_delivery_log"
@@ -241,7 +241,7 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
           <AdminButton
             variant="gold"
             className="mt-3"
-            onClick={() => toast('Transactional sends use order webhooks — bulk via Campaigns.', { icon: '📤' })}
+            onClick={() => toastNotImplemented('Bulk broadcast')}
           >
             <Send className="h-4 w-4" /> Queue broadcast
           </AdminButton>

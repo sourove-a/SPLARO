@@ -62,7 +62,7 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const lenisOptions = useMemo(() => buildLenisOptions(), [touchProfile])
+  const lenisOptions = useMemo(() => buildLenisOptions(), [])
 
   if (!enabled) return <>{children}</>
 

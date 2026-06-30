@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { cn } from '@/lib/utils/cn'
@@ -42,7 +42,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   }, [])
 
   const scheduleClose = useCallback(() => {
-    closeTimer.current = setTimeout(() => setOpenIndex(null), 320)
+    closeTimer.current = setTimeout(() => setOpenIndex(null), 300)
   }, [])
 
   const cancelClose = useCallback(() => {
@@ -69,7 +69,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
                   key={`${item.label}-${item.href}`}
                   initial={false}
                   animate={{ y: isOpen ? -1 : 0, opacity: 1 }}
-                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                   onMouseEnter={() => (hasMega ? openMenu(i) : setOpenIndex(null))}
                 >
                   <Link
@@ -84,7 +84,15 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
                       isOpen && 'site-header-glass__nav-link--open',
                     )}
                   >
-                    <span>{item.label}</span>
+                    {isOpen ? (
+                      <motion.span
+                        layoutId="nav-mega-pill"
+                        className="site-header-glass__nav-pill"
+                        transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.82 }}
+                        aria-hidden
+                      />
+                    ) : null}
+                    <span className="site-header-glass__nav-link-text">{item.label}</span>
                     {item.badge ? (
                       <span className="site-header-glass__nav-badge">{item.badge}</span>
                     ) : null}
@@ -103,15 +111,26 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
         </nav>
       </div>
 
-      {activeMegaMenu ? (
-        <div
-          className="site-header-glass__mega"
-          onMouseEnter={cancelClose}
-          onMouseLeave={scheduleClose}
-        >
-          <MegaMenu config={activeMegaMenu} isOpen onClose={closeMenu} />
-        </div>
-      ) : null}
+      <AnimatePresence mode="wait">
+        {activeMegaMenu && openIndex !== null ? (
+          <motion.div
+            key={openIndex}
+            className="site-header-glass__mega"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 1 }}
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
+          >
+            <MegaMenu
+              menuKey={navItems[openIndex]?.label}
+              config={activeMegaMenu}
+              isOpen
+              onClose={closeMenu}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }

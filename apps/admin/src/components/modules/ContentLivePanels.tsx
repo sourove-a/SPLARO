@@ -22,11 +22,34 @@ import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
-import { useContentOverview, useCreateBlogPost, useBanners, useSettings } from '@/lib/api/hooks'
+import { SPLARO_DOMAINS } from '@splaro/config'
+import { useContentOverview, useCreateBlogPost, useBanners, useSettings, useSitePages, useCreateSitePage, useUpdateSitePage, useDeleteSitePage, useCreateCollection } from '@/lib/api/hooks'
+import type { SitePageRow } from '@/lib/api/content-pages'
 import { formatRelativeTime } from '@/lib/api/orders'
 import { resolveMediaUrl } from '@/lib/media-url'
 
 type PubStatus = 'published' | 'draft' | 'scheduled' | 'archived'
+
+function landingBodyFromContent(page: SitePageRow): string {
+  if (!page.content) return ''
+  try {
+    const parsed = JSON.parse(page.content) as { sections?: { body?: string }[]; description?: string }
+    if (parsed.sections?.[0]?.body) return parsed.sections[0].body
+    if (parsed.description) return parsed.description
+  } catch {
+    return page.content
+  }
+  return ''
+}
+
+function buildLandingContent(title: string, body: string) {
+  const trimmed = body.trim()
+  return JSON.stringify({
+    title,
+    description: trimmed.slice(0, 160),
+    sections: [{ heading: title, body: trimmed || 'Content coming soon.' }],
+  })
+}
 
 function mapBlogStatus(status: string): PubStatus {
   if (status === 'PUBLISHED') return 'published'
@@ -143,6 +166,7 @@ export function BlogPanelLive() {
 
 export function LookbooksPanelLive() {
   const { data, isError, isLoading, refetch } = useContentOverview()
+  const createCollection = useCreateCollection()
   const [query, setQuery] = useState('')
   const collections = data?.collections ?? []
 
@@ -150,6 +174,21 @@ export function LookbooksPanelLive() {
     const q = query.toLowerCase()
     return collections.filter((c) => !q || c.name.toLowerCase().includes(q))
   }, [query, collections])
+
+  const handleCreate = () => {
+    const name = window.prompt('Lookbook / collection name')
+    if (!name?.trim()) return
+    createCollection.mutate(
+      { name: name.trim() },
+      {
+        onSuccess: () => {
+          toast.success('Lookbook collection created.')
+          void refetch()
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
 
   if (isError) return <ApiOfflineBanner message="Content API offline." />
 
@@ -166,7 +205,7 @@ export function LookbooksPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search collection..."
       createLabel="New lookbook"
-      onCreate={() => toast('Create collections in Catalog → Collections.', { icon: '📖' })}
+      onCreate={handleCreate}
       onRefresh={() => void refetch()}
       onExport={() => toast.error('This action is not available yet — feature pending.')}
       tableIcon={BookOpen}
@@ -397,63 +436,176 @@ export function CmsPanelLive() {
 }
 
 export function LandingPagesPanelLive() {
-  const { data, isError, refetch } = useContentOverview()
+  const { data: pages = [], isError, isLoading, refetch } = useSitePages()
+  const createPage = useCreateSitePage()
+  const updatePage = useUpdateSitePage()
+  const deletePage = useDeleteSitePage()
   const [query, setQuery] = useState('')
-  const campaigns = data?.campaigns ?? []
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
-    return campaigns.filter((c) => !q || c.name.toLowerCase().includes(q))
-  }, [query, campaigns])
+    return pages.filter((p) => !q || p.title.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q))
+  }, [query, pages])
 
-  if (isError) return <ApiOfflineBanner message="Content API offline." />
+  const liveUrl = (slug: string) => `${SPLARO_DOMAINS.site.replace(/\/$/, '')}/lp/${slug}`
+
+  const handleCreate = () => {
+    const title = window.prompt('Landing page title (e.g. Eid Sale 2026)')
+    if (!title?.trim()) return
+    createPage.mutate(
+      { title: title.trim(), isPublished: false },
+      {
+        onSuccess: (row) => toast.success(`Created /lp/${row.slug}`),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  const togglePublish = (id: string, next: boolean, title: string) => {
+    updatePage.mutate(
+      { id, isPublished: next },
+      {
+        onSuccess: () => toast.success(next ? `"${title}" is live` : `"${title}" unpublished`),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  const handleDelete = (id: string, title: string) => {
+    if (!window.confirm(`Delete landing page "${title}"?`)) return
+    deletePage.mutate(id, {
+      onSuccess: () => toast.success('Landing page deleted.'),
+      onError: (e) => toast.error(e.message),
+    })
+  }
+
+  const handleEditContent = (page: SitePageRow) => {
+    const current = landingBodyFromContent(page)
+    const next = window.prompt(`Edit body for "${page.title}":`, current)
+    if (next === null) return
+    const content = buildLandingContent(page.title, next)
+    updatePage.mutate(
+      {
+        id: page.id,
+        content,
+        metaDesc: next.trim().slice(0, 160) || page.title,
+      },
+      {
+        onSuccess: () => toast.success('Landing page content saved.'),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  const handleRename = (page: SitePageRow) => {
+    const next = window.prompt('Landing page title:', page.title)
+    if (!next?.trim() || next.trim() === page.title) return
+    const title = next.trim()
+    const content = buildLandingContent(title, landingBodyFromContent(page))
+    updatePage.mutate(
+      { id: page.id, title, content, metaTitle: title },
+      {
+        onSuccess: () => toast.success('Title updated.'),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  if (isError) return <ApiOfflineBanner message="Content API offline — run pnpm dev:api on :4000." />
 
   return (
     <ModulePanelShell
       kpis={[
-        ['Campaigns', campaigns.length, 'default'],
-        ['Sent', campaigns.filter((c) => c.status === 'SENT' || c.status === 'COMPLETED').length, 'success'],
-        ['Reach', campaigns.reduce((s, c) => s + c.totalSent, 0).toLocaleString('en-BD'), 'gold'],
-        ['Draft', campaigns.filter((c) => c.status === 'DRAFT').length, 'warning'],
+        ['Pages', isLoading ? '…' : pages.length, 'default'],
+        ['Live', pages.filter((p) => p.isPublished).length, 'success'],
+        ['Draft', pages.filter((p) => !p.isPublished).length, 'warning'],
+        ['URLs', pages.length ? '/lp/…' : '—', 'gold'],
       ]}
-      pipeline={[['Live', campaigns.filter((c) => c.status === 'SENDING' || c.status === 'SENT').length], ['Draft', campaigns.filter((c) => c.status === 'DRAFT').length], ['API', 'OK'], ['—', '—'], ['—', '—']]}
+      pipeline={[
+        ['Live', pages.filter((p) => p.isPublished).length],
+        ['Draft', pages.filter((p) => !p.isPublished).length],
+        ['API', 'OK'],
+        ['Route', '/lp'],
+        ['—', '—'],
+      ]}
       query={query}
       onQuery={setQuery}
-      searchPlaceholder="Search campaign..."
+      searchPlaceholder="Search landing page..."
       createLabel="Create LP"
-      onCreate={() => toast('Link landing pages to Marketing → Campaigns.', { icon: '🚀' })}
+      onCreate={handleCreate}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      onExport={() => toast.error('Export not available yet.')}
       tableIcon={LayoutTemplate}
-      tableTitle={`Landing campaigns · ${filtered.length}`}
-      footer="Marketing campaigns as landing page drivers"
+      tableTitle={`Landing pages · ${filtered.length}`}
+      footer="Campaign URLs at /lp/your-slug on storefront"
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[var(--admin-text-muted)]">No campaigns yet — create in Marketing → Campaigns.</p>
+        <p className="px-4 py-6 text-sm text-[var(--admin-text-muted)]">
+          No landing pages yet — click <strong>Create LP</strong> to add a campaign page.
+        </p>
       ) : (
         <table className="admin-module-table">
           <thead>
             <tr>
-              <th>Campaign</th>
-              <th>Type</th>
-              <th>Sent</th>
+              <th>Title</th>
+              <th>URL</th>
               <th>Status</th>
-              <th>Created</th>
+              <th>Updated</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {filtered.map((p) => (
               <tr key={p.id}>
-                <td className="font-semibold">{p.name}</td>
-                <td className="text-xs">{p.type}</td>
-                <td className="font-bold">{p.totalSent}</td>
+                <td className="font-semibold">{p.title}</td>
+                <td className="font-mono text-xs">/lp/{p.slug}</td>
                 <td>
-                  <span className={STATUS_CLASS[p.status === 'SENT' ? 'published' : 'draft']}>{p.status.toLowerCase()}</span>
+                  <span className={STATUS_CLASS[p.isPublished ? 'published' : 'draft']}>
+                    {p.isPublished ? 'live' : 'draft'}
+                  </span>
                 </td>
-                <td className="muted text-xs">{formatRelativeTime(p.createdAt)}</td>
+                <td className="muted text-xs">{formatRelativeTime(p.updatedAt)}</td>
                 <td>
-                  <RowActionsMenu recordName={p.name} moduleHref="/dashboard/campaigns" recordId={p.id} />
+                  <RowActionsMenu
+                    recordName={p.title}
+                    moduleHref="/dashboard/landing-pages"
+                    recordId={p.id}
+                    actions={[
+                      {
+                        label: 'Edit content',
+                        onClick: () => handleEditContent(p),
+                      },
+                      {
+                        label: 'Rename',
+                        onClick: () => handleRename(p),
+                      },
+                      {
+                        label: 'View on storefront',
+                        onClick: () => window.open(liveUrl(p.slug), '_blank', 'noopener'),
+                      },
+                      {
+                        label: p.isPublished ? 'Unpublish' : 'Publish',
+                        onClick: () => togglePublish(p.id, !p.isPublished, p.title),
+                      },
+                      {
+                        label: 'Copy URL',
+                        onClick: async () => {
+                          const url = liveUrl(p.slug)
+                          try {
+                            await navigator.clipboard.writeText(url)
+                            toast.success('URL copied')
+                          } catch {
+                            toast.error('Could not copy URL')
+                          }
+                        },
+                      },
+                      {
+                        label: 'Delete',
+                        tone: 'danger',
+                        onClick: () => handleDelete(p.id, p.title),
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}

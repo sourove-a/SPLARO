@@ -9,7 +9,7 @@ import { CartLineItem } from '@/components/cart/CartLineItem'
 import { CartSummary } from '@/components/cart/CartSummary'
 
 export function CartPageClient() {
-  const { items, subtotal, removeItem, updateQuantity } = useCartStore()
+  const { items, subtotal, removeItem, updateQuantity, clearCart } = useCartStore()
   const { shipping } = useStorefrontSettings()
   const freeShippingThreshold = shipping.freeDeliveryThreshold
   const showFreeShippingBar = freeShippingThreshold > 0 && subtotal > 0
@@ -23,6 +23,15 @@ export function CartPageClient() {
             <h1 className="cart-page__title">Your Bag</h1>
             {items.length > 0 ? (
               <span className="cart-page__count">({items.length})</span>
+            ) : null}
+            {items.length > 0 ? (
+              <button
+                type="button"
+                onClick={clearCart}
+                className="ml-auto text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-luxury-gray transition-colors hover:text-red-600"
+              >
+                Clear all
+              </button>
             ) : null}
           </div>
           <p className="cart-page__subtitle">Review items before checkout</p>

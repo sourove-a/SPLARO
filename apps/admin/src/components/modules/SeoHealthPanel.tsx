@@ -4,12 +4,12 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
 import { useSeoOverview } from '@/lib/api/hooks'
 
 export function SeoHealthPanel() {
-  const { data, isError, isLoading, refetch } = useSeoOverview()
+  const { data, isOffline, isLoading, refetch } = useSeoOverview()
   const [tab, setTab] = useState<'products' | 'technical' | 'analytics'>('products')
 
   const audits = data?.productAudits ?? []
@@ -17,10 +17,9 @@ export function SeoHealthPanel() {
   const avgScore = summary?.avgScore ?? 0
   const keywords = data?.keywords ?? []
 
-  if (isError) return <ApiOfflineBanner message="SEO health API offline — start pnpm dev:api." />
-
   return (
     <div className="space-y-5">
+      {isOffline ? <ApiOfflineHint message="API offline — SEO data unavailable until pnpm dev:api is running." /> : null}
       <div className="grid grid-cols-3 gap-3">
         <div className="admin-glass admin-kpi">
           <p className="text-[10px] font-black uppercase text-[#6B6B6B]">Avg SEO Score</p>

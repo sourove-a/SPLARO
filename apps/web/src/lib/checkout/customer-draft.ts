@@ -1,4 +1,5 @@
 import { isBdDistrict } from '@/lib/checkout/bd-districts'
+import { getThanasForDistrict, isBdThana } from '@/lib/checkout/bd-thanas'
 import { formatBdPhoneInput } from '@/lib/checkout/phone'
 import type { PaymentMethod } from '@/lib/checkout/payments'
 
@@ -8,6 +9,7 @@ export interface CheckoutCustomerDraft {
   phone: string
   address: string
   city: string
+  thana: string
   payment: PaymentMethod
 }
 
@@ -21,6 +23,7 @@ export function getCheckoutFormDefaults(): CheckoutCustomerDraft {
     phone: '',
     address: '',
     city: 'Dhaka',
+    thana: getThanasForDistrict('Dhaka')[0] ?? '',
     payment: DEFAULT_PAYMENT,
   }
 }
@@ -38,6 +41,10 @@ export function loadCheckoutCustomerDraft(): CheckoutCustomerDraft {
       if (parsed.phone) defaults.phone = formatBdPhoneInput(parsed.phone)
       if (parsed.address) defaults.address = parsed.address
       if (parsed.city && isBdDistrict(parsed.city)) defaults.city = parsed.city
+      if (parsed.thana && isBdThana(defaults.city, parsed.thana)) defaults.thana = parsed.thana
+      else if (isBdDistrict(defaults.city)) {
+        defaults.thana = getThanasForDistrict(defaults.city)[0] ?? ''
+      }
     }
   } catch {
     // ignore corrupt local storage

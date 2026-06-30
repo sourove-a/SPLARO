@@ -2,20 +2,23 @@
 
 import { Fragment, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { refreshWithToast } from '@/lib/admin/feedback'
+import { refreshWithToast, toastOk, toastFail } from '@/lib/admin/feedback'
+import { downloadCsv, printProductLabel } from '@/lib/admin/admin-actions'
 import { AlertTriangle, Archive, Award, ChevronDown, Download, Layers, Package, Plus, Printer, RefreshCw, Search, Tags } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
-import { useBrands, useCollections, useCreateBrand, useCreateCollection, useProducts, useDeleteProduct, useUpdateCollection, useUpdateBrand } from '@/lib/api/hooks'
+import { useBrands, useCollections, useCreateBrand, useCreateCollection, useProducts, useDeleteProduct, useUpdateCollection, useUpdateBrand, usePublishedProductCount, useInventoryAlerts, useUpdateProductVariant } from '@/lib/api/hooks'
 import { productStatus, productStock, type ApiProduct } from '@/lib/api/products'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { LiveCategoriesPanel } from '@/components/modules/LiveCategoriesPanel'
 import { LiveProductCodesPanel } from '@/components/modules/LiveProductCodesPanel'
+import { ProductReviewsPanel } from '@/components/modules/ProductReviewsPanel'
 import { ProductEditPanel } from '@/components/modules/ProductEditPanel'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
+import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
 
 // ─── Design tokens (theme-aware via CSS variables) ────────────────────────────
 const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
@@ -187,6 +190,7 @@ function ProductsPanel() {
   const [statusFilter, setStatusFilter] = useState<ProductStatus | 'all'>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const { data: apiData, isError, isLoading, refetch } = useProducts({ limit: 50 })
+  const { data: liveCount, isError: liveCountError, isLoading: liveCountLoading } = usePublishedProductCount()
   const deleteProduct = useDeleteProduct()
   const catalog = useMemo(() => (apiData?.products ? apiData.products.map(mapApiProduct) : []), [apiData])
 
@@ -207,14 +211,64 @@ function ProductsPanel() {
     })
   }
 
+  const exportProducts = () => {
+    if (!filtered.length) {
+      toastFail('Nothing to export — adjust your filters.')
+      return
+    }
+    const date = new Date().toISOString().slice(0, 10)
+    downloadCsv(`splaro-products-${date}.csv`, [
+      ['SKU', 'Product', 'Category', 'Brand', 'Variants', 'Stock', 'Price (BDT)', 'Status'],
+      ...filtered.map((p) => [
+        p.id,
+        p.name,
+        p.category,
+        p.brand,
+        String(p.variants),
+        String(p.stock),
+        String(p.price),
+        p.status,
+      ]),
+    ])
+    toastOk(`Exported ${filtered.length} product${filtered.length === 1 ? '' : 's'}.`)
+  }
+
+  const handlePrintLabel = (p: (typeof catalog)[number]) => {
+    printProductLabel({
+      sku: p.id,
+      name: p.name,
+      price: formatBDT(p.price),
+      category: p.category,
+    })
+  }
+
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       {isError && <ErrorBanner msg="API offline — start SPLARO API on port 4000 and run `pnpm db:seed`." />}
+      <div style={{ marginBottom: 12 }}>
+        <StorefrontLiveBar
+        onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
+        items={[
+          {
+            label: 'Storefront products',
+            value: liveCountLoading ? '…' : `${liveCount ?? 0} live`,
+            ok: !liveCountError && !isError,
+            hint: liveCountError ? 'API offline' : 'Published on splaro.com.bd',
+          },
+          {
+            label: 'Catalog in admin',
+            value: isLoading ? '…' : `${apiData?.total ?? catalog.length} total`,
+            ok: !isError,
+            hint: `${catalog.filter((p) => p.status === 'draft').length} draft`,
+          },
+        ]}
+        />
+      </div>
       <PanelHeader icon={Package} title="Products" kpis={[
-        ['Total', catalog.length],
+        ['Live on site', liveCountLoading ? '…' : (liveCount ?? 0), 'success'],
+        ['Total', apiData?.total ?? catalog.length],
         ['Active', catalog.filter((p) => p.status === 'active').length, 'success'],
         ['Low stock', catalog.filter((p) => p.stock > 0 && p.stock <= 5).length, 'warning'],
-        ['Catalog value', formatBDT(catalog.reduce((s, p) => s + p.price * Math.max(p.stock, 1), 0)), 'gold'],
       ]} />
 
       {catalog.some((p) => p.stock <= 5 && p.stock > 0) && (
@@ -230,7 +284,7 @@ function ProductsPanel() {
         query={query} onQuery={setQuery} placeholder="Search SKU, name, category…"
         createLabel="Add product" onCreate={() => navigate('/dashboard/products/new')}
         onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
-        onExport={() => toast.error('This action is not available yet — feature pending.')}
+        onExport={exportProducts}
         tabs={[
           { key: 'all', label: 'All', count: catalog.length },
           { key: 'active', label: 'Active', count: catalog.filter((p) => p.status === 'active').length },
@@ -275,7 +329,7 @@ function ProductsPanel() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         <a href={`/dashboard/products/${p.linkId}/edit`} className="admin-catalog-action admin-catalog-action--primary">Edit product</a>
                         <a href={`/dashboard/inventory?sku=${p.id}`} className="admin-catalog-action">View inventory</a>
-                        <AdminButton className="!text-xs" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                        <AdminButton className="!text-xs" onClick={() => handlePrintLabel(p)}>
                           <Printer className="h-3.5 w-3.5" /> Print label
                         </AdminButton>
                         <AdminButton className="!text-xs !text-red-700" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
@@ -357,46 +411,246 @@ function CollectionsPanel() {
 }
 
 // ─── Inventory ─────────────────────────────────────────────────────────────────
+const LOW_STOCK_MAX = 5
+
+type StockFilter = 'all' | 'low' | 'out' | 'healthy'
+
+function InventoryVariantAdjust({
+  productId,
+  variant,
+  onSaved,
+}: {
+  productId: string
+  variant: NonNullable<ApiProduct['variants']>[number]
+  onSaved: () => void
+}) {
+  const [stock, setStock] = useState(String(variant.stock ?? 0))
+  const updateVariant = useUpdateProductVariant()
+
+  if (!variant.id) return null
+  const variantId = variant.id
+  const label = [variant.size, variant.colorName ?? variant.color].filter(Boolean).join(' / ') || variant.sku || 'Default'
+
+  const save = () => {
+    const next = Number(stock)
+    if (Number.isNaN(next) || next < 0) {
+      toastFail('Enter a valid stock number.')
+      return
+    }
+    updateVariant.mutate(
+      { productId, variantId, stock: next },
+      {
+        onSuccess: () => {
+          toastOk(`Stock updated for ${label}.`)
+          onSaved()
+        },
+        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not update stock.'),
+      },
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 12, fontWeight: 700, minWidth: 100 }}>{label}</span>
+      <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--admin-text-muted)' }}>{variant.sku ?? '—'}</span>
+      <input
+        className="admin-input"
+        style={{ width: 72, padding: '4px 8px', fontSize: 12 }}
+        value={stock}
+        onChange={(e) => setStock(e.target.value)}
+      />
+      <AdminButton className="!text-xs" loading={updateVariant.isPending} onClick={save}>
+        Save
+      </AdminButton>
+    </div>
+  )
+}
+
 function InventoryPanel() {
+  const { navigate } = useAdminNavigate()
   const [query, setQuery] = useState('')
-  const { data, isError, isLoading, refetch } = useProducts({ limit: 100 })
+  const [stockFilter, setStockFilter] = useState<StockFilter>('all')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { data, isError, isLoading, refetch, isFetched } = useProducts({ limit: 100 })
+  const { data: alerts, isError: alertsError } = useInventoryAlerts()
+  const { data: liveCount, isError: liveCountError, isLoading: liveCountLoading } = usePublishedProductCount()
+
   const rows = useMemo(() => (data?.products ?? []).map((p) => {
     const stock = productStock(p)
     const reserved = p.variants?.reduce((s, v) => s + (v.reservedStock ?? 0), 0) ?? 0
-    return { id: p.sku ?? p.id.slice(0, 8).toUpperCase(), linkId: p.id, name: p.name, onHand: stock, reserved, reorder: 10, status: stock === 0 ? 'low' : stock < 10 ? 'low' : 'active' }
+    const status: 'out' | 'low' | 'healthy' =
+      stock === 0 ? 'out' : stock <= LOW_STOCK_MAX ? 'low' : 'healthy'
+    return {
+      id: p.sku ?? p.id.slice(0, 8).toUpperCase(),
+      linkId: p.id,
+      name: p.name,
+      variants: p.variants ?? [],
+      onHand: stock,
+      reserved,
+      available: stock - reserved,
+      status,
+    }
   }), [data])
 
-  const filtered = useMemo(() => { const q = query.toLowerCase(); return rows.filter((i) => !q || i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q)) }, [query, rows])
-  const low = rows.filter((i) => i.status === 'low').length
-  const out = rows.filter((i) => i.onHand === 0).length
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase()
+    return rows.filter((i) => {
+      const matchQ = !q || i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q) || i.linkId.toLowerCase().includes(q)
+      const matchStock =
+        stockFilter === 'all' ||
+        (stockFilter === 'out' && i.status === 'out') ||
+        (stockFilter === 'low' && i.status === 'low') ||
+        (stockFilter === 'healthy' && i.status === 'healthy')
+      return matchQ && matchStock
+    })
+  }, [query, stockFilter, rows])
+
+  const low = alerts?.lowStock ?? rows.filter((i) => i.status === 'low').length
+  const out = alerts?.outOfStock ?? rows.filter((i) => i.status === 'out').length
+  const unitsOnHand = rows.reduce((s, i) => s + i.onHand, 0)
 
   if (isError) return <ErrorBanner msg="API offline — inventory reads from live product stock on port 4000." />
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ marginBottom: 12 }}>
+        <StorefrontLiveBar
+          items={[
+            {
+              label: 'Product stock API',
+              value: isFetched ? `${rows.length} SKUs loaded` : 'Connecting…',
+              ok: isFetched && !isError,
+              hint: 'GET /admin/products',
+            },
+            {
+              label: 'Inventory alerts',
+              value: alertsError ? 'Unreachable' : `${low} low · ${out} out`,
+              ok: !alertsError && alerts !== undefined,
+              hint: 'GET /admin/dashboard/inventory-alerts',
+            },
+            {
+              label: 'Storefront live',
+              value: liveCountLoading ? '…' : `${liveCount ?? 0} published`,
+              ok: !liveCountError,
+            },
+          ]}
+        />
+      </div>
+
       <PanelHeader icon={Archive} title="Inventory" kpis={[
         ['SKUs tracked', isLoading ? '…' : rows.length],
         ['Low stock', isLoading ? '…' : low, 'warning'],
         ['Out of stock', isLoading ? '…' : out, 'gold'],
-        ['Units on hand', isLoading ? '…' : rows.reduce((s, i) => s + i.onHand, 0), 'success'],
+        ['Units on hand', isLoading ? '…' : unitsOnHand, 'success'],
       ]} />
-      <Toolbar query={query} onQuery={setQuery} placeholder="Search SKU or product…" createLabel="Add product" onCreate={() => window.location.assign('/dashboard/products/new')} onRefresh={() => void refreshWithToast(refetch, 'Inventory refreshed')} />
-      <GlassTable icon={Archive} title={`Inventory · ${filtered.length} results`} footer={`Live stock from ${rows.length} products`}>
+
+      {(low > 0 || out > 0) && (
+        <div className="admin-panel-glass-subtle" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderLeft: '3px solid rgba(255,255,255,0.2)' }}>
+          <AlertTriangle style={{ width: 14, height: 14, color: 'var(--admin-text-secondary)', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--admin-text-secondary)' }}>
+            {out > 0 && `${out} variant(s) out of stock`}
+            {out > 0 && low > 0 && ' · '}
+            {low > 0 && `${low} variant(s) low stock (≤${LOW_STOCK_MAX})`}
+          </span>
+        </div>
+      )}
+
+      <Toolbar
+        query={query}
+        onQuery={setQuery}
+        placeholder="Search SKU or product…"
+        createLabel="Add product"
+        onCreate={() => navigate('/dashboard/products/new')}
+        onRefresh={() => void refreshWithToast(refetch, 'Inventory refreshed')}
+      />
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        {([
+          ['all', 'All'],
+          ['low', 'Low stock'],
+          ['out', 'Out of stock'],
+          ['healthy', 'In stock'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setStockFilter(key)}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-bold transition',
+              stockFilter === key
+                ? 'border-[var(--admin-accent)] bg-[var(--admin-accent-muted)] text-[var(--admin-text-primary)]'
+                : 'border-black/10 text-[var(--admin-text-muted)] hover:border-black/20 dark:border-white/10',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <GlassTable icon={Archive} title={`Inventory · ${filtered.length} results`} footer={`Live stock from ${rows.length} products · adjustments save to API`}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr>{['SKU', 'Product', 'Warehouse', 'On hand', 'Reserved', 'Reorder at', 'Available', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
+          <thead><tr>{['SKU', 'Product', 'On hand', 'Reserved', 'Available', 'Status', ''].map((h) => <th key={h} className={TH}>{h}</th>)}</tr></thead>
           <tbody>
             {filtered.map((i) => (
-              <tr key={i.linkId}>
-                <td className={TD} style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 800, color: 'var(--admin-text-secondary)' }}>{i.id}</td>
-                <td className={TD} style={{ fontWeight: 700, color: 'var(--admin-text-primary)' }}>{i.name}</td>
-                <td className={TD} style={{ fontSize: 12 }}>Main</td>
-                <td className={TD} style={{ fontWeight: 800, color: i.onHand === 0 ? '#f0a8a8' : i.onHand < 10 ? 'var(--admin-text-secondary)' : 'var(--admin-text-primary)' }}>{i.onHand}</td>
-                <td className={TD} style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>{i.reserved}</td>
-                <td className={TD} style={{ fontSize: 12 }}>{i.reorder}</td>
-                <td className={TD} style={{ fontWeight: 800 }}>{i.onHand - i.reserved}</td>
-                <td className={TD}><StatusPill value={i.status === 'low' ? 'low stock' : i.status} /></td>
-                <td className={TD}><RowActionsMenu recordName={i.name} moduleHref="/dashboard/products" recordId={i.linkId} /></td>
-              </tr>
+              <Fragment key={i.linkId}>
+                <tr>
+                  <td className={TD}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(expandedId === i.linkId ? null : i.linkId)}
+                      className="admin-catalog-link"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      {i.id}
+                      <ChevronDown size={12} style={{ transition: 'transform 200ms', transform: expandedId === i.linkId ? 'rotate(180deg)' : 'none' }} />
+                    </button>
+                  </td>
+                  <td className={TD}>
+                    <button type="button" className="admin-catalog-link" onClick={() => navigate(`/dashboard/products/${i.linkId}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 700, color: 'var(--admin-text-primary)' }}>
+                      {i.name}
+                    </button>
+                  </td>
+                  <td className={TD} style={{ fontWeight: 800, color: i.onHand === 0 ? '#f0a8a8' : i.onHand <= LOW_STOCK_MAX ? 'var(--admin-text-secondary)' : 'var(--admin-text-primary)' }}>{i.onHand}</td>
+                  <td className={TD} style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>{i.reserved}</td>
+                  <td className={TD} style={{ fontWeight: 800 }}>{i.available}</td>
+                  <td className={TD}>
+                    <StatusPill value={i.status === 'out' ? 'out of stock' : i.status === 'low' ? 'low stock' : 'healthy'} />
+                  </td>
+                  <td className={TD}>
+                    <RowActionsMenu
+                      recordName={i.name}
+                      moduleHref="/dashboard/inventory"
+                      recordId={i.linkId}
+                      actions={[
+                        { label: 'Adjust stock', onClick: () => setExpandedId(i.linkId) },
+                        { label: 'Edit product', onClick: () => navigate(`/dashboard/products/${i.linkId}/edit`) },
+                        { label: 'Open product', onClick: () => navigate(`/dashboard/products/${i.linkId}`) },
+                      ]}
+                    />
+                  </td>
+                </tr>
+                {expandedId === i.linkId && (
+                  <tr>
+                    <td colSpan={7} style={{ background: 'rgba(200,169,126,0.08)', padding: '12px 16px' }}>
+                      {i.variants.length === 0 ? (
+                        <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>No variants — add variants on the product edit page.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <p className="admin-kpi__label" style={{ margin: 0 }}>Variant stock adjustment</p>
+                          {i.variants.map((v) => (
+                            <InventoryVariantAdjust
+                              key={v.id ?? `${i.linkId}-${v.sku}`}
+                              productId={i.linkId}
+                              variant={v}
+                              onSaved={() => void refetch()}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -487,6 +741,19 @@ function AttributesPanel() {
 
   const filtered = useMemo(() => { const q = query.toLowerCase(); return attributes.filter((a) => !q || a.name.toLowerCase().includes(q)) }, [query, attributes])
 
+  const exportAttributes = () => {
+    if (!filtered.length) {
+      toastFail('Nothing to export.')
+      return
+    }
+    const date = new Date().toISOString().slice(0, 10)
+    downloadCsv(`splaro-attributes-${date}.csv`, [
+      ['ID', 'Attribute', 'Type', 'Values', 'Used in products', 'Status'],
+      ...filtered.map((a) => [a.id, a.name, a.type, String(a.values), String(a.products), a.status]),
+    ])
+    toastOk(`Exported ${filtered.length} attribute${filtered.length === 1 ? '' : 's'}.`)
+  }
+
   if (isError) return <ErrorBanner msg="API offline — attributes are derived from live product variants." />
 
   return (
@@ -502,7 +769,7 @@ function AttributesPanel() {
         createLabel="Add attribute"
         onCreate={() => toast('Custom attribute API coming soon — sizes/colors come from product variants.', { icon: 'ℹ️' })}
         onRefresh={() => void refetch()}
-        onExport={() => toast.error('This action is not available yet — feature pending.')}
+        onExport={exportAttributes}
       />
       <GlassTable icon={Tags} title={`Attributes · ${filtered.length} results`} footer="Derived from live product data — not demo rows">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -529,6 +796,7 @@ function AttributesPanel() {
 // ─── Root ──────────────────────────────────────────────────────────────────────
 const PANELS: Record<string, () => React.ReactNode> = {
   '/dashboard/products':          ProductsPanel,
+  '/dashboard/product-reviews':   () => <ProductReviewsPanel />,
   '/dashboard/collections':       CollectionsPanel,
   '/dashboard/categories':        () => <LiveCategoriesPanel />,
   '/dashboard/inventory':         InventoryPanel,

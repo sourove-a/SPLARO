@@ -8,11 +8,14 @@ import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { DEFAULT_ADMIN_EMAIL } from '@/lib/auth/admin-auth'
 import { setAdminApiToken } from '@/lib/auth/api-token'
 
+const LOGIN_EMAIL =
+  process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() || DEFAULT_ADMIN_EMAIL
+
 export default function AdminLoginPage() {
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? '/dashboard'
 
-  const [email, setEmail] = useState(DEFAULT_ADMIN_EMAIL)
+  const [email, setEmail] = useState(LOGIN_EMAIL)
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -29,7 +32,15 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ email, password }),
       })
       const data = (await res.json()) as { error?: string; apiToken?: string }
-      if (!res.ok) { setError(data.error ?? 'Login failed'); setLoading(false); return }
+      if (!res.ok) {
+        const hint =
+          email.trim().toLowerCase() !== LOGIN_EMAIL
+            ? `Invalid email or password. Use ${LOGIN_EMAIL} (see ADMIN_EMAIL in .env.local).`
+            : (data.error ?? 'Invalid email or password')
+        setError(hint)
+        setLoading(false)
+        return
+      }
       if (data.apiToken) setAdminApiToken(data.apiToken)
       // Full navigation (not router.push) so the freshly-set session cookie is sent
       // with the /dashboard request and the RSC cache is rebuilt authenticated.
@@ -41,7 +52,11 @@ export default function AdminLoginPage() {
     }
   }
 
-  const fillDemo = () => { setEmail(DEFAULT_ADMIN_EMAIL); setPassword('') }
+  const fillDemo = () => {
+    setEmail(LOGIN_EMAIL)
+    setPassword('')
+    setError(null)
+  }
 
   const inputBase: React.CSSProperties = {
     width: '100%',
@@ -260,11 +275,9 @@ export default function AdminLoginPage() {
             Auto-fill Credentials
           </button>
           <p style={{ marginTop: '0.55rem', fontSize: '0.63rem', fontWeight: 600, color: 'rgba(0,0,0,0.38)', lineHeight: 1.6 }}>
-            Set{' '}
-            <code style={{ background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 5, padding: '0 4px', fontSize: '0.6rem', fontFamily: 'monospace' }}>ADMIN_EMAIL</code>
-            {' '}&amp;{' '}
+            Dev login: <strong>{LOGIN_EMAIL}</strong> + password from{' '}
             <code style={{ background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 5, padding: '0 4px', fontSize: '0.6rem', fontFamily: 'monospace' }}>ADMIN_PASSWORD</code>
-            {' '}env vars in production.
+            {' '}in <code style={{ background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 5, padding: '0 4px', fontSize: '0.6rem', fontFamily: 'monospace' }}>apps/admin/.env.local</code>
           </p>
         </div>
       </div>

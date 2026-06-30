@@ -61,15 +61,25 @@ export async function pullServerCart(
   if (items.length) merge(items)
 }
 
-export async function pushCartToServer(items: CartItem[]): Promise<void> {
+export async function clearServerCart(): Promise<void> {
   const sessionId = cartSessionId()
-  if (!sessionId || !items.length) return
+  if (!sessionId) return
 
   const base = getApiBaseUrl()
   await fetch(
     `${base}/storefront/cart/${encodeURIComponent(sessionId)}/clear?storeId=${encodeURIComponent(STORE_ID)}`,
     { method: 'POST' },
   ).catch(() => undefined)
+}
+
+export async function pushCartToServer(items: CartItem[]): Promise<void> {
+  const sessionId = cartSessionId()
+  if (!sessionId) return
+
+  const base = getApiBaseUrl()
+  await clearServerCart()
+
+  if (!items.length) return
 
   for (const item of items) {
     await fetch(

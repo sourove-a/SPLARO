@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { SplaroBrandLogo, logoUrlProp } from '@/components/brand/SplaroBrandLogo'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
@@ -21,6 +22,8 @@ const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchMo
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
 
 export function Header() {
+  const pathname = usePathname()
+  const isHome = pathname === '/'
   const settings = useStorefrontSettings()
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false)
 
@@ -42,7 +45,18 @@ export function Header() {
   const headerPinned =
     isMobileMenuOpen || isSearchOpen || isCartOpen || isMegaMenuOpen
 
-  const { isScrolled } = useHeaderScroll(24, headerPinned)
+  const { isScrolled } = useHeaderScroll(isHome ? 60 : 24, headerPinned)
+  const isOverHero = isHome && !isScrolled
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (!isHome) {
+      root.removeAttribute('data-home-hero')
+      return
+    }
+    root.setAttribute('data-home-hero', isOverHero ? 'top' : 'scrolled')
+    return () => root.removeAttribute('data-home-hero')
+  }, [isHome, isOverHero])
 
   const iconBtnClass = 'site-header-glass__icon-btn'
 
@@ -55,6 +69,7 @@ export function Header() {
         data-header-chrome
         className={cn(
           'site-header-glass z-chrome-header fixed inset-x-0 bottom-auto pt-[env(safe-area-inset-top)]',
+          isOverHero && 'site-header-glass--over-hero',
           isScrolled && 'site-header-glass--scrolled',
         )}
         role="banner"
@@ -142,7 +157,7 @@ export function Header() {
               >
                 <ShoppingBag strokeWidth={1.55} />
                 {cartHydrated && cartCount > 0 ? (
-                  <span className="site-header-glass__count-badge">
+                  <span className="site-header-glass__count-badge site-header-glass__count-badge--cart">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 ) : null}

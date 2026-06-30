@@ -54,7 +54,18 @@ const FOOTER_CONFIG = {
   compactSunIntensity: 1.28,
   atmoInner: { color: 0x1a2838, strength: 0.2, topBoost: 0.1, scale: 1.086 },
   atmoOuter: { color: 0x243040, strength: 0.07, topBoost: 0.12, scale: 1.102 },
-  moon: { radius: 0.155, x: 2.05, y: 0.1, z: 0.3, rotationSpeed: 0.011 },
+  moon: {
+    radius: 0.155,
+    x: 2.05,
+    y: 0.1,
+    z: 0.3,
+    rotationSpeed: 0.011,
+    /** Gentle drift — slow ellipse so the moon feels alive, not static. */
+    flowSpeed: 0.13,
+    flowX: 0.1,
+    flowY: 0.048,
+    flowZ: 0.065,
+  },
 } as const
 
 function isCompactFooterViewport(width = window.innerWidth) {
@@ -738,7 +749,14 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
         glassMaterial.uniforms.uTime.value = t
       }
       if (moonGroup) {
-        moonGroup.rotation.y = t * FOOTER_CONFIG.moon.rotationSpeed
+        const moon = FOOTER_CONFIG.moon
+        const flow = t * moon.flowSpeed
+        moonGroup.rotation.y = t * moon.rotationSpeed
+        moonGroup.position.set(
+          moon.x + Math.cos(flow) * moon.flowX,
+          moon.y + Math.sin(flow * 1.22) * moon.flowY,
+          moon.z + Math.sin(flow * 0.88) * moon.flowZ,
+        )
       }
 
       renderFrame()

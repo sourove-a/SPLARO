@@ -11,6 +11,16 @@ export class CommerceFinanceController {
     return this.finance.listInvoices(storeId, search)
   }
 
+  @Get('transactions/health')
+  transactionHealth(@Query('storeId') storeId?: string) {
+    return this.finance.transactionHealth(storeId)
+  }
+
+  @Get('transactions/:id')
+  getTransaction(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.finance.getTransaction(storeId, id)
+  }
+
   @Get('transactions')
   listTransactions(@Query('storeId') storeId?: string, @Query('search') search?: string) {
     return this.finance.listTransactions(storeId, search)

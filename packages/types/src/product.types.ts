@@ -43,6 +43,8 @@ export interface ProductVariantData {
 export interface ProductDetailData extends ProductCardData {
   description: string
   shortDescription?: string
+  nameBn?: string
+  weavingType?: string
   sku?: string
   fabricContent?: string
   careInstructions?: string

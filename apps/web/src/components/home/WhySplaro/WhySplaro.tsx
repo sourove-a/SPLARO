@@ -8,6 +8,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import type { StoryPillarIcon } from '@/lib/storefront/homepage-defaults'
 import { resolveOurStory, visiblePillars } from '@/lib/storefront/homepage-defaults'
 import { CustomerStoriesDropdown } from './CustomerStoriesDropdown'
+import { SocialReelsDropdown } from './SocialReelsDropdown'
 import { StoryReadMore } from './StoryReadMore'
 
 const StoryEarthGlobe = dynamic(
@@ -155,6 +156,8 @@ export function WhySplaro() {
             </blockquote>
 
             <CustomerStoriesDropdown config={story.customerStories} />
+
+            <SocialReelsDropdown />
           </motion.div>
         </div>
       </div>

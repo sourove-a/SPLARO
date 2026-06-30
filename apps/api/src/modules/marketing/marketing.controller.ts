@@ -94,8 +94,12 @@ export class MarketingController {
   }
 
   @Post('campaigns')
-  createCampaign(@Body() body: Parameters<MarketingService['createCampaign']>[0]) {
-    return this.marketingService.createCampaign(body)
+  async createCampaign(
+    @Query('storeId') storeId: string,
+    @Body() body: Omit<Parameters<MarketingService['createCampaign']>[0], 'storeId'> & { storeId?: string },
+  ) {
+    const sid = await resolveStoreId(this.prisma, body.storeId ?? storeId)
+    return this.marketingService.createCampaign({ ...body, storeId: sid })
   }
 
   @Patch('campaigns/:id')

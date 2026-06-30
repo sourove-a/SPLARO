@@ -75,6 +75,7 @@ const EMPTY_SETTINGS: AdminSettingsData = {
   ourStory: DEFAULT_OUR_STORY,
   homepage: DEFAULT_HOMEPAGE_SECTIONS,
   catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
+  catalog: { autoGenerateSku: false },
   payments: { cod: true, bkash: true, sslcommerz: true, nagad: true },
   shipping: { dhakaSameDay: true, outsideDhaka: true, freeShippingMin: '0', dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
   smtp: { enabled: false, host: '', port: 587, secure: false, user: '', password: '', fromName: 'SPLARO', fromEmail: '', replyTo: '' },
@@ -106,6 +107,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
         catalogChannels: apiData.catalogChannels?.length
           ? apiData.catalogChannels
           : DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
+        catalog: { ...(apiData.catalog ?? {}), autoGenerateSku: apiData.catalog?.autoGenerateSku ?? false },
       })
     }
   }, [apiData])

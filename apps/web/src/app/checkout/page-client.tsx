@@ -2,18 +2,14 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
   Building2,
-  Check,
   FileText,
   Lock,
   Mail,
   MapPin,
   Phone,
-  Printer,
   RefreshCw,
   ShieldCheck,
   Truck,
@@ -33,14 +29,17 @@ import {
   loadCheckoutCustomerDraft,
 } from '@/lib/checkout/customer-draft'
 import { BD_DISTRICTS } from '@/lib/checkout/bd-districts'
+import { getThanasForDistrict } from '@/lib/checkout/bd-thanas'
+import { CHECKOUT_SIGNUP_PATH } from '@/lib/checkout/checkout-auth'
 import {
   formatBdPhoneInput,
   getBdPhoneError,
   isValidBdMobile,
   normalizeBdPhone,
 } from '@/lib/checkout/phone'
+import { clearStagedCheckoutItems, consumeStagedCheckoutItems } from '@/lib/cart/checkout-intent'
 import { saveOrderLocally, type StoredOrder } from '@/lib/orders'
-import { buildInvoiceUrl, buildOrderConfirmationPath } from '@/lib/invoice-url'
+import { buildOrderConfirmationPath } from '@/lib/invoice-url'
 import { products } from '@/data/storefront'
 import {
   DELIVERY_FEE_BDT,
@@ -57,6 +56,7 @@ import {
   CheckoutHeader,
   CheckoutMobileBar,
   CheckoutOrderSummary,
+  CheckoutPhoneInput,
   CheckoutShell,
   CheckoutSteps,
 } from '@/components/checkout'
@@ -67,7 +67,14 @@ interface CheckoutForm {
   phone: string
   address: string
   city: string
+  thana: string
   payment: PaymentMethod
+}
+
+function buildDeliveryAddress(address: string, thana: string, city: string): string {
+  const street = address.trim()
+  const parts = [street, thana.trim(), city.trim()].filter(Boolean)
+  return parts.join(', ')
 }
 
 export default function CheckoutPageClient() {
@@ -75,7 +82,8 @@ export default function CheckoutPageClient() {
   const user = useAuthStore((state) => state.user)
   const authHydrated = useAuthStore((state) => state._hydrated)
   const paymentSettings = useAdminStore((state) => state.payments)
-  const { items, subtotal, clearCart } = useCartStore()
+  const { items, subtotal, clearCart, replaceItems } = useCartStore()
+  const cartHydrated = useCartStore((state) => state._hydrated)
   const { shipping } = useStorefrontSettings()
   const clientReady = useClientMounted()
   const freeDeliveryThreshold = shipping.freeDeliveryThreshold
@@ -86,7 +94,6 @@ export default function CheckoutPageClient() {
   )
 
   const [form, setForm] = useState<CheckoutForm>(getCheckoutFormDefaults)
-  const [order, setOrder] = useState<StoredOrder | null>(null)
   const [activeStep, setActiveStep] = useState(1)
   const [couponCode, setCouponCode] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
@@ -97,6 +104,24 @@ export default function CheckoutPageClient() {
   const [couponsEnabled, setCouponsEnabled] = useState(false)
   const [couponApplying, setCouponApplying] = useState(false)
   const [phoneError, setPhoneError] = useState('')
+  const [authGateReady, setAuthGateReady] = useState(false)
+
+  const thanaOptions = useMemo(() => getThanasForDistrict(form.city), [form.city])
+
+  useEffect(() => {
+    if (!cartHydrated || items.length > 0) return
+    const staged = consumeStagedCheckoutItems()
+    if (staged?.length) replaceItems(staged)
+  }, [cartHydrated, items.length, replaceItems])
+
+  useEffect(() => {
+    if (!authHydrated) return
+    if (!user) {
+      router.replace(CHECKOUT_SIGNUP_PATH)
+      return
+    }
+    setAuthGateReady(true)
+  }, [authHydrated, user, router])
 
   useEffect(() => {
     fetch('/api/coupons/active')
@@ -141,6 +166,7 @@ export default function CheckoutPageClient() {
       phone: user.phone ? formatBdPhoneInput(user.phone) : current.phone,
       address: current.address,
       city: current.city,
+      thana: current.thana,
     }))
   }, [authHydrated, user])
 
@@ -191,7 +217,7 @@ export default function CheckoutPageClient() {
 
   const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (items.length === 0) return
+    if (submitting || items.length === 0) return
 
     const phoneValidationError = getBdPhoneError(form.phone)
     if (phoneValidationError) {
@@ -201,6 +227,7 @@ export default function CheckoutPageClient() {
     }
 
     const normalizedPhone = normalizeBdPhone(form.phone)
+    const deliveryAddress = buildDeliveryAddress(form.address, form.thana, form.city)
 
     setSubmitting(true)
     setSubmitError('')
@@ -233,7 +260,7 @@ export default function CheckoutPageClient() {
             name: form.name,
             email: form.email,
             phone: normalizedPhone,
-            address: form.address,
+            address: deliveryAddress,
             city: form.city,
           },
           payment: form.payment,
@@ -299,6 +326,7 @@ export default function CheckoutPageClient() {
           phone: normalizedPhone,
           address: form.address,
           city: form.city,
+          thana: form.thana,
         }),
       )
 
@@ -317,6 +345,7 @@ export default function CheckoutPageClient() {
         })
         const payPayload = (await payResponse.json()) as { gatewayUrl?: string; error?: string }
         if (payPayload.gatewayUrl) {
+          clearStagedCheckoutItems()
           clearCart()
           window.location.href = payPayload.gatewayUrl
           return
@@ -355,6 +384,7 @@ export default function CheckoutPageClient() {
         }
         const redirectUrl = payPayload.redirectUrl ?? payPayload.gatewayUrl
         if (redirectUrl) {
+          clearStagedCheckoutItems()
           clearCart()
           window.location.href = redirectUrl
           return
@@ -372,10 +402,10 @@ export default function CheckoutPageClient() {
         }
       }
 
-      setOrder(saved)
+      clearStagedCheckoutItems()
       clearCart()
-      setActiveStep(3)
-      router.push(buildOrderConfirmationPath(saved))
+      router.replace(buildOrderConfirmationPath(saved))
+      return
     } catch {
       setSubmitError('Network error. Please try again.')
     } finally {
@@ -383,77 +413,14 @@ export default function CheckoutPageClient() {
     }
   }
 
-  if (order) {
+  if (!authGateReady) {
     return (
       <CheckoutShell withAmbient={false}>
         <section className="checkout-container">
-          <div className="checkout-success">
-            <div className="checkout-success__hero checkout-glass-panel">
-              <div className="checkout-success__icon">
-                <Check className="h-6 w-6" strokeWidth={2.5} />
-              </div>
-              <p className="checkout-eyebrow">Order confirmed</p>
-              <h1 className="checkout-title">Thank you, {order.customer.name.split(' ')[0]}!</h1>
-              <p className="checkout-subtitle">
-                Order <strong>{order.invoiceNumber}</strong> is saved. Track delivery anytime from your account.
-              </p>
-              <div className="checkout-success__actions">
-                <button type="button" className="checkout-btn checkout-btn--primary" onClick={() => window.open(buildInvoiceUrl(order), '_blank')}>
-                  <Printer className="h-4 w-4" />
-                  Print invoice
-                </button>
-                <Link href="/track-order" className="checkout-btn checkout-btn--ghost">
-                  <Truck className="h-4 w-4" />
-                  Track order
-                </Link>
-              </div>
-            </div>
-
-            <div className="checkout-grid">
-              <div className="checkout-glass-panel">
-                <h2 className="checkout-panel-title">
-                  <FileText className="h-4 w-4" />
-                  Invoice
-                </h2>
-                <div className="checkout-items">
-                  {order.items.map((item) => (
-                    <div key={`${item.productId}-${item.variantId}`} className="checkout-item">
-                      <div className="checkout-item__thumb">
-                        <Image src={item.image} alt={item.name} fill sizes="56px" className="object-cover object-top" />
-                      </div>
-                      <div className="checkout-item__meta">
-                        <p className="checkout-item__name">{item.name}</p>
-                        <p className="checkout-item__detail">
-                          Qty {item.quantity}
-                          {item.size ? ` · ${item.size}` : ''}
-                        </p>
-                      </div>
-                      <p className="checkout-item__price">{formatBDT(item.price * item.quantity)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="checkout-glass-panel">
-                <h2 className="checkout-panel-title">Summary</h2>
-                <div className="checkout-summary-lines">
-                  <div className="checkout-summary-line"><span>Customer</span><span>{order.customer.name}</span></div>
-                  <div className="checkout-summary-line"><span>Phone</span><span>{order.customer.phone}</span></div>
-                  <div className="checkout-summary-line"><span>Payment</span><span>{order.customer.payment}</span></div>
-                  <div className="checkout-divider" />
-                  <div className="checkout-summary-line"><span>Subtotal</span><span>{formatBDT(order.subtotal)}</span></div>
-                  <div className="checkout-summary-line"><span>Delivery</span><span>{order.delivery === 0 ? 'Free' : formatBDT(order.delivery)}</span></div>
-                  <div className="checkout-summary-line"><span>Discount</span><span>- {formatBDT(order.discount)}</span></div>
-                  <div className="checkout-divider" />
-                  <div className="checkout-summary-line checkout-summary-line--total"><span>Total</span><span>{formatBDT(order.total)}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <Link href="/shop" className="checkout-back-link">
-              <ArrowLeft className="h-4 w-4" />
-              Continue shopping
-            </Link>
+          <div className="checkout-glass-panel checkout-auth-gate">
+            <p className="checkout-eyebrow">Secure checkout</p>
+            <h1 className="checkout-title">Preparing your checkout</h1>
+            <p className="checkout-subtitle">Please sign in or create an account to continue.</p>
           </div>
         </section>
       </CheckoutShell>
@@ -507,14 +474,17 @@ export default function CheckoutPageClient() {
                     autoComplete="email"
                   />
                 </CheckoutField>
-                <CheckoutField label="Phone number" icon={Phone} clientReady={clientReady} {...(phoneError ? { error: phoneError } : {})}>
-                  <input
-                    required
-                    type="tel"
-                    inputMode="numeric"
+                <CheckoutField
+                  label="Phone number"
+                  icon={Phone}
+                  clientReady={clientReady}
+                  {...(phoneError ? { error: phoneError } : { hint: 'Local format — starts with 01' })}
+                >
+                  <CheckoutPhoneInput
                     value={form.phone}
-                    onChange={(event) => {
-                      const phone = formatBdPhoneInput(event.target.value)
+                    invalid={Boolean(phoneError)}
+                    clientReady={clientReady}
+                    onChange={(phone) => {
                       setForm({ ...form, phone })
                       if (phoneError && isValidBdMobile(phone)) {
                         setPhoneError('')
@@ -524,27 +494,44 @@ export default function CheckoutPageClient() {
                       if (!form.phone) return
                       setPhoneError(getBdPhoneError(form.phone) ?? '')
                     }}
-                    className={`checkout-input ${phoneError ? 'checkout-input--invalid' : ''}`}
-                    placeholder="01XXXXXXXXX or 8801XXXXXXXXX"
-                    autoComplete="tel"
-                    maxLength={13}
                   />
                 </CheckoutField>
-                <CheckoutField label="District" icon={Building2} clientReady={clientReady}>
-                  <select
-                    required
-                    value={form.city}
-                    onChange={(event) => setForm({ ...form, city: event.target.value })}
-                    className="checkout-input checkout-input--select"
-                    autoComplete="address-level2"
-                  >
-                    {BD_DISTRICTS.map((district) => (
-                      <option key={district} value={district}>
-                        {district}
-                      </option>
-                    ))}
-                  </select>
-                </CheckoutField>
+                <div className="checkout-fields checkout-fields--pair">
+                  <CheckoutField label="District" icon={Building2} clientReady={clientReady}>
+                    <select
+                      required
+                      value={form.city}
+                      onChange={(event) => {
+                        const city = event.target.value
+                        const thanas = getThanasForDistrict(city)
+                        setForm({ ...form, city, thana: thanas[0] ?? '' })
+                      }}
+                      className="checkout-input checkout-input--select"
+                      autoComplete="address-level2"
+                    >
+                      {BD_DISTRICTS.map((district) => (
+                        <option key={district} value={district}>
+                          {district}
+                        </option>
+                      ))}
+                    </select>
+                  </CheckoutField>
+                  <CheckoutField label="Thana / Upazila" icon={Building2} clientReady={clientReady}>
+                    <select
+                      required
+                      value={form.thana}
+                      onChange={(event) => setForm({ ...form, thana: event.target.value })}
+                      className="checkout-input checkout-input--select"
+                      autoComplete="address-level3"
+                    >
+                      {thanaOptions.map((thana) => (
+                        <option key={thana} value={thana}>
+                          {thana}
+                        </option>
+                      ))}
+                    </select>
+                  </CheckoutField>
+                </div>
                 <CheckoutField label="Delivery address" icon={MapPin} full hint="House, road, area, landmark" clientReady={clientReady}>
                   <textarea
                     required

@@ -22,6 +22,8 @@ import { useLegalPage, useLegalPages, useSaveLegalPage } from '@/lib/api/hooks'
 import { DEFAULT_LEGAL_PAGES, LEGAL_PAGE_CATALOG, type LegalPageContent, type LegalPageSlug } from '@splaro/types'
 import { cn } from '@/lib/utils/cn'
 
+const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
+
 function newSectionId() {
   return `sec-${Date.now().toString(36)}`
 }
@@ -169,7 +171,7 @@ export function LegalPagesPanel() {
             Refresh
           </AdminButton>
           {activeMeta ? (
-            <AdminNavLink href={`http://localhost:3000${activeMeta.path}`} className="admin-btn admin-btn--ghost">
+            <AdminNavLink href={`${WEB_BASE}${activeMeta.path}`} className="admin-btn admin-btn--ghost">
               <Eye className="h-4 w-4" />
               Preview
             </AdminNavLink>
@@ -337,7 +339,7 @@ export function LegalPagesPanel() {
                 </AdminButton>
                 {activeMeta ? (
                   <a
-                    href={`http://localhost:3000${activeMeta.path}`}
+                    href={`${WEB_BASE}${activeMeta.path}`}
                     target="_blank"
                     rel="noreferrer"
                     className="admin-btn admin-btn--ghost"

@@ -43,6 +43,9 @@ const LIVE_DETAIL: Record<string, { view: (id: string) => string; edit?: (id: st
   '/dashboard/campaigns': {
     view: (id) => `/dashboard/campaigns/${id}`,
   },
+  '/dashboard/landing-pages': {
+    view: (_id) => `/dashboard/landing-pages`,
+  },
   '/dashboard/invoices': {
     view: (id) => `/dashboard/invoices/${id}`,
   },

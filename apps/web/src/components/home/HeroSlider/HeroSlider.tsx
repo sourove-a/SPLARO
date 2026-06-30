@@ -1,90 +1,177 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { HeroBanner } from '@/lib/api/banners'
+import { cn } from '@/lib/utils/cn'
+import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
+
+const SLIDE_DURATION_MS = 5500
+
+/** Override via NEXT_PUBLIC_HERO_VIDEO */
+const HERO_VIDEO = process.env.NEXT_PUBLIC_HERO_VIDEO?.trim() || HERO_DEFAULT_VIDEO
 
 export interface HeroSlide {
   id: string
   image: string
-  mobileImage: string
-  badge: string
+  video?: string
+  eyebrow: string
   title: string
-  sub: string
-  href: string
-  label: string
+  subtitle: string
+  primaryHref: string
+  primaryLabel: string
+  secondaryHref: string
+  secondaryLabel: string
+  stats: { strong: string; span: string }[]
 }
 
-const HERO_IMAGE_SIZES = '(max-width: 639px) 100vw, 1920px'
-const HERO_MOBILE_CROP = 'w=900&h=1200&fit=crop&crop=center&q=85&auto=format'
-const HERO_DESKTOP_CROP = 'w=1920&h=760&fit=crop&crop=center&q=85&auto=format'
-
-type HeroImageVariant = 'desktop' | 'mobile'
-
-function heroImageSrc(url: string, variant: HeroImageVariant = 'desktop'): string {
-  if (!url.includes('images.unsplash.com')) return url
-  const base = url.split('?')[0]!
-  const crop = variant === 'mobile' ? HERO_MOBILE_CROP : HERO_DESKTOP_CROP
-  return `${base}?${crop}`
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|ogg)(\?|$)/i.test(url.trim())
 }
 
-const FALLBACK_SLIDES: HeroSlide[] = [
-  {
-    id: 'summer',
-    image: heroImageSrc('https://images.unsplash.com/photo-1490481651871-ab68de25d43d'),
-    mobileImage: heroImageSrc('https://images.unsplash.com/photo-1490481651871-ab68de25d43d', 'mobile'),
-    badge: 'Summer Edition — 2026',
-    title: 'Dress the warmth.',
-    sub: 'Light fabrics, golden hours, effortless grace.',
-    href: '/c/summer-edition',
-    label: 'Summer drop',
-  },
-  {
-    id: 'women',
-    image: heroImageSrc('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f'),
-    mobileImage: heroImageSrc('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f', 'mobile'),
-    badge: 'Women',
-    title: 'New season styles.',
-    sub: 'Editorial silhouettes for every occasion.',
-    href: '/c/women',
-    label: 'Shop women',
-  },
-  {
-    id: 'men',
-    image: heroImageSrc('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d'),
-    mobileImage: heroImageSrc('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d', 'mobile'),
-    badge: 'Men',
-    title: 'Sharp & refined.',
-    sub: 'Premium tailoring meets everyday comfort.',
-    href: '/c/men',
-    label: 'Shop men',
-  },
+function heroImageSrc(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed || isVideoUrl(trimmed)) return trimmed
+  if (!trimmed.includes('images.unsplash.com')) return trimmed
+  const base = trimmed.split('?')[0]!
+  return `${base}?w=2400&h=1350&fit=crop&crop=center&q=85&auto=format`
+}
+
+function videoMimeType(url: string): string {
+  if (/\.webm(\?|$)/i.test(url)) return 'video/webm'
+  if (/\.ogg(\?|$)/i.test(url)) return 'video/ogg'
+  return 'video/mp4'
+}
+
+const HERO_VIDEO_POSTER = heroImageSrc(
+  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e',
+)
+
+const DEFAULT_STATS: HeroSlide['stats'] = [
+  { strong: 'Since', span: '2026' },
+  { strong: 'Premium', span: 'Quality' },
+  { strong: 'Fast', span: 'Delivery' },
 ]
 
-const slideEase = [0.22, 1, 0.36, 1] as const
+const FALLBACK_SLIDES: HeroSlide[] = HERO_DEFAULT_SLIDES.map((slide, index) => ({
+  id: slide.key,
+  image: heroImageSrc(slide.image),
+  ...(slide.video || index === 0 ? { video: slide.video ?? HERO_VIDEO } : {}),
+  eyebrow: slide.eyebrow,
+  title: slide.title,
+  subtitle: slide.subtitle,
+  primaryHref: slide.linkUrl,
+  primaryLabel: 'Shop Now',
+  secondaryHref: slide.secondaryLinkUrl,
+  secondaryLabel: 'View Collection',
+  stats: DEFAULT_STATS,
+}))
 
-function mapBannerToSlide(banner: HeroBanner): HeroSlide {
-  const title = banner.title?.trim() || 'New collection'
-  const sub = banner.subtitle?.trim() || ''
+const fadeEase = [0.22, 1, 0.36, 1] as const
+
+function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
+  const media = banner.image?.trim() || ''
+  const isVideo = isVideoUrl(media)
+  const title = banner.title?.trim() || 'Elegance That Moves With You.'
+  const subtitle =
+    banner.subtitle?.trim() || 'Premium fashion crafted for timeless everyday luxury.'
   const href = banner.linkUrl?.trim() || '/shop'
+  const videoSrc = isVideo ? media : index === 0 ? HERO_VIDEO : ''
 
   return {
     id: banner.id,
-    image: heroImageSrc(banner.image, 'desktop'),
-    mobileImage: heroImageSrc(banner.image, 'mobile'),
-    badge: sub || title,
+    image: isVideo ? HERO_VIDEO_POSTER : heroImageSrc(media),
+    ...(videoSrc ? { video: videoSrc } : {}),
+    eyebrow: index === 0 ? 'SPLARO WOMEN COLLECTION' : subtitle || title,
     title,
-    sub,
-    href,
-    label: `Shop ${title.toLowerCase()}`,
+    subtitle,
+    primaryHref: href,
+    primaryLabel: 'Shop Now',
+    secondaryHref: '/collections',
+    secondaryLabel: 'View Collection',
+    stats: DEFAULT_STATS,
   }
 }
 
 interface HeroSliderProps {
   initialBanners?: HeroBanner[]
+}
+
+const HERO_MEDIA_STYLE = {
+  objectFit: 'cover' as const,
+  objectPosition: 'center center',
+}
+
+function HeroBackground({
+  slide,
+  isActive,
+  priority,
+}: {
+  slide: HeroSlide
+  isActive: boolean
+  priority: boolean
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoFailed, setVideoFailed] = useState(false)
+
+  useEffect(() => {
+    setVideoFailed(false)
+  }, [slide.video])
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !slide.video || videoFailed) return
+
+    if (isActive) {
+      video.currentTime = 0
+      void video.play().catch(() => setVideoFailed(true))
+      return
+    }
+
+    video.pause()
+  }, [isActive, slide.video, videoFailed])
+
+  if (slide.video && !videoFailed) {
+    return (
+      <video
+        ref={videoRef}
+        className="hero-bg-video"
+        style={HERO_MEDIA_STYLE}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        controls={false}
+        poster={slide.image}
+        aria-hidden={!isActive}
+        onCanPlay={(event) => {
+          if (!isActive) return
+          void event.currentTarget.play().catch(() => setVideoFailed(true))
+        }}
+        onError={() => setVideoFailed(true)}
+      >
+        <source src={slide.video} type={videoMimeType(slide.video)} />
+      </video>
+    )
+  }
+
+  return (
+    <StorefrontImage
+      src={slide.image}
+      alt=""
+      profile="hero"
+      fill
+      priority={priority}
+      loading={priority ? 'eager' : 'lazy'}
+      className="hero-bg-image"
+      style={HERO_MEDIA_STYLE}
+      draggable={false}
+    />
+  )
 }
 
 export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
@@ -94,102 +181,105 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [initialBanners])
 
   const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
   const slide = slides[Math.min(index, slides.length - 1)]!
 
-  const next = useCallback(
-    () => setIndex((i) => (i + 1) % slides.length),
-    [slides.length],
-  )
-  const prev = useCallback(
-    () => setIndex((i) => (i - 1 + slides.length) % slides.length),
-    [slides.length],
-  )
+  const goTo = useCallback((next: number) => {
+    setIndex(((next % slides.length) + slides.length) % slides.length)
+  }, [slides.length])
 
   useEffect(() => {
     setIndex(0)
   }, [slides.length])
 
   useEffect(() => {
-    const timer = window.setInterval(next, 6000)
+    if (paused) return undefined
+    const timer = window.setInterval(() => {
+      setIndex((i) => (i + 1) % slides.length)
+    }, SLIDE_DURATION_MS)
     return () => window.clearInterval(timer)
-  }, [next])
+  }, [paused, slides.length])
 
   return (
-    <section className="hero-slider-frame" data-section="hero" aria-label="Hero carousel" aria-roledescription="carousel">
-      <div className="hero-slider-viewport">
-        <motion.div
-          className="hero-slider-track"
-          animate={{ x: `-${index * 100}%` }}
-          transition={{ duration: 0.72, ease: slideEase }}
-        >
-          {slides.map((item, slideIndex) => {
-            const isActive = slideIndex === index
-            const isNext = slideIndex === (index + 1) % slides.length
-            const shouldLoadImage = isActive || isNext
+    <section
+      className="home-hero-slider"
+      data-section="hero"
+      aria-label="Hero carousel"
+      aria-roledescription="carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setPaused(false)
+        }
+      }}
+    >
+      <div className="home-hero-slider__stage">
+        {slides.map((item, slideIndex) => {
+          const isActive = slideIndex === index
 
-            return (
-            <article key={item.id} className="hero-slider-slide" aria-hidden={!isActive}>
-              {shouldLoadImage ? (
-                // One landscape image for every breakpoint — mobile mirrors desktop.
-                <Image
-                  src={item.image}
-                  alt={item.title}
-                  fill
-                  priority={isActive && slideIndex === 0}
-                  loading={isActive ? 'eager' : 'lazy'}
-                  sizes={HERO_IMAGE_SIZES}
-                  className="hero-slide-image"
-                  draggable={false}
-                />
-              ) : (
-                <div className="hero-slide-image absolute inset-0 bg-[#e8e4de]" aria-hidden />
-              )}
-              <div className="hero-slide-gradient" />
-
-              <div className="hero-slide-content">
-                <span className="hero-slide-badge">{item.badge}</span>
-                <h1 className="hero-slide-title">{item.title}</h1>
-                <p className="hero-slide-sub">{item.sub}</p>
-                <Link href={item.href} className="hero-slide-cta">
-                  {item.label}
-                </Link>
+          return (
+            <motion.article
+              key={item.id}
+              className="hero-slide"
+              animate={{ opacity: isActive ? 1 : 0 }}
+              transition={{ duration: 0.85, ease: fadeEase }}
+              aria-hidden={!isActive}
+              style={{ pointerEvents: isActive ? 'auto' : 'none' }}
+            >
+              <div className="hero-slide__media">
+                {(isActive || slideIndex === (index + 1) % slides.length) && (
+                  <HeroBackground slide={item} isActive={isActive} priority={slideIndex === 0} />
+                )}
               </div>
-            </article>
-            )
-          })}
-        </motion.div>
+              <div className="hero-overlay" aria-hidden />
+
+              <div className="hero-content">
+                <p className="hero-eyebrow">{item.eyebrow}</p>
+                <h1>{item.title}</h1>
+                <p className="hero-subtitle">{item.subtitle}</p>
+
+                <div className="hero-actions">
+                  <Link href={item.primaryHref} className="hero-btn hero-btn-primary">
+                    {item.primaryLabel}
+                  </Link>
+                  <Link href={item.secondaryHref} className="hero-btn hero-btn-secondary">
+                    {item.secondaryLabel}
+                  </Link>
+                </div>
+
+                <div className="hero-stats">
+                  {item.stats.map((stat) => (
+                    <div key={`${stat.strong}-${stat.span}`}>
+                      <strong>{stat.strong}</strong>
+                      <span>{stat.span}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.article>
+          )
+        })}
       </div>
 
-      <div className="hero-slide-arrows">
-        <button
-          type="button"
-          className="splaro-nav-btn splaro-nav-btn--glass-dark splaro-nav-btn--prev"
-          onClick={prev}
-          aria-label="Previous slide"
-        >
-          <ChevronLeft size={14} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          className="splaro-nav-btn splaro-nav-btn--glass-dark splaro-nav-btn--next"
-          onClick={next}
-          aria-label="Next slide"
-        >
-          <ChevronRight size={14} strokeWidth={2} />
-        </button>
-      </div>
-
-      <div className="hero-slide-dots">
+      <div className="hero-slider-controls" aria-hidden={slides.length <= 1}>
         {slides.map((s, i) => (
           <button
             key={s.id}
             type="button"
-            className={i === index ? 'hero-slide-dot hero-slide-dot--active' : 'hero-slide-dot'}
-            onClick={() => setIndex(i)}
+            className={i === index ? 'hero-dot active' : 'hero-dot'}
+            onClick={() => goTo(i)}
             aria-label={`Go to slide ${i + 1}`}
             aria-current={i === index ? 'true' : undefined}
           />
         ))}
+        <div className="hero-progress" aria-hidden>
+          <div
+            key={`progress-${index}`}
+            className={cn('hero-progress-fill', paused && 'hero-progress-fill--paused')}
+          />
+        </div>
       </div>
 
       <span className="sr-only" aria-live="polite">

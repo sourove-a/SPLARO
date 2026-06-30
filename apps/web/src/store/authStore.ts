@@ -8,6 +8,9 @@ export interface AuthUser {
   name: string
   email: string
   phone: string
+  avatar?: string | null
+  phoneVerified?: boolean
+  loyaltyTier?: string
 }
 
 interface AuthState {

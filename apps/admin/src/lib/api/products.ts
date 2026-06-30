@@ -1,15 +1,24 @@
-import { apiFetch } from './client'
+import { apiFetch, SPLARO_DOMAINS } from './client'
 
 export interface ApiProduct {
   id: string
   name: string
+  slug?: string
   sku?: string | null
   basePrice: number | string
+  compareAtPrice?: number | string | null
+  costPrice?: number | string | null
+  shortDescription?: string | null
+  lowStockThreshold?: number
+  tags?: string[]
+  schemaMarkup?: Record<string, unknown> | null
+  isHidden?: boolean
   isPublished: boolean
   status: string
   description?: string | null
   categoryId?: string | null
   category?: { id: string; name: string } | null
+  collections?: { collectionId: string; collection?: { id: string; name: string } }[]
   _count?: { variants: number }
   variants?: {
     id?: string
@@ -25,6 +34,13 @@ export interface ApiProduct {
   }[]
   fabricContent?: string | null
   fitType?: string | null
+  occasion?: string | null
+  season?: string | null
+  metaTitle?: string | null
+  metaDescription?: string | null
+  isFeatured?: boolean
+  isNewArrival?: boolean
+  isBestSeller?: boolean
   images?: { url: string; altText?: string | null; position?: number; isDefault?: boolean }[]
 }
 
@@ -52,10 +68,22 @@ export function fetchProducts(params?: {
 
 export interface CreateProductInput {
   name: string
+  nameBn?: string
+  slug?: string
   description?: string
+  shortDescription?: string
   basePrice: number
+  compareAtPrice?: number | null
+  costPrice?: number
+  sku?: string
+  lowStockThreshold?: number
+  tags?: string[]
+  weavingType?: string
+  collectionId?: string
   categoryId?: string
   isPublished?: boolean
+  isHidden?: boolean
+  status?: string
   imageUrl?: string
   imageUrls?: string[]
   videoUrl?: string
@@ -64,9 +92,13 @@ export interface CreateProductInput {
   fabricContent?: string
   fitType?: string
   occasion?: string
+  season?: string
   metaTitle?: string
   metaDescription?: string
   defaultStock?: number
+  isFeatured?: boolean
+  isNewArrival?: boolean
+  isBestSeller?: boolean
 }
 
 export function createProduct(input: CreateProductInput) {
@@ -98,6 +130,10 @@ export function updateProductVariant(
   })
 }
 
+export function deleteProductImage(productId: string, imageId: string) {
+  return apiFetch<{ deleted: boolean }>(`/admin/products/${productId}/images/${imageId}`, { method: 'DELETE' })
+}
+
 export function fetchProduct(id: string) {
   return apiFetch<ApiProduct>(`/admin/products/${id}`)
 }
@@ -119,6 +155,6 @@ export function generateProductSkus(id: string) {
   return apiFetch<{ updated: number }>(`/admin/products/${id}/generate-skus`, { method: 'POST' })
 }
 
-export function fetchProductQR(id: string, siteUrl = 'https://splaro.com.bd') {
+export function fetchProductQR(id: string, siteUrl = SPLARO_DOMAINS.site.replace(/\/+$/, '')) {
   return apiFetch<{ qr: string }>(`/admin/products/${id}/qr?siteUrl=${encodeURIComponent(siteUrl)}`)
 }

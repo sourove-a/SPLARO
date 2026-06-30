@@ -47,13 +47,35 @@ export class GoogleWorkspaceController {
   async callback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Query('error') oauthError: string,
     @Res() res: Response,
   ) {
-    const result = await this.google.oauthService().handleCallback(code, state)
     const adminUrl = process.env['ADMIN_URL'] ?? process.env['NEXT_PUBLIC_ADMIN_URL'] ?? 'http://localhost:3001'
-    res.redirect(
-      `${adminUrl}/dashboard/google-workspace/connect?connected=1&email=${encodeURIComponent(result.googleEmail ?? '')}`,
-    )
+    if (oauthError?.trim()) {
+      const message =
+        oauthError === 'access_denied'
+          ? 'Google login cancelled — Allow দিয়ে আবার চেষ্টা করুন।'
+          : oauthError
+      res.redirect(`${adminUrl}/dashboard/google-workspace/connect?error=${encodeURIComponent(message)}`)
+      return
+    }
+    if (!code?.trim() || !state?.trim()) {
+      res.redirect(
+        `${adminUrl}/dashboard/google-workspace/connect?error=${encodeURIComponent('Missing OAuth code — Connect বাটন আবার চাপুন।')}`,
+      )
+      return
+    }
+    try {
+      const result = await this.google.oauthService().handleCallback(code, state)
+      res.redirect(
+        `${adminUrl}/dashboard/google-workspace/connect?connected=1&email=${encodeURIComponent(result.googleEmail ?? '')}`,
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Google connection failed'
+      res.redirect(
+        `${adminUrl}/dashboard/google-workspace/connect?error=${encodeURIComponent(message)}`,
+      )
+    }
   }
 
   @Post('revoke')
@@ -63,8 +85,8 @@ export class GoogleWorkspaceController {
   }
 
   @Post('test')
-  test(@Query('storeId') storeId: string) {
-    return this.google.testConnection(storeId)
+  test(@Query('storeId') storeId: string, @Query('mode') mode?: 'gmail' | 'sheets' | 'auto') {
+    return this.google.testConnection(storeId, mode)
   }
 
   @Put('oauth-settings')

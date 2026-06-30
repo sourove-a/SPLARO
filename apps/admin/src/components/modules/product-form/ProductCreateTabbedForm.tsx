@@ -1,0 +1,522 @@
+'use client'
+
+import { ChevronDown, ImagePlus, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { AdminButton } from '@/components/ui/AdminButton'
+import { BANGLA_PHRASE_CHIPS } from '@/lib/admin/product-description-draft'
+import type { CategoryPickerRow } from '@/lib/admin/category-picker'
+import { cn } from '@/lib/utils/cn'
+
+export type ProductCreateTab = 'basic' | 'details' | 'seo'
+
+export interface ProductCreateFormState {
+  name: string
+  nameBn: string
+  shortDescription: string
+  descriptionEn: string
+  descriptionBn: string
+  descriptionNotes: string
+  basePrice: string
+  compareAtPrice: string
+  costPrice: string
+  sku: string
+  defaultStock: string
+  categoryId: string
+  collectionId: string
+  productType: string
+  fabricContent: string
+  weavingType: string
+  lowStockThreshold: string
+  tags: string
+  fitType: string
+  occasion: string
+  sizes: string
+  metaTitle: string
+  metaDescription: string
+  isPublished: boolean
+  status: string
+  isHidden: boolean
+}
+
+type ColorRow = { id: string; name: string; hex: string; imageUrl: string }
+
+const WEAVING_TYPES = ['Jamdani', 'Handloom', 'Power Loom', 'Embroidery', 'Block Print', 'Zari Work', 'Other']
+const PRODUCT_TYPES = ['Saree', 'Kurti', 'Panjabi', 'Ghagra-Choli', 'Western', 'Footwear', 'Accessory', 'Other']
+
+interface ProductCreateTabbedFormProps {
+  tab: ProductCreateTab
+  onTabChange: (tab: ProductCreateTab) => void
+  form: ProductCreateFormState
+  set: <K extends keyof ProductCreateFormState>(key: K, value: ProductCreateFormState[K]) => void
+  departmentId: string
+  catsLoading: boolean
+  departments: CategoryPickerRow[]
+  subcategories: CategoryPickerRow[]
+  selectedCategoryName?: string | undefined
+  sizeList: string[]
+  allSizeChips: string[]
+  variantCount: number
+  collections: { id: string; name: string }[]
+  colorsOpen: boolean
+  onColorsOpenToggle: () => void
+  colorRows: ColorRow[]
+  activeColorId: string
+  imageUrls: string[]
+  onDepartmentChange: (id: string) => void
+  onSubcategoryChange: (id: string) => void
+  onNameBlur: () => void
+  onNameChange?: (name: string) => void
+  onApplyDescriptionDraft: () => void
+  onApplyBanglaPolish: () => void
+  onAIGenerate: () => void
+  aiLoading: boolean
+  onAddColorRow: () => void
+  onActiveColor: (id: string) => void
+  onUpdateColorRow: (id: string, patch: Partial<ColorRow>) => void
+  onRemoveColorRow: (id: string) => void
+  onAppendBanglaPhrase: (phrase: string) => void
+  descriptionPlaceholderEn: string
+  descriptionPlaceholderBn: string
+  descriptionHintEn?: string
+  descriptionHintBn?: string
+  showVariantControls?: boolean
+  headerSlot?: React.ReactNode
+}
+
+function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <span className="product-form-label">
+      {children}
+      {required ? <span className="product-form-label__req"> *</span> : null}
+    </span>
+  )
+}
+
+function FormSection({
+  title,
+  hint,
+  children,
+  variant = 'default',
+}: {
+  title: string
+  hint?: string
+  children: React.ReactNode
+  variant?: 'default' | 'accent' | 'bengali'
+}) {
+  return (
+    <section className={cn('product-form-section', variant !== 'default' && `product-form-section--${variant}`)}>
+      <header className="product-form-section__head">
+        <h4 className="product-form-section__title">{title}</h4>
+        {hint ? <p className="product-form-section__hint">{hint}</p> : null}
+      </header>
+      <div className="product-form-section__body">{children}</div>
+    </section>
+  )
+}
+
+export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
+  const {
+    tab,
+    onTabChange,
+    form,
+    set,
+    departmentId,
+    catsLoading,
+    departments,
+    subcategories,
+    selectedCategoryName,
+    sizeList,
+    allSizeChips,
+    variantCount,
+    collections,
+    colorsOpen,
+    onColorsOpenToggle,
+    colorRows,
+    activeColorId,
+    imageUrls,
+    onDepartmentChange,
+    onSubcategoryChange,
+    onNameBlur,
+    onNameChange,
+    onApplyDescriptionDraft,
+    onApplyBanglaPolish,
+    onAIGenerate,
+    aiLoading,
+    onAddColorRow,
+    onActiveColor,
+    onUpdateColorRow,
+    onRemoveColorRow,
+    onAppendBanglaPhrase,
+    descriptionPlaceholderEn,
+    descriptionPlaceholderBn,
+    descriptionHintEn,
+    descriptionHintBn,
+    showVariantControls = true,
+    headerSlot,
+  } = props
+
+  const tabs: { id: ProductCreateTab; label: string }[] = [
+    { id: 'basic', label: 'Basic' },
+    { id: 'details', label: 'Details' },
+    { id: 'seo', label: 'SEO & Meta' },
+  ]
+
+  return (
+    <div className="product-form-tabs">
+      {headerSlot ? <div className="product-form-tabs__header-slot">{headerSlot}</div> : null}
+      <div className="product-form-tabs__nav" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={cn('product-form-tabs__tab', tab === t.id && 'product-form-tabs__tab--active')}
+            onClick={() => onTabChange(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'basic' ? (
+        <div className="product-form-tabs__panel" role="tabpanel">
+          <div className="product-form-ai-banner">
+            <div>
+              <p className="product-form-ai-banner__title">AI Generate</p>
+              <p className="product-form-ai-banner__hint">নাম + ক্যাটাগরি দিয়ে EN/বাংলা description auto লিখুন</p>
+            </div>
+            <AdminButton variant="gold" loading={aiLoading} onClick={onAIGenerate}>
+              <Sparkles className="h-4 w-4" />
+              AI Generate
+            </AdminButton>
+          </div>
+
+          <FormSection title="Product identity">
+            <div className="product-form-bilingual-row">
+              <label className="admin-field">
+                <FieldLabel required>Product Name (EN)</FieldLabel>
+                <input
+                  className="admin-input admin-input--premium"
+                  value={form.name}
+                  onChange={(e) => (onNameChange ? onNameChange(e.target.value) : set('name', e.target.value))}
+                  onBlur={onNameBlur}
+                  placeholder="Product name in English…"
+                />
+              </label>
+              <label className="admin-field">
+                <FieldLabel required>নাম (বাংলা)</FieldLabel>
+                <input
+                  className="admin-input admin-input--premium"
+                  value={form.nameBn}
+                  onChange={(e) => set('nameBn', e.target.value)}
+                  placeholder="বাংলায় পণ্যের নাম লিখুন…"
+                />
+              </label>
+            </div>
+          </FormSection>
+
+          <FormSection title="Descriptions" {...(descriptionHintEn ? { hint: descriptionHintEn } : {})}>
+            <label className="admin-field">
+              <FieldLabel>Short Description</FieldLabel>
+              <textarea
+                className="admin-input admin-input--premium product-form-textarea--sm"
+                value={form.shortDescription}
+                onChange={(e) => set('shortDescription', e.target.value)}
+                placeholder="Brief summary for cards & SEO…"
+              />
+            </label>
+            <label className="admin-field">
+              <FieldLabel>Full Description (EN)</FieldLabel>
+              <textarea
+                className="admin-input admin-input--premium product-form-textarea--md"
+                value={form.descriptionEn}
+                onChange={(e) => set('descriptionEn', e.target.value)}
+                placeholder={descriptionPlaceholderEn}
+              />
+            </label>
+          </FormSection>
+
+          <FormSection title="Pricing" variant="accent">
+            <div className="product-form-section__grid-3">
+              <label className="admin-field">
+                <FieldLabel required>Regular Price (৳)</FieldLabel>
+                <input className="admin-input admin-input--premium" type="number" min={0} value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} placeholder="e.g. 2499" />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>Sale Price (৳)</FieldLabel>
+                <input className="admin-input admin-input--premium" type="number" min={0} value={form.compareAtPrice} onChange={(e) => set('compareAtPrice', e.target.value)} placeholder="Optional" />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>Cost Price (৳)</FieldLabel>
+                <input className="admin-input admin-input--premium" type="number" min={0} value={form.costPrice} onChange={(e) => set('costPrice', e.target.value)} placeholder="Internal" />
+              </label>
+            </div>
+          </FormSection>
+
+          <FormSection title="Inventory & category">
+            <div className="product-form-section__grid-3">
+              <label className="admin-field">
+                <FieldLabel>SKU</FieldLabel>
+                <input className="admin-input admin-input--premium" value={form.sku} onChange={(e) => set('sku', e.target.value)} placeholder="Manual SKU" />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>Stock Qty</FieldLabel>
+                <input className="admin-input admin-input--premium" type="number" min={0} value={form.defaultStock} onChange={(e) => set('defaultStock', e.target.value)} />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>Low Stock Alert</FieldLabel>
+                <input className="admin-input admin-input--premium" type="number" min={0} value={form.lowStockThreshold} onChange={(e) => set('lowStockThreshold', e.target.value)} placeholder="5" />
+              </label>
+            </div>
+            <div className="admin-field product-form-category-block">
+              <FieldLabel required>Category</FieldLabel>
+              <div className="product-form-category-block__selects">
+                <div className="admin-premium-select">
+                  <select className="admin-premium-select__input" value={departmentId} onChange={(e) => onDepartmentChange(e.target.value)} disabled={catsLoading}>
+                    <option value="">Menu</option>
+                    {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div className="admin-premium-select">
+                  <select className="admin-premium-select__input" value={form.categoryId} onChange={(e) => onSubcategoryChange(e.target.value)} disabled={catsLoading || !departmentId}>
+                    <option value="">Type</option>
+                    {subcategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.id === departmentId ? `All ${c.name}` : c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {selectedCategoryName ? <p className="product-category-cascade__picked">✓ {selectedCategoryName}</p> : null}
+            </div>
+          </FormSection>
+
+          <FormSection title="Material & tags">
+            <div className="product-form-section__grid-2">
+              <label className="admin-field">
+                <FieldLabel>Fabric</FieldLabel>
+                <input className="admin-input admin-input--premium" value={form.fabricContent} onChange={(e) => set('fabricContent', e.target.value)} placeholder="e.g. Cotton, silk blend…" />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>Weaving Type</FieldLabel>
+                <div className="admin-premium-select">
+                  <select className="admin-premium-select__input" value={form.weavingType} onChange={(e) => set('weavingType', e.target.value)}>
+                    <option value="">Select…</option>
+                    {WEAVING_TYPES.map((w) => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </div>
+              </label>
+            </div>
+            <label className="admin-field">
+              <FieldLabel>Product Tags</FieldLabel>
+              <input className="admin-input admin-input--premium" value={form.tags} onChange={(e) => set('tags', e.target.value)} placeholder="eid, wedding, new" />
+              <span className="product-form-field-hint">Comma separated</span>
+            </label>
+          </FormSection>
+
+          <FormSection title="বাংলা বিবরণ" variant="bengali" {...(descriptionHintBn ? { hint: descriptionHintBn } : {})}>
+            <div className="product-desc-bn__toolbar">
+              <p className="product-desc-bn__toolbar-label">Quick phrases</p>
+              <div className="flex gap-1">
+                <button type="button" className="product-form-mini-btn" onClick={onApplyDescriptionDraft}>
+                  <Wand2 className="h-3 w-3" /> Draft
+                </button>
+                <button type="button" className="product-form-mini-btn product-form-mini-btn--gold" onClick={onApplyBanglaPolish}>
+                  <Sparkles className="h-3 w-3" /> Polish
+                </button>
+              </div>
+            </div>
+            <div className="product-desc-chips" role="list">
+              {BANGLA_PHRASE_CHIPS.map((phrase) => (
+                <button key={phrase} type="button" className="product-desc-chip" onClick={() => onAppendBanglaPhrase(phrase)}>
+                  + {phrase}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="admin-input admin-input--premium product-desc-bn__input"
+              value={form.descriptionBn}
+              onChange={(e) => set('descriptionBn', e.target.value)}
+              placeholder={descriptionPlaceholderBn}
+            />
+          </FormSection>
+        </div>
+      ) : null}
+
+      {tab === 'details' ? (
+        <div className="product-form-tabs__panel" role="tabpanel">
+          <FormSection title="Catalog & fit">
+            <div className="product-form-section__grid-2">
+            <label className="admin-field">
+              <FieldLabel>Collection</FieldLabel>
+              <div className="admin-premium-select mt-1">
+                <select className="admin-premium-select__input" value={form.collectionId} onChange={(e) => set('collectionId', e.target.value)}>
+                  <option value="">No collection</option>
+                  {collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </label>
+            <label className="admin-field">
+              <FieldLabel>Product Type</FieldLabel>
+              <div className="admin-premium-select mt-1">
+                <select className="admin-premium-select__input" value={form.productType} onChange={(e) => set('productType', e.target.value)}>
+                  <option value="">Select…</option>
+                  {PRODUCT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </label>
+            <label className="admin-field">
+              <FieldLabel>Fit</FieldLabel>
+              <input className="admin-input admin-input--premium" value={form.fitType} onChange={(e) => set('fitType', e.target.value)} />
+            </label>
+            <label className="admin-field">
+              <FieldLabel>Occasion</FieldLabel>
+              <input className="admin-input admin-input--premium" value={form.occasion} onChange={(e) => set('occasion', e.target.value)} placeholder="Eid, Wedding, Party…" />
+            </label>
+            </div>
+          </FormSection>
+
+          {showVariantControls ? (
+            <>
+              <FormSection title={`Sizes · ${variantCount} variant(s)`} hint="Tap chips or type comma-separated sizes">
+              <div className="admin-field">
+                <div className="product-size-chips">
+                  {allSizeChips.map((size) => {
+                    const active = sizeList.includes(size)
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        className={cn('product-size-chip', active && 'product-size-chip--active')}
+                        onClick={() => {
+                          const next = active ? sizeList.filter((s) => s !== size) : [...sizeList, size]
+                          set('sizes', next.join(', '))
+                        }}
+                      >
+                        {size}
+                      </button>
+                    )
+                  })}
+                </div>
+                <input className="admin-input admin-input--premium" value={form.sizes} onChange={(e) => set('sizes', e.target.value)} />
+              </div>
+              </FormSection>
+
+              <section className="product-create-section">
+                <button type="button" className="product-create-section__toggle" onClick={onColorsOpenToggle} aria-expanded={colorsOpen}>
+                  <header className="product-create-section__head product-create-section__head--inline">
+                    <div>
+                      <h4 className="product-create-section__title">Colours</h4>
+                      <p className="product-create-section__hint">Select row → gallery thumb to assign image</p>
+                    </div>
+                    <ChevronDown className={cn('product-create-section__chevron', colorsOpen && 'product-create-section__chevron--open')} />
+                  </header>
+                </button>
+                {colorsOpen ? (
+                  <div className="product-color-builder">
+                    <div className="product-color-builder__head">
+                      <p className="text-xs font-semibold text-[var(--admin-text-secondary)]">Variant colours</p>
+                      <button type="button" className="product-color-add" onClick={onAddColorRow}>
+                        <Plus className="h-3.5 w-3.5" />
+                        Add colour
+                      </button>
+                    </div>
+                    <div className="product-color-list">
+                      {colorRows.map((row, index) => (
+                        <article
+                          key={row.id}
+                          className={cn('product-color-row', row.id === activeColorId && 'product-color-row--active')}
+                          onClick={() => onActiveColor(row.id)}
+                        >
+                          <div className="product-color-row__preview">
+                            {row.imageUrl ? (
+                              <img src={row.imageUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <ImagePlus className="h-4 w-4 text-[var(--admin-text-muted)]" />
+                            )}
+                          </div>
+                          <div className="product-color-row__fields">
+                            <input className="admin-input admin-input--premium" value={row.name} onChange={(e) => onUpdateColorRow(row.id, { name: e.target.value })} placeholder="Royal Blue" />
+                            <div className="product-color-row__meta">
+                              <label className="product-color-hex">
+                                <span className="product-color-hex__swatch" style={{ backgroundColor: row.hex }} aria-hidden />
+                                <input type="color" value={row.hex} onChange={(e) => onUpdateColorRow(row.id, { hex: e.target.value })} aria-label={`Colour ${index + 1}`} />
+                              </label>
+                              <select className="admin-input admin-input--premium product-color-row__select" value={row.imageUrl} onChange={(e) => onUpdateColorRow(row.id, { imageUrl: e.target.value })}>
+                                <option value="">Image…</option>
+                                {imageUrls.map((url, imageIndex) => <option key={url} value={url}>Image {imageIndex + 1}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <button type="button" className="product-color-row__remove" onClick={(e) => { e.stopPropagation(); onRemoveColorRow(row.id) }} disabled={colorRows.length <= 1} aria-label="Remove colour">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            </>
+          ) : (
+            <p className="product-form-variant-hint">Sizes, colours & stock — edit in <strong>Variants & Stock</strong> below.</p>
+          )}
+
+          <FormSection title="Visibility">
+          <div className="product-form-section__grid-2">
+            <label className="admin-field">
+              <FieldLabel>Status</FieldLabel>
+              <div className="admin-premium-select mt-1">
+                <select className="admin-premium-select__input" value={form.status} onChange={(e) => {
+                  set('status', e.target.value)
+                  set('isPublished', e.target.value === 'PUBLISHED')
+                }}>
+                  <option value="DRAFT">Draft</option>
+                  <option value="PUBLISHED">Published</option>
+                </select>
+              </div>
+            </label>
+            <label className="admin-field">
+              <FieldLabel>Visibility</FieldLabel>
+              <div className="admin-premium-select mt-1">
+                <select className="admin-premium-select__input" value={form.isHidden ? 'hidden' : 'public'} onChange={(e) => set('isHidden', e.target.value === 'hidden')}>
+                  <option value="public">Public</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </div>
+            </label>
+          </div>
+          </FormSection>
+        </div>
+      ) : null}
+
+      {tab === 'seo' ? (
+        <div className="product-form-tabs__panel" role="tabpanel">
+          <FormSection title="Search preview">
+          <label className="admin-field">
+            <FieldLabel>Meta title</FieldLabel>
+            <input className="admin-input admin-input--premium" value={form.metaTitle} onChange={(e) => set('metaTitle', e.target.value)} placeholder="Product | SPLARO Bangladesh" />
+          </label>
+          <label className="admin-field">
+            <FieldLabel>Meta description</FieldLabel>
+            <textarea className="admin-input admin-input--premium min-h-[90px]" value={form.metaDescription} onChange={(e) => set('metaDescription', e.target.value)} placeholder="140–160 chars for Google…" />
+          </label>
+          {(form.metaTitle || form.metaDescription) ? (
+            <div className="product-seo-preview">
+              <p className="product-seo-preview__url">splaro.com.bd › products</p>
+              <p className="product-seo-preview__title">{form.metaTitle || form.name}</p>
+              <p className="product-seo-preview__desc">{form.metaDescription}</p>
+            </div>
+          ) : null}
+          </FormSection>
+          <label className="admin-check-row product-form-publish-row">
+            <span className="text-sm font-semibold text-[var(--admin-text)]">Publish on storefront immediately</span>
+            <input type="checkbox" checked={form.isPublished} onChange={(e) => {
+              set('isPublished', e.target.checked)
+              set('status', e.target.checked ? 'PUBLISHED' : 'DRAFT')
+            }} className="h-4 w-4 accent-[var(--admin-accent)]" />
+          </label>
+        </div>
+      ) : null}
+    </div>
+  )
+}

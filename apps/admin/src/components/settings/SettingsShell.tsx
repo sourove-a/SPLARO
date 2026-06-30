@@ -9,6 +9,7 @@ import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY } from '@/lib/storefront/homepage-defaults'
 import type { AdminSettingsData } from '@/lib/api/settings'
 import { SettingsSidebar, type SettingsSection } from './SettingsSidebar'
+import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
 import { GeneralSection } from './sections/GeneralSection'
 import { BrandingSection } from './sections/BrandingSection'
 import { ContactSection } from './sections/ContactSection'
@@ -32,6 +33,7 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
   ourStory: DEFAULT_OUR_STORY,
   homepage: DEFAULT_HOMEPAGE_SECTIONS,
   catalogChannels: DEFAULT_CATALOG_CHANNELS.map((c) => ({ ...c })),
+  catalog: { autoGenerateSku: false },
   payments: { cod: true, bkash: true, sslcommerz: true, nagad: true },
   shipping: { dhakaSameDay: true, outsideDhaka: true, freeShippingMin: '0', dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
   smtp: { enabled: false, host: '', port: 587, secure: false, user: '', password: '', fromName: '', fromEmail: '' },
@@ -76,6 +78,7 @@ export function SettingsShell() {
         catalogChannels: apiData.catalogChannels?.length
           ? apiData.catalogChannels
           : DEFAULT_CATALOG_CHANNELS.map((c) => ({ ...c })),
+        catalog: { ...(apiData.catalog ?? {}), autoGenerateSku: apiData.catalog?.autoGenerateSku ?? false },
       })
     }
   }, [apiData])
@@ -126,7 +129,12 @@ export function SettingsShell() {
           void refetch()
           return
         }
-        setDraft((prev) => ({ ...prev, ...updated, smtp: { ...prev.smtp, ...(updated.smtp ?? {}), password: '' } }))
+        setDraft((prev) => ({
+          ...prev,
+          ...updated,
+          smtp: { ...prev.smtp, ...(updated.smtp ?? {}), password: '' },
+          catalog: { ...prev.catalog, ...(updated.catalog ?? {}) },
+        }))
         toastApiSaved(label)
         onSuccess?.()
       },
@@ -155,6 +163,28 @@ export function SettingsShell() {
       </aside>
 
       <div key={animKey} className="settings-section-enter" style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <StorefrontLiveBar
+          onRefresh={() => void refetch()}
+          items={[
+            {
+              label: 'Settings API',
+              value: settingsLoaded ? 'Loaded from server' : 'Offline',
+              ok: settingsLoaded,
+              hint: 'GET /admin/settings',
+            },
+            {
+              label: 'SKU policy',
+              value: draft.catalog.autoGenerateSku ? 'Auto-generate on' : 'Manual entry (live)',
+              ok: !draft.catalog.autoGenerateSku,
+              hint: 'General → Catalog & SKU policy',
+            },
+            {
+              label: 'Save',
+              value: saving ? 'Saving…' : 'Verified PATCH',
+              ok: settingsLoaded && !saving,
+            },
+          ]}
+        />
         {!settingsLoaded ? (
           <div
             className="admin-settings-status admin-settings-status--offline"

@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import { KeyRound, Plus, RefreshCw, ScrollText, Search, Shield, ShieldCheck } from 'lucide-react'
 import { loadAdminData, saveAdminData } from '@/lib/admin/admin-actions'
 import { notifyDraftSaved, toastNotImplemented } from '@/lib/admin/feedback'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { useSecurity } from '@/lib/api/hooks'
+import { useSecurity, useUpdateStaffRole } from '@/lib/api/hooks'
+import { ASSIGNABLE_STAFF_ROLES, CEO_EMAIL } from '@/lib/auth/role-label'
 import { SecuritySubNav } from '@/components/security/SecuritySubNav'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 
@@ -25,7 +27,7 @@ const DEFAULT_PERMISSIONS: PermissionRow[] = [
   { module: 'Settings',    view: true,  create: true,  edit: true,  delete: false },
 ]
 
-const ROLE_OPTIONS = ['Super Admin', 'Admin', 'Manager', 'Staff'] as const
+const ROLE_OPTIONS = ['Super Admin', 'Admin', 'Manager', 'Editor'] as const
 
 // ─── Shared components ────────────────────────────────────────────────────────
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
@@ -56,17 +58,14 @@ function PanelHeader({ icon: Icon, title }: { icon: React.ElementType; title: st
 
 function GlassSearch({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <div style={{ position: 'relative', flex: 1, maxWidth: 380 }}>
+    <div className="admin-glass-search-wrap" style={{ position: 'relative', flex: 1, maxWidth: 380 }}>
       <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--admin-text-muted)', pointerEvents: 'none' }} />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? 'Search…'}
-        style={{
-          width: '100%', paddingLeft: 36, paddingRight: 14, paddingTop: 9, paddingBottom: 9,
-          background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.80)',
-          borderRadius: 12, fontSize: 13, fontWeight: 600, color: 'var(--admin-text-primary)', outline: 'none',
-        }}
+        className="admin-glass-search-input"
+        style={{ width: '100%', paddingLeft: 36, paddingRight: 14, paddingTop: 9, paddingBottom: 9 }}
       />
     </div>
   )
@@ -97,9 +96,24 @@ function GoldBtn({ children, onClick }: { children: React.ReactNode; onClick?: (
 function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['data']; isLoading: boolean }) {
   const kpis = data?.kpis
   const [query, setQuery] = useState('')
+  const updateRole = useUpdateStaffRole()
   const rows = (data?.adminUsers ?? []).filter((r) =>
     r.name.toLowerCase().includes(query.toLowerCase()) || r.email.includes(query),
   )
+
+  const handleRoleChange = (userId: string, email: string, roleValue: string) => {
+    if (email.toLowerCase() === CEO_EMAIL) {
+      toast.error('CEO role cannot be changed')
+      return
+    }
+    updateRole.mutate(
+      { userId, role: roleValue },
+      {
+        onSuccess: () => toast.success('Role updated'),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -115,34 +129,61 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <GlassSearch value={query} onChange={setQuery} placeholder="Search admin users…" />
-        <GoldBtn onClick={() => toastNotImplemented('Invite admin')}>
+        <GoldBtn onClick={() => toastNotImplemented('Invite admin — create user in database first, then assign role here')}>
           <Plus style={{ width: 14, height: 14 }} />
           Invite admin
         </GoldBtn>
       </div>
 
       <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.5)' }}>
-              {['Name', 'Email', 'Role', 'Status', '2FA', 'Last login'].map((h) => (
-                <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
-                <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{row.name}</td>
-                <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.email}</td>
-                <td style={{ padding: '12px 20px', fontSize: 12, fontWeight: 600, color: 'var(--admin-text-secondary)' }}>{row.role}</td>
-                <td style={{ padding: '12px 20px' }}><StatusBadge value={row.status} ok={row.status === 'active'} /></td>
-                <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 800, color: row.twoFA ? '#15803D' : '#6B7280' }}>{row.twoFA ? 'Yes' : 'No'}</td>
-                <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.lastLogin}</td>
+        {rows.length === 0 && !isLoading ? (
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-muted)', margin: '0 0 8px' }}>No admin users in database yet.</p>
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>Run <code style={{ fontSize: 11 }}>pnpm db:seed</code> or assign staff roles via API. CEO: {CEO_EMAIL}</p>
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--admin-table-row-border)' }}>
+                {['Name', 'Email', 'Role', 'Status', '2FA', 'Last login'].map((h) => (
+                  <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const isCeo = row.email.toLowerCase() === CEO_EMAIL
+                const roleValue = ASSIGNABLE_STAFF_ROLES.find((r) => r.label === row.role)?.value
+                  ?? (row.role === 'CEO' ? 'SUPER_ADMIN' : row.role.toUpperCase().replace(/ /g, '_'))
+                return (
+                  <tr key={row.id} style={{ borderBottom: '1px solid var(--admin-table-row-border)' }}>
+                    <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{row.name}</td>
+                    <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.email}</td>
+                    <td style={{ padding: '12px 20px' }}>
+                      {isCeo ? (
+                        <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--admin-text-secondary)' }}>CEO</span>
+                      ) : (
+                        <select
+                          value={roleValue}
+                          disabled={updateRole.isPending}
+                          onChange={(e) => handleRoleChange(row.id, row.email, e.target.value)}
+                          className="admin-role-select"
+                        >
+                          {ASSIGNABLE_STAFF_ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 20px' }}><StatusBadge value={row.status} ok={row.status === 'active'} /></td>
+                    <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 800, color: row.twoFA ? '#15803D' : 'var(--admin-text-muted)' }}>{row.twoFA ? 'Yes' : 'No'}</td>
+                    <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.lastLogin}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
@@ -150,6 +191,15 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
 
 function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['data']; isLoading: boolean }) {
   const kpis = data?.kpis
+  const roleCards = (data?.roles.length ?? 0) > 0
+    ? data!.roles
+    : [
+        { id: 'SUPER_ADMIN', name: 'Super Admin', users: 0, permissions: 'Full platform access', status: 'active' },
+        { id: 'ADMIN', name: 'Admin', users: 0, permissions: 'Catalog, orders, customers', status: 'active' },
+        { id: 'MANAGER', name: 'Manager', users: 0, permissions: 'Operations & fulfillment', status: 'active' },
+        { id: 'STAFF', name: 'Editor', users: 0, permissions: 'Content & product edits', status: 'active' },
+      ]
+
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
@@ -163,7 +213,7 @@ function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {(data?.roles ?? []).map((r) => (
+        {roleCards.map((r) => (
           <div key={r.id} className="settings-card admin-panel-glass" style={{ padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -209,12 +259,7 @@ function PermissionsView() {
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {ROLE_OPTIONS.map((item) => (
-          <button key={item} type="button" onClick={() => setRole(item)} style={{
-            background: role === item ? GOLD_LIGHT : 'rgba(255,255,255,0.7)',
-            border: `1px solid ${role === item ? GOLD_BORDER : 'rgba(255,255,255,0.8)'}`,
-            color: role === item ? '#8B6914' : 'var(--admin-text-secondary)',
-            borderRadius: 10, padding: '7px 16px', fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s',
-          }}>
+          <button key={item} type="button" onClick={() => setRole(item)} className={role === item ? 'admin-role-tab admin-role-tab--active' : 'admin-role-tab'}>
             {item}
           </button>
         ))}
@@ -223,7 +268,7 @@ function PermissionsView() {
       <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.5)' }}>
+            <tr style={{ borderBottom: '1px solid var(--admin-table-row-border)' }}>
               {['Module', 'View', 'Create', 'Edit', 'Delete'].map((h) => (
                 <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
               ))}
@@ -231,7 +276,7 @@ function PermissionsView() {
           </thead>
           <tbody>
             {permRows.map((row) => (
-              <tr key={row.module} style={{ borderBottom: '1px solid rgba(255,255,255,0.4)' }}>
+              <tr key={row.module} style={{ borderBottom: '1px solid var(--admin-table-row-border)' }}>
                 <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{row.module}</td>
                 {(['view', 'create', 'edit', 'delete'] as const).map((key) => (
                   <td key={key} style={{ padding: '12px 20px' }}>

@@ -3,7 +3,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { ContentService } from './content.service'
 import { LegalPagesService } from './legal-pages.service'
-import type { LegalPageContent } from '@splaro/types'
+import { LEGAL_PAGE_SLUGS, type LegalPageContent } from '@splaro/types'
 
 @Controller('admin/content')
 export class ContentController {
@@ -132,10 +132,16 @@ export class ContentController {
   // ── Site Pages ─────────────────────────────────────────────
 
   @Get('pages')
-  async listPages(@Query('storeId') storeId: string) {
+  async listPages(@Query('storeId') storeId: string, @Query('kind') kind?: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    const legalSlugs = [...LEGAL_PAGE_SLUGS]
     return this.prisma.sitePage.findMany({
-      where: { storeId: sid },
+      where: {
+        storeId: sid,
+        ...(kind === 'landing'
+          ? { isHomepage: false, slug: { notIn: legalSlugs } }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
     })
   }
@@ -159,17 +165,38 @@ export class ContentController {
     let slug = slugify(body.title)
     const clash = await this.prisma.sitePage.findUnique({ where: { storeId_slug: { storeId: sid, slug } } })
     if (clash) slug = `${slug}-${Date.now().toString(36)}`
+    const defaultContent = JSON.stringify({
+      title: body.title,
+      description: body.metaDesc?.trim() || `${body.title} — SPLARO campaign landing page.`,
+      sections: [
+        {
+          heading: 'Overview',
+          body: 'Edit this copy from Admin → Content → Landing Pages.',
+        },
+      ],
+    })
     return this.prisma.sitePage.create({
-      data: { storeId: sid, title: body.title, slug, content: body.content, isPublished: body.isPublished ?? false, isHomepage: body.isHomepage ?? false, metaTitle: body.metaTitle, metaDesc: body.metaDesc },
+      data: {
+        storeId: sid,
+        title: body.title,
+        slug,
+        content: body.content ?? defaultContent,
+        isPublished: body.isPublished ?? false,
+        isHomepage: body.isHomepage ?? false,
+        metaTitle: body.metaTitle ?? body.title,
+        metaDesc: body.metaDesc,
+      },
     })
   }
 
   @Patch('pages/:id')
   async updatePage(
     @Param('id') id: string,
-    @Body() body: { title?: string; content?: string; isPublished?: boolean; customCss?: string; customJs?: string; metaTitle?: string; metaDesc?: string },
+    @Body() body: { title?: string; slug?: string; content?: string; isPublished?: boolean; customCss?: string; customJs?: string; metaTitle?: string; metaDesc?: string },
   ) {
-    return this.prisma.sitePage.update({ where: { id }, data: body as never })
+    const data: Record<string, unknown> = { ...body }
+    if (body.slug) data.slug = slugify(body.slug)
+    return this.prisma.sitePage.update({ where: { id }, data: data as never })
   }
 
   @Delete('pages/:id')

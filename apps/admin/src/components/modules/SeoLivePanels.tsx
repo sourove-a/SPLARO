@@ -6,9 +6,9 @@ import { Search, Globe, Code, Map, ArrowRightLeft, AlertTriangle, ChevronDown } 
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { ModulePanelShell } from '@/components/modules/ModulePanelShell'
-import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
-import { useSeoOverview } from '@/lib/api/hooks'
+import { useSeoOverview, useRedirects, useCreateRedirect, useUpdateRedirect, useDeleteRedirect } from '@/lib/api/hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
 
 type SeoStatus = 'good' | 'warning' | 'error' | 'pending'
@@ -26,7 +26,7 @@ function asSeoStatus(s: string): SeoStatus {
 }
 
 export function KeywordsPanelLive() {
-  const { data, isError, isLoading, refetch } = useSeoOverview()
+  const { data, isOffline, isLoading, refetch } = useSeoOverview()
   const [query, setQuery] = useState('')
   const keywords = data?.keywords ?? []
   const filtered = useMemo(
@@ -35,9 +35,9 @@ export function KeywordsPanelLive() {
   )
   const top10 = keywords.filter((k) => k.position > 0 && k.position <= 10).length
 
-  if (isError) return <ApiOfflineBanner message="SEO API offline — start pnpm dev:api." />
-
   return (
+    <>
+      {isOffline ? <ApiOfflineHint message="API offline — keyword data empty until pnpm dev:api runs." /> : null}
     <ModulePanelShell
       kpis={[
         ['Tracked', isLoading ? '…' : keywords.length, 'default'],
@@ -98,20 +98,21 @@ export function KeywordsPanelLive() {
         </table>
       )}
     </ModulePanelShell>
+    </>
   )
 }
 
 export function IndexMonitorPanelLive() {
-  const { data, isError, refetch } = useSeoOverview()
+  const { data, isOffline, refetch } = useSeoOverview()
   const [query, setQuery] = useState('')
   const pages = data?.indexPages ?? []
   const filtered = useMemo(() => pages.filter((p) => !query || p.url.includes(query)), [query, pages])
   const indexed = pages.filter((p) => p.google === 'indexed').length
   const errors = pages.filter((p) => p.status === 'error').length
 
-  if (isError) return <ApiOfflineBanner message="SEO API offline." />
-
   return (
+    <>
+      {isOffline ? <ApiOfflineHint message="API offline — index monitor data unavailable." /> : null}
     <ModulePanelShell
       kpis={[
         ['Indexed', indexed, 'success'],
@@ -185,17 +186,18 @@ export function IndexMonitorPanelLive() {
         </table>
       )}
     </ModulePanelShell>
+    </>
   )
 }
 
 export function SchemaManagerPanelLive() {
-  const { data, isError, refetch } = useSeoOverview()
+  const { data, isOffline, refetch } = useSeoOverview()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const schemas = data?.schemas ?? []
 
-  if (isError) return <ApiOfflineBanner message="SEO API offline." />
-
   return (
+    <>
+      {isOffline ? <ApiOfflineHint message="API offline — schema data unavailable." /> : null}
     <ModulePanelShell
       kpis={[
         ['Schema types', schemas.length, 'default'],
@@ -270,16 +272,17 @@ export function SchemaManagerPanelLive() {
         </table>
       )}
     </ModulePanelShell>
+    </>
   )
 }
 
 export function SitemapManagerPanelLive() {
-  const { data, isError, refetch } = useSeoOverview()
+  const { data, isOffline, refetch } = useSeoOverview()
   const sitemaps = data?.sitemaps ?? []
 
-  if (isError) return <ApiOfflineBanner message="SEO API offline." />
-
   return (
+    <>
+      {isOffline ? <ApiOfflineHint message="API offline — sitemap data unavailable." /> : null}
     <ModulePanelShell
       kpis={[
         ['Sitemaps', sitemaps.length, 'default'],
@@ -330,48 +333,174 @@ export function SitemapManagerPanelLive() {
         </tbody>
       </table>
     </ModulePanelShell>
+    </>
   )
 }
 
 export function RedirectManagerPanelLive() {
-  const { data, isError, refetch } = useSeoOverview()
+  const { data: seoData, isOffline: seoOffline, refetch: refetchSeo } = useSeoOverview()
+  const { data: managed = [], isLoading, isOffline: redirectsOffline, refetch: refetchRedirects } = useRedirects()
+  const createRedirect = useCreateRedirect()
+  const updateRedirect = useUpdateRedirect()
+  const deleteRedirect = useDeleteRedirect()
   const [query, setQuery] = useState('')
-  const redirects = data?.redirects ?? []
-  const filtered = useMemo(
-    () => redirects.filter((r) => !query || r.from.includes(query) || r.to.includes(query)),
-    [query, redirects],
+
+  const canonicalRedirects = useMemo(
+    () => (seoData?.redirects ?? []).filter((r) => r.source === 'canonical'),
+    [seoData?.redirects],
   )
 
-  if (isError) return <ApiOfflineBanner message="SEO API offline." />
+  const ruleRows = useMemo(
+    () =>
+      managed.map((r) => ({
+        id: r.id,
+        from: r.fromPath,
+        to: r.toPath,
+        type: r.type,
+        hits: r.hits,
+        status: r.isActive ? 'good' : 'warning',
+        source: 'rule' as const,
+        note: r.note,
+        isActive: r.isActive,
+      })),
+    [managed],
+  )
+
+  const allRows = useMemo(() => [...ruleRows, ...canonicalRedirects], [ruleRows, canonicalRedirects])
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase()
+    return allRows.filter((r) => !q || r.from.toLowerCase().includes(q) || r.to.toLowerCase().includes(q))
+  }, [query, allRows])
+
+  const activeRules = ruleRows.filter((r) => r.status === 'good').length
+  const isOffline = seoOffline || redirectsOffline
+
+  const refetchAll = () => {
+    void refetchSeo()
+    void refetchRedirects()
+  }
+
+  const handleCreate = () => {
+    const fromPath = window.prompt('From path (old URL)', '/old-page')
+    if (!fromPath?.trim()) return
+    const toPath = window.prompt('To path (new URL)', '/shop')
+    if (!toPath?.trim()) return
+    const type = window.prompt('Redirect type (301 or 302)', '301')?.trim() || '301'
+    createRedirect.mutate(
+      { fromPath: fromPath.trim(), toPath: toPath.trim(), type, isActive: true },
+      {
+        onSuccess: () => toast.success('Redirect rule added'),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  const handleEdit = (row: (typeof allRows)[0]) => {
+    if (row.source === 'canonical') {
+      toast('Canonical redirects come from product SEO settings.', { icon: 'ℹ️' })
+      return
+    }
+    const fromPath = window.prompt('From path', row.from)
+    if (fromPath === null) return
+    const toPath = window.prompt('To path', row.to)
+    if (toPath === null) return
+    const type = window.prompt('Type (301 or 302)', row.type)
+    if (type === null) return
+    updateRedirect.mutate(
+      { id: row.id, fromPath: fromPath.trim(), toPath: toPath.trim(), type: type.trim() },
+      {
+        onSuccess: () => toast.success('Redirect updated'),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  const handleToggle = (row: (typeof allRows)[0]) => {
+    if (row.source === 'canonical') return
+    const next = row.status !== 'good'
+    updateRedirect.mutate(
+      { id: row.id, isActive: next },
+      {
+        onSuccess: () => toast.success(next ? 'Redirect is live' : 'Redirect disabled'),
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
+
+  const handleDelete = (row: (typeof allRows)[0]) => {
+    if (row.source === 'canonical') {
+      toast('Remove canonical URL from product SEO settings.', { icon: 'ℹ️' })
+      return
+    }
+    if (!window.confirm(`Delete redirect ${row.from} → ${row.to}?`)) return
+    deleteRedirect.mutate(row.id, {
+      onSuccess: () => toast.success('Redirect deleted'),
+      onError: (e) => toast.error(e.message),
+    })
+  }
+
+  const rowActions = (row: (typeof allRows)[0]) => {
+    if (row.source === 'canonical') {
+      return [
+        { label: 'Open SEO health', onClick: () => { window.location.href = '/dashboard/seo-health' } },
+        { label: 'Copy from URL', onClick: () => void navigator.clipboard.writeText(row.from).then(() => toast.success('Copied')) },
+      ]
+    }
+    return [
+      { label: 'Edit redirect', onClick: () => handleEdit(row) },
+      {
+        label: row.status === 'good' ? 'Disable redirect' : 'Enable redirect',
+        onClick: () => handleToggle(row),
+      },
+      { label: 'Delete redirect', tone: 'danger' as const, onClick: () => handleDelete(row) },
+    ]
+  }
 
   return (
+    <>
+      {isOffline ? <ApiOfflineHint message="API offline — redirect rules unavailable until pnpm dev:api runs." /> : null}
     <ModulePanelShell
       kpis={[
-        ['Redirects', redirects.length, 'default'],
-        ['301 rules', redirects.filter((r) => r.type === '301').length, 'success'],
-        ['Canonical', redirects.length, 'gold'],
+        ['Redirects', isLoading ? '…' : allRows.length, 'default'],
+        ['301 rules', allRows.filter((r) => r.type === '301').length, 'success'],
+        ['Active', activeRules, 'gold'],
         ['API', 'Live', 'default'],
       ]}
       pipeline={[
-        ['301', redirects.filter((r) => r.type === '301').length],
-        ['Active', redirects.length],
-        ['From SEO config', redirects.length],
-        ['—', '—'],
+        ['301', allRows.filter((r) => r.type === '301').length],
+        ['302', allRows.filter((r) => r.type === '302').length],
+        ['Managed', ruleRows.length],
+        ['Canonical', canonicalRedirects.length],
         ['Live', 'OK'],
       ]}
       query={query}
       onQuery={setQuery}
       searchPlaceholder="Search from/to URL..."
       createLabel="Add redirect"
-      onCreate={() => toast('Add canonical URLs in product SEO settings.', { icon: '↪️' })}
-      onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      onCreate={handleCreate}
+      onRefresh={refetchAll}
+      onExport={() => {
+        if (filtered.length === 0) {
+          toast.error('No redirects to export')
+          return
+        }
+        import('@/lib/api/redirects').then(({ exportRedirectsCsv }) => {
+          exportRedirectsCsv(filtered)
+          toast.success('Redirect list exported')
+        })
+      }}
       tableIcon={ArrowRightLeft}
       tableTitle={`Redirects · ${filtered.length}`}
-      footer={`${redirects.length} canonical rules from seo_config`}
+      footer={`${ruleRows.length} managed rules · ${canonicalRedirects.length} from product SEO canonical URLs`}
     >
       {filtered.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-[#6B6B6B]">No canonical redirects configured yet.</p>
+        <div className="px-4 py-6">
+          <p className="text-sm text-[#6B6B6B]">No redirect rules yet.</p>
+          <p className="mt-2 text-xs text-[#6B6B6B]">
+            Add a 301 when you rename a URL or fix a 404. Example: <span className="font-mono">/products</span> → <span className="font-mono">/shop</span>
+          </p>
+        </div>
       ) : (
         <table className="admin-module-table">
           <thead>
@@ -380,6 +509,7 @@ export function RedirectManagerPanelLive() {
               <th>To</th>
               <th>Type</th>
               <th>Hits</th>
+              <th>Source</th>
               <th>Status</th>
               <th />
             </tr>
@@ -391,11 +521,24 @@ export function RedirectManagerPanelLive() {
                 <td className="font-mono text-xs text-[#5E7CFF]">{r.to}</td>
                 <td className="font-bold">{r.type}</td>
                 <td>{r.hits}</td>
+                <td className="text-xs font-semibold">{r.source === 'canonical' ? 'SEO canonical' : 'Managed'}</td>
                 <td>
-                  <span className={SEO_STATUS[asSeoStatus(r.status)]}>{r.status}</span>
+                  <span className={SEO_STATUS[asSeoStatus(r.status)]}>{r.status === 'good' ? 'active' : 'disabled'}</span>
                 </td>
                 <td>
-                  <RowActionsMenu recordName={r.from} moduleHref="/dashboard/redirect-manager" recordId={r.id} />
+                  <div className="flex items-center gap-1">
+                    {r.source === 'rule' ? (
+                      <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => handleEdit(r)}>
+                        Edit
+                      </AdminButton>
+                    ) : null}
+                    <RowActionsMenu
+                      recordName={r.from}
+                      moduleHref="/dashboard/redirect-manager"
+                      recordId={r.id}
+                      actions={rowActions(r)}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -403,5 +546,6 @@ export function RedirectManagerPanelLive() {
         </table>
       )}
     </ModulePanelShell>
+    </>
   )
 }

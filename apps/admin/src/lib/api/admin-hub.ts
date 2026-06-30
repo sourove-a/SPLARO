@@ -34,7 +34,17 @@ export interface SeoOverview {
   indexPages: { url: string; google: string; bing: string; lastCrawl: string; status: string }[]
   schemas: { id: string; type: string; pages: number; valid: number; errors: number; lastCheck: string }[]
   sitemaps: { id: string; name: string; urls: number; lastGen: string; submitted: string; status: string }[]
-  redirects: { id: string; from: string; to: string; type: string; hits: number; status: string }[]
+  redirects: {
+    id: string
+    from: string
+    to: string
+    type: string
+    hits: number
+    status: string
+    source?: 'rule' | 'canonical'
+    note?: string | null
+    isActive?: boolean
+  }[]
   productAudits: { id: string; name: string; slug: string; score: number; hasMetaTitle: boolean; hasMetaDescription: boolean; lastAuditAt: string | null }[]
   summary: { avgScore: number; criticalErrors: number; warnings: number; products: number }
 }

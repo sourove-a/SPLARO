@@ -4,6 +4,10 @@ import type { Category, ColorOption, StorefrontProduct } from '@/data/storefront
 import type { ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import {
+  LISTING_PAGE_SIZE,
+  type StorefrontListingQuery,
+} from '@/lib/catalog/listing'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -14,10 +18,16 @@ function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 5000): Promi
 }
 
 export interface ProductReview {
+  id: string
   name: string
-  city: string
   rating: number
   text: string
+  title?: string
+  verified?: boolean
+  helpfulCount?: number
+  adminReply?: string
+  adminReplyAt?: string
+  createdAt?: string
 }
 
 interface LiveVariant {
@@ -34,9 +44,15 @@ interface LiveVariant {
 }
 
 interface LiveReview {
+  id?: string
   rating: number
   title?: string | null
   body?: string | null
+  verifiedPurchase?: boolean
+  helpfulCount?: number
+  adminReply?: string | null
+  adminReplyAt?: string
+  createdAt?: string
   customer?: { firstName: string; lastName: string } | null
 }
 
@@ -62,6 +78,7 @@ interface LiveProduct {
   reviewCount?: number
   isNewArrival?: boolean
   isBestSeller?: boolean
+  schemaMarkup?: Record<string, unknown> | null
   isOnSale?: boolean
   category?: { name: string; slug?: string } | null
   images?: { url: string; altText?: string | null; position?: number | null }[]
@@ -174,15 +191,21 @@ function mapCategory(name?: string | null): Exclude<Category, 'All'> {
 }
 
 function mapReviews(reviews: LiveReview[] | undefined): ProductReview[] {
-  return (reviews ?? []).map((review) => {
+  return (reviews ?? []).map((review, index) => {
     const name = review.customer
       ? `${review.customer.firstName} ${review.customer.lastName.charAt(0)}.`.trim()
       : 'Verified buyer'
     return {
+      id: review.id ?? `review-${index}`,
       name,
-      city: 'Bangladesh',
       rating: review.rating,
       text: review.body?.trim() || review.title?.trim() || '',
+      ...(review.title?.trim() ? { title: review.title.trim() } : {}),
+      ...(review.verifiedPurchase ? { verified: true } : {}),
+      ...(review.helpfulCount != null ? { helpfulCount: review.helpfulCount } : {}),
+      ...(review.adminReply?.trim() ? { adminReply: review.adminReply.trim() } : {}),
+      ...(review.adminReplyAt ? { adminReplyAt: review.adminReplyAt } : {}),
+      ...(review.createdAt ? { createdAt: review.createdAt } : {}),
     }
   }).filter((review) => review.text.length > 0)
 }
@@ -237,6 +260,9 @@ export function mapLiveProduct(
   const colors = colorOptions.map((option) => option.hex)
   const rawSizes = [...new Set(variants.map((v) => v.size).filter(Boolean))] as string[]
   const defaultSizes = category === 'Footwear' ? ['39', '40', '41', '42'] : ['M', 'L']
+  const activeStock = variants
+    .filter((v) => v.isActive !== false)
+    .reduce((sum, v) => sum + Number(v.stock ?? 0), 0)
 
   return {
     id: p.id,
@@ -251,6 +277,7 @@ export function mapLiveProduct(
     colors: colors.length ? colors : ['#111111'],
     ...(colorOptions.length ? { colorOptions } : {}),
     sizes: rawSizes.length ? sortSizes(rawSizes, category) : defaultSizes,
+    inStock: variants.length === 0 ? true : activeStock > 0,
     status: p.isNewArrival ? 'New' : p.isBestSeller ? 'Limited' : 'Ready',
     isNewArrival: Boolean(p.isNewArrival),
     isBestSeller: Boolean(p.isBestSeller),
@@ -279,10 +306,17 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
   const rating = Number(p.rating ?? 0)
   const reviewCount = p.reviewCount ?? reviews.length
 
+  const schema = (p.schemaMarkup && typeof p.schemaMarkup === 'object' && !Array.isArray(p.schemaMarkup))
+    ? p.schemaMarkup as Record<string, unknown>
+    : {}
+  const nameBn = typeof schema.nameBn === 'string' ? schema.nameBn : undefined
+  const weavingType = typeof schema.weavingType === 'string' ? schema.weavingType : undefined
+
   const product: ProductDetailData = {
     id: mapped.id,
     slug: p.slug,
     name: p.name,
+    ...(nameBn ? { nameBn } : {}),
     price: Number(p.basePrice),
     ...(p.compareAtPrice != null ? { compareAtPrice: Number(p.compareAtPrice) } : {}),
     images,
@@ -301,6 +335,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     ...(p.shortDescription ? { shortDescription: p.shortDescription } : {}),
     ...(p.sku ? { sku: p.sku } : {}),
     ...(p.fabricContent ? { fabricContent: p.fabricContent } : {}),
+    ...(weavingType ? { weavingType } : {}),
     ...(p.careInstructions ? { careInstructions: p.careInstructions } : {}),
     ...(p.fitType ? { fitType: p.fitType } : {}),
     ...(p.occasion ? { occasion: p.occasion } : {}),
@@ -328,6 +363,18 @@ export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slu
 
 export async function fetchLiveProducts(): Promise<(StorefrontProduct & { slug: string })[]> {
   return fetchLiveProductsRaw()
+}
+
+export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProduct & { slug: string })[]> {
+  const unique = [...new Set(ids.filter(Boolean))]
+  if (!unique.length) return []
+
+  const base = getApiBaseUrl()
+  const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}&ids=${encodeURIComponent(unique.join(','))}`
+  const res = await fetchWithTimeout(url, { cache: 'no-store' })
+  if (!res.ok) return []
+  const data = (await res.json()) as { products: LiveProduct[] }
+  return (data.products ?? []).map(mapLiveProduct)
 }
 
 export async function fetchLiveProductDetailBySlug(
@@ -360,6 +407,85 @@ function mapProductsResponse(data: ProductsApiResponse) {
     total: data.total ?? 0,
     totalPages: data.totalPages ?? 1,
     page: data.page ?? 1,
+  }
+}
+
+export async function fetchStorefrontProductListing(
+  query: StorefrontListingQuery = {},
+): Promise<{
+  products: CatalogProduct[]
+  total: number
+  totalPages: number
+  page: number
+}> {
+  const base = getApiBaseUrl()
+  const params = new URLSearchParams({
+    storeId: STORE_ID,
+    page: String(query.page ?? 1),
+    limit: String(query.limit ?? LISTING_PAGE_SIZE),
+  })
+
+  if (query.collectionSlug ?? query.collection) {
+    params.set('collectionSlug', query.collectionSlug ?? query.collection ?? '')
+  }
+  if (query.categorySlug ?? query.category) {
+    params.set('categorySlug', query.categorySlug ?? query.category ?? '')
+  }
+  if (query.parentCategorySlug) {
+    params.set('parentCategorySlug', query.parentCategorySlug)
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${base}/storefront/products?${params}`, {
+      next: { revalidate: 15, tags: ['storefront-products'] },
+    })
+    if (!res.ok) return { products: [], total: 0, totalPages: 0, page: 1 }
+    const data = (await res.json()) as ProductsApiResponse
+    const mapped = mapProductsResponse(data)
+    return {
+      products: mapped.products,
+      total: mapped.total,
+      totalPages: mapped.totalPages,
+      page: mapped.page,
+    }
+  } catch {
+    return { products: [], total: 0, totalPages: 0, page: 1 }
+  }
+}
+
+export async function fetchLiveCollections(): Promise<
+  Array<{
+    id: string
+    name: string
+    slug: string
+    productCount: number
+    imageUrl?: string | null
+  }>
+> {
+  const base = getApiBaseUrl()
+  const url = `${base}/storefront/collections?storeId=${encodeURIComponent(STORE_ID)}`
+
+  try {
+    const res = await fetchWithTimeout(url, { next: { revalidate: 120 } })
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      collections?: Array<{
+        id: string
+        name: string
+        slug: string
+        imageUrl?: string | null
+        _count?: { products?: number }
+      }>
+    }
+    return (data.collections ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      productCount: row._count?.products ?? 0,
+      imageUrl: row.imageUrl ?? null,
+    }))
+  } catch {
+    return []
   }
 }
 

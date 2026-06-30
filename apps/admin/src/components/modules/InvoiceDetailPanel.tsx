@@ -1,15 +1,12 @@
 'use client'
 
-import toast from 'react-hot-toast'
-import { ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ExternalLink, RefreshCw } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import { STATUS_CLASS, formatBDT } from '@/components/modules/ModulePanelShell'
-import { useInvoices } from '@/lib/api/hooks'
-import type { ApiInvoiceRow } from '@/lib/api/commerce-finance'
+import { useInvoices, useOrder, useUpdateOrderPayment } from '@/lib/api/hooks'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-
-const INVOICE_STATUSES: ApiInvoiceRow['status'][] = ['draft', 'sent', 'paid', 'overdue']
 
 interface InvoiceDetailPanelProps {
   recordId: string
@@ -23,6 +20,29 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
   const invoice = rows.find(
     (row) => row.invoiceNumber === recordId || row.id === recordId || row.orderId === recordId,
   )
+
+  const orderId = invoice?.orderId ?? recordId
+  const { data: order, refetch: refetchOrder } = useOrder(orderId)
+  const updatePayment = useUpdateOrderPayment()
+
+  const liveStatus = order?.paymentStatus === 'PAID' ? 'paid' : invoice?.status ?? 'draft'
+  const isPaid = order?.paymentStatus === 'PAID' || invoice?.status === 'paid'
+
+  const markPaid = () => {
+    if (!orderId || isPaid) return
+    updatePayment.mutate(
+      { id: orderId, paymentStatus: 'PAID' },
+      {
+        onSuccess: (res) => {
+          toastOk(`Invoice ${res.invoiceNumber} marked as paid.`)
+          void refetch()
+          void refetchOrder()
+        },
+        onError: (err) =>
+          toastFail(err instanceof Error ? err.message : 'Could not update payment status.'),
+      },
+    )
+  }
 
   if (isLoading) {
     return (
@@ -47,13 +67,6 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
     )
   }
 
-  const handleStatusChange = (next: ApiInvoiceRow['status']) => {
-    toast(
-      `Invoice status is synced from order payment (${next}). Open the linked order to change payment state.`,
-      { icon: 'ℹ️', style: { borderRadius: '14px', fontWeight: 600 } },
-    )
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -61,10 +74,27 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
           <ArrowLeft className="h-4 w-4" />
           Back to invoices
         </AdminButton>
-        <AdminButton onClick={() => void refetch()}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </AdminButton>
+        <div className="flex flex-wrap gap-2">
+          {!isPaid && (
+            <AdminButton
+              variant="gold"
+              disabled={updatePayment.isPending}
+              onClick={markPaid}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {updatePayment.isPending ? 'Saving…' : 'Mark as paid'}
+            </AdminButton>
+          )}
+          <AdminButton
+            onClick={() => {
+              void refetch()
+              void refetchOrder()
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </AdminButton>
+        </div>
       </div>
 
       <div className="admin-module-card relative z-[1]">
@@ -72,7 +102,12 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
           <div>
             <p className="admin-kpi__label">Invoice</p>
             <h2 className="font-mono text-lg font-black text-[var(--admin-text)]">{invoice.invoiceNumber}</h2>
-            <span className={`${STATUS_CLASS[invoice.status]} mt-2 capitalize`}>{invoice.status}</span>
+            <span className={`${STATUS_CLASS[liveStatus]} mt-2 capitalize`}>{liveStatus}</span>
+            {order?.paymentStatus && (
+              <p className="mt-1 text-xs font-semibold text-[var(--admin-text-muted)]">
+                Payment: {order.paymentStatus.replace(/_/g, ' ')}
+              </p>
+            )}
           </div>
           <AdminButton variant="gold" onClick={() => navigate(`/dashboard/orders/${invoice.orderId}`)}>
             <ExternalLink className="h-4 w-4" />
@@ -90,18 +125,12 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
             <input readOnly value={formatBDT(invoice.amount)} className="admin-input" />
           </label>
           <label className="block space-y-1.5">
-            <span className="admin-kpi__label">Status</span>
-            <select
-              value={invoice.status}
-              onChange={(e) => handleStatusChange(e.target.value as ApiInvoiceRow['status'])}
-              className="admin-input"
-            >
-              {INVOICE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
+            <span className="admin-kpi__label">Payment method</span>
+            <input
+              readOnly
+              value={order?.paymentMethod?.replace(/_/g, ' ') ?? '—'}
+              className="admin-input capitalize"
+            />
           </label>
           <label className="block space-y-1.5">
             <span className="admin-kpi__label">Issued</span>
@@ -118,7 +147,11 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
         </div>
       </div>
 
-      <InvoiceActionsBar orderId={invoice.orderId} invoiceNumber={invoice.invoiceNumber} />
+      <InvoiceActionsBar
+        orderId={invoice.orderId}
+        invoiceNumber={invoice.invoiceNumber}
+        {...(order?.shippingPhone ? { customerPhone: order.shippingPhone } : {})}
+      />
     </div>
   )
 }

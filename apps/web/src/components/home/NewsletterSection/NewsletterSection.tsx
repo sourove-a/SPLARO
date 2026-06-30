@@ -20,18 +20,13 @@ const fadeUp = {
 function resolveNewsletter(config: NewsletterConfig | undefined): NewsletterConfig {
   return {
     enabled: config?.enabled ?? true,
-    eyebrow: config?.eyebrow?.trim() || 'Stay connected',
+    eyebrow: config?.eyebrow?.trim() || 'Newsletter',
     title: config?.title?.trim() || 'Be the first to know.',
-    subtitle:
-      config?.subtitle?.trim() ||
-      'New drops, exclusive offers & styling inspiration — straight to your inbox.',
-    placeholder: config?.placeholder?.trim() || 'Your email address',
+    subtitle: config?.subtitle?.trim() || '',
+    placeholder: config?.placeholder?.trim() || 'Email address',
     buttonLabel: config?.buttonLabel?.trim() || 'Subscribe',
-    note: config?.note?.trim() || 'No spam. Unsubscribe anytime.',
-    perks:
-      config?.perks?.filter(Boolean).length
-        ? config!.perks.filter(Boolean)
-        : ['Early access to drops', 'Member-only offers', 'Style notes & care tips'],
+    note: config?.note?.trim() || '',
+    perks: config?.perks?.filter(Boolean).length ? config!.perks.filter(Boolean) : [],
   }
 }
 
@@ -79,18 +74,15 @@ export function NewsletterSection() {
         <h2 id="newsletter-heading" className="ed-newsletter__title">
           {newsletter.title}
         </h2>
-        <p className="ed-newsletter__sub">{newsletter.subtitle}</p>
 
         <div className="ed-newsletter__shell">
+          <div className="ed-newsletter__shell-shine" aria-hidden />
           {status === 'success' ? (
             <div className="ed-newsletter__success" role="status">
               <span className="ed-newsletter__success-icon">
                 <Check strokeWidth={2.4} />
               </span>
-              <div>
-                <p className="ed-newsletter__success-title">You&apos;re on the list.</p>
-                <p className="ed-newsletter__success-copy">Watch your inbox for the next SPLARO drop.</p>
-              </div>
+              <p className="ed-newsletter__success-title">You&apos;re on the list.</p>
             </div>
           ) : (
             <form className="ed-newsletter__form" onSubmit={onSubmit}>
@@ -118,11 +110,11 @@ export function NewsletterSection() {
                 {status === 'loading' ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Joining…
+                    Joining
                   </>
                 ) : (
                   <>
-                    {newsletter.buttonLabel}
+                    <span className="ed-newsletter__btn-text">{newsletter.buttonLabel}</span>
                     <Send className="h-3.5 w-3.5" strokeWidth={2} />
                   </>
                 )}
@@ -136,8 +128,6 @@ export function NewsletterSection() {
             {error}
           </p>
         ) : null}
-
-        <p className="ed-newsletter__note">{newsletter.note}</p>
       </motion.div>
     </section>
   )

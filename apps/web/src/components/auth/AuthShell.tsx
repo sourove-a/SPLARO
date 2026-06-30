@@ -78,10 +78,11 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
 
       <div className="auth-shell__inner">
         <div className="auth-shell__logo">
-          <SplaroBrandLogo href="/" />
+          <SplaroBrandLogo href="/" tone="dark" size="footerLuxury" />
         </div>
 
         <div className="auth-glass-panel">
+          <div className="auth-glass-panel__shine" aria-hidden="true" />
           {children}
         </div>
 

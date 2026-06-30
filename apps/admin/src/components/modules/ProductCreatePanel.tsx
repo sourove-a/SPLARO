@@ -7,9 +7,22 @@ import toast from 'react-hot-toast'
 import { ImagePlus, Link as LinkIcon, Loader2, Package, PlayCircle, Plus, Save, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
-import { buildDescriptionDraft, buildSeoDraft } from '@/lib/admin/product-description-draft'
+import { buildCategoryPicker } from '@/lib/admin/category-picker'
+import {
+  mergeFitAndProductType,
+  parseTagsInput,
+  resolveSellingPrices,
+} from '@/lib/admin/product-form-utils'
+import {
+  buildDescriptionDraft,
+  buildSeoDraft,
+  formatBilingualDescription,
+  polishBanglaDescription,
+  splitBilingualDescription,
+} from '@/lib/admin/product-description-draft'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useCreateProduct } from '@/lib/api/hooks'
+import { useCategories, useCollections, useCreateProduct } from '@/lib/api/hooks'
+import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
 import { uploadAdminImage } from '@/lib/api/upload'
 import { generateAIProduct } from '@/lib/api/finance'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
@@ -32,11 +45,13 @@ const SIZE_PRESETS: Record<string, string> = {
 const KIDS_SIZES = (SIZE_PRESETS.kids ?? '').split(', ').filter(Boolean)
 const ALL_SIZE_CHIPS = [...KIDS_SIZES, 'XS', 'S', 'M', 'L', 'XL'].filter((v, i, a) => a.indexOf(v) === i)
 
-const DESCRIPTION_PLACEHOLDER = `English premium story first — fabric, fit, occasion.
+const DESCRIPTION_PLACEHOLDER_EN = 'Write your product story in English…'
 
-Leave a blank gap, then Bangla (বাংলায়):
+const DESCRIPTION_PLACEHOLDER_BN = 'বাংলায় বিবরণ লিখুন…'
 
-SPLARO Premium … — soft cotton, Eid-ready elegance.`
+const DESCRIPTION_HINT_EN = 'Fabric, fit, occasion — why customers choose SPLARO.'
+
+const DESCRIPTION_HINT_BN = 'কাপড়, ফিট, কখন পরবেন — সংক্ষেপে বাংলায় লিখুন।'
 
 function sizesForCategory(name: string, slug?: string | null): string | null {
   const key = `${name} ${slug ?? ''}`.toLowerCase()
@@ -53,30 +68,12 @@ function newColorId() {
   return `c-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
-function Section({
-  title,
-  hint,
-  children,
-}: {
-  title: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="product-create-section">
-      <header className="product-create-section__head">
-        <h4 className="product-create-section__title">{title}</h4>
-        {hint ? <p className="product-create-section__hint">{hint}</p> : null}
-      </header>
-      {children}
-    </section>
-  )
-}
-
 export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const { navigate } = useAdminNavigate()
   const createProduct = useCreateProduct()
   const { data: categories = [], isLoading: catsLoading } = useCategories()
+  const { data: collectionsData } = useCollections()
+  const collections = collectionsData?.collections ?? []
   const [uploading, setUploading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [imageLink, setImageLink] = useState('')
@@ -85,21 +82,37 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     { id: newColorId(), name: '', hex: '#1d2a24', imageUrl: '' },
   ])
   const [activeColorId, setActiveColorId] = useState('')
+  const [colorsOpen, setColorsOpen] = useState(true)
+  const [departmentId, setDepartmentId] = useState('')
+  const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
 
   const [form, setForm] = useState({
     name: '',
+    nameBn: '',
+    shortDescription: '',
     descriptionNotes: '',
-    description: '',
+    descriptionEn: '',
+    descriptionBn: '',
     metaTitle: '',
     metaDescription: '',
     basePrice: '',
+    compareAtPrice: '',
+    costPrice: '',
+    sku: '',
     defaultStock: '10',
+    lowStockThreshold: '5',
+    tags: '',
+    weavingType: '',
+    collectionId: '',
+    productType: '',
     categoryId: '',
     imageUrls: [] as string[],
     videoUrl: '',
     sizes: '4Y, 6Y, 8Y, 10Y',
     isPublished: true,
-    fabricContent: 'Premium cotton',
+    status: 'PUBLISHED',
+    isHidden: false,
+    fabricContent: '',
     fitType: 'Regular',
     occasion: '',
   })
@@ -149,6 +162,24 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     [categories, form.categoryId],
   )
 
+  const categoryPicker = useMemo(() => buildCategoryPicker(categories), [categories])
+
+  const subcategories = useMemo(
+    () => (departmentId ? categoryPicker.subcategoriesForDepartment(departmentId) : []),
+    [departmentId, categoryPicker],
+  )
+
+  useEffect(() => {
+    if (!form.categoryId || !categories.length || departmentId) return
+    const dept = categoryPicker.departmentForCategory(form.categoryId)
+    if (dept) setDepartmentId(dept)
+  }, [form.categoryId, categories.length, categoryPicker, departmentId])
+
+  const fullDescription = useMemo(
+    () => formatBilingualDescription(form.descriptionEn, form.descriptionBn),
+    [form.descriptionEn, form.descriptionBn],
+  )
+
   const categoryName = selectedCategory?.name ?? ''
 
   const applyDescriptionDraft = useCallback(
@@ -165,10 +196,12 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         occasion: form.occasion,
         category: categoryName,
       })
+      const { en, bn } = splitBilingualDescription(description)
       const seo = buildSeoDraft(form.name, description)
       setForm((prev) => ({
         ...prev,
-        description,
+        descriptionEn: en,
+        descriptionBn: bn,
         metaTitle: prev.metaTitle.trim() || seo.title,
         metaDescription: prev.metaDescription.trim() || seo.description,
       }))
@@ -252,9 +285,64 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   })
 
   const applyCategorySizes = (categoryId: string) => {
+    const deptId = categoryPicker.departmentForCategory(categoryId)
+    const dept = categories.find((c) => c.id === deptId)
     const cat = categories.find((c) => c.id === categoryId)
-    const preset = cat ? sizesForCategory(cat.name, cat.slug) : null
+    const preset = dept
+      ? sizesForCategory(dept.name, dept.slug)
+      : cat
+        ? sizesForCategory(cat.name, cat.slug)
+        : null
     if (preset) set('sizes', preset)
+  }
+
+  const applyDepartmentSizes = (deptId: string) => {
+    const dept = categories.find((c) => c.id === deptId)
+    const preset = dept ? sizesForCategory(dept.name, dept.slug) : null
+    if (preset) set('sizes', preset)
+  }
+
+  const selectCategory = (categoryId: string) => {
+    set('categoryId', categoryId)
+    applyCategorySizes(categoryId)
+  }
+
+  const handleDepartmentChange = (deptId: string) => {
+    setDepartmentId(deptId)
+    set('categoryId', '')
+    if (deptId) applyDepartmentSizes(deptId)
+  }
+
+  const handleSubcategoryChange = (categoryId: string) => {
+    if (!categoryId) {
+      set('categoryId', '')
+      return
+    }
+    selectCategory(categoryId)
+  }
+
+  const appendBanglaPhrase = (phrase: string) => {
+    setForm((prev) => ({
+      ...prev,
+      descriptionBn: prev.descriptionBn.trim() ? `${prev.descriptionBn.trim()}\n\n${phrase}` : phrase,
+    }))
+  }
+
+  const applyBanglaPolish = () => {
+    if (!form.name.trim() && !form.descriptionBn.trim()) {
+      toast.error('Product name বা কিছু বাংলা লিখুন — তারপর polish হবে।')
+      return
+    }
+    const bn = polishBanglaDescription({
+      name: form.name,
+      fabric: form.fabricContent,
+      fit: form.fitType,
+      occasion: form.occasion,
+      notes: form.descriptionNotes,
+      existing: form.descriptionBn,
+    })
+    set('descriptionBn', bn)
+    toastOk('বাংলা বিবরণ polished', 'bn-polish')
   }
 
   const handleAIGenerate = async () => {
@@ -288,13 +376,12 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       const cleanName = title.split(' — ')[0]?.split(' | ')[0] ?? title
       const en = out.description ?? out.longDescription
       const bn = out.descriptionBn as string | undefined
-      const description =
-        en && bn ? `${en}\n\n\n${bn}` : en ?? form.description
 
       setForm((prev) => ({
         ...prev,
         name: cleanName || prev.name,
-        description: description || prev.description,
+        descriptionEn: (en as string) || prev.descriptionEn,
+        descriptionBn: bn || prev.descriptionBn,
         metaTitle: (out.seoTitle ?? out.metaTitle ?? prev.metaTitle) as string,
         metaDescription: (out.seoMetaDescription ?? out.metaDescription ?? prev.metaDescription) as string,
       }))
@@ -308,24 +395,31 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      toast.error('Product name is required.')
+      toast.error('Product name (EN) is required.')
+      return
+    }
+    if (!form.nameBn.trim()) {
+      toast.error('নাম (বাংলা) লিখুন।')
+      setActiveTab('basic')
       return
     }
     if (!form.categoryId) {
       toast.error('Category is required.')
       return
     }
-    const price = Number(form.basePrice)
-    if (!price || price <= 0) {
-      toast.error('Enter a valid price in BDT.')
+    const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
+    if (!sellingPrice || sellingPrice <= 0) {
+      toast.error('Enter a valid regular price in BDT.')
+      setActiveTab('basic')
       return
     }
+    const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
     if (!sizeList.length) {
       toast.error('Select at least one size.')
       return
     }
 
-    let description = form.description.trim()
+    let description = fullDescription.trim()
     let metaTitle = form.metaTitle.trim()
     let metaDescription = form.metaDescription.trim()
 
@@ -357,13 +451,27 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             }))
           : undefined
 
+      const tags = parseTagsInput(form.tags)
+      const fitType = mergeFitAndProductType(form.productType, form.fitType)
+
       const product = await createProduct.mutateAsync({
         name: form.name.trim(),
-        basePrice: price,
+        ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
+        basePrice: sellingPrice,
+        ...(compareAt ? { compareAtPrice: compareAt } : {}),
+        ...(costPrice && costPrice > 0 ? { costPrice } : {}),
+        ...(form.sku.trim() ? { sku: form.sku.trim() } : {}),
+        ...(form.shortDescription.trim() ? { shortDescription: form.shortDescription.trim() } : {}),
+        ...(tags.length ? { tags } : {}),
+        ...(form.weavingType ? { weavingType: form.weavingType } : {}),
+        ...(form.collectionId ? { collectionId: form.collectionId } : {}),
+        ...(form.lowStockThreshold ? { lowStockThreshold: Number(form.lowStockThreshold) || 5 } : {}),
         isPublished: form.isPublished,
+        status: form.status,
+        isHidden: form.isHidden,
         sizes: sizeList,
         fabricContent: form.fabricContent,
-        fitType: form.fitType,
+        fitType,
         description,
         metaTitle,
         metaDescription,
@@ -389,7 +497,14 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const selectedMedia = mediaItems[activeMedia] ?? mediaItems[0]
 
   const canSubmit =
-    Boolean(form.name.trim() && form.categoryId && form.basePrice && Number(form.basePrice) > 0 && sizeList.length)
+    Boolean(
+      form.name.trim() &&
+        form.nameBn.trim() &&
+        form.categoryId &&
+        form.basePrice &&
+        Number(form.basePrice) > 0 &&
+        sizeList.length,
+    )
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -532,199 +647,54 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
           ) : null}
         </aside>
 
-        <div className="admin-module-card admin-module-card--accent product-create-form">
-          <div className="mb-5 flex items-center gap-2">
+        <div className="admin-module-card admin-module-card--accent product-create-form product-form-shell">
+          <div className="mb-4 flex items-center gap-2">
             <Package className="h-5 w-5 text-[var(--admin-text)]" />
-            <h3 className="admin-module-card__title">Product details</h3>
+            <h3 className="admin-module-card__title">Add New Product</h3>
           </div>
 
-          <div className="space-y-5">
-            <Section title="Basics" hint="Name, category, fabric — Kids = auto sizes 2M–10Y">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="admin-field md:col-span-2">
-                  <span className="admin-kpi__label">Product name *</span>
-                  <input
-                    className="admin-input admin-input--premium"
-                    value={form.name}
-                    onChange={(e) => set('name', e.target.value)}
-                    onBlur={() => {
-                      if (!form.description.trim() && form.name.trim()) applyDescriptionDraft(true)
-                    }}
-                    placeholder="Girls Ghagra-Choli Set"
-                  />
-                </label>
-                <div className="admin-field md:col-span-2">
-                  <span className="admin-kpi__label">Category *</span>
-                  <div className="admin-premium-select mt-1">
-                    <select
-                      className="admin-premium-select__input"
-                      value={form.categoryId}
-                      onChange={(e) => { set('categoryId', e.target.value); applyCategorySizes(e.target.value) }}
-                      disabled={catsLoading}
-                    >
-                      <option value="">Select category…</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Fabric</span>
-                  <input className="admin-input admin-input--premium" value={form.fabricContent} onChange={(e) => set('fabricContent', e.target.value)} />
-                </label>
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Fit</span>
-                  <input className="admin-input admin-input--premium" value={form.fitType} onChange={(e) => set('fitType', e.target.value)} />
-                </label>
-                <label className="admin-field md:col-span-2">
-                  <span className="admin-kpi__label">Occasion</span>
-                  <input className="admin-input admin-input--premium" value={form.occasion} onChange={(e) => set('occasion', e.target.value)} placeholder="Eid, Wedding, Party…" />
-                </label>
-              </div>
-            </Section>
+          <ProductCreateTabbedForm
+            tab={activeTab}
+            onTabChange={setActiveTab}
+            form={form}
+            set={set}
+            departmentId={departmentId}
+            catsLoading={catsLoading}
+            departments={categoryPicker.departments}
+            subcategories={subcategories}
+            selectedCategoryName={selectedCategory?.name}
+            sizeList={sizeList}
+            allSizeChips={ALL_SIZE_CHIPS}
+            variantCount={variantCount}
+            collections={collections}
+            colorsOpen={colorsOpen}
+            onColorsOpenToggle={() => setColorsOpen((o) => !o)}
+            colorRows={colorRows}
+            activeColorId={activeColorId}
+            imageUrls={form.imageUrls}
+            onDepartmentChange={handleDepartmentChange}
+            onSubcategoryChange={handleSubcategoryChange}
+            onNameBlur={() => {
+              if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
+                applyDescriptionDraft(true)
+              }
+            }}
+            onApplyDescriptionDraft={() => applyDescriptionDraft()}
+            onApplyBanglaPolish={applyBanglaPolish}
+            onAIGenerate={handleAIGenerate}
+            aiLoading={aiLoading}
+            onAddColorRow={addColorRow}
+            onActiveColor={setActiveColorId}
+            onUpdateColorRow={updateColorRow}
+            onRemoveColorRow={removeColorRow}
+            onAppendBanglaPhrase={appendBanglaPhrase}
+            descriptionPlaceholderEn={DESCRIPTION_PLACEHOLDER_EN}
+            descriptionPlaceholderBn={DESCRIPTION_PLACEHOLDER_BN}
+            descriptionHintEn={DESCRIPTION_HINT_EN}
+            descriptionHintBn={DESCRIPTION_HINT_BN}
+          />
 
-            <Section title="Price & sizes" hint={`${variantCount} variant(s) from sizes × colours`}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Price (BDT) *</span>
-                  <input className="admin-input admin-input--premium" type="number" value={form.basePrice} onChange={(e) => set('basePrice', e.target.value)} placeholder="1290" />
-                </label>
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Stock per variant</span>
-                  <input className="admin-input admin-input--premium" type="number" min={0} value={form.defaultStock} onChange={(e) => set('defaultStock', e.target.value)} />
-                </label>
-                <div className="admin-field md:col-span-2">
-                  <span className="admin-kpi__label">Sizes *</span>
-                  <div className="product-size-chips">
-                    {ALL_SIZE_CHIPS.map((size) => {
-                      const active = sizeList.includes(size)
-                      return (
-                        <button
-                          key={size}
-                          type="button"
-                          className={cn('product-size-chip', active && 'product-size-chip--active')}
-                          onClick={() => {
-                            const next = active ? sizeList.filter((s) => s !== size) : [...sizeList, size]
-                            set('sizes', next.join(', '))
-                          }}
-                        >
-                          {size}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <input className="admin-input admin-input--premium mt-2" value={form.sizes} onChange={(e) => set('sizes', e.target.value)} />
-                </div>
-              </div>
-            </Section>
-
-            <Section title="Colours" hint="Select row → click gallery thumb to assign image">
-              <div className="product-color-builder">
-                <div className="product-color-builder__head">
-                  <p className="text-xs font-semibold text-[var(--admin-text-secondary)]">Variant colours</p>
-                  <button type="button" className="product-color-add" onClick={addColorRow}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Add colour
-                  </button>
-                </div>
-                <div className="product-color-list">
-                  {colorRows.map((row, index) => (
-                    <article
-                      key={row.id}
-                      className={cn('product-color-row', row.id === activeColorId && 'product-color-row--active')}
-                      onClick={() => setActiveColorId(row.id)}
-                    >
-                      <div className="product-color-row__preview">
-                        {row.imageUrl ? (
-                          <Image src={row.imageUrl} alt="" fill unoptimized sizes="64px" className="object-cover" />
-                        ) : (
-                          <ImagePlus className="h-5 w-5 text-[var(--admin-text-muted)]" />
-                        )}
-                      </div>
-                      <div className="product-color-row__fields">
-                        <input
-                          className="admin-input admin-input--premium"
-                          value={row.name}
-                          onChange={(e) => updateColorRow(row.id, { name: e.target.value })}
-                          placeholder="Royal Blue"
-                        />
-                        <div className="product-color-row__meta">
-                          <label className="product-color-hex">
-                            <span className="product-color-hex__swatch" style={{ backgroundColor: row.hex }} aria-hidden />
-                            <input type="color" value={row.hex} onChange={(e) => updateColorRow(row.id, { hex: e.target.value })} aria-label={`Colour ${index + 1}`} />
-                          </label>
-                          <select
-                            className="admin-input admin-input--premium product-color-row__select"
-                            value={row.imageUrl}
-                            onChange={(e) => updateColorRow(row.id, { imageUrl: e.target.value })}
-                          >
-                            <option value="">Image…</option>
-                            {form.imageUrls.map((url, imageIndex) => (
-                              <option key={url} value={url}>Image {imageIndex + 1}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                      <button type="button" className="product-color-row__remove" onClick={() => removeColorRow(row.id)} disabled={colorRows.length <= 1} aria-label="Remove colour">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </Section>
-
-            <Section title="Description" hint="Notes = your angle · Draft = auto from name/context">
-              <div className="grid gap-4">
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Short notes (optional)</span>
-                  <input
-                    className="admin-input admin-input--premium"
-                    value={form.descriptionNotes}
-                    onChange={(e) => set('descriptionNotes', e.target.value)}
-                    placeholder="e.g. mirror work ghagra, party wear, lightweight for summer"
-                  />
-                </label>
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Full description (EN + gap + BN)</span>
-                  <textarea
-                    className="admin-input admin-input--premium min-h-[160px]"
-                    value={form.description}
-                    onChange={(e) => set('description', e.target.value)}
-                    placeholder={DESCRIPTION_PLACEHOLDER}
-                  />
-                </label>
-              </div>
-            </Section>
-
-            <Section title="SEO & metadata">
-              <div className="grid gap-4">
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Meta title</span>
-                  <input className="admin-input admin-input--premium" value={form.metaTitle} onChange={(e) => set('metaTitle', e.target.value)} placeholder="Product | SPLARO Bangladesh" />
-                </label>
-                <label className="admin-field">
-                  <span className="admin-kpi__label">Meta description</span>
-                  <textarea className="admin-input admin-input--premium min-h-[80px]" value={form.metaDescription} onChange={(e) => set('metaDescription', e.target.value)} placeholder="140–160 chars for Google…" />
-                </label>
-                {(form.metaTitle || form.metaDescription) ? (
-                  <div className="product-seo-preview">
-                    <p className="product-seo-preview__url">splaro.com.bd › products</p>
-                    <p className="product-seo-preview__title">{form.metaTitle || form.name}</p>
-                    <p className="product-seo-preview__desc">{form.metaDescription}</p>
-                  </div>
-                ) : null}
-              </div>
-            </Section>
-
-            <label className="admin-check-row">
-              <span className="text-sm font-semibold text-[var(--admin-text)]">Publish on storefront immediately</span>
-              <input type="checkbox" checked={form.isPublished} onChange={(e) => set('isPublished', e.target.checked)} className="h-4 w-4 accent-[var(--admin-accent)]" />
-            </label>
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-[var(--admin-glass-border-subtle)] pt-5">
+          <div className="product-form-actions">
             <AdminButton variant="gold" loading={createProduct.isPending} disabled={!canSubmit} onClick={handleSubmit}>
               <Save className="h-4 w-4" />
               Create product

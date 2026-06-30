@@ -1,3 +1,5 @@
+export * from './hero-default-slides'
+export * from './brand-icons'
 export * from './delivery-zones'
 export * from './domains'
 export * from './invoice-access'

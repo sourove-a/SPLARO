@@ -4,6 +4,8 @@ export interface CategoryRow {
   id: string
   name: string
   slug: string
+  parentId?: string | null
+  sortOrder?: number
   isActive?: boolean
   _count?: { products: number }
 }
@@ -19,7 +21,7 @@ export function createCategory(name: string, description?: string) {
   })
 }
 
-export function updateCategory(id: string, data: Partial<{ name: string; description: string; isActive: boolean }>) {
+export function updateCategory(id: string, data: Partial<{ name: string; description: string; isActive: boolean; image: string | null }>) {
   return apiFetch<CategoryRow>(`/admin/categories/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),

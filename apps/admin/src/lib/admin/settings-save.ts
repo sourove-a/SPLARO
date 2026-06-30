@@ -72,5 +72,11 @@ export function verifySettingsApplied(
     }
   }
 
+  if (patch.catalog?.autoGenerateSku !== undefined) {
+    if (Boolean(saved.catalog?.autoGenerateSku) !== Boolean(patch.catalog.autoGenerateSku)) {
+      return fail('Catalog SKU policy did not persist on server')
+    }
+  }
+
   return { ok: true }
 }

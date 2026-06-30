@@ -71,7 +71,17 @@ export interface SecurityData {
 
 export interface MediaData {
   stats: { total: number; products: number; banners: number; categories: number }
-  assets: { id: string; type: string; name: string; url: string; altText: string; source: string; updated: string }[]
+  assets: {
+    id: string
+    type: string
+    name: string
+    url: string
+    altText: string
+    source: string
+    updated: string
+    productId?: string
+    productSlug?: string
+  }[]
 }
 
 export interface MarketplaceData {

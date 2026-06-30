@@ -5,7 +5,7 @@ import { validateCoupon } from '@/lib/server/coupons'
 import { sendOrderConfirmation } from '@/lib/server/notifications'
 import { createOrderViaApi, fetchOrdersViaApi } from '@/lib/server/api-orders'
 import { notifyStorefrontApiError } from '@/lib/server/api-events'
-import { cacheOrderInFile, createOrder, getOrdersByUserId } from '@/lib/server/orders'
+import { cacheOrderInFile, createOrder } from '@/lib/server/orders'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 import type { StoredOrderItem } from '@/lib/server/store'
@@ -16,7 +16,6 @@ import {
 import { isDigitalPayment, type PaymentMethod } from '@/lib/checkout/payments'
 import { isBdDistrict } from '@/lib/checkout/bd-districts'
 import { getBdPhoneError, normalizeBdPhone } from '@/lib/checkout/phone'
-import { mergeOrders } from '@/lib/orders'
 import type { StoredOrder as ClientStoredOrder } from '@/lib/orders'
 import type { StoredOrder as ServerStoredOrder } from '@/lib/server/store'
 
@@ -96,13 +95,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const localOrders = await getOrdersByUserId(sessionUser.id)
   const apiOrders = await fetchOrdersViaApi(sessionUser.phone)
-
-  const orders = mergeOrders(
-    localOrders.map(toClientOrder),
-    apiOrders.map(toClientOrder),
-  )
+  const orders = apiOrders.map(toClientOrder)
 
   return NextResponse.json({ orders })
 }

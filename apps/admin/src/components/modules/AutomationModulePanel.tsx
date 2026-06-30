@@ -10,7 +10,8 @@ import { AIProductAgentPanel } from '@/components/finance/AIProductAgentPanel'
 import { useAutomationRules, useExecutiveDashboard, useProducts, useSeoOverview, useTelegramLogs } from '@/lib/api/hooks'
 import { useTelegramIntegration, useTestTelegramIntegration } from '@/lib/api/integration-hooks'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
-import { fetchSheetsDashboard, syncAllSheets } from '@/lib/api/finance'
+import { ApiOfflineHint, StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { fetchSheetsDashboard, syncAllSheets, syncSheet, type SheetsDashboardData } from '@/lib/api/finance'
 import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
@@ -84,11 +85,6 @@ function GlassTable({ icon: Icon, title, children, footer }: { icon: React.Eleme
       <div style={{ overflowX: 'auto' }}>{children}</div>
     </div>
   )
-}
-
-interface SheetsDashboardData {
-  sheets?: Array<{ sheetType: string; configured: boolean; lastSync: string | null; lastStatus: string | null; lastError: string | null }>
-  stats?: { total: number; completed: number; failed: number; pending: number }
 }
 
 // ─── Panels ───────────────────────────────────────────────────────────────────
@@ -261,27 +257,99 @@ export function TelegramNotificationsPanelLive() {
 
 export function GoogleSheetsSyncPanelLive() {
   const [data, setData] = useState<SheetsDashboardData | null>(null)
-  const [isError, setIsError] = useState(false)
+  const [isOffline, setIsOffline] = useState(false)
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
+  const [syncingType, setSyncingType] = useState<string | null>(null)
 
   const load = () => {
     fetchSheetsDashboard()
-      .then((res) => { setData(res as SheetsDashboardData); setIsError(false) })
-      .catch(() => setIsError(true))
+      .then((res) => { setData(res); setIsOffline(false) })
+      .catch(() => { setIsOffline(true); setData(null) })
   }
 
   useEffect(() => { load() }, [])
 
   const sheets = data?.sheets ?? []
+  const connection = data?.connection
   const filtered = useMemo(() => sheets.filter((s) => !query || s.sheetType.toLowerCase().includes(query.toLowerCase())), [query, sheets])
 
-  if (isError) return <ErrorBanner msg="Google Sheets API offline." />
-
   const hasFailed = sheets.some((s) => s.lastStatus === 'FAILED')
+  const configuredCount = data?.stats?.configured ?? sheets.filter((s) => s.configured).length
+
+  const runSyncAll = async () => {
+    setBusy(true)
+    try {
+      await syncAllSheets('admin')
+      load()
+      toast.success('Sheet sync queued.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Sync failed — check Google Workspace setup.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const runSyncOne = async (sheetType: string) => {
+    setSyncingType(sheetType)
+    try {
+      await syncSheet(sheetType, 'admin')
+      load()
+      toast.success(`${sheetType} sync queued.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to sync ${sheetType}.`)
+    } finally {
+      setSyncingType(null)
+    }
+  }
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <StorefrontLiveBar
+        onRefresh={load}
+        refreshing={busy}
+        items={[
+          {
+            label: 'Google account',
+            value: connection?.workspaceConnected ? (connection.googleEmail ?? 'Connected') : 'Not connected',
+            ok: Boolean(connection?.workspaceConnected),
+            ...(connection?.workspaceConnected ? {} : { hint: 'Connect via Google Workspace' }),
+          },
+          {
+            label: 'Spreadsheet',
+            value: connection?.spreadsheetLinked ? 'Linked' : 'Not linked',
+            ok: Boolean(connection?.spreadsheetLinked),
+            ...(connection?.spreadsheetLinked ? {} : { hint: 'Create or link a spreadsheet' }),
+          },
+          {
+            label: 'Configured',
+            value: `${configuredCount}/${sheets.length || data?.stats?.total || 12}`,
+            ok: configuredCount > 0,
+          },
+          {
+            label: 'Auto sync',
+            value: connection?.autoSyncEnabled ? 'On' : 'Off',
+            ok: Boolean(connection?.autoSyncEnabled),
+          },
+        ]}
+      />
+
+      {isOffline ? (
+        <ApiOfflineHint message="Google Sheets API offline — run pnpm dev:stack and refresh." />
+      ) : null}
+
+      {!connection?.spreadsheetLinked && !isOffline ? (
+        <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #F59E0B' }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#B45309' }}>
+            Google spreadsheet এখনো link করা নেই।{' '}
+            <AdminNavLink href="/dashboard/google-workspace/sheets-sync" className="automation-error-link">
+              Google Workspace → Sheets Sync
+            </AdminNavLink>{' '}
+            থেকে connect করুন, অথবা .env এ GOOGLE_SHEETS_*_ID সেট করুন।
+          </p>
+        </div>
+      ) : null}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
         <KpiCard label="Sheets" value={data?.stats?.total ?? sheets.length} />
         <KpiCard label="Synced" value={data?.stats?.completed ?? 0} />
@@ -297,7 +365,7 @@ export function GoogleSheetsSyncPanelLive() {
             <AlertTriangle style={{ width: 14, height: 14 }} /> Some sheet syncs failed
           </div>
         )}
-        <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await syncAllSheets('admin'); load(); toast.success('All sheets synced.') } catch { toast.error('Sync failed.') } finally { setBusy(false) } }} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 12, padding: '8px 16px', fontSize: 12, fontWeight: 800, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>Sync all</button>
+        <button type="button" disabled={busy || isOffline} onClick={() => void runSyncAll()} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 12, padding: '8px 16px', fontSize: 12, fontWeight: 800, cursor: busy || isOffline ? 'not-allowed' : 'pointer', opacity: busy || isOffline ? 0.6 : 1 }}>Sync all</button>
         <button type="button" onClick={load} className="settings-card admin-panel-glass-subtle" style={{ padding: '8px 14px', fontSize: 12, fontWeight: 800, color: 'var(--admin-text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
           <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
         </button>
@@ -311,15 +379,31 @@ export function GoogleSheetsSyncPanelLive() {
             <tbody>
               {filtered.map((s) => {
                 const statusKey = s.lastStatus === 'COMPLETED' ? 'completed' : s.lastStatus === 'FAILED' ? 'failed' : 'pending'
+                const rowBusy = syncingType === s.sheetType
                 return (
                   <tr key={s.sheetType}>
-                    <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{s.sheetType}</td>
-                    <td style={TD}>{s.configured ? 'Yes' : 'No'}</td>
+                    <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>
+                      {s.sheetType}
+                      {s.lastError ? (
+                        <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 600, color: '#B91C1C' }} title={s.lastError}>
+                          {s.lastError.slice(0, 60)}{s.lastError.length > 60 ? '…' : ''}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td style={TD}>
+                      {s.configured ? (
+                        <span title={s.configuredVia ?? undefined}>Yes{s.configuredVia ? ` (${s.configuredVia})` : ''}</span>
+                      ) : 'No'}
+                    </td>
                     <td style={TD}><StatusPill value={statusKey} /></td>
                     <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{s.lastSync ? formatRelativeTime(s.lastSync) : '—'}</td>
                     <td style={TD}>
-                      <AdminButton className="!px-2 !py-1 !text-xs" disabled={busy} onClick={() => toast.error('This action is not available yet — feature pending.')}>
-                        <Play style={{ width: 12, height: 12 }} /> Sync
+                      <AdminButton
+                        className="!px-2 !py-1 !text-xs"
+                        disabled={busy || isOffline || rowBusy || !s.configured}
+                        onClick={() => void runSyncOne(s.sheetType)}
+                      >
+                        <Play style={{ width: 12, height: 12 }} /> {rowBusy ? '…' : 'Sync'}
                       </AdminButton>
                     </td>
                   </tr>

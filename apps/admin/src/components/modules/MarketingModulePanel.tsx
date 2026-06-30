@@ -1,15 +1,15 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import { refreshWithToast, toastNotImplemented } from '@/lib/admin/feedback'
-import { ChevronDown, Copy, Megaphone, Plus, RefreshCw, Search, TrendingUp } from 'lucide-react'
+import { refreshWithToast, toastOk, toastFail } from '@/lib/admin/feedback'
+import { ChevronDown, Copy, Megaphone, Plus, RefreshCw, Search, Send, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
-import { formatBDT } from '@/lib/utils/currency'
-import { useCampaigns } from '@/lib/api/hooks'
-import { mapCampaignStatus } from '@/lib/api/marketing'
+import { useCampaigns, useCampaignStats, useCreateCampaign, useUpdateCampaign, useDeleteCampaign, useDuplicateCampaign, useSendCampaign } from '@/lib/api/hooks'
+import { formatCampaignType, mapCampaignStatus } from '@/lib/api/marketing'
 import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
+import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
 import { CouponsLivePanel } from '@/components/modules/CouponsLivePanel'
 import { WhatsAppPanelLive, AffiliatePanelLive, InfluencersPanelLive } from '@/components/modules/MarketingLivePanels'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
@@ -56,38 +56,142 @@ function KpiCard({ label, value, accent }: { label: string; value: string | numb
 
 // ─── Campaigns ─────────────────────────────────────────────────────────────────
 type CampaignStatus = 'draft' | 'scheduled' | 'live' | 'ended'
+type CampaignType = 'EMAIL' | 'SMS' | 'PUSH' | 'WHATSAPP'
 
 interface CampaignRow {
-  id: string; name: string; channels: string[]
-  budget: number; spent: number; reach: number; conversions: number
-  roi: string; status: CampaignStatus; period: string
+  id: string
+  name: string
+  type: string
+  channel: string
+  sent: number
+  opened: number
+  clicked: number
+  ctr: string
+  status: CampaignStatus
+  period: string
+  rawStatus: string
 }
 
 function CampaignsPanel() {
-  const { data: campaigns = [], isLoading, isError, refetch } = useCampaigns()
+  const { data: campaigns = [], isLoading, isError, refetch, isFetched } = useCampaigns()
+  const { data: stats, isError: statsError } = useCampaignStats()
+  const createCampaign = useCreateCampaign()
+  const updateCampaign = useUpdateCampaign()
+  const deleteCampaignMut = useDeleteCampaign()
+  const duplicateCampaign = useDuplicateCampaign()
+  const sendCampaignMut = useSendCampaign()
+
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState({
+    name: '',
+    type: 'EMAIL' as CampaignType,
+    subject: '',
+    body: '',
+  })
 
   const rows: CampaignRow[] = campaigns.map((c) => ({
-    id: c.id, name: c.name, channels: [c.type],
-    budget: 0, spent: 0, reach: c.totalSent, conversions: c.totalClicked,
-    roi: c.totalSent > 0 && c.totalClicked > 0 ? `${(c.totalClicked / Math.max(c.totalSent, 1)).toFixed(1)}% CTR` : '—',
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    channel: formatCampaignType(c.type),
+    sent: c.totalSent,
+    opened: c.totalOpened,
+    clicked: c.totalClicked,
+    ctr: c.totalSent > 0 ? `${Math.round((c.totalClicked / c.totalSent) * 1000) / 10}%` : '—',
     status: mapCampaignStatus(c.status),
-    period: c.sentAt ? formatRelativeTime(c.sentAt) : c.scheduledAt ? `Scheduled ${c.scheduledAt.slice(0, 10)}` : c.createdAt.slice(0, 10),
+    period: c.sentAt
+      ? formatRelativeTime(c.sentAt)
+      : c.scheduledAt
+        ? `Scheduled ${c.scheduledAt.slice(0, 10)}`
+        : c.createdAt.slice(0, 10),
+    rawStatus: c.status,
   }))
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
     return rows.filter((c) => {
-      const matchQ = !q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
+      const matchQ = !q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || c.channel.toLowerCase().includes(q)
       const matchS = statusFilter === 'all' || c.status === statusFilter
       return matchQ && matchS
     })
   }, [query, statusFilter, rows])
 
-  const totalReach = rows.reduce((s, c) => s + c.reach, 0)
-  const totalConv = rows.reduce((s, c) => s + c.conversions, 0)
+  const handleCreate = () => {
+    if (!form.name.trim() || !form.body.trim()) {
+      toastFail('Name and message body are required.')
+      return
+    }
+    createCampaign.mutate(
+      {
+        name: form.name.trim(),
+        type: form.type,
+        subject: form.subject.trim() || form.name.trim(),
+        body: form.body.trim(),
+      },
+      {
+        onSuccess: (c) => {
+          toastOk(`Campaign "${c.name}" saved to server.`)
+          setForm({ name: '', type: 'EMAIL', subject: '', body: '' })
+          setShowCreate(false)
+          void refetch()
+        },
+        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not create campaign.'),
+      },
+    )
+  }
+
+  const handleSend = (row: CampaignRow) => {
+    if (!window.confirm(`Send "${row.name}" now? This queues delivery to your audience.`)) return
+    sendCampaignMut.mutate(row.id, {
+      onSuccess: (res) => {
+        toastOk(`Campaign queued — ${res.sent} recipient(s).`)
+        setExpandedId(null)
+        void refetch()
+      },
+      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not send campaign.'),
+    })
+  }
+
+  const handleSchedule = (row: CampaignRow) => {
+    const date = window.prompt('Schedule date (YYYY-MM-DD):', new Date(Date.now() + 86400000).toISOString().slice(0, 10))
+    if (!date?.trim()) return
+    const scheduledAt = new Date(`${date.trim()}T09:00:00`).toISOString()
+    updateCampaign.mutate(
+      { id: row.id, scheduledAt, status: 'SCHEDULED' },
+      {
+        onSuccess: () => {
+          toastOk(`Campaign scheduled for ${date.trim()}.`)
+          void refetch()
+        },
+        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not schedule campaign.'),
+      },
+    )
+  }
+
+  const handleDuplicate = (row: CampaignRow) => {
+    duplicateCampaign.mutate(row.id, {
+      onSuccess: (c) => {
+        toastOk(`Duplicated as "${c.name}".`)
+        void refetch()
+      },
+      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not duplicate campaign.'),
+    })
+  }
+
+  const handleDelete = (row: CampaignRow) => {
+    if (!window.confirm(`Delete campaign "${row.name}"? This cannot be undone.`)) return
+    deleteCampaignMut.mutate(row.id, {
+      onSuccess: () => {
+        toastOk('Campaign deleted.')
+        setExpandedId(null)
+        void refetch()
+      },
+      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete campaign.'),
+    })
+  }
 
   if (isError) return (
     <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700 }}>
@@ -96,10 +200,34 @@ function CampaignsPanel() {
   )
 
   const TABS = ['all', 'live', 'scheduled', 'draft', 'ended'] as const
+  const busy = createCampaign.isPending || sendCampaignMut.isPending || updateCampaign.isPending || duplicateCampaign.isPending || deleteCampaignMut.isPending
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* KPIs */}
+      <div style={{ marginBottom: 12 }}>
+        <StorefrontLiveBar
+          items={[
+            {
+              label: 'Campaigns API',
+              value: isFetched ? `${rows.length} campaigns loaded` : 'Connecting…',
+              ok: isFetched && !isError,
+              hint: 'GET /marketing/campaigns',
+            },
+            {
+              label: 'Delivery stats',
+              value: statsError ? 'Unreachable' : `${stats?.totalSent ?? 0} sent`,
+              ok: !statsError && stats !== undefined,
+              hint: stats ? `${stats.openRate}% open · ${stats.clickRate}% click` : 'GET /marketing/campaigns/stats',
+            },
+            {
+              label: 'Active channels',
+              value: stats?.byType?.map((t) => formatCampaignType(t.type)).join(', ') || '—',
+              ok: (stats?.byType?.length ?? 0) > 0 || rows.length === 0,
+            },
+          ]}
+        />
+      </div>
+
       <div className="settings-card admin-panel-glass" style={{ padding: 24, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -108,14 +236,33 @@ function CampaignsPanel() {
           <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>Campaigns</h3>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-          <KpiCard label="Active campaigns" value={rows.filter((c) => c.status === 'live').length} accent="success" />
-          <KpiCard label="Total sent" value={totalReach.toLocaleString('en-BD')} accent="gold" />
-          <KpiCard label="Clicks" value={totalConv.toLocaleString('en-BD')} />
+          <KpiCard label="Active" value={rows.filter((c) => c.status === 'live').length} accent="success" />
+          <KpiCard label="Total sent" value={(stats?.totalSent ?? rows.reduce((s, c) => s + c.sent, 0)).toLocaleString('en-BD')} accent="gold" />
+          <KpiCard label="Open rate" value={stats ? `${stats.openRate}%` : '—'} />
           <KpiCard label="In database" value={rows.length} accent="success" />
         </div>
       </div>
 
-      {/* Toolbar */}
+      {showCreate && (
+        <div className="settings-card admin-panel-glass-subtle" style={{ padding: 16, marginBottom: 14, display: 'grid', gap: 10 }}>
+          <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>New campaign</p>
+          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+            <input className="admin-input" placeholder="Campaign name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <select className="admin-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CampaignType }))}>
+              {(['EMAIL', 'SMS', 'WHATSAPP', 'PUSH'] as const).map((t) => (
+                <option key={t} value={t}>{formatCampaignType(t)}</option>
+              ))}
+            </select>
+            <input className="admin-input" placeholder="Subject / headline" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} />
+          </div>
+          <textarea className="admin-input" rows={3} placeholder="Message body…" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <AdminButton variant="gold" loading={createCampaign.isPending} onClick={handleCreate}>Save draft</AdminButton>
+            <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</AdminButton>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 380 }}>
@@ -123,10 +270,10 @@ function CampaignsPanel() {
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search campaign name or ID…" className="admin-catalog-input" style={{ width: '100%', paddingLeft: 36, outline: 'none' }} />
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => toastNotImplemented('New campaign')} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button type="button" onClick={() => setShowCreate((v) => !v)} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Plus style={{ width: 13, height: 13 }} /> New campaign
             </button>
-            <button type="button" onClick={() => void refreshWithToast(refetch, 'Campaigns refreshed')} className="admin-catalog-action" style={{ padding: '8px 12px', cursor: 'pointer'  }}>
+            <button type="button" onClick={() => void refreshWithToast(refetch, 'Campaigns refreshed')} className="admin-catalog-action" style={{ padding: '8px 12px', cursor: 'pointer' }}>
               <RefreshCw style={{ width: 12, height: 12 }} />
             </button>
           </div>
@@ -148,7 +295,6 @@ function CampaignsPanel() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -166,59 +312,80 @@ function CampaignsPanel() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>{['Campaign', 'Channels', 'Budget', 'Spent', 'Reach', 'Conv.', 'ROI', 'Status', 'Period', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
+                <tr>{['Campaign', 'Channel', 'Sent', 'Opened', 'Clicks', 'CTR', 'Status', 'Period', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
-                  <Fragment key={c.id}>
-                    <tr style={{ background: expandedId === c.id ? 'rgba(255,255,255,0.45)' : 'transparent' }}>
-                      <td style={TD}>
-                        <button type="button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, color: 'var(--admin-text-primary)', padding: 0, fontSize: 13 }}>
-                          {c.name}
-                          <ChevronDown style={{ width: 12, height: 12, transition: 'transform 0.2s', transform: expandedId === c.id ? 'rotate(180deg)' : 'none' }} />
-                        </button>
-                        <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--admin-text-muted)' }}>{c.id}</span>
-                      </td>
-                      <td style={TD}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                          {c.channels.map((ch) => (
-                            <span key={ch} style={{ background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{ch}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td style={{ ...TD, fontWeight: 600 }}>{formatBDT(c.budget)}</td>
-                      <td style={{ ...TD, fontWeight: 700, color: c.spent > c.budget * 0.9 && c.spent > 0 ? '#D97706' : 'inherit' }}>{c.spent ? formatBDT(c.spent) : '—'}</td>
-                      <td style={TD}>{c.reach ? c.reach.toLocaleString() : '—'}</td>
-                      <td style={{ ...TD, fontWeight: 900 }}>{c.conversions || '—'}</td>
-                      <td style={{ ...TD, fontWeight: 700, color: GOLD }}>{c.roi}</td>
-                      <td style={TD}><StatusPill value={c.status} /></td>
-                      <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{c.period}</td>
-                      <td style={TD}><RowActionsMenu recordName={c.name} moduleHref="/dashboard/campaigns" recordId={c.id} /></td>
-                    </tr>
-                    {expandedId === c.id && (
-                      <tr>
-                        <td colSpan={10} style={{ ...TD, background: 'rgba(255,255,255,0.35)', padding: '12px 20px' }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                            {c.status === 'draft' && (
-                              <AdminButton variant="gold" className="!text-xs" onClick={() => toastNotImplemented('Schedule campaign')}>Schedule launch</AdminButton>
-                            )}
-                            {c.status === 'live' && (
-                              <AdminButton className="!text-xs" onClick={() => toastNotImplemented('Pause campaign')}>
-                                <TrendingUp className="h-3.5 w-3.5" /> Pause
-                              </AdminButton>
-                            )}
-                            <AdminButton className="!text-xs" onClick={() => toastNotImplemented('Campaign analytics')}>
-                              <TrendingUp className="h-3.5 w-3.5" /> Analytics
-                            </AdminButton>
-                            <AdminButton className="!text-xs" onClick={() => { void navigator.clipboard?.writeText(c.id); toastNotImplemented('Duplicate campaign') }}>
-                              <Copy className="h-3.5 w-3.5" /> Duplicate
-                            </AdminButton>
-                          </div>
+                {filtered.map((c) => {
+                  const source = campaigns.find((x) => x.id === c.id)
+                  return (
+                    <Fragment key={c.id}>
+                      <tr style={{ background: expandedId === c.id ? 'rgba(255,255,255,0.45)' : 'transparent' }}>
+                        <td style={TD}>
+                          <button type="button" onClick={() => setExpandedId(expandedId === c.id ? null : c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, color: 'var(--admin-text-primary)', padding: 0, fontSize: 13 }}>
+                            {c.name}
+                            <ChevronDown style={{ width: 12, height: 12, transition: 'transform 0.2s', transform: expandedId === c.id ? 'rotate(180deg)' : 'none' }} />
+                          </button>
+                          <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--admin-text-muted)' }}>{c.id.slice(0, 12)}…</span>
+                        </td>
+                        <td style={TD}><span style={{ background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{c.channel}</span></td>
+                        <td style={TD}>{c.sent || '—'}</td>
+                        <td style={TD}>{c.opened || '—'}</td>
+                        <td style={{ ...TD, fontWeight: 900 }}>{c.clicked || '—'}</td>
+                        <td style={{ ...TD, fontWeight: 700, color: GOLD }}>{c.ctr}</td>
+                        <td style={TD}><StatusPill value={c.status} /></td>
+                        <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{c.period}</td>
+                        <td style={TD}>
+                          <RowActionsMenu
+                            recordName={c.name}
+                            moduleHref="/dashboard/campaigns"
+                            recordId={c.id}
+                            actions={[
+                              { label: 'View details', onClick: () => setExpandedId(c.id) },
+                              ...(c.status === 'draft' || c.status === 'scheduled'
+                                ? [{ label: 'Send now', onClick: () => handleSend(c) }]
+                                : []),
+                              { label: 'Duplicate', onClick: () => handleDuplicate(c) },
+                              { label: 'Delete', tone: 'danger', onClick: () => handleDelete(c) },
+                            ]}
+                          />
                         </td>
                       </tr>
-                    )}
-                  </Fragment>
-                ))}
+                      {expandedId === c.id && (
+                        <tr>
+                          <td colSpan={9} style={{ ...TD, background: 'rgba(255,255,255,0.35)', padding: '12px 20px' }}>
+                            {source?.subject && (
+                              <p style={{ fontSize: 12, fontWeight: 700, margin: '0 0 6px' }}>Subject: {source.subject}</p>
+                            )}
+                            {source?.body && (
+                              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{source.body.slice(0, 280)}{source.body.length > 280 ? '…' : ''}</p>
+                            )}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                              {(c.status === 'draft' || c.status === 'scheduled') && (
+                                <>
+                                  <AdminButton variant="gold" className="!text-xs" loading={busy} onClick={() => handleSend(c)}>
+                                    <Send className="h-3.5 w-3.5" /> Send now
+                                  </AdminButton>
+                                  <AdminButton className="!text-xs" loading={busy} onClick={() => handleSchedule(c)}>
+                                    Schedule
+                                  </AdminButton>
+                                </>
+                              )}
+                              <AdminButton className="!text-xs" loading={busy} onClick={() => handleDuplicate(c)}>
+                                <Copy className="h-3.5 w-3.5" /> Duplicate
+                              </AdminButton>
+                              <AdminButton className="!text-xs" loading={busy} onClick={() => { void navigator.clipboard?.writeText(c.id); toastOk('Campaign ID copied.') }}>
+                                <Copy className="h-3.5 w-3.5" /> Copy ID
+                              </AdminButton>
+                              <AdminButton className="!text-xs" loading={busy} onClick={() => handleDelete(c)}>
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </AdminButton>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>

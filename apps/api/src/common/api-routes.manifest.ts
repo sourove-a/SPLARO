@@ -54,7 +54,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     // ── Commerce ──────────────────────────────────────────────────────────
     p('orders', 'Orders', 'Commerce', q('/admin/orders') + '&limit=5'),
     p('pos', 'POS', 'Commerce', q('/admin/pos/today')),
-    p('rma', 'Returns / RMA', 'Commerce', q('/admin/rma') + '&limit=5'),
+    p('rma', 'Returns / RMA', 'Commerce', q('/admin/commerce-finance/returns') + '&limit=5'),
     p('commerce-invoices', 'Invoices', 'Commerce', q('/admin/commerce-finance/invoices') + '&limit=5'),
     p('commerce-transactions', 'Transactions', 'Commerce', q('/admin/commerce-finance/transactions') + '&limit=5'),
     p('admin-invoices', 'Invoice PDF Service', 'Commerce', q('/admin/invoices/health')),
@@ -94,9 +94,9 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('content-landing', 'Landing Pages', 'Content', q('/marketing/campaigns')),
 
     // ── SEO Center ────────────────────────────────────────────────────────
-    p('seo-overview', 'SEO Health', 'SEO Center', q('/seo/overview')),
-    p('seo-sitemap', 'Sitemap Manager', 'SEO Center', `/seo/sitemap/${sid}`),
-    p('seo-audit', 'Product SEO Audit', 'SEO Center', q('/seo/audit/products') + '&limit=5'),
+    p('seo-overview', 'SEO Health', 'SEO Center', q('/admin/hub/seo/overview')),
+    p('seo-sitemap', 'Sitemap Manager', 'SEO Center', q('/admin/hub/seo/overview')),
+    p('seo-audit', 'Product SEO Audit', 'SEO Center', q('/admin/hub/seo/overview')),
     p('hub-seo', 'SEO Hub Overview', 'SEO Center', q('/admin/hub/seo/overview')),
 
     // ── AI Center ─────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ interface CartDrawerProps {
 }
 
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { items, subtotal, removeItem, updateQuantity } = useCartStore()
+  const { items, subtotal, removeItem, updateQuantity, clearCart } = useCartStore()
   const { shipping } = useStorefrontSettings()
   const freeShippingThreshold = shipping.freeDeliveryThreshold
   const showFreeShippingBar = freeShippingThreshold > 0
@@ -74,14 +74,25 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   )}
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close cart"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:bg-black hover:text-white"
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </button>
+              <div className="flex items-center gap-2">
+                {items.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-luxury-gray transition-colors hover:text-red-600"
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close cart"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:bg-black hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+              </div>
             </div>
 
             {subtotal > 0 && showFreeShippingBar ? (

@@ -85,10 +85,16 @@ export class GoogleGmailService {
 
     const gmail = await this.client.gmail(storeId)
     const raw = this.buildMime(body.to, body.subject, body.html, cfg.senderName ?? 'SPLARO', cfg.senderEmail)
-    const res = await gmail.users.messages.send({
-      userId: 'me',
-      requestBody: { raw },
-    })
+
+    let res
+    try {
+      res = await gmail.users.messages.send({
+        userId: 'me',
+        requestBody: { raw },
+      })
+    } catch (error) {
+      throwGoogleApiError(error, 'Gmail send failed')
+    }
 
     if (!res.data.id) throw new BadRequestException('Gmail API did not confirm message delivery')
 

@@ -6,13 +6,14 @@ import toast from 'react-hot-toast'
 import { Building2, Calendar, ClipboardList, FileText, Headphones, MessageCircle, Package, RefreshCw, Truck, Users, Wifi } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ProcurementSubNav, ProductionSubNav } from '@/components/operations/ProcurementProductionNav'
-import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner, ApiOfflineHint, StorefrontLiveBar } from '@/components/modules/PlatformUi'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import {
   useCustomers, useOrders, useSettings, useProcurementOverview,
   useHelpdeskOverview, useCompanyOverview, useProductionOverview,
   useDeliveryOverview, useCreateSupplier, useCreateSupportTicket,
 } from '@/lib/api/hooks'
+import { useTelegramIntegration } from '@/lib/api/integration-hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
 import { formatBDT } from '@/lib/utils/currency'
 
@@ -121,7 +122,8 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: 
 // ─── Live Chat ─────────────────────────────────────────────────────────────────
 function LiveChatPanel() {
   const { data: settings } = useSettings()
-  const { data: customersData, isError, isLoading } = useCustomers({ limit: 30 })
+  const { data: customersData, isError, isLoading, refetch: refetchCustomers } = useCustomers({ limit: 30 })
+  const { data: telegram, isError: tgError } = useTelegramIntegration()
   const recent = useMemo(() => {
     const list = customersData?.customers ?? []
     const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -129,11 +131,48 @@ function LiveChatPanel() {
   }, [customersData?.customers])
   const customers = customersData?.customers ?? []
   const whatsapp = settings?.contact?.whatsapp ?? settings?.store?.phone
+  const tgLive = Boolean(telegram?.isEnabled && telegram?.tokenConfigured && telegram?.chatId)
+  const customersOffline = isError
 
-  if (isError) return <ErrorBanner />
+  const refreshAll = () => {
+    void refetchCustomers()
+  }
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <StorefrontLiveBar
+        onRefresh={refreshAll}
+        refreshing={isLoading}
+        items={[
+          {
+            label: 'Customers API',
+            value: isLoading ? '…' : customersOffline ? 'Unavailable' : `${customers.length} profiles`,
+            ok: !customersOffline,
+            hint: 'GET /admin/customers',
+          },
+          {
+            label: 'WhatsApp',
+            value: whatsapp ? 'Configured' : 'Not set',
+            ok: Boolean(whatsapp),
+            hint: whatsapp ?? 'Settings → Contact',
+          },
+          {
+            label: 'Telegram bot',
+            value: tgError ? 'Unknown' : tgLive ? 'Connected' : 'Not connected',
+            ok: tgLive && !tgError,
+            hint: '/dashboard/telegram-bot',
+          },
+          {
+            label: 'Web chat',
+            value: 'Not connected',
+            ok: false,
+            hint: 'Route via WhatsApp/Telegram for now',
+          },
+        ]}
+      />
+      {customersOffline ? (
+        <ApiOfflineHint message="Customers API offline — recent contacts list empty until pnpm dev:api runs." />
+      ) : null}
       <KpiRow items={[['Live chats', '0'], ['Recent contacts', String(recent.length)], ['WhatsApp', whatsapp ? 'Configured' : 'Not set'], ['Total customers', String(customers.length)]]} />
       <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 16 }}>
         <div className="settings-card admin-panel-glass" style={{ padding: 20 }}>
@@ -162,13 +201,21 @@ function LiveChatPanel() {
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, textAlign: 'center' }}>
             <Headphones style={{ width: 40, height: 40, color: 'rgba(200,169,126,0.40)' }} />
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-secondary)', margin: 0 }}>Live chat widget not connected</p>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', maxWidth: 380, lineHeight: 1.5, margin: 0 }}>
-              {whatsapp ? `Route inquiries to WhatsApp ${whatsapp} until the web chat backend is enabled.` : 'Add WhatsApp in Storefront Settings for customer messaging.'}
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-secondary)', margin: 0 }}>
+              {tgLive
+                ? 'Telegram bot is connected — order alerts route to your chat.'
+                : whatsapp
+                  ? `Route inquiries to WhatsApp ${whatsapp} until web chat is enabled.`
+                  : 'Add WhatsApp in Storefront Settings or connect Telegram for customer messaging.'}
             </p>
-            <Link href="/dashboard/all-integrations" className="admin-catalog-action inline-flex items-center" style={{ padding: '7px 18px', fontSize: 12, fontWeight: 800, textDecoration: 'none', marginTop: 8  }}>
-              Connect channels
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+            <Link href="/dashboard/telegram-bot" className="admin-catalog-action inline-flex items-center" style={{ padding: '7px 18px', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>
+              Telegram bot
             </Link>
+            <Link href="/dashboard/all-integrations" className="admin-catalog-action inline-flex items-center" style={{ padding: '7px 18px', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>
+              All integrations
+            </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -178,15 +225,20 @@ function LiveChatPanel() {
 
 // ─── Helpdesk ──────────────────────────────────────────────────────────────────
 function HelpdeskPanel() {
-  const { data, isError, isLoading, refetch } = useHelpdeskOverview()
+  const { data, isOffline, isLoading, refetch, isFetching } = useHelpdeskOverview()
+  const { data: telegram } = useTelegramIntegration()
   const createTicket = useCreateSupportTicket()
   const tickets = data?.tickets ?? []
 
   const handleCreateTicket = () => {
+    if (isOffline) {
+      toast.error('Helpdesk API offline — start pnpm dev:api first.')
+      return
+    }
     const subject = window.prompt('Ticket subject')
     if (!subject?.trim()) return
     const message = window.prompt('Initial message (optional)') ?? undefined
-    createTicket.mutate({ subject: subject.trim(), ...(message?.trim() ? { message: message.trim() } : {}) }, { onSuccess: () => toast.success('Support ticket created.'), onError: (e) => toast.error(e.message) })
+    createTicket.mutate({ subject: subject.trim(), ...(message?.trim() ? { message: message.trim() } : {}) }, { onSuccess: () => { toast.success('Support ticket created.'); void refetch() }, onError: (e) => toast.error(e.message) })
   }
 
   const columns = useMemo(() => ({
@@ -197,11 +249,43 @@ function HelpdeskPanel() {
   }), [tickets])
 
   const openCount = data?.open ?? (columns.New.length + columns.Assigned.length + columns.Waiting.length)
-
-  if (isError) return <ErrorBanner msg="Helpdesk API offline — start pnpm dev:api." />
+  const tgLive = Boolean(telegram?.isEnabled && telegram?.tokenConfigured)
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <StorefrontLiveBar
+        onRefresh={() => void refetch()}
+        refreshing={isFetching}
+        items={[
+          {
+            label: 'Helpdesk API',
+            value: isLoading ? '…' : isOffline ? 'Unavailable' : `${data.total} ticket(s)`,
+            ok: !isOffline,
+            hint: 'GET /commerce-os/helpdesk/overview',
+          },
+          {
+            label: 'Open queue',
+            value: String(openCount),
+            ok: !isOffline,
+            hint: 'OPEN + PENDING statuses',
+          },
+          {
+            label: 'Manual ticket',
+            value: isOffline ? 'Disabled' : 'Ready',
+            ok: !isOffline,
+            hint: 'POST /admin/hub/support/tickets',
+          },
+          {
+            label: 'Telegram alerts',
+            value: tgLive ? 'Connected' : 'Not set',
+            ok: tgLive,
+            hint: 'Order + support notifications',
+          },
+        ]}
+      />
+      {isOffline ? (
+        <ApiOfflineHint message="Helpdesk API offline — ticket board empty until API is running on :4000." />
+      ) : null}
       <KpiRow items={[['Open tickets', String(openCount)], ['New', String(columns.New.length)], ['In progress', String(columns.Assigned.length + columns.Waiting.length)], ['Total', String(data?.total ?? tickets.length)]]} />
       {isLoading ? (
         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading tickets…</p>

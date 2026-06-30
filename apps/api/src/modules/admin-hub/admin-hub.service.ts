@@ -185,13 +185,48 @@ export class AdminHubService {
     const redirects = configs
       .filter((c) => c.canonicalUrl)
       .map((c, i) => ({
-        id: c.id,
+        id: `canonical-${c.id}`,
         from: `/${c.resourceType}/${c.resourceId ?? i}`,
         to: c.canonicalUrl!,
         type: '301',
         hits: 0,
         status: 'good',
+        source: 'canonical' as const,
       }))
+
+    let managedRedirects: {
+      id: string
+      from: string
+      to: string
+      type: string
+      hits: number
+      status: string
+      source: 'rule'
+      note: string | null
+      isActive: boolean
+    }[] = []
+
+    try {
+      const urlRedirects = await this.prisma.urlRedirect.findMany({
+        where: { storeId },
+        orderBy: { createdAt: 'asc' },
+      })
+      managedRedirects = urlRedirects.map((r) => ({
+        id: r.id,
+        from: r.fromPath,
+        to: r.toPath,
+        type: r.type,
+        hits: r.hits,
+        status: r.isActive ? 'good' : 'warning',
+        source: 'rule' as const,
+        note: r.note,
+        isActive: r.isActive,
+      }))
+    } catch {
+      /* Stale Prisma client until API restart after schema change */
+    }
+
+    const allRedirects = [...managedRedirects, ...redirects]
 
     const avgScore =
       productAudits.length > 0
@@ -211,7 +246,7 @@ export class AdminHubService {
         lastGen: new Date().toISOString(),
         submitted: s.status === 'good' ? 'Google' : 'Pending',
       })),
-      redirects,
+      redirects: allRedirects,
       productAudits,
       summary: {
         avgScore,

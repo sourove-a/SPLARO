@@ -51,3 +51,12 @@ export interface DashboardInsightsResponse {
 export function fetchDashboardInsights(period: '1d' | '7d' | '30d' | '90d' = '7d') {
   return apiFetch<DashboardInsightsResponse>(`/admin/dashboard/insights?period=${period}`)
 }
+
+export interface InventoryAlertsResponse {
+  outOfStock: number
+  lowStock: number
+}
+
+export function fetchInventoryAlerts() {
+  return apiFetch<InventoryAlertsResponse>('/admin/dashboard/inventory-alerts')
+}

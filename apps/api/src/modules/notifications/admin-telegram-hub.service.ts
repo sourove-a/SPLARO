@@ -90,6 +90,35 @@ Source: ${input.source ?? 'Website signup'}
     await this.safeSend(storeId, msg)
   }
 
+  async notifyNewReview(
+    storeId: string,
+    input: {
+      productName: string
+      productSlug: string
+      customerName: string
+      rating: number
+      excerpt: string
+      verifiedPurchase?: boolean
+    },
+  ): Promise<void> {
+    if (!(await this.flag(storeId, 'notifyReviews'))) return
+
+    const stars = '★'.repeat(input.rating) + '☆'.repeat(5 - input.rating)
+    const msg = `
+⭐ <b>New Product Review</b>
+
+Product: <b>${input.productName}</b>
+Rating: ${stars} (${input.rating}/5)
+Customer: ${input.customerName}${input.verifiedPurchase ? ' · ✓ Verified purchase' : ''}
+
+"${input.excerpt.slice(0, 200)}${input.excerpt.length > 200 ? '…' : ''}"
+
+<i>Pending approval — Admin → Product Reviews</i>
+`.trim()
+
+    await this.safeSend(storeId, msg)
+  }
+
   async notifyAdminError(
     storeId: string,
     subject: string,
@@ -138,7 +167,7 @@ Failed: ${summary.failed}${failLines}
 
   private async flag(
     storeId: string,
-    key: 'notifyOrders' | 'notifyCustomers' | 'notifyPayments' | 'notifyCourier' | 'notifyStock',
+    key: 'notifyOrders' | 'notifyCustomers' | 'notifyPayments' | 'notifyCourier' | 'notifyStock' | 'notifyReviews',
   ): Promise<boolean> {
     const cfg = await this.loadConfig(storeId)
     if (!cfg?.isActive) return false

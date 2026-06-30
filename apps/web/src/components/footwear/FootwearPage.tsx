@@ -95,15 +95,16 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
       <div
         className="relative rounded-2xl overflow-hidden mb-3 transition-all duration-300"
         style={{
-          background: 'linear-gradient(145deg,#f8f9fa,#edeef0)',
+          background: 'linear-gradient(180deg,#F7F7F8 0%,#EFEFF1 58%,#E5E5E8 100%)',
+          border: `1px solid ${hovered ? 'rgba(17,17,17,0.16)' : 'rgba(17,17,17,0.06)'}`,
           boxShadow: hovered
-            ? '0 12px 32px rgba(17,17,17,0.12)'
-            : '0 2px 8px rgba(17,17,17,0.06)',
+            ? '0 18px 40px -18px rgba(17,17,17,0.22)'
+            : '0 1px 2px rgba(17,17,17,0.03)',
           transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
         }}
       >
-        {/* Logo watermark */}
-        <span className="absolute top-2 right-2 text-[10px] font-bold tracking-widest text-[#111]/20 uppercase select-none z-10">
+        {/* Collection / brand tag — top-right (ILYN style) */}
+        <span className="absolute top-2.5 right-2.5 z-10 select-none rounded-full border border-[#111]/10 bg-white/75 px-2.5 py-1 text-[0.5rem] font-semibold uppercase tracking-[0.16em] text-[#4A4A4A] backdrop-blur-sm">
           SPLARO
         </span>
 

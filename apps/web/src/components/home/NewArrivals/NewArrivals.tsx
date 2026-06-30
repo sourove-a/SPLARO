@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
-import { formatBDT } from '@/lib/utils/currency'
 import { fadeUp, staggerContainer } from '@/lib/motion/variants'
 import { ScrollReveal } from '@/components/motion/ScrollReveal'
+import { IlynProductCard } from '@/components/product/ProductCard/IlynProductCard'
 
 const products = [
   {
@@ -94,70 +93,22 @@ export function NewArrivals() {
           whileInView="visible"
           viewport={{ once: true, margin: '-80px' }}
         >
-          {products.map((product) => {
-            const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
-            const discount = hasDiscount
-              ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
-              : 0
-
-            return (
-              <motion.article key={product.id} variants={cardVariants} className="group">
-                <Link href={`/products/${product.slug}`} aria-label={product.name}>
-                  {/* Image — second image hover reveal */}
-                  <div className="relative mb-4 aspect-[3/4] overflow-hidden bg-[#F0EDE8]" style={{ borderRadius: '16px' }}>
-                    {/* Primary image */}
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      fill
-                      sizes="(max-width: 640px) 50vw, 25vw"
-                      className="object-cover object-top transition-opacity duration-600 ease-out group-hover:opacity-0"
-                    />
-                    {/* Hover image */}
-                    <Image
-                      src={product.imageHover}
-                      alt={`${product.name} — alternate view`}
-                      fill
-                      sizes="(max-width: 640px) 50vw, 25vw"
-                      className="object-cover object-top opacity-0 transition-opacity duration-600 ease-out group-hover:opacity-100"
-                    />
-
-                    {/* Badge — New */}
-                    <div className="absolute left-3 top-3 flex flex-col gap-1.5">
-                      <span className="rounded-full bg-[#111] px-2.5 py-1 text-[0.46rem] font-bold uppercase tracking-[0.18em] text-white">
-                        New
-                      </span>
-                      {hasDiscount && (
-                        <span className="rounded-full bg-[#C8A97E] px-2.5 py-1 text-[0.46rem] font-bold uppercase tracking-[0.18em] text-white">
-                          -{discount}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Product info — minimal */}
-                  <div className="space-y-1.5">
-                    <p className="text-[0.5rem] font-semibold uppercase tracking-[0.2em] text-[#6B6B6B]">
-                      {product.category}
-                    </p>
-                    <h3 className="text-[0.8125rem] font-semibold tracking-wide text-[#111] transition-colors duration-200 group-hover:text-[#6B6B6B]">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-baseline gap-2.5">
-                      <span className="text-[0.8125rem] font-bold text-[#111]">
-                        {formatBDT(product.price)}
-                      </span>
-                      {hasDiscount && (
-                        <span className="text-[0.6875rem] text-[#6B6B6B] line-through">
-                          {formatBDT(product.compareAtPrice!)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              </motion.article>
-            )
-          })}
+          {products.map((product) => (
+            <motion.div key={product.id} variants={cardVariants}>
+              <IlynProductCard
+                id={product.id}
+                slug={product.slug}
+                name={product.name}
+                price={product.price}
+                {...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {})}
+                image={product.image}
+                imageHover={product.imageHover}
+                collection={product.category}
+                status={product.isNew ? 'New' : 'Ready'}
+                fit="cover"
+              />
+            </motion.div>
+          ))}
         </motion.div>
 
         {/* Mobile CTA */}

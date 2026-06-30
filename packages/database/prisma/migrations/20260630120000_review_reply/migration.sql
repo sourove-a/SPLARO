@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "adminReply" TEXT;
+ALTER TABLE "Review" ADD COLUMN IF NOT EXISTS "adminReplyAt" TIMESTAMP(3);

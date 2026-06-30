@@ -9,7 +9,7 @@ import {
   useUpdateTelegramIntegration,
 } from '@/lib/api/integration-hooks'
 import {
-  Bot, Bell, MessageSquare, Package, Truck, BarChart2,
+  Bot, Bell, MessageSquare, Package, Truck, BarChart2, Star,
   Save, Eye, EyeOff, Send, Loader2, AlertTriangle, CheckCircle2, ChevronDown,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
@@ -95,6 +95,7 @@ export function TelegramBotConfigPanel() {
     notifyPayments: true,
     notifyCourier: true,
     notifyStock: true,
+    notifyReviews: true,
     reportDaily: true,
     reportTime: '09:00',
   })
@@ -115,6 +116,7 @@ export function TelegramBotConfigPanel() {
       notifyPayments: data.notifyPayments ?? true,
       notifyCourier: data.notifyCourier ?? true,
       notifyStock: data.notifyStock ?? true,
+      notifyReviews: data.notifyReviews ?? true,
       reportDaily: data.reportDaily ?? true,
       reportTime: data.reportTime ?? '09:00',
     })
@@ -188,6 +190,7 @@ export function TelegramBotConfigPanel() {
     { key: 'notifyPayments' as const, icon: Bell, label: 'Payment Received', desc: 'Successful payments & refunds' },
     { key: 'notifyCourier' as const, icon: Truck, label: 'Courier Booking Failed', desc: 'Courier API failures' },
     { key: 'notifyStock' as const, icon: Package, label: 'Low Stock', desc: 'Variants at or below threshold' },
+    { key: 'notifyReviews' as const, icon: Star, label: 'New Product Reviews', desc: 'Customer review submitted — pending approval' },
     { key: 'reportDaily' as const, icon: BarChart2, label: 'Daily Report', desc: 'Scheduled summary' },
   ]
 
@@ -195,7 +198,7 @@ export function TelegramBotConfigPanel() {
     <div className="mx-auto max-w-3xl space-y-4 pb-8">
       <section className="ai-command-hero">
         <p className="ai-command-eyebrow">Integrations</p>
-        <h1 className="ai-command-title">Telegram Bot</h1>
+        <h2 className="ai-command-title">Telegram Bot</h2>
         <p className="ai-command-sub">Saved in PostgreSQL (encrypted token). Reload-safe.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <span className={cn('ai-command-pill', connected ? 'ai-command-pill--ok' : 'ai-command-pill--warn')}>

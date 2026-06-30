@@ -1,4 +1,5 @@
 export { CheckoutField } from './CheckoutField'
+export { CheckoutPhoneInput } from './CheckoutPhoneInput'
 export { CheckoutSteps } from './CheckoutSteps'
 export { CheckoutHeader } from './CheckoutHeader'
 export { CheckoutOrderSummary } from './CheckoutOrderSummary'

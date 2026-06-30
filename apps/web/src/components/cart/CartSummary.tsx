@@ -1,5 +1,10 @@
+'use client'
+
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { formatBDT } from '@/lib/utils/currency'
+import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
+import { useAuthStore } from '@/store/authStore'
 import { CartTrustSignals } from './CartTrustSignals'
 
 interface CartSummaryProps {
@@ -9,6 +14,14 @@ interface CartSummaryProps {
 }
 
 export function CartSummary({ subtotal, onClose, continueHref = '/collections' }: CartSummaryProps) {
+  const router = useRouter()
+  const user = useAuthStore((state) => state.user)
+
+  const handleCheckout = () => {
+    onClose?.()
+    router.push(getCheckoutEntryPath(Boolean(user)))
+  }
+
   return (
     <div className="border-t border-black/5 bg-white/55 px-6 py-5 backdrop-blur-2xl">
       <CartTrustSignals />
@@ -23,13 +36,13 @@ export function CartSummary({ subtotal, onClose, continueHref = '/collections' }
         Shipping and taxes are calculated at checkout.
       </p>
 
-      <Link
-        href="/checkout"
-        {...(onClose ? { onClick: onClose } : {})}
+      <button
+        type="button"
+        onClick={handleCheckout}
         className="glass-action glass-action-dark flex w-full justify-center"
       >
         Proceed to Checkout
-      </Link>
+      </button>
       {onClose ? (
         <button
           type="button"

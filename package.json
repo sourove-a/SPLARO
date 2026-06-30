@@ -30,6 +30,7 @@
     "db:migrate:prod": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx prisma migrate deploy'",
     "db:push": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx prisma db push'",
     "db:seed": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx prisma db seed'",
+    "db:seed:categories": "bash -lc 'set -a && source .env && set +a && cd apps/api && npx ts-node --transpile-only scripts/seed-category-tree.ts'",
     "telegram:configure": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx tsx prisma/configure-telegram.ts'",
     "db:studio": "cd packages/database && npx prisma studio",
     "db:reset": "cd packages/database && npx prisma migrate reset",
@@ -52,9 +53,10 @@
     "doctor": "node scripts/doctor.mjs",
     "verify:css": "node scripts/verify-css.mjs",
     "css:health": "node scripts/css-health.mjs",
-    "css:fix": "rm -rf apps/web/.next apps/admin/.next apps/web/tsconfig.tsbuildinfo apps/admin/tsconfig.tsbuildinfo && echo 'CSS cache cleared — restart pnpm dev:web and pnpm dev:admin'",
+    "css:fix": "rm -rf apps/web/.next apps/admin/.next apps/web/tsconfig.tsbuildinfo apps/admin/tsconfig.tsbuildinfo && echo 'Next cache cleared — restart pnpm dev:stack'",
     "css:fix:web": "pnpm --filter @splaro/web css:fix",
     "css:fix:admin": "pnpm --filter @splaro/admin css:fix",
+    "icons:generate": "node scripts/generate-splaro-icons.mjs",
     "preflight:api": "node scripts/api-preflight.mjs"
   },
   "pnpm": {

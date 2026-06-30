@@ -13,6 +13,7 @@ export interface TelegramIntegrationDto {
   notifyPayments: boolean
   notifyCourier: boolean
   notifyStock: boolean
+  notifyReviews: boolean
   reportDaily: boolean
   reportTime: string
 }
@@ -42,6 +43,7 @@ export class TelegramIntegrationService {
       notifyPayments: tg?.notifyPayments ?? true,
       notifyCourier: tg?.notifyCourier ?? true,
       notifyStock: tg?.notifyStock ?? true,
+      notifyReviews: tg?.notifyReviews ?? true,
       reportDaily: tg?.reportDaily ?? true,
       reportTime: tg?.reportTime ?? '09:00',
       lastTestedAt: meta.lastTestedAt,
@@ -96,6 +98,7 @@ export class TelegramIntegrationService {
         notifyPayments: body.notifyPayments,
         notifyCourier: body.notifyCourier,
         notifyStock: body.notifyStock,
+        notifyReviews: body.notifyReviews,
         reportDaily: body.reportDaily,
         reportTime: body.reportTime || '09:00',
       },
@@ -108,6 +111,7 @@ export class TelegramIntegrationService {
         notifyPayments: body.notifyPayments,
         notifyCourier: body.notifyCourier,
         notifyStock: body.notifyStock,
+        notifyReviews: body.notifyReviews,
         reportDaily: body.reportDaily,
         reportTime: body.reportTime || '09:00',
       },
@@ -127,6 +131,7 @@ export class TelegramIntegrationService {
       notifyPayments: body.notifyPayments,
       notifyCourier: body.notifyCourier,
       notifyStock: body.notifyStock,
+      notifyReviews: body.notifyReviews,
       reportDaily: body.reportDaily,
       reportTime: body.reportTime || '09:00',
     })) {

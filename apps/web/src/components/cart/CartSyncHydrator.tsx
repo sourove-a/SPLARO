@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
 import { pullServerCart, pushCartToServer } from '@/lib/api/cart-sync'
@@ -10,20 +10,22 @@ export function CartSyncHydrator() {
   const hydrated = useAuthStore((state) => state._hydrated)
   const cartHydrated = useCartStore((state) => state._hydrated)
   const items = useCartStore((state) => state.items)
-  const addItem = useCartStore((state) => state.addItem)
+  const replaceItems = useCartStore((state) => state.replaceItems)
+  const hasPulledServerCart = useRef(false)
+
+  useEffect(() => {
+    if (!hydrated || !cartHydrated || !user || hasPulledServerCart.current) return
+
+    hasPulledServerCart.current = true
+    void pullServerCart((serverItems) => {
+      if (serverItems.length > 0) {
+        replaceItems(serverItems)
+      }
+    })
+  }, [hydrated, cartHydrated, user, replaceItems])
 
   useEffect(() => {
     if (!hydrated || !cartHydrated || !user) return
-
-    void pullServerCart((serverItems) => {
-      for (const item of serverItems) {
-        addItem(item)
-      }
-    })
-  }, [hydrated, cartHydrated, user, addItem])
-
-  useEffect(() => {
-    if (!hydrated || !cartHydrated || !user || items.length === 0) return
     void pushCartToServer(items)
   }, [hydrated, cartHydrated, user, items])
 

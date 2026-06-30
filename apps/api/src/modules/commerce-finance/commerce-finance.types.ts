@@ -48,3 +48,18 @@ export interface TransactionStats {
   pending: number
   failed: number
 }
+
+export interface TransactionHealthRow {
+  status: string
+  paymentCount: number
+  latestTxnId: string | null
+  gateways: string[]
+}
+
+export interface TransactionDetailRow extends TransactionListRow {
+  method: string
+  currency: string
+  failureReason: string | null
+  paidAt: string | null
+  gatewayResponse: unknown
+}

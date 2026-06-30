@@ -8,6 +8,7 @@ import { StorefrontSettingsProvider } from '@/components/providers/StorefrontSet
 import { AnalyticsScripts } from '@/components/analytics/AnalyticsScripts'
 import { AttributionCapture } from '@/components/analytics/AttributionCapture'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
+import { SPLARO_TAB_ICONS, splaroMetadataIcons } from '@splaro/config'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 const inter = Inter({
@@ -26,8 +27,6 @@ const cormorant = Cormorant_Garamond({
 export const revalidate = 60
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.com.bd'
-const DEFAULT_FAVICON = '/images/logo/splaro-brand-mark-tab.png'
-const DEFAULT_APPLE_ICON = '/images/logo/splaro-brand-mark-tab-180.png'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -88,10 +87,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteUrl,
   },
-  icons: {
-    icon: DEFAULT_FAVICON,
-    apple: DEFAULT_APPLE_ICON,
-  },
+  icons: splaroMetadataIcons,
   other: {
     'facebook-domain-verification': 'your-facebook-domain-verification-code',
   },
@@ -112,14 +108,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     rawFavicon.includes('brand-mark-transparent') ||
     rawFavicon.includes('splaro-brand-mark-tab') ||
     rawFavicon.includes('favicon.svg')
-      ? DEFAULT_FAVICON
+      ? SPLARO_TAB_ICONS.icon48
       : rawFavicon
   const appleIconUrl =
     !rawFavicon ||
     rawFavicon.includes('brand-mark-transparent') ||
     rawFavicon.includes('splaro-brand-mark-tab') ||
     rawFavicon.includes('favicon.svg')
-      ? DEFAULT_APPLE_ICON
+      ? SPLARO_TAB_ICONS.apple180
       : rawFavicon
 
   return (
@@ -129,9 +125,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="dns-prefetch" href="https://cdn.splaro.com.bd" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-        <link rel="icon" href={faviconUrl} sizes="32x32" />
+        <link rel="icon" href={SPLARO_TAB_ICONS.icon32} sizes="32x32" type="image/png" />
+        <link rel="icon" href={SPLARO_TAB_ICONS.icon48} sizes="48x48" type="image/png" />
         <link rel="shortcut icon" href={faviconUrl} />
-        <link rel="apple-touch-icon" href={appleIconUrl} />
+        <link rel="apple-touch-icon" href={appleIconUrl} sizes="180x180" />
         {/* Structured Data — Organization
             Safe: content is fully static, no user-controlled input ever reaches here */}
         <script
@@ -151,8 +148,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 availableLanguage: ['English'],
               },
               sameAs: [
-                'https://www.instagram.com/splaro.official',
-                'https://www.facebook.com/splaro.official',
+                'https://www.instagram.com/splaro.bd',
+                'https://www.facebook.com/SPLARO/',
+                'https://www.youtube.com/@SPLARO',
               ],
             }),
           }}

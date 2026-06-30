@@ -98,6 +98,57 @@ export function printInvoice(orderId: string) {
   )
 }
 
+export function printProductLabel(opts: {
+  sku: string
+  name: string
+  price: string
+  category?: string
+}) {
+  const safe = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SPLARO label · ${safe(opts.sku)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px; font-family: Inter, system-ui, sans-serif; color: #101114; }
+    .label { width: 72mm; min-height: 48mm; padding: 14px 16px; border: 1px dashed #bbb; border-radius: 8px; }
+    .brand { font-size: 9px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #888; margin: 0 0 10px; }
+    .sku { font-family: ui-monospace, monospace; font-size: 20px; font-weight: 800; margin: 0 0 8px; }
+    .name { font-size: 13px; font-weight: 700; line-height: 1.35; margin: 0 0 6px; }
+    .meta { font-size: 11px; color: #666; margin: 0; }
+    .price { margin-top: 10px; font-size: 15px; font-weight: 800; }
+    @media print { body { padding: 0; } .label { border: none; } }
+  </style>
+</head>
+<body>
+  <div class="label">
+    <p class="brand">SPLARO</p>
+    <p class="sku">${safe(opts.sku)}</p>
+    <p class="name">${safe(opts.name)}</p>
+    ${opts.category ? `<p class="meta">${safe(opts.category)}</p>` : ''}
+    <p class="price">${safe(opts.price)}</p>
+  </div>
+  <script>window.addEventListener('load', () => window.print())</script>
+</body>
+</html>`
+
+  const popup = window.open('', '_blank', 'noopener,noreferrer,width=420,height=360')
+  if (!popup) {
+    toastFail('Pop-up blocked — allow pop-ups to print product label.')
+    return
+  }
+  popup.document.write(html)
+  popup.document.close()
+}
+
 export function downloadInvoicePdf(orderId: string, invoiceNumber?: string) {
   const anchor = document.createElement('a')
   anchor.href = `/api/orders/${encodeURIComponent(orderId)}/invoice/pdf`

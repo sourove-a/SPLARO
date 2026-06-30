@@ -14,6 +14,12 @@ export function throwGoogleApiError(error: unknown, context: string): never {
     )
   }
 
+  if (lower.includes('gmail api has not been used')) {
+    throw new BadRequestException(
+      'Gmail API is disabled in Google Cloud. Enable: APIs & Services → Library → Gmail API → Enable. Wait 1–2 min, then retry.',
+    )
+  }
+
   if (lower.includes('insufficient permission') || lower.includes('insufficient authentication scopes')) {
     throw new BadRequestException(
       `${context}: Google account lacks Drive permission. Reconnect in Google Workspace → Connect Google Account.`,

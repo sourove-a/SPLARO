@@ -57,9 +57,13 @@ export class GoogleWorkspaceService {
       Boolean(conn?.isConnected && spreadsheetId) ||
       (saConfigured && Boolean(conn?.isConnected || spreadsheetId))
 
+    const oauthConfigReady = this.oauth.isOAuthConfigured()
+
     return {
       connected: sheetsConnected || oauthConnected,
       oauthConnected,
+      oauthConfigReady,
+      oauthLoginHint: this.oauth.resolveLoginHint(),
       oauthEmail,
       authMode,
       serviceAccountEmail: saEmail,
@@ -115,14 +119,25 @@ export class GoogleWorkspaceService {
     }
   }
 
-  async testConnection(storeIdRaw: string) {
+  async testConnection(storeIdRaw: string, mode?: 'gmail' | 'sheets' | 'auto') {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const conn = await this.prisma.googleWorkspaceConnection.findUnique({ where: { storeId } })
+    const oauthToken = conn
+      ? await this.prisma.googleWorkspaceToken.findUnique({
+          where: { connectionId_serviceName: { connectionId: conn.id, serviceName: 'oauth' } },
+        })
+      : null
+    const hasOAuth = Boolean(oauthToken?.refreshTokenEncrypted)
+    const preferOAuth = mode === 'gmail' || (mode !== 'sheets' && hasOAuth)
 
-    if (this.serviceAccount.isConfigured()) {
-      const conn = await this.prisma.googleWorkspaceConnection.findUnique({ where: { storeId } })
+    if (!preferOAuth && this.serviceAccount.isConfigured()) {
       const spreadsheetId = conn?.spreadsheetId ?? this.config.get<string>('GOOGLE_DEFAULT_SPREADSHEET_ID')
       const result = await this.serviceAccount.testAccess(spreadsheetId)
       return { ok: true, message: result.message, email: result.email, authMode: 'service_account' as const }
+    }
+
+    if (!hasOAuth) {
+      throw new BadRequestException('Gmail OAuth not connected. Click Connect Gmail and complete Google login.')
     }
 
     const auth = await this.client.getAuthenticatedClient(storeId)

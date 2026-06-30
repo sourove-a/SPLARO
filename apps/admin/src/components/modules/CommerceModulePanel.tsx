@@ -150,7 +150,8 @@ function CustomersView() {
     }
     try {
       await deleteCustomer.mutateAsync({ id, force })
-      toast.success(force ? 'Customer and orders deleted.' : 'Customer deleted.')
+      toast.success(force ? 'Customer and orders deleted permanently.' : 'Customer deleted permanently.')
+      void refetch()
       if (previewId === id) setPreviewId(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not delete customer.')

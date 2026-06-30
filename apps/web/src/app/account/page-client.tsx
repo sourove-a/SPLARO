@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
   ArrowUpRight,
+  BadgeCheck,
   ChevronRight,
   Download,
   Gem,
@@ -23,9 +24,9 @@ import {
   Truck,
   UserRound,
 } from 'lucide-react'
-import { useAuthStore } from '@/store/authStore'
+import { useAuthStore, type AuthUser } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
-import { getAllProducts } from '@/lib/catalog'
+import type { ProductCardData } from '@/types/product'
 import { ProductCard } from '@/components/product/ProductCard/ProductCard'
 import { formatBDT } from '@/lib/utils/currency'
 import {
@@ -170,10 +171,12 @@ function OrderCard({
                   'account-status-badge',
                   stage === 'Delivered'
                     ? 'account-status-badge--delivered'
-                    : 'account-status-badge--active',
+                    : stage === 'Pending'
+                      ? 'account-status-badge--pending'
+                      : 'account-status-badge--active',
                 )}
               >
-                {stage === 'Delivered' ? 'Delivered' : stage}
+                {stage}
               </span>
               {stage === 'Delivered' ? (
                 <span className="account-order-card__delivered-on">
@@ -224,15 +227,18 @@ export default function AccountDashboard() {
   const user = useAuthStore((state) => state.user)
   const authHydrated = useAuthStore((state) => state._hydrated)
   const signIn = useAuthStore((state) => state.signIn)
+  const setUser = useAuthStore((state) => state.setUser)
   const signOut = useAuthStore((state) => state.signOut)
   const wishlistIds = useWishlistStore((state) => state.productIds)
 
   const [section, setSection] = useState<AccountSection>('orders')
   const [orders, setOrders] = useState<StoredOrder[]>([])
+  const [wishlistProducts, setWishlistProducts] = useState<ProductCardData[]>([])
   const [profile, setProfile] = useState({ name: '', email: '', phone: '' })
   const [address, setAddress] = useState({ address: '', city: 'Dhaka' })
   const [loyalty, setLoyalty] = useState({ points: 0, tier: 'BRONZE', memberSince: '' })
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -242,8 +248,12 @@ export default function AccountDashboard() {
 
   useEffect(() => {
     if (!authHydrated) return
-    if (!user) router.replace('/login?next=/account')
-  }, [authHydrated, user, router])
+    if (!user) {
+      const tab = searchParams.get('tab')
+      const next = tab ? `/account?tab=${tab}` : '/account'
+      router.replace(`/login?next=${encodeURIComponent(next)}`)
+    }
+  }, [authHydrated, user, router, searchParams])
 
   useEffect(() => {
     if (!user) return
@@ -264,22 +274,45 @@ export default function AccountDashboard() {
     if (!user) return
     fetch('/api/account/profile', { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { profile?: { loyaltyPoints: number; loyaltyTier: string; memberSince: string } } | null) => {
+      .then((data: {
+        profile?: { loyaltyPoints: number; loyaltyTier: string; memberSince: string }
+        user?: { avatar?: string | null; phoneVerified?: boolean; loyaltyTier?: string }
+      } | null) => {
         if (!data?.profile) return
         setLoyalty({
           points: data.profile.loyaltyPoints,
           tier: data.profile.loyaltyTier,
           memberSince: data.profile.memberSince,
         })
+        if (data.user) {
+          setUser({
+            ...user,
+            ...(data.user.avatar ? { avatar: data.user.avatar } : {}),
+            ...(data.user.phoneVerified ? { phoneVerified: true } : {}),
+            ...(data.user.loyaltyTier ? { loyaltyTier: data.user.loyaltyTier } : {}),
+          })
+        }
       })
       .catch(() => undefined)
-  }, [user])
+  }, [user, setUser])
+
+  useEffect(() => {
+    if (!wishlistIds.length) {
+      setWishlistProducts([])
+      return
+    }
+
+    fetch(`/api/account/wishlist/products?ids=${encodeURIComponent(wishlistIds.join(','))}`, {
+      credentials: 'include',
+    })
+      .then((res) => (res.ok ? res.json() : { products: [] }))
+      .then((payload: { products?: ProductCardData[] }) => {
+        setWishlistProducts(payload.products ?? [])
+      })
+      .catch(() => setWishlistProducts([]))
+  }, [wishlistIds])
 
   const stats = useMemo(() => getOrderStats(orders), [orders])
-  const wishlistProducts = useMemo(
-    () => getAllProducts().filter((product) => wishlistIds.includes(product.id)),
-    [wishlistIds],
-  )
   const activeOrder = useMemo(
     () => orders.find((order) => isActiveOrder(getDeliveryStage(order.createdAt, order.tracking?.stage, order.status))),
     [orders],
@@ -292,14 +325,74 @@ export default function AccountDashboard() {
     [orders, activeOrder],
   )
 
-  const handleProfileSave = (event: FormEvent<HTMLFormElement>) => {
+  const handleProfileSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    signIn(profile)
-    window.localStorage.setItem(
-      'splaro-customer',
-      JSON.stringify({ ...profile, ...address }),
-    )
-    setSaved(true)
+    setSaveError('')
+    setSaved(false)
+
+    try {
+      const response = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: profile.name }),
+      })
+      const payload = (await response.json()) as {
+        user?: { name: string; email: string; phone: string; avatar?: string | null }
+        error?: string
+      }
+
+      if (!response.ok || !payload.user) {
+        setSaveError(payload.error ?? 'Could not save profile')
+        return
+      }
+
+      signIn({
+        ...profile,
+        ...payload.user,
+        ...(user?.avatar ? { avatar: user.avatar } : {}),
+        ...(user?.phoneVerified ? { phoneVerified: user.phoneVerified } : {}),
+        ...(user?.loyaltyTier ? { loyaltyTier: user.loyaltyTier } : {}),
+      })
+      window.localStorage.setItem(
+        'splaro-customer',
+        JSON.stringify({ ...profile, ...address }),
+      )
+      setSaved(true)
+    } catch {
+      setSaveError('Network error. Please try again.')
+    }
+  }
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !user) return
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError('Image must be under 2 MB')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const avatar = typeof reader.result === 'string' ? reader.result : null
+      if (!avatar) return
+
+      const response = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ avatar }),
+      })
+      const payload = (await response.json()) as { user?: AuthUser; error?: string }
+      if (!response.ok || !payload.user) {
+        setSaveError(payload.error ?? 'Could not upload photo')
+        return
+      }
+      signIn({ ...user, ...payload.user })
+      setSaved(true)
+      setSaveError('')
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleAccountBack = () => {
@@ -338,9 +431,27 @@ export default function AccountDashboard() {
 
         <aside className="account-sidebar account-glass">
           <div className="account-sidebar__profile">
-            <div className="account-avatar">{initials(user.name)}</div>
+            <div className="account-avatar-wrap">
+              <div className="account-avatar">
+                {user.avatar ? (
+                  <Image src={user.avatar} alt={user.name} fill sizes="72px" className="object-cover" />
+                ) : (
+                  initials(user.name)
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                className="account-avatar-upload"
+                aria-label="Upload profile photo"
+                onChange={handleAvatarChange}
+              />
+            </div>
             <div>
-              <p className="account-sidebar__name">{user.name}</p>
+              <p className="account-sidebar__name">
+                {user.name}
+                <BadgeCheck className="account-verified-badge h-4 w-4" strokeWidth={2.2} aria-label="Verified member" />
+              </p>
               <div className="account-badge">
                 <Gem className="h-3 w-3" strokeWidth={2.2} />
                 {tierLabel} Member
@@ -659,6 +770,11 @@ export default function AccountDashboard() {
                 </div>
                 {saved ? (
                   <p className="account-save-note">Profile updated successfully.</p>
+                ) : null}
+                {saveError ? (
+                  <p className="account-save-note account-save-note--error" role="alert">
+                    {saveError}
+                  </p>
                 ) : null}
                 <button type="submit" className="account-btn account-btn--primary">
                   Save Changes

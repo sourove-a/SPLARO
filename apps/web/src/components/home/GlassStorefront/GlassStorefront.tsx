@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import Image from 'next/image'
+import { StorefrontImage } from '@/components/ui/StorefrontImage'
+import { IMAGE_SIZES } from '@/lib/assets/image-optimize'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
@@ -21,11 +22,6 @@ import { usePublishedCollectionTiles } from '@/lib/storefront/catalog-channels'
 
 const WhySplaro = dynamic(
   () => import('@/components/home/WhySplaro').then((m) => m.WhySplaro),
-  { ssr: false },
-)
-const InstagramSection = dynamic(
-  () =>
-    import('@/components/home/InstagramSection/InstagramSection').then((m) => m.InstagramSection),
   { ssr: false },
 )
 const NewsletterSection = dynamic(
@@ -76,15 +72,17 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
   const collectionTiles = usePublishedCollectionTiles(COLLECTION_TILES)
 
   return (
-    <div className="ed-root">
+    <>
       {homepage.hero ? <HeroSlider initialBanners={heroBanners} /> : null}
 
-      {homepage.marquee ? (
-        <ScrollReveal variant="fadeIn">
-          <MarqueeStrip />
-        </ScrollReveal>
+      {homepage.marquee || homepage.trustBar ? (
+        <div className="home-post-hero">
+          {homepage.marquee ? <MarqueeStrip /> : null}
+          {homepage.trustBar ? <TrustBar /> : null}
+        </div>
       ) : null}
 
+      <div className="ed-root">
       {homepage.specialOffer ? (
         <ScrollReveal variant="fadeUp">
           <SpecialOffer />
@@ -106,11 +104,12 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
                 <ScrollRevealItem key={tile.label} variant="scaleUp">
                   <Link href={tile.href} className="ed-tile group">
                     <div className="ed-tile__img">
-                      <Image
+                      <StorefrontImage
                         src={tile.image}
                         alt={tile.label}
+                        profile="card"
+                        sizes={IMAGE_SIZES.collection}
                         fill
-                        sizes="(max-width: 768px) 50vw, 25vw"
                         loading={i === 0 ? 'eager' : 'lazy'}
                         className="object-cover object-[center_10%] transition-transform duration-700 group-hover:scale-[1.06]"
                       />
@@ -131,13 +130,11 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
         </ScrollReveal>
       ) : null}
 
-      {homepage.catalog || homepage.trustBar ? (
+      {homepage.catalog ? (
         <ScrollReveal variant="fadeUp">
           <section className="ed-catalog-intro ed-defer-section" aria-label="Shop catalog">
             <div className="ed-catalog-intro__ambient" aria-hidden />
-            {homepage.trustBar ? <TrustBar /> : null}
-            {homepage.catalog ? (
-              <div className="ed-catalog">
+            <div className="ed-catalog">
                 <div className="ed-catalog__header">
                   <p className="ed-tiles__eyebrow">SPLARO EDIT</p>
                   <h2 className="ed-catalog__title">Curated for You</h2>
@@ -149,8 +146,7 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
                   showStickyBar={false}
                   {...(initialCatalog ? { initialCatalog } : {})}
                 />
-              </div>
-            ) : null}
+            </div>
           </section>
         </ScrollReveal>
       ) : null}
@@ -161,17 +157,12 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
         </ScrollReveal>
       ) : null}
 
-      {homepage.instagram ? (
-        <ScrollReveal variant="fadeUp">
-          <InstagramSection />
-        </ScrollReveal>
-      ) : null}
-
       {showNewsletter ? (
         <ScrollReveal variant="fadeIn">
           <NewsletterSection />
         </ScrollReveal>
       ) : null}
-    </div>
+      </div>
+    </>
   )
 }

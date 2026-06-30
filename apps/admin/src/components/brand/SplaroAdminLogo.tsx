@@ -1,47 +1,54 @@
 import Image from 'next/image'
+import { SPLARO_TAB_ICONS } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
 
 /**
- * Official SPLARO Arabic + wordmark assets.
- * Light UI: splaro-brand-mark-transparent.png (real PNG alpha).
- * Do NOT use splaro-brand-mark.png — it is a JPEG export with a baked-in checkerboard.
+ * Official SPLARO Arabic + wordmark — one asset for large logos.
+ * Small surfaces (tab, profile pill) use baked icon — never theme-swaps.
  */
-const LOGO = {
-  full: {
-    light: '/images/logo/splaro-brand-mark-transparent.png',
-    dark: '/images/logo/splaro-logo-white.png',
-    width: 1024,
-    height: 682,
-  },
-  mark: {
-    light: '/images/logo/splaro-brand-mark-transparent.png',
-    dark: '/images/logo/splaro-brand-mark-transparent.png',
-    width: 1024,
-    height: 682,
-    invertInDark: true,
-  },
-} as const
+const LOGO_WORDMARK = '/images/logo/splaro-brand-mark-transparent.png'
+const LOGO_ICON = SPLARO_TAB_ICONS.profile
+const WORDMARK_WIDTH = 1024
+const WORDMARK_HEIGHT = 682
+const ICON_SIZE = 64
 
 const variants = {
   sidebar: {
-    ...LOGO.full,
+    src: LOGO_WORDMARK,
+    width: WORDMARK_WIDTH,
+    height: WORDMARK_HEIGHT,
     className: 'h-8 w-auto max-w-[168px] sm:h-9',
+    onLightSurface: false,
   },
   login: {
-    ...LOGO.full,
+    src: LOGO_WORDMARK,
+    width: WORDMARK_WIDTH,
+    height: WORDMARK_HEIGHT,
     className: 'h-auto w-[170px] sm:w-[210px] md:w-[240px]',
+    onLightSurface: true,
   },
   mark: {
-    ...LOGO.mark,
-    className: 'h-8 w-auto max-w-[2.5rem]',
+    src: LOGO_ICON,
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    className: 'h-9 w-9',
+    onLightSurface: true,
+    square: true,
   },
   avatar: {
-    ...LOGO.mark,
-    className: 'h-6 w-auto max-w-[2.25rem]',
+    src: LOGO_ICON,
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    className: 'h-full w-full',
+    onLightSurface: true,
+    square: true,
   },
   empty: {
-    ...LOGO.mark,
+    src: LOGO_WORDMARK,
+    width: WORDMARK_WIDTH,
+    height: WORDMARK_HEIGHT,
     className: 'h-14 w-auto max-w-[140px] opacity-35',
+    onLightSurface: false,
   },
 } as const
 
@@ -58,34 +65,30 @@ export function SplaroAdminLogo({
   className,
   priority = false,
 }: SplaroAdminLogoProps) {
-  const asset = variants[variant]
-  const invertInDark = 'invertInDark' in asset && asset.invertInDark
-  const imageClass = cn('object-contain object-left', asset.className, className)
-  const darkImageClass = cn(
-    imageClass,
-    invertInDark && 'splaro-admin-logo--invert-dark',
-  )
+  const config = variants[variant]
 
   return (
-    <span className={cn('splaro-admin-logo inline-flex', `splaro-admin-logo--${variant}`)}>
+    <span
+      className={cn(
+        'splaro-admin-logo inline-flex',
+        `splaro-admin-logo--${variant}`,
+        config.onLightSurface && 'splaro-admin-logo--on-light',
+        'square' in config && config.square && 'splaro-admin-logo--square',
+      )}
+    >
       <Image
-        src={asset.light}
+        src={config.src}
         alt="SPLARO"
-        width={asset.width}
-        height={asset.height}
+        width={config.width}
+        height={config.height}
         priority={priority}
         unoptimized
-        className={cn(imageClass, 'dark:hidden')}
-      />
-      <Image
-        src={asset.dark}
-        alt=""
-        aria-hidden
-        width={asset.width}
-        height={asset.height}
-        priority={priority}
-        unoptimized
-        className={cn(darkImageClass, 'hidden dark:block')}
+        className={cn(
+          'splaro-admin-logo__img object-contain',
+          'square' in config && config.square ? 'object-center' : 'object-left',
+          config.className,
+          className,
+        )}
       />
     </span>
   )

@@ -15,7 +15,7 @@ import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { useIntegrationsCatalog, useTestTelegramIntegration, useTestAiIntegration } from '@/lib/api/integration-hooks'
-import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner, StorefrontLiveBar } from '@/components/modules/PlatformUi'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { formatRelativeTime } from '@/lib/api/orders'
 
@@ -44,8 +44,6 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
   const testTelegram = useTestTelegramIntegration()
   const testAi = useTestAiIntegration()
 
-  if (isError) return <ApiOfflineBanner />
-
   const items = data?.integrations ?? []
 
   const runTest = async (provider: string, name: string) => {
@@ -68,6 +66,25 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
 
   return (
     <div className="space-y-5">
+      <StorefrontLiveBar
+        items={[
+          {
+            label: 'Integrations API',
+            value: isLoading ? '…' : isError ? 'Offline' : `${items.filter((i) => i.connected).length}/${items.length} connected`,
+            ok: !isError,
+            hint: 'GET /admin/integrations',
+          },
+          {
+            label: 'Testable now',
+            value: `${items.filter((i) => i.provider === 'telegram' || i.provider === 'openai').length} providers`,
+            ok: !isError,
+            hint: 'Telegram + AI test wired',
+          },
+        ]}
+        onRefresh={() => void refetch()}
+        refreshing={isFetching}
+      />
+      {isError ? <ApiOfflineBanner message="Integrations API offline — platform status above still updates." /> : null}
       <div className="flex justify-end">
         <AdminButton loading={isFetching} onClick={() => void refetch()}>
           <RefreshCw className="h-4 w-4" />

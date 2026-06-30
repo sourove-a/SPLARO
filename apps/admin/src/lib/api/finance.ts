@@ -254,8 +254,46 @@ export async function downloadPartnerExport(partnerId: string, partnerName: stri
   )
 }
 
+export interface SheetsDashboardConnection {
+  workspaceConnected: boolean
+  spreadsheetLinked: boolean
+  spreadsheetUrl: string | null
+  googleEmail: string | null
+  autoSyncEnabled: boolean
+  tokenHealth: string | null
+  setupHref: string
+}
+
+export interface SheetsDashboardSheet {
+  sheetType: string
+  configured: boolean
+  configuredVia: 'env' | 'workspace' | null
+  lastSync: string | null
+  lastStatus: string | null
+  lastError: string | null
+}
+
+export interface SheetsDashboardData {
+  sheets: SheetsDashboardSheet[]
+  stats: {
+    total: number
+    configured: number
+    completed: number
+    failed: number
+    pending: number
+  }
+  connection?: SheetsDashboardConnection
+}
+
 export function fetchSheetsDashboard() {
-  return apiFetch<unknown>('/google-sheets/dashboard')
+  return apiFetch<SheetsDashboardData>('/google-sheets/dashboard')
+}
+
+export function syncSheet(sheetType: string, triggeredBy?: string) {
+  return apiFetch<unknown>('/google-sheets/sync', {
+    method: 'POST',
+    body: JSON.stringify({ sheetType, triggeredBy }),
+  })
 }
 
 export function syncAllSheets(triggeredBy?: string) {

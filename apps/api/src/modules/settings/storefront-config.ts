@@ -142,6 +142,11 @@ export interface ShippingZonesConfig {
   outsideDhaka: boolean
 }
 
+/** Catalog behaviour — default manual SKUs for live launch. */
+export interface CatalogPolicyConfig {
+  autoGenerateSku: boolean
+}
+
 export interface StorefrontConfig {
   footerTagline?: string
   footerCopyright?: string
@@ -157,6 +162,7 @@ export interface StorefrontConfig {
   smtp?: SmtpConfig
   catalogChannels?: CatalogChannel[]
   shippingZones?: ShippingZonesConfig
+  catalog?: CatalogPolicyConfig
 }
 
 export type { CatalogChannel }
@@ -288,6 +294,7 @@ export function emptyStorefrontConfig(): StorefrontConfig {
     homepage: DEFAULT_HOMEPAGE_SECTIONS,
     catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
     shippingZones: { dhakaSameDay: true, outsideDhaka: true },
+    catalog: { autoGenerateSku: false },
     smtp: {
       enabled: false,
       host: '',
@@ -333,6 +340,7 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
     smtp: { ...base.smtp!, ...input.smtp },
     catalogChannels: mergeCatalogChannels(input.catalogChannels ?? base.catalogChannels),
     shippingZones: { ...base.shippingZones!, ...input.shippingZones },
+    catalog: { ...base.catalog!, ...input.catalog },
     headerNav: mergeHeaderNav(
       base.headerNav,
       input.headerNav?.length ? input.headerNav : base.headerNav ?? DEFAULT_HEADER_NAV,

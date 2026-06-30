@@ -43,37 +43,26 @@ function item(
 
 export const adminNavGroups: AdminNavGroup[] = [
   {
-    group: 'Partners',
-    items: [
-      item('Partner Hub', 'finance/partner-accounts', 'Users', 'SOUROVE · RAJU · HRIDOY — hisab nikash & balance'),
-      item('Expenses', 'finance/expenses', 'Receipt', 'Ke kothay koto khoroch — approval workflow'),
-      item('Investments', 'finance/investments', 'PiggyBank', 'Partner capital investment'),
-      item('Withdrawals', 'finance/withdrawals', 'Banknote', 'Partner withdrawal ledger'),
-      item('Profit & Loss', 'finance/profit-loss', 'TrendingUp', 'Daily, weekly, monthly profit reports'),
-      item('Daily Closing', 'finance/daily-closing', 'CalendarCheck', 'End-of-day finance closing'),
-      item('Finance Reports', 'finance/finance-reports', 'FileBarChart', 'Exportable finance reports'),
-      item('Google Sheets Finance', 'finance/google-sheets-finance', 'Sheet', 'Live spreadsheet backup & sync'),
-    ],
-  },
-  {
     group: 'Overview',
     items: [
       item('Dashboard', '', 'LayoutDashboard', 'Real-time store performance and KPIs'),
-      item('CEO Dashboard', 'executive/ceo-dashboard', 'Crown', 'Executive revenue, profit, growth & AI insights'),
       item('Analytics', 'analytics', 'BarChart3', 'Sales, traffic, and conversion analytics'),
       item('Revenue Center', 'revenue-center', 'TrendingUp', 'Revenue breakdown, forecasts, and targets'),
-      item('Business Intelligence', 'business-intelligence', 'PieChart', 'Cross-channel insights and executive reports'),
-      item('Export Center', 'executive/export-center', 'Download', 'PDF, Excel, CSV, Google Sheets exports'),
-      item('Notification Center', 'executive/notification-center', 'Bell', 'Unified Email, SMS, WhatsApp, Telegram, Push'),
+    ],
+  },
+  {
+    group: 'Executive',
+    items: [
+      item('CEO Dashboard', 'executive/ceo-dashboard', 'Crown', 'Executive KPIs, AI chat, and store pulse'),
+      item('Notification Center', 'executive/notification-center', 'Bell', 'Email, SMS, WhatsApp & Telegram delivery log'),
+      item('Export Center', 'executive/export-center', 'Download', 'Orders, customers & products CSV export'),
     ],
   },
   {
     group: 'Commerce',
     items: [
-      item('POS', 'pos', 'ScanLine', 'Showroom counter — scan, sell, print receipt'),
       item('Orders', 'orders', 'ShoppingBag', 'Manage and fulfill customer orders'),
       item('Returns/RMA', 'returns-rma', 'RotateCcw', 'Returns, exchanges, and RMA workflows'),
-      item('Subscriptions', 'subscriptions', 'RefreshCcw', 'Recurring orders and subscription plans'),
       item('Invoices', 'invoices', 'FileText', 'Invoice generation and payment tracking'),
       item('Transactions', 'transactions', 'CreditCard', 'Payment transactions and ledger'),
     ],
@@ -82,14 +71,11 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Catalog',
     items: [
       item('Products', 'products', 'Package', 'Product catalog and variant management'),
+      item('Product Reviews', 'product-reviews', 'MessageSquareQuote', 'Approve, reject, and moderate customer reviews'),
       item('Collections', 'collections', 'Layers', 'Curated product collections'),
       item('Categories', 'categories', 'FolderTree', 'Category hierarchy and navigation'),
       item('Inventory', 'inventory', 'Archive', 'Stock levels, alerts, and adjustments'),
       item('Brands', 'brands', 'Award', 'Brand profiles and vendor associations'),
-      item('Attributes', 'attributes', 'Tags', 'Product attributes and option sets'),
-      item('SKU Manager', 'sku-manager', 'Hash', 'SKU generation and bulk management'),
-      item('QR Manager', 'qr-manager', 'QrCode', 'Product QR codes and scan analytics'),
-      item('Barcode Manager', 'barcode-manager', 'ScanBarcode', 'Barcode labels and printing'),
     ],
   },
   {
@@ -98,9 +84,6 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Customers', 'customers', 'Users', 'Customer profiles and order history'),
       item('VIP Members', 'vip-members', 'Crown', 'VIP tiers and exclusive benefits'),
       item('Loyalty Program', 'loyalty-program', 'Wallet', 'Points, rewards, and redemption'),
-      item('Referrals', 'referrals', 'UserPlus', 'Referral tracking and rewards'),
-      item('Segments', 'segments', 'Filter', 'Dynamic customer segments'),
-      item('Customer Intelligence', 'customer-intelligence', 'Brain', 'CLV, churn risk, and behavior insights'),
     ],
   },
   {
@@ -110,24 +93,47 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Coupons', 'coupons', 'Tag', 'Discount codes and promotional rules'),
       item('Email & SMS', 'email-sms', 'Mail', 'Email and SMS broadcast management'),
       item('WhatsApp', 'whatsapp', 'MessageCircle', 'WhatsApp Business messaging'),
-      item('Affiliate', 'affiliate', 'Share2', 'Affiliate partners and commissions'),
-      item('Influencers', 'influencers', 'Star', 'Influencer collaborations and tracking'),
     ],
   },
   {
     group: 'Content',
     items: [
       item('Home Page', 'home-page', 'Home', 'Homepage sections and layout control'),
-      item('Footwear Page', 'footwear-page', 'Footprints', 'Footwear page sections, banners, and visibility control'),
-      item('Theme Builder', 'theme-builder', 'Palette', 'Visual theme customization'),
-      item('Menu Control', 'menu-control', 'Menu', 'Header, footer, and navigation menus'),
+      item('Footwear Page', 'footwear-page', 'Footprints', 'Footwear page sections, banners, and visibility'),
       item('Hero Slider', 'hero-slider', 'SlidersHorizontal', 'Hero banners and carousel slides'),
+      item('Media Library', 'media-library', 'Image', 'Upload, delete, and manage images'),
+      item('Menu Control', 'menu-control', 'Menu', 'Header, footer, and navigation menus'),
+      item('Theme Builder', 'theme-builder', 'Palette', 'Visual theme customization'),
       item('Lookbooks', 'lookbooks', 'BookOpen', 'Editorial lookbooks and styling guides'),
       item('Reels', 'reels', 'Video', 'Short-form video and reels management'),
       item('Blog', 'blog', 'Newspaper', 'Blog posts and editorial content'),
-      item('Legal Pages', 'legal-pages', 'Scale', 'Terms, privacy, shipping, returns & all policy pages'),
+      item('Legal Pages', 'legal-pages', 'Scale', 'Terms, privacy, shipping, returns & policies'),
       item('CMS', 'cms', 'FileEdit', 'Static pages and content blocks'),
       item('Landing Pages', 'landing-pages', 'LayoutTemplate', 'Campaign landing pages'),
+    ],
+  },
+  {
+    group: 'Finance',
+    items: [
+      item('Finance Overview', 'finance/finance-reports', 'FileBarChart', 'Live finance overview & exports'),
+      item('Partner Hub', 'finance/partner-accounts', 'Users', 'SOUROVE · RAJU · HRIDOY — hisab nikash & balance'),
+      item('Expenses', 'finance/expenses', 'Receipt', 'Ke kothay koto khoroch — approval workflow'),
+      item('Investments', 'finance/investments', 'PiggyBank', 'Partner capital investment'),
+      item('Withdrawals', 'finance/withdrawals', 'Banknote', 'Partner withdrawal ledger'),
+      item('Profit & Loss', 'finance/profit-loss', 'TrendingUp', 'Daily, weekly, monthly profit reports'),
+      item('Daily Closing', 'finance/daily-closing', 'CalendarCheck', 'End-of-day finance closing'),
+      item('Google Sheets Finance', 'finance/google-sheets-finance', 'Sheet', 'Live spreadsheet backup & sync'),
+    ],
+  },
+  {
+    group: 'Integrations',
+    items: [
+      item('All Integrations', 'all-integrations', 'Plug', 'Connected apps and services'),
+      item('Telegram Bot', 'telegram-bot', 'Send', 'Telegram bot configuration'),
+      item('API Health', 'api-health', 'Activity', 'API uptime and response monitoring'),
+      item('Webhooks', 'webhooks', 'Webhook', 'Webhook endpoints and event logs'),
+      item('Meta Business', 'meta-business', 'Facebook', 'Meta catalog and ads integration'),
+      item('Google Merchant', 'google-merchant', 'ShoppingCart', 'Google Merchant Center feed'),
     ],
   },
   {
@@ -154,26 +160,24 @@ export const adminNavGroups: AdminNavGroup[] = [
     ],
   },
   {
-    group: 'Finance',
-    items: [
-      item('Finance Overview', 'finance/finance-reports', 'FileBarChart', 'Live finance overview & exports'),
-      item('Partner Hub', 'finance/partner-accounts', 'Users', 'SOUROVE · RAJU · HRIDOY — hisab nikash & balance'),
-      item('Expenses', 'finance/expenses', 'Receipt', 'Ke kothay koto khoroch — approval workflow'),
-      item('Investments', 'finance/investments', 'PiggyBank', 'Partner capital investment'),
-      item('Withdrawals', 'finance/withdrawals', 'Banknote', 'Partner withdrawal ledger'),
-      item('Profit & Loss', 'finance/profit-loss', 'TrendingUp', 'Daily, weekly, monthly profit reports'),
-      item('Daily Closing', 'finance/daily-closing', 'CalendarCheck', 'End-of-day finance closing'),
-      item('Google Sheets Finance', 'finance/google-sheets-finance', 'Sheet', 'Live spreadsheet backup & sync'),
-    ],
-  },
-  {
     group: 'Automation',
     items: [
       item('Telegram Notifications', 'automation/telegram-notifications', 'Send', 'Business notification center'),
       item('Google Sheets Sync', 'automation/google-sheets-sync', 'RefreshCw', 'Auto & manual sheet sync'),
+      item('Automation Rules', 'automation-rules', 'Zap', 'Workflow automation and triggers'),
       item('AI Product Agent', 'automation/ai-product-agent', 'Wand2', 'AI product listing generator'),
       item('AI SEO Agent', 'automation/ai-seo-agent', 'Globe', 'AI SEO meta & keywords'),
       item('AI Sales Insights', 'automation/ai-sales-insights', 'LineChart', 'AI sales recommendations'),
+    ],
+  },
+  {
+    group: 'Operations',
+    items: [
+      item('Operations Hub', 'operations', 'LayoutGrid', 'Shipping, courier, warehouse & suppliers — live overview'),
+      item('Shipping', 'shipping', 'Truck', 'Shipping zones, rates, and carriers'),
+      item('Courier Hub', 'courier-hub', 'PackageCheck', 'Courier bookings and tracking'),
+      item('Warehouse', 'warehouse', 'Warehouse', 'Warehouse locations and pick lists'),
+      item('Supplier Management', 'supplier-management', 'Building2', 'Suppliers, POs, and procurement'),
     ],
   },
   {
@@ -223,17 +227,6 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Payroll', 'company/payroll', 'Banknote', 'Salary, bonus, payslips'),
       item('Tasks', 'company/tasks', 'CheckSquare', 'Kanban tasks & projects'),
       item('Documents', 'company/documents', 'FolderOpen', 'Contracts, policies, approvals'),
-    ],
-  },
-  {
-    group: 'Operations',
-    items: [
-      item('Operations Hub', 'operations', 'LayoutGrid', 'Shipping, courier, warehouse & suppliers — live overview'),
-      item('Shipping', 'shipping', 'Truck', 'Shipping zones, rates, and carriers'),
-      item('Courier Hub', 'courier-hub', 'PackageCheck', 'Courier bookings and tracking'),
-      item('Automation Rules', 'automation-rules', 'Zap', 'Workflow automation and triggers'),
-      item('Warehouse', 'warehouse', 'Warehouse', 'Warehouse locations and pick lists'),
-      item('Supplier Management', 'supplier-management', 'Building2', 'Suppliers, POs, and procurement'),
     ],
   },
   {
@@ -288,17 +281,6 @@ export const adminNavGroups: AdminNavGroup[] = [
     ],
   },
   {
-    group: 'Integrations',
-    items: [
-      item('All Integrations', 'all-integrations', 'Plug', 'Connected apps and services'),
-      item('API Health', 'api-health', 'Activity', 'API uptime and response monitoring'),
-      item('Webhooks', 'webhooks', 'Webhook', 'Webhook endpoints and event logs'),
-      item('Telegram Bot', 'telegram-bot', 'Send', 'Telegram bot configuration'),
-      item('Meta Business', 'meta-business', 'Facebook', 'Meta catalog and ads integration'),
-      item('Google Merchant', 'google-merchant', 'ShoppingCart', 'Google Merchant Center feed'),
-    ],
-  },
-  {
     group: 'SaaS',
     items: [
       item('Stores', 'stores', 'Store', 'Multi-store management'),
@@ -348,6 +330,7 @@ const legacyHrefAliases: Record<string, string> = {
   '/dashboard/telegram/config': '/dashboard/telegram-bot',
   '/dashboard/banners': '/dashboard/hero-slider',
   '/dashboard/products/create': '/dashboard/products/new',
+  '/dashboard/business-intelligence': '/dashboard/revenue-center',
 }
 
 export function getNavItemByHref(href: string): FlatAdminRoute | undefined {
@@ -431,6 +414,7 @@ export function getCommandItems(): CommandNavItem[] {
 export function getModuleFeatures(navItem: FlatAdminRoute): string[] {
   const featuresByGroup: Record<string, string[]> = {
     Overview: ['Live KPI dashboard', 'CEO insights', 'Export reports', 'AI executive chat'],
+    Executive: ['CEO dashboard', 'Notification delivery log', 'CSV export center', 'AI executive chat'],
     WMS: ['Multi-warehouse', 'Bin tracking', 'Stock movements', 'QR/barcode scan'],
     Procurement: ['Suppliers', 'Purchase orders', 'GRN', 'Vendor ledger'],
     Production: ['Fabric inventory', 'Production orders', 'QC workflow', 'Unit costing'],
@@ -449,10 +433,10 @@ export function getModuleFeatures(navItem: FlatAdminRoute): string[] {
     'SEO Center': ['Health scoring', 'Issue detection', 'Auto-fix suggestions', 'Monitoring alerts'],
     'AI Center': ['AI-assisted workflows', 'Batch processing', 'Prompt templates', 'Review queue'],
     Finance: ['Partner balances', 'P&L reports', 'Approval workflows', 'Audit trail'],
-    Automation: ['Telegram alerts', 'Sheets sync', 'AI agents', 'Scheduled jobs'],
-    Operations: ['Rule engine', 'Status tracking', 'Notifications', 'Integration hooks'],
-    Media: ['Upload & organize', 'CDN delivery', 'Alt text management', 'Usage tracking'],
     Integrations: ['Connection status', 'Sync logs', 'Configuration', 'Test connections'],
+    Automation: ['Telegram alerts', 'Sheets sync', 'Automation rules', 'AI agents'],
+    Operations: ['Shipping & courier', 'Warehouse', 'Suppliers', 'Live hub'],
+    Media: ['Upload & organize', 'CDN delivery', 'Alt text management', 'Usage tracking'],
     SaaS: ['Multi-tenant control', 'Plan management', 'Usage metering', 'Billing sync'],
     Security: ['Access control', 'Session management', 'Audit trail', 'Policy enforcement'],
     System: ['Configuration', 'Health monitoring', 'Backup & restore', 'Log viewer'],

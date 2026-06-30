@@ -6,9 +6,10 @@
 import { spawn } from 'child_process'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { checkApiHealth, getApiPort, reclaimPort } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const port = Number(process.env.API_PORT ?? process.env.PORT_API ?? 4000)
+const port = getApiPort()
 const base = (process.env.API_URL ?? `http://localhost:${port}`).replace(/\/+$/, '')
 const health = base.endsWith('/api/v1') ? `${base}/health` : `${base}/api/v1/health`
 
@@ -62,15 +63,24 @@ console.log('\n🚀 SPLARO dev stack — API → Admin → Web\n')
 
 run('node', ['scripts/api-preflight.mjs'])
 
-const api = run('pnpm', ['--filter', '@splaro/api', 'dev'])
-
-const ready = await waitForApi()
-if (!ready) {
-  shutdown(1)
+let api = null
+const alreadyHealthy = await checkApiHealth(port)
+if (alreadyHealthy) {
+  console.log(`✅ API already running on :${port} — reusing existing instance\n`)
+} else {
+  await reclaimPort(port)
+  api = run('pnpm', ['--filter', '@splaro/api', 'dev'])
+  const ready = await waitForApi()
+  if (!ready) {
+    shutdown(1)
+  }
 }
+
+console.log('🔍 Fresh Next.js caches for dev stack…')
+run('node', ['scripts/ensure-next-cache.mjs', '--fresh'])
 
 run('pnpm', ['exec', 'turbo', 'run', 'dev', '--parallel', '--filter=@splaro/admin', '--filter=@splaro/web'])
 
-api.on('exit', (code) => {
+api?.on('exit', (code) => {
   if (code && code !== 0) shutdown(code)
 })

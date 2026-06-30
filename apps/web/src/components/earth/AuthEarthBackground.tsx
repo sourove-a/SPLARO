@@ -26,15 +26,17 @@ export function AuthEarthBackground() {
 
   return (
     <div className="auth-shell__earth" aria-hidden>
-      {/* Reuse the footer earth's glass + stars (read-only — footer untouched). */}
-      <div className="site-footer__earth-stars site-footer__earth-stars--twinkle" aria-hidden />
-      {show ? (
-        <EarthGlobe
-          variant="footer"
-          className="auth-shell__earth-canvas [&>canvas]:!h-full [&>canvas]:!w-full"
-        />
-      ) : null}
-      <div className="site-footer__earth-glass" aria-hidden />
+      <div className="auth-shell__earth-frame">
+        <div className="auth-shell__earth-stars auth-shell__earth-stars--twinkle" aria-hidden />
+        {show ? (
+          <EarthGlobe
+            variant="footer"
+            className="auth-shell__earth-canvas [&>canvas]:!h-full [&>canvas]:!w-full"
+          />
+        ) : null}
+        <div className="auth-shell__earth-glass" aria-hidden />
+        <div className="auth-shell__earth-vignette" aria-hidden />
+      </div>
     </div>
   )
 }

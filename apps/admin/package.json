@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "predev": "node ../../scripts/verify-css.mjs && node ../../scripts/check-api-up.mjs",
+    "predev": "node ../../scripts/ensure-next-cache.mjs apps/admin && node ../../scripts/verify-css.mjs && node ../../scripts/check-api-up.mjs",
     "prebuild": "node ../../scripts/verify-css.mjs",
     "dev": "next dev --port 3001",
     "dev:fresh": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && next dev --port 3001",

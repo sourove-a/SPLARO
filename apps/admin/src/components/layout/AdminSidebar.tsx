@@ -19,12 +19,13 @@ const PRIMARY_SECTIONS = [
   'Marketing',
   'Content',
   'Finance',
+  'Integrations',
 ] as const
 
 const ADVANCED_SECTIONS: Array<{ title: string; groups: string[] }> = [
   {
-    title: 'AI & automation',
-    groups: ['AI Center', 'Automation', 'SEO Center'],
+    title: 'SEO & AI',
+    groups: ['SEO Center', 'AI Center', 'Automation'],
   },
   {
     title: 'Operations',
@@ -33,7 +34,6 @@ const ADVANCED_SECTIONS: Array<{ title: string; groups: string[] }> = [
   {
     title: 'Platform',
     groups: [
-      'Partners',
       'Company OS',
       'Media',
       'Marketplace',
@@ -41,7 +41,6 @@ const ADVANCED_SECTIONS: Array<{ title: string; groups: string[] }> = [
       'Developer',
       'Observability',
       'Google Workspace',
-      'Integrations',
       'SaaS',
       'Security',
       'System',
@@ -204,13 +203,17 @@ function SidebarNav({
           groups={[group]}
           collapsed={collapsed}
           activePath={pathname}
-          defaultOpen={group.group === 'Overview'}
+          defaultOpen={group.group === 'Overview' || group.group === 'Commerce'}
           variant="primary"
           {...(onNavigate ? { onNavigate } : {})}
         />
       ))}
 
-      {!collapsed ? <p className="admin-sidebar__group admin-sidebar__group--advanced">More tools</p> : null}
+      {!collapsed ? (
+        <p className="admin-sidebar__group admin-sidebar__group--advanced">
+          Advanced · আরো টুলস
+        </p>
+      ) : null}
 
       {advancedGroups.map((section) => (
         <SidebarDrawerSection
@@ -226,61 +229,12 @@ function SidebarNav({
   )
 }
 
-function ProfileCard({ collapsed, user }: { collapsed: boolean; user: { name: string; role: string } }) {
-  if (collapsed) {
-    return (
-      <div className="mx-2 mb-2 flex justify-center">
-        <div className="relative">
-          <div className="admin-sidebar-avatar flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-[var(--admin-glass-border)] bg-[var(--admin-surface)] shadow-sm">
-            <SplaroAdminLogo variant="mark" className="h-5 w-5" />
-          </div>
-          <span className="admin-live-dot admin-live-dot--on absolute -bottom-px -right-px" />
-        </div>
-      </div>
-    )
-  }
-
-  const roleLabel = user.role.replace(/_/g, ' ')
-
-  return (
-    <div className="admin-sidebar-profile admin-sidebar-profile--compact shrink-0">
-      <div className="flex items-center gap-2">
-        <div className="relative shrink-0">
-          <div className="admin-sidebar-avatar flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-[var(--admin-glass-border)] bg-[var(--admin-surface)]">
-            <SplaroAdminLogo variant="mark" className="h-5 w-5" />
-          </div>
-          <span className="admin-live-dot admin-live-dot--on absolute -bottom-px -right-px" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold leading-tight text-[var(--admin-text)]">{user.name}</p>
-          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[10px] font-medium leading-none text-[var(--admin-text-muted)]">
-            <span className="truncate">{roleLabel}</span>
-            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-[var(--admin-success)]">Online</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const navScrollRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [user, setUser] = useState({ name: 'Super Admin', role: 'SUPER_ADMIN' })
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.user) {
-          setUser({ name: data.user.name, role: data.user.role })
-        }
-      })
-      .catch(() => undefined)
-  }, [])
 
   useEffect(() => {
     for (const group of adminNavGroups) {
@@ -329,8 +283,6 @@ export function AdminSidebar() {
       >
         <SidebarNav collapsed={collapsed} onNavigate={() => setMobileOpen(false)} />
       </div>
-
-      <ProfileCard collapsed={collapsed} user={user} />
 
       <div className="mx-2 mb-2 flex shrink-0 items-center gap-1.5">
         <button

@@ -28,7 +28,7 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { downloadInvoice, exportTableFromContainer } from '@/lib/admin/admin-actions'
-import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus } from '@/lib/api/hooks'
+import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder } from '@/lib/api/hooks'
 import { mapPaymentMethod, type ApiOrder } from '@/lib/api/orders'
 import { cn } from '@/lib/utils/cn'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
@@ -191,6 +191,32 @@ export function OrdersPanel() {
   const bookCourier = useBookCourier()
   const bookCourierBulk = useBookCourierBulk()
   const bulkStatus = useBulkUpdateOrderStatus()
+  const deleteOrderMutation = useDeleteOrder()
+  const handleDeleteOrder = (order: OrderRow) => {
+    const id = order.linkId ?? order.id
+    if (!window.confirm(`Permanently delete order ${order.id}? Database record and items will be removed.`)) return
+    deleteOrderMutation.mutate(id, {
+      onSuccess: () => {
+        toastOk(`Order ${order.id} deleted permanently.`)
+        void refetch()
+        setPreviewOrder((prev) => (prev?.id === order.id ? null : prev))
+      },
+      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete order.'),
+    })
+  }
+
+  const orderRowActions = (order: OrderRow) => [
+    {
+      label: 'View details',
+      onClick: () => navigate(`/dashboard/orders/${order.linkId ?? order.id}`),
+    },
+    {
+      label: 'Delete permanently',
+      tone: 'danger' as const,
+      onClick: () => handleDeleteOrder(order),
+    },
+  ]
+
   const sourceOrders = useMemo(
     () => (apiOrders?.orders ?? []).map(mapApiOrder),
     [apiOrders],
@@ -386,7 +412,7 @@ export function OrdersPanel() {
     <div className="admin-ops-page">
       <header className="admin-ops-header">
         <div>
-          <h1 className="admin-ops-header__title">Orders</h1>
+          <h2 className="admin-ops-header__title">Orders</h2>
           <p className="admin-ops-header__sub">
             {apiOrders?.total ?? sourceOrders.length} total · {kpis.pending} awaiting action
           </p>
@@ -599,7 +625,7 @@ export function OrdersPanel() {
                     <td className="font-semibold tabular-nums">{formatBDT(order.total)}</td>
                     <td className="admin-date-cell">{formatOrderDate(order.updatedAt)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <RowActionsMenu recordName={order.id} moduleHref="/dashboard/orders" recordId={order.linkId ?? order.id} />
+                      <RowActionsMenu recordName={order.id} moduleHref="/dashboard/orders" recordId={order.linkId ?? order.id} actions={orderRowActions(order)} />
                     </td>
                   </tr>
                 ))}
@@ -629,7 +655,7 @@ export function OrdersPanel() {
             >
               Prev
             </button>
-            <span className="tabular-nums">{apiOrders?.page ?? page} / {apiOrders?.totalPages ?? 1}</span>
+            <span className="tabular-nums">{apiOrders?.page ?? page} / {Math.max(1, apiOrders?.totalPages ?? 1)}</span>
             <button
               type="button"
               disabled={(apiOrders?.page ?? page) >= (apiOrders?.totalPages ?? 1)}

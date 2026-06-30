@@ -5,6 +5,28 @@ import helmet from 'helmet'
 import compression from 'compression'
 import { AppModule } from './app.module'
 
+async function listenWithRetry(
+  app: Awaited<ReturnType<typeof NestFactory.create>>,
+  port: number | string,
+  logger: Logger,
+  attempts = 12,
+) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await app.listen(port)
+      return
+    } catch (err: unknown) {
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? String((err as { code?: string }).code)
+          : ''
+      if (code !== 'EADDRINUSE' || attempt === attempts) throw err
+      logger.warn(`Port ${port} busy — retry ${attempt}/${attempts - 1}…`)
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    }
+  }
+}
+
 function getCorsOrigins(): string[] {
   const raw =
     process.env['CORS_ORIGINS'] ??
@@ -53,7 +75,7 @@ async function bootstrap() {
     }),
   )
 
-  await app.listen(port)
+  await listenWithRetry(app, port, logger)
   logger.log(`SPLARO API running on :${port}`)
   logger.log(`API prefix: /api/v1`)
   logger.log(`CORS origins: ${corsOrigins.join(', ')}`)

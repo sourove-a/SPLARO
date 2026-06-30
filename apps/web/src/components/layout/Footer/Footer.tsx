@@ -6,29 +6,21 @@ import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronDown,
-  Facebook,
-  Instagram,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
 } from 'lucide-react'
 import { SplaroBrandLogo, logoUrlProp } from '@/components/brand/SplaroBrandLogo'
+import { SOCIAL_BRAND_ICONS } from '@/components/ui/SocialBrandIcons'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { DEFAULT_STORE_ADDRESS, DEFAULT_STORE_LABEL } from '@/lib/storefront/defaults'
+import { getStorefrontSocialLinks } from '@/lib/storefront/social-links'
 import { cn } from '@/lib/utils/cn'
 import { LazyFooterEarthGlobe } from '@/components/earth/LazyFooterEarthGlobe'
 import { ScrollReveal } from '@/components/motion/ScrollReveal'
 
 const CURRENT_YEAR = new Date().getFullYear()
-
-function TikTokIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[1.05rem] w-[1.05rem]" fill="currentColor" aria-hidden="true">
-      <path d="M16.5 3c.6 3.1 2.5 5.5 5 6.2v3.4c-1.8-.1-3.4-.7-4.8-1.6v6.8c0 4.6-3.7 7.7-7.9 7.5-3.8-.2-7-3.2-7.2-7.1-.3-4.8 3.5-8.7 8.2-8.7.4 0 .9 0 1.3.1v3.6c-.4-.1-.8-.2-1.2-.2-2 0-3.6 1.6-3.6 3.6s1.6 3.6 3.6 3.6 3.6-1.6 3.6-3.6V3h3.2z" />
-    </svg>
-  )
-}
 
 function FooterColumn({
   title,
@@ -134,11 +126,7 @@ export function Footer() {
   const storeLabel = settings.config.storeLabel?.trim() || DEFAULT_STORE_LABEL
   const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
 
-  const socialLinks = [
-    settings.social.facebook ? { id: 'facebook', label: 'Facebook', href: settings.social.facebook, icon: Facebook } : null,
-    settings.social.instagram ? { id: 'instagram', label: 'Instagram', href: settings.social.instagram, icon: Instagram } : null,
-    settings.social.tiktok ? { id: 'tiktok', label: 'TikTok', href: settings.social.tiktok, icon: null } : null,
-  ].filter(Boolean) as Array<{ id: string; label: string; href: string; icon: typeof Facebook | null }>
+  const socialLinks = getStorefrontSocialLinks(settings)
 
   return (
     <footer data-site-chrome className="site-footer site-footer--luxury" aria-label="Site footer">
@@ -247,23 +235,22 @@ export function Footer() {
                 <div className="footer-lux__social-block">
                   <p className="footer-lux__micro-label">Follow {settings.store.name}</p>
                   <div className="footer-lux__social">
-                    {socialLinks.map((item) => (
-                      <a
-                        key={item.id}
-                        href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cn('footer-lux__social-btn', `footer-lux__social-btn--${item.id}`)}
-                        aria-label={item.label}
-                        title={item.label}
-                      >
-                        {item.icon ? (
-                          <item.icon className="h-[1.05rem] w-[1.05rem]" strokeWidth={2.1} />
-                        ) : (
-                          <TikTokIcon />
-                        )}
-                      </a>
-                    ))}
+                    {socialLinks.map((item) => {
+                      const Icon = SOCIAL_BRAND_ICONS[item.id]
+                      return (
+                        <a
+                          key={item.id}
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn('footer-lux__social-btn', `footer-lux__social-btn--${item.id}`)}
+                          aria-label={item.label}
+                          title={item.label}
+                        >
+                          <Icon />
+                        </a>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import {
   Glasses,
   ShoppingBag,
@@ -21,10 +21,16 @@ import { cn } from '@/lib/utils/cn'
 import type { MegaMenuConfig } from '@/lib/storefront/settings'
 
 const EXPO_OUT = [0.22, 1, 0.36, 1] as const
+const SHUTTER_EASE = [0.16, 1, 0.3, 1] as const
 
 const panelTransition = {
-  duration: 0.52,
-  ease: EXPO_OUT,
+  duration: 0.62,
+  ease: SHUTTER_EASE,
+}
+
+const sweepTransition = {
+  duration: 0.58,
+  ease: SHUTTER_EASE,
 }
 
 const columnVariants = {
@@ -61,16 +67,21 @@ const ICON_MAP: Record<string, LucideIcon> = {
 interface MegaMenuProps {
   config: MegaMenuConfig
   isOpen: boolean
+  menuKey?: string
   onClose?: () => void
 }
 
-export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
+export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
   const [hovered, setHovered] = useState<string | null>(
     config.categories[0]?.href ?? null,
   )
 
   const active = config.categories.find((c) => c.href === hovered) ?? config.categories[0]
   const hasHeroes = config.heroes.length > 0
+
+  useEffect(() => {
+    setHovered(config.categories[0]?.href ?? null)
+  }, [menuKey, config])
 
   return (
     <AnimatePresence mode="wait">
@@ -82,25 +93,38 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
+            transition={{ duration: 0.34, ease: SHUTTER_EASE, delay: 0.04 }}
             aria-hidden
           />
 
           <motion.div
             key="mega-panel"
-            initial={{ opacity: 0, y: -12, clipPath: 'inset(0 0 100% 0)' }}
-            animate={{ opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)' }}
-            exit={{ opacity: 0, y: -8, clipPath: 'inset(0 0 100% 0)' }}
+            initial={{ clipPath: 'inset(0 0 100% 0 round 0 0 0 0)' }}
+            animate={{ clipPath: 'inset(0 0 0% 0 round 0 0 0 0)' }}
+            exit={{ clipPath: 'inset(0 0 100% 0 round 0 0 0 0)' }}
             transition={panelTransition}
             className="mega-menu-panel"
             role="region"
             aria-label="Category menu"
           >
-            <div
+            <motion.div
+              className="mega-menu-panel__sweep"
+              initial={{ y: '-110%' }}
+              animate={{ y: '110%' }}
+              transition={sweepTransition}
+              aria-hidden
+            />
+            <div className="mega-menu-panel__shine" aria-hidden />
+
+            <motion.div
+              key={menuKey ?? 'mega-default'}
               className={cn(
                 'mega-menu-inner',
                 !hasHeroes && 'mega-menu-inner--no-heroes',
               )}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.42, ease: SHUTTER_EASE, delay: 0.14 }}
             >
               <motion.aside
                 className="mega-menu-col mega-menu-col--cats"
@@ -110,6 +134,7 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
                 animate="visible"
                 exit="exit"
               >
+                <LayoutGroup id="mega-menu-cats">
                 <ul className="mega-menu-cat-list">
                   {config.categories.map((cat, index) => {
                     const isActive =
@@ -120,14 +145,29 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
                     return (
                       <motion.li
                         key={cat.href}
-                        initial={{ opacity: 0, y: -10 }}
+                        className="mega-menu-cat-row"
+                        initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          duration: 0.34,
+                          duration: 0.32,
                           ease: EXPO_OUT,
-                          delay: 0.06 + index * 0.035,
+                          delay: 0.04 + index * 0.03,
                         }}
+                        onMouseEnter={() => setHovered(cat.href)}
                       >
+                        {isActive ? (
+                          <motion.span
+                            layoutId="mega-menu-cat-pill"
+                            className="mega-menu-cat-pill"
+                            transition={{
+                              type: 'spring',
+                              stiffness: 320,
+                              damping: 38,
+                              mass: 0.82,
+                            }}
+                            aria-hidden
+                          />
+                        ) : null}
                         <Link
                           href={cat.href}
                           scroll={false}
@@ -136,20 +176,20 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
                             isActive && 'mega-menu-cat-item--active',
                             IconComponent && 'mega-menu-cat-item--has-icon',
                           )}
-                          onMouseEnter={() => setHovered(cat.href)}
                           onClick={() => onClose?.()}
                         >
-                          {IconComponent && (
+                          {IconComponent ? (
                             <span className="mega-menu-cat-icon" aria-hidden>
                               <IconComponent size={15} strokeWidth={1.75} />
                             </span>
-                          )}
+                          ) : null}
                           <span className="mega-menu-cat-label">{cat.label}</span>
                         </Link>
                       </motion.li>
                     )
                   })}
                 </ul>
+                </LayoutGroup>
               </motion.aside>
 
               <motion.div
@@ -164,10 +204,10 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
                   {active ? (
                     <motion.div
                       key={active.href}
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.24, ease: EXPO_OUT }}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 6 }}
+                      transition={{ duration: 0.32, ease: EXPO_OUT }}
                     >
                       <Link
                         href={active.href}
@@ -241,6 +281,7 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
                           ) : (
                             <div className="mega-menu-hero-fallback" aria-hidden />
                           )}
+                          <div className="mega-menu-hero-shutter" aria-hidden />
                           <div className="mega-menu-hero-overlay" />
                           <span className="mega-menu-hero-label">{hero.label}</span>
                         </Link>
@@ -249,7 +290,7 @@ export function MegaMenu({ config, isOpen, onClose }: MegaMenuProps) {
                   </div>
                 </motion.div>
               ) : null}
-            </div>
+            </motion.div>
           </motion.div>
         </>
       ) : null}

@@ -76,6 +76,11 @@ export function generateVariants(product: StorefrontProduct): ProductVariantData
   return variants
 }
 
+export function isStorefrontProductInStock(product: StorefrontProduct): boolean {
+  if (typeof product.inStock === 'boolean') return product.inStock
+  return generateVariants(product).some((variant) => variant.stock > 0)
+}
+
 export function getStockForVariant(
   productId: string,
   size: string,

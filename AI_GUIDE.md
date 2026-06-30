@@ -143,25 +143,29 @@ pnpm build:web        # Build web only
 
 ## Module Completion Order
 
-| # | Module | Status |
-|---|---|---|
-| 1 | Frontend Home Page | ✅ Complete |
-| 2 | Product Listing Page | ⬜ Next |
-| 3 | Product Details Page | ⬜ |
-| 4 | Cart | ⬜ |
-| 5 | Checkout | ⬜ |
-| 6 | Customer Auth | ⬜ |
-| 7 | Customer Account | ⬜ |
-| 8 | Admin Dashboard | ⬜ |
-| 9 | Products Admin | ⬜ |
-| 10 | Orders Admin | ⬜ |
-| 11 | Customers Admin | ⬜ |
-| 12 | Courier Automation | ⬜ |
-| 13 | Telegram Integration | ✅ Complete |
-| 14 | SEO Engine | ⬜ |
-| 15 | AI Agent | ⬜ |
-| 16 | Settings | ⬜ |
-| 17 | Final Build & Deployment | ⬜ |
+> Admin modules are wired **one at a time**. Status below reflects live API connection, not UI line count.
+
+| # | Module | Status | Notes |
+|---|---|---|---|
+| 1 | Frontend Home Page | ✅ Complete | |
+| 2 | Products Admin | ✅ Live | CRUD, publish, live count |
+| 3 | Orders Admin | ✅ Live | List, status, courier, permanent delete |
+| 4 | Customers Admin | ✅ Live | Profile, block, force delete |
+| 5 | Product Reviews | ✅ Live | Moderation + approve → storefront |
+| 6 | Hero Slider / Media | ✅ Live | Upload, delete, publish |
+| 7 | Returns / RMA | ✅ Live | Approve → receive → refund via API |
+| 8 | Invoices | ✅ Live | List, detail, mark paid, PDF/email via API |
+| 9 | Transactions | ✅ Live | List, stats, detail expand, COD confirm |
+| 10 | Inventory | ✅ Live | Stock list, alerts API, variant adjust |
+| 11 | Campaigns | ✅ Live | Create, send, schedule, duplicate, delete |
+| 12 | Dashboard / Analytics | ✅ Live | `/admin/dashboard/stats` |
+| 13 | Coupons | ✅ Live | Create, toggle, delete |
+| 14 | Settings | ✅ Live | Verified save + catalog SKU policy (manual default) |
+| 15 | Security (roles) | 🟡 Partial | Staff list API; permissions local |
+| 16 | Telegram Integration | ✅ Complete | |
+| 17 | SEO / WMS / SaaS shells | ⬜ Preview | UI only — not daily-use ready |
+
+**Module wiring queue complete.** SKU policy: manual by default (`catalog.autoGenerateSku: false`).
 
 ---
 

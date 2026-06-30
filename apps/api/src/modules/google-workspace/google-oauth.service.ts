@@ -12,6 +12,18 @@ function b64url(input: string) {
   return Buffer.from(input).toString('base64url')
 }
 
+function emailFromIdToken(idToken?: string | null): string | null {
+  if (!idToken) return null
+  try {
+    const payload = JSON.parse(
+      Buffer.from(idToken.split('.')[1] ?? '', 'base64url').toString('utf8'),
+    ) as { email?: string }
+    return payload.email?.trim() || null
+  } catch {
+    return null
+  }
+}
+
 @Injectable()
 export class GoogleOAuthService {
   constructor(
@@ -80,14 +92,29 @@ export class GoogleOAuthService {
   async getOAuthClient(storeIdRaw: string): Promise<Auth.OAuth2Client> {
     const conn = await this.ensureConnection(storeIdRaw)
     const clientId = this.resolveClientId(conn.clientId)
-    const clientSecret = this.resolveClientSecret(
-      conn.clientSecretEncrypted ? this.crypto.decrypt(conn.clientSecretEncrypted) : null,
-    )
+    const envSecret = this.config.get<string>('GOOGLE_CLIENT_SECRET')?.trim() || null
+    const dbSecret = conn.clientSecretEncrypted
+      ? this.crypto.decrypt(conn.clientSecretEncrypted).trim()
+      : null
+    const clientSecret = envSecret || dbSecret
     const redirectUri = this.resolveRedirectUri(conn.redirectUri)
     if (!clientId || !clientSecret) {
       throw new BadRequestException('Google Client ID and Client Secret are required in OAuth Settings or .env')
     }
     return new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+  }
+
+  resolveLoginHint() {
+    return (
+      this.config.get<string>('GOOGLE_OAUTH_LOGIN_HINT')?.trim() ||
+      this.config.get<string>('ADMIN_EMAIL')?.trim() ||
+      this.config.get<string>('CEO_EMAIL')?.trim() ||
+      null
+    )
+  }
+
+  isOAuthConfigured() {
+    return Boolean(this.resolveClientId() && this.resolveClientSecret())
   }
 
   async buildOAuthUrl(storeIdRaw: string, userId?: string) {
@@ -99,13 +126,43 @@ export class GoogleOAuthService {
       nonce: randomBytes(16).toString('hex'),
       exp: Date.now() + 15 * 60_000,
     })
+    const loginHint = this.resolveLoginHint()
     const url = oauth2.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
+      response_type: 'code',
       scope: [...GOOGLE_OAUTH_SCOPES],
       state,
+      ...(loginHint ? { login_hint: loginHint } : {}),
     })
-    return { url, redirectUri: this.resolveRedirectUri(), scopes: GOOGLE_OAUTH_SCOPES }
+    return {
+      url,
+      redirectUri: this.resolveRedirectUri(),
+      scopes: GOOGLE_OAUTH_SCOPES,
+      loginHint,
+      configured: this.isOAuthConfigured(),
+    }
+  }
+
+  private async resolveGoogleEmail(oauth2: Auth.OAuth2Client, tokens: Auth.Credentials) {
+    const fromId = emailFromIdToken(tokens.id_token)
+    if (fromId) return fromId
+
+    try {
+      if (!tokens.access_token) {
+        const access = await oauth2.getAccessToken()
+        const accessToken = typeof access === 'string' ? access : access?.token
+        if (accessToken) {
+          oauth2.setCredentials({ ...tokens, access_token: accessToken })
+        }
+      }
+      const profile = await google.oauth2({ version: 'v2', auth: oauth2 }).userinfo.get()
+      if (profile.data.email) return profile.data.email
+    } catch {
+      /* fall through to login hint */
+    }
+
+    return this.resolveLoginHint()
   }
 
   async handleCallback(code: string, state: string) {
@@ -117,9 +174,10 @@ export class GoogleOAuthService {
     }
 
     oauth2.setCredentials(tokens)
-    const oauth2Api = google.oauth2({ version: 'v2', auth: oauth2 })
-    const profile = await oauth2Api.userinfo.get()
-    const googleEmail = profile.data.email ?? null
+    const googleEmail = await this.resolveGoogleEmail(oauth2, tokens)
+    if (!googleEmail) {
+      throw new BadRequestException('Could not read Google account email. Reconnect and allow email permission.')
+    }
 
     const conn = await this.ensureConnection(storeId)
     const connection = await this.prisma.googleWorkspaceConnection.update({

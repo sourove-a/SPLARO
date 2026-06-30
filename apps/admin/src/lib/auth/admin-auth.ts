@@ -1,6 +1,7 @@
 import { verifyPassword, hashPassword } from './crypto'
+import { CEO_EMAIL, formatAdminDisplayName } from './role-label'
 
-export const DEFAULT_ADMIN_EMAIL = 'admin@splaro.com.bd'
+export const DEFAULT_ADMIN_EMAIL = CEO_EMAIL
 
 const DEV_FALLBACK_PASSWORD = 'Splaro@2026!'
 
@@ -29,7 +30,7 @@ function envAdmin() {
   return {
     id: 'admin_env_user',
     email: email.toLowerCase(),
-    name: 'SPLARO Super Admin',
+    name: formatAdminDisplayName('SPLARO Admin', email.toLowerCase()),
     role: 'SUPER_ADMIN',
     plainPassword: password,
     ...(passwordHash ? { passwordHash } : {}),

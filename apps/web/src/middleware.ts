@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { resolveAccessoryRedirect } from '@/lib/storefront/accessories-slugs'
+import {
+  getStorefrontRedirects,
+  matchRedirect,
+  redirectStatusCode,
+} from '@/lib/server/url-redirects'
 
 const MAINTENANCE_ENABLED = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
 
@@ -10,16 +15,25 @@ function redirectToShortCollection(request: NextRequest, slug: string) {
   return NextResponse.redirect(url)
 }
 
-function redirectToTarget(request: NextRequest, target: string) {
+function redirectToTarget(request: NextRequest, target: string, status = 307) {
+  if (/^https?:\/\//i.test(target)) {
+    return NextResponse.redirect(target, status)
+  }
   const url = request.nextUrl.clone()
   const [path, query] = target.split('?')
   url.pathname = path ?? target
   url.search = query ? `?${query}` : ''
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(url, status)
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  const managedRedirects = await getStorefrontRedirects()
+  const matched = matchRedirect(pathname, managedRedirects)
+  if (matched) {
+    return redirectToTarget(request, matched.toPath, redirectStatusCode(matched.type))
+  }
 
   if (pathname.startsWith('/c/')) {
     const slug = pathname.slice(3).replace(/\/$/, '')

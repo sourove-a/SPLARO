@@ -493,6 +493,7 @@ model Store {
   telegramConfig   TelegramConfig?
   searchConfigs    SearchConfig[]
   seoConfigs       SeoConfig[]
+  urlRedirects     UrlRedirect[]
   campaigns        Campaign[]
   webPushTokens    WebPushToken[]
   rmas             RMA[]
@@ -1285,6 +1286,8 @@ model Review {
   images           String[]     @default([])
   verifiedPurchase Boolean      @default(false)
   helpfulCount     Int          @default(0)
+  adminReply       String?
+  adminReplyAt     DateTime?
   product          Product      @relation(fields: [productId], references: [id])
   customer         Customer?    @relation(fields: [customerId], references: [id])
   createdAt        DateTime     @default(now())
@@ -1613,6 +1616,25 @@ model SeoConfig {
 
   @@unique([storeId, resourceType, resourceId])
   @@index([storeId, resourceType])
+}
+
+// ── URL REDIRECTS (301/302 rules) ─────────────────────────────
+
+model UrlRedirect {
+  id        String   @id @default(cuid())
+  storeId   String
+  fromPath  String
+  toPath    String
+  type      String   @default("301")
+  isActive  Boolean  @default(true)
+  hits      Int      @default(0)
+  note      String?
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, fromPath])
+  @@index([storeId, isActive])
 }
 
 // ── SEARCH CONFIG ────────────────────────────────────────────

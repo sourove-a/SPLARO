@@ -332,7 +332,7 @@ export function MobileFilterDrawer({
     if (sortBy !== 'Default') next.add('sort')
     if (!next.size) next.add('category')
     setExpandedSections(next)
-  }, [open])
+  }, [open, activeCategory, selectedColor, selectedSize, priceRangeActive, sortBy])
 
   useEffect(() => {
     if (!sizeMeta.enabled && selectedSize !== 'All') onSizeChange('All')
@@ -363,9 +363,13 @@ export function MobileFilterDrawer({
     return undefined
   }
 
-  const panelTransition = reduceMotion
+  const drawerTransition = reduceMotion
     ? { duration: 0 }
-    : { duration: 0.35, ease: DRAWER_EASE }
+    : { type: 'spring' as const, stiffness: 280, damping: 30, mass: 0.88 }
+
+  const fadeTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.34, ease: DRAWER_EASE }
 
   const handleDrawerTouchStart = (event: TouchEvent) => {
     touchStartX.current = event.touches[0]?.clientX ?? 0
@@ -392,7 +396,7 @@ export function MobileFilterDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={panelTransition}
+            transition={fadeTransition}
             onClick={onClose}
           />
 
@@ -405,12 +409,13 @@ export function MobileFilterDrawer({
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
-            transition={panelTransition}
+            transition={drawerTransition}
             onTouchStart={handleDrawerTouchStart}
             onTouchEnd={handleDrawerTouchEnd}
           >
             <div className="mobile-filter-drawer__surface">
               <div className="mobile-filter-drawer__sheen" aria-hidden />
+              <div className="mobile-filter-drawer__sweep" aria-hidden />
               <header className="mobile-filter-drawer__header">
                 <div className="mobile-filter-drawer__header-main">
                   <div className="mobile-filter-drawer__header-copy">

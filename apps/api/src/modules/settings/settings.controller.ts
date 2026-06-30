@@ -95,6 +95,9 @@ export class SettingsController {
       ourStory: config.ourStory ?? emptyStorefrontConfig().ourStory,
       homepage: config.homepage ?? emptyStorefrontConfig().homepage,
       catalogChannels: mergeCatalogChannels(config.catalogChannels),
+      catalog: {
+        autoGenerateSku: config.catalog?.autoGenerateSku ?? false,
+      },
       payments: {
         cod: settings?.codEnabled ?? true,
         bkash: settings?.bkashEnabled ?? true,
@@ -250,6 +253,7 @@ export class SettingsController {
       ourStory?: StorefrontConfig['ourStory']
       homepage?: StorefrontConfig['homepage']
       catalogChannels?: StorefrontConfig['catalogChannels']
+      catalog?: StorefrontConfig['catalog']
       payments?: {
         cod?: boolean
         bkash?: boolean
@@ -329,6 +333,7 @@ export class SettingsController {
       ...(body.catalogChannels
         ? { catalogChannels: mergeCatalogChannels(body.catalogChannels) }
         : {}),
+      ...(body.catalog ? { catalog: { ...currentConfig.catalog!, ...body.catalog } } : {}),
       ...(body.smtp
         ? {
             smtp: {
@@ -414,7 +419,7 @@ export class SettingsController {
       })
     }
 
-    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing || body.telegram) {
+    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.catalog || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing || body.telegram) {
       await this.prisma.siteSettings.upsert({
         where: { storeId: store.id },
         create: {

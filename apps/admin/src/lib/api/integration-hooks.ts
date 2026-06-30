@@ -36,7 +36,7 @@ export function useUpdateTelegramIntegration() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['integration-telegram'] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
-      await qc.invalidateQueries({ queryKey: ['settings'] })
+      await qc.invalidateQueries({ queryKey: ['admin-settings'] })
     },
   })
 }
@@ -68,6 +68,7 @@ export function useUpdateAiIntegration() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['integration-ai'] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+      await qc.invalidateQueries({ queryKey: ['admin-settings'] })
     },
   })
 }

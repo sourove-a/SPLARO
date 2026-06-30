@@ -33,8 +33,9 @@ export function ShopCollectionsSection() {
                   alt={card.label}
                   fill
                   sizes="(max-width: 1024px) 42vw, 16vw"
-                  className="object-cover transition-transform duration-[680ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
+                  className="shop-collection-card__img object-cover"
                 />
+                <div className="shop-collection-card__shine" aria-hidden />
                 <div className="shop-collection-card__overlay" aria-hidden />
                 <div className="shop-collection-card__footer">
                   <div className="shop-collection-card__text">

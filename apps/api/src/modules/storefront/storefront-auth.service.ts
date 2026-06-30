@@ -36,6 +36,9 @@ export interface StorefrontAuthUser {
   email: string
   phone: string
   customerId?: string
+  avatar?: string | null
+  phoneVerified?: boolean
+  loyaltyTier?: string
 }
 
 @Injectable()
@@ -72,7 +75,15 @@ export class StorefrontAuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: customer.userId },
-      select: { id: true, email: true, phone: true, firstName: true, lastName: true },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        phoneVerified: true,
+      },
     })
     if (!user) throw new BadRequestException('Signup failed')
 
@@ -80,7 +91,7 @@ export class StorefrontAuthService {
     return {
       sessionToken: session.sessionToken,
       expiresAt: session.expiresAt.toISOString(),
-      user: this.toAuthUser(user, customer.id),
+      user: this.toAuthUser(user, customer.id, customer.loyaltyTier),
     }
   }
 
@@ -104,7 +115,9 @@ export class StorefrontAuthService {
         lastName: true,
         passwordHash: true,
         isActive: true,
-        customer: { select: { id: true, storeId: true } },
+        avatar: true,
+        phoneVerified: true,
+        customer: { select: { id: true, storeId: true, loyaltyTier: true } },
       },
     })
 
@@ -116,7 +129,7 @@ export class StorefrontAuthService {
     return {
       sessionToken: session.sessionToken,
       expiresAt: session.expiresAt.toISOString(),
-      user: this.toAuthUser(user, user.customer?.storeId === storeId ? user.customer.id : undefined),
+      user: this.toAuthUser(user, user.customer?.storeId === storeId ? user.customer.id : undefined, user.customer?.loyaltyTier),
     }
   }
 
@@ -138,7 +151,9 @@ export class StorefrontAuthService {
             firstName: true,
             lastName: true,
             isActive: true,
-            customer: { select: { id: true } },
+            avatar: true,
+            phoneVerified: true,
+            customer: { select: { id: true, loyaltyTier: true } },
           },
         },
       },
@@ -151,7 +166,32 @@ export class StorefrontAuthService {
       data: { lastActive: new Date() },
     })
 
-    return this.toAuthUser(session.user, session.user.customer?.id)
+    return this.toAuthUser(session.user, session.user.customer?.id, session.user.customer?.loyaltyTier)
+  }
+
+  async updateProfile(
+    sessionToken: string,
+    input: { name?: string; avatar?: string | null },
+  ): Promise<StorefrontAuthUser> {
+    const current = await this.validateSession(sessionToken)
+    if (!current) throw new UnauthorizedException('Session expired')
+
+    const name = input.name?.trim()
+    const parts = name ? name.split(/\s+/).filter(Boolean) : []
+    const firstName = parts[0]
+    const lastName = parts.slice(1).join(' ')
+
+    await this.prisma.user.update({
+      where: { id: current.id },
+      data: {
+        ...(firstName ? { firstName, lastName: lastName || '' } : {}),
+        ...(input.avatar !== undefined ? { avatar: input.avatar || null } : {}),
+      },
+    })
+
+    const refreshed = await this.validateSession(sessionToken)
+    if (!refreshed) throw new UnauthorizedException('Session expired')
+    return refreshed
   }
 
   async logout(sessionToken: string): Promise<void> {
@@ -190,8 +230,11 @@ export class StorefrontAuthService {
       phone: string | null
       firstName: string
       lastName: string
+      avatar?: string | null
+      phoneVerified?: boolean
     },
     customerId?: string,
+    loyaltyTier?: string,
   ): StorefrontAuthUser {
     return {
       id: user.id,
@@ -199,6 +242,9 @@ export class StorefrontAuthService {
       email: user.email ?? '',
       phone: user.phone ?? '',
       ...(customerId ? { customerId } : {}),
+      ...(user.avatar ? { avatar: user.avatar } : {}),
+      ...(user.phoneVerified ? { phoneVerified: true } : {}),
+      ...(loyaltyTier ? { loyaltyTier } : {}),
     }
   }
 }

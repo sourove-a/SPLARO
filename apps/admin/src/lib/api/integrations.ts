@@ -10,6 +10,7 @@ export interface TelegramIntegration {
   notifyPayments: boolean
   notifyCourier: boolean
   notifyStock: boolean
+  notifyReviews: boolean
   reportDaily: boolean
   reportTime: string
   lastTestedAt: string | null

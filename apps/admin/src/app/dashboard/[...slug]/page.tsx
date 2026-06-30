@@ -6,6 +6,7 @@ import { ProductCreatePanel } from '@/components/modules/ProductCreatePanel'
 import { OrderCreatePanel } from '@/components/modules/OrderCreatePanel'
 import { ModuleDetailView } from '@/components/ui/ModuleDetailView'
 import { ModuleWorkspace } from '@/components/modules/ModuleWorkspace'
+import { CustomerProfileClient } from '@/components/customers/CustomerProfileClient'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
 
 interface DashboardModulePageProps {
@@ -64,6 +65,19 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
   }
 
   if (action === 'edit' || action === 'detail') {
+    if (moduleHref === '/dashboard/customers') {
+      const recordId = getRecordIdFromSubPath(resolved.subPath, action) ?? 'record'
+      return (
+        <AdminPageShell
+          title="Customer Profile"
+          description="Full 360° customer intelligence view"
+          breadcrumbs={breadcrumbTrail}
+        >
+          <CustomerProfileClient customerId={recordId} />
+        </AdminPageShell>
+      )
+    }
+
     const detailHandledByModule = [
       '/dashboard/finance/partner-accounts',
       '/dashboard/finance/investments',

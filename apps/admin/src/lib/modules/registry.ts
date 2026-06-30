@@ -37,7 +37,6 @@ import {
   ObservabilityModulePanel,
 } from '@/components/modules/PlatformModulePanels'
 import { FinanceModulePanel } from '@/components/modules/FinanceModulePanel'
-import { PosPanel } from '@/components/pos/PosPanel'
 import { GoogleSheetsPanel } from '@/components/finance/GoogleSheetsPanel'
 import { TelegramPanel } from '@/components/finance/TelegramPanel'
 import { FinanceAuditLogsPanel } from '@/components/finance/FinanceAuditLogsPanel'
@@ -155,12 +154,12 @@ const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
   '/dashboard/tenants': wrapGeneric(SaaSModulePanel),
   '/dashboard/billing': wrapGeneric(SaaSModulePanel),
   '/dashboard/orders': wrapGeneric(OrdersModulePanel),
-  '/dashboard/pos': wrapStatic(PosPanel),
   '/dashboard/returns-rma': wrapGeneric(CommerceFinanceModulePanel),
   '/dashboard/subscriptions': wrapGeneric(CommerceFinanceModulePanel),
   '/dashboard/invoices': wrapGeneric(CommerceFinanceModulePanel),
   '/dashboard/transactions': wrapGeneric(CommerceFinanceModulePanel),
   '/dashboard/products': wrapGeneric(CatalogModulePanel),
+  '/dashboard/product-reviews': wrapGeneric(CatalogModulePanel),
   '/dashboard/collections': wrapGeneric(CatalogModulePanel),
   '/dashboard/categories': wrapGeneric(CatalogModulePanel),
   '/dashboard/inventory': wrapGeneric(CatalogModulePanel),

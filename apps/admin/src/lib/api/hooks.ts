@@ -1,18 +1,29 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchDashboardStats, fetchDashboardInsights, periodFromLabel } from './dashboard'
-import { fetchOrders, fetchOrder, updateOrderStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus } from './orders'
+import { fetchDashboardStats, fetchDashboardInsights, fetchInventoryAlerts, periodFromLabel } from './dashboard'
+import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus } from './orders'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant } from './products'
 import { fetchCategories, createCategory, updateCategory, deleteCategory } from './categories'
 import { fetchCollections, createCollection, updateCollection } from './collections'
 import { fetchBrands, createBrand, updateBrand } from './brands'
-import { createBanner, fetchBanners } from './banners'
+import { createBanner, fetchBanners, updateBanner, deleteBanner } from './banners'
+import { createRedirect, deleteRedirect, fetchRedirects, updateRedirect } from './redirects'
+import { EMPTY_HELPDESK_OVERVIEW, EMPTY_SEO_OVERVIEW, isNetworkOrServerError } from './offline-defaults'
 import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer } from './customers'
+import { fetchLoyaltySummary, fetchReferralStats, fetchReferrals } from './loyalty'
 import { fetchAutomationRules } from './automation'
-import { fetchCampaigns } from './marketing'
+import {
+  fetchCampaigns,
+  fetchCampaignStats,
+  createCampaign,
+  updateCampaign,
+  deleteCampaign,
+  duplicateCampaign,
+  sendCampaign,
+} from './marketing'
 import { fetchCourierShipments, fetchCourierStats } from './courier'
-import { fetchInvoices, fetchTransactions, fetchReturns } from './commerce-finance'
+import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, type RmaApiStatus } from './commerce-finance'
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
 import {
@@ -46,6 +57,13 @@ import {
   fetchNotificationsOverview,
   fetchCommerceSubscriptions,
 } from './admin-hub'
+import {
+  createSitePage,
+  deleteSitePage,
+  fetchSitePages,
+  updateSitePage,
+} from './content-pages'
+import { updateStaffRole } from './security'
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
 
@@ -229,12 +247,27 @@ export function useProcurementOverview() {
 }
 
 export function useHelpdeskOverview() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['helpdesk-overview'],
-    queryFn: fetchHelpdeskOverview,
+    queryFn: async () => {
+      try {
+        return { data: await fetchHelpdeskOverview(), offline: false as const }
+      } catch (error) {
+        return { data: EMPTY_HELPDESK_OVERVIEW, offline: isNetworkOrServerError(error) }
+      }
+    },
     staleTime: 30_000,
-    retry: 1,
+    retry: false,
   })
+
+  return {
+    data: query.data?.data ?? EMPTY_HELPDESK_OVERVIEW,
+    isOffline: query.data?.offline ?? false,
+    isLoading: query.isLoading,
+    isError: query.data?.offline ?? query.isError,
+    refetch: query.refetch,
+    isFetching: query.isFetching,
+  }
 }
 
 export function useCompanyOverview() {
@@ -323,12 +356,120 @@ export function useCreateBlogPost() {
   })
 }
 
-export function useSeoOverview() {
+export function useSitePages() {
   return useQuery({
-    queryKey: ['seo-overview'],
-    queryFn: fetchSeoOverview,
+    queryKey: ['site-pages'],
+    queryFn: fetchSitePages,
     staleTime: 30_000,
     retry: 1,
+  })
+}
+
+export function useCreateSitePage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createSitePage,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['site-pages'] }),
+  })
+}
+
+export function useUpdateSitePage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & Parameters<typeof updateSitePage>[1]) =>
+      updateSitePage(id, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['site-pages'] }),
+  })
+}
+
+export function useDeleteSitePage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteSitePage,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['site-pages'] }),
+  })
+}
+
+export function useSeoOverview() {
+  const query = useQuery({
+    queryKey: ['seo-overview'],
+    queryFn: async () => {
+      try {
+        return { data: await fetchSeoOverview(), offline: false as const }
+      } catch (error) {
+        return { data: EMPTY_SEO_OVERVIEW, offline: isNetworkOrServerError(error) }
+      }
+    },
+    staleTime: 30_000,
+    retry: false,
+  })
+
+  return {
+    data: query.data?.data ?? EMPTY_SEO_OVERVIEW,
+    isOffline: query.data?.offline ?? false,
+    isLoading: query.isLoading,
+    isError: query.data?.offline ?? query.isError,
+    refetch: query.refetch,
+    isFetching: query.isFetching,
+  }
+}
+
+export function useRedirects() {
+  const query = useQuery({
+    queryKey: ['url-redirects'],
+    queryFn: async () => {
+      try {
+        const res = await fetchRedirects()
+        return { data: res.redirects, offline: false as const }
+      } catch (error) {
+        return { data: [], offline: isNetworkOrServerError(error) }
+      }
+    },
+    staleTime: 15_000,
+    retry: false,
+  })
+
+  return {
+    data: query.data?.data ?? [],
+    isOffline: query.data?.offline ?? false,
+    isLoading: query.isLoading,
+    isError: query.data?.offline ?? query.isError,
+    refetch: query.refetch,
+    isFetching: query.isFetching,
+  }
+}
+
+export function useCreateRedirect() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createRedirect,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['url-redirects'] })
+      void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+    },
+  })
+}
+
+export function useUpdateRedirect() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; fromPath?: string; toPath?: string; type?: string; isActive?: boolean; note?: string | null }) =>
+      updateRedirect(id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['url-redirects'] })
+      void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+    },
+  })
+}
+
+export function useDeleteRedirect() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteRedirect,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['url-redirects'] })
+      void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+    },
   })
 }
 
@@ -393,6 +534,33 @@ export function useCustomers(params?: { search?: string; limit?: number }) {
   })
 }
 
+export function useLoyaltySummary() {
+  return useQuery({
+    queryKey: ['loyalty-summary'],
+    queryFn: fetchLoyaltySummary,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useReferralStats() {
+  return useQuery({
+    queryKey: ['referral-stats'],
+    queryFn: fetchReferralStats,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useReferrals(params?: { page?: number; limit?: number }) {
+  return useQuery({
+    queryKey: ['referrals', params],
+    queryFn: () => fetchReferrals(params),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
 export function useCustomer(id: string) {
   return useQuery({
     queryKey: ['customer', id],
@@ -432,11 +600,110 @@ export function useCampaigns() {
   })
 }
 
+export function useCampaignStats() {
+  return useQuery({
+    queryKey: ['campaign-stats'],
+    queryFn: fetchCampaignStats,
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useCreateCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createCampaign,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['campaigns'] })
+      void qc.invalidateQueries({ queryKey: ['campaign-stats'] })
+    },
+  })
+}
+
+export function useUpdateCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; subject?: string; body?: string; scheduledAt?: string; status?: string }) =>
+      updateCampaign(id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['campaigns'] })
+      void qc.invalidateQueries({ queryKey: ['campaign-stats'] })
+    },
+  })
+}
+
+export function useDeleteCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteCampaign,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['campaigns'] })
+      void qc.invalidateQueries({ queryKey: ['campaign-stats'] })
+    },
+  })
+}
+
+export function useDuplicateCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: duplicateCampaign,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['campaigns'] })
+      void qc.invalidateQueries({ queryKey: ['campaign-stats'] })
+    },
+  })
+}
+
+export function useSendCampaign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: sendCampaign,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['campaigns'] })
+      void qc.invalidateQueries({ queryKey: ['campaign-stats'] })
+    },
+  })
+}
+
 export function useInvoices(search?: string) {
   return useQuery({
     queryKey: ['invoices', search],
     queryFn: () => fetchInvoices(search),
     staleTime: 30_000,
+  })
+}
+
+export function useInvoiceHealth() {
+  return useQuery({
+    queryKey: ['invoice-health'],
+    queryFn: fetchInvoiceHealth,
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useInvoiceStats(days = 30) {
+  return useQuery({
+    queryKey: ['invoice-stats', days],
+    queryFn: () => fetchInvoiceStats(days),
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useUpdateOrderPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, paymentStatus }: { id: string; paymentStatus: 'PAID' | 'UNPAID' | 'PENDING' }) =>
+      updateOrderPaymentStatus(id, paymentStatus),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['invoices'] })
+      void qc.invalidateQueries({ queryKey: ['transactions'] })
+      void qc.invalidateQueries({ queryKey: ['transaction-health'] })
+      void qc.invalidateQueries({ queryKey: ['order', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['invoice-stats'] })
+    },
   })
 }
 
@@ -448,6 +715,24 @@ export function useTransactions(search?: string) {
   })
 }
 
+export function useTransactionHealth() {
+  return useQuery({
+    queryKey: ['transaction-health'],
+    queryFn: fetchTransactionHealth,
+    staleTime: 60_000,
+    retry: 1,
+  })
+}
+
+export function useTransaction(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ['transaction', id],
+    queryFn: () => fetchTransaction(id),
+    enabled: Boolean(id) && enabled,
+    staleTime: 15_000,
+  })
+}
+
 export function useReturns(search?: string) {
   return useQuery({
     queryKey: ['returns', search],
@@ -456,11 +741,48 @@ export function useReturns(search?: string) {
   })
 }
 
-export function useProducts(params?: { search?: string; status?: 'published' | 'draft'; limit?: number }) {
+export function useUpdateReturnStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: string
+      status: RmaApiStatus
+      note?: string
+      refundAmount?: number
+    }) => updateReturnStatus(id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['returns'] })
+    },
+  })
+}
+
+export function useProducts(params?: { search?: string; status?: 'published' | 'draft'; limit?: number; page?: number }) {
   return useQuery({
     queryKey: ['products', params],
-    queryFn: () => fetchProducts({ ...params, page: 1, limit: params?.limit ?? 50 }),
+    queryFn: () => fetchProducts({ ...params, page: params?.page ?? 1, limit: params?.limit ?? 50 }),
     staleTime: 30_000,
+  })
+}
+
+export function usePublishedProductCount() {
+  return useQuery({
+    queryKey: ['products', 'published-count'],
+    queryFn: () => fetchProducts({ status: 'published', limit: 1, page: 1 }),
+    select: (data) => data.total,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useInventoryAlerts() {
+  return useQuery({
+    queryKey: ['inventory-alerts'],
+    queryFn: fetchInventoryAlerts,
+    staleTime: 30_000,
+    retry: 1,
   })
 }
 
@@ -546,11 +868,14 @@ export function useUpdateProductVariant() {
       productId,
       variantId,
       ...data
-    }: { productId: string; variantId: string; stock?: number; price?: number; isActive?: boolean }) =>
+    }: { productId: string; variantId: string; stock?: number; price?: number; isActive?: boolean; sku?: string }) =>
       updateProductVariant(productId, variantId, data),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['products'] })
       void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
+      void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
+      void qc.invalidateQueries({ queryKey: ['products', 'published-count'] })
+      void revalidateWebCache(['storefront-products'])
     },
   })
 }
@@ -588,9 +913,12 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean }) =>
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean; image?: string | null }) =>
       updateCategory(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['categories'] })
+      void qc.invalidateQueries({ queryKey: ['platform-media'] })
+    },
   })
 }
 
@@ -652,7 +980,10 @@ export function useCreateCollection() {
   return useMutation({
     mutationFn: (data: { name: string; description?: string; image?: string }) =>
       createCollection(data.name, data.description, data.image),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['collections'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['collections'] })
+      void qc.invalidateQueries({ queryKey: ['content-overview'] })
+    },
   })
 }
 
@@ -691,11 +1022,11 @@ export function useUpdateBrand() {
   })
 }
 
-export function useBanners() {
+export function useBanners(position?: string) {
   return useQuery({
-    queryKey: ['banners'],
+    queryKey: ['banners', position ?? 'all'],
     queryFn: async () => {
-      const res = await fetchBanners()
+      const res = await fetchBanners(position)
       return res.banners
     },
     staleTime: 30_000,
@@ -710,6 +1041,40 @@ export function useCreateBanner() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
       void qc.invalidateQueries({ queryKey: ['banners'] })
+    },
+  })
+}
+
+export function useUpdateBanner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; title?: string; subtitle?: string; linkUrl?: string; isActive?: boolean; sortOrder?: number; image?: string }) =>
+      updateBanner(id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-media'] })
+      void qc.invalidateQueries({ queryKey: ['banners'] })
+    },
+  })
+}
+
+export function useDeleteBanner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteBanner,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-media'] })
+      void qc.invalidateQueries({ queryKey: ['banners'] })
+    },
+  })
+}
+
+export function useUpdateStaffRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userId, ...data }: { userId: string; role?: string; isActive?: boolean }) =>
+      updateStaffRole(userId, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-security'] })
     },
   })
 }

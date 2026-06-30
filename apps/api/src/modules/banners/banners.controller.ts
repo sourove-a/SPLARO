@@ -10,10 +10,18 @@ import {
 } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { CacheService } from '../../common/cache.service'
 
 @Controller('admin/banners')
 export class BannersController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
+
+  private async bustBannerCache(storeId: string) {
+    await this.cache.invalidateStoreResource(storeId, 'banners')
+  }
 
   @Get()
   async list(
@@ -69,7 +77,7 @@ export class BannersController {
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const count = await this.prisma.banner.count({ where: { storeId: sid } })
-    return this.prisma.banner.create({
+    const banner = await this.prisma.banner.create({
       data: {
         storeId: sid,
         image: body.image,
@@ -85,6 +93,8 @@ export class BannersController {
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
       },
     })
+    await this.bustBannerCache(sid)
+    return banner
   }
 
   @Patch('bulk/sort')
@@ -138,7 +148,8 @@ export class BannersController {
       expiresAt?: string
     },
   ) {
-    return this.prisma.banner.update({
+    const existing = await this.prisma.banner.findUnique({ where: { id } })
+    const banner = await this.prisma.banner.update({
       where: { id },
       data: {
         ...body,
@@ -146,11 +157,15 @@ export class BannersController {
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
       },
     })
+    if (existing) await this.bustBannerCache(existing.storeId)
+    return banner
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
+    const existing = await this.prisma.banner.findUnique({ where: { id } })
     await this.prisma.banner.delete({ where: { id } })
+    if (existing) await this.bustBannerCache(existing.storeId)
     return { deleted: true }
   }
 }

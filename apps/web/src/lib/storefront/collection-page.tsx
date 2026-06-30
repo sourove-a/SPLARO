@@ -1,24 +1,28 @@
-import { notFound } from 'next/navigation'
-import { isCollectionSlugAccessible } from '@splaro/types'
+import { redirect } from 'next/navigation'
+import { isCollectionSlugAccessible, mergeCatalogChannels } from '@splaro/types'
 import { CollectionShopClient } from '@/app/collections/[slug]/collection-shop-client'
-import { getStorefrontCatalog } from '@/lib/catalog/server'
+import { getStorefrontCatalogForCollection } from '@/lib/catalog/server'
+import { resolveCollectionContext } from '@/lib/storefront/collection-context'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 
-export function titleFromCollectionSlug(slug: string) {
-  return slug
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
+export { titleFromCollectionSlug } from '@/lib/storefront/collection-context'
 
 export async function CollectionPageContent({ slug }: { slug: string }) {
   const settings = await getStorefrontSettings()
-  const channels = settings.config.catalogChannels ?? []
+  const channels = mergeCatalogChannels(settings.config.catalogChannels ?? [])
 
   if (!isCollectionSlugAccessible(slug, channels)) {
-    notFound()
+    redirect('/shop')
   }
 
-  const catalog = await getStorefrontCatalog()
-  return <CollectionShopClient slug={slug} initialCatalog={catalog} />
+  const context = resolveCollectionContext(slug, channels)
+  const catalog = await getStorefrontCatalogForCollection(context)
+
+  return (
+    <CollectionShopClient
+      slug={slug}
+      context={context}
+      initialCatalog={catalog}
+    />
+  )
 }

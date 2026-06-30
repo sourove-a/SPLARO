@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -33,7 +33,6 @@ import {
   linkGoogleSpreadsheet,
   createDriveFolders,
   fetchGmailConfig,
-  fetchGoogleOAuthUrl,
   fetchGoogleSheetsConfig,
   fetchGoogleStatus,
   fetchGoogleSyncLogs,
@@ -45,7 +44,43 @@ import {
   updateGmailConfig,
   updateGoogleOAuthSettings,
 } from '@/lib/api/google-workspace'
+import { CEO_EMAIL } from '@/lib/auth/role-label'
+import { useClientMounted } from '@/lib/hooks/use-client-mounted'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
+
+function formatOAuthError(raw: string) {
+  const lower = raw.toLowerCase()
+  if (lower.includes('invalid_client')) {
+    return {
+      title: 'Google Client ID / Secret ঠিক নেই',
+      body: 'Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client এ Client ID ও Secret মিলিয়ে দিন।',
+      hint: 'http://localhost:4000/api/v1/admin/google/callback',
+    }
+  }
+  if (lower.includes('redirect_uri_mismatch')) {
+    return {
+      title: 'Redirect URI মিলছে না',
+      body: 'Google Console-এ exact redirect URI add করুন (নিচে Copy করুন)।',
+      hint: 'http://localhost:4000/api/v1/admin/google/callback',
+    }
+  }
+  if (lower.includes('refresh token')) {
+    return {
+      title: 'Refresh token পাওয়া যায়নি',
+      body: 'Google Account → Security → Third-party access থেকে SPLARO revoke করে আবার Connect চাপুন।',
+    }
+  }
+  return { title: 'Connect ব্যর্থ হয়েছে', body: raw }
+}
+
+async function copyText(value: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(value)
+    toastOk(`${label} copied`, 'gw-copy')
+  } catch {
+    toastFail('Copy failed — manually select the text', 'gw-copy-fail')
+  }
+}
 
 function Collapsible({ title, summary, defaultOpen = false, children }: {
   title: string
@@ -89,7 +124,7 @@ function useGoogleStatus() {
 
 function OverviewPanel() {
   const { data, isLoading, refetch } = useGoogleStatus()
-  const testMut = useMutation({ mutationFn: testGoogleConnection })
+  const testMut = useMutation({ mutationFn: () => testGoogleConnection('auto') })
 
   if (isLoading) {
     return <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[#5E7CFF]" /></div>
@@ -154,22 +189,14 @@ function OverviewPanel() {
   )
 }
 
+function googleConnectHref() {
+  return '/api/google/connect'
+}
+
 function GoogleConnectionBanner({ action = 'use this feature' }: { action?: string }) {
   const { data: status } = useGoogleStatus()
-  const connectMut = useMutation({ mutationFn: fetchGoogleOAuthUrl })
 
   if (status?.oauthConnected) return null
-
-  const needsOAuth = !status?.oauthConnected
-
-  const handleConnect = async () => {
-    try {
-      const { url } = await connectMut.mutateAsync()
-      window.location.href = url
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'OAuth URL failed', 'gw-oauth-url')
-    }
-  }
 
   return (
     <div className="gw-connect-cta">
@@ -186,11 +213,9 @@ function GoogleConnectionBanner({ action = 'use this feature' }: { action?: stri
         </p>
       </div>
       <div className="flex flex-shrink-0 flex-wrap gap-2">
-        {needsOAuth ? (
-          <AdminButton variant="gold" loading={connectMut.isPending} onClick={() => void handleConnect()}>
-            <Cloud className="h-4 w-4" /> Connect Gmail
-          </AdminButton>
-        ) : null}
+        <a href={googleConnectHref()} className="admin-btn admin-btn--gold px-4 py-2 text-xs font-black inline-flex items-center gap-2">
+          <Cloud className="h-4 w-4" /> Connect Gmail
+        </a>
         <Link href="/dashboard/google-workspace/connect" className="admin-btn px-4 py-2 text-xs font-black">
           Setup guide
         </Link>
@@ -199,114 +224,269 @@ function GoogleConnectionBanner({ action = 'use this feature' }: { action?: stri
   )
 }
 
-function ConnectPanel() {
-  const searchParams = useSearchParams()
-  const qc = useQueryClient()
-  const { data: status, refetch } = useGoogleStatus()
-  const connectMut = useMutation({ mutationFn: fetchGoogleOAuthUrl })
-  const revokeMut = useMutation({ mutationFn: revokeGoogleAccess })
-  const testMut = useMutation({ mutationFn: testGoogleConnection })
-  const saMut = useMutation({ mutationFn: activateGoogleServiceAccount })
+function ClientIsoDate({ iso, fallback = '—' }: { iso: string; fallback?: string }) {
+  const mounted = useClientMounted()
+  const [label, setLabel] = useState(fallback)
 
   useEffect(() => {
-    if (searchParams.get('connected') === '1') {
-      const email = searchParams.get('email')
-      toastOk(email ? `Google connected: ${email}` : 'Google account connected', 'gw-oauth-ok')
-      void qc.invalidateQueries({ queryKey: ['google-status'] })
-    }
-  }, [searchParams, qc])
+    if (!mounted) return
+    setLabel(new Date(iso).toLocaleString())
+  }, [iso, mounted])
 
-  const handleConnect = async () => {
-    try {
-      const { url } = await connectMut.mutateAsync()
-      window.location.href = url
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'OAuth URL failed', 'gw-oauth-url')
-    }
-  }
+  return <span suppressHydrationWarning>{label}</span>
+}
+
+function ConnectPanelSkeleton() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 pb-10" aria-busy="true" aria-label="Loading Gmail connect">
+      <section className="gw-connect-hero">
+        <div className="gw-connect-hero__icon">
+          <Mail className="h-7 w-7" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="ai-command-eyebrow">Google Workspace</p>
+          <h1 className="ai-command-title">Gmail Connect</h1>
+          <p className="ai-command-sub">Loading connection status…</p>
+        </div>
+      </section>
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-7 w-7 animate-spin text-[var(--admin-text-muted)]" />
+      </div>
+    </div>
+  )
+}
+
+function ConnectPanelInner() {
+  const searchParams = useSearchParams()
+  const mounted = useClientMounted()
+  const qc = useQueryClient()
+  const { data: status, refetch } = useGoogleStatus()
+  const revokeMut = useMutation({ mutationFn: revokeGoogleAccess })
+  const testMut = useMutation({ mutationFn: () => testGoogleConnection('gmail') })
+  const saMut = useMutation({ mutationFn: activateGoogleServiceAccount })
 
   const oauthReady = Boolean(status?.oauthConnected)
+  const configReady = status?.oauthConfigReady !== false
+  const loginHint = status?.oauthLoginHint ?? CEO_EMAIL
+  const redirectUri = status?.oauth.redirectUri ?? 'http://localhost:4000/api/v1/admin/google/callback'
+  const urlError = mounted ? searchParams.get('error') : null
+
+  useEffect(() => {
+    if (!mounted) return
+    if (searchParams.get('connected') === '1') {
+      const email = searchParams.get('email')
+      toastOk(email ? `Gmail connected: ${email}` : 'Gmail account connected', 'gw-oauth-ok')
+      void qc.invalidateQueries({ queryKey: ['google-status'] })
+      void refetch()
+    }
+  }, [searchParams, qc, refetch, mounted])
+
+  const handleConnect = () => {
+    if (!configReady) {
+      toastFail('OAuth Client ID / Secret missing — check .env or OAuth Settings', 'gw-oauth-config')
+      return
+    }
+    window.location.href = googleConnectHref()
+  }
+
+  const errorInfo = urlError ? formatOAuthError(urlError) : null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-8">
-      <section className="ai-command-hero">
-        <h1 className="ai-command-title">Connect Google Account</h1>
-        <p className="ai-command-sub">Gmail OAuth · Drive · Calendar — service account শুধু Sheets sync</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <StatusPill
-            ok={oauthReady}
-            label={oauthReady ? `Gmail OAuth · ${status?.oauthEmail ?? status?.googleEmail}` : 'Gmail OAuth not connected'}
-          />
-          <StatusPill ok={Boolean(status?.serviceAccountConfigured)} label={status?.serviceAccountConfigured ? `Sheets SA · ${status.serviceAccountEmail}` : 'Service account missing'} />
+    <div className="mx-auto max-w-3xl space-y-5 pb-10">
+      <section className="gw-connect-hero">
+        <div className="gw-connect-hero__icon">
+          <Mail className="h-7 w-7" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="ai-command-eyebrow">Google Workspace</p>
+          <h1 className="ai-command-title">Gmail Connect</h1>
+          <p className="ai-command-sub">
+            Order emails, notifications ও Gmail API — আপনার personal Gmail দিয়ে OAuth connect করুন।
+          </p>
         </div>
       </section>
 
-      {!oauthReady ? <GoogleConnectionBanner action="send email or use Drive" /> : null}
-
-      <Collapsible title="Gmail OAuth — Connect এখানে" defaultOpen={!oauthReady} summary={status?.oauthEmail ?? status?.googleEmail ?? 'Login with your Gmail'}>
-        <div className="space-y-3 text-sm text-[var(--admin-text-secondary)]">
-          <p><strong className="text-[var(--admin-text-strong)]">OAuth email:</strong> {status?.oauthEmail ?? '—'}</p>
-          <p><strong className="text-[var(--admin-text-strong)]">Sheets service account:</strong> {status?.serviceAccountEmail ?? '—'}</p>
-          <p><strong className="text-[var(--admin-text-strong)]">Token:</strong> {oauthReady ? (status?.tokenHealth ?? 'healthy') : 'missing'}</p>
-          <p><strong className="text-[var(--admin-text-strong)]">Expires:</strong> {status?.tokenExpiry ? new Date(status.tokenExpiry).toLocaleString() : '—'}</p>
+      {errorInfo ? (
+        <div className="gw-connect-error">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <div className="min-w-0">
+            <p className="gw-connect-error__title">{errorInfo.title}</p>
+            <p className="gw-connect-error__body">{errorInfo.body}</p>
+            {errorInfo.hint ? (
+              <button type="button" className="gw-connect-error__hint" onClick={() => void copyText(errorInfo.hint!, 'Redirect URI')}>
+                {errorInfo.hint} · Copy
+              </button>
+            ) : null}
+          </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <AdminButton variant="gold" loading={connectMut.isPending} onClick={() => void handleConnect()}>
-            <Cloud className="h-4 w-4" /> Connect / Reconnect Gmail
-          </AdminButton>
-          <AdminButton loading={revokeMut.isPending} disabled={!status?.connected} onClick={() => void revokeMut.mutateAsync().then(() => { toastOk('Access revoked', 'gw-revoke'); void refetch() }).catch((e) => toastFail(e.message, 'gw-revoke-fail'))}>
-            <Unplug className="h-4 w-4" /> Revoke access
-          </AdminButton>
-          <AdminButton loading={testMut.isPending} disabled={!oauthReady} onClick={() => void testMut.mutateAsync().then((r) => toastOk(r.message, 'gw-test')).catch((e) => toastFail(e.message, 'gw-test-fail'))}>
-            Test connection
-          </AdminButton>
-        </div>
-      </Collapsible>
+      ) : null}
 
-      <Collapsible title="কীভাবে Connect করবেন (Email দিয়ে)" defaultOpen summary="৩টি সহজ ধাপ">
-        <ol className="space-y-3">
-          <li className="gw-step">
-            <strong>১. Connect বাটন চাপুন</strong>
-            <p>উপরের <em>Connect / Reconnect Gmail</em> ক্লিক করলে Google login page খুলবে।</p>
-          </li>
-          <li className="gw-step">
-            <strong>২. আপনার Gmail দিয়ে login করুন</strong>
-            <p>যে email-এ spreadsheet রাখতে চান সেই Google account বেছে নিন (যেমন: <code>yourname@gmail.com</code>)।</p>
-          </li>
-          <li className="gw-step">
-            <strong>৩. Allow / অনুমতি দিন</strong>
-            <p>Sheets, Drive, Gmail access-এ <em>Allow</em> দিন। ফিরে এলে Connected দেখাবে।</p>
-          </li>
-        </ol>
-        <p className="mt-3 text-[11px] font-semibold text-[var(--admin-text-muted)]">
-          Connected হলে → Google Sheets Sync → Create SPLARO Business Spreadsheet
-        </p>
-      </Collapsible>
-
-      <Collapsible title="Service Account (Sheets Sync)" defaultOpen={Boolean(oauthReady)} summary={status?.serviceAccountEmail ?? 'Recommended'}>
-        <div className="space-y-3 text-sm">
-          <p className="gw-callout gw-callout--success">
-            SPLARO service account: <code className="text-[11px]">{status?.serviceAccountEmail ?? 'splaro-sheets-sync@splaro.iam.gserviceaccount.com'}</code>
+      <div className="gw-status-grid">
+        <div className={cn('gw-status-card', oauthReady && 'gw-status-card--ok')}>
+          <div className="gw-status-card__head">
+            <Mail className="h-4 w-4" />
+            <span>Gmail OAuth</span>
+          </div>
+          <p className="gw-status-card__value">{oauthReady ? (status?.oauthEmail ?? 'Connected') : 'Not connected'}</p>
+          <p className="gw-status-card__meta">
+            {oauthReady
+              ? `Token · ${status?.tokenHealth ?? 'healthy'}`
+              : configReady
+                ? `Login hint · ${loginHint}`
+                : 'Client ID / Secret missing'}
           </p>
-          <ol className="list-decimal space-y-2 pl-4 text-[12px] leading-relaxed text-[var(--admin-text-secondary)]">
-            <li>Google Sheet খুলুন → <strong className="text-[var(--admin-text-strong)]">Share</strong></li>
-            <li>উপরের email paste করুন → <strong className="text-[var(--admin-text-strong)]">Editor</strong> দিন</li>
-            <li>নিচে <em>Activate Service Account</em> চাপুন</li>
-            <li>Sheets Sync → <em>Create SPLARO Business Spreadsheet</em></li>
+        </div>
+        <div className={cn('gw-status-card', status?.serviceAccountConfigured && 'gw-status-card--ok')}>
+          <div className="gw-status-card__head">
+            <Sheet className="h-4 w-4" />
+            <span>Sheets Sync</span>
+          </div>
+          <p className="gw-status-card__value">{status?.serviceAccountConfigured ? 'Service account ready' : 'Not configured'}</p>
+          <p className="gw-status-card__meta">{status?.serviceAccountEmail ?? '—'}</p>
+        </div>
+      </div>
+
+      {oauthReady ? (
+        <div className="gw-connected-banner">
+          <CheckCircle2 className="h-6 w-6 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="gw-connected-banner__title">Gmail connected</p>
+            <p className="gw-connected-banner__email">{status?.oauthEmail}</p>
+            <p className="gw-connected-banner__meta">
+              Expires{' '}
+              {status?.tokenExpiry ? (
+                <ClientIsoDate iso={status.tokenExpiry} fallback="auto-refresh" />
+              ) : (
+                'auto-refresh'
+              )}
+            </p>
+          </div>
+          <Link href="/dashboard/google-workspace/gmail" className="admin-btn px-4 py-2 text-xs font-black">
+            Open Gmail panel
+          </Link>
+        </div>
+      ) : (
+        <div className="gw-connect-wizard">
+          <p className="gw-connect-wizard__title">৩ ধাপে connect করুন</p>
+          <ol className="gw-connect-steps">
+            <li className="gw-connect-step">
+              <span className="gw-connect-step__num">১</span>
+              <div>
+                <strong>Connect Gmail চাপুন</strong>
+                <p>Google login page খুলবে — <code>{loginHint}</code> account বেছে নিন।</p>
+              </div>
+            </li>
+            <li className="gw-connect-step">
+              <span className="gw-connect-step__num">২</span>
+              <div>
+                <strong>সব permission Allow দিন</strong>
+                <p>Gmail send, Drive, Sheets access দরকার।</p>
+              </div>
+            </li>
+            <li className="gw-connect-step">
+              <span className="gw-connect-step__num">৩</span>
+              <div>
+                <strong>ফিরে এলে Test connection</strong>
+                <p>Connected দেখলে Gmail panel থেকে test email পাঠান।</p>
+              </div>
+            </li>
           </ol>
+          <AdminButton
+            className="gw-connect-wizard__cta"
+            variant="gold"
+            disabled={!configReady}
+            onClick={handleConnect}
+          >
+            <Cloud className="h-5 w-5" />
+            Connect Gmail · {loginHint}
+          </AdminButton>
+          <p className="mt-2 text-center text-[11px] font-semibold text-[var(--admin-text-muted)]">
+            Long link copy করবেন না — উপরের বাটনই ব্যবহার করুন।
+          </p>
+        </div>
+      )}
+
+      <Collapsible
+        title="Connection details"
+        defaultOpen={!oauthReady}
+        summary={oauthReady ? (status?.oauthEmail ?? 'Connected') : 'OAuth pending'}
+      >
+        <div className="space-y-2 text-sm text-[var(--admin-text-secondary)]">
+          <p><strong className="text-[var(--admin-text-strong)]">OAuth email:</strong> {status?.oauthEmail ?? '—'}</p>
+          <p><strong className="text-[var(--admin-text-strong)]">Client ID:</strong> {status?.oauth.clientId ? `${status.oauth.clientId.slice(0, 20)}…` : '—'}</p>
+          <p><strong className="text-[var(--admin-text-strong)]">Redirect URI:</strong>{' '}
+            <button type="button" className="gw-inline-copy" onClick={() => void copyText(redirectUri, 'Redirect URI')}>
+              {redirectUri} · Copy
+            </button>
+          </p>
+          <p><strong className="text-[var(--admin-text-strong)]">Sheets SA:</strong> {status?.serviceAccountEmail ?? '—'}</p>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
+          <AdminButton variant="gold" disabled={!configReady} onClick={handleConnect}>
+            <Cloud className="h-4 w-4" /> {oauthReady ? 'Reconnect Gmail' : 'Connect Gmail'}
+          </AdminButton>
+          <AdminButton
+            loading={revokeMut.isPending}
+            disabled={!oauthReady}
+            onClick={() =>
+              void revokeMut
+                .mutateAsync()
+                .then(() => { toastOk('Gmail access revoked', 'gw-revoke'); void refetch() })
+                .catch((e) => toastFail(e.message, 'gw-revoke-fail'))
+            }
+          >
+            <Unplug className="h-4 w-4" /> Revoke Gmail
+          </AdminButton>
+          <AdminButton
+            loading={testMut.isPending}
+            disabled={!oauthReady}
+            onClick={() =>
+              void testMut
+                .mutateAsync()
+                .then((r) => toastOk(r.message, 'gw-test'))
+                .catch((e) => toastFail(e.message, 'gw-test-fail'))
+            }
+          >
+            Test Gmail OAuth
+          </AdminButton>
+          <Link href="/dashboard/google-workspace/oauth-settings" className="admin-btn px-4 py-2 text-xs font-black">
+            OAuth Settings
+          </Link>
+        </div>
+      </Collapsible>
+
+      <Collapsible title="Sheets Service Account (আলাদা)" defaultOpen={false} summary={status?.serviceAccountEmail ?? 'Sheets only'}>
+        <p className="gw-callout gw-callout--info">
+          Service account শুধু Google Sheets sync-এর জন্য। Gmail পাঠাতে উপরের OAuth connect করতে হবে।
+        </p>
+        <p className="mt-3 gw-callout gw-callout--success">
+          <code className="text-[11px]">{status?.serviceAccountEmail ?? 'splaro-sheets-sync@splaro.iam.gserviceaccount.com'}</code>
+        </p>
+        <div className="mt-4">
           <AdminButton
             variant="gold"
             loading={saMut.isPending}
             disabled={!status?.serviceAccountConfigured}
-            onClick={() => void saMut.mutateAsync().then((r) => { toastOk(r.message, 'gw-sa'); void refetch() }).catch((e) => toastFail(e.message, 'gw-sa-fail'))}
+            onClick={() =>
+              void saMut
+                .mutateAsync()
+                .then((r) => { toastOk(r.message, 'gw-sa'); void refetch() })
+                .catch((e) => toastFail(e.message, 'gw-sa-fail'))
+            }
           >
             Activate Service Account
           </AdminButton>
         </div>
       </Collapsible>
     </div>
+  )
+}
+
+function ConnectPanel() {
+  return (
+    <Suspense fallback={<ConnectPanelSkeleton />}>
+      <ConnectPanelInner />
+    </Suspense>
   )
 }
 
@@ -611,7 +791,8 @@ function OAuthSettingsPanel() {
 
       {status?.oauth.secretSource === 'env' ? (
         <p className="rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">
-          Client secret is loaded from <code className="rounded bg-black/20 px-1">.env</code>. Save here to store encrypted in the database instead.
+          Client secret loaded from <code className="rounded bg-black/20 px-1">.env</code> (takes priority over any saved DB value).
+          Save here only to store encrypted in the database when <code className="rounded bg-black/20 px-1">GOOGLE_CLIENT_SECRET</code> is not in env.
         </p>
       ) : null}
 

@@ -12,10 +12,12 @@ import {
   Post,
   Query,
   Req,
+  Patch,
   UnauthorizedException,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
+import { LEGAL_PAGE_SLUGS } from '@splaro/types'
 import { Public } from '../../common/auth/public.decorator'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
@@ -26,6 +28,7 @@ import { OrderNotificationsService } from '../notifications/order-notifications.
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { CustomersService } from '../customers/customers.service'
 import { StorefrontAuthService } from './storefront-auth.service'
+import { StorefrontWishlistService } from './storefront-wishlist.service'
 import { StorefrontOtpService } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
@@ -58,6 +61,7 @@ export class StorefrontController {
     private readonly telegramHub: AdminTelegramHubService,
     private readonly customers: CustomersService,
     private readonly storefrontAuth: StorefrontAuthService,
+    private readonly storefrontWishlist: StorefrontWishlistService,
     private readonly storefrontOtp: StorefrontOtpService,
     private readonly invoices: InvoiceService,
     private readonly legalPages: LegalPagesService,
@@ -120,6 +124,38 @@ export class StorefrontController {
     )
   }
 
+  @Public()
+  @Get('redirects')
+  async listRedirects(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.cache.getOrSet(this.cache.storeKey(sid, 'redirects'), 60, async () => {
+      const redirects = await this.prisma.urlRedirect.findMany({
+        where: { storeId: sid, isActive: true },
+        select: { fromPath: true, toPath: true, type: true },
+        orderBy: { createdAt: 'asc' },
+      })
+      return { redirects }
+    })
+  }
+
+  @Public()
+  @Get('landing-pages/:slug')
+  async getLandingPage(@Query('storeId') storeId: string, @Param('slug') slug: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    if ((LEGAL_PAGE_SLUGS as readonly string[]).includes(slug)) {
+      throw new NotFoundException('Landing page not found')
+    }
+    return this.cache.getOrSet(this.cache.storeKey(sid, 'landing-pages', slug), 120, async () => {
+      const page = await this.prisma.sitePage.findUnique({
+        where: { storeId_slug: { storeId: sid, slug } },
+      })
+      if (!page?.isPublished || page.isHomepage) {
+        throw new NotFoundException('Landing page not found')
+      }
+      return page
+    })
+  }
+
   @Get('products')
   async listProducts(
     @Query('storeId') storeId: string,
@@ -128,8 +164,27 @@ export class StorefrontController {
     @Query('collectionSlug') collectionSlug?: string,
     @Query('limit') limitParam?: string,
     @Query('page') pageParam?: string,
+    @Query('ids') idsParam?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    const ids = idsParam
+      ?.split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+    if (ids?.length) {
+      const products = await this.prisma.product.findMany({
+        where: { storeId: sid, isPublished: true, id: { in: ids } },
+        include: {
+          images: { orderBy: { position: 'asc' as const } },
+          variants: { where: { isActive: true } },
+          category: { select: { id: true, name: true, slug: true } },
+        },
+      })
+      const order = new Map(ids.map((id, index) => [id, index]))
+      products.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+      return { products, total: products.length }
+    }
+
     const category = categorySlug?.trim() || undefined
     const parentCategory = parentCategorySlug?.trim() || undefined
     const collection = collectionSlug?.trim() || undefined
@@ -225,12 +280,16 @@ export class StorefrontController {
         reviews: {
           where: { status: 'APPROVED' },
           orderBy: { createdAt: 'desc' },
-          take: 20,
+          take: 50,
           select: {
             id: true,
             rating: true,
             title: true,
             body: true,
+            verifiedPurchase: true,
+            helpfulCount: true,
+            adminReply: true,
+            adminReplyAt: true,
             createdAt: true,
             customer: { select: { firstName: true, lastName: true } },
           },
@@ -322,6 +381,70 @@ export class StorefrontController {
     const user = await this.storefrontAuth.validateSession(sessionToken)
     if (!user) throw new UnauthorizedException('Session expired')
     return { user }
+  }
+
+  @Patch('auth/profile')
+  async updateProfile(
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+    @Body() body?: { name?: string; avatar?: string | null },
+  ) {
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.updateProfile(sessionToken, {
+      ...(body?.name !== undefined ? { name: body.name } : {}),
+      ...(body?.avatar !== undefined ? { avatar: body.avatar } : {}),
+    })
+    return { user }
+  }
+
+  @Get('customer/wishlist')
+  async getWishlist(
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+
+    const productIds = await this.storefrontWishlist.listProductIds(user.customerId)
+    return { productIds }
+  }
+
+  @Post('customer/wishlist/merge')
+  async mergeWishlist(
+    @Query('storeId') storeId: string,
+    @Body() body: { productIds?: string[] },
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+
+    const productIds = await this.storefrontWishlist.merge(user.customerId, body.productIds ?? [])
+    return { productIds }
+  }
+
+  @Post('customer/wishlist/toggle')
+  async toggleWishlist(
+    @Query('storeId') storeId: string,
+    @Body() body: { productId?: string },
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+
+    return this.storefrontWishlist.toggle(sid, user.customerId, body.productId ?? '')
   }
 
   @Post('auth/logout')
@@ -598,15 +721,29 @@ export class StorefrontController {
     })
 
     const qty = Math.max(1, body.quantity ?? 1)
-    const existing = await this.prisma.cartItem.findUnique({
-      where: { cartId_productId_variantId: { cartId: cart.id, productId: body.productId, variantId: body.variantId ?? '' } },
+    const variantId = body.variantId?.trim() || null
+
+    const existing = await this.prisma.cartItem.findFirst({
+      where: {
+        cartId: cart.id,
+        productId: body.productId,
+        variantId,
+      },
     })
 
     if (existing) {
-      await this.prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: existing.quantity + qty } })
+      await this.prisma.cartItem.update({
+        where: { id: existing.id },
+        data: { quantity: existing.quantity + qty },
+      })
     } else {
       await this.prisma.cartItem.create({
-        data: { cartId: cart.id, productId: body.productId, variantId: body.variantId, quantity: qty },
+        data: {
+          cartId: cart.id,
+          productId: body.productId,
+          variantId,
+          quantity: qty,
+        },
       })
     }
 
@@ -633,33 +770,92 @@ export class StorefrontController {
   @Post('reviews')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async submitReview(
-    @Body() body: { productId: string; rating: number; title?: string; body?: string; phone?: string; storeId?: string },
+    @Query('storeId') storeId: string,
+    @Body() body: { productId: string; rating: number; title?: string; body?: string },
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
   ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Sign in to leave a review')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+
     if (!body.productId || !body.rating) throw new BadRequestException('productId and rating required')
     if (body.rating < 1 || body.rating > 5) throw new BadRequestException('Rating must be 1-5')
 
-    let customerId: string | undefined
-    if (body.phone && body.storeId) {
-      const sid = await resolveStoreId(this.prisma, body.storeId)
-      const customer = await this.prisma.customer.findFirst({
-        where: { storeId: sid, phone: { contains: body.phone.replace(/\D/g, '').slice(-10) } },
-      })
-      if (customer) customerId = customer.id
+    const text = body.body?.trim()
+    if (!text || text.length < 10) {
+      throw new BadRequestException('Review must be at least 10 characters')
     }
+
+    const product = await this.prisma.product.findFirst({
+      where: { id: body.productId, storeId: sid, isPublished: true },
+      select: { id: true, name: true, slug: true },
+    })
+    if (!product) throw new NotFoundException('Product not found')
+
+    const existing = await this.prisma.review.findFirst({
+      where: { productId: body.productId, customerId: user.customerId },
+    })
+    if (existing) throw new BadRequestException('You have already reviewed this product')
+
+    const purchase = await this.prisma.orderItem.findFirst({
+      where: {
+        productId: body.productId,
+        order: {
+          customerId: user.customerId,
+          status: { notIn: ['CANCELLED', 'REFUNDED'] },
+        },
+      },
+      select: { id: true },
+    })
 
     const review = await this.prisma.review.create({
       data: {
         productId: body.productId,
-        customerId,
+        customerId: user.customerId,
         rating: body.rating,
-        title: body.title,
-        body: body.body,
-        verifiedPurchase: !!customerId,
+        title: body.title?.trim() || null,
+        body: text,
+        verifiedPurchase: Boolean(purchase),
         status: 'PENDING',
       },
     })
 
-    return { review: { id: review.id, status: review.status } }
+    void this.telegramHub.notifyNewReview(sid, {
+      productName: product.name,
+      productSlug: product.slug,
+      customerName: user.name,
+      rating: body.rating,
+      excerpt: text,
+      verifiedPurchase: Boolean(purchase),
+    })
+
+    return {
+      review: {
+        id: review.id,
+        status: review.status,
+        message: 'Review submitted — it will appear after approval',
+      },
+    }
+  }
+
+  @Post('reviews/:id/helpful')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async markReviewHelpful(@Param('id') id: string) {
+    const review = await this.prisma.review.findFirst({
+      where: { id, status: 'APPROVED' },
+      select: { id: true, helpfulCount: true },
+    })
+    if (!review) throw new NotFoundException('Review not found')
+
+    const updated = await this.prisma.review.update({
+      where: { id },
+      data: { helpfulCount: { increment: 1 } },
+      select: { id: true, helpfulCount: true },
+    })
+    return { review: updated }
   }
 
   // ── Search ─────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import { InvoiceService } from '../invoices/invoice.service'
 import { OrderEventsService } from './order-events.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { resolveStoreId } from '../../common/store.util'
-import type { CourierProvider, OrderStatus, Prisma } from '@prisma/client'
+import type { CourierProvider, OrderStatus, PaymentStatus, Prisma } from '@prisma/client'
 
 @Controller('admin/orders')
 export class OrdersController {
@@ -167,6 +167,29 @@ export class OrdersController {
     return this.prisma.order.update({
       where: { id },
       data: { isCodRisk: body.isCodRisk, requireAdvancePayment: body.requireAdvancePayment },
+    })
+  }
+
+  @Patch(':id/payment')
+  async updatePayment(
+    @Param('id') id: string,
+    @Body() body: { paymentStatus: PaymentStatus },
+  ) {
+    const order = await this.prisma.order.findFirst({
+      where: { OR: [{ id }, { invoiceNumber: id }] },
+      select: { id: true },
+    })
+    if (!order) throw new NotFoundException('Order not found')
+
+    return this.prisma.order.update({
+      where: { id: order.id },
+      data: { paymentStatus: body.paymentStatus },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        paymentStatus: true,
+        total: true,
+      },
     })
   }
 

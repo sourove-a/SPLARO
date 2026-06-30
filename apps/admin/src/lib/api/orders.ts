@@ -67,6 +67,26 @@ export function updateOrderStatus(id: string, status: string, note?: string) {
   })
 }
 
+export type OrderPaymentStatus =
+  | 'UNPAID'
+  | 'PENDING'
+  | 'PAID'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'PARTIALLY_REFUNDED'
+
+export function updateOrderPaymentStatus(id: string, paymentStatus: OrderPaymentStatus) {
+  return apiFetch<{
+    id: string
+    invoiceNumber: string
+    paymentStatus: OrderPaymentStatus
+    total: number | string
+  }>(`/admin/orders/${id}/payment`, {
+    method: 'PATCH',
+    body: JSON.stringify({ paymentStatus }),
+  })
+}
+
 export function deleteOrder(id: string) {
   return apiFetch<{ success: boolean }>(`/admin/orders/${id}`, { method: 'DELETE' })
 }

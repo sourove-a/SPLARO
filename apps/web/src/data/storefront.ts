@@ -20,6 +20,8 @@ export interface StorefrontProduct {
   colorOptions?: ColorOption[]
   sizes: string[]
   status: ProductStatus
+  /** When false, card shows Out Of Stock dock. Derived from API variants when live. */
+  inStock?: boolean
   isNewArrival?: boolean
   isBestSeller?: boolean
   image: string

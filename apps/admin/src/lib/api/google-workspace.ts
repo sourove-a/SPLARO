@@ -3,6 +3,8 @@ import { apiFetch } from '@/lib/api/client'
 export interface GoogleWorkspaceStatus {
   connected: boolean
   oauthConnected?: boolean
+  oauthConfigReady?: boolean
+  oauthLoginHint?: string | null
   oauthEmail?: string | null
   authMode?: 'service_account' | 'oauth'
   serviceAccountEmail?: string | null
@@ -34,15 +36,22 @@ export function fetchGoogleStatus() {
 }
 
 export function fetchGoogleOAuthUrl() {
-  return apiFetch<{ url: string; redirectUri: string; scopes: string[] }>('/admin/google/oauth-url')
+  return apiFetch<{
+    url: string
+    redirectUri: string
+    scopes: string[]
+    loginHint?: string | null
+    configured?: boolean
+  }>('/admin/google/oauth-url')
 }
 
 export function revokeGoogleAccess() {
   return apiFetch<{ ok: boolean; revoked: boolean }>('/admin/google/revoke', { method: 'POST' })
 }
 
-export function testGoogleConnection() {
-  return apiFetch<{ ok: boolean; message: string; email: string }>('/admin/google/test', { method: 'POST' })
+export function testGoogleConnection(mode?: 'gmail' | 'sheets' | 'auto') {
+  const qs = mode ? `?mode=${encodeURIComponent(mode)}` : ''
+  return apiFetch<{ ok: boolean; message: string; email: string }>(`/admin/google/test${qs}`, { method: 'POST' })
 }
 
 export function updateGoogleOAuthSettings(body: { clientId?: string; clientSecret?: string; redirectUri?: string }) {

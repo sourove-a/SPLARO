@@ -13,6 +13,22 @@ export interface CartItem {
   slug: string
 }
 
+function sameCartLine(a: CartItem, b: Pick<CartItem, 'productId' | 'variantId' | 'size' | 'color'>) {
+  return (
+    a.productId === b.productId &&
+    (a.variantId ?? '') === (b.variantId ?? '') &&
+    (a.size ?? '') === (b.size ?? '') &&
+    (a.color ?? '') === (b.color ?? '')
+  )
+}
+
+function cartTotals(items: CartItem[]) {
+  return {
+    itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+    subtotal: items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+  }
+}
+
 interface CartStore {
   items: CartItem[]
   itemCount: number
@@ -20,6 +36,7 @@ interface CartStore {
   addItem: (item: CartItem) => void
   removeItem: (productId: string, variantId?: string) => void
   updateQuantity: (productId: string, variantId: string | undefined, quantity: number) => void
+  replaceItems: (items: CartItem[]) => void
   clearCart: () => void
   _hydrated: boolean
   setHydrated: () => void
@@ -37,39 +54,25 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (newItem) => {
         const items = get().items
-        const existing = items.find(
-          (i) => i.productId === newItem.productId && i.variantId === newItem.variantId,
-        )
+        const existing = items.find((i) => sameCartLine(i, newItem))
 
         let updated: CartItem[]
         if (existing) {
           updated = items.map((i) =>
-            i.productId === newItem.productId && i.variantId === newItem.variantId
-              ? { ...i, quantity: i.quantity + newItem.quantity }
-              : i,
+            sameCartLine(i, newItem) ? { ...i, quantity: i.quantity + newItem.quantity } : i,
           )
         } else {
-          // Items added here will have name/price/image populated via API in production
-          // For now we store what we have
           updated = [...items, newItem as CartItem]
         }
 
-        set({
-          items: updated,
-          itemCount: updated.reduce((sum, i) => sum + i.quantity, 0),
-          subtotal: updated.reduce((sum, i) => sum + i.price * i.quantity, 0),
-        })
+        set({ items: updated, ...cartTotals(updated) })
       },
 
       removeItem: (productId, variantId) => {
         const updated = get().items.filter(
-          (i) => !(i.productId === productId && i.variantId === variantId),
+          (i) => !(i.productId === productId && (i.variantId ?? '') === (variantId ?? '')),
         )
-        set({
-          items: updated,
-          itemCount: updated.reduce((sum, i) => sum + i.quantity, 0),
-          subtotal: updated.reduce((sum, i) => sum + i.price * i.quantity, 0),
-        })
+        set({ items: updated, ...cartTotals(updated) })
       },
 
       updateQuantity: (productId, variantId, quantity) => {
@@ -78,13 +81,15 @@ export const useCartStore = create<CartStore>()(
           return
         }
         const updated = get().items.map((i) =>
-          i.productId === productId && i.variantId === variantId ? { ...i, quantity } : i,
+          i.productId === productId && (i.variantId ?? '') === (variantId ?? '')
+            ? { ...i, quantity }
+            : i,
         )
-        set({
-          items: updated,
-          itemCount: updated.reduce((sum, i) => sum + i.quantity, 0),
-          subtotal: updated.reduce((sum, i) => sum + i.price * i.quantity, 0),
-        })
+        set({ items: updated, ...cartTotals(updated) })
+      },
+
+      replaceItems: (items) => {
+        set({ items, ...cartTotals(items) })
       },
 
       clearCart: () => set({ items: [], itemCount: 0, subtotal: 0 }),

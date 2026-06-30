@@ -1,27 +1,28 @@
-import { randomBytes } from 'crypto'
 import { NextResponse } from 'next/server'
-import { getSessionUser } from '@/lib/server/auth'
+import { getApiBaseUrl } from '@splaro/config'
+import { apiAuthMe, getSessionToken, sessionHeaders } from '@/lib/server/api-auth'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
-import { readReviews, writeReviews, type StoredReview } from '@/lib/server/store'
+
+const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+
+function apiUrl(path: string): string {
+  const base = getApiBaseUrl()
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+async function requireSession() {
+  const sessionToken = await getSessionToken()
+  if (!sessionToken) return null
+  const user = await apiAuthMe(sessionToken)
+  if (!user?.customerId) return null
+  return { sessionToken, user }
+}
 
 interface CreateReviewBody {
   productId?: string
-  authorName?: string
   rating?: number
   title?: string
   body?: string
-}
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const productId = searchParams.get('productId')?.trim()
-
-  const reviews = await readReviews()
-  const filtered = productId
-    ? reviews.filter((review) => review.productId === productId)
-    : reviews
-
-  return NextResponse.json({ reviews: filtered, total: filtered.length })
 }
 
 export async function POST(request: Request) {
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
     )
   }
 
+  const session = await requireSession()
+  if (!session) {
+    return NextResponse.json({ error: 'Sign in to leave a review' }, { status: 401 })
+  }
+
   let body: CreateReviewBody
   try {
     body = (await request.json()) as CreateReviewBody
@@ -40,38 +46,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const productId = body.productId?.trim()
-  const authorName = body.authorName?.trim()
-  const rating = Number(body.rating)
-  const text = body.body?.trim()
+  const response = await fetch(
+    apiUrl(`/storefront/reviews?storeId=${encodeURIComponent(STORE_ID)}`),
+    {
+      method: 'POST',
+      headers: sessionHeaders(session.sessionToken),
+      body: JSON.stringify({
+        productId: body.productId,
+        rating: body.rating,
+        title: body.title,
+        body: body.body,
+      }),
+      cache: 'no-store',
+    },
+  )
 
-  if (!productId || !authorName || !text) {
-    return NextResponse.json(
-      { error: 'productId, authorName, and body are required' },
-      { status: 400 },
-    )
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const message =
+      typeof payload.message === 'string'
+        ? payload.message
+        : Array.isArray(payload.message)
+          ? payload.message.join(', ')
+          : 'Could not submit review'
+    return NextResponse.json({ error: message }, { status: response.status })
   }
 
-  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
-    return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 })
-  }
-
-  const sessionUser = await getSessionUser()
-  const review: StoredReview = {
-    id: `rev_${randomBytes(8).toString('hex')}`,
-    productId,
-    authorName: sessionUser?.name ?? authorName,
-    rating,
-    body: text,
-    createdAt: new Date().toISOString(),
-    verified: Boolean(sessionUser),
-    ...(sessionUser?.id ? { userId: sessionUser.id } : {}),
-    ...(body.title?.trim() ? { title: body.title.trim() } : {}),
-  }
-
-  const reviews = await readReviews()
-  reviews.unshift(review)
-  await writeReviews(reviews)
-
-  return NextResponse.json({ review }, { status: 201 })
+  return NextResponse.json(payload, { status: 201 })
 }
