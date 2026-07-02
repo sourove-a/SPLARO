@@ -17,10 +17,20 @@ install_standalone_pnpm() {
   if command -v corepack >/dev/null 2>&1; then
     corepack disable 2>/dev/null || true
   fi
-  curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION="$PNPM_VERSION" SHELL=bash sh -
-  # shellcheck disable=SC1091
-  [ -f "$PNPM_HOME/pnpm" ] || [ -f "$HOME/.local/share/pnpm/pnpm" ] || true
-  export PATH="$PNPM_HOME:$HOME/.local/bin:$PATH"
+  echo "[ensure-pnpm] Trying npm global install first..."
+  npm install -g "pnpm@${PNPM_VERSION}" --prefix "$HOME/.local" 2>/dev/null \
+    || npm install -g "pnpm@${PNPM_VERSION}" 2>/dev/null \
+    || true
+  export PATH="$HOME/.local/bin:$PNPM_HOME:$PATH"
+  if pnpm_works; then
+    return 0
+  fi
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION="$PNPM_VERSION" SHELL=bash sh -
+    export PATH="$PNPM_HOME:$HOME/.local/bin:$PATH"
+  else
+    echo "[ensure-pnpm] curl not found — npm global only" >&2
+  fi
 }
 
 if pnpm_works; then

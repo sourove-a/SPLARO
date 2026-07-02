@@ -42,4 +42,11 @@ if [ ! -f "$STANDALONE" ]; then
 fi
 
 log "Build OK — standalone: $STANDALONE"
+
+# Hostinger Express preset often expects ./dist — symlink for compatibility
+DIST_LINK="$ROOT/dist"
+rm -rf "$DIST_LINK"
+ln -sfn apps/web/.next/standalone/apps/web "$DIST_LINK"
+log "Linked dist → apps/web/.next/standalone/apps/web"
+
 log "Start: npm start  OR  node apps/web/.next/standalone/apps/web/server.js"

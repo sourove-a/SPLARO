@@ -63,7 +63,8 @@
     "preflight:api": "node scripts/api-preflight.mjs",
     "ci:verify": "node scripts/ci-verify.mjs",
     "build:hostinger": "bash scripts/hostinger-build.sh",
-    "start:hostinger": "node apps/web/.next/standalone/apps/web/server.js"
+    "start:hostinger": "node apps/web/.next/standalone/apps/web/server.js",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "pnpm": {
     "overrides": {

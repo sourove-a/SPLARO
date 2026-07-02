@@ -10,10 +10,16 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const STANDALONE = resolve(ROOT, 'apps/web/.next/standalone/apps/web/server.js')
 
 function run(cmd, args) {
   const result = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: process.env })
   process.exit(result.status ?? 1)
+}
+
+if (existsSync(STANDALONE) && existsSync(resolve(ROOT, '.hostinger-build-done'))) {
+  console.log('[build] Storefront already built (postinstall) — skip')
+  process.exit(0)
 }
 
 const forceHostinger = process.env.SPLARO_HOSTINGER === '1'
