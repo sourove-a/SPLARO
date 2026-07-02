@@ -1,12 +1,23 @@
+function siteHostname(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.WEB_URL ?? 'https://splaro.co'
+  try {
+    return new URL(raw).hostname.replace(/^www\./, '')
+  } catch {
+    return 'splaro.co'
+  }
+}
+
+const host = siteHostname()
+
 /** Official SPLARO invoice / print / email brand constants */
 export const SPLARO_INVOICE_BRAND = {
   name: 'SPLARO',
   tagline: 'Modesty. Refined.',
-  phone: '01905010205',
-  phoneE164: '8801905010205',
-  email: 'support@splaro.com.bd',
-  website: 'https://www.splaro.com.bd',
-  websiteDisplay: 'www.splaro.com.bd',
+  phone: process.env.COMPANY_PHONE ?? '01905010205',
+  phoneE164: process.env.COMPANY_PHONE_E164 ?? '8801905010205',
+  email: process.env.COMPANY_EMAIL ?? process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? `support@${host}`,
+  website: process.env.COMPANY_WEBSITE ?? `https://www.${host}`,
+  websiteDisplay: process.env.COMPANY_WEBSITE_DISPLAY ?? `www.${host}`,
   office: 'Uttara Sector 13, Dhaka - 1230',
   supportLine: 'Online Order & Client Support',
   arabicLogoPath: '/images/logo/splaro-brand-mark-transparent.png',

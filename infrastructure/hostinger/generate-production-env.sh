@@ -13,6 +13,7 @@ ADMIN_SESS="$(rand 32)"
 REVAL="$(rand 24)"
 HEALTH="$(rand 24)"
 ENC="$(rand 32)"
+ADMIN_PASS="$(rand 16)"
 
 cat <<EOF
 NODE_ENV=production
@@ -41,9 +42,10 @@ REDIS_ENABLED=true
 API_PORT=4000
 PORT_WEB=3000
 PORT_ADMIN=3001
-PAYMENT_DEV_STUB=true
+PAYMENT_DEV_STUB=false
 NEXT_PUBLIC_MAINTENANCE_MODE=false
-ADMIN_PASSWORD=Splaro@2026!
+ADMIN_PASSWORD=${ADMIN_PASS}
 EOF
 
 echo "# DB password for postgres setup: ${DB_PASS}" >&2
+echo "# Admin bootstrap password (change after first login): ${ADMIN_PASS}" >&2

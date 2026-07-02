@@ -16,12 +16,12 @@ const devAdmin = 'http://localhost:3001'
 const devApi = 'http://localhost:4000'
 
 export const SPLARO_DOMAINS = {
-  site: env('NEXT_PUBLIC_SITE_URL', env('WEB_URL', isProd ? 'https://splaro.com.bd' : devSite)),
-  admin: env('NEXT_PUBLIC_ADMIN_URL', env('ADMIN_URL', isProd ? 'https://admin.splaro.com.bd' : devAdmin)),
-  api: env('NEXT_PUBLIC_API_URL', env('API_URL', isProd ? 'https://api.splaro.com.bd' : devApi)),
+  site: env('NEXT_PUBLIC_SITE_URL', env('WEB_URL', isProd ? 'https://splaro.co' : devSite)),
+  admin: env('NEXT_PUBLIC_ADMIN_URL', env('ADMIN_URL', isProd ? 'https://admin.splaro.co' : devAdmin)),
+  api: env('NEXT_PUBLIC_API_URL', env('API_URL', isProd ? 'https://api.splaro.co' : devApi)),
 } as const
 
-/** API base including version prefix — e.g. https://api.splaro.com.bd/api/v1 */
+/** API base including version prefix — e.g. https://api.splaro.co/api/v1 */
 export function getApiBaseUrl(): string {
   const base = SPLARO_DOMAINS.api.replace(/\/+$/, '')
   if (base.endsWith('/api/v1')) return base

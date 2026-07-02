@@ -2,6 +2,7 @@ import type { NextConfig } from 'next'
 
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, '') ?? 'http://localhost:4000'
 const isProd = process.env.NODE_ENV === 'production'
+const cdnOrigin = process.env.NEXT_PUBLIC_CDN_URL?.replace(/\/$/, '')
 
 const connectSrc = [
   "'self'",
@@ -9,6 +10,7 @@ const connectSrc = [
   'http://localhost:4000',
   'http://127.0.0.1:4000',
   'https://api.splaro.com.bd',
+  'https://api.splaro.co',
   'https://www.google-analytics.com',
   'https://www.facebook.com',
   'https://connect.facebook.net',
@@ -30,10 +32,19 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    unoptimized: !isProd,
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'cdn.splaro.com.bd',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.splaro.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'splaro.co',
       },
       {
         protocol: 'https',
@@ -104,8 +115,8 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://cdn.splaro.com.bd https://*.r2.cloudflarestorage.com https://**.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
-              "media-src 'self' blob: https://cdn.splaro.com.bd https://*.r2.cloudflarestorage.com https:",
+              "img-src 'self' data: blob: https://cdn.splaro.com.bd https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https://**.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
+              "media-src 'self' blob: https://cdn.splaro.com.bd https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src ${connectSrc}`,
               "frame-src 'none'",
@@ -150,6 +161,17 @@ const nextConfig: NextConfig = {
         ],
       },
     ]
+  },
+
+  async rewrites() {
+    const rules: { source: string; destination: string }[] = []
+    if (cdnOrigin) {
+      rules.push({
+        source: '/uploads/:path*',
+        destination: `${cdnOrigin}/uploads/:path*`,
+      })
+    }
+    return rules
   },
 
   async redirects() {

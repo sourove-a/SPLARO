@@ -5,12 +5,12 @@ const isProd = process.env.NODE_ENV === 'production'
 const config: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@splaro/database', '@splaro/config', '@splaro/types'],
-  eslint: { ignoreDuringBuilds: true },
+  eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
-      { protocol: 'https', hostname: 'cdn.splaro.com' },
+      { protocol: 'https', hostname: '**.r2.cloudflarestorage.com' },
+      { protocol: 'https', hostname: 'cdn.splaro.co' },
       { protocol: 'https', hostname: 'cdn.splaro.com.bd' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'media.aarong.com', pathname: '/media/catalog/product/**' },

@@ -26,10 +26,10 @@ export type ImageProfile = keyof typeof IMAGE_QUALITY
 
 const REMOTE_WIDTH: Record<ImageProfile, number> = {
   card: 900,
-  gallery: 1600,
-  hero: 2400,
+  gallery: 1200,
+  hero: 1200,
   thumb: 160,
-  lightbox: 2000,
+  lightbox: 1600,
 }
 
 function isOptimizableRemote(url: string): boolean {

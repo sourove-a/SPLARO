@@ -6,7 +6,7 @@ module.exports = {
       name: 'splaro-web',
       cwd: `${APP_ROOT}/apps/web`,
       script: 'node',
-      args: '.next/standalone/server.js',
+      args: '.next/standalone/apps/web/server.js',
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
@@ -31,7 +31,7 @@ module.exports = {
       name: 'splaro-admin',
       cwd: `${APP_ROOT}/apps/admin`,
       script: 'node',
-      args: '.next/standalone/server.js',
+      args: '.next/standalone/apps/admin/server.js',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,

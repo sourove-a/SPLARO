@@ -70,6 +70,7 @@ run('pnpm', ['install', '--frozen-lockfile'])
 run('node', ['scripts/verify-css.mjs'], { env: process.env })
 run('pnpm', ['type-check'])
 run('pnpm', ['--filter', '@splaro/web', 'lint'])
+run('pnpm', ['--filter', '@splaro/admin', 'lint'])
 run('bash', ['-lc', 'cd packages/database && npx prisma db push'], {
   label: 'prisma db push',
 })

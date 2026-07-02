@@ -36,7 +36,7 @@ function heroImageSrc(url: string): string {
   if (!trimmed || isVideoUrl(trimmed)) return trimmed
   if (!trimmed.includes('images.unsplash.com')) return trimmed
   const base = trimmed.split('?')[0]!
-  return `${base}?w=2400&h=1350&fit=crop&crop=center&q=85&auto=format`
+  return `${base}?w=1200&h=675&fit=crop&crop=center&q=85&auto=format`
 }
 
 function videoMimeType(url: string): string {

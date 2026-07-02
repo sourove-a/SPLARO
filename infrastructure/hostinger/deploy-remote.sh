@@ -104,6 +104,10 @@ pnpm db:seed || log "Seed skipped or partial — check logs"
 log "Building apps..."
 pnpm build:all
 
+log "Preparing Next.js standalone bundles..."
+node scripts/prepare-next-standalone.mjs apps/web
+node scripts/prepare-next-standalone.mjs apps/admin
+
 log "PM2 reload..."
 if ! command -v pm2 >/dev/null 2>&1; then
   npm install -g pm2

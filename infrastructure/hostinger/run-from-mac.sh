@@ -21,8 +21,10 @@ if ! sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout
   echo "SSH failed. Fix in hPanel:"
   echo "  1. Advanced → SSH Access → Enable"
   echo "  2. Copy the IP shown there (may differ from ${SSH_HOST})"
-  echo "  3. Try mobile hotspot if ISP blocks port 65002"
-  echo "  4. Or use GitHub Actions: add secrets + run Deploy Hostinger workflow"
+  echo "  3. Try mobile hotspot if ISP blocks port ${SSH_PORT}"
+  echo "  4. Or use hPanel Browser Terminal (no SSH from Mac):"
+  echo "       cd ~/splaro && git pull && bash infrastructure/hostinger/deploy-remote.sh"
+  echo "  5. Or GitHub Actions: add secrets + run Deploy Hostinger workflow"
   exit 1
 fi
 

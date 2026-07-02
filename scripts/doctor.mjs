@@ -95,7 +95,11 @@ check('API uses ts-node-dev (not tsx)', () => {
   if (dev.includes('tsx watch') || dev.includes('tsx src')) {
     throw new Error('dev script must use ts-node-dev')
   }
-  if (!dev.includes('ts-node-dev')) throw new Error('dev script must use ts-node-dev')
+  const apiDev = readFileSync(resolve(ROOT, 'scripts/api-dev.mjs'), 'utf8')
+  const usesTsNodeDev =
+    dev.includes('ts-node-dev') ||
+    (dev.includes('api-dev.mjs') && apiDev.includes('ts-node-dev'))
+  if (!usesTsNodeDev) throw new Error('dev must use ts-node-dev via api-dev.mjs')
 })
 check('reflect-metadata in API main', () => {
   const main = readFileSync(resolve(ROOT, 'apps/api/src/main.ts'), 'utf8')
@@ -127,6 +131,9 @@ check('No TS errors in api', () => {
 console.log('\n🧹 Lint:')
 check('No lint errors in web', () => {
   run(['pnpm', '--filter', '@splaro/web', 'lint'], { timeout: 90000 })
+})
+check('No lint errors in admin', () => {
+  run(['pnpm', '--filter', '@splaro/admin', 'lint'], { timeout: 90000 })
 })
 
 // Summary
