@@ -14,6 +14,7 @@ const STANDALONE = resolve(ROOT, 'apps/web/.next/standalone/apps/web/server.js')
 const ua = process.env.npm_config_user_agent ?? ''
 
 if (process.env.SKIP_SPLARO_POSTINSTALL === '1') process.exit(0)
+if (process.env.SPLARO_HOSTINGER_BUILD === '1') process.exit(0)
 if (ua.includes('pnpm') || ua.includes('yarn')) process.exit(0)
 if (existsSync(resolve(ROOT, 'node_modules/.pnpm'))) process.exit(0)
 if (existsSync(MARKER) && existsSync(STANDALONE)) {
@@ -25,7 +26,7 @@ console.log('[postinstall] Hostinger npm install detected — running hostinger-
 const result = spawnSync('bash', ['scripts/hostinger-build.sh'], {
   cwd: ROOT,
   stdio: 'inherit',
-  env: process.env,
+  env: { ...process.env, SPLARO_HOSTINGER_BUILD: '1' },
 })
 
 if (result.status === 0) {

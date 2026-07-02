@@ -10,8 +10,7 @@ log() { echo "[hostinger-build $(date '+%H:%M:%S')] $*"; }
 
 log "Root=$ROOT Node=$(node -v) PWD=$PWD"
 
-# Defaults for Next.js build when hPanel env vars are not set yet
-export NODE_ENV=production
+# Next.js public env (do NOT set NODE_ENV=production before pnpm install — skips devDeps)
 export NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://splaro.co}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.splaro.co/api/v1}"
 export NEXT_PUBLIC_ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.splaro.co}"
@@ -27,7 +26,11 @@ export PATH="$PNPM_HOME:$HOME/.local/bin:$PATH"
 export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=4096"
 
 log "Installing monorepo dependencies (pnpm $(pnpm --version))..."
-pnpm install --frozen-lockfile
+log "NOTE: --prod=false keeps devDeps (tailwind, typescript); --ignore-scripts skips prisma postinstall"
+# Prevent recursive root postinstall while pnpm install runs
+SKIP_SPLARO_POSTINSTALL=1 NODE_ENV=development pnpm install --frozen-lockfile --prod=false --ignore-scripts
+
+export NODE_ENV=production
 
 log "Building storefront (@splaro/web)..."
 pnpm build:web
