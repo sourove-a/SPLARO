@@ -52,6 +52,23 @@ export function getStoreId(): string {
   return DEFAULT_STORE_ID
 }
 
+/** Browser → same-origin /api/proxy; server → direct Nest API URL. */
+export function buildAdminApiUrl(path: string, storeId?: string): string {
+  const sid = storeId ?? getStoreId()
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  const separator = normalized.includes('?') ? '&' : '?'
+  const withStore = normalized.includes('storeId=')
+    ? normalized
+    : `${normalized}${separator}storeId=${encodeURIComponent(sid)}`
+
+  if (typeof window !== 'undefined') {
+    return `/api/proxy${withStore}`
+  }
+
+  const base = getApiBaseUrl()
+  return path.startsWith('http') ? path : `${base}${withStore}`
+}
+
 function shouldRetry(error: unknown, attempt: number, method: string): boolean {
   if (attempt >= MAX_RETRIES) return false
   if (method !== 'GET' && method !== 'HEAD') return false
@@ -86,11 +103,7 @@ export async function apiFetch<T>(
   options: RequestInit & { storeId?: string; timeoutMs?: number } = {},
 ): Promise<T> {
   const { storeId, timeoutMs = DEFAULT_TIMEOUT_MS, ...init } = options
-  const base = getApiBaseUrl()
-  const url = path.startsWith('http') ? path : `${base}${path.startsWith('/') ? path : `/${path}`}`
-  const sid = storeId ?? getStoreId()
-  const separator = url.includes('?') ? '&' : '?'
-  const fullUrl = url.includes('storeId=') ? url : `${url}${separator}storeId=${encodeURIComponent(sid)}`
+  const fullUrl = path.startsWith('http') ? path : buildAdminApiUrl(path, storeId)
   const method = (init.method ?? 'GET').toUpperCase()
 
   let lastError: unknown
