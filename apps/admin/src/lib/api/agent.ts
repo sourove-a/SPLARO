@@ -1,4 +1,4 @@
-import { getApiBaseUrl, getStoreId } from './client'
+import { buildAdminApiUrl } from './client'
 import { getAdminApiToken } from '@/lib/auth/api-token'
 import type { AgentModelId } from './agent.types'
 
@@ -61,11 +61,7 @@ export interface AgentStreamEvent {
 }
 
 function agentUrl(path: string, storeId?: string) {
-  const base = getApiBaseUrl()
-  const sid = storeId ?? getStoreId()
-  const url = `${base}${path.startsWith('/') ? path : `/${path}`}`
-  const sep = url.includes('?') ? '&' : '?'
-  return `${url}${sep}storeId=${encodeURIComponent(sid)}`
+  return buildAdminApiUrl(path, storeId)
 }
 
 export async function fetchAgentHealth(storeId?: string) {
