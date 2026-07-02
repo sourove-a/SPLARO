@@ -82,6 +82,6 @@ jobs:
         run: |
           node scripts/api-preflight.mjs
           cd apps/api && node dist/main.js &
-          sleep 8
-          curl -sf http://localhost:4000/api/v1/health | grep -q ok
-          curl -sf "http://localhost:4000/api/v1/health/routes?storeId=splaro" | grep -q healthy
+          sleep 10
+          curl -sf http://127.0.0.1:4000/api/v1/health | grep -q ok
+          curl -sf "http://127.0.0.1:4000/api/v1/health/routes?storeId=splaro" | grep -q healthy

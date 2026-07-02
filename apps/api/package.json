@@ -7,7 +7,7 @@
     "preflight": "node ../../scripts/api-preflight.mjs",
     "dev": "node ../../scripts/api-dev.mjs",
     "dev:tsx": "echo 'dev:tsx breaks NestJS DI — use pnpm dev (ts-node-dev)' && exit 1",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); try{fs.unlinkSync('tsconfig.build.tsbuildinfo')}catch(e){}\" && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "type-check": "tsc -p tsconfig.build.json --noEmit"
   },
