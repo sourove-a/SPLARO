@@ -34,7 +34,7 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/splaro_db
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/splaro_db
       REDIS_URL: redis://localhost:6379
       REDIS_HOST: localhost
       REDIS_PORT: 6379
@@ -85,6 +85,13 @@ jobs:
         run: |
           node scripts/api-preflight.mjs
           cd apps/api && node dist/main.js &
-          sleep 10
+          API_PID=$!
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4000/api/v1/health | grep -q ok; then
+              break
+            fi
+            sleep 2
+          done
           curl -sf http://127.0.0.1:4000/api/v1/health | grep -q ok
           curl -sf "http://127.0.0.1:4000/api/v1/health/routes?storeId=splaro" | grep -q healthy
+          kill $API_PID 2>/dev/null || true
