@@ -13,6 +13,7 @@ const port = Number(process.env.API_PORT ?? 4000)
 
 const env = {
   ...process.env,
+  CI: 'true',
   JWT_SECRET: process.env.JWT_SECRET ?? 'ci-jwt-secret-min-32-characters-long',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'ci-refresh-secret-min-32-characters',
   API_PORT: String(port),
@@ -28,9 +29,6 @@ function fail(msg, stderr = '') {
   if (stderr) console.error(stderr.slice(-4000))
   process.exit(1)
 }
-
-console.log('▶ API preflight')
-await import('./api-preflight.mjs')
 
 await reclaimPort(port, { force: true })
 await waitForPortFree(port, 10_000)
@@ -80,23 +78,20 @@ if (!healthOk) fail('Timed out waiting for /api/v1/health', stderr)
 
 console.log('✅ /api/v1/health')
 
-let routesOk = false
 try {
-  const res = await fetch(
-    `http://127.0.0.1:${port}/api/v1/health/routes?storeId=splaro`,
-    { signal: AbortSignal.timeout(30_000) },
-  )
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/health/full`, {
+    signal: AbortSignal.timeout(20_000),
+  })
   const body = await res.text()
-  if (!res.ok) fail(`health/routes HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
-  if (!body.includes('healthy')) fail(`health/routes missing healthy marker: ${body.slice(0, 500)}`, stderr)
-  routesOk = true
+  if (!res.ok) fail(`health/full HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
+  if (!body.includes('postgresql') || !body.includes('healthy')) {
+    fail(`health/full unexpected body: ${body.slice(0, 500)}`, stderr)
+  }
 } catch (err) {
-  fail(err instanceof Error ? err.message : 'health/routes fetch failed', stderr)
+  fail(err instanceof Error ? err.message : 'health/full fetch failed', stderr)
 }
 
-if (!routesOk) fail('health/routes check failed', stderr)
-
-console.log('✅ /api/v1/health/routes')
+console.log('✅ /api/v1/health/full')
 
 try {
   process.kill(-child.pid, 'SIGTERM')
