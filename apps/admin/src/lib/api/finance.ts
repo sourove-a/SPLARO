@@ -1,4 +1,4 @@
-import { apiFetch, getApiBaseUrl, getStoreId } from './client'
+import { apiFetch, buildAdminApiUrl, getStoreId } from './client'
 import { getAdminApiToken } from '@/lib/auth/api-token'
 
 export interface FinanceDashboardData {
@@ -212,9 +212,7 @@ export function runDailyClosing(closedBy?: string) {
 }
 
 async function downloadAuthenticatedFile(path: string, filename: string, init?: RequestInit) {
-  const base = getApiBaseUrl()
-  const sid = getStoreId()
-  const url = `${base}${path.startsWith('/') ? path : `/${path}`}${path.includes('?') ? '&' : '?'}storeId=${encodeURIComponent(sid)}`
+  const url = buildAdminApiUrl(path)
   const token = getAdminApiToken()
   const res = await fetch(url, {
     ...init,
