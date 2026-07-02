@@ -78,5 +78,25 @@ export function verifySettingsApplied(
     }
   }
 
+  if (patch.telegram) {
+    const sent = patch.telegram
+    const got = saved.telegram
+    if (!got) {
+      return fail('Telegram config did not persist on server')
+    }
+    if (sent.chatId !== undefined && String(got.chatId ?? '') !== String(sent.chatId ?? '')) {
+      return fail('Telegram chat ID did not persist on server')
+    }
+    if (sent.isActive !== undefined && Boolean(got.isActive) !== Boolean(sent.isActive)) {
+      return fail('Telegram active flag did not persist on server')
+    }
+    for (const key of ['notifyOrders', 'notifyPayments', 'notifyCourier', 'notifyStock', 'reportDaily'] as const) {
+      if (sent[key] === undefined) continue
+      if (Boolean(got[key]) !== Boolean(sent[key])) {
+        return fail(`Telegram ${key} did not persist on server`)
+      }
+    }
+  }
+
   return { ok: true }
 }

@@ -119,9 +119,19 @@ export class PlatformService {
         include: { user: { select: { firstName: true, lastName: true, email: true } } },
       }),
       this.prisma.loginHistory.count({
-        where: { success: false, createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+        where: {
+          success: false,
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          user: { staffRoles: { some: { storeId } } },
+        },
       }),
-      this.prisma.deviceSession.count({ where: { isRevoked: false, expiresAt: { gt: new Date() } } }),
+      this.prisma.deviceSession.count({
+        where: {
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+          user: { staffRoles: { some: { storeId } } },
+        },
+      }),
       this.prisma.user.count({ where: { twoFAEnabled: true, staffRoles: { some: { storeId } } } }),
     ])
 
@@ -185,9 +195,9 @@ export class PlatformService {
       auditLogs: logs,
       threats,
       posture: [
-        { label: 'HTTPS enforced', value: 'Active', ok: true },
-        { label: 'Admin session timeout', value: '8 hours', ok: true },
-        { label: 'Failed login lockout', value: '5 attempts', ok: true },
+        { label: 'HTTPS enforced', value: process.env.NODE_ENV === 'production' ? 'Active' : 'Dev mode', ok: process.env.NODE_ENV === 'production' },
+        { label: 'Admin session timeout', value: '12 hours', ok: true },
+        { label: 'Failed login lockout', value: failedLogins > 0 ? `${failedLogins} in 24h` : 'None recent', ok: failedLogins < 5 },
         { label: '2FA coverage', value: `${adminUsers.length ? Math.round((twoFaCount / adminUsers.length) * 100) : 0}%`, ok: twoFaCount > 0 },
       ],
     }

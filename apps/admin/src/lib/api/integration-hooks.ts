@@ -1,22 +1,35 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError } from '@/lib/api/client'
 import {
   fetchAiIntegration,
   fetchIntegrations,
+  fetchInfrastructureConfig,
+  fetchPaymentIntegrations,
   fetchTelegramIntegration,
   testAiIntegration,
+  testInfrastructureIntegration,
+  testPaymentIntegration,
   testTelegramIntegration,
   updateAiIntegration,
+  updateInfrastructureConfig,
+  updatePaymentIntegration,
   updateTelegramIntegration,
 } from '@/lib/api/integrations'
+import { testGoogleConnection } from '@/lib/api/google-workspace'
 
 export function useIntegrationsCatalog() {
   return useQuery({
     queryKey: ['integrations-catalog'],
     queryFn: fetchIntegrations,
-    staleTime: 15_000,
-    retry: 1,
+    staleTime: 20_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    retry: (count, err) => {
+      if (err instanceof ApiError && err.isAuthError) return false
+      return count < 2
+    },
   })
 }
 
@@ -79,6 +92,85 @@ export function useTestAiIntegration() {
     mutationFn: testAiIntegration,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['integration-ai'] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function useTestGoogleIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (mode?: 'gmail' | 'sheets' | 'auto') => testGoogleConnection(mode),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['google-workspace'] })
+      await qc.invalidateQueries({ queryKey: ['google-gmail'] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function usePaymentIntegrations() {
+  return useQuery({
+    queryKey: ['payment-integrations'],
+    queryFn: fetchPaymentIntegrations,
+    staleTime: 10_000,
+  })
+}
+
+export function useUpdatePaymentIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ provider, body }: { provider: string; body: Record<string, string | boolean> }) =>
+      updatePaymentIntegration(provider, body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['payment-integrations'] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function useTestPaymentIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (provider: string) => testPaymentIntegration(provider),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['payment-integrations'] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function useInfrastructureConfig(provider: 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx') {
+  return useQuery({
+    queryKey: ['infrastructure-config', provider],
+    queryFn: () => fetchInfrastructureConfig(provider),
+    staleTime: 10_000,
+  })
+}
+
+export function useUpdateInfrastructureConfig() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      provider,
+      body,
+    }: {
+      provider: 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx'
+      body: Record<string, string>
+    }) => updateInfrastructureConfig(provider, body),
+    onSuccess: async (_, vars) => {
+      await qc.invalidateQueries({ queryKey: ['infrastructure-config', vars.provider] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function useTestInfrastructureIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (provider: 'pathao' | 'redx') => testInfrastructureIntegration(provider),
+    onSuccess: async (_, provider) => {
+      await qc.invalidateQueries({ queryKey: ['infrastructure-config', provider] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
     },
   })

@@ -78,6 +78,16 @@ function missingReferencedChunks(appDir) {
   return [...missing]
 }
 
+function isProductionBuildCache(appDir) {
+  const nextDir = resolve(ROOT, appDir, '.next')
+  if (!existsSync(nextDir)) return false
+  return (
+    existsSync(join(nextDir, 'BUILD_ID')) ||
+    existsSync(join(nextDir, 'standalone')) ||
+    existsSync(join(nextDir, 'required-server-files.json'))
+  )
+}
+
 function lockfileNewerThanCache(appDir) {
   const nextDir = resolve(ROOT, appDir, '.next')
   if (!existsSync(nextDir) || !existsSync(LOCKFILE)) return false
@@ -93,6 +103,11 @@ function ensureApp(appDir) {
   }
 
   if (!existsSync(nextDir)) return
+
+  if (isProductionBuildCache(appDir)) {
+    purge(appDir, 'production next build cache — restart next dev fresh')
+    return
+  }
 
   if (lockfileNewerThanCache(appDir)) {
     purge(appDir, 'pnpm-lock.yaml newer than .next (deps changed)')

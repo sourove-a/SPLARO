@@ -159,7 +159,11 @@ export async function GET(request: NextRequest) {
   let infraChecks: ServiceHealthCheck[] = []
   if (apiOnline) {
     try {
-      const fullRes = await fetch(`${base}/health/full`, { cache: 'no-store', signal: AbortSignal.timeout(10000) })
+      const fullRes = await fetch(`${base}/health/full`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+        headers: probeAuthHeaders(authHeader),
+      })
       if (fullRes.ok) {
         const full = (await fullRes.json()) as {
           checks?: { id: string; name: string; group: string; status: HealthStatus; latencyMs: number; message?: string }[]

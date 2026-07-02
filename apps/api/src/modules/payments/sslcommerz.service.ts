@@ -1,7 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
-import { PrismaService } from '../../common/prisma.service'
+import { Injectable, Logger } from '@nestjs/common'
 import { createHash } from 'crypto'
+import { PrismaService } from '../../common/prisma.service'
+import { resolveStoreId } from '../../common/store.util'
+import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 
 export interface SslCommerzInitPayload {
   invoiceNumber: string
@@ -42,34 +43,49 @@ export interface SslCommerzIpnPayload {
   verify_key?: string
 }
 
+type SslRuntime = Awaited<ReturnType<PaymentIntegrationService['resolveRuntimeCredentials']>>
+
 @Injectable()
 export class SslCommerzService {
   private readonly logger = new Logger(SslCommerzService.name)
-  private readonly baseUrl: string
-  private readonly storeId: string
-  private readonly storePassword: string
-  private readonly isSandbox: boolean
 
   constructor(
-    @Inject(ConfigService) private readonly config: ConfigService,
     private readonly prisma: PrismaService,
-  ) {
-    this.isSandbox = this.config.get<string>('SSLCOMMERZ_SANDBOX') === 'true'
-    this.baseUrl = this.isSandbox
-      ? 'https://sandbox.sslcommerz.com'
-      : 'https://securepay.sslcommerz.com'
-    this.storeId = this.config.get<string>('SSLCOMMERZ_STORE_ID') ?? ''
-    this.storePassword = this.config.get<string>('SSLCOMMERZ_STORE_PASSWORD') ?? ''
+    private readonly paymentIntegration: PaymentIntegrationService,
+  ) {}
+
+  private baseUrl(creds: SslRuntime): string {
+    return creds.sandbox ? 'https://sandbox.sslcommerz.com' : 'https://securepay.sslcommerz.com'
+  }
+
+  private async resolveStoreId(storeIdOrSlug?: string, invoiceNumber?: string): Promise<string> {
+    if (storeIdOrSlug) return resolveStoreId(this.prisma, storeIdOrSlug)
+    if (invoiceNumber) {
+      const order = await this.prisma.order.findUnique({
+        where: { invoiceNumber },
+        select: { storeId: true },
+      })
+      if (order) return order.storeId
+    }
+    return resolveStoreId(this.prisma)
+  }
+
+  private async getCredentials(storeIdOrSlug?: string, invoiceNumber?: string) {
+    const storeId = await this.resolveStoreId(storeIdOrSlug, invoiceNumber)
+    const creds = await this.paymentIntegration.resolveRuntimeCredentials(storeId, 'sslcommerz')
+    if (!creds.storeId || !creds.storePassword) {
+      throw new Error('SSLCommerz credentials are not configured — save keys in Admin → Settings → Payments')
+    }
+    return { storeId, creds }
   }
 
   async initPayment(payload: SslCommerzInitPayload): Promise<SslCommerzInitResponse> {
-    if (!this.storeId || !this.storePassword) {
-      throw new Error('SSLCOMMERZ_STORE_ID and SSLCOMMERZ_STORE_PASSWORD not configured')
-    }
+    const { creds } = await this.getCredentials(payload.storeId, payload.invoiceNumber)
+    const baseUrl = this.baseUrl(creds)
 
     const params = new URLSearchParams({
-      store_id: this.storeId,
-      store_passwd: this.storePassword,
+      store_id: creds.storeId!,
+      store_passwd: creds.storePassword!,
       total_amount: payload.amount.toFixed(2),
       currency: payload.currency ?? 'BDT',
       tran_id: payload.invoiceNumber,
@@ -88,7 +104,7 @@ export class SslCommerzService {
       product_profile: 'general',
     })
 
-    const res = await fetch(`${this.baseUrl}/gwprocess/v4/api.php`, {
+    const res = await fetch(`${baseUrl}/gwprocess/v4/api.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),
@@ -115,11 +131,14 @@ export class SslCommerzService {
     }
   }
 
-  async validateIpn(body: SslCommerzIpnPayload): Promise<boolean> {
+  async validateIpn(body: SslCommerzIpnPayload, invoiceNumber?: string): Promise<boolean> {
     if (!body.val_id || body.status !== 'VALID') return false
 
+    const { creds } = await this.getCredentials(undefined, invoiceNumber ?? body.tran_id)
+    const baseUrl = this.baseUrl(creds)
+
     const res = await fetch(
-      `${this.baseUrl}/validator/api/validationserverAPI.php?val_id=${body.val_id}&store_id=${this.storeId}&store_passwd=${this.storePassword}&format=json`,
+      `${baseUrl}/validator/api/validationserverAPI.php?val_id=${body.val_id}&store_id=${creds.storeId}&store_passwd=${creds.storePassword}&format=json`,
       { signal: AbortSignal.timeout(10_000) },
     )
 
@@ -128,13 +147,14 @@ export class SslCommerzService {
     return data.status === 'VALID' && data.tran_id === body.tran_id
   }
 
-  verifyHash(body: SslCommerzIpnPayload): boolean {
+  async verifyHash(body: SslCommerzIpnPayload, invoiceNumber?: string): Promise<boolean> {
     if (!body.verify_sign || !body.verify_key) return true
+    const { creds } = await this.getCredentials(undefined, invoiceNumber ?? body.tran_id)
     const keys = body.verify_key.split(',')
     const parts: string[] = []
     for (const key of keys) {
       if (key === 'store_passwd') {
-        parts.push(`${key}=${createHash('md5').update(this.storePassword).digest('hex')}`)
+        parts.push(`${key}=${createHash('md5').update(creds.storePassword!).digest('hex')}`)
       } else {
         parts.push(`${key}=${((body as unknown) as Record<string, string>)[key] ?? ''}`)
       }
@@ -151,7 +171,7 @@ export class SslCommerzService {
     const paymentStatus = type === 'success' ? 'PAID' : type === 'fail' ? 'FAILED' : 'CANCELLED'
 
     if (type === 'success' || type === 'ipn') {
-      const valid = await this.validateIpn(body)
+      const valid = await this.validateIpn(body, invoiceNumber)
       if (!valid) {
         this.logger.warn(`SSLCommerz IPN validation failed for ${invoiceNumber}`)
         return { ok: false, invoiceNumber, status: 'INVALID' }

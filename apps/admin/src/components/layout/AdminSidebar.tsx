@@ -7,12 +7,14 @@ import { ChevronDown, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
+import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { adminNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
 import { cn } from '@/lib/utils/cn'
 
 const PRIMARY_SECTIONS = [
   'Overview',
+  'Executive',
   'Commerce',
   'Catalog',
   'Customers',
@@ -61,18 +63,25 @@ function SidebarItem({
   item,
   collapsed,
   onNavigate,
+  groupLabel,
 }: {
   item: AdminNavItem
   collapsed: boolean
   onNavigate?: () => void
+  groupLabel?: string
 }) {
   const maturity = getModuleMaturity(item.href)
+  const tooltip = collapsed
+    ? groupLabel && groupLabel !== item.label
+      ? `${groupLabel} · ${item.label}`
+      : item.label
+    : undefined
 
   return (
     <AdminNavLink
       href={item.href}
       {...(onNavigate ? { onNavigate } : {})}
-      {...(collapsed ? { title: item.label } : {})}
+      {...(tooltip ? { title: tooltip } : {})}
     >
       <NavIcon name={item.icon} />
       {!collapsed ? <span className="truncate">{item.label}</span> : null}
@@ -125,6 +134,7 @@ function SidebarDrawerSection({
             key={group.group}
             item={group.items[0]!}
             collapsed
+            groupLabel={group.group}
             {...(onNavigate ? { onNavigate } : {})}
           />
         ))}
@@ -232,6 +242,8 @@ function SidebarNav({
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { api } = useAdminConnection(30_000)
+  const connectionLive = api.pulse === 'online' || api.pulse === 'degraded'
   const navScrollRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -269,7 +281,11 @@ export function AdminSidebar() {
   const sidebarContent = (
     <>
       <div className="admin-sidebar__brand shrink-0">
-        <SplaroAdminLogo variant={collapsed ? 'mark' : 'sidebar'} priority />
+        <SplaroAdminLogo
+          variant={collapsed ? 'mark' : 'sidebar'}
+          priority
+          connectionLive={connectionLive}
+        />
         {!collapsed ? (
           <p className="mt-2 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-[var(--admin-text-muted)]">
             Commerce Admin

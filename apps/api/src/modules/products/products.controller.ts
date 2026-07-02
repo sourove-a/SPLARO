@@ -4,6 +4,7 @@ import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
 import { SearchService } from '../search/search.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 
 const MAX_PRODUCT_IMAGES = 10
@@ -73,6 +74,7 @@ export class ProductsController {
 
   private async bustProductCache(storeId: string): Promise<void> {
     await this.cache.invalidateStoreResource(storeId, 'products')
+    void revalidateStorefrontWeb(['storefront-products'])
   }
 
   @Get()
@@ -292,6 +294,11 @@ export class ProductsController {
 
     const productSku = body.sku?.trim()
 
+    const isPublished =
+      typeof body.isPublished === 'boolean' ? body.isPublished : body.status === 'PUBLISHED'
+    const productStatus =
+      body.status === 'ARCHIVED' ? 'ARCHIVED' : isPublished ? 'PUBLISHED' : 'DRAFT'
+
     const product = await this.prisma.product.create({
       data: {
         storeId: sid,
@@ -306,9 +313,9 @@ export class ProductsController {
         lowStockThreshold: body.lowStockThreshold ?? 5,
         tags: body.tags ?? [],
         categoryId: body.categoryId,
-        isPublished: body.isPublished ?? false,
+        isPublished,
         isHidden: body.isHidden ?? false,
-        status: body.status ?? (body.isPublished ? 'PUBLISHED' : 'DRAFT'),
+        status: productStatus,
         fabricContent: body.fabricContent,
         fitType: body.fitType,
         occasion: body.occasion,
@@ -372,6 +379,19 @@ export class ProductsController {
     })
     if (!existing) throw new NotFoundException('Product not found')
 
+    const publishPatch =
+      body.isPublished !== undefined || body.status !== undefined
+        ? (() => {
+            const nextPublished =
+              typeof body.isPublished === 'boolean'
+                ? body.isPublished
+                : body.status === 'PUBLISHED'
+            const nextStatus =
+              body.status === 'ARCHIVED' ? 'ARCHIVED' : nextPublished ? 'PUBLISHED' : 'DRAFT'
+            return { isPublished: nextPublished, status: nextStatus }
+          })()
+        : null
+
     const schemaMarkup =
       body.nameBn !== undefined || body.weavingType !== undefined
         ? mergeSchemaMarkup(existing.schemaMarkup, body.nameBn, body.weavingType)
@@ -384,7 +404,9 @@ export class ProductsController {
           .filter(Boolean) as string[],
       ),
     ).slice(0, MAX_PRODUCT_IMAGES)
-    const videoUrl = body.videoUrl?.trim()
+    const videoUrl = body.videoUrl !== undefined ? body.videoUrl?.trim() : undefined
+    const mediaUpdateRequested =
+      body.imageUrls !== undefined || body.videoUrl !== undefined || body.imageUrl !== undefined
 
     const product = await this.prisma.product.update({
       where: { id },
@@ -401,9 +423,10 @@ export class ProductsController {
         ...(body.tags !== undefined ? { tags: body.tags } : {}),
         ...(schemaMarkup !== undefined ? { schemaMarkup } : {}),
         ...(body.categoryId !== undefined ? { categoryId: body.categoryId || null } : {}),
-        ...(body.isPublished !== undefined ? { isPublished: body.isPublished } : {}),
+        ...(publishPatch
+          ? { isPublished: publishPatch.isPublished, status: publishPatch.status }
+          : {}),
         ...(body.isHidden !== undefined ? { isHidden: body.isHidden } : {}),
-        ...(body.status !== undefined ? { status: body.status } : {}),
         ...(body.fabricContent !== undefined ? { fabricContent: body.fabricContent } : {}),
         ...(body.fitType !== undefined ? { fitType: body.fitType } : {}),
         ...(body.occasion !== undefined ? { occasion: body.occasion } : {}),
@@ -433,7 +456,7 @@ export class ProductsController {
       })
     }
 
-    if (imageUrls.length || videoUrl) {
+    if (mediaUpdateRequested) {
       await this.prisma.productImage.deleteMany({ where: { productId: id } })
       const mediaRows = [
         ...(videoUrl

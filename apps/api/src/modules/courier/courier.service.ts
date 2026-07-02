@@ -232,9 +232,9 @@ export class CourierService {
     try {
       switch (provider) {
         case 'STEADFAST':
-          return await this.steadfast.createParcel(payload)
+          return await this.steadfast.createParcel(order.storeId, payload)
         case 'PATHAO': {
-          const created = await this.pathao.createOrder(payload)
+          const created = await this.pathao.createOrder(order.storeId, payload)
           return {
             success: true,
             consignmentId: created.consignment_id,
@@ -243,7 +243,7 @@ export class CourierService {
           }
         }
         case 'REDX': {
-          const created = await this.redx.createParcel(payload)
+          const created = await this.redx.createParcel(order.storeId, payload)
           return {
             success: true,
             consignmentId: created.trackingId,
@@ -284,17 +284,20 @@ export class CourierService {
   }
 
   async getTrackingStatus(orderId: string): Promise<string | null> {
-    const shipment = await this.prisma.courierShipment.findUnique({ where: { orderId } })
+    const shipment = await this.prisma.courierShipment.findUnique({
+      where: { orderId },
+      include: { order: { select: { storeId: true } } },
+    })
     if (!shipment?.consignmentId) return null
 
     try {
       switch (shipment.provider) {
         case 'STEADFAST':
-          return await this.steadfast.trackParcel(shipment.consignmentId)
+          return await this.steadfast.trackParcel(shipment.order.storeId, shipment.consignmentId)
         case 'PATHAO':
-          return (await this.pathao.trackOrder(shipment.consignmentId)).status
+          return (await this.pathao.trackOrder(shipment.order.storeId, shipment.consignmentId)).status
         case 'REDX':
-          return (await this.redx.trackParcel(shipment.consignmentId)).status
+          return (await this.redx.trackParcel(shipment.order.storeId, shipment.consignmentId)).status
         case 'SUNDARBAN':
           return await this.sundarban.trackParcel(shipment.consignmentId)
         case 'SA_PARIBAHAN':

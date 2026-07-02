@@ -387,6 +387,64 @@ export class AdminHubService {
     })
   }
 
+  async createPurchaseOrder(
+    storeIdOrSlug: string,
+    body: {
+      supplierId: string
+      notes?: string
+      items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: body.supplierId, storeId },
+    })
+    if (!supplier) {
+      throw new Error('Supplier not found for this store')
+    }
+
+    const items = body.items
+      .map((item) => ({
+        productName: item.productName.trim(),
+        sku: item.sku?.trim() || undefined,
+        quantity: Math.max(1, Math.floor(Number(item.quantity) || 0)),
+        unitCost: Math.max(0, Number(item.unitCost) || 0),
+      }))
+      .filter((item) => item.productName.length > 0)
+
+    if (!items.length) {
+      throw new Error('At least one line item is required')
+    }
+
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0)
+    const count = await this.prisma.purchaseOrder.count({ where: { storeId } })
+    const poNumber = `PO-${String(count + 1).padStart(4, '0')}`
+
+    return this.prisma.purchaseOrder.create({
+      data: {
+        storeId,
+        supplierId: supplier.id,
+        poNumber,
+        status: 'DRAFT',
+        subtotal,
+        total: subtotal,
+        notes: body.notes?.trim() || undefined,
+        items: {
+          create: items.map((item) => ({
+            productName: item.productName,
+            sku: item.sku,
+            quantity: item.quantity,
+            unitCost: item.unitCost,
+          })),
+        },
+      },
+      include: {
+        supplier: { select: { name: true } },
+        items: true,
+      },
+    })
+  }
+
   async createSupportTicket(
     storeIdOrSlug: string,
     body: { subject: string; channel?: SupportTicketChannel; priority?: TaskPriority; message?: string },

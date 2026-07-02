@@ -193,7 +193,7 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('security-center', 'Security Center', 'Security', q('/admin/security')),
     p('security-admin-users', 'Admin Users', 'Security', q('/admin/security/staff')),
     p('security-roles', 'Roles', 'Security', q('/admin/security/staff')),
-    p('security-permissions', 'Permissions', 'Security', q('/admin/security/2fa/status')),
+    p('security-permissions', 'Permissions', 'Security', q('/admin/security/permissions')),
     p('security-audit', 'Audit Logs', 'Security', q('/admin/security/audit-logs') + '&limit=5'),
 
     // ── System ────────────────────────────────────────────────────────────

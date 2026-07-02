@@ -600,6 +600,22 @@ model LoginHistory {
   @@index([createdAt])
 }
 
+model AdminLoginToken {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  email     String
+  userId    String
+  name      String
+  role      String
+  storeId   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
 model DeviceSession {
   id           String   @id @default(cuid())
   userId       String

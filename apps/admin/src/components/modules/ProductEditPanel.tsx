@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Loader2, Save, Package,
-  ImageIcon, Star, Layers, AlertTriangle,
-  CheckCircle2, Circle, Pencil, X, Link2,
-  BarChart3, ShieldAlert,
+  Layers, AlertTriangle,
+  CheckCircle2, Circle, Pencil, Link2,
+  BarChart3, ShieldAlert, Copy, ExternalLink,
 } from 'lucide-react'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import {
@@ -19,9 +18,13 @@ import {
 } from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
+import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
 import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useUpdateProductVariant } from '@/lib/api/hooks'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
+import { ProductMediaPanel } from '@/components/modules/product-form/ProductMediaPanel'
+import { parseProductMedia } from '@/lib/admin/product-media-utils'
+import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
 import {
   displayPriceFields,
   formatTagsInput,
@@ -33,6 +36,7 @@ import {
 } from '@/lib/admin/product-form-utils'
 import { generateAIProduct } from '@/lib/api/finance'
 import { ProductAIAssist } from '@/components/agent/ProductAIAssist'
+import { ModuleReadinessBar } from '@/components/ui/connection/ModuleReadinessBar'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { cn } from '@/lib/utils/cn'
 
@@ -53,7 +57,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
   return (
     <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-[#6B6B6B]">
       {children}
-      {required && <span className="ml-1 text-[#5E7CFF]">*</span>}
+      {required && <span className="ml-1 text-[var(--admin-brand-gold)]">*</span>}
     </span>
   )
 }
@@ -72,12 +76,12 @@ function FormSection({
   title: string; icon: React.ElementType; children: React.ReactNode; number?: number
 }) {
   return (
-    <div className="admin-module-card space-y-4">
-      <div className="flex items-center gap-2.5 border-b border-[rgba(17,17,17,0.06)] pb-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(200,169,126,0.12)]">
-          <Icon className="h-3.5 w-3.5 text-[#5E7CFF]" strokeWidth={2} />
+    <div className="admin-module-card product-edit-card space-y-4">
+      <div className="product-edit-card__head">
+        <div className="product-edit-card__icon">
+          <Icon className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
         </div>
-        <h3 className="flex-1 text-[0.875rem] font-black tracking-tight text-[#111111]">{title}</h3>
+        <h3 className="product-edit-card__title">{title}</h3>
         {number !== undefined && <SectionNumber n={number} />}
       </div>
       {children}
@@ -89,26 +93,13 @@ function StatusBadge({ published }: { published: boolean }) {
   return (
     <span className={cn(
       'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em]',
-      published ? 'bg-emerald-100/80 text-emerald-700' : 'bg-[rgba(17,17,17,0.06)] text-[#6B6B6B]',
+      published
+        ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+        : 'border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-soft)] text-[var(--admin-text-muted)]',
     )}>
       {published ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
       {published ? 'Live' : 'Draft'}
     </span>
-  )
-}
-
-function Toggle({ on, onToggle, size = 'md' }: { on: boolean; onToggle: () => void; size?: 'sm' | 'md' }) {
-  const w = size === 'sm' ? 'w-9' : 'w-11'
-  const h = size === 'sm' ? 'h-5' : 'h-6'
-  const knob = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
-  const shift = size === 'sm' ? 'translate-x-4' : 'translate-x-5'
-  return (
-    <button
-      onClick={onToggle}
-      className={cn('relative rounded-full transition-colors duration-200', w, h, on ? 'bg-emerald-500' : 'bg-[rgba(17,17,17,0.15)]')}
-    >
-      <span className={cn('absolute top-0.5 left-0.5 rounded-full bg-white shadow-sm transition-transform duration-200', knob, on ? shift : 'translate-x-0')} />
-    </button>
   )
 }
 
@@ -127,6 +118,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const [dirty, setDirty] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [fillAllLoading, setFillAllLoading] = useState(false)
+  const [visibilityBusy, setVisibilityBusy] = useState<string | null>(null)
   const [slugEdited, setSlugEdited] = useState(false)
   const [departmentId, setDepartmentId] = useState('')
   const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
@@ -151,7 +143,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     productType: '',
     categoryId: '',
     sizes: '',
-    imageUrl: '',
+    imageUrls: [] as string[],
+    videoUrl: '',
     isPublished: false,
     status: 'DRAFT',
     isHidden: false,
@@ -187,6 +180,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     const schema = parseProductSchemaMarkup(extra.schemaMarkup)
     const prices = displayPriceFields(p.basePrice, extra.compareAtPrice)
     const fitSplit = splitFitAndProductType(p.fitType)
+    const media = parseProductMedia(p.images)
     setForm({
       name: p.name,
       nameBn: schema.nameBn,
@@ -207,7 +201,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
       productType: fitSplit.productType,
       categoryId,
       sizes: '',
-      imageUrl: p.images?.[0]?.url ?? '',
+      imageUrls: media.imageUrls,
+      videoUrl: media.videoUrl,
       isPublished: p.isPublished,
       status: p.status ?? (p.isPublished ? 'PUBLISHED' : 'DRAFT'),
       isHidden: Boolean(extra.isHidden),
@@ -242,6 +237,63 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     setForm((prev) => ({ ...prev, [key]: value }))
     setDirty(true)
   }
+
+  const saveVisibility = useCallback(
+    async (updates: {
+      isPublished?: boolean
+      isFeatured?: boolean
+      isNewArrival?: boolean
+      isBestSeller?: boolean
+    }) => {
+      const busyKey =
+        updates.isPublished !== undefined
+          ? 'live'
+          : updates.isFeatured !== undefined
+            ? 'featured'
+            : updates.isNewArrival !== undefined
+              ? 'new'
+              : 'best'
+      const nextPublished = updates.isPublished ?? form.isPublished
+      const nextStatus = nextPublished ? 'PUBLISHED' : 'DRAFT'
+
+      setVisibilityBusy(busyKey)
+      const prevForm = {
+        isPublished: form.isPublished,
+        status: form.status,
+        isFeatured: form.isFeatured,
+        isNewArrival: form.isNewArrival,
+        isBestSeller: form.isBestSeller,
+      }
+      const nextForm = {
+        isPublished: nextPublished,
+        status: nextStatus as typeof form.status,
+        isFeatured: updates.isFeatured ?? form.isFeatured,
+        isNewArrival: updates.isNewArrival ?? form.isNewArrival,
+        isBestSeller: updates.isBestSeller ?? form.isBestSeller,
+        ...(updates.isPublished === true ? { isHidden: false } : {}),
+      }
+      setForm((prev) => ({ ...prev, ...nextForm }))
+
+      try {
+        await updateProduct.mutateAsync({
+          id: productId,
+          ...nextForm,
+          ...(updates.isPublished === true ? { isHidden: false } : {}),
+        })
+        if (updates.isPublished !== undefined) {
+          toastOk(nextPublished ? 'Live on storefront' : 'Saved as draft')
+        } else {
+          toastOk('Visibility updated')
+        }
+      } catch (err) {
+        setForm((prev) => ({ ...prev, ...prevForm }))
+        toastFail(err instanceof Error ? err.message : 'Could not save visibility')
+      } finally {
+        setVisibilityBusy(null)
+      }
+    },
+    [form, productId, updateProduct],
+  )
 
   const handleNameChange = (name: string) => {
     setForm((prev) => ({
@@ -384,7 +436,6 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Product name required.'); return }
-    if (!form.nameBn.trim()) { toast.error('নাম (বাংলা) লিখুন।'); setActiveTab('basic'); return }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
     if (!sellingPrice || sellingPrice <= 0) { toast.error('Enter a valid price.'); return }
     setSaving(true)
@@ -395,7 +446,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         id: productId,
         name: form.name.trim(),
         slug: form.slug,
-        nameBn: form.nameBn.trim(),
+        ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
         shortDescription: form.shortDescription.trim(),
         description: fullDescription.trim(),
         basePrice: sellingPrice,
@@ -415,11 +466,12 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         metaDescription: form.metaDescription,
         isPublished: form.isPublished,
         isHidden: form.isHidden,
-        status: form.status,
+        status: form.isPublished ? 'PUBLISHED' : 'DRAFT',
         isFeatured: form.isFeatured,
         isNewArrival: form.isNewArrival,
         isBestSeller: form.isBestSeller,
-        ...(form.imageUrl.trim() ? { imageUrl: form.imageUrl.trim() } : {}),
+        imageUrls: form.imageUrls,
+        videoUrl: form.videoUrl.trim(),
       })
       toastApiSaved('Product')
       setDirty(false)
@@ -458,7 +510,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(200,169,126,0.1)]">
-          <Loader2 className="h-5 w-5 animate-spin text-[#5E7CFF]" />
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-brand-gold)]" />
         </div>
         <p className="text-sm font-bold text-[#6B6B6B]">Loading product…</p>
       </div>
@@ -481,16 +533,61 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const totalStock = product.variants?.reduce((s, v) => s + (v.stock ?? v.stockQuantity ?? 0), 0) ?? 0
   const lowStock = totalStock > 0 && totalStock < 10
+  const storefrontUrl = form.slug.trim() ? productStorefrontUrl(form.slug) : ''
+
+  const handleCopyStorefrontUrl = async () => {
+    if (!form.slug.trim()) {
+      toast.error('Save a URL slug first.')
+      return
+    }
+    if (!form.isPublished) {
+      toast.error('Publish the product first — draft links do not work on the storefront.')
+      return
+    }
+    const ok = await copyProductStorefrontUrl(form.slug)
+    if (ok) toastOk('Storefront link copied')
+    else toastFail('Could not copy link')
+  }
+
+  const handleOpenStorefront = () => {
+    if (!form.slug.trim()) {
+      toast.error('Save a URL slug first.')
+      return
+    }
+    if (!form.isPublished) {
+      toast.error('Publish first to view on the live storefront.')
+      return
+    }
+    window.open(storefrontUrl, '_blank', 'noopener,noreferrer')
+  }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="product-edit-page admin-module-page product-page w-full">
 
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-4">
-        <AdminLinkButton href={moduleHref} variant="ghost">
-          <ArrowLeft className="h-4 w-4" /> Products
-        </AdminLinkButton>
-        <div className="flex items-center gap-2">
+      <div className="product-edit-page__topbar">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <AdminLinkButton href={moduleHref} variant="ghost">
+            <ArrowLeft className="h-4 w-4" /> Products
+          </AdminLinkButton>
+          <div className="hidden min-w-0 sm:block">
+            <p className="truncate text-sm font-black text-[var(--admin-text)]">{form.name || 'Edit product'}</p>
+            {form.slug ? (
+              <p className="truncate text-[10px] font-semibold text-[var(--admin-text-muted)]">/products/{form.slug}</p>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
+          {form.slug ? (
+            <>
+              <AdminButton variant="ghost" className="!text-xs" onClick={() => void handleCopyStorefrontUrl()}>
+                <Copy className="h-3.5 w-3.5" /> Copy link
+              </AdminButton>
+              <AdminButton variant="ghost" className="!text-xs" onClick={handleOpenStorefront} disabled={!form.isPublished}>
+                <ExternalLink className="h-3.5 w-3.5" /> View live
+              </AdminButton>
+            </>
+          ) : null}
           <StatusBadge published={form.isPublished} />
           <AnimatePresence>
             {dirty && (
@@ -498,7 +595,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-amber-700"
+                className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-amber-400"
               >
                 Unsaved
               </motion.span>
@@ -510,11 +607,57 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+      <ModuleReadinessBar
+        items={[
+          {
+            key: 'publish',
+            label: form.isPublished ? 'Published on storefront' : 'Draft — not on storefront',
+            ok: form.isPublished,
+          },
+          {
+            key: 'variants',
+            label: `${product.variants?.length ?? 0} variant${(product.variants?.length ?? 0) === 1 ? '' : 's'}`,
+            ok: (product.variants?.length ?? 0) > 0,
+          },
+          {
+            key: 'stock',
+            label: `${totalStock} units in stock`,
+            ok: totalStock > 0,
+            highlight: !lowStock && totalStock > 0,
+          },
+          {
+            key: 'dirty',
+            label: dirty ? 'Unsaved changes' : 'Saved',
+            ok: !dirty,
+            highlight: !dirty,
+          },
+        ]}
+      />
+
+      <div className="product-edit-page__summary" aria-label="Product edit summary">
+        <div>
+          <span>Storefront URL</span>
+          <strong>{form.slug ? `/products/${form.slug}` : 'Add slug before publishing'}</strong>
+        </div>
+        <div>
+          <span>Variants</span>
+          <strong>{product.variants?.length ?? 0}</strong>
+        </div>
+        <div>
+          <span>Stock</span>
+          <strong className={lowStock ? 'product-edit-page__summary-warn' : ''}>{totalStock} units</strong>
+        </div>
+        <div>
+          <span>Status</span>
+          <strong>{form.isPublished ? 'Live' : 'Draft'}</strong>
+        </div>
+      </div>
+
+      {/* Two-column layout — full width, sidebar sticky */}
+      <div className="product-edit-page__grid">
 
         {/* LEFT */}
-        <div className="space-y-5">
+        <div className="product-edit-page__main min-w-0 space-y-5">
 
           {/* 1 — Product Info */}
           <FormSection title="Product Info" icon={Package} number={1}>
@@ -544,7 +687,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 onColorsOpenToggle={() => undefined}
                 colorRows={[]}
                 activeColorId=""
-                imageUrls={form.imageUrl ? [form.imageUrl] : []}
+                imageUrls={form.imageUrls}
                 onDepartmentChange={handleDepartmentChange}
                 onSubcategoryChange={handleSubcategoryChange}
                 onNameBlur={() => undefined}
@@ -560,6 +703,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 descriptionPlaceholderEn="Premium English description…"
                 descriptionPlaceholderBn="বাংলায় সুন্দর বিবরণ…"
                 showVariantControls={false}
+                onInstantPublish={(next) => void saveVisibility({ isPublished: next })}
                 headerSlot={
                   form.slug ? (
                     <div className="product-form-slug-row">
@@ -671,101 +815,67 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             </FormSection>
           )}
 
-          {/* 4 — SEO */}
-          <FormSection title="SEO & Meta" icon={Star} number={4}>
-            <div className="space-y-3">
-              <label className="admin-field">
-                <FieldLabel>Meta title</FieldLabel>
-                <input className="admin-input" value={form.metaTitle} onChange={(e) => set('metaTitle', e.target.value)} placeholder="SEO title (defaults to product name)" />
-              </label>
-              <label className="admin-field">
-                <FieldLabel>Meta description</FieldLabel>
-                <textarea className="admin-input min-h-[80px]" value={form.metaDescription} onChange={(e) => set('metaDescription', e.target.value)} placeholder="SEO description…" />
-              </label>
-              {form.slug && (
-                <div className="rounded-xl border border-[rgba(17,17,17,0.06)] bg-[rgba(17,17,17,0.02)] p-3">
-                  <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-[#6B6B6B]">Google Preview</p>
-                  <p className="text-sm font-bold text-blue-600 underline">{form.metaTitle || form.name}</p>
-                  <p className="text-[11px] text-green-700">splaro.com.bd/products/{form.slug}</p>
-                  <p className="mt-0.5 text-[11px] text-[#6B6B6B] line-clamp-2">{form.metaDescription || fullDescription || 'No description set.'}</p>
-                </div>
-              )}
-            </div>
-          </FormSection>
         </div>
 
-        {/* RIGHT */}
-        <div className="space-y-4">
+        {/* RIGHT — media (same as create), live toggles, stats */}
+        <aside className="product-edit-page__aside space-y-4">
 
-          {/* Image */}
-          <div className="admin-module-card">
-            <div className="flex items-center gap-2 border-b border-[rgba(17,17,17,0.06)] pb-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(200,169,126,0.12)]">
-                <ImageIcon className="h-3.5 w-3.5 text-[#5E7CFF]" strokeWidth={2} />
-              </div>
-              <h3 className="text-[0.875rem] font-black tracking-tight text-[#111111]">Product Image</h3>
-            </div>
-            <div className="mt-4 space-y-3">
-              {form.imageUrl ? (
-                <div className="group relative aspect-square w-full overflow-hidden rounded-xl border border-[rgba(17,17,17,0.08)]">
-                  <Image src={form.imageUrl} alt={form.name} fill className="object-cover" sizes="320px" unoptimized />
-                  <button
-                    onClick={() => set('imageUrl', '')}
-                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex aspect-square w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[rgba(200,169,126,0.3)] bg-[rgba(200,169,126,0.04)]">
-                  <ImageIcon className="h-8 w-8 text-[rgba(200,169,126,0.4)]" />
-                  <p className="mt-2 text-[11px] font-semibold text-[#6B6B6B]">No image</p>
-                </div>
-              )}
-              <label className="admin-field">
-                <FieldLabel>Image URL</FieldLabel>
-                <input className="admin-input text-xs" value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="https://…" />
-              </label>
-            </div>
-          </div>
+          <ProductMediaPanel
+            imageUrls={form.imageUrls}
+            videoUrl={form.videoUrl}
+            onImageUrlsChange={(urls) => {
+              setForm((prev) => ({ ...prev, imageUrls: urls }))
+              setDirty(true)
+            }}
+            onVideoUrlChange={(url) => {
+              setForm((prev) => ({ ...prev, videoUrl: url }))
+              setDirty(true)
+            }}
+            className="product-edit-media !m-0"
+          />
 
           {/* Visibility */}
-          <div className="admin-module-card space-y-3">
-            <div className="flex items-center gap-2 border-b border-[rgba(17,17,17,0.06)] pb-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(200,169,126,0.12)]">
-                <CheckCircle2 className="h-3.5 w-3.5 text-[#5E7CFF]" strokeWidth={2} />
+          <div className="admin-module-card product-edit-card product-edit-side-card space-y-1">
+            <div className="product-edit-card__head">
+              <div className="product-edit-card__icon">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
               </div>
-              <h3 className="text-[0.875rem] font-black tracking-tight text-[#111111]">Visibility</h3>
+              <h3 className="product-edit-card__title">Visibility</h3>
             </div>
-            <div className="flex items-center justify-between rounded-xl bg-[rgba(17,17,17,0.03)] px-4 py-3">
-              <div>
-                <p className="text-sm font-black text-[#111111]">{form.isPublished ? 'Live on store' : 'Draft'}</p>
-                <p className="text-[11px] font-semibold text-[#6B6B6B]">{form.isPublished ? 'Visible to customers' : 'Hidden from storefront'}</p>
-              </div>
-              <Toggle on={form.isPublished} onToggle={() => set('isPublished', !form.isPublished)} />
-            </div>
+            <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--admin-text-muted)]">
+              Saves instantly · updates storefront
+            </p>
+            <AdminSwitchRow
+              label={form.isPublished ? 'Live on store' : 'Draft'}
+              desc={form.isPublished ? 'Visible on splaro.com.bd' : 'Hidden until published'}
+              checked={form.isPublished}
+              disabled={visibilityBusy !== null}
+              highlight
+              onChange={() => void saveVisibility({ isPublished: !form.isPublished })}
+            />
             {[
-              { key: 'isFeatured' as const, label: 'Featured', desc: 'Show in featured section' },
-              { key: 'isNewArrival' as const, label: 'New Arrival', desc: 'New arrivals section' },
-              { key: 'isBestSeller' as const, label: 'Best Seller', desc: 'Best sellers section' },
+              { key: 'isFeatured' as const, label: 'Featured', desc: 'Featured section' },
+              { key: 'isNewArrival' as const, label: 'New Arrival', desc: 'New arrivals' },
+              { key: 'isBestSeller' as const, label: 'Best Seller', desc: 'Best sellers' },
             ].map(({ key, label, desc }) => (
-              <div key={key} className="flex items-center justify-between rounded-xl px-4 py-2.5 hover:bg-[rgba(17,17,17,0.02)]">
-                <div>
-                  <p className="text-sm font-bold text-[#111111]">{label}</p>
-                  <p className="text-[11px] font-semibold text-[#6B6B6B]">{desc}</p>
-                </div>
-                <Toggle on={form[key]} onToggle={() => set(key, !form[key])} size="sm" />
-              </div>
+              <AdminSwitchRow
+                key={key}
+                label={label}
+                desc={desc}
+                checked={form[key]}
+                disabled={visibilityBusy !== null}
+                onChange={() => void saveVisibility({ [key]: !form[key] })}
+              />
             ))}
           </div>
 
           {/* Stats */}
-          <div className="admin-module-card space-y-3">
-            <div className="flex items-center gap-2 border-b border-[rgba(17,17,17,0.06)] pb-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(200,169,126,0.12)]">
-                <BarChart3 className="h-3.5 w-3.5 text-[#5E7CFF]" strokeWidth={2} />
+          <div className="admin-module-card product-edit-card product-edit-side-card space-y-3">
+            <div className="product-edit-card__head">
+              <div className="product-edit-card__icon">
+                <BarChart3 className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" strokeWidth={2} />
               </div>
-              <h3 className="text-[0.875rem] font-black tracking-tight text-[#111111]">Stats</h3>
+              <h3 className="product-edit-card__title">Stats</h3>
             </div>
             {[
               { label: 'SKU', value: String((product as unknown as Record<string, unknown>).sku ?? '—') },
@@ -775,29 +885,46 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
               { label: 'URL slug', value: form.slug || '—' },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between border-b border-[rgba(17,17,17,0.05)] pb-2.5 last:border-0 last:pb-0">
-                <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[#6B6B6B]">{label}</span>
-                <span className={cn('max-w-[160px] truncate text-right text-sm font-black text-[#111111]', label === 'URL slug' && 'font-mono text-[10px]')}>{value}</span>
+                <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">{label}</span>
+                <span className={cn('max-w-[160px] truncate text-right text-sm font-black text-[var(--admin-text)]', label === 'URL slug' && 'font-mono text-[10px]')}>{value}</span>
               </div>
             ))}
+            {form.slug ? (
+              <div className="space-y-2 border-t border-[rgba(17,17,17,0.06)] pt-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">Storefront link</p>
+                <p className="break-all font-mono text-[10px] font-semibold text-[var(--admin-text-secondary)]">{storefrontUrl}</p>
+                <div className="flex flex-wrap gap-2">
+                  <AdminButton variant="ghost" className="!text-xs" onClick={() => void handleCopyStorefrontUrl()}>
+                    <Copy className="h-3 w-3" /> Copy
+                  </AdminButton>
+                  <AdminButton variant="ghost" className="!text-xs" onClick={handleOpenStorefront} disabled={!form.isPublished}>
+                    <ExternalLink className="h-3 w-3" /> Open
+                  </AdminButton>
+                </div>
+                {!form.isPublished ? (
+                  <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Turn on Live on store to share this link.</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {/* Danger zone */}
-          <div className="rounded-2xl border border-red-100 bg-red-50/40 p-4">
+          <div className="product-edit-page__danger">
             <div className="mb-3 flex items-center gap-2">
               <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
               <p className="text-[11px] font-black uppercase tracking-[0.1em] text-red-600">Danger Zone</p>
             </div>
-            <p className="mb-3 text-xs font-semibold text-red-500">Hides product from storefront. Cannot be undone.</p>
+            <p className="mb-3 text-xs font-semibold text-red-400/90">Hides product from storefront. Cannot be undone.</p>
             <AdminButton
               variant="ghost"
-              className="!w-full !justify-center !border-red-200 !text-red-600 hover:!bg-red-100"
+              className="!w-full !justify-center !border-red-500/25 !text-red-400 hover:!bg-red-500/10"
               loading={deleteProduct.isPending}
               onClick={handleArchive}
             >
               Archive product
             </AdminButton>
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* Sticky save bar */}
@@ -807,10 +934,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl border border-[rgba(200,169,126,0.3)] bg-white/95 px-5 py-3 shadow-[0_8px_32px_rgba(17,17,17,0.14)] backdrop-blur-xl"
+            className="product-edit-page__savebar fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl"
           >
-            <Pencil className="h-3.5 w-3.5 text-[#5E7CFF]" />
-            <span className="text-sm font-bold text-[#111111]">Unsaved changes</span>
+            <Pencil className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" />
+            <span className="text-sm font-bold text-[var(--admin-text)]">Unsaved changes</span>
             <AdminButton variant="gold" loading={saving} onClick={handleSave}>
               <Save className="h-3.5 w-3.5" /> Save
             </AdminButton>

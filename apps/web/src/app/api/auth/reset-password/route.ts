@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { consumeResetToken, hashPassword } from '@/lib/server/auth'
+import { apiResetPassword } from '@/lib/server/api-auth'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
-import { readUsers, writeUsers } from '@/lib/server/store'
 
 interface ResetPasswordBody {
   token?: string
@@ -35,27 +34,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
   }
 
-  const consumed = await consumeResetToken(token)
-  if (!consumed) {
-    return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 })
+  const result = await apiResetPassword(token, password)
+  if ('error' in result) {
+    return NextResponse.json({ error: result.error }, { status: 400 })
   }
 
-  const users = await readUsers()
-  const index = users.findIndex((user) => user.id === consumed.user.id)
-  if (index === -1) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  }
-
-  const existing = users[index]
-  if (!existing) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  }
-
-  users[index] = {
-    ...existing,
-    passwordHash: hashPassword(password),
-  }
-  await writeUsers(users)
-
-  return NextResponse.json({ success: true, message: 'Password updated' })
+  return NextResponse.json({ success: true, message: result.message })
 }

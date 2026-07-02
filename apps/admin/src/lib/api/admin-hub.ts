@@ -95,6 +95,17 @@ export function createSupplier(data: { name: string; phone?: string; email?: str
   return apiFetch('/admin/hub/procurement/suppliers', { method: 'POST', body: JSON.stringify(data) })
 }
 
+export function createPurchaseOrder(data: {
+  supplierId: string
+  notes?: string
+  items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
+}) {
+  return apiFetch<{ id: string; poNumber: string }>('/admin/hub/procurement/purchase-orders', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 export function createSupportTicket(data: { subject: string; message?: string; channel?: string; priority?: string }) {
   return apiFetch('/admin/hub/support/tickets', { method: 'POST', body: JSON.stringify(data) })
 }

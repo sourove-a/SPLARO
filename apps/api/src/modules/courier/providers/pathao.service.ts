@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, Logger } from '@nestjs/common'
 import axios from 'axios'
+import { InfrastructureIntegrationService } from '../../integrations/infrastructure-integration.service'
 
 interface PathaoTokenResponse {
   access_token: string
@@ -25,27 +25,30 @@ interface PathaoParcelResponse {
   tracking_code: string
 }
 
+type PathaoRuntime = Awaited<ReturnType<InfrastructureIntegrationService['resolveRuntimeCredentials']>>
+
 @Injectable()
 export class PathaoService {
   private readonly logger = new Logger(PathaoService.name)
   private readonly baseUrl = 'https://courier.pathao.com/aladdin/api/v1'
-  private accessToken: string | null = null
-  private tokenExpiry: Date | null = null
+  private readonly tokenCache = new Map<string, { token: string; expiry: Date }>()
 
-  constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
+  constructor(private readonly infrastructure: InfrastructureIntegrationService) {}
 
-  private async getToken(): Promise<string> {
-    if (this.accessToken && this.tokenExpiry && this.tokenExpiry > new Date()) {
-      return this.accessToken
+  private async getCredentials(storeId: string): Promise<PathaoRuntime> {
+    return this.infrastructure.resolveRuntimeCredentials(storeId, 'pathao')
+  }
+
+  private async getToken(storeId: string): Promise<string> {
+    const cached = this.tokenCache.get(storeId)
+    if (cached && cached.expiry > new Date()) {
+      return cached.token
     }
 
-    const clientId = this.config.get<string>('PATHAO_CLIENT_ID')
-    const clientSecret = this.config.get<string>('PATHAO_CLIENT_SECRET')
-    const username = this.config.get<string>('PATHAO_USERNAME')
-    const password = this.config.get<string>('PATHAO_PASSWORD')
+    const { clientId, clientSecret, username, password } = await this.getCredentials(storeId)
 
     if (!clientId || !clientSecret || !username || !password) {
-      throw new Error('Pathao credentials not configured')
+      throw new Error('Pathao credentials not configured — save keys in Admin → Settings → Infrastructure')
     }
 
     const response = await axios.post<PathaoTokenResponse>(
@@ -60,21 +63,26 @@ export class PathaoService {
       { timeout: 15000 },
     )
 
-    this.accessToken = response.data.access_token
-    this.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000 - 60000)
-    return this.accessToken
+    const token = response.data.access_token
+    this.tokenCache.set(storeId, {
+      token,
+      expiry: new Date(Date.now() + response.data.expires_in * 1000 - 60000),
+    })
+    return token
   }
 
-  async createOrder(data: PathaoParcelData): Promise<PathaoParcelResponse> {
-    const storeId = this.config.get<string>('PATHAO_STORE_ID')
-    if (!storeId) throw new Error('PATHAO_STORE_ID not configured')
+  async createOrder(storeId: string, data: PathaoParcelData): Promise<PathaoParcelResponse> {
+    const { storeId: pathaoStoreId } = await this.getCredentials(storeId)
+    if (!pathaoStoreId) {
+      throw new Error('Pathao store ID not configured — save in Admin → Settings → Infrastructure')
+    }
 
-    const token = await this.getToken()
+    const token = await this.getToken(storeId)
 
     const response = await axios.post<{ data: PathaoParcelResponse }>(
       `${this.baseUrl}/orders`,
       {
-        store_id: parseInt(storeId),
+        store_id: parseInt(pathaoStoreId, 10),
         merchant_order_id: data.invoiceNumber,
         recipient_name: data.recipientName,
         recipient_phone: data.recipientPhone,
@@ -99,8 +107,8 @@ export class PathaoService {
     return response.data.data
   }
 
-  async trackOrder(consignmentId: string): Promise<{ status: string; events: unknown[] }> {
-    const token = await this.getToken()
+  async trackOrder(storeId: string, consignmentId: string): Promise<{ status: string; events: unknown[] }> {
+    const token = await this.getToken(storeId)
 
     const response = await axios.get<{ data: { order_status: string; log: unknown[] } }>(
       `${this.baseUrl}/orders/${consignmentId}/info`,

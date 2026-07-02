@@ -7,12 +7,12 @@ import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
-import { useWmsOverview } from '@/lib/api/hooks'
+import { useWmsOverview, useCreateWarehouse } from '@/lib/api/hooks'
 import type { WmsWarehouse } from '@/lib/api/commerce-os'
 import { formatRelativeTime } from '@/lib/api/orders'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 
@@ -213,8 +213,31 @@ function WmsOverviewPanel() {
 
 function WarehousesPanel() {
   const [query, setQuery] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [name, setName] = useState('')
+  const [code, setCode] = useState('')
+  const [city, setCity] = useState('')
   const { warehouses, isLoading, isError, refetch } = useWmsData()
+  const createWarehouse = useCreateWarehouse()
   const filtered = useMemo(() => { const q = query.toLowerCase(); return warehouses.filter((w) => !q || w.name.toLowerCase().includes(q) || w.code.toLowerCase().includes(q) || (w.city ?? '').toLowerCase().includes(q)) }, [query, warehouses])
+
+  const handleCreate = async () => {
+    if (!name.trim() || !code.trim()) {
+      toast.error('Name and code are required.')
+      return
+    }
+    try {
+      await createWarehouse.mutateAsync({ name: name.trim(), code: code.trim(), ...(city.trim() ? { city: city.trim() } : {}) })
+      toast.success('Warehouse created.')
+      setShowCreate(false)
+      setName('')
+      setCode('')
+      setCity('')
+      void refetch()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Create failed')
+    }
+  }
 
   if (isError) return <ErrorBanner msg="WMS API offline — start pnpm dev:api." />
 
@@ -226,7 +249,23 @@ function WarehousesPanel() {
         ['Zones', warehouses.reduce((s, w) => s + (w.zones?.length ?? 0), 0), 'gold'],
         ['Bins', warehouses.reduce((s, w) => s + warehouseSkus(w).bins, 0)],
       ]} />
-      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse…" createLabel="Add warehouse" onCreate={() => toast('Warehouse creation UI coming soon.', { icon: '🏭' })} onRefresh={() => void refetch()} onExport={() => toast.error('This action is not available yet — feature pending.')} />
+      {showCreate ? (
+        <div className="admin-module-section" style={{ marginBottom: 14 }}>
+          <div className="admin-module-section__head">
+            <h4 className="admin-module-section__title">New warehouse</h4>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input className="admin-input admin-input--premium" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="admin-input admin-input--premium" placeholder="Code (e.g. DHK-01)" value={code} onChange={(e) => setCode(e.target.value)} />
+            <input className="admin-input admin-input--premium" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <AdminButton variant="gold" loading={createWarehouse.isPending} onClick={() => void handleCreate()}>Save warehouse</AdminButton>
+            <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</AdminButton>
+          </div>
+        </div>
+      ) : null}
+      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse…" createLabel="Add warehouse" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} onExport={() => toast.error('This action is not available yet — feature pending.')} />
       <GlassTable icon={Building2} title={`Warehouses · ${filtered.length}`} footer="Zones · Racks · Bins from database">
         {filtered.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No warehouses match your search.</p>

@@ -47,6 +47,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     items: [
       item('Dashboard', '', 'LayoutDashboard', 'Real-time store performance and KPIs'),
       item('Analytics', 'analytics', 'BarChart3', 'Sales, traffic, and conversion analytics'),
+      item('Business Intelligence', 'business-intelligence', 'LineChart', 'Executive analytics and forecasts'),
       item('Revenue Center', 'revenue-center', 'TrendingUp', 'Revenue breakdown, forecasts, and targets'),
     ],
   },
@@ -62,9 +63,11 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Commerce',
     items: [
       item('Orders', 'orders', 'ShoppingBag', 'Manage and fulfill customer orders'),
+      item('Point of Sale', 'pos', 'ScanLine', 'In-store POS checkout and receipts'),
       item('Returns/RMA', 'returns-rma', 'RotateCcw', 'Returns, exchanges, and RMA workflows'),
       item('Invoices', 'invoices', 'FileText', 'Invoice generation and payment tracking'),
       item('Transactions', 'transactions', 'CreditCard', 'Payment transactions and ledger'),
+      item('Subscriptions', 'subscriptions', 'Repeat', 'Recurring billing and plans'),
     ],
   },
   {
@@ -76,6 +79,10 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Categories', 'categories', 'FolderTree', 'Category hierarchy and navigation'),
       item('Inventory', 'inventory', 'Archive', 'Stock levels, alerts, and adjustments'),
       item('Brands', 'brands', 'Award', 'Brand profiles and vendor associations'),
+      item('Attributes', 'attributes', 'Tags', 'Size, colour, and variant attributes'),
+      item('SKU Manager', 'sku-manager', 'Hash', 'SKU codes across catalog'),
+      item('QR Manager', 'qr-manager', 'QrCode', 'Product QR labels'),
+      item('Barcode Manager', 'barcode-manager', 'Barcode', 'Barcode generation and print'),
     ],
   },
   {
@@ -93,6 +100,11 @@ export const adminNavGroups: AdminNavGroup[] = [
       item('Coupons', 'coupons', 'Tag', 'Discount codes and promotional rules'),
       item('Email & SMS', 'email-sms', 'Mail', 'Email and SMS broadcast management'),
       item('WhatsApp', 'whatsapp', 'MessageCircle', 'WhatsApp Business messaging'),
+      item('Referrals', 'referrals', 'UserPlus', 'Referral program and rewards'),
+      item('Affiliate', 'affiliate', 'Link2', 'Affiliate partners and commissions'),
+      item('Influencers', 'influencers', 'Star', 'Influencer collaborations'),
+      item('Segments', 'segments', 'PieChart', 'Customer segments for campaigns'),
+      item('Customer Intelligence', 'customer-intelligence', 'Brain', 'RFM and behavior insights'),
     ],
   },
   {

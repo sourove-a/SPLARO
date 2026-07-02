@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
+import { PlatformConnectionPanel } from '@/components/ui/connection/PlatformConnectionPanel'
 import {
   healthSummary,
   runAllHealthChecks,
@@ -125,6 +126,8 @@ export function ApiHealthPanel() {
 
   return (
     <div className="space-y-5">
+      <PlatformConnectionPanel />
+
       {/* Summary strip */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[

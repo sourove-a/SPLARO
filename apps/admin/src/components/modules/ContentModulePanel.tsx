@@ -10,7 +10,8 @@ import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useBanners, useContentOverview, useFootwearConfig, useLegalPages, useSettings, useCreateBanner, useDeleteBanner, useUpdateBanner, useSitePages } from '@/lib/api/hooks'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { ContentSubNav } from '@/components/content/ContentSubNav'
-import { ApiOfflineBanner, StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import {
   BlogPanelLive, LookbooksPanelLive, ReelsPanelLive, CmsPanelLive,
   LandingPagesPanelLive, HomePagePanelLive, ThemeBuilderPanelLive,
@@ -22,7 +23,7 @@ import { MenuControlPanel } from '@/components/modules/SettingsPanel'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 
@@ -244,7 +245,7 @@ function HeroSliderPanel() {
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <StorefrontLiveBar
+      <ModuleLiveStrip
         onRefresh={() => void refetch()}
         refreshing={isLoading}
         items={[

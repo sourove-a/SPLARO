@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createResetToken } from '@/lib/server/auth'
+import { apiForgotPassword } from '@/lib/server/api-auth'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 interface ForgotPasswordBody {
@@ -27,13 +27,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email is required' }, { status: 400 })
   }
 
-  const token = await createResetToken(email)
+  const result = await apiForgotPassword(email)
+  if ('error' in result) {
+    return NextResponse.json({ error: result.error }, { status: 503 })
+  }
 
   return NextResponse.json({
     success: true,
-    message: 'If that email exists, a reset link has been sent',
-    ...(process.env.NODE_ENV !== 'production' && token
-      ? { resetToken: token.token }
-      : {}),
+    message: result.message,
+    ...(result.devToken ? { resetToken: result.devToken } : {}),
   })
 }

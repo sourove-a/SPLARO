@@ -8,8 +8,8 @@ import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY } from '@/lib/storefront/homepage-defaults'
 import type { AdminSettingsData } from '@/lib/api/settings'
-import { SettingsSidebar, type SettingsSection } from './SettingsSidebar'
-import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { SettingsSidebar, type SettingsSection, isSettingsSection } from './SettingsSidebar'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { GeneralSection } from './sections/GeneralSection'
 import { BrandingSection } from './sections/BrandingSection'
 import { ContactSection } from './sections/ContactSection'
@@ -20,6 +20,7 @@ import { ShippingSection } from './sections/ShippingSection'
 import { NotificationsSection } from './sections/NotificationsSection'
 import { MarketingSection } from './sections/MarketingSection'
 import { DomainSection } from './sections/DomainSection'
+import { InfrastructureSection } from './sections/InfrastructureSection'
 
 export const EMPTY_SETTINGS: AdminSettingsData = {
   store: { name: '', email: '', phone: '', domain: '', currency: 'BDT', timezone: 'Asia/Dhaka', logo: '', favicon: '', description: '', address: '' },
@@ -54,6 +55,12 @@ export function SettingsShell() {
   const [draft, setDraft] = useState<AdminSettingsData>(EMPTY_SETTINGS)
   const settingsLoaded = !isError && !!apiData
   const { data: subscriberData, refetch: refetchSubscribers } = useNewsletterSubscribers(section === 'notifications' && settingsLoaded)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const fromUrl = params.get('section')
+    if (isSettingsSection(fromUrl)) changeSection(fromUrl)
+  }, [changeSection])
 
   useEffect(() => {
     if (apiData) {
@@ -163,7 +170,7 @@ export function SettingsShell() {
       </aside>
 
       <div key={animKey} className="settings-section-enter" style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        <StorefrontLiveBar
+        <ModuleLiveStrip
           onRefresh={() => void refetch()}
           items={[
             {
@@ -210,6 +217,7 @@ export function SettingsShell() {
           />
         )}
         {section === 'marketing' && <MarketingSection {...sharedProps} />}
+        {section === 'infrastructure' && <InfrastructureSection apiOnline={settingsLoaded} />}
         {section === 'domain' && <DomainSection {...sharedProps} />}
       </div>
     </div>

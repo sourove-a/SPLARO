@@ -328,4 +328,54 @@ export class CommerceOsService {
       })),
     }
   }
+
+  async createWarehouse(
+    storeIdOrSlug: string,
+    body: { name: string; code: string; city?: string; address?: string },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const name = body.name?.trim()
+    const code = body.code?.trim().toUpperCase()
+    if (!name || !code) {
+      throw new Error('Warehouse name and code are required')
+    }
+    return this.prisma.warehouse.create({
+      data: {
+        storeId,
+        name,
+        code,
+        city: body.city?.trim() || null,
+        address: body.address?.trim() || null,
+        isActive: true,
+      },
+    })
+  }
+
+  async replyHelpdeskTicket(storeIdOrSlug: string, ticketId: string, message: string) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const body = message?.trim()
+    if (!body) throw new Error('Reply message is required')
+
+    const ticket = await this.prisma.supportTicket.findFirst({
+      where: { id: ticketId, storeId },
+    })
+    if (!ticket) throw new Error('Ticket not found')
+
+    await this.prisma.$transaction([
+      this.prisma.supportTicketMessage.create({
+        data: {
+          ticketId,
+          body,
+          sender: 'Admin',
+          isStaff: true,
+        },
+      }),
+      this.prisma.supportTicket.update({
+        where: { id: ticketId },
+        data: { status: 'PENDING', updatedAt: new Date() },
+      }),
+    ])
+
+    return { ok: true, ticketId }
+  }
 }

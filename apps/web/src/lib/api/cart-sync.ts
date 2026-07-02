@@ -3,6 +3,8 @@ import type { CartItem } from '@/store/cartStore'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
+export type CartSyncResult = { ok: true } | { ok: false; error: string }
+
 function cartSessionId(): string {
   if (typeof window === 'undefined') return ''
   const key = 'splaro-cart-session'
@@ -40,59 +42,83 @@ function mapApiCartItem(raw: Record<string, unknown>): CartItem | null {
 
 export async function pullServerCart(
   merge: (items: CartItem[]) => void,
-): Promise<void> {
+): Promise<CartSyncResult> {
   const sessionId = cartSessionId()
-  if (!sessionId) return
+  if (!sessionId) return { ok: true }
 
   const base = getApiBaseUrl()
-  const res = await fetch(
-    `${base}/storefront/cart/${encodeURIComponent(sessionId)}?storeId=${encodeURIComponent(STORE_ID)}`,
-    { cache: 'no-store' },
-  )
-  if (!res.ok) return
+  try {
+    const res = await fetch(
+      `${base}/storefront/cart/${encodeURIComponent(sessionId)}?storeId=${encodeURIComponent(STORE_ID)}`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) {
+      return { ok: false, error: 'Could not load your cart from the server. Your device cart is still saved locally.' }
+    }
 
-  const payload = (await res.json()) as {
-    cart?: { items?: Record<string, unknown>[] }
+    const payload = (await res.json()) as {
+      cart?: { items?: Record<string, unknown>[] }
+    }
+    const items = (payload.cart?.items ?? [])
+      .map(mapApiCartItem)
+      .filter((item): item is CartItem => item !== null)
+
+    if (items.length) merge(items)
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Cart sync is offline — your cart is saved on this device only.' }
   }
-  const items = (payload.cart?.items ?? [])
-    .map(mapApiCartItem)
-    .filter((item): item is CartItem => item !== null)
-
-  if (items.length) merge(items)
 }
 
-export async function clearServerCart(): Promise<void> {
+export async function clearServerCart(): Promise<CartSyncResult> {
   const sessionId = cartSessionId()
-  if (!sessionId) return
+  if (!sessionId) return { ok: true }
 
   const base = getApiBaseUrl()
-  await fetch(
-    `${base}/storefront/cart/${encodeURIComponent(sessionId)}/clear?storeId=${encodeURIComponent(STORE_ID)}`,
-    { method: 'POST' },
-  ).catch(() => undefined)
+  try {
+    const res = await fetch(
+      `${base}/storefront/cart/${encodeURIComponent(sessionId)}/clear?storeId=${encodeURIComponent(STORE_ID)}`,
+      { method: 'POST' },
+    )
+    if (!res.ok) {
+      return { ok: false, error: 'Could not clear server cart.' }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Cart sync is offline.' }
+  }
 }
 
-export async function pushCartToServer(items: CartItem[]): Promise<void> {
+export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResult> {
   const sessionId = cartSessionId()
-  if (!sessionId) return
+  if (!sessionId) return { ok: true }
 
   const base = getApiBaseUrl()
-  await clearServerCart()
+  const cleared = await clearServerCart()
+  if (!cleared.ok) return cleared
 
-  if (!items.length) return
+  if (!items.length) return { ok: true }
 
-  for (const item of items) {
-    await fetch(
-      `${base}/storefront/cart/${encodeURIComponent(sessionId)}/items?storeId=${encodeURIComponent(STORE_ID)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-        }),
-      },
-    ).catch(() => undefined)
+  try {
+    for (const item of items) {
+      const res = await fetch(
+        `${base}/storefront/cart/${encodeURIComponent(sessionId)}/items?storeId=${encodeURIComponent(STORE_ID)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          }),
+        },
+      )
+      if (!res.ok) {
+        return { ok: false, error: 'Could not sync cart to server — changes are saved on this device only.' }
+      }
+    }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Cart sync is offline — changes are saved on this device only.' }
   }
 }

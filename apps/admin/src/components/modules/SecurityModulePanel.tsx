@@ -2,22 +2,40 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { KeyRound, Plus, RefreshCw, ScrollText, Search, Shield, ShieldCheck } from 'lucide-react'
-import { loadAdminData, saveAdminData } from '@/lib/admin/admin-actions'
-import { notifyDraftSaved, toastNotImplemented } from '@/lib/admin/feedback'
+import { KeyRound, Plus, RefreshCw, ScrollText, Search, Shield, ShieldCheck, Trash2, UserX, X } from 'lucide-react'
+import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { useSecurity, useUpdateStaffRole } from '@/lib/api/hooks'
+import {
+  useAdminSession,
+  useInviteAdmin,
+  useRemoveStaff,
+  useRevokeSecuritySession,
+  useRolePermissions,
+  useSaveRolePermissions,
+  useSecurity,
+  useSecuritySessions,
+  useUpdateStaffRole,
+} from '@/lib/api/hooks'
+import type { PermissionRow } from '@/lib/api/security'
 import { ASSIGNABLE_STAFF_ROLES, CEO_EMAIL } from '@/lib/auth/role-label'
 import { SecuritySubNav } from '@/components/security/SecuritySubNav'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type PermissionRow = { module: string; view: boolean; create: boolean; edit: boolean; delete: boolean }
+
+const ROLE_OPTIONS = ['Super Admin', 'Admin', 'Manager', 'Editor'] as const
+
+const ROLE_UI_TO_API: Record<(typeof ROLE_OPTIONS)[number], string> = {
+  'Super Admin': 'SUPER_ADMIN',
+  Admin: 'ADMIN',
+  Manager: 'MANAGER',
+  Editor: 'STAFF',
+}
 
 const DEFAULT_PERMISSIONS: PermissionRow[] = [
   { module: 'Orders',      view: true,  create: true,  edit: true,  delete: false },
@@ -26,8 +44,6 @@ const DEFAULT_PERMISSIONS: PermissionRow[] = [
   { module: 'Admin Users', view: true,  create: false, edit: false, delete: false },
   { module: 'Settings',    view: true,  create: true,  edit: true,  delete: false },
 ]
-
-const ROLE_OPTIONS = ['Super Admin', 'Admin', 'Manager', 'Editor'] as const
 
 // ─── Shared components ────────────────────────────────────────────────────────
 function KpiCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
@@ -84,19 +100,139 @@ function StatusBadge({ value, ok }: { value: string; ok?: boolean }) {
   )
 }
 
-function GoldBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+function GoldBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} className="admin-catalog-action">
+    <button type="button" onClick={onClick} disabled={disabled} className="admin-catalog-action">
       {children}
     </button>
   )
 }
 
+function assignableRolesForActor(actorRole?: string) {
+  if (actorRole === 'SUPER_ADMIN') return ASSIGNABLE_STAFF_ROLES
+  return ASSIGNABLE_STAFF_ROLES.filter((r) => r.value !== 'SUPER_ADMIN')
+}
+
+function canManageStaff(actorRole?: string) {
+  return actorRole === 'SUPER_ADMIN' || actorRole === 'ADMIN'
+}
+
+function isSuperAdmin(actorRole?: string) {
+  return actorRole === 'SUPER_ADMIN'
+}
+
+function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose: () => void; actorRole?: string | undefined }) {
+  const invite = useInviteAdmin()
+  const [email, setEmail] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [role, setRole] = useState<string>('STAFF')
+  const [password, setPassword] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setEmail('')
+    setFirstName('')
+    setLastName('')
+    setRole('STAFF')
+    setPassword('')
+  }, [open])
+
+  if (!open) return null
+
+  const submit = () => {
+    if (!email.trim() || !firstName.trim() || password.length < 8) {
+      toastFail('Email, first name, and password (min 8 chars) are required.')
+      return
+    }
+    invite.mutate(
+      {
+        email: email.trim(),
+        firstName: firstName.trim(),
+        ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
+        role,
+        password,
+      },
+      {
+        onSuccess: (res) => {
+          toastApiSaved(`Admin ${res.email} invited`)
+          onClose()
+        },
+        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not invite admin.'),
+      },
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-black/35 backdrop-blur-[2px]" aria-label="Close" onClick={onClose} />
+      <div className="relative z-[1] w-full max-w-md rounded-[18px] border border-white/20 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#1c1c24]">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--admin-text-muted)]">Security</p>
+            <h3 className="mt-1 text-lg font-black text-[var(--admin-text-primary)]">Invite admin</h3>
+            <p className="mt-1 text-xs font-semibold text-[var(--admin-text-muted)]">
+              Creates a user in the database and assigns store access.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[var(--admin-text-muted)] hover:bg-black/5">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">First name</span>
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="admin-input w-full" placeholder="Rahim" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Last name</span>
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="admin-input w-full" placeholder="Optional" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Email</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="admin-input w-full" placeholder="admin@splaro.com.bd" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Role</span>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className="admin-input w-full">
+              {assignableRolesForActor(actorRole).map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Temporary password</span>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="admin-input w-full" placeholder="Min 8 characters" />
+          </label>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <GoldBtn onClick={onClose}>Cancel</GoldBtn>
+          <GoldBtn onClick={submit} disabled={invite.isPending}>
+            {invite.isPending ? 'Creating…' : 'Create admin'}
+          </GoldBtn>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Views ────────────────────────────────────────────────────────────────────
-function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['data']; isLoading: boolean }) {
+function AdminUsersView({
+  data,
+  isLoading,
+  actorRole,
+}: {
+  data: ReturnType<typeof useSecurity>['data']
+  isLoading: boolean
+  actorRole?: string | undefined
+}) {
   const kpis = data?.kpis
   const [query, setQuery] = useState('')
+  const [inviteOpen, setInviteOpen] = useState(false)
   const updateRole = useUpdateStaffRole()
+  const removeStaff = useRemoveStaff()
   const rows = (data?.adminUsers ?? []).filter((r) =>
     r.name.toLowerCase().includes(query.toLowerCase()) || r.email.includes(query),
   )
@@ -109,10 +245,36 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
     updateRole.mutate(
       { userId, role: roleValue },
       {
-        onSuccess: () => toast.success('Role updated'),
-        onError: (e) => toast.error(e.message),
+        onSuccess: () => toastApiSaved('Role updated'),
+        onError: (e) => toastFail(e.message),
       },
     )
+  }
+
+  const handleToggleActive = (userId: string, email: string, isActive: boolean) => {
+    if (email.toLowerCase() === CEO_EMAIL) {
+      toastFail('CEO account cannot be deactivated')
+      return
+    }
+    updateRole.mutate(
+      { userId, isActive },
+      {
+        onSuccess: () => toastApiSaved(isActive ? 'Admin reactivated' : 'Admin deactivated'),
+        onError: (e) => toastFail(e.message),
+      },
+    )
+  }
+
+  const handleRemove = (userId: string, email: string, name: string) => {
+    if (email.toLowerCase() === CEO_EMAIL) {
+      toastFail('CEO account cannot be removed')
+      return
+    }
+    if (!window.confirm(`Remove admin access for ${name}? They will no longer be able to log in.`)) return
+    removeStaff.mutate(userId, {
+      onSuccess: () => toastApiSaved(`Removed ${email}`),
+      onError: (e) => toastFail(e.message),
+    })
   }
 
   return (
@@ -129,11 +291,15 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <GlassSearch value={query} onChange={setQuery} placeholder="Search admin users…" />
-        <GoldBtn onClick={() => toastNotImplemented('Invite admin — create user in database first, then assign role here')}>
-          <Plus style={{ width: 14, height: 14 }} />
-          Invite admin
-        </GoldBtn>
+        {isSuperAdmin(actorRole) && (
+          <GoldBtn onClick={() => setInviteOpen(true)}>
+            <Plus style={{ width: 14, height: 14 }} />
+            Invite admin
+          </GoldBtn>
+        )}
       </div>
+
+      <InviteAdminModal open={inviteOpen} onClose={() => setInviteOpen(false)} actorRole={actorRole} />
 
       <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
         {rows.length === 0 && !isLoading ? (
@@ -145,7 +311,7 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-table-row-border)' }}>
-                {['Name', 'Email', 'Role', 'Status', '2FA', 'Last login'].map((h) => (
+                {['Name', 'Email', 'Role', 'Status', '2FA', 'Last login', 'Actions'].map((h) => (
                   <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
               </tr>
@@ -165,11 +331,11 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
                       ) : (
                         <select
                           value={roleValue}
-                          disabled={updateRole.isPending}
+                          disabled={updateRole.isPending || !isSuperAdmin(actorRole)}
                           onChange={(e) => handleRoleChange(row.id, row.email, e.target.value)}
                           className="admin-role-select"
                         >
-                          {ASSIGNABLE_STAFF_ROLES.map((r) => (
+                          {assignableRolesForActor(actorRole).map((r) => (
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
                         </select>
@@ -178,6 +344,32 @@ function AdminUsersView({ data, isLoading }: { data: ReturnType<typeof useSecuri
                     <td style={{ padding: '12px 20px' }}><StatusBadge value={row.status} ok={row.status === 'active'} /></td>
                     <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 800, color: row.twoFA ? '#15803D' : 'var(--admin-text-muted)' }}>{row.twoFA ? 'Yes' : 'No'}</td>
                     <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.lastLogin}</td>
+                    <td style={{ padding: '12px 20px' }}>
+                      {!isCeo && canManageStaff(actorRole) && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            title={row.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                            disabled={updateRole.isPending || removeStaff.isPending}
+                            onClick={() => handleToggleActive(row.id, row.email, row.status !== 'active')}
+                            className="admin-commerce-icon-btn"
+                          >
+                            <UserX size={13} />
+                          </button>
+                          {isSuperAdmin(actorRole) && (
+                            <button
+                              type="button"
+                              title="Remove admin access"
+                              disabled={updateRole.isPending || removeStaff.isPending}
+                              onClick={() => handleRemove(row.id, row.email, row.name)}
+                              className="admin-commerce-icon-btn"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -233,16 +425,45 @@ function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['
   )
 }
 
-function PermissionsView() {
+function PermissionsView({ actorRole }: { actorRole?: string | undefined }) {
+  const { data, isLoading, isError } = useRolePermissions()
+  const savePermissions = useSaveRolePermissions()
   const [role, setRole] = useState<(typeof ROLE_OPTIONS)[number]>('Manager')
   const [permRows, setPermRows] = useState<PermissionRow[]>(DEFAULT_PERMISSIONS)
 
+  const roleApiKey = ROLE_UI_TO_API[role]
+
   useEffect(() => {
-    setPermRows(loadAdminData(`permissions:${role}`, DEFAULT_PERMISSIONS))
-  }, [role])
+    const fromApi = data?.roles.find((r) => r.role === roleApiKey)?.permissions
+    setPermRows(fromApi?.length ? fromApi : DEFAULT_PERMISSIONS)
+  }, [data, role, roleApiKey])
 
   const togglePerm = (module: string, key: keyof Omit<PermissionRow, 'module'>) => {
     setPermRows((prev) => prev.map((row) => (row.module === module ? { ...row, [key]: !row[key] } : row)))
+  }
+
+  const handleSave = () => {
+    savePermissions.mutate(
+      { role: roleApiKey, permissions: permRows },
+      {
+        onSuccess: () => toastApiSaved(`${role} permissions saved to server`),
+        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not save permissions.'),
+      },
+    )
+  }
+
+  if (isError) {
+    return <ApiOfflineBanner message="Permissions API offline — run pnpm dev:api on port 4000." />
+  }
+
+  if (!canManageStaff(actorRole)) {
+    return (
+      <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-muted)', margin: 0 }}>
+          Only Admin or Super Admin can view permission settings.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -290,8 +511,8 @@ function PermissionsView() {
       </div>
 
       <div>
-        <GoldBtn onClick={() => { saveAdminData(`permissions:${role}`, permRows); notifyDraftSaved(`${role} permissions`) }}>
-          Save permissions
+        <GoldBtn onClick={handleSave} disabled={savePermissions.isPending || isLoading || !isSuperAdmin(actorRole)}>
+          {savePermissions.isPending ? 'Saving…' : isSuperAdmin(actorRole) ? 'Save permissions' : 'Super Admin required to save'}
         </GoldBtn>
       </div>
     </div>
@@ -348,7 +569,17 @@ function AuditLogsView({ data, isLoading, refetch }: { data: ReturnType<typeof u
   )
 }
 
-function SecurityCenterView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['data']; isLoading: boolean }) {
+function SecurityCenterView({
+  data,
+  isLoading,
+  actorRole,
+}: {
+  data: ReturnType<typeof useSecurity>['data']
+  isLoading: boolean
+  actorRole?: string | undefined
+}) {
+  const sessionsQuery = useSecuritySessions()
+  const revokeSession = useRevokeSecuritySession()
   const kpis = data?.kpis
   const threatLabel = kpis?.threatLevel === 'low' ? 'Low' : kpis?.threatLevel === 'medium' ? 'Medium' : 'High'
   const twoFaCoverage = kpis?.totalAdmins
@@ -408,6 +639,50 @@ function SecurityCenterView({ data, isLoading }: { data: ReturnType<typeof useSe
           )}
         </div>
       </div>
+
+      {isSuperAdmin(actorRole) && (
+        <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Active device sessions</p>
+            <GoldBtn onClick={() => void sessionsQuery.refetch()}>Refresh</GoldBtn>
+          </div>
+          {sessionsQuery.isError ? (
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
+              Could not load sessions — Super Admin access required.
+            </p>
+          ) : (sessionsQuery.data?.length ?? 0) === 0 ? (
+            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
+              No tracked device sessions yet. Admin panel uses signed tokens (12h).
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {sessionsQuery.data!.map((session) => (
+                <div key={session.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)', margin: '0 0 2px' }}>
+                      {session.user.firstName} {session.user.lastName}
+                    </p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)', margin: 0 }}>
+                      {session.user.email} · {session.ipAddress ?? 'unknown IP'}
+                    </p>
+                  </div>
+                  <GoldBtn
+                    disabled={revokeSession.isPending}
+                    onClick={() =>
+                      revokeSession.mutate(session.id, {
+                        onSuccess: () => toastApiSaved('Session revoked'),
+                        onError: (e) => toastFail(e.message),
+                      })
+                    }
+                  >
+                    Revoke
+                  </GoldBtn>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -415,12 +690,19 @@ function SecurityCenterView({ data, isLoading }: { data: ReturnType<typeof useSe
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export function SecurityModulePanel({ moduleHref }: ModuleContextProps) {
   const { data, isError, isLoading, refetch } = useSecurity()
+  const permissionsQuery = useRolePermissions()
+  const { data: sessionUser } = useAdminSession()
+  const actorRole = sessionUser?.role?.toUpperCase()
 
   const statusByHref = {
     '/dashboard/security-center': isLoading ? 'loading' as const : isError ? 'down' as const : 'ok' as const,
     '/dashboard/admin-users': isLoading ? 'loading' as const : isError ? 'down' as const : 'ok' as const,
     '/dashboard/roles': isLoading ? 'loading' as const : isError ? 'down' as const : 'ok' as const,
-    '/dashboard/permissions': 'warn' as const,
+    '/dashboard/permissions': permissionsQuery.isLoading
+      ? 'loading' as const
+      : permissionsQuery.isError
+        ? 'down' as const
+        : 'ok' as const,
     '/dashboard/audit-logs': isLoading ? 'loading' as const : isError ? 'down' as const : 'ok' as const,
   }
 
@@ -428,15 +710,15 @@ export function SecurityModulePanel({ moduleHref }: ModuleContextProps) {
   if (isError) {
     body = <ApiOfflineBanner message="Security API offline — run pnpm dev:api on port 4000." />
   } else if (moduleHref === '/dashboard/admin-users') {
-    body = <AdminUsersView data={data} isLoading={isLoading} />
+    body = <AdminUsersView data={data} isLoading={isLoading} actorRole={actorRole} />
   } else if (moduleHref === '/dashboard/roles') {
     body = <RolesView data={data} isLoading={isLoading} />
   } else if (moduleHref === '/dashboard/permissions') {
-    body = <PermissionsView />
+    body = <PermissionsView actorRole={actorRole} />
   } else if (moduleHref === '/dashboard/audit-logs') {
     body = <AuditLogsView data={data} isLoading={isLoading} refetch={() => void refetch()} />
   } else {
-    body = <SecurityCenterView data={data} isLoading={isLoading} />
+    body = <SecurityCenterView data={data} isLoading={isLoading} actorRole={actorRole} />
   }
 
   return (

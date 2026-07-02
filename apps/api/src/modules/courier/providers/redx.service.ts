@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, Logger } from '@nestjs/common'
 import axios from 'axios'
+import { InfrastructureIntegrationService } from '../../integrations/infrastructure-integration.service'
 
 interface RedXParcelData {
   invoiceNumber: string
@@ -23,11 +23,18 @@ export class RedxService {
   private readonly logger = new Logger(RedxService.name)
   private readonly baseUrl = 'https://openapi.redx.com.bd/v1.0.0-beta'
 
-  constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
+  constructor(private readonly infrastructure: InfrastructureIntegrationService) {}
 
-  async createParcel(data: RedXParcelData): Promise<RedXResponse> {
-    const apiKey = this.config.get<string>('REDX_API_KEY')
-    if (!apiKey) throw new Error('REDX_API_KEY not configured')
+  private async getApiKey(storeId: string): Promise<string> {
+    const { apiKey } = await this.infrastructure.resolveRuntimeCredentials(storeId, 'redx')
+    if (!apiKey) {
+      throw new Error('RedX API key not configured — save in Admin → Settings → Infrastructure')
+    }
+    return apiKey
+  }
+
+  async createParcel(storeId: string, data: RedXParcelData): Promise<RedXResponse> {
+    const apiKey = await this.getApiKey(storeId)
 
     const response = await axios.post<RedXResponse>(
       `${this.baseUrl}/parcel`,
@@ -56,9 +63,8 @@ export class RedxService {
     return response.data
   }
 
-  async trackParcel(trackingId: string): Promise<{ status: string; events: unknown[] }> {
-    const apiKey = this.config.get<string>('REDX_API_KEY')
-    if (!apiKey) throw new Error('REDX_API_KEY not configured')
+  async trackParcel(storeId: string, trackingId: string): Promise<{ status: string; events: unknown[] }> {
+    const apiKey = await this.getApiKey(storeId)
 
     const response = await axios.get<{ current_status: string; log: unknown[] }>(
       `${this.baseUrl}/parcel/track/${trackingId}`,
@@ -74,9 +80,8 @@ export class RedxService {
     }
   }
 
-  async cancelParcel(trackingId: string): Promise<void> {
-    const apiKey = this.config.get<string>('REDX_API_KEY')
-    if (!apiKey) throw new Error('REDX_API_KEY not configured')
+  async cancelParcel(storeId: string, trackingId: string): Promise<void> {
+    const apiKey = await this.getApiKey(storeId)
 
     await axios.patch(
       `${this.baseUrl}/parcel/${trackingId}/cancel`,

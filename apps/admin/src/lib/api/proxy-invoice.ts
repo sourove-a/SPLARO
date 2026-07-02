@@ -6,8 +6,13 @@ const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 export async function proxyAdminInvoiceRequest(
   orderId: string,
   suffix: '' | '/print' | '/pdf',
+  request?: Request,
 ): Promise<Response> {
-  const token = await getAdminSessionToken()
+  let token = await getAdminSessionToken()
+  if (!token && request) {
+    const auth = request.headers.get('authorization')
+    if (auth?.startsWith('Bearer ')) token = auth.slice(7).trim()
+  }
   if (!token) {
     return Response.json(
       { message: 'Admin authentication required', error: 'Unauthorized', statusCode: 401 },

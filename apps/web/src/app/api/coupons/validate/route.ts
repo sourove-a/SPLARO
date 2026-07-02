@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { getApiBaseUrl } from '@splaro/config'
-import { validateCoupon } from '@/lib/server/coupons'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -46,12 +45,11 @@ export async function POST(request: Request) {
       cache: 'no-store',
     })
     const result = await res.json()
-    if (res.ok) return NextResponse.json(result)
-    if (res.status === 400) return NextResponse.json(result, { status: 400 })
+    return NextResponse.json(result, { status: res.status })
   } catch {
-    // fall through when API offline
+    return NextResponse.json(
+      { valid: false, message: 'Coupon service offline — start API and try again' },
+      { status: 503 },
+    )
   }
-
-  const result = validateCoupon(code, subtotal)
-  return NextResponse.json(result, { status: 503 })
 }

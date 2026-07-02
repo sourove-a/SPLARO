@@ -1,7 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, Logger } from '@nestjs/common'
 import axios from 'axios'
 import type { CourierBookingResult } from '../courier.service'
+import { InfrastructureIntegrationService } from '../../integrations/infrastructure-integration.service'
 
 interface SteadfastParcelPayload {
   invoiceNumber: string
@@ -15,23 +15,35 @@ interface SteadfastParcelPayload {
   note: string
 }
 
+type SteadfastRuntime = Awaited<
+  ReturnType<InfrastructureIntegrationService['resolveRuntimeCredentials']>
+>
+
 @Injectable()
 export class SteadfastService {
   private readonly logger = new Logger(SteadfastService.name)
-  private readonly baseUrl: string
-  private readonly apiKey: string
-  private readonly secretKey: string
 
-  constructor(@Inject(ConfigService) private readonly config: ConfigService) {
-    this.baseUrl =
-      this.config.get<string>('STEADFAST_BASE_URL') ??
-      'https://portal.steadfast.com.bd/public/api/v1'
-    this.apiKey = this.config.get<string>('STEADFAST_API_KEY') ?? 'local-dev-steadfast-key'
-    this.secretKey = this.config.get<string>('STEADFAST_SECRET_KEY') ?? 'local-dev-steadfast-secret'
+  constructor(private readonly infrastructure: InfrastructureIntegrationService) {}
+
+  private async getCredentials(storeId: string): Promise<SteadfastRuntime> {
+    return this.infrastructure.resolveRuntimeCredentials(storeId, 'steadfast')
   }
 
-  async createParcel(payload: SteadfastParcelPayload): Promise<CourierBookingResult> {
-    if (this.shouldUseDevStub()) {
+  private shouldUseDevStub(creds: SteadfastRuntime): boolean {
+    if (process.env.COURIER_DEV_STUB === 'true') return true
+    const placeholderKeys = new Set([
+      '',
+      'local-dev-steadfast-key',
+      'local-dev-steadfast-secret',
+      'your-steadfast-api-key',
+    ])
+    return placeholderKeys.has(creds.apiKey ?? '') || placeholderKeys.has(creds.secretKey ?? '')
+  }
+
+  async createParcel(storeId: string, payload: SteadfastParcelPayload): Promise<CourierBookingResult> {
+    const creds = await this.getCredentials(storeId)
+
+    if (this.shouldUseDevStub(creds)) {
       if (process.env.COURIER_DEV_STUB === 'true') {
         const trackingCode = `DEV${Date.now().toString(36).toUpperCase()}`
         this.logger.warn(
@@ -50,13 +62,13 @@ export class SteadfastService {
         success: false,
         simulated: true,
         error:
-          'Steadfast not connected. Add STEADFAST_API_KEY and STEADFAST_SECRET_KEY in .env, then restart the API.',
+          'Steadfast not connected. Save API keys in Admin → Settings → Infrastructure, or set STEADFAST_* in .env.',
       }
     }
 
     try {
       const response = await axios.post(
-        `${this.baseUrl}/create_order`,
+        `${creds.baseUrl}/create_order`,
         {
           invoice: payload.invoiceNumber,
           recipient_name: payload.recipientName,
@@ -67,8 +79,8 @@ export class SteadfastService {
         },
         {
           headers: {
-            'Api-Key': this.apiKey,
-            'Secret-Key': this.secretKey,
+            'Api-Key': creds.apiKey,
+            'Secret-Key': creds.secretKey,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
@@ -98,16 +110,24 @@ export class SteadfastService {
     }
   }
 
-  private shouldUseDevStub(): boolean {
-    if (process.env.COURIER_DEV_STUB === 'true') return true
-    const placeholderKeys = ['local-dev-steadfast-key', 'your-steadfast-api-key', '']
-    return placeholderKeys.includes(this.apiKey) || placeholderKeys.includes(this.secretKey)
+  /** True when real Steadfast API keys are configured (not placeholders). */
+  async isConfigured(storeId: string): Promise<boolean> {
+    const creds = await this.getCredentials(storeId)
+    return !this.shouldUseDevStub(creds) || process.env.COURIER_DEV_STUB === 'true'
   }
 
-  async trackParcel(consignmentId: string): Promise<string> {
+  async hasRealCredentials(storeId: string): Promise<boolean> {
+    const creds = await this.getCredentials(storeId)
+    return !this.shouldUseDevStub(creds)
+  }
+
+  async trackParcel(storeId: string, consignmentId: string): Promise<string> {
+    const creds = await this.getCredentials(storeId)
+    if (this.shouldUseDevStub(creds)) return 'Unknown'
+
     try {
-      const response = await axios.get(`${this.baseUrl}/status_by_cid/${consignmentId}`, {
-        headers: { 'Api-Key': this.apiKey, 'Secret-Key': this.secretKey },
+      const response = await axios.get(`${creds.baseUrl}/status_by_cid/${consignmentId}`, {
+        headers: { 'Api-Key': creds.apiKey, 'Secret-Key': creds.secretKey },
         timeout: 10000,
       })
       const data = response.data as { delivery_status?: string }

@@ -45,6 +45,8 @@ import {
   fetchProductionOverview,
   fetchDeliveryOverview,
   fetchExecutiveDashboard,
+  createWarehouse,
+  replyHelpdeskTicket,
 } from './commerce-os'
 import {
   fetchContentOverview,
@@ -53,6 +55,7 @@ import {
   fetchMarketingOverview,
   createAffiliate,
   createSupplier,
+  createPurchaseOrder,
   createSupportTicket,
   fetchNotificationsOverview,
   fetchCommerceSubscriptions,
@@ -63,7 +66,7 @@ import {
   fetchSitePages,
   updateSitePage,
 } from './content-pages'
-import { updateStaffRole } from './security'
+import { fetchRolePermissions, fetchSecuritySessions, inviteAdmin, removeStaff, revokeSecuritySession, saveRolePermissions, updateStaffRole } from './security'
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
 
@@ -225,6 +228,27 @@ export function useWmsOverview() {
     queryFn: fetchWmsOverview,
     staleTime: 30_000,
     retry: 1,
+  })
+}
+
+export function useCreateWarehouse() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createWarehouse,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useReplyHelpdeskTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ticketId, message }: { ticketId: string; message: string }) =>
+      replyHelpdeskTicket(ticketId, message),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['helpdesk-overview'] })
+    },
   })
 }
 
@@ -496,6 +520,14 @@ export function useCreateSupplier() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createSupplier,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
+  })
+}
+
+export function useCreatePurchaseOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createPurchaseOrder,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
   })
 }
@@ -938,6 +970,40 @@ export function useSecurity() {
   return useQuery({ queryKey: ['platform-security'], queryFn: fetchSecurity, staleTime: 30_000, retry: 1 })
 }
 
+export function useRolePermissions() {
+  return useQuery({
+    queryKey: ['security-permissions'],
+    queryFn: fetchRolePermissions,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useAdminSession() {
+  return useQuery({
+    queryKey: ['admin-session'],
+    queryFn: async () => {
+      const res = await fetch('/api/auth/me', { credentials: 'include' })
+      if (!res.ok) return null
+      const data = (await res.json()) as {
+        user?: { id: string; email: string; name: string; role: string; storeId?: string }
+      }
+      return data.user ?? null
+    },
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+export function useSecuritySessions() {
+  return useQuery({
+    queryKey: ['security-sessions'],
+    queryFn: fetchSecuritySessions,
+    staleTime: 15_000,
+    retry: 1,
+  })
+}
+
 export function useMedia() {
   return useQuery({ queryKey: ['platform-media'], queryFn: fetchMedia, staleTime: 30_000, retry: 1 })
 }
@@ -1074,6 +1140,49 @@ export function useUpdateStaffRole() {
     mutationFn: ({ userId, ...data }: { userId: string; role?: string; isActive?: boolean }) =>
       updateStaffRole(userId, data),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-security'] })
+    },
+  })
+}
+
+export function useInviteAdmin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: inviteAdmin,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-security'] })
+    },
+  })
+}
+
+export function useSaveRolePermissions() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ role, permissions }: { role: string; permissions: import('./security').PermissionRow[] }) =>
+      saveRolePermissions(role, permissions),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['security-permissions'] })
+      void qc.invalidateQueries({ queryKey: ['platform-security'] })
+    },
+  })
+}
+
+export function useRemoveStaff() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) => removeStaff(userId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-security'] })
+    },
+  })
+}
+
+export function useRevokeSecuritySession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (sessionId: string) => revokeSecuritySession(sessionId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['security-sessions'] })
       void qc.invalidateQueries({ queryKey: ['platform-security'] })
     },
   })

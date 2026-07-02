@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { apiSearchProducts } from '@/lib/server/api-auth'
-import { searchProducts } from '@/lib/catalog'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 
@@ -36,12 +35,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ products: [], total: 0, query: '' })
   }
 
-  const apiProducts = await apiSearchProducts(q, limit)
-  if (apiProducts.length > 0) {
+  try {
+    const apiProducts = await apiSearchProducts(q, limit)
     const products = apiProducts.map(mapApiProduct)
     return NextResponse.json({ products, total: products.length, query: q, source: 'api' })
+  } catch {
+    return NextResponse.json(
+      { products: [], total: 0, query: q, error: 'Search service offline — try again shortly.' },
+      { status: 503 },
+    )
   }
-
-  const local = searchProducts(q).slice(0, limit)
-  return NextResponse.json({ products: local, total: local.length, query: q, source: 'local' })
 }

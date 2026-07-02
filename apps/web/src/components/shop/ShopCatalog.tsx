@@ -25,14 +25,13 @@ import {
   isStorefrontNewArrival,
   PRICE_FILTER_HIGH,
   PRICE_FILTER_LOW,
-  products,
   shopFilterMenuCategories,
   type Category,
   type StorefrontProduct,
 } from '@/data/storefront'
 import { isStorefrontProductInStock } from '@/lib/catalog/index'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
-import type { CachedCatalog } from '@/lib/catalog/server'
+import type { CachedCatalog, CatalogSource } from '@/lib/catalog/server'
 import { usePublishedShopCategories } from '@/lib/storefront/catalog-channels'
 
 const PAGE_SIZE = LISTING_PAGE_SIZE
@@ -84,8 +83,9 @@ export function ShopCatalog({
   const [mobilePriceMin, setMobilePriceMin] = useState<number | null>(null)
   const [mobilePriceMax, setMobilePriceMax] = useState<number | null>(null)
   const [sortBy, setSortBy] = useState<CatalogSortOption>(initialSort)
+  const [catalogSource, setCatalogSource] = useState<CatalogSource>(initialCatalog?.source ?? 'api')
   const [catalogProducts, setCatalogProducts] = useState<ShopProduct[]>(
-    (initialCatalog?.products ?? products).map(sanitizeStorefrontProduct),
+    (initialCatalog?.products ?? []).map(sanitizeStorefrontProduct),
   )
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [apiPage, setApiPage] = useState(initialCatalog?.page ?? 1)
@@ -97,16 +97,18 @@ export function ShopCatalog({
     if (initialCatalog?.source === 'api') return
     fetch('/api/products', { cache: 'no-store' })
       .then((res) => res.json())
-      .then((data: { products?: StorefrontProduct[]; source?: string }) => {
+      .then((data: { products?: StorefrontProduct[]; source?: CatalogSource }) => {
+        if (data.source) setCatalogSource(data.source)
         if (data.source === 'api' && data.products?.length) {
           setCatalogProducts(data.products.map(sanitizeStorefrontProduct))
         }
       })
-      .catch(() => undefined)
+      .catch(() => setCatalogSource('api-unavailable'))
   }, [initialCatalog?.source])
 
   useEffect(() => {
     if (!initialCatalog) return
+    setCatalogSource(initialCatalog.source)
     setCatalogProducts(initialCatalog.products.map(sanitizeStorefrontProduct))
     setApiPage(initialCatalog.page ?? 1)
     setApiTotalPages(initialCatalog.totalPages ?? 1)
@@ -326,6 +328,13 @@ export function ShopCatalog({
   return (
     <>
       <section id="products" data-section="shopCatalog" className="shop-catalog">
+        {catalogSource === 'api-unavailable' ? (
+          <div className="mb-4 px-3 sm:px-5 lg:px-8">
+            <p className="auth-form__error">
+              Product catalog is temporarily offline — live inventory could not be loaded. Please refresh or try again shortly.
+            </p>
+          </div>
+        ) : null}
         {showStickyBar ? (
           <ShopFilterBar
             categories={shopFilterMenuCategories}
@@ -461,7 +470,7 @@ export function ShopCatalog({
           </div>
         ) : null}
 
-        {filteredProducts.length === 0 ? (
+        {filteredProducts.length === 0 && catalogSource !== 'api-unavailable' ? (
           <div className="shop-empty glass-tile">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-black/40">
               No products found

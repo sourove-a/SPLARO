@@ -1,12 +1,51 @@
 import { REGISTERED_MODULE_HREFS } from '@/lib/modules/registry'
+import { flatAdminRoutes } from '@/lib/navigation/admin-nav'
 
 export type ModuleMaturity = 'live' | 'beta' | 'prototype'
 
 /** Routes with dedicated live panels in the module registry. */
 const LIVE_ROUTES = new Set<string>(['/dashboard', ...REGISTERED_MODULE_HREFS])
 
-/** Custom UI with partial API or planned rollout. */
-const BETA_ROUTES = new Set<string>([])
+/**
+ * Registered routes with partial API — preview actions, coming-soon forms, or read-only shells.
+ * Checked before LIVE_ROUTES so maturity is not overstated.
+ */
+const BETA_ROUTES = new Set<string>([
+  '/dashboard/wms/overview',
+  '/dashboard/wms/warehouses',
+  '/dashboard/wms/stock-movements',
+  '/dashboard/wms/transfers',
+  '/dashboard/procurement/overview',
+  '/dashboard/procurement/suppliers',
+  '/dashboard/procurement/purchase-orders',
+  '/dashboard/procurement/goods-received',
+  '/dashboard/production/overview',
+  '/dashboard/production/fabric-inventory',
+  '/dashboard/support/helpdesk',
+  '/dashboard/support/live-chat',
+  '/dashboard/delivery/agents',
+  '/dashboard/delivery/assignments',
+  '/dashboard/company/dashboard',
+  '/dashboard/company/employees',
+  '/dashboard/company/payroll',
+  '/dashboard/company/tasks',
+  '/dashboard/company/documents',
+  '/dashboard/warehouse',
+  '/dashboard/supplier-management',
+  '/dashboard/google-workspace/docs',
+  '/dashboard/google-workspace/calendar',
+  '/dashboard/google-workspace/contacts',
+  '/dashboard/google-workspace/analytics',
+  '/dashboard/google-workspace/search-console',
+  '/dashboard/google-workspace/merchant-center',
+])
+
+/** Nav routes without a dedicated panel — GenericModulePanel fallback. */
+const PROTOTYPE_ROUTES = new Set<string>(
+  flatAdminRoutes
+    .map((r) => r.href.replace(/\/+$/, '') || '/dashboard')
+    .filter((href) => !LIVE_ROUTES.has(href) && !BETA_ROUTES.has(href)),
+)
 
 const MATURITY_META: Record<
   ModuleMaturity,
@@ -31,8 +70,9 @@ const MATURITY_META: Record<
 
 export function getModuleMaturity(href: string): ModuleMaturity {
   const normalized = href.replace(/\/+$/, '') || '/dashboard'
-  if (LIVE_ROUTES.has(normalized)) return 'live'
+  if (PROTOTYPE_ROUTES.has(normalized)) return 'prototype'
   if (BETA_ROUTES.has(normalized)) return 'beta'
+  if (LIVE_ROUTES.has(normalized)) return 'live'
   return 'prototype'
 }
 

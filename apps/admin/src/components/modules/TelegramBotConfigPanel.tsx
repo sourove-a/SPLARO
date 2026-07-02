@@ -19,13 +19,16 @@ import { formatRelativeTime } from '@/lib/api/orders'
 import { cn } from '@/lib/utils/cn'
 
 const COMMANDS = [
-  ['Ask anything', 'Send normal text — authorized users chat with SPLARO AI agent'],
-  ['SPL-1001', 'Track order — send only the order number'],
+  ['/start · /menu', 'Open control panel with buttons'],
+  ['📋 Menu buttons', 'Dashboard, orders, finance, admin login — keyboard at bottom'],
+  ['SPL-1001', 'Track order — send invoice number'],
+  ['/login', 'Admin panel one-time token (copy button)'],
+  ['/link_group', 'Link personal/team group for notifications (super admin)'],
+  ['/group_info', 'Show chat ID for admin panel setup'],
+  ['/order SPL-1001', 'Order details'],
   ['/today_orders', "Today's order count"],
   ['/today_sales', "Today's revenue"],
-  ['/pending_orders', 'Pending orders count'],
-  ['/low_stock', 'Low stock variants'],
-  ['/order SPL-1001', 'Order details by invoice'],
+  ['/profit_today', 'Profit summary today'],
 ]
 
 function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
@@ -258,9 +261,14 @@ export function TelegramBotConfigPanel() {
                 type="text"
                 value={config.chatId}
                 onChange={(e) => setConfig((p) => ({ ...p, chatId: e.target.value }))}
-                placeholder="-1001234567890"
+                placeholder="-1001234567890 (group) or personal ID"
                 className="w-full rounded-xl border border-[rgba(17,17,17,0.12)] bg-[#f9f8f6] px-4 py-3 text-sm font-semibold outline-none focus:border-[#5E7CFF] focus:bg-white"
               />
+              <p className="text-[11px] font-semibold leading-relaxed text-[#6B6B6B]">
+                <strong>Personal group:</strong> Add bot to your SPLARO team group → send{' '}
+                <code className="rounded bg-black/5 px-1 font-mono text-[10px]">/link_group</code>{' '}
+                as super admin. In BotFather run <code className="rounded bg-black/5 px-1 font-mono text-[10px]">/setprivacy</code> → Disable so the bot reads messages in groups.
+              </p>
             </label>
           </div>
           <div className="flex items-center justify-between rounded-xl bg-[#f7f6f4] px-4 py-3">

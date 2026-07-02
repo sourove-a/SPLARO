@@ -1,41 +1,57 @@
 import { NextResponse } from 'next/server'
-import { authenticateAdmin } from '@/lib/auth/admin-auth'
+import { getApiBaseUrl } from '@splaro/config'
 import { ADMIN_SESSION_COOKIE, createAdminSessionToken, sessionCookieOptions } from '@/lib/auth/session'
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { email?: string; password?: string }
+  const body = (await request.json()) as { email?: string; token?: string }
   const email = body.email?.trim()
-  const password = body.password ?? ''
+  const token = body.token?.trim()
 
-  if (!email || !password) {
-    return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+  if (!email || !token) {
+    return NextResponse.json({ error: 'Email and Telegram token required' }, { status: 400 })
   }
 
-  const user = await authenticateAdmin(email, password)
-  if (!user) {
-    return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+  const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
+  const base = getApiBaseUrl()
+
+  try {
+    const res = await fetch(`${base}/admin/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, token, storeId }),
+      cache: 'no-store',
+    })
+
+    const data = (await res.json()) as {
+      error?: string
+      message?: string
+      user?: { id: string; email: string; name: string; role: string; storeId?: string }
+    }
+
+    if (!res.ok || !data.user?.id) {
+      return NextResponse.json(
+        { error: data.message ?? data.error ?? 'Invalid or expired token' },
+        { status: res.status === 401 ? 401 : 400 },
+      )
+    }
+
+    const sessionToken = await createAdminSessionToken({
+      userId: data.user.id,
+      email: data.user.email,
+      name: data.user.name,
+      role: data.user.role,
+      ...(data.user.storeId ? { storeId: data.user.storeId } : {}),
+    })
+
+    const response = NextResponse.json({
+      ok: true,
+      apiToken: sessionToken,
+      user: data.user,
+    })
+
+    response.cookies.set(ADMIN_SESSION_COOKIE, sessionToken, sessionCookieOptions())
+    return response
+  } catch {
+    return NextResponse.json({ error: 'Unable to connect. Please try again.' }, { status: 503 })
   }
-
-  const token = await createAdminSessionToken({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    ...(user.storeId ? { storeId: user.storeId } : {}),
-  })
-
-  const response = NextResponse.json({
-    ok: true,
-    apiToken: token,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      storeId: user.storeId,
-    },
-  })
-
-  response.cookies.set(ADMIN_SESSION_COOKIE, token, sessionCookieOptions())
-  return response
 }

@@ -41,6 +41,7 @@ export interface IntegrationCard {
   provider: string
   configurePath: string
   connected: boolean
+  connectionDetail?: string | null
   status: 'connected' | 'not_connected' | 'error'
   isEnabled: boolean
   lastTestedAt: string | null
@@ -99,4 +100,58 @@ export function testAiIntegration(body: {
     '/admin/integrations/ai/test',
     { method: 'POST', body: JSON.stringify(body) },
   )
+}
+
+export interface PaymentIntegrationConfig {
+  provider: string
+  configured: boolean
+  source: 'database' | 'env' | 'none'
+  fields: Record<string, string | boolean>
+  lastTestedAt?: string | null
+  lastTestStatus?: string | null
+}
+
+export function fetchPaymentIntegrations() {
+  return apiFetch<{ items: PaymentIntegrationConfig[] }>('/admin/integrations/payments')
+}
+
+export function updatePaymentIntegration(provider: string, body: Record<string, string | boolean>) {
+  return apiFetch<PaymentIntegrationConfig>(`/admin/integrations/payments/${provider}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function testPaymentIntegration(provider: string) {
+  return apiFetch<{ ok: boolean; message: string }>(`/admin/integrations/payments/${provider}/test`, {
+    method: 'POST',
+  })
+}
+
+export interface InfrastructureConfig {
+  provider: string
+  configured: boolean
+  source: string
+  fields: Record<string, string>
+  lastTestedAt?: string | null
+  lastTestStatus?: string | null
+}
+
+export type InfraProvider = 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx'
+
+export function fetchInfrastructureConfig(provider: InfraProvider) {
+  return apiFetch<InfrastructureConfig>(`/admin/integrations/infrastructure/${provider}`)
+}
+
+export function updateInfrastructureConfig(provider: InfraProvider, body: Record<string, string>) {
+  return apiFetch<InfrastructureConfig>(`/admin/integrations/infrastructure/${provider}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export function testInfrastructureIntegration(provider: 'pathao' | 'redx') {
+  return apiFetch<{ ok: boolean; message: string }>(`/admin/integrations/infrastructure/${provider}/test`, {
+    method: 'POST',
+  })
 }

@@ -56,6 +56,9 @@ export function AdminHeader() {
   return (
     <>
       <header className="admin-header mx-4 mb-0 flex items-center gap-3 px-4">
+        <Link href="/dashboard" className="shrink-0 lg:hidden" aria-label="SPLARO Admin home">
+          <SplaroAdminLogo variant="mark" className="h-8 w-8" />
+        </Link>
         <AdminHeaderSearch />
 
         <div className="flex items-center gap-2">

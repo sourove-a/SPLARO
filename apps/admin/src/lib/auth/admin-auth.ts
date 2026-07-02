@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '@splaro/config'
 import { verifyPassword, hashPassword } from './crypto'
 import { CEO_EMAIL, formatAdminDisplayName } from './role-label'
 
@@ -38,7 +39,42 @@ function envAdmin() {
   }
 }
 
-export async function authenticateAdmin(
+async function authenticateAdminFromDatabase(
+  email: string,
+  password: string,
+): Promise<AdminUserRecord | null> {
+  const base = getApiBaseUrl()
+  const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
+
+  try {
+    const res = await fetch(`${base}/admin/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, storeId }),
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+
+    const data = (await res.json()) as {
+      user?: { id: string; email: string; name: string; role: string; storeId?: string }
+    }
+    const user = data.user
+    if (!user?.id) return null
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      passwordHash: hashPassword(password),
+      ...(user.storeId ? { storeId: user.storeId } : {}),
+    }
+  } catch {
+    return null
+  }
+}
+
+async function authenticateEnvAdmin(
   email: string,
   password: string,
 ): Promise<AdminUserRecord | null> {
@@ -69,4 +105,14 @@ export async function authenticateAdmin(
 
   if (envUser.storeId) record.storeId = envUser.storeId
   return record
+}
+
+export async function authenticateAdmin(
+  email: string,
+  password: string,
+): Promise<AdminUserRecord | null> {
+  const dbUser = await authenticateAdminFromDatabase(email, password)
+  if (dbUser) return dbUser
+  if (process.env.NODE_ENV === 'production') return null
+  return authenticateEnvAdmin(email, password)
 }

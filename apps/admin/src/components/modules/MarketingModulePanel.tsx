@@ -9,13 +9,13 @@ import { useCampaigns, useCampaignStats, useCreateCampaign, useUpdateCampaign, u
 import { formatCampaignType, mapCampaignStatus } from '@/lib/api/marketing'
 import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { CouponsLivePanel } from '@/components/modules/CouponsLivePanel'
 import { WhatsAppPanelLive, AffiliatePanelLive, InfluencersPanelLive } from '@/components/modules/MarketingLivePanels'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 
@@ -205,7 +205,7 @@ function CampaignsPanel() {
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <div style={{ marginBottom: 12 }}>
-        <StorefrontLiveBar
+        <ModuleLiveStrip
           items={[
             {
               label: 'Campaigns API',

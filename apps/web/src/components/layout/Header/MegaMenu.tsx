@@ -24,22 +24,22 @@ const EXPO_OUT = [0.22, 1, 0.36, 1] as const
 const SHUTTER_EASE = [0.16, 1, 0.3, 1] as const
 
 const panelTransition = {
-  duration: 0.62,
+  duration: 0.48,
   ease: SHUTTER_EASE,
 }
 
 const sweepTransition = {
-  duration: 0.58,
+  duration: 0.44,
   ease: SHUTTER_EASE,
 }
 
 const columnVariants = {
-  hidden: { opacity: 0, y: -10 },
+  hidden: { opacity: 0, y: -6 },
   visible: (delay: number) => ({
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.48,
+      duration: 0.34,
       ease: EXPO_OUT,
       delay,
     },
@@ -99,9 +99,9 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
 
           <motion.div
             key="mega-panel"
-            initial={{ clipPath: 'inset(0 0 100% 0 round 0 0 0 0)' }}
-            animate={{ clipPath: 'inset(0 0 0% 0 round 0 0 0 0)' }}
-            exit={{ clipPath: 'inset(0 0 100% 0 round 0 0 0 0)' }}
+            initial={{ y: -18, opacity: 0.98, clipPath: 'inset(0 0 100% 0)' }}
+            animate={{ y: 0, opacity: 1, clipPath: 'inset(0 0 0% 0)' }}
+            exit={{ y: -14, opacity: 0.98, clipPath: 'inset(0 0 100% 0)' }}
             transition={panelTransition}
             className="mega-menu-panel"
             role="region"

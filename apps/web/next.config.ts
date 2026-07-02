@@ -52,6 +52,11 @@ const nextConfig: NextConfig = {
         hostname: 'images.unsplash.com',
       },
       {
+        protocol: 'https',
+        hostname: 'media.aarong.com',
+        pathname: '/media/catalog/product/**',
+      },
+      {
         protocol: 'http',
         hostname: 'localhost',
         port: '3000',
@@ -99,7 +104,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://cdn.splaro.com.bd https://*.r2.cloudflarestorage.com https://**.r2.cloudflarestorage.com https://images.unsplash.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
+              "img-src 'self' data: blob: https://cdn.splaro.com.bd https://*.r2.cloudflarestorage.com https://**.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
               "media-src 'self' blob: https://cdn.splaro.com.bd https://*.r2.cloudflarestorage.com https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src ${connectSrc}`,

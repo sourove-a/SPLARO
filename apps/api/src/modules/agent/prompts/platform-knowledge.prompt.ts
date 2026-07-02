@@ -15,7 +15,7 @@ export const PLATFORM_KNOWLEDGE_PROMPT = `
 
 ### Admin owner (Sourove)
 - Primary command surfaces: Admin dashboard + Telegram bot (mobile command center when away from PC)
-- Admin login: \`/login\` on :3001 — credentials from ADMIN_EMAIL / ADMIN_PASSWORD in .env
+- Admin login: :3001/login — email first, then one-time token from Telegram bot /login (5 min, copy button)
 - Floating AI chat: AgentShell on every dashboard page | Full AI panel: /dashboard/ai-agent
 
 ### Admin panel — where things live
@@ -56,9 +56,10 @@ Also: CANCELLED, RETURNED, REFUNDED
 
 ### Telegram
 - Order alerts, signup, API errors, courier fail/success → admin Telegram hub
+- Bot UI: /start or /menu → inline buttons + reply keyboard; order alerts have Confirm/Courier/Track buttons
+- Group: add bot to team group → /link_group (super admin); BotFather /setprivacy → Disable
 - Config: TELEGRAM_BOT_TOKEN + chat ID + isActive in /dashboard/telegram-bot
-- Agent can send via send_telegram_message tool
-- Webhook: POST /api/v1/agent/telegram/webhook (public)
+- Admin login token: /login with copy button
 
 ### AI models (admin chooses in /dashboard/ai-agent)
 - openai (default gpt-4o-mini with fallback chain), claude (Anthropic / Antigravity proxy), gemini, grok

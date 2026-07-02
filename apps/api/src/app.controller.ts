@@ -101,6 +101,7 @@ export class AppController {
   }
 
   @SkipThrottle()
+  @Public()
   @Get('health/full')
   async fullHealth() {
     const started = Date.now()

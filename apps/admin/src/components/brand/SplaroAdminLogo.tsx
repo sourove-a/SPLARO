@@ -25,7 +25,7 @@ const variants = {
     width: WORDMARK_WIDTH,
     height: WORDMARK_HEIGHT,
     className: 'h-auto w-[170px] sm:w-[210px] md:w-[240px]',
-    onLightSurface: true,
+    onLightSurface: false,
   },
   mark: {
     src: LOGO_ICON,
@@ -58,12 +58,14 @@ interface SplaroAdminLogoProps {
   variant?: SplaroAdminLogoVariant
   className?: string
   priority?: boolean
+  connectionLive?: boolean
 }
 
 export function SplaroAdminLogo({
   variant = 'sidebar',
   className,
   priority = false,
+  connectionLive = false,
 }: SplaroAdminLogoProps) {
   const config = variants[variant]
 
@@ -74,6 +76,7 @@ export function SplaroAdminLogo({
         `splaro-admin-logo--${variant}`,
         config.onLightSurface && 'splaro-admin-logo--on-light',
         'square' in config && config.square && 'splaro-admin-logo--square',
+        connectionLive && (variant === 'mark' || variant === 'avatar') && 'splaro-admin-logo--live',
       )}
     >
       <Image

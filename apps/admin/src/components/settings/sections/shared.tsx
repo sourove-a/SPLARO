@@ -171,20 +171,23 @@ export function Toggle({
   desc,
   checked,
   onChange,
+  disabled,
 }: {
   label: string
   desc?: string
   checked: boolean
   onChange: () => void
+  disabled?: boolean
 }) {
   return (
-    <label className={cn('settings-toggle', checked && 'settings-toggle--on')}>
+    <label className={cn('settings-toggle', checked && 'settings-toggle--on', disabled && 'opacity-60 pointer-events-none')}>
       <div>
         <p className="settings-toggle__label">{label}</p>
         {desc ? <p className="settings-toggle__desc">{desc}</p> : null}
       </div>
       <button
         type="button"
+        disabled={disabled}
         onClick={(e) => {
           e.preventDefault()
           onChange()

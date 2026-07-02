@@ -140,7 +140,7 @@ export function fetchProduct(id: string) {
 
 export function productStatus(product: ApiProduct): 'active' | 'draft' | 'archived' {
   if (product.status === 'ARCHIVED') return 'archived'
-  if (!product.isPublished || product.status === 'DRAFT') return 'draft'
+  if (!product.isPublished) return 'draft'
   return 'active'
 }
 

@@ -1,6 +1,8 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, Logger } from '@nestjs/common'
 import axios from 'axios'
+import { PrismaService } from '../../common/prisma.service'
+import { resolveStoreId } from '../../common/store.util'
+import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 
 interface BkashTokenResponse {
   id_token: string
@@ -29,60 +31,77 @@ export interface BkashExecuteResponse {
   merchantInvoiceNumber: string
 }
 
+type BkashRuntime = Awaited<ReturnType<PaymentIntegrationService['resolveRuntimeCredentials']>>
+
 @Injectable()
 export class BkashService {
   private readonly logger = new Logger(BkashService.name)
-  private readonly baseUrl: string
-  private token: string | null = null
-  private tokenExpiry: Date | null = null
+  private readonly tokenCache = new Map<string, { token: string; expiry: Date }>()
 
-  constructor(@Inject(ConfigService) private readonly config: ConfigService) {
-    const sandbox = this.config.get<string>('BKASH_SANDBOX') === 'true'
-    this.baseUrl = sandbox
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentIntegration: PaymentIntegrationService,
+  ) {}
+
+  private baseUrl(creds: BkashRuntime): string {
+    return creds.sandbox
       ? 'https://tokenized.sandbox.bka.sh/v1.2.0-beta'
       : 'https://tokenized.pay.bka.sh/v1.2.0-beta'
   }
 
-  private get credentials() {
-    return {
-      appKey: this.config.get<string>('BKASH_APP_KEY') ?? '',
-      appSecret: this.config.get<string>('BKASH_APP_SECRET') ?? '',
-      username: this.config.get<string>('BKASH_USERNAME') ?? '',
-      password: this.config.get<string>('BKASH_PASSWORD') ?? '',
+  private async resolveStoreId(storeIdOrSlug?: string, invoiceNumber?: string): Promise<string> {
+    if (storeIdOrSlug) return resolveStoreId(this.prisma, storeIdOrSlug)
+    if (invoiceNumber) {
+      const order = await this.prisma.order.findUnique({
+        where: { invoiceNumber },
+        select: { storeId: true },
+      })
+      if (order) return order.storeId
     }
+    return resolveStoreId(this.prisma)
   }
 
-  private async getToken(): Promise<string> {
-    if (this.token && this.tokenExpiry && this.tokenExpiry > new Date()) {
-      return this.token
+  private async getCredentials(storeIdOrSlug?: string, invoiceNumber?: string) {
+    const storeId = await this.resolveStoreId(storeIdOrSlug, invoiceNumber)
+    const creds = await this.paymentIntegration.resolveRuntimeCredentials(storeId, 'bkash')
+    if (!creds.appKey || !creds.appSecret || !creds.username || !creds.password) {
+      throw new Error('bKash credentials are not configured — save keys in Admin → Settings → Payments')
     }
+    return { storeId, creds }
+  }
 
-    const { appKey, appSecret, username, password } = this.credentials
+  private async getToken(creds: BkashRuntime, storeId: string): Promise<string> {
+    const cacheKey = `${storeId}:${creds.appKey}`
+    const cached = this.tokenCache.get(cacheKey)
+    if (cached && cached.expiry > new Date()) return cached.token
 
+    const baseUrl = this.baseUrl(creds)
     const response = await axios.post<BkashTokenResponse>(
-      `${this.baseUrl}/tokenized/checkout/token/grant`,
-      { app_key: appKey, app_secret: appSecret },
+      `${baseUrl}/tokenized/checkout/token/grant`,
+      { app_key: creds.appKey, app_secret: creds.appSecret },
       {
         headers: {
-          username,
-          password,
+          username: creds.username,
+          password: creds.password,
           'Content-Type': 'application/json',
         },
         timeout: 15000,
       },
     )
 
-    this.token = response.data.id_token
-    this.tokenExpiry = new Date(Date.now() + (response.data.expires_in - 60) * 1000)
-    return this.token
+    const token = response.data.id_token
+    this.tokenCache.set(cacheKey, {
+      token,
+      expiry: new Date(Date.now() + (response.data.expires_in - 60) * 1000),
+    })
+    return token
   }
 
-  private async getAuthHeaders() {
-    const { appKey } = this.credentials
-    const token = await this.getToken()
+  private async getAuthHeaders(creds: BkashRuntime, storeId: string) {
+    const token = await this.getToken(creds, storeId)
     return {
       Authorization: token,
-      'X-APP-Key': appKey,
+      'X-APP-Key': creds.appKey,
       'Content-Type': 'application/json',
     }
   }
@@ -91,11 +110,14 @@ export class BkashService {
     amount: number
     invoiceNumber: string
     callbackUrl: string
+    storeId?: string
   }): Promise<BkashCreatePaymentResponse> {
-    const headers = await this.getAuthHeaders()
+    const { storeId, creds } = await this.getCredentials(data.storeId, data.invoiceNumber)
+    const headers = await this.getAuthHeaders(creds, storeId)
+    const baseUrl = this.baseUrl(creds)
 
     const response = await axios.post<BkashCreatePaymentResponse>(
-      `${this.baseUrl}/tokenized/checkout/create`,
+      `${baseUrl}/tokenized/checkout/create`,
       {
         mode: '0011',
         payerReference: data.invoiceNumber,
@@ -112,11 +134,13 @@ export class BkashService {
     return response.data
   }
 
-  async executePayment(paymentId: string): Promise<BkashExecuteResponse> {
-    const headers = await this.getAuthHeaders()
+  async executePayment(paymentId: string, invoiceNumber?: string): Promise<BkashExecuteResponse> {
+    const { storeId, creds } = await this.getCredentials(undefined, invoiceNumber)
+    const headers = await this.getAuthHeaders(creds, storeId)
+    const baseUrl = this.baseUrl(creds)
 
     const response = await axios.post<BkashExecuteResponse>(
-      `${this.baseUrl}/tokenized/checkout/execute`,
+      `${baseUrl}/tokenized/checkout/execute`,
       { paymentID: paymentId },
       { headers, timeout: 15000 },
     )
@@ -125,11 +149,13 @@ export class BkashService {
     return response.data
   }
 
-  async queryPayment(paymentId: string): Promise<{ transactionStatus: string; trxID?: string }> {
-    const headers = await this.getAuthHeaders()
+  async queryPayment(paymentId: string, invoiceNumber?: string): Promise<{ transactionStatus: string; trxID?: string }> {
+    const { storeId, creds } = await this.getCredentials(undefined, invoiceNumber)
+    const headers = await this.getAuthHeaders(creds, storeId)
+    const baseUrl = this.baseUrl(creds)
 
     const response = await axios.post<{ transactionStatus: string; trxID?: string }>(
-      `${this.baseUrl}/tokenized/checkout/payment/status`,
+      `${baseUrl}/tokenized/checkout/payment/status`,
       { paymentID: paymentId },
       { headers, timeout: 10000 },
     )
@@ -143,11 +169,15 @@ export class BkashService {
     amount: number
     reason: string
     sku: string
+    invoiceNumber?: string
+    storeId?: string
   }): Promise<{ transactionStatus: string; refundTrxID: string }> {
-    const headers = await this.getAuthHeaders()
+    const { storeId, creds } = await this.getCredentials(data.storeId, data.invoiceNumber)
+    const headers = await this.getAuthHeaders(creds, storeId)
+    const baseUrl = this.baseUrl(creds)
 
     const response = await axios.post<{ transactionStatus: string; refundTrxID: string }>(
-      `${this.baseUrl}/tokenized/checkout/payment/refund`,
+      `${baseUrl}/tokenized/checkout/payment/refund`,
       {
         paymentID: data.paymentId,
         trxID: data.trxId,

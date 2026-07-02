@@ -5,9 +5,32 @@ import { PrismaService } from '../../common/prisma.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { CourierService } from '../courier/courier.service'
 import { AgentService } from '../agent'
+import { AuthService } from '../auth/auth.service'
 import TelegramBot from 'node-telegram-bot-api'
 import { formatBDT } from '../../common/utils/currency'
 import type { TelegramRole } from '@prisma/client'
+import {
+  BOT_COMMANDS,
+  BUTTON_ROUTES,
+  TG_CALLBACK,
+  inlineFinanceMenu,
+  inlineMainMenu,
+  inlineOrdersMenu,
+  loginCopyKeyboard,
+  mainReplyKeyboard,
+  menuMessage,
+  orderActionKeyboard,
+  parseOrderCallback,
+  welcomeMessage,
+} from './telegram-ui'
+
+interface TelegramCtx {
+  chatId: string
+  userId: string
+  storeId: string
+  configId: string
+  isGroup: boolean
+}
 
 @Injectable()
 export class TelegramService implements OnModuleInit {
@@ -31,18 +54,26 @@ export class TelegramService implements OnModuleInit {
     }
 
     this.bot = new TelegramBot(token, { polling: true })
+    void this.bot.setMyCommands(BOT_COMMANDS).catch(() => undefined)
     this.registerCommands()
     this.logger.log('Telegram bot initialized')
   }
 
   // ── SEND METHODS ──────────────────────────────────────────
 
-  async sendToStore(storeId: string, message: string): Promise<void> {
+  async sendToStore(
+    storeId: string,
+    message: string,
+    replyMarkup?: TelegramBot.InlineKeyboardMarkup,
+  ): Promise<void> {
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.isActive || !this.bot) return
 
     try {
-      await this.bot.sendMessage(config.chatId, message, { parse_mode: 'HTML' })
+      await this.bot.sendMessage(config.chatId, message, {
+        parse_mode: 'HTML',
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      })
       await this.prisma.telegramLog.create({
         data: { configId: config.id, type: 'NOTIFICATION', message, success: true },
       })
@@ -190,10 +221,10 @@ Delivery: ${order.shippingCity.includes('Dhaka') ? 'Inside Dhaka' : 'Outside Dha
 Status: Pending
 Items: ${order.itemCount}${riskWarning}
 
-<i>Actions: /confirm_order ${order.invoiceNumber} · /book_courier ${order.invoiceNumber} · /order ${order.invoiceNumber}</i>
+<i>Tap buttons below or send <code>${order.invoiceNumber}</code> to track.</i>
 `.trim()
 
-    await this.sendToStore(storeId, msg)
+    await this.sendToStore(storeId, msg, orderActionKeyboard(order.invoiceNumber))
   }
 
   async notifySmtpConfigured(
@@ -374,297 +405,500 @@ ${items}
   private registerCommands(): void {
     if (!this.bot) return
 
-    this.bot.onText(/\/today_orders/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const authorized = await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF'])
-      if (!authorized) {
-        await this.bot?.sendMessage(chatId, '❌ Unauthorized')
-        return
-      }
-
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) { await this.bot?.sendMessage(chatId, '❌ Store not configured'); return }
-
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      const count = await this.prisma.order.count({ where: { storeId, createdAt: { gte: today } } })
-      await this.bot?.sendMessage(chatId, `📦 Today's orders: <b>${count}</b>`, { parse_mode: 'HTML' })
-
-      await this.logCommand(chatId, '/today_orders')
-    })
-
-    this.bot.onText(/\/today_sales/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const authorized = await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER'])
-      if (!authorized) { await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return }
-
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      const agg = await this.prisma.order.aggregate({
-        where: { storeId, createdAt: { gte: today }, status: { not: 'CANCELLED' } },
-        _sum: { total: true },
-        _count: true,
-      })
-
-      await this.bot?.sendMessage(
-        chatId,
-        `💰 Today's sales:\nOrders: <b>${agg._count}</b>\nRevenue: <b>${formatBDT(Number(agg._sum.total ?? 0))}</b>`,
-        { parse_mode: 'HTML' }
-      )
-      await this.logCommand(chatId, '/today_sales')
-    })
-
-    this.bot.onText(/\/pending_orders/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-
-      const count = await this.prisma.order.count({ where: { storeId, status: 'PENDING' } })
-      await this.bot?.sendMessage(chatId, `⏳ Pending orders: <b>${count}</b>`, { parse_mode: 'HTML' })
-    })
-
-    this.bot.onText(/\/low_stock/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-
-      const variants = await this.prisma.productVariant.findMany({
-        where: { product: { storeId, isPublished: true }, stock: { lte: 5 }, isActive: true },
-        include: { product: { select: { name: true } } },
-        take: 10,
-        orderBy: { stock: 'asc' },
-      })
-
-      if (variants.length === 0) {
-        await this.bot?.sendMessage(chatId, '✅ No low stock items found')
-        return
-      }
-
-      const list = variants.map(v => `• ${v.product.name} (${v.size ?? ''} ${v.color ?? ''}).trim(): ${v.stock} left`).join('\n')
-      await this.bot?.sendMessage(chatId, `⚠️ <b>Low Stock (${variants.length} items)</b>\n\n${list}`, { parse_mode: 'HTML' })
-    })
-
-    this.bot.onText(/\/order (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id.toString()
-      const invoiceNumber = match?.[1]?.trim()
-      if (!invoiceNumber) return
-      await this.replyOrderTrack(chatId, invoiceNumber)
-    })
-
-    this.bot.on('message', async (msg) => {
-      if (!msg.text || msg.text.startsWith('/')) return
-      const chatId = msg.chat.id.toString()
-      const text = msg.text.trim()
-      if (!text) return
-
-      const invoiceNumber = text.toUpperCase()
-      if (/^SPL-\d+/.test(invoiceNumber)) {
-        await this.replyOrderTrack(chatId, invoiceNumber)
-        return
-      }
-
-      await this.replyAgentChat(chatId, text, msg.from?.id.toString())
-    })
-
-    this.bot.onText(/\/book_courier (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id.toString()
-      const authorized = await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF'])
-      if (!authorized) { await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return }
-
-      const invoiceNumber = match?.[1]?.trim()
-      const storeId = await this.getStoreIdByChatId(chatId)
-      const order = await this.prisma.order.findFirst({
-        where: storeId ? { storeId, invoiceNumber: invoiceNumber ?? '' } : { invoiceNumber: invoiceNumber ?? '' },
-      })
-      if (!order) { await this.bot?.sendMessage(chatId, '❌ Order not found'); return }
-
-      await this.bot?.sendMessage(chatId, `🚚 Booking courier for <b>${invoiceNumber}</b>...`, { parse_mode: 'HTML' })
-      await this.logCommand(chatId, `/book_courier ${invoiceNumber}`, msg.from?.id.toString())
-
-      try {
-        const result = await this.courier.bookCourier(order.id)
-        if (result.success) {
-          const tracking = result.trackingCode ? `\n📦 Tracking: <code>${result.trackingCode}</code>` : ''
-          await this.bot?.sendMessage(
-            chatId,
-            `✅ Courier booked for <b>${invoiceNumber}</b>${tracking}`,
-            { parse_mode: 'HTML' },
-          )
-        } else {
-          await this.bot?.sendMessage(
-            chatId,
-            `❌ Courier booking failed for <b>${invoiceNumber}</b>\n${result.error ?? 'Unknown error'}`,
-            { parse_mode: 'HTML' },
-          )
-        }
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : 'Booking failed'
-        await this.bot?.sendMessage(chatId, `❌ Courier booking error: ${errMsg}`)
-      }
-    })
-
-    this.bot.onText(/\/confirm_order (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id.toString()
-      const authorized = await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF'])
-      if (!authorized) { await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return }
-
-      const invoiceNumber = match?.[1]?.trim()
-      if (!invoiceNumber) {
-        await this.bot?.sendMessage(chatId, '❌ Invoice number required')
-        return
-      }
-
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-
-      await this.confirmOrderAndSendInvoice(
-        storeId,
-        chatId,
-        invoiceNumber,
-        msg.from?.id.toString(),
-      )
-    })
-
-    this.bot.onText(/\/report_today/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-      await this.sendDailyReport(storeId)
-    })
-
-    this.bot.onText(/\/delivered_today/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      const count = await this.prisma.order.count({
-        where: { storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
-      })
-      await this.bot?.sendMessage(chatId, `✅ Delivered today: <b>${count}</b>`, { parse_mode: 'HTML' })
-    })
-
-    this.bot.onText(/\/profit_today/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      if (!(await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) {
-        await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return
-      }
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-      const summary = await this.getProfitSummary(storeId, 'today')
-      await this.bot?.sendMessage(chatId, summary, { parse_mode: 'HTML' })
-    })
-
-    this.bot.onText(/\/profit_month/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      if (!(await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) {
-        await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return
-      }
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-      const summary = await this.getProfitSummary(storeId, 'month')
-      await this.bot?.sendMessage(chatId, summary, { parse_mode: 'HTML' })
-    })
-
-    for (const slug of ['sourove', 'raju', 'hridoy'] as const) {
-      this.bot.onText(new RegExp(`/partner_${slug}`), async (msg) => {
-        const chatId = msg.chat.id.toString()
-        if (!(await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) {
-          await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return
-        }
-        const storeId = await this.getStoreIdByChatId(chatId)
-        if (!storeId) return
-        const partner = await this.prisma.partner.findFirst({ where: { storeId, slug } })
-        if (!partner) { await this.bot?.sendMessage(chatId, '❌ Partner not found'); return }
-        const msgText = `
-👤 <b>Partner: ${partner.name}</b>
-💰 Balance: <b>${formatBDT(Number(partner.currentBalance))}</b>
-📈 Investment: ${formatBDT(Number(partner.totalInvestment))}
-📤 Withdrawals: ${formatBDT(Number(partner.totalWithdrawal))}
-📊 Profit Share: ${formatBDT(Number(partner.totalProfitShare))}
-📐 Share: ${Number(partner.sharePercent)}%
-`.trim()
-        await this.bot?.sendMessage(chatId, msgText, { parse_mode: 'HTML' })
+    const route = (pattern: RegExp, action: string) => {
+      this.bot!.onText(pattern, async (msg) => {
+        const ctx = await this.resolveContext(msg)
+        if (!ctx) return
+        await this.executeAction(action, ctx, msg)
       })
     }
 
-    this.bot.onText(/\/expenses_today/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      if (!(await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF']))) {
-        await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return
-      }
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      const agg = await this.prisma.expense.aggregate({
-        where: { storeId, expenseDate: { gte: today }, status: 'APPROVED' },
-        _sum: { amount: true },
-        _count: true,
-      })
-      await this.bot?.sendMessage(
-        chatId,
-        `💸 Expenses today: <b>${formatBDT(Number(agg._sum.amount ?? 0))}</b> (${agg._count} entries)`,
-        { parse_mode: 'HTML' },
-      )
+    route(/^\/start(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.MENU_MAIN)
+    route(/^\/menu(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.MENU_MAIN)
+    route(/^\/help(?:@\w+)?(?:\s|$)/i, 'help')
+    route(/^\/today_orders(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.ORDERS_TODAY)
+    route(/^\/today_sales(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.SALES_TODAY)
+    route(/^\/pending_orders(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.PENDING)
+    route(/^\/low_stock(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.LOW_STOCK)
+    route(/^\/report_today(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.REPORT_TODAY)
+    route(/^\/delivered_today(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.DELIVERED_TODAY)
+    route(/^\/profit_today(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.PROFIT_TODAY)
+    route(/^\/profit_month(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.PROFIT_MONTH)
+    route(/^\/expenses_today(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.EXPENSES_TODAY)
+    route(/^\/sync_sheets(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.SYNC_SHEETS)
+    route(/^\/api_health(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.API_HEALTH)
+    route(/^\/login(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.ADMIN_LOGIN)
+    route(/^\/link_group(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.LINK_GROUP)
+    route(/^\/group_info(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
+    route(/^\/chat_id(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
+
+    this.bot.onText(/\/order (.+)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = match?.[1]?.trim()
+      if (!invoice) return
+      await this.replyOrderTrack(ctx.chatId, invoice)
+      await this.logCommand(ctx.chatId, `/order ${invoice}`, ctx.userId)
     })
 
-    this.bot.onText(/\/customer (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id.toString()
+    this.bot.onText(/\/book_courier (.+)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = match?.[1]?.trim()
+      if (!invoice) return
+      await this.executeBookCourier(ctx, invoice)
+    })
+
+    this.bot.onText(/\/confirm_order (.+)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = match?.[1]?.trim()
+      if (!invoice) return
+      await this.executeConfirmOrder(ctx, invoice)
+    })
+
+    for (const slug of ['sourove', 'raju', 'hridoy'] as const) {
+      this.bot.onText(new RegExp(`/partner_${slug}`, 'i'), async (msg) => {
+        const ctx = await this.resolveContext(msg)
+        if (!ctx) return
+        if (!(await this.checkUserPermission(ctx.userId, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER'], ctx.configId))) {
+          await this.bot?.sendMessage(ctx.chatId, '❌ Unauthorized')
+          return
+        }
+        const partner = await this.prisma.partner.findFirst({ where: { storeId: ctx.storeId, slug } })
+        if (!partner) {
+          await this.bot?.sendMessage(ctx.chatId, '❌ Partner not found')
+          return
+        }
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `👤 <b>Partner: ${partner.name}</b>\n💰 Balance: <b>${formatBDT(Number(partner.currentBalance))}</b>\n📈 Investment: ${formatBDT(Number(partner.totalInvestment))}\n📤 Withdrawals: ${formatBDT(Number(partner.totalWithdrawal))}\n📊 Profit Share: ${formatBDT(Number(partner.totalProfitShare))}\n📐 Share: ${Number(partner.sharePercent)}%`,
+          { parse_mode: 'HTML' },
+        )
+      })
+    }
+
+    this.bot.onText(/\/customer (.+)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
       const phone = match?.[1]?.trim()
       if (!phone) return
-      const storeId = await this.getStoreIdByChatId(chatId)
-      if (!storeId) return
       const customer = await this.prisma.customer.findFirst({
-        where: { storeId, phone: { contains: phone } },
+        where: { storeId: ctx.storeId, phone: { contains: phone } },
       })
-      if (!customer) { await this.bot?.sendMessage(chatId, '❌ Customer not found'); return }
+      if (!customer) {
+        await this.bot?.sendMessage(ctx.chatId, '❌ Customer not found')
+        return
+      }
       await this.bot?.sendMessage(
-        chatId,
+        ctx.chatId,
         `👤 ${customer.firstName} ${customer.lastName}\n📞 ${customer.phone}\n📦 Orders: ${customer.totalOrders}`,
         { parse_mode: 'HTML' },
       )
     })
 
-    this.bot.onText(/\/stock (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id.toString()
+    this.bot.onText(/\/stock (.+)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
       const sku = match?.[1]?.trim()?.toUpperCase()
       if (!sku) return
       const variant = await this.prisma.productVariant.findFirst({
         where: { sku: { equals: sku, mode: 'insensitive' } },
         include: { product: { select: { name: true } } },
       })
-      if (!variant) { await this.bot?.sendMessage(chatId, `❌ SKU ${sku} not found`); return }
+      if (!variant) {
+        await this.bot?.sendMessage(ctx.chatId, `❌ SKU ${sku} not found`)
+        return
+      }
       await this.bot?.sendMessage(
-        chatId,
+        ctx.chatId,
         `📦 ${variant.product.name}\nSKU: ${variant.sku}\nStock: <b>${variant.stock}</b>`,
         { parse_mode: 'HTML' },
       )
     })
 
-    this.bot.onText(/\/sync_sheets/, async (msg) => {
+    this.bot.on('callback_query', async (query) => {
+      const msg = query.message
+      if (!msg) return
       const chatId = msg.chat.id.toString()
-      if (!(await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF']))) {
-        await this.bot?.sendMessage(chatId, '❌ Unauthorized'); return
+      const userId = query.from.id.toString()
+      const data = query.data ?? ''
+      const ctx = await this.resolveContextFromIds(chatId, userId)
+      if (!ctx) {
+        await this.bot?.answerCallbackQuery(query.id, { text: 'Store not configured', show_alert: true })
+        return
       }
-      await this.bot?.sendMessage(chatId, '📊 Google Sheets sync queued. Check admin Sync Logs.')
-      await this.logCommand(chatId, '/sync_sheets')
+
+      const orderAction = parseOrderCallback(data)
+      if (orderAction) {
+        await this.bot?.answerCallbackQuery(query.id)
+        if (orderAction.action === 'track') {
+          await this.replyOrderTrack(ctx.chatId, orderAction.invoice)
+        } else if (orderAction.action === 'confirm') {
+          await this.executeConfirmOrder(ctx, orderAction.invoice)
+        } else {
+          await this.executeBookCourier(ctx, orderAction.invoice)
+        }
+        return
+      }
+
+      await this.bot?.answerCallbackQuery(query.id)
+      await this.executeAction(data, ctx, msg, query.from.first_name)
     })
 
-    this.bot.onText(/\/api_health/, async (msg) => {
-      const chatId = msg.chat.id.toString()
-      const latest = await this.prisma.systemHealthLog.findFirst({
-        where: { service: 'api' },
-        orderBy: { checkedAt: 'desc' },
-      })
-      const status = latest?.status ?? 'UP'
+    this.bot.on('my_chat_member', async (member) => {
+      if (!member || member.new_chat_member.status === 'kicked' || member.new_chat_member.status === 'left') return
+      const chat = member.chat
+      const chatId = chat.id.toString()
+      const isGroup = chat.type === 'group' || chat.type === 'supergroup'
+      if (!isGroup) return
+
+      const title = 'title' in chat ? chat.title : 'Group'
       await this.bot?.sendMessage(
         chatId,
-        `🩺 API Health: <b>${status}</b>${latest?.responseMs ? `\nResponse: ${latest.responseMs}ms` : ''}`,
-        { parse_mode: 'HTML' },
+        `👋 <b>SPLARO Bot joined ${title}</b>\n\n1. Make bot <b>admin</b> in this group\n2. Super admin sends <code>/link_group</code>\n3. In BotFather: <code>/setprivacy</code> → <b>Disable</b> (so bot reads order numbers & AI messages)\n\nThen all alerts & buttons work here.`,
+        { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
       )
     })
 
+    this.bot.on('message', async (msg) => {
+      if (!msg.text || msg.text.startsWith('/')) return
+      const text = msg.text.trim()
+      if (!text) return
+
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+
+      const routeKey = BUTTON_ROUTES[text]
+      if (routeKey) {
+        if (routeKey === TG_CALLBACK.MENU_MAIN) {
+          await this.sendWelcome(ctx, msg.from?.first_name)
+        } else {
+          await this.executeAction(routeKey, ctx, msg, msg.from?.first_name)
+        }
+        return
+      }
+
+      const invoiceNumber = text.toUpperCase()
+      if (/^SPL-\d+/.test(invoiceNumber)) {
+        await this.replyOrderTrack(ctx.chatId, invoiceNumber)
+        return
+      }
+
+      await this.replyAgentChat(ctx.chatId, text, ctx.userId)
+    })
+
     this.logger.log('Telegram commands registered')
+  }
+
+  private async sendWelcome(ctx: TelegramCtx, firstName?: string): Promise<void> {
+    const config = await this.prisma.telegramConfig.findUnique({ where: { id: ctx.configId } })
+    const linked = config?.chatId === ctx.chatId
+    await this.bot?.sendMessage(ctx.chatId, welcomeMessage({
+      name: firstName,
+      isGroup: ctx.isGroup,
+      storeLinked: linked,
+    }), {
+      parse_mode: 'HTML',
+      reply_markup: inlineMainMenu(),
+    })
+    await this.bot?.sendMessage(ctx.chatId, '⌨️ <b>Keyboard shortcuts</b> — use buttons below anytime.', {
+      parse_mode: 'HTML',
+      reply_markup: mainReplyKeyboard(),
+    })
+  }
+
+  private async executeAction(
+    action: string,
+    ctx: TelegramCtx,
+    msg: TelegramBot.Message,
+    firstName?: string,
+  ): Promise<void> {
+    switch (action) {
+      case TG_CALLBACK.MENU_MAIN:
+        await this.sendWelcome(ctx, firstName ?? msg.from?.first_name)
+        break
+      case TG_CALLBACK.MENU_ORDERS:
+        await this.bot?.sendMessage(ctx.chatId, '📦 <b>Orders Hub</b>\nChoose an action:', {
+          parse_mode: 'HTML',
+          reply_markup: inlineOrdersMenu(),
+        })
+        break
+      case TG_CALLBACK.MENU_FINANCE:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) return
+        await this.bot?.sendMessage(ctx.chatId, '💹 <b>Finance Hub</b>\nChoose an action:', {
+          parse_mode: 'HTML',
+          reply_markup: inlineFinanceMenu(),
+        })
+        break
+      case TG_CALLBACK.ORDERS_TODAY:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+        await this.executeTodayOrders(ctx)
+        break
+      case TG_CALLBACK.SALES_TODAY:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
+        await this.executeTodaySales(ctx)
+        break
+      case TG_CALLBACK.PENDING:
+        await this.executePendingOrders(ctx)
+        break
+      case TG_CALLBACK.LOW_STOCK:
+        await this.executeLowStock(ctx)
+        break
+      case TG_CALLBACK.DELIVERED_TODAY:
+        await this.executeDeliveredToday(ctx)
+        break
+      case TG_CALLBACK.REPORT_TODAY:
+        await this.sendDailyReport(ctx.storeId)
+        break
+      case TG_CALLBACK.PROFIT_TODAY:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) return
+        await this.bot?.sendMessage(ctx.chatId, await this.getProfitSummary(ctx.storeId, 'today'), { parse_mode: 'HTML' })
+        break
+      case TG_CALLBACK.PROFIT_MONTH:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF', 'PARTNER']))) return
+        await this.bot?.sendMessage(ctx.chatId, await this.getProfitSummary(ctx.storeId, 'month'), { parse_mode: 'HTML' })
+        break
+      case TG_CALLBACK.EXPENSES_TODAY:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF']))) return
+        await this.executeExpensesToday(ctx)
+        break
+      case TG_CALLBACK.SYNC_SHEETS:
+        if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'FINANCE_STAFF']))) return
+        await this.bot?.sendMessage(ctx.chatId, '📊 Google Sheets sync queued. Check admin Sync Logs.')
+        await this.logCommand(ctx.chatId, '/sync_sheets', ctx.userId)
+        break
+      case TG_CALLBACK.API_HEALTH:
+        await this.executeApiHealth(ctx)
+        break
+      case TG_CALLBACK.ADMIN_LOGIN:
+        await this.executeAdminLogin(ctx)
+        break
+      case TG_CALLBACK.LINK_GROUP:
+        await this.executeLinkGroup(ctx)
+        break
+      case TG_CALLBACK.GROUP_INFO:
+        await this.executeGroupInfo(ctx)
+        break
+      case 'help':
+        await this.bot?.sendMessage(ctx.chatId, menuMessage(), {
+          parse_mode: 'HTML',
+          reply_markup: inlineMainMenu(),
+        })
+        break
+      default:
+        break
+    }
+  }
+
+  private async requireRoles(ctx: TelegramCtx, roles: TelegramRole[]): Promise<boolean> {
+    const ok = await this.checkUserPermission(ctx.userId, roles, ctx.configId)
+    if (!ok) await this.bot?.sendMessage(ctx.chatId, '❌ Unauthorized for this action')
+    return ok
+  }
+
+  private async executeTodayOrders(ctx: TelegramCtx): Promise<void> {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const count = await this.prisma.order.count({ where: { storeId: ctx.storeId, createdAt: { gte: today } } })
+    await this.bot?.sendMessage(ctx.chatId, `📦 <b>Today's Orders</b>\n\nCount: <b>${count}</b>`, { parse_mode: 'HTML' })
+    await this.logCommand(ctx.chatId, '/today_orders', ctx.userId)
+  }
+
+  private async executeTodaySales(ctx: TelegramCtx): Promise<void> {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const agg = await this.prisma.order.aggregate({
+      where: { storeId: ctx.storeId, createdAt: { gte: today }, status: { not: 'CANCELLED' } },
+      _sum: { total: true },
+      _count: true,
+    })
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `💰 <b>Today's Sales</b>\n\nOrders: <b>${agg._count}</b>\nRevenue: <b>${formatBDT(Number(agg._sum.total ?? 0))}</b>`,
+      { parse_mode: 'HTML' },
+    )
+    await this.logCommand(ctx.chatId, '/today_sales', ctx.userId)
+  }
+
+  private async executePendingOrders(ctx: TelegramCtx): Promise<void> {
+    const count = await this.prisma.order.count({ where: { storeId: ctx.storeId, status: 'PENDING' } })
+    await this.bot?.sendMessage(ctx.chatId, `⏳ <b>Pending Orders</b>\n\nCount: <b>${count}</b>`, { parse_mode: 'HTML' })
+  }
+
+  private async executeLowStock(ctx: TelegramCtx): Promise<void> {
+    const variants = await this.prisma.productVariant.findMany({
+      where: { product: { storeId: ctx.storeId, isPublished: true }, stock: { lte: 5 }, isActive: true },
+      include: { product: { select: { name: true } } },
+      take: 10,
+      orderBy: { stock: 'asc' },
+    })
+    if (variants.length === 0) {
+      await this.bot?.sendMessage(ctx.chatId, '✅ No low stock items found')
+      return
+    }
+    const list = variants
+      .map((v) => `• ${v.product.name} (${[v.size, v.color].filter(Boolean).join(' ').trim()}): <b>${v.stock}</b>`)
+      .join('\n')
+    await this.bot?.sendMessage(ctx.chatId, `⚠️ <b>Low Stock (${variants.length})</b>\n\n${list}`, { parse_mode: 'HTML' })
+  }
+
+  private async executeDeliveredToday(ctx: TelegramCtx): Promise<void> {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const count = await this.prisma.order.count({
+      where: { storeId: ctx.storeId, status: 'DELIVERED', deliveredAt: { gte: today } },
+    })
+    await this.bot?.sendMessage(ctx.chatId, `✅ <b>Delivered Today</b>\n\nCount: <b>${count}</b>`, { parse_mode: 'HTML' })
+  }
+
+  private async executeExpensesToday(ctx: TelegramCtx): Promise<void> {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const agg = await this.prisma.expense.aggregate({
+      where: { storeId: ctx.storeId, expenseDate: { gte: today }, status: 'APPROVED' },
+      _sum: { amount: true },
+      _count: true,
+    })
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `💸 <b>Expenses Today</b>\n\nTotal: <b>${formatBDT(Number(agg._sum.amount ?? 0))}</b>\nEntries: ${agg._count}`,
+      { parse_mode: 'HTML' },
+    )
+  }
+
+  private async executeApiHealth(ctx: TelegramCtx): Promise<void> {
+    const latest = await this.prisma.systemHealthLog.findFirst({
+      where: { service: 'api' },
+      orderBy: { checkedAt: 'desc' },
+    })
+    const status = latest?.status ?? 'UP'
+    const emoji = status === 'UP' ? '🟢' : '🔴'
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${emoji} <b>API Health: ${status}</b>${latest?.responseMs ? `\nResponse: ${latest.responseMs}ms` : ''}\n\n<i>SPLARO API connected</i>`,
+      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+    )
+  }
+
+  private async executeAdminLogin(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
+    try {
+      const auth = this.moduleRef.get(AuthService, { strict: false })
+      const { code, email } = await auth.issueTelegramLoginToken(ctx.storeId)
+      const adminUrl = this.config.get<string>('ADMIN_URL') ?? 'http://localhost:3001/login'
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        `🔐 <b>Admin Panel Login</b>\n\nEmail: <code>${email}</code>\nToken: <code>${code}</code>\n\n⏱ Valid <b>5 min</b> · one-time\n📋 Tap <b>Copy Token</b> → paste in admin\n\n<i>${adminUrl}</i>`,
+        { parse_mode: 'HTML', reply_markup: loginCopyKeyboard(code) },
+      )
+      await this.logCommand(ctx.chatId, '/login', ctx.userId)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Token generation failed'
+      await this.bot?.sendMessage(ctx.chatId, `❌ ${errMsg}`)
+    }
+  }
+
+  private async executeLinkGroup(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
+    if (!ctx.isGroup) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        'ℹ️ This command links a <b>group chat</b>. Add the bot to your SPLARO team group, then run /link_group there.',
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
+    await this.prisma.telegramConfig.update({
+      where: { id: ctx.configId },
+      data: { chatId: ctx.chatId },
+    })
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `✅ <b>Group Linked!</b>\n\nChat ID: <code>${ctx.chatId}</code>\n\nAll order alerts, courier updates & commands now work in this group.`,
+      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+    )
+    await this.logCommand(ctx.chatId, '/link_group', ctx.userId)
+  }
+
+  private async executeGroupInfo(ctx: TelegramCtx): Promise<void> {
+    const config = await this.prisma.telegramConfig.findUnique({ where: { id: ctx.configId } })
+    const linked = config?.chatId === ctx.chatId
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `ℹ️ <b>Chat Info</b>\n\nThis chat: <code>${ctx.chatId}</code>\nLinked store chat: <code>${config?.chatId ?? '—'}</code>\nStatus: ${linked ? '✅ Linked' : '⚠️ Not linked'}\n\n${ctx.isGroup ? 'Super admin: send /link_group here to connect.' : 'For groups: add bot → /link_group'}`,
+      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+    )
+  }
+
+  private async executeConfirmOrder(ctx: TelegramCtx, invoiceNumber: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    await this.confirmOrderAndSendInvoice(ctx.storeId, ctx.chatId, invoiceNumber, ctx.userId)
+  }
+
+  private async executeBookCourier(ctx: TelegramCtx, invoiceNumber: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+    const order = await this.prisma.order.findFirst({
+      where: { storeId: ctx.storeId, invoiceNumber },
+    })
+    if (!order) {
+      await this.bot?.sendMessage(ctx.chatId, '❌ Order not found')
+      return
+    }
+    await this.bot?.sendMessage(ctx.chatId, `🚚 Booking courier for <b>${invoiceNumber}</b>…`, { parse_mode: 'HTML' })
+    await this.logCommand(ctx.chatId, `/book_courier ${invoiceNumber}`, ctx.userId)
+    try {
+      const result = await this.courier.bookCourier(order.id)
+      if (result.success) {
+        const tracking = result.trackingCode ? `\n📦 Tracking: <code>${result.trackingCode}</code>` : ''
+        await this.bot?.sendMessage(ctx.chatId, `✅ Courier booked for <b>${invoiceNumber}</b>${tracking}`, { parse_mode: 'HTML' })
+      } else {
+        await this.bot?.sendMessage(ctx.chatId, `❌ Courier failed: ${result.error ?? 'Unknown error'}`, { parse_mode: 'HTML' })
+      }
+    } catch (err) {
+      await this.bot?.sendMessage(ctx.chatId, `❌ ${err instanceof Error ? err.message : 'Booking failed'}`)
+    }
+  }
+
+  private async resolveContext(msg: TelegramBot.Message): Promise<TelegramCtx | null> {
+    const chatId = msg.chat.id.toString()
+    const userId = msg.from?.id?.toString() ?? chatId
+    return this.resolveContextFromIds(chatId, userId, msg.chat.type)
+  }
+
+  private async resolveContextFromIds(
+    chatId: string,
+    userId: string,
+    chatType?: TelegramBot.Chat['type'],
+  ): Promise<TelegramCtx | null> {
+    const isGroup = chatType === 'group' || chatType === 'supergroup' || chatId.startsWith('-')
+
+    const byChat = await this.prisma.telegramConfig.findFirst({
+      where: { chatId, isActive: true },
+    })
+    if (byChat) {
+      return { chatId, userId, storeId: byChat.storeId, configId: byChat.id, isGroup }
+    }
+
+    const teleUser = await this.prisma.telegramUser.findFirst({
+      where: { telegramId: userId, isActive: true, config: { isActive: true } },
+      include: { config: true },
+    })
+    if (teleUser) {
+      return {
+        chatId,
+        userId,
+        storeId: teleUser.config.storeId,
+        configId: teleUser.config.id,
+        isGroup,
+      }
+    }
+
+    const fallback = await this.prisma.telegramConfig.findFirst({ where: { isActive: true } })
+    if (!fallback) {
+      await this.bot?.sendMessage(chatId, '❌ SPLARO Telegram not configured. Set up in Admin → Telegram Bot.')
+      return null
+    }
+
+    return { chatId, userId, storeId: fallback.storeId, configId: fallback.id, isGroup }
   }
 
   async handleWebhookUpdate(_body: unknown): Promise<void> {
@@ -672,11 +906,14 @@ ${items}
   }
 
   private async replyAgentChat(chatId: string, text: string, telegramUserId?: string): Promise<void> {
-    const authorized = await this.checkPermission(chatId, ['SUPER_ADMIN', 'MANAGER'])
-    if (!authorized) return
+    if (!telegramUserId) return
+    const teleUser = await this.prisma.telegramUser.findFirst({
+      where: { telegramId: telegramUserId, isActive: true, config: { isActive: true } },
+      include: { config: true },
+    })
+    if (!teleUser || !['SUPER_ADMIN', 'MANAGER'].includes(teleUser.role)) return
 
-    const storeId = await this.getStoreIdByChatId(chatId)
-    if (!storeId) return
+    const storeId = teleUser.config.storeId
 
     try {
       await this.bot?.sendChatAction(chatId, 'typing')
@@ -734,18 +971,21 @@ Status: ${tx.status}
     await this.sendToStore(storeId, `🤖 <b>AI Product Generated</b>\n${productName}\nReview in admin → AI Product Agent`)
   }
 
-  private async checkPermission(chatId: string, allowedRoles: TelegramRole[]): Promise<boolean> {
+  private async checkUserPermission(
+    telegramUserId: string,
+    allowedRoles: TelegramRole[],
+    configId?: string,
+  ): Promise<boolean> {
+    if (!telegramUserId) return false
     const user = await this.prisma.telegramUser.findFirst({
-      where: { telegramId: chatId, isActive: true },
+      where: {
+        telegramId: telegramUserId,
+        isActive: true,
+        ...(configId ? { configId } : {}),
+        config: { isActive: true },
+      },
     })
     return user !== null && allowedRoles.includes(user.role)
-  }
-
-  private async getStoreIdByChatId(chatId: string): Promise<string | null> {
-    const config = await this.prisma.telegramConfig.findFirst({
-      where: { chatId, isActive: true },
-    })
-    return config?.storeId ?? null
   }
 
   private async logCommand(chatId: string, command: string, userId?: string): Promise<void> {

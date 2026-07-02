@@ -20,7 +20,7 @@ import { CourierBadge } from '@/components/ui/CourierBadge'
 import { OperationsSubNav } from '@/components/operations/OperationsSubNav'
 import { ShippingSection } from '@/components/settings/sections/ShippingSection'
 import { EMPTY_SETTINGS } from '@/components/settings/SettingsShell'
-import { ApiOfflineBanner, KpiGrid } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner, KpiGrid, PlatformConnectionPanel } from '@/components/modules/PlatformUi'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import {
   useAutomationRules,
@@ -36,7 +36,7 @@ import {
 } from '@/lib/api/hooks'
 import { useIntegrationsCatalog } from '@/lib/api/integration-hooks'
 import { ApiError } from '@/lib/api/client'
-import { toastApiSaved, toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastApiSaved, toastCourierResult, toastFail } from '@/lib/admin/feedback'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import type { AdminSettingsData } from '@/lib/api/settings'
 import { formatRelativeTime } from '@/lib/api/orders'
@@ -154,6 +154,7 @@ function OperationsOverview({ moduleHref, statusByHref }: { moduleHref: string; 
       subtitle="Shipping, courier, warehouse, suppliers — live from API."
       statusByHref={statusByHref}
     >
+      <PlatformConnectionPanel />
       <div className="ops-overview-grid">
         {cards.map(({ href, label, icon: Icon, stat, meta, ok, warn }) => (
           <AdminNavLink key={href} href={href} className="ops-overview-card">
@@ -305,12 +306,8 @@ function CourierHubView({
   const handleBook = async (orderId: string) => {
     try {
       const res = await bookCourier.mutateAsync({ id: orderId })
-      if (res.success) {
-        toastOk(res.simulated ? 'Courier booked (dev stub)' : 'Courier booked', `book-${orderId}`)
-        void refetch()
-      } else {
-        toastFail(res.error ?? 'Booking failed', `book-${orderId}`)
-      }
+      toastCourierResult(res, orderId)
+      if (res.success && !res.simulated) void refetch()
     } catch (err) {
       toastFail(err instanceof ApiError ? err.message : 'Booking failed', `book-${orderId}`)
     }

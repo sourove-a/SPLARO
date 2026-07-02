@@ -36,6 +36,7 @@ export async function POST(request: Request) {
 
   const result = await initPayment({
     orderId: order.id,
+    invoiceNumber: order.invoiceNumber,
     amount: order.total,
     customer: order.customer,
   })

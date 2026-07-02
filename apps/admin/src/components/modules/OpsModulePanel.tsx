@@ -1,24 +1,26 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Building2, Calendar, ClipboardList, FileText, Headphones, MessageCircle, Package, RefreshCw, Truck, Users, Wifi } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ProcurementSubNav, ProductionSubNav } from '@/components/operations/ProcurementProductionNav'
-import { ApiOfflineBanner, ApiOfflineHint, StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner, ApiOfflineHint } from '@/components/modules/PlatformUi'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import {
   useCustomers, useOrders, useSettings, useProcurementOverview,
   useHelpdeskOverview, useCompanyOverview, useProductionOverview,
-  useDeliveryOverview, useCreateSupplier, useCreateSupportTicket,
+  useReplyHelpdeskTicket,
+  useDeliveryOverview, useCreateSupplier, useCreateSupportTicket, useCreatePurchaseOrder,
 } from '@/lib/api/hooks'
 import { useTelegramIntegration } from '@/lib/api/integration-hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
 import { formatBDT } from '@/lib/utils/currency'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 
@@ -140,7 +142,7 @@ function LiveChatPanel() {
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <StorefrontLiveBar
+      <ModuleLiveStrip
         onRefresh={refreshAll}
         refreshing={isLoading}
         items={[
@@ -228,7 +230,27 @@ function HelpdeskPanel() {
   const { data, isOffline, isLoading, refetch, isFetching } = useHelpdeskOverview()
   const { data: telegram } = useTelegramIntegration()
   const createTicket = useCreateSupportTicket()
+  const replyTicket = useReplyHelpdeskTicket()
   const tickets = data?.tickets ?? []
+
+  const handleReply = (ticketId: string, subject: string) => {
+    if (isOffline) {
+      toast.error('Helpdesk API offline.')
+      return
+    }
+    const message = window.prompt(`Reply to: ${subject}`)
+    if (!message?.trim()) return
+    replyTicket.mutate(
+      { ticketId, message: message.trim() },
+      {
+        onSuccess: () => {
+          toast.success('Reply saved.')
+          void refetch()
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
 
   const handleCreateTicket = () => {
     if (isOffline) {
@@ -253,7 +275,7 @@ function HelpdeskPanel() {
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <StorefrontLiveBar
+      <ModuleLiveStrip
         onRefresh={() => void refetch()}
         refreshing={isFetching}
         items={[
@@ -300,11 +322,17 @@ function HelpdeskPanel() {
                 <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Empty</p>
               ) : (
                 columns[col].slice(0, 6).map((t) => (
-                  <div key={t.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 12px', marginBottom: 8, borderLeft: '3px solid rgba(200,169,126,0.4)' }}>
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="settings-card admin-panel-glass-subtle w-full text-left"
+                    style={{ padding: '10px 12px', marginBottom: 8, borderLeft: '3px solid rgba(200,169,126,0.4)', cursor: 'pointer' }}
+                    onClick={() => handleReply(t.id, t.subject)}
+                  >
                     <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>{t.subject}</p>
                     <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--admin-text-muted)', margin: '2px 0 0', textTransform: 'capitalize' }}>{t.channel.toLowerCase()} · {t.priority.toLowerCase()}</p>
-                    <p style={{ fontSize: 10, color: 'var(--admin-text-muted)', margin: 0 }}>{formatRelativeTime(t.updatedAt)}</p>
-                  </div>
+                    <p style={{ fontSize: 10, color: 'var(--admin-text-muted)', margin: 0 }}>{formatRelativeTime(t.updatedAt)} · Click to reply</p>
+                  </button>
                 ))
               )}
             </div>
@@ -585,10 +613,68 @@ function ProcurementShell({
 function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
   const { data, isError, isLoading, refetch } = useProcurementOverview()
   const createSupplier = useCreateSupplier()
+  const createPurchaseOrder = useCreatePurchaseOrder()
   const suppliers = data?.suppliers ?? []
   const orders = data?.orders ?? []
   const grns = data?.grns ?? []
   const openPos = orders.filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length
+
+  const [showCreatePo, setShowCreatePo] = useState(false)
+  const [poSupplierId, setPoSupplierId] = useState('')
+  const [poNotes, setPoNotes] = useState('')
+  const [poItems, setPoItems] = useState([{ productName: '', sku: '', quantity: '1', unitCost: '' }])
+
+  const poLineTotal = useMemo(
+    () =>
+      poItems.reduce((sum, row) => {
+        const qty = Number(row.quantity) || 0
+        const cost = Number(row.unitCost) || 0
+        return sum + qty * cost
+      }, 0),
+    [poItems],
+  )
+
+  const handleCreatePo = () => {
+    if (!poSupplierId) {
+      toast.error('Select a supplier first.')
+      return
+    }
+    const items = poItems
+      .map((row) => {
+        const item = {
+          productName: row.productName.trim(),
+          quantity: Number(row.quantity) || 0,
+          unitCost: Number(row.unitCost) || 0,
+          ...(row.sku.trim() ? { sku: row.sku.trim() } : {}),
+        }
+        return item
+      })
+      .filter((row) => row.productName && row.quantity > 0)
+
+    if (!items.length) {
+      toast.error('Add at least one line item with name, quantity, and unit cost.')
+      return
+    }
+
+    createPurchaseOrder.mutate(
+      {
+        supplierId: poSupplierId,
+        ...(poNotes.trim() ? { notes: poNotes.trim() } : {}),
+        items,
+      },
+      {
+        onSuccess: (po) => {
+          toast.success(`Purchase order ${po.poNumber} created.`)
+          setShowCreatePo(false)
+          setPoSupplierId('')
+          setPoNotes('')
+          setPoItems([{ productName: '', sku: '', quantity: '1', unitCost: '' }])
+          void refetch()
+        },
+        onError: (e) => toast.error(e.message),
+      },
+    )
+  }
 
   const statusByHref: Record<string, 'ok' | 'warn' | 'down' | 'loading'> = {
     '/dashboard/procurement/overview': isLoading ? 'loading' : isError ? 'down' : 'ok',
@@ -721,7 +807,73 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
           </table>
         </GlassTable>
       )}
-      <AdminButton variant="gold" disabled className="opacity-60">Create PO — form coming soon</AdminButton>
+      {showCreatePo ? (
+        <div className="admin-module-section" style={{ marginBottom: 14 }}>
+          <div className="admin-module-section__head">
+            <h4 className="admin-module-section__title">New purchase order</h4>
+            <p className="admin-module-section__hint">Draft PO — saved to database via POST /admin/hub/procurement/purchase-orders</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-[var(--admin-text-muted)]">Supplier</span>
+              <select
+                className="admin-input admin-input--premium w-full"
+                value={poSupplierId}
+                onChange={(e) => setPoSupplierId(e.target.value)}
+              >
+                <option value="">Select supplier…</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-[var(--admin-text-muted)]">Notes (optional)</span>
+              <input className="admin-input admin-input--premium w-full" value={poNotes} onChange={(e) => setPoNotes(e.target.value)} placeholder="Restock fabric for Eid collection…" />
+            </label>
+          </div>
+          <div className="mt-4 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--admin-text-muted)]">Line items</p>
+            {poItems.map((row, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-4">
+                <input className="admin-input admin-input--premium sm:col-span-2" placeholder="Product / material name" value={row.productName} onChange={(e) => setPoItems((items) => items.map((item, i) => (i === index ? { ...item, productName: e.target.value } : item)))} />
+                <input className="admin-input admin-input--premium" placeholder="SKU" value={row.sku} onChange={(e) => setPoItems((items) => items.map((item, i) => (i === index ? { ...item, sku: e.target.value } : item)))} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="admin-input admin-input--premium" type="number" min={1} placeholder="Qty" value={row.quantity} onChange={(e) => setPoItems((items) => items.map((item, i) => (i === index ? { ...item, quantity: e.target.value } : item)))} />
+                  <input className="admin-input admin-input--premium" type="number" min={0} step="0.01" placeholder="Unit ৳" value={row.unitCost} onChange={(e) => setPoItems((items) => items.map((item, i) => (i === index ? { ...item, unitCost: e.target.value } : item)))} />
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="text-xs font-bold text-[var(--admin-brand-gold-strong)] underline"
+              onClick={() => setPoItems((items) => [...items, { productName: '', sku: '', quantity: '1', unitCost: '' }])}
+            >
+              + Add line
+            </button>
+          </div>
+          <p className="mt-3 text-sm font-bold text-[var(--admin-text-secondary)]">
+            Estimated total: {formatBDT(poLineTotal)}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <GoldBtn onClick={handleCreatePo} disabled={createPurchaseOrder.isPending || suppliers.length === 0}>
+              {createPurchaseOrder.isPending ? 'Creating…' : 'Create PO'}
+            </GoldBtn>
+            <GhostBtn onClick={() => setShowCreatePo(false)}>Cancel</GhostBtn>
+            {suppliers.length === 0 ? (
+              <Link href="/dashboard/procurement/suppliers" className="text-xs font-bold text-amber-700 underline dark:text-amber-300">
+                Add a supplier first →
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <GoldBtn onClick={() => setShowCreatePo(true)} disabled={suppliers.length === 0}>
+          Create PO
+        </GoldBtn>
+        <GhostBtn onClick={() => void refetch()}><RefreshCw style={{ width: 12, height: 12 }} /> Refresh</GhostBtn>
+      </div>
     </ProcurementShell>
   )
 }

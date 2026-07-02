@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, Body, UnauthorizedException } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Query, UnauthorizedException } from '@nestjs/common'
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { Public } from '../../common/auth/public.decorator'
 import { PrismaService } from '../../common/prisma.service'
@@ -58,6 +58,28 @@ export class CommerceOsController {
   @Get('wms/warehouses')
   wmsWarehouses(@Query('storeId') storeId: string) {
     return this.commerce.wmsWarehouses(storeId)
+  }
+
+  @Post('wms/warehouses')
+  createWarehouse(
+    @Query('storeId') storeId: string,
+    @Body() body: { name?: string; code?: string; city?: string; address?: string },
+  ) {
+    return this.commerce.createWarehouse(storeId, {
+      name: body.name ?? '',
+      code: body.code ?? '',
+      ...(body.city ? { city: body.city } : {}),
+      ...(body.address ? { address: body.address } : {}),
+    })
+  }
+
+  @Post('helpdesk/tickets/:id/reply')
+  replyHelpdesk(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { message?: string },
+  ) {
+    return this.commerce.replyHelpdeskTicket(storeId, id, body.message ?? '')
   }
 
   @Get('wms/movements')

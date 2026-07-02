@@ -226,6 +226,20 @@ export function fetchDeliveryOverview() {
   return apiFetch<DeliveryOverview>('/commerce-os/delivery/overview')
 }
 
+export function createWarehouse(input: { name: string; code: string; city?: string; address?: string }) {
+  return apiFetch<WmsWarehouse>('/commerce-os/wms/warehouses', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function replyHelpdeskTicket(ticketId: string, message: string) {
+  return apiFetch<{ ok: boolean; ticketId: string }>(`/commerce-os/helpdesk/tickets/${ticketId}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  })
+}
+
 export function askExecutiveAI(question: string) {
   return apiFetch<{ answer: string }>('/ai/executive/chat', {
     method: 'POST',

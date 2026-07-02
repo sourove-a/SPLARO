@@ -72,8 +72,8 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
           pulse: toPulse(online),
           latencyMs: typeof data.latencyMs === 'number' ? data.latencyMs : null,
         })
-        setStorefront({ pulse: online ? 'checking' : 'offline', latencyMs: null })
-        setDatabase({ pulse: online ? 'checking' : 'offline', latencyMs: null })
+        setStorefront({ pulse: 'offline', latencyMs: null, message: 'Storefront probe unavailable' })
+        setDatabase({ pulse: online ? 'degraded' : 'offline', latencyMs: null })
       }
 
       setLastChecked(data.checkedAt ? new Date(data.checkedAt) : new Date())

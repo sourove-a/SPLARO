@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminNavLink } from '@/components/layout/AdminNavLink'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { cn } from '@/lib/utils/cn'
 import {
   createDefaultSpreadsheet,
@@ -696,18 +698,54 @@ function DrivePanel() {
 function ServicePlaceholder({ title, desc, icon: Icon }: { title: string; desc: string; icon: React.ElementType }) {
   const { data: status } = useGoogleStatus()
   const oauthReady = Boolean(status?.oauthConnected)
+  const sheetsReady = Boolean(status?.spreadsheetId)
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-8">
       <section className="ai-command-hero">
-        <Icon className="mb-2 h-6 w-6 text-[#5E7CFF]" />
+        <Icon className="mb-2 h-6 w-6 text-[var(--admin-brand-gold)]" />
         <h1 className="ai-command-title">{title}</h1>
         <p className="ai-command-sub">{desc}</p>
         <StatusPill ok={oauthReady} label={oauthReady ? `OAuth ready · ${status?.oauthEmail ?? ''}` : 'Connect Gmail OAuth first'} />
       </section>
+
+      <ModuleLiveStrip
+        items={[
+          {
+            label: 'Google OAuth',
+            value: oauthReady ? 'Connected' : 'Not connected',
+            ok: oauthReady,
+            ...(!oauthReady ? { href: '/dashboard/google-workspace/connect' } : {}),
+          },
+          {
+            label: 'Spreadsheet',
+            value: sheetsReady ? 'Linked' : 'Not linked',
+            ok: sheetsReady,
+            href: '/dashboard/google-workspace/sheets-sync',
+          },
+          {
+            label: title,
+            value: oauthReady ? 'API ready' : 'Needs OAuth',
+            ok: oauthReady,
+          },
+        ]}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <AdminNavLink href="/dashboard/google-workspace/connect" className="admin-btn admin-btn--gold px-4 py-2 text-xs">
+          {oauthReady ? 'Manage connection' : 'Connect Google account'}
+        </AdminNavLink>
+        <AdminNavLink href="/dashboard/google-workspace/sheets-sync" className="admin-btn admin-btn--ghost px-4 py-2 text-xs">
+          Sheets sync
+        </AdminNavLink>
+        <AdminNavLink href="/dashboard/google-workspace/sync-logs" className="admin-btn admin-btn--ghost px-4 py-2 text-xs">
+          Sync logs
+        </AdminNavLink>
+      </div>
+
       <p className="text-sm text-[var(--admin-text-muted)]">
         {oauthReady
-          ? 'OAuth token detected. Full UI for this service is coming soon — API wiring is shared with Google Workspace OAuth.'
-          : 'Connect your personal Google account in Connect Google Account. Service account alone is not enough for this feature.'}
+          ? `${title} uses the same Google OAuth token as Sheets and Gmail. Service-specific dashboards will expand here — use Sheets Sync and Sync Logs for live data today.`
+          : 'Connect your Google account first. Service account alone is not enough for Gmail, Calendar, or Docs APIs.'}
       </p>
     </div>
   )

@@ -14,6 +14,7 @@ import { ProfitLossPanel } from '@/components/finance/ProfitLossPanel'
 import { DailyClosingPanel } from '@/components/finance/DailyClosingPanel'
 import { GoogleSheetsPanel } from '@/components/finance/GoogleSheetsPanel'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ModulePageHero } from '@/components/ui/ModulePageHero'
 import {
   fetchDailyClosings,
   fetchExpenses,
@@ -109,7 +110,14 @@ export function FinanceModulePanel(props: ModuleContextProps) {
     && moduleHref !== '/dashboard/finance/google-sheets-finance'
 
   return (
-    <div className="settings-section-enter flex flex-col gap-4">
+    <div className="settings-section-enter admin-module-page flex flex-col gap-4">
+      {moduleHref === '/dashboard/finance/finance-reports' ? (
+        <ModulePageHero
+          eyebrow="SPLARO · Finance"
+          title="Finance hub"
+          description="Partner hisab, expenses, P&L, daily closing — সব live API থেকে।"
+        />
+      ) : null}
       <FinanceSubNav activeHref={moduleHref} statusByHref={statusByHref} />
       {anyDown ? (
         <ApiOfflineBanner message="Finance API offline — run pnpm dev:api on port 4000." />

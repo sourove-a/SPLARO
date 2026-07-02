@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getSessionUser } from '@/lib/server/auth'
 import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { validateCoupon } from '@/lib/server/coupons'
-import { sendOrderConfirmation } from '@/lib/server/notifications'
 import { createOrderViaApi, fetchOrdersViaApi } from '@/lib/server/api-orders'
-import { notifyStorefrontApiError } from '@/lib/server/api-events'
-import { cacheOrderInFile, createOrder } from '@/lib/server/orders'
+import { cacheOrderInFile } from '@/lib/server/orders'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 import type { StoredOrderItem } from '@/lib/server/store'
@@ -184,55 +181,29 @@ export async function POST(request: Request) {
   const discount = body.discount ?? digitalDiscount + couponDiscount
   const total = body.total ?? Math.max(0, Math.round(subtotal + delivery - discount))
 
-  const sessionUser = await getSessionUser()
   const clientIp = getClientKey(request, 'ip').split(':').slice(1).join(':')
   const userAgent = request.headers.get('user-agent') ?? undefined
 
   try {
-    let order
-    try {
-      order = await createOrderViaApi({
-        customer: {
-          name: normalizedCustomer.name,
-          email: normalizedCustomer.email,
-          phone: normalizedCustomer.phone,
-          address: normalizedCustomer.address,
-          city: normalizedCustomer.city,
-        },
-        items,
-        subtotal,
-        delivery,
-        discount,
-        total,
-        paymentMethod,
-        ...(body.couponCode ? { couponCode: body.couponCode } : {}),
-        ...(body.attribution ? { attribution: body.attribution } : {}),
-        ...(clientIp !== 'local' ? { clientIp } : {}),
-        ...(userAgent ? { userAgent } : {}),
-      })
-    } catch (apiErr) {
-      void notifyStorefrontApiError(
-        'Order create',
-        apiErr instanceof Error ? apiErr.message : 'API order create failed — using local fallback',
-      )
-      order = await createOrder({
-        ...(sessionUser?.id ? { userId: sessionUser.id } : {}),
-        customer: {
-          name: normalizedCustomer.name,
-          email: normalizedCustomer.email,
-          phone: normalizedCustomer.phone,
-          address: normalizedCustomer.address,
-          city: normalizedCustomer.city,
-        },
-        items,
-        subtotal,
-        delivery,
-        discount,
-        ...(body.couponCode ? { couponCode: body.couponCode, couponDiscount } : {}),
-        total,
-        paymentMethod,
-      })
-    }
+    const order = await createOrderViaApi({
+      customer: {
+        name: normalizedCustomer.name,
+        email: normalizedCustomer.email,
+        phone: normalizedCustomer.phone,
+        address: normalizedCustomer.address,
+        city: normalizedCustomer.city,
+      },
+      items,
+      subtotal,
+      delivery,
+      discount,
+      total,
+      paymentMethod,
+      ...(body.couponCode ? { couponCode: body.couponCode } : {}),
+      ...(body.attribution ? { attribution: body.attribution } : {}),
+      ...(clientIp !== 'local' ? { clientIp } : {}),
+      ...(userAgent ? { userAgent } : {}),
+    })
 
     if (!order) {
       throw new Error('Unable to create order')
@@ -240,11 +211,20 @@ export async function POST(request: Request) {
 
     await cacheOrderInFile(order)
 
-    await sendOrderConfirmation(order)
-
     return NextResponse.json({ order }, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to create order'
-    return NextResponse.json({ error: message }, { status: 400 })
+    const isApiDown =
+      message.includes('fetch failed') ||
+      message.includes('ECONNREFUSED') ||
+      message.includes('API order failed')
+    return NextResponse.json(
+      {
+        error: isApiDown
+          ? 'Order service is offline. Start the API (pnpm dev:api) and try again.'
+          : message,
+      },
+      { status: isApiDown ? 503 : 400 },
+    )
   }
 }

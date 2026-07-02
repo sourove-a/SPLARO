@@ -50,6 +50,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { getStoredAttribution } from '@/lib/analytics/attribution'
 import { notifyOrderPaymentEvent } from '@/lib/api/order-events'
+import { startBkashCheckout, startNagadCheckout, startSslCommerzCheckout } from '@/lib/api/payments'
 import { trackInitiateCheckout, trackPurchase } from '@/lib/analytics/meta-pixel'
 import {
   CheckoutField,
@@ -101,6 +102,7 @@ export default function CheckoutPageClient() {
   const [freeShipping, setFreeShipping] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [couponServiceOffline, setCouponServiceOffline] = useState(false)
   const [couponsEnabled, setCouponsEnabled] = useState(false)
   const [couponApplying, setCouponApplying] = useState(false)
   const [phoneError, setPhoneError] = useState('')
@@ -125,9 +127,20 @@ export default function CheckoutPageClient() {
 
   useEffect(() => {
     fetch('/api/coupons/active')
-      .then((res) => res.json())
-      .then((payload: { enabled?: boolean }) => setCouponsEnabled(Boolean(payload.enabled)))
-      .catch(() => setCouponsEnabled(false))
+      .then(async (res) => {
+        const payload = (await res.json()) as { enabled?: boolean; error?: string }
+        if (res.status === 503 || payload.error) {
+          setCouponServiceOffline(true)
+          setCouponsEnabled(false)
+          return
+        }
+        setCouponServiceOffline(false)
+        setCouponsEnabled(Boolean(payload.enabled))
+      })
+      .catch(() => {
+        setCouponServiceOffline(true)
+        setCouponsEnabled(false)
+      })
   }, [])
 
   const delivery =
@@ -194,9 +207,19 @@ export default function CheckoutPageClient() {
       if (!response.ok || !payload.valid) {
         setCouponDiscount(0)
         setFreeShipping(false)
-        setCouponMessage(payload.message ?? 'Invalid coupon code')
+        if (response.status === 503) {
+          setCouponServiceOffline(true)
+        }
+        setCouponMessage(
+          payload.message ??
+            (response.status === 503
+              ? 'Coupon service offline — try again later or continue without a coupon.'
+              : 'Invalid coupon code'),
+        )
         return
       }
+
+      setCouponServiceOffline(false)
 
       setCouponDiscount(payload.discount ?? 0)
       setFreeShipping(Boolean(payload.freeShipping))
@@ -204,7 +227,8 @@ export default function CheckoutPageClient() {
     } catch {
       setCouponDiscount(0)
       setFreeShipping(false)
-      setCouponMessage('Could not validate coupon right now. Please try again.')
+      setCouponServiceOffline(true)
+      setCouponMessage('Coupon service offline — try again later or continue without a coupon.')
     } finally {
       setCouponApplying(false)
     }
@@ -331,6 +355,10 @@ export default function CheckoutPageClient() {
       )
 
       if (form.payment === 'SSLCommerz') {
+        if (!saved.invoiceNumber) {
+          setSubmitError('Order invoice missing — cannot start SSLCommerz. Retry or contact support.')
+          return
+        }
         if (saved.invoiceNumber) {
           void notifyOrderPaymentEvent({
             invoiceNumber: saved.invoiceNumber,
@@ -338,19 +366,23 @@ export default function CheckoutPageClient() {
             gateway: 'SSLCommerz',
           })
         }
-        const payResponse = await fetch('/api/payments/sslcommerz/init', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: saved.id, amount: totalBdt, phone: normalizedPhone }),
-        })
-        const payPayload = (await payResponse.json()) as { gatewayUrl?: string; error?: string }
-        if (payPayload.gatewayUrl) {
+        try {
+          const ssl = await startSslCommerzCheckout({
+            invoiceNumber: saved.invoiceNumber,
+            amount: totalBdt,
+            customer: {
+              name: form.name,
+              email: form.email,
+              phone: normalizedPhone,
+              address: deliveryAddress,
+              city: form.city,
+            },
+          })
           clearStagedCheckoutItems()
           clearCart()
-          window.location.href = payPayload.gatewayUrl
+          window.location.href = ssl.gatewayUrl
           return
-        }
-        if (!payResponse.ok) {
+        } catch (err) {
           if (saved.invoiceNumber) {
             void notifyOrderPaymentEvent({
               invoiceNumber: saved.invoiceNumber,
@@ -358,13 +390,16 @@ export default function CheckoutPageClient() {
               gateway: 'SSLCommerz',
             })
           }
-          setSubmitError(payPayload.error ?? 'Unable to start card payment')
+          setSubmitError(err instanceof Error ? err.message : 'Unable to start card payment')
           return
         }
       }
 
       if (form.payment === 'bKash' || form.payment === 'Nagad') {
-        const provider = form.payment === 'bKash' ? 'bkash' : 'nagad'
+        if (form.payment === 'bKash' && !saved.invoiceNumber) {
+          setSubmitError('Order invoice missing — cannot start bKash. Retry or contact support.')
+          return
+        }
         if (saved.invoiceNumber) {
           void notifyOrderPaymentEvent({
             invoiceNumber: saved.invoiceNumber,
@@ -372,24 +407,26 @@ export default function CheckoutPageClient() {
             gateway: form.payment,
           })
         }
-        const payResponse = await fetch(`/api/payments/${provider}/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: saved.id, phone: normalizedPhone }),
-        })
-        const payPayload = (await payResponse.json()) as {
-          redirectUrl?: string
-          gatewayUrl?: string
-          error?: string
-        }
-        const redirectUrl = payPayload.redirectUrl ?? payPayload.gatewayUrl
-        if (redirectUrl) {
+        try {
+          const redirectUrl =
+            form.payment === 'bKash'
+              ? (
+                  await startBkashCheckout({
+                    invoiceNumber: saved.invoiceNumber!,
+                    amount: totalBdt,
+                  })
+                ).redirectUrl
+              : (
+                  await startNagadCheckout({
+                    orderId: saved.id,
+                    amount: totalBdt,
+                  })
+                ).redirectUrl
           clearStagedCheckoutItems()
           clearCart()
           window.location.href = redirectUrl
           return
-        }
-        if (!payResponse.ok) {
+        } catch (err) {
           if (saved.invoiceNumber) {
             void notifyOrderPaymentEvent({
               invoiceNumber: saved.invoiceNumber,
@@ -397,7 +434,7 @@ export default function CheckoutPageClient() {
               gateway: form.payment,
             })
           }
-          setSubmitError(payPayload.error ?? `Unable to start ${form.payment} payment`)
+          setSubmitError(err instanceof Error ? err.message : `Unable to start ${form.payment} payment`)
           return
         }
       }
@@ -547,6 +584,14 @@ export default function CheckoutPageClient() {
                 </CheckoutField>
               </div>
             </section>
+
+            {couponServiceOffline ? (
+              <section className="checkout-section checkout-section-card">
+                <p className="auth-form__error">
+                  Coupon service is offline — you can still complete checkout without a promo code.
+                </p>
+              </section>
+            ) : null}
 
             {couponsEnabled ? (
               <section className="checkout-section checkout-section-card">

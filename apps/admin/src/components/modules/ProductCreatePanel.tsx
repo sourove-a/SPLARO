@@ -1,11 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
-import { useDropzone } from 'react-dropzone'
 import toast from 'react-hot-toast'
-import { ImagePlus, Link as LinkIcon, Loader2, Package, PlayCircle, Plus, Save, Sparkles, Trash2, Wand2 } from 'lucide-react'
+import { Save, Sparkles, Wand2 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
+import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
 import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import {
@@ -23,17 +22,16 @@ import {
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
 import { useCategories, useCollections, useCreateProduct } from '@/lib/api/hooks'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
-import { uploadAdminImage } from '@/lib/api/upload'
+import { ProductFormStatusBar } from '@/components/modules/product-form/ProductFormStatusBar'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ProductMediaPanel } from '@/components/modules/product-form/ProductMediaPanel'
 import { generateAIProduct } from '@/lib/api/finance'
+import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-import { cn } from '@/lib/utils/cn'
 
 interface ProductCreatePanelProps {
   moduleHref: string
 }
-
-const MAX_PRODUCT_IMAGES = 10
-const RECOMMENDED_PRODUCT_IMAGES = 4
 
 const SIZE_PRESETS: Record<string, string> = {
   kids: '2M, 3M, 6M, 9M, 12M, 18M, 2Y, 3Y, 4Y, 5Y, 6Y, 7Y, 8Y, 9Y, 10Y',
@@ -70,14 +68,13 @@ function newColorId() {
 
 export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const { navigate } = useAdminNavigate()
+  const { api } = useAdminConnection(30_000)
+  const apiOffline = api.pulse === 'offline'
   const createProduct = useCreateProduct()
   const { data: categories = [], isLoading: catsLoading } = useCategories()
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
-  const [uploading, setUploading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
-  const [imageLink, setImageLink] = useState('')
-  const [activeMedia, setActiveMedia] = useState(0)
   const [colorRows, setColorRows] = useState<ColorRow[]>([
     { id: newColorId(), name: '', hex: '#1d2a24', imageUrl: '' },
   ])
@@ -231,59 +228,6 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     toast.success(`Assigned to ${activeColorRow.name.trim() || 'colour'}`)
   }
 
-  const addImageUrls = useCallback((urls: string[]) => {
-    const cleanUrls = urls.map((url) => url.trim()).filter(Boolean)
-    if (!cleanUrls.length) return
-    setForm((prev) => {
-      const next = [...prev.imageUrls]
-      for (const url of cleanUrls) {
-        if (next.length >= MAX_PRODUCT_IMAGES) break
-        if (!next.includes(url)) next.push(url)
-      }
-      return { ...prev, imageUrls: next }
-    })
-  }, [])
-
-  const removeImageUrl = (url: string) => {
-    setForm((prev) => ({ ...prev, imageUrls: prev.imageUrls.filter((item) => item !== url) }))
-    setActiveMedia(0)
-  }
-
-  const handleAddImageLink = () => {
-    if (!imageLink.trim()) return
-    if (form.imageUrls.length >= MAX_PRODUCT_IMAGES) {
-      toast.error(`Maximum ${MAX_PRODUCT_IMAGES} images allowed.`)
-      return
-    }
-    addImageUrls([imageLink])
-    setImageLink('')
-  }
-
-  const onDrop = useCallback(async (files: File[]) => {
-    const selected = files.slice(0, Math.max(0, MAX_PRODUCT_IMAGES - form.imageUrls.length))
-    if (!selected.length) return
-    setUploading(true)
-    try {
-      const urls: string[] = []
-      for (const file of selected) {
-        urls.push(await uploadAdminImage(file, 'products'))
-      }
-      addImageUrls(urls)
-      toast.success(`${urls.length} image${urls.length > 1 ? 's' : ''} optimized to WebP.`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
-    } finally {
-      setUploading(false)
-    }
-  }, [addImageUrls, form.imageUrls.length])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.gif'] },
-    maxFiles: MAX_PRODUCT_IMAGES,
-    disabled: uploading || aiLoading || form.imageUrls.length >= MAX_PRODUCT_IMAGES,
-  })
-
   const applyCategorySizes = (categoryId: string) => {
     const deptId = categoryPicker.departmentForCategory(categoryId)
     const dept = categories.find((c) => c.id === deptId)
@@ -395,12 +339,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      toast.error('Product name (EN) is required.')
-      return
-    }
-    if (!form.nameBn.trim()) {
-      toast.error('নাম (বাংলা) লিখুন।')
-      setActiveTab('basic')
+      toast.error('Product name is required.')
       return
     }
     if (!form.categoryId) {
@@ -467,8 +406,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         ...(form.collectionId ? { collectionId: form.collectionId } : {}),
         ...(form.lowStockThreshold ? { lowStockThreshold: Number(form.lowStockThreshold) || 5 } : {}),
         isPublished: form.isPublished,
-        status: form.status,
         isHidden: form.isHidden,
+        status: form.isPublished ? 'PUBLISHED' : 'DRAFT',
         sizes: sizeList,
         fabricContent: form.fabricContent,
         fitType,
@@ -490,16 +429,9 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     }
   }
 
-  const mediaItems = [
-    ...(form.videoUrl.trim() ? [{ type: 'video' as const, url: form.videoUrl.trim() }] : []),
-    ...form.imageUrls.map((url) => ({ type: 'image' as const, url })),
-  ]
-  const selectedMedia = mediaItems[activeMedia] ?? mediaItems[0]
-
   const canSubmit =
     Boolean(
       form.name.trim() &&
-        form.nameBn.trim() &&
         form.categoryId &&
         form.basePrice &&
         Number(form.basePrice) > 0 &&
@@ -507,16 +439,16 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     )
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="product-page mx-auto max-w-6xl space-y-4">
       <section className="product-create-hero">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--admin-text-secondary)]">SPLARO · Catalog</p>
-          <h2 className="mt-1 text-2xl font-black text-[var(--admin-text)]">Add product</h2>
-          <p className="mt-2 text-sm font-semibold text-[var(--admin-text-secondary)]">
-            এক page-এ সব — size, colour, description, SEO. Notes লিখলে সেই প্রেক্ষাপটে copy; না লিখলে name দেখে premium draft।
+          <p className="product-create-hero__eyebrow">SPLARO · Catalog</p>
+          <h2 className="product-create-hero__title">Add product</h2>
+          <p className="product-create-hero__desc">
+            Media, pricing, variants, SEO — সব এক জায়গায়। API connected থাকলে save সরাসরি storefront-এ যাবে।
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="product-create-hero__actions">
           <AdminButton variant="ghost" onClick={() => applyDescriptionDraft()}>
             <Wand2 className="h-4 w-4" />
             Draft copy
@@ -528,131 +460,20 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         </div>
       </section>
 
+      {apiOffline ? (
+        <ApiOfflineBanner message="API offline — save will fail until pnpm dev:stack (or pnpm dev:api) is running." />
+      ) : null}
+
+      <ProductFormStatusBar
+        categoriesLoading={catsLoading}
+        categoriesCount={categories.length}
+        collectionsCount={collections.length}
+        variantCount={variantCount}
+        canSubmit={canSubmit}
+      />
+
       <div className="product-create-shell">
-        <aside className="product-create-media admin-module-card admin-module-card--accent">
-          <div className="product-media-heading">
-            <div>
-              <p className="admin-kpi__label">Product media</p>
-              <h3 className="admin-module-card__title">Video + gallery</h3>
-            </div>
-            <span className="product-media-badge">{form.imageUrls.length}/{MAX_PRODUCT_IMAGES}</span>
-          </div>
-
-          <div className="product-media-preview">
-            {activeColorRow?.imageUrl ? (
-              <Image src={activeColorRow.imageUrl} alt="Colour preview" fill unoptimized sizes="380px" className="product-media-preview__asset" />
-            ) : selectedMedia?.type === 'video' ? (
-              <video src={selectedMedia.url} className="product-media-preview__asset" autoPlay muted loop playsInline controls />
-            ) : selectedMedia?.type === 'image' ? (
-              <Image src={selectedMedia.url} alt="Product preview" fill unoptimized sizes="380px" className="product-media-preview__asset" />
-            ) : (
-              <div className="product-media-empty">
-                <ImagePlus className="h-9 w-9 text-[var(--admin-accent)]" />
-                <p>Add video or images</p>
-              </div>
-            )}
-          </div>
-
-          {activeColorRow ? (
-            <p className="product-storefront-hint">
-              Preview · <strong>{activeColorRow.name.trim() || 'Unnamed colour'}</strong>
-            </p>
-          ) : null}
-
-          <div className="product-media-url-row">
-            <PlayCircle className="h-4 w-4 text-[var(--admin-accent)]" />
-            <input
-              className="admin-input admin-input--premium"
-              value={form.videoUrl}
-              onChange={(e) => { set('videoUrl', e.target.value); setActiveMedia(0) }}
-              placeholder="Video URL (.mp4 / .webm)"
-            />
-          </div>
-
-          <div className="product-media-url-row">
-            <LinkIcon className="h-4 w-4 text-[var(--admin-accent)]" />
-            <input
-              className="admin-input admin-input--premium"
-              value={imageLink}
-              onChange={(e) => setImageLink(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddImageLink() } }}
-              placeholder="Image URL"
-            />
-            <button type="button" className="product-media-add" onClick={handleAddImageLink} aria-label="Add image URL">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div
-            {...getRootProps()}
-            className={cn(
-              'product-upload-zone product-upload-zone--compact',
-              isDragActive && 'product-upload-zone--active',
-              uploading && 'opacity-60 pointer-events-none',
-            )}
-          >
-            <input {...getInputProps()} />
-            {uploading ? (
-              <Loader2 className="h-6 w-6 animate-spin text-[var(--admin-accent)]" />
-            ) : (
-              <>
-                <ImagePlus className="h-7 w-7 text-[var(--admin-accent)]" />
-                <p className="mt-2 text-sm font-black text-[var(--admin-text)]">Drop HD images</p>
-                <p className="mt-1 text-xs text-[var(--admin-text-secondary)]">Best {RECOMMENDED_PRODUCT_IMAGES}+ · max {MAX_PRODUCT_IMAGES}</p>
-              </>
-            )}
-          </div>
-
-          {mediaItems.length > 0 ? (
-            <div className="product-media-grid">
-              {mediaItems.map((item, index) => (
-                <button
-                  key={`${item.type}-${item.url}`}
-                  type="button"
-                  className={cn(
-                    'product-media-thumb',
-                    activeMedia === index && 'product-media-thumb--active',
-                    item.type === 'image' && imageColorLabel.has(item.url) && 'product-media-thumb--assigned',
-                  )}
-                  onClick={() => {
-                    setActiveMedia(index)
-                    if (item.type === 'image') assignImageToActiveColor(item.url)
-                  }}
-                >
-                  {item.type === 'video' ? (
-                    <>
-                      <video src={item.url} muted playsInline className="product-media-thumb__asset" />
-                      <span className="product-media-thumb__play"><PlayCircle className="h-4 w-4" /></span>
-                    </>
-                  ) : (
-                    <>
-                      <Image src={item.url} alt="" fill unoptimized sizes="76px" className="product-media-thumb__asset" />
-                      {imageColorLabel.get(item.url) ? (
-                        <span className="product-media-thumb__tag">{imageColorLabel.get(item.url)}</span>
-                      ) : null}
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className="product-media-thumb__remove"
-                        onClick={(e) => { e.stopPropagation(); removeImageUrl(item.url) }}
-                        aria-label="Remove image"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </span>
-                    </>
-                  )}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </aside>
-
         <div className="admin-module-card admin-module-card--accent product-create-form product-form-shell">
-          <div className="mb-4 flex items-center gap-2">
-            <Package className="h-5 w-5 text-[var(--admin-text)]" />
-            <h3 className="admin-module-card__title">Add New Product</h3>
-          </div>
-
           <ProductCreateTabbedForm
             tab={activeTab}
             onTabChange={setActiveTab}
@@ -695,6 +516,17 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
           />
 
           <div className="product-form-actions">
+            <AdminSwitchRow
+              label={form.isPublished ? 'Publish live on storefront' : 'Save as draft'}
+              desc={form.isPublished ? 'Product will be visible on splaro.com.bd after create' : 'Hidden until you publish from edit'}
+              checked={form.isPublished}
+              highlight
+              onChange={() => {
+                const next = !form.isPublished
+                set('isPublished', next)
+                set('status', next ? 'PUBLISHED' : 'DRAFT')
+              }}
+            />
             <AdminButton variant="gold" loading={createProduct.isPending} disabled={!canSubmit} onClick={handleSubmit}>
               <Save className="h-4 w-4" />
               Create product
@@ -702,6 +534,22 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             <AdminLinkButton href={moduleHref} variant="ghost">Cancel</AdminLinkButton>
           </div>
         </div>
+
+        <ProductMediaPanel
+          imageUrls={form.imageUrls}
+          videoUrl={form.videoUrl}
+          onImageUrlsChange={(urls) => setForm((prev) => ({ ...prev, imageUrls: urls }))}
+          onVideoUrlChange={(url) => setForm((prev) => ({ ...prev, videoUrl: url }))}
+          disabled={aiLoading}
+          previewLabel={
+            activeColorRow
+              ? `Preview · ${activeColorRow.name.trim() || 'Unnamed colour'}`
+              : undefined
+          }
+          previewOverrideUrl={activeColorRow?.imageUrl || undefined}
+          imageColorLabel={imageColorLabel}
+          onAssignImageToColor={assignImageToActiveColor}
+        />
       </div>
     </div>
   )

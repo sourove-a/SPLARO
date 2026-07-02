@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { ProductCard } from '@/components/product/ProductCard/ProductCard'
-import { searchProducts } from '@/lib/catalog'
 import type { ProductCardData } from '@splaro/types'
 
 export default function SearchPageClient() {
@@ -13,26 +12,40 @@ export default function SearchPageClient() {
   const query = searchParams.get('q') ?? ''
   const [results, setResults] = useState<ProductCardData[]>([])
   const [loading, setLoading] = useState(false)
-
-  const localFallback = useMemo(() => searchProducts(query), [query])
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!query.trim()) {
       setResults([])
+      setSearchError(null)
       return
     }
 
     let cancelled = false
     setLoading(true)
+    setSearchError(null)
 
     fetch(`/api/search?q=${encodeURIComponent(query)}`, { cache: 'no-store' })
       .then(async (res) => {
-        if (!res.ok) throw new Error('search failed')
-        const payload = (await res.json()) as { products?: ProductCardData[] }
-        if (!cancelled) setResults(payload.products ?? [])
+        const payload = (await res.json()) as {
+          products?: ProductCardData[]
+          error?: string
+        }
+        if (!res.ok) {
+          throw new Error(payload.error ?? 'Search service offline')
+        }
+        if (!cancelled) {
+          setResults(payload.products ?? [])
+          setSearchError(null)
+        }
       })
-      .catch(() => {
-        if (!cancelled) setResults(localFallback)
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setResults([])
+          setSearchError(
+            err instanceof Error ? err.message : 'Search is temporarily offline — try again shortly.',
+          )
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -41,7 +54,7 @@ export default function SearchPageClient() {
     return () => {
       cancelled = true
     }
-  }, [query, localFallback])
+  }, [query])
 
   const displayResults = query ? results : []
 
@@ -58,9 +71,11 @@ export default function SearchPageClient() {
           <p className="search-page__subtitle">
             {loading
               ? 'Searching…'
-              : query
-                ? `${displayResults.length} ${displayResults.length === 1 ? 'product' : 'products'} found`
-                : 'Enter a search term from the header to find products.'}
+              : searchError
+                ? 'Search unavailable'
+                : query
+                  ? `${displayResults.length} ${displayResults.length === 1 ? 'product' : 'products'} found`
+                  : 'Enter a search term from the header to find products.'}
           </p>
           <form action="/search" method="get" className="search-page__form">
             <Search className="h-4 w-4" strokeWidth={2.1} />
@@ -76,7 +91,13 @@ export default function SearchPageClient() {
           </form>
         </header>
 
-        {query && !loading && displayResults.length === 0 ? (
+        {searchError ? (
+          <div className="search-page__empty account-glass">
+            <p className="auth-form__error">{searchError}</p>
+          </div>
+        ) : null}
+
+        {query && !loading && !searchError && displayResults.length === 0 ? (
           <div className="search-page__empty account-glass">
             <p>No products matched your search.</p>
             <Link href="/shop" className="search-page__link">

@@ -1,0 +1,504 @@
+/* SPLARO admin — brand gold + module page tokens (imported from globals.css) */
+
+:root {
+  --admin-brand-gold: #c8a97e;
+  --admin-brand-gold-strong: #b8956a;
+  --admin-brand-gold-muted: rgba(200, 169, 126, 0.12);
+  --admin-brand-gold-border: rgba(200, 169, 126, 0.34);
+  --admin-brand-gold-glow: rgba(200, 169, 126, 0.22);
+  --admin-brand-gold-ink: #2a2418;
+}
+
+.admin-module-page {
+  --product-gold: var(--admin-brand-gold);
+  --product-gold-strong: var(--admin-brand-gold-strong);
+  --product-gold-muted: var(--admin-brand-gold-muted);
+  --product-gold-border: var(--admin-brand-gold-border);
+  --product-gold-glow: var(--admin-brand-gold-glow);
+  --product-gold-ink: var(--admin-brand-gold-ink);
+}
+
+.admin-module-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 22px;
+  border: 1px solid var(--admin-glass-border);
+  background: var(--admin-glass-sheen);
+  box-shadow: var(--admin-shadow-soft);
+}
+
+.admin-module-hero__eyebrow {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--admin-text-secondary);
+}
+
+.admin-module-hero__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.admin-module-hero__desc {
+  margin: 0.55rem 0 0;
+  max-width: 40rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--admin-text-secondary);
+}
+
+.admin-module-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-module-section {
+  border-radius: 18px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: var(--admin-glass-soft);
+  padding: 1rem 1.05rem 1.1rem;
+}
+
+.admin-module-section__head {
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--admin-glass-border-subtle);
+}
+
+.admin-module-section__title {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--admin-text);
+}
+
+.admin-module-section__hint {
+  margin: 0.28rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+  line-height: 1.45;
+}
+
+.admin-module-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.admin-module-page .product-form-tabs__tab--active,
+.admin-module-page .product-size-chip--active {
+  background: linear-gradient(135deg, var(--admin-brand-gold), var(--admin-brand-gold-strong));
+  color: #fff9ef;
+  border-color: var(--admin-brand-gold-border);
+}
+
+/* ── Unified connection UI (chips, strips, cards, header pill) ── */
+
+.admin-conn-pill {
+  display: none;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+@media (min-width: 768px) {
+  .admin-conn-pill {
+    display: inline-flex;
+  }
+}
+
+.admin-conn-pill--checking {
+  color: var(--admin-text-muted);
+  background: var(--admin-glass-soft);
+}
+
+.admin-conn-pill--off {
+  border-color: rgba(16, 17, 20, 0.16);
+  background: rgba(16, 17, 20, 0.05);
+  color: #101114;
+}
+
+.admin-conn-pill--warn {
+  border-color: rgba(16, 17, 20, 0.14);
+  background: rgba(16, 17, 20, 0.04);
+  color: #3f3f46;
+}
+
+.admin-conn-pill--ok {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: rgba(16, 185, 129, 0.08);
+  color: rgb(6, 95, 70);
+}
+
+.admin-conn-pill--ok-gold {
+  border-color: rgba(16, 17, 20, 0.14);
+  background: rgba(16, 17, 20, 0.05);
+  color: #101114;
+}
+
+.admin-conn-pill__dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.admin-conn-strip {
+  border-radius: 16px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: var(--admin-glass-soft);
+  padding: 0.65rem 0.75rem;
+}
+
+.admin-conn-strip--readiness {
+  margin-bottom: 0.75rem;
+}
+
+.admin-conn-strip__title {
+  margin: 0 0 0.45rem;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.admin-conn-strip__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-conn-strip__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.admin-conn-strip__refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: var(--admin-glass-sheen);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--admin-text-secondary);
+  transition: background 0.15s ease;
+}
+
+.admin-conn-strip__refresh:hover:not(:disabled) {
+  background: var(--admin-glass-border-subtle);
+}
+
+.admin-conn-strip__refresh:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-conn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: var(--admin-glass-sheen);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--admin-text-secondary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-conn-chip--compact {
+  padding: 0.28rem 0.5rem;
+}
+
+.admin-conn-chip--ok {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: rgba(16, 185, 129, 0.07);
+  color: rgb(6, 95, 70);
+}
+
+.admin-conn-chip--ready {
+  border-color: rgba(16, 17, 20, 0.14);
+  background: rgba(16, 17, 20, 0.05);
+  color: #101114;
+}
+
+.admin-conn-chip--warn {
+  border-color: rgba(16, 17, 20, 0.14);
+  background: rgba(16, 17, 20, 0.04);
+  color: #3f3f46;
+}
+
+.admin-conn-chip--muted {
+  color: var(--admin-text-muted);
+}
+
+.admin-conn-chip--loading {
+  color: var(--admin-text-muted);
+}
+
+.admin-conn-chip__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--admin-text-muted);
+  flex-shrink: 0;
+}
+
+.admin-conn-chip__dot--on {
+  background: var(--admin-success, #10b981);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.admin-conn-chip__icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+
+.admin-conn-chip__icon--ok {
+  color: rgb(16, 185, 129);
+}
+
+.admin-conn-chip__icon--warn {
+  color: #52525b;
+}
+
+.admin-conn-chip__icon--spin {
+  animation: admin-conn-spin 0.8s linear infinite;
+}
+
+@keyframes admin-conn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.admin-conn-chip__text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.admin-conn-chip__label {
+  font-weight: 800;
+}
+
+.admin-conn-chip__value {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.admin-conn-chip__hint {
+  font-size: 0.58rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.admin-conn-platform {
+  border-radius: 16px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: var(--admin-glass-soft);
+  padding: 0.85rem 0.9rem;
+}
+
+.admin-conn-platform__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-conn-platform__title {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--admin-text);
+}
+
+.admin-conn-platform__sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+}
+
+.admin-conn-platform__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.admin-conn-platform__link {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #101114;
+  text-decoration: underline;
+}
+
+.admin-conn-platform__services {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.admin-conn-card {
+  border-radius: 16px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: var(--admin-glass-sheen);
+  padding: 0.65rem 0.7rem;
+}
+
+.admin-conn-card--on {
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.admin-conn-card--warn {
+  border-color: rgba(16, 17, 20, 0.16);
+}
+
+.admin-conn-card--off {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.admin-conn-card--checking {
+  opacity: 0.85;
+}
+
+.admin-conn-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-conn-card__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--admin-text-muted);
+}
+
+.admin-conn-card__dot--online {
+  background: #10b981;
+}
+
+.admin-conn-card__dot--degraded {
+  background: #f59e0b;
+}
+
+.admin-conn-card__dot--offline {
+  background: #ef4444;
+}
+
+.admin-conn-card__dot--checking {
+  animation: admin-conn-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes admin-conn-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.admin-conn-card__label {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-secondary);
+}
+
+.admin-conn-card__value {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: var(--admin-text);
+}
+
+.admin-conn-card__meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+}
+
+.admin-conn-card__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: #52525b;
+}
+
+.dark .admin-conn-pill--off,
+.dark .admin-conn-pill--warn,
+.dark .admin-conn-chip--warn,
+.dark .admin-conn-card__hint {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.dark .admin-conn-pill--ok,
+.dark .admin-conn-chip--ok {
+  color: rgb(167, 243, 208);
+}
+
+.dark .admin-conn-pill--ok-gold,
+.dark .admin-conn-chip--ready {
+  color: #f4f4f5;
+}
+
+.admin-offline-hint {
+  border-radius: 14px;
+  border: 1px solid rgba(16, 17, 20, 0.12);
+  background: rgba(16, 17, 20, 0.04);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3f3f46;
+}
+
+.dark .admin-offline-hint {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.splaro-admin-logo--mark.splaro-admin-logo--live .splaro-admin-logo__img {
+  box-shadow: 0 0 0 2px rgba(16, 17, 20, 0.18);
+  border-radius: 10px;
+}

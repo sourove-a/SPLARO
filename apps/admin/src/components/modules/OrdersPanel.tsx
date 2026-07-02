@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import {
   toastOk,
@@ -61,8 +61,29 @@ interface OrderRow {
   payment: PaymentMethod
   courier: string
   city: string
+  address?: string
+  district?: string
+  trackingCode?: string | null
+  consignmentId?: string | null
+  courierStatus?: string
+  paymentStatus?: string
+  createdAt?: string
   updatedAt: string
   codRisk?: boolean
+}
+
+const API_STATUS_UI: Record<string, OrderStatus> = {
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  PROCESSING: 'processing',
+  PACKED: 'packed',
+  SHIPPED: 'shipped',
+  COURIER_BOOKED: 'shipped',
+  PICKED_UP: 'shipped',
+  IN_TRANSIT: 'shipped',
+  OUT_FOR_DELIVERY: 'shipped',
+  DELIVERED: 'delivered',
+  CANCELLED: 'cancelled',
 }
 
 const PIPELINE: { key: OrderStatus | 'all'; label: string; count: (rows: OrderRow[]) => number }[] = [
@@ -128,19 +149,6 @@ function mapApiOrder(o: ApiOrder): OrderRow {
     : '—'
   const itemCount = lineItems.reduce((s, i) => s + i.quantity, 0) || 1
   const itemThumbs = lineItems.map((i) => i.image).filter((url): url is string => Boolean(url))
-  const statusMap: Record<string, OrderStatus> = {
-    PENDING: 'pending',
-    CONFIRMED: 'confirmed',
-    PROCESSING: 'processing',
-    PACKED: 'packed',
-    SHIPPED: 'shipped',
-    COURIER_BOOKED: 'shipped',
-    PICKED_UP: 'shipped',
-    IN_TRANSIT: 'shipped',
-    OUT_FOR_DELIVERY: 'shipped',
-    DELIVERED: 'delivered',
-    CANCELLED: 'cancelled',
-  }
   return {
     id: o.invoiceNumber,
     linkId: o.id,
@@ -150,12 +158,19 @@ function mapApiOrder(o: ApiOrder): OrderRow {
     lineItems,
     itemThumbs,
     itemCount,
-    status: statusMap[o.status] ?? 'pending',
+    status: API_STATUS_UI[o.status] ?? 'pending',
     apiStatus: o.status,
     total: Number(o.total),
     payment: mapPaymentMethod(o.paymentMethod) as PaymentMethod,
     courier: o.courier?.provider ?? '—',
     city: o.shippingCity,
+    ...(o.shippingAddress ? { address: o.shippingAddress } : {}),
+    ...(o.shippingDistrict ? { district: o.shippingDistrict } : {}),
+    ...(o.courier?.trackingCode ? { trackingCode: o.courier.trackingCode } : {}),
+    ...(o.courier?.consignmentId ? { consignmentId: o.courier.consignmentId } : {}),
+    ...(o.courier?.status ? { courierStatus: o.courier.status } : {}),
+    ...(o.paymentStatus ? { paymentStatus: o.paymentStatus } : {}),
+    ...(o.createdAt ? { createdAt: o.createdAt } : {}),
     updatedAt: o.updatedAt ?? o.createdAt,
     codRisk: o.isCodRisk,
   }
@@ -215,6 +230,12 @@ export function OrdersPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [previewOrder, setPreviewOrder] = useState<OrderRow | null>(null)
   const [sortBy, setSortBy] = useState<'updated' | 'total'>('updated')
+
+  useEffect(() => {
+    if (!previewOrder) return
+    const fresh = sourceOrders.find((o) => o.id === previewOrder.id)
+    if (fresh) setPreviewOrder(fresh)
+  }, [sourceOrders, previewOrder?.id])
 
   const handleStatusChange = (order: OrderRow, apiStatus: string, label: string) => {
     const id = order.linkId ?? order.id
@@ -648,8 +669,16 @@ export function OrdersPanel() {
                 {
                   onSuccess: () => {
                     toastOk(`${previewOrder.id} updated.`)
+                    setPreviewOrder((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            apiStatus: nextStatus,
+                            status: API_STATUS_UI[nextStatus] ?? prev.status,
+                          }
+                        : null,
+                    )
                     void refetch()
-                    setPreviewOrder(null)
                   },
                   onError: () => toastFail('Could not update order.'),
                 },

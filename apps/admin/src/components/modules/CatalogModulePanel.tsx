@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { refreshWithToast, toastOk, toastFail } from '@/lib/admin/feedback'
+import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { downloadCsv, printProductLabel } from '@/lib/admin/admin-actions'
 import { AlertTriangle, Archive, Award, ChevronDown, Download, Layers, Package, Plus, Printer, RefreshCw, Search, Tags } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
@@ -18,7 +19,8 @@ import { ProductReviewsPanel } from '@/components/modules/ProductReviewsPanel'
 import { ProductEditPanel } from '@/components/modules/ProductEditPanel'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
-import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 
 // ─── Design tokens (theme-aware via CSS variables) ────────────────────────────
 const STATUS_MAP: Record<string, { bg: string; text: string; border: string }> = {
@@ -181,7 +183,18 @@ type ProductStatus = 'active' | 'draft' | 'archived'
 
 function mapApiProduct(p: ApiProduct) {
   const stock = productStock(p)
-  return { id: p.sku ?? p.id.slice(0, 8).toUpperCase(), linkId: p.id, name: p.name, category: p.category?.name ?? 'Uncategorized', brand: p.category?.name ?? '—', variants: p._count?.variants ?? p.variants?.length ?? 0, stock, price: Number(p.basePrice), status: productStatus(p) }
+  return {
+    id: p.sku ?? p.id.slice(0, 8).toUpperCase(),
+    linkId: p.id,
+    slug: p.slug ?? '',
+    name: p.name,
+    category: p.category?.name ?? 'Uncategorized',
+    brand: p.category?.name ?? '—',
+    variants: p._count?.variants ?? p.variants?.length ?? 0,
+    stock,
+    price: Number(p.basePrice),
+    status: productStatus(p),
+  }
 }
 
 function ProductsPanel() {
@@ -243,27 +256,33 @@ function ProductsPanel() {
   }
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {isError && <ErrorBanner msg="API offline — start SPLARO API on port 4000 and run `pnpm db:seed`." />}
-      <div style={{ marginBottom: 12 }}>
-        <StorefrontLiveBar
-        onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
-        items={[
-          {
-            label: 'Storefront products',
-            value: liveCountLoading ? '…' : `${liveCount ?? 0} live`,
-            ok: !liveCountError && !isError,
-            hint: liveCountError ? 'API offline' : 'Published on splaro.com.bd',
-          },
-          {
-            label: 'Catalog in admin',
-            value: isLoading ? '…' : `${apiData?.total ?? catalog.length} total`,
-            ok: !isError,
-            hint: `${catalog.filter((p) => p.status === 'draft').length} draft`,
-          },
-        ]}
-        />
-      </div>
+    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+      {isError ? (
+        <ApiOfflineBanner message="API offline — start SPLARO API on port 4000 and run `pnpm db:seed`." />
+      ) : (
+        <div style={{ marginBottom: 12 }}>
+          <ModuleLiveStrip
+            onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
+            items={[
+              {
+                label: 'Storefront live',
+                value: liveCountLoading ? '…' : `${liveCount ?? 0} published`,
+                ok: !liveCountError,
+              },
+              {
+                label: 'Admin catalog',
+                value: isLoading ? '…' : `${apiData?.total ?? catalog.length} total`,
+                ok: !isError,
+              },
+              {
+                label: 'Draft',
+                value: String(catalog.filter((p) => p.status === 'draft').length),
+                ok: true,
+              },
+            ]}
+          />
+        </div>
+      )}
       <PanelHeader icon={Package} title="Products" kpis={[
         ['Live on site', liveCountLoading ? '…' : (liveCount ?? 0), 'success'],
         ['Total', apiData?.total ?? catalog.length],
@@ -321,7 +340,47 @@ function ProductsPanel() {
                   <td className={TD} style={{ fontWeight: 800, color: p.stock === 0 ? '#f0a8a8' : p.stock <= 5 ? 'var(--admin-text-secondary)' : 'var(--admin-text-primary)' }}>{p.stock}</td>
                   <td className={TD} style={{ fontWeight: 800 }}>{formatBDT(p.price)}</td>
                   <td className={TD}><StatusPill value={p.status} /></td>
-                  <td className={TD}><RowActionsMenu recordName={p.name} moduleHref="/dashboard/products" recordId={p.linkId} /></td>
+                  <td className={TD}>
+                    <RowActionsMenu
+                      recordName={p.name}
+                      moduleHref="/dashboard/products"
+                      recordId={p.linkId}
+                      actions={[
+                        { label: 'Edit product', onClick: () => navigate(`/dashboard/products/${p.linkId}/edit`) },
+                        ...(p.slug
+                          ? [
+                              {
+                                label: 'Copy storefront URL',
+                                onClick: () => {
+                                  if (p.status !== 'active') {
+                                    toast.error('Publish the product first — draft links do not work on the storefront.')
+                                    return
+                                  }
+                                  void copyProductStorefrontUrl(p.slug).then((ok) =>
+                                    ok ? toastOk('Storefront link copied') : toastFail('Could not copy link'),
+                                  )
+                                },
+                              },
+                              {
+                                label: 'View on storefront',
+                                onClick: () => {
+                                  if (p.status !== 'active') {
+                                    toast.error('Publish the product first.')
+                                    return
+                                  }
+                                  window.open(productStorefrontUrl(p.slug), '_blank', 'noopener,noreferrer')
+                                },
+                              },
+                            ]
+                          : []),
+                        {
+                          label: 'Archive',
+                          tone: 'danger' as const,
+                          onClick: () => handleArchive(p.linkId, p.name),
+                        },
+                      ]}
+                    />
+                  </td>
                 </tr>
                 {expandedId === p.linkId && (
                   <tr>
@@ -373,7 +432,7 @@ function CollectionsPanel() {
   if (isError) return <ErrorBanner msg="API offline — start API on port 4000, then run `pnpm db:push`." />
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <PanelHeader icon={Layers} title="Collections" kpis={[
         ['Collections', isLoading ? '…' : rows.length],
         ['Published', isLoading ? '…' : published, 'success'],
@@ -509,12 +568,14 @@ function InventoryPanel() {
   const out = alerts?.outOfStock ?? rows.filter((i) => i.status === 'out').length
   const unitsOnHand = rows.reduce((s, i) => s + i.onHand, 0)
 
-  if (isError) return <ErrorBanner msg="API offline — inventory reads from live product stock on port 4000." />
+  if (isError) {
+    return <ApiOfflineBanner message="API offline — inventory reads from live product stock on port 4000." />
+  }
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <div style={{ marginBottom: 12 }}>
-        <StorefrontLiveBar
+        <ModuleLiveStrip
           items={[
             {
               label: 'Product stock API',
@@ -686,7 +747,7 @@ function BrandsPanel() {
   if (isError) return <ErrorBanner msg="API offline — start API on port 4000, then run `pnpm db:push`." />
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <PanelHeader icon={Award} title="Brands" kpis={[
         ['Brands', isLoading ? '…' : rows.length],
         ['Active', isLoading ? '…' : active, 'success'],
@@ -757,7 +818,7 @@ function AttributesPanel() {
   if (isError) return <ErrorBanner msg="API offline — attributes are derived from live product variants." />
 
   return (
-    <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+    <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
       <PanelHeader icon={Tags} title="Attributes" kpis={[
         ['Attributes', attributes.length],
         ['Option values', attributes.reduce((s, a) => s + a.values, 0), 'gold'],

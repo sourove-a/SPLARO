@@ -15,9 +15,9 @@ export class InvoiceService {
     private readonly email: EmailService,
   ) {}
 
-  async loadOrder(orderId: string): Promise<InvoiceOrder> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
+  async loadOrder(orderRef: string): Promise<InvoiceOrder> {
+    const order = await this.prisma.order.findFirst({
+      where: { OR: [{ id: orderRef }, { invoiceNumber: orderRef }] },
       include: {
         items: { include: { variant: true } },
         courier: true,

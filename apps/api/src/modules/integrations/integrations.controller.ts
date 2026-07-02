@@ -1,10 +1,14 @@
-import { Body, Controller, ForbiddenException, Get, Post, Put, Query, Req } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Get, Param, Post, Put, Query, Req } from '@nestjs/common'
 import type { Request } from 'express'
+import { ConfigService } from '@nestjs/config'
 import { canWriteAdmin } from '../../common/auth/admin-session.util'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
+import { GoogleWorkspaceService } from '../google-workspace/google-workspace.service'
 import { AiIntegrationService, type AiIntegrationDto } from './ai-integration.service'
+import { InfrastructureIntegrationService } from './infrastructure-integration.service'
 import { IntegrationsService } from './integrations.service'
+import { PaymentIntegrationService, type PaymentProvider } from './payment-integration.service'
 import { TelegramIntegrationService, type TelegramIntegrationDto } from './telegram-integration.service'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
@@ -17,20 +21,20 @@ const INTEGRATION_CATALOG: {
 }[] = [
   { id: 'telegram', name: 'Telegram', configurePath: '/dashboard/telegram-bot', provider: 'telegram' },
   { id: 'openai', name: 'OpenAI', configurePath: '/dashboard/ai-agent', provider: 'openai' },
-  { id: 'google_sheets', name: 'Google Sheets', configurePath: '/dashboard/automation/google-sheets-sync', provider: 'google_sheets' },
-  { id: 'gmail', name: 'Gmail', configurePath: '/dashboard/all-integrations', provider: 'gmail' },
-  { id: 'google_drive', name: 'Google Drive', configurePath: '/dashboard/all-integrations', provider: 'google_drive' },
-  { id: 'sslcommerz', name: 'SSLCommerz', configurePath: '/dashboard/settings', provider: 'sslcommerz' },
-  { id: 'bkash', name: 'bKash', configurePath: '/dashboard/settings', provider: 'bkash' },
-  { id: 'nagad', name: 'Nagad', configurePath: '/dashboard/settings', provider: 'nagad' },
-  { id: 'steadfast', name: 'Steadfast', configurePath: '/dashboard/courier-hub', provider: 'steadfast' },
-  { id: 'pathao', name: 'Pathao', configurePath: '/dashboard/courier-hub', provider: 'pathao' },
-  { id: 'redx', name: 'RedX', configurePath: '/dashboard/courier-hub', provider: 'redx' },
-  { id: 'cloudflare_r2', name: 'Cloudflare R2', configurePath: '/dashboard/all-integrations', provider: 'cloudflare_r2' },
-  { id: 'smtp', name: 'SMTP Email', configurePath: '/dashboard/settings', provider: 'smtp' },
+  { id: 'google_sheets', name: 'Google Sheets', configurePath: '/dashboard/google-workspace/sheets-sync', provider: 'google_sheets' },
+  { id: 'gmail', name: 'Gmail', configurePath: '/dashboard/google-workspace/gmail', provider: 'gmail' },
+  { id: 'google_drive', name: 'Google Drive', configurePath: '/dashboard/google-workspace/drive', provider: 'google_drive' },
+  { id: 'sslcommerz', name: 'SSLCommerz', configurePath: '/dashboard/settings?section=payments', provider: 'sslcommerz' },
+  { id: 'bkash', name: 'bKash', configurePath: '/dashboard/settings?section=payments', provider: 'bkash' },
+  { id: 'nagad', name: 'Nagad', configurePath: '/dashboard/settings?section=payments', provider: 'nagad' },
+  { id: 'steadfast', name: 'Steadfast', configurePath: '/dashboard/settings?section=infrastructure', provider: 'steadfast' },
+  { id: 'pathao', name: 'Pathao', configurePath: '/dashboard/settings?section=infrastructure', provider: 'pathao' },
+  { id: 'redx', name: 'RedX', configurePath: '/dashboard/settings?section=infrastructure', provider: 'redx' },
+  { id: 'cloudflare_r2', name: 'Cloudflare R2', configurePath: '/dashboard/settings?section=infrastructure', provider: 'cloudflare_r2' },
+  { id: 'smtp', name: 'SMTP Email', configurePath: '/dashboard/settings?section=notifications', provider: 'smtp' },
   { id: 'sms', name: 'SMS Gateway', configurePath: '/dashboard/email-sms', provider: 'sms' },
-  { id: 'meta_pixel', name: 'Meta Pixel', configurePath: '/dashboard/meta-business', provider: 'meta_pixel' },
-  { id: 'google_analytics', name: 'Google Analytics', configurePath: '/dashboard/meta-business', provider: 'google_analytics' },
+  { id: 'meta_pixel', name: 'Meta Pixel', configurePath: '/dashboard/settings?section=marketing', provider: 'meta_pixel' },
+  { id: 'google_analytics', name: 'Google Analytics', configurePath: '/dashboard/settings?section=marketing', provider: 'google_analytics' },
   { id: 'search_console', name: 'Search Console', configurePath: '/dashboard/seo-health', provider: 'search_console' },
 ]
 
@@ -41,6 +45,10 @@ export class IntegrationsController {
     private readonly integrations: IntegrationsService,
     private readonly telegram: TelegramIntegrationService,
     private readonly ai: AiIntegrationService,
+    private readonly google: GoogleWorkspaceService,
+    private readonly config: ConfigService,
+    private readonly payments: PaymentIntegrationService,
+    private readonly infra: InfrastructureIntegrationService,
   ) {}
 
   private assertWrite(req: AdminRequest) {
@@ -51,6 +59,165 @@ export class IntegrationsController {
     return req.adminUser!.userId
   }
 
+  private isR2Configured(): boolean {
+    const key = this.config.get<string>('CLOUDFLARE_R2_ACCESS_KEY') ?? ''
+    const secret = this.config.get<string>('CLOUDFLARE_R2_SECRET_KEY') ?? ''
+    const bucket = this.config.get<string>('CLOUDFLARE_R2_BUCKET') ?? ''
+    const placeholders = new Set(['', 'your-r2-access-key', 'your-r2-secret-key'])
+    return Boolean(key && secret && bucket && !placeholders.has(key) && !placeholders.has(secret))
+  }
+
+  private resolveConnected(
+    provider: string,
+    ctx: {
+      telegramCfg: Awaited<ReturnType<TelegramIntegrationService['get']>>
+      aiCfg: Awaited<ReturnType<AiIntegrationService['get']>>
+      store: { settings: Record<string, unknown> | null } | null
+      googleStatus: Awaited<ReturnType<GoogleWorkspaceService['getStatus']>> | null
+      meta: Awaited<ReturnType<IntegrationsService['getProviderMeta']>>
+      paymentByProvider: Map<string, { configured: boolean; source: string }>
+      r2Configured: boolean
+      steadfastConfigured: boolean
+      pathaoConfigured: boolean
+      redxConfigured: boolean
+    },
+  ): { connected: boolean; detail: string | null } {
+    const { telegramCfg, aiCfg, store, googleStatus, meta, paymentByProvider, r2Configured, steadfastConfigured, pathaoConfigured, redxConfigured } = ctx
+    const settings = store?.settings
+
+    if (provider === 'telegram') {
+      const connected = Boolean(telegramCfg.tokenConfigured && telegramCfg.chatId && telegramCfg.isEnabled)
+      return {
+        connected,
+        detail: connected ? `Chat ${telegramCfg.chatId}` : telegramCfg.tokenConfigured ? 'Add chat ID' : 'Add bot token',
+      }
+    }
+    if (provider === 'openai') {
+      const connected = Boolean(aiCfg.keyConfigured && aiCfg.isEnabled)
+      return { connected, detail: connected ? aiCfg.model : aiCfg.keyConfigured ? 'Enable in AI Agent' : 'Add API key' }
+    }
+    if (provider === 'bkash') {
+      const pay = paymentByProvider.get('bkash')
+      const enabled = Boolean(settings?.bkashEnabled)
+      const connected = enabled && Boolean(pay?.configured)
+      return {
+        connected,
+        detail: connected
+          ? `Live · ${pay?.source === 'database' ? 'saved in admin' : 'from .env'}`
+          : enabled
+            ? 'Enabled — add API keys below'
+            : 'Enable + add keys in Payments',
+      }
+    }
+    if (provider === 'nagad') {
+      const pay = paymentByProvider.get('nagad')
+      const enabled = Boolean(settings?.nagadEnabled)
+      const connected = enabled && Boolean(pay?.configured)
+      return {
+        connected,
+        detail: connected
+          ? `Live · ${pay?.source === 'database' ? 'saved in admin' : 'from .env'}`
+          : enabled
+            ? 'Enabled — add API keys below'
+            : 'Enable + add keys in Payments',
+      }
+    }
+    if (provider === 'sslcommerz') {
+      const pay = paymentByProvider.get('sslcommerz')
+      const enabled = Boolean(settings?.sslcommerzEnabled)
+      const connected = enabled && Boolean(pay?.configured)
+      return {
+        connected,
+        detail: connected
+          ? `Live · ${pay?.source === 'database' ? 'saved in admin' : 'from .env'}`
+          : enabled
+            ? 'Enabled — add store credentials below'
+            : 'Enable + add keys in Payments',
+      }
+    }
+    if (provider === 'meta_pixel') {
+      const id = settings?.facebookPixelId as string | undefined
+      return { connected: Boolean(id), detail: id ? `Pixel ${id}` : 'Add Pixel ID in settings' }
+    }
+    if (provider === 'google_analytics') {
+      const id = settings?.googleAnalyticsId as string | undefined
+      return { connected: Boolean(id), detail: id ? `GA4 ${id}` : 'Add Measurement ID' }
+    }
+    if (provider === 'search_console') {
+      const key = settings?.googleSearchConsoleKey as string | undefined
+      return { connected: Boolean(key), detail: key ? 'Verification key saved' : 'Add verification key' }
+    }
+    if (provider === 'smtp') {
+      const connected = Boolean(settings?.emailEnabled)
+      return { connected, detail: connected ? 'SMTP enabled' : 'Enable email in settings' }
+    }
+    if (provider === 'google_sheets') {
+      const connected = Boolean(googleStatus?.services?.sheets?.connected)
+      const email = googleStatus?.googleEmail
+      const mode = googleStatus?.authMode === 'service_account' ? 'Service account' : 'OAuth'
+      return {
+        connected,
+        detail: connected
+          ? `${mode}${email ? ` · ${email}` : ''}`
+          : googleStatus?.oauthConfigReady
+            ? 'Connect Google Workspace'
+            : 'Add Google OAuth credentials',
+      }
+    }
+    if (provider === 'gmail') {
+      const connected = Boolean(googleStatus?.services?.gmail?.connected)
+      const email = googleStatus?.services?.gmail?.senderEmail ?? googleStatus?.oauthEmail
+      return {
+        connected,
+        detail: connected ? (email ? `Send as ${email}` : 'Gmail API ready') : 'Connect via Google Workspace',
+      }
+    }
+    if (provider === 'google_drive') {
+      const connected = Boolean(googleStatus?.services?.drive?.connected)
+      return {
+        connected,
+        detail: connected ? 'Drive folder linked' : googleStatus?.oauthConnected ? 'Set root folder' : 'Connect Google Workspace',
+      }
+    }
+    if (provider === 'steadfast') {
+      const stub = process.env.COURIER_DEV_STUB === 'true'
+      const connected = steadfastConfigured || stub
+      return {
+        connected,
+        detail: steadfastConfigured
+          ? 'API keys saved'
+          : stub
+            ? 'Dev stub (COURIER_DEV_STUB)'
+            : 'Add keys in Infrastructure settings',
+      }
+    }
+    if (provider === 'pathao') {
+      return {
+        connected: pathaoConfigured,
+        detail: pathaoConfigured ? 'API keys saved' : 'Add keys in Infrastructure settings',
+      }
+    }
+    if (provider === 'redx') {
+      return {
+        connected: redxConfigured,
+        detail: redxConfigured ? 'API key saved' : 'Add API key in Infrastructure settings',
+      }
+    }
+    if (provider === 'cloudflare_r2') {
+      return {
+        connected: r2Configured,
+        detail: r2Configured ? 'R2 bucket configured' : 'Add R2 keys in Infrastructure',
+      }
+    }
+    if (provider === 'sms') {
+      const connected = meta.lastTestStatus === 'success'
+      return { connected, detail: connected ? 'Gateway tested OK' : 'Configure in Email & SMS' }
+    }
+
+    const connected = meta.lastTestStatus === 'success'
+    return { connected, detail: connected ? 'Last test passed' : 'Run connection test' }
+  }
+
   @Get()
   async list(@Query('storeId') storeId: string) {
     const sid = await this.integrations.resolveStore(storeId)
@@ -59,34 +226,38 @@ export class IntegrationsController {
       include: { settings: true, telegramConfig: true },
     })
 
-    const [telegramCfg, aiCfg] = await Promise.all([this.telegram.get(sid), this.ai.get(sid)])
+    const [telegramCfg, aiCfg, googleStatus, paymentAll, r2Cfg, steadfastCfg, pathaoCfg, redxCfg] = await Promise.all([
+      this.telegram.get(sid),
+      this.ai.get(sid),
+      this.google.getStatus(storeId).catch(() => null),
+      this.payments.getAll(storeId),
+      this.infra.getConfig(storeId, 'cloudflare_r2'),
+      this.infra.getConfig(storeId, 'steadfast'),
+      this.infra.getConfig(storeId, 'pathao'),
+      this.infra.getConfig(storeId, 'redx'),
+    ])
+
+    const paymentByProvider = new Map(paymentAll.items.map((p) => [p.provider, p]))
 
     const cards = await Promise.all(
       INTEGRATION_CATALOG.map(async (item) => {
         const meta = await this.integrations.getProviderMeta(sid, item.provider)
-        let connected = false
+        const { connected, detail } = this.resolveConnected(item.provider, {
+          telegramCfg,
+          aiCfg,
+          store,
+          googleStatus,
+          meta,
+          paymentByProvider,
+          r2Configured: r2Cfg.configured,
+          steadfastConfigured: steadfastCfg.configured,
+          pathaoConfigured: pathaoCfg.configured,
+          redxConfigured: redxCfg.configured,
+        })
 
-        if (item.provider === 'telegram') {
-          connected = Boolean(telegramCfg.tokenConfigured && telegramCfg.chatId && telegramCfg.isEnabled)
-        } else if (item.provider === 'openai') {
-          connected = Boolean(aiCfg.keyConfigured && aiCfg.isEnabled)
-        } else if (item.provider === 'bkash') {
-          connected = store?.settings?.bkashEnabled ?? false
-        } else if (item.provider === 'nagad') {
-          connected = store?.settings?.nagadEnabled ?? false
-        } else if (item.provider === 'sslcommerz') {
-          connected = store?.settings?.sslcommerzEnabled ?? false
-        } else if (item.provider === 'meta_pixel') {
-          connected = Boolean(store?.settings?.facebookPixelId)
-        } else if (item.provider === 'google_analytics') {
-          connected = Boolean(store?.settings?.googleAnalyticsId)
-        } else if (item.provider === 'search_console') {
-          connected = Boolean(store?.settings?.googleSearchConsoleKey)
-        } else if (item.provider === 'smtp') {
-          connected = store?.settings?.emailEnabled ?? false
-        } else {
-          connected = meta.lastTestStatus === 'success'
-        }
+        const tokenIssue =
+          (item.provider === 'gmail' || item.provider === 'google_sheets' || item.provider === 'google_drive') &&
+          (googleStatus?.tokenHealth === 'expired' || googleStatus?.tokenHealth === 'revoked')
 
         return {
           id: item.id,
@@ -94,11 +265,20 @@ export class IntegrationsController {
           provider: item.provider,
           configurePath: item.configurePath,
           connected,
-          status: connected ? 'connected' : meta.lastTestStatus === 'failed' ? 'error' : 'not_connected',
+          connectionDetail: detail,
+          status: connected
+            ? 'connected'
+            : tokenIssue || meta.lastTestStatus === 'failed'
+              ? 'error'
+              : 'not_connected',
           isEnabled: meta.isEnabled,
           lastTestedAt: meta.lastTestedAt,
           lastTestStatus: meta.lastTestStatus,
-          lastError: meta.lastTestStatus === 'failed' ? meta.lastTestMessage : null,
+          lastError: tokenIssue
+            ? googleStatus?.lastError ?? 'Google token expired — reconnect OAuth'
+            : meta.lastTestStatus === 'failed'
+              ? meta.lastTestMessage
+              : null,
         }
       }),
     )
@@ -142,6 +322,70 @@ export class IntegrationsController {
   testAi(@Query('storeId') storeId: string, @Body() body: AiIntegrationDto, @Req() req: AdminRequest) {
     this.assertWrite(req)
     return this.ai.test(storeId, body, req.adminUser?.userId)
+  }
+
+  /* ─── Payment credentials (DB + env fallback) ─────────────── */
+
+  @Get('payments')
+  getPayments(@Query('storeId') storeId: string) {
+    return this.payments.getAll(storeId)
+  }
+
+  @Get('payments/:provider')
+  getPayment(@Param('provider') provider: PaymentProvider, @Query('storeId') storeId: string) {
+    return this.payments.getConfig(storeId, provider)
+  }
+
+  @Put('payments/:provider')
+  updatePayment(
+    @Param('provider') provider: PaymentProvider,
+    @Query('storeId') storeId: string,
+    @Body() body: Record<string, string | boolean>,
+    @Req() req: AdminRequest,
+  ) {
+    const userId = this.assertWrite(req)
+    return this.payments.update(storeId, provider, body, userId)
+  }
+
+  @Post('payments/:provider/test')
+  testPayment(
+    @Param('provider') provider: PaymentProvider,
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    this.assertWrite(req)
+    return this.payments.test(storeId, provider, req.adminUser?.userId)
+  }
+
+  /* ─── Infrastructure credentials ────────────────────────────── */
+
+  @Get('infrastructure/:provider')
+  getInfrastructure(
+    @Param('provider') provider: 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx',
+    @Query('storeId') storeId: string,
+  ) {
+    return this.infra.getConfig(storeId, provider)
+  }
+
+  @Put('infrastructure/:provider')
+  updateInfrastructure(
+    @Param('provider') provider: 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx',
+    @Query('storeId') storeId: string,
+    @Body() body: Record<string, string>,
+    @Req() req: AdminRequest,
+  ) {
+    const userId = this.assertWrite(req)
+    return this.infra.update(storeId, provider, body, userId)
+  }
+
+  @Post('infrastructure/:provider/test')
+  testInfrastructure(
+    @Param('provider') provider: 'pathao' | 'redx',
+    @Query('storeId') storeId: string,
+    @Req() req: AdminRequest,
+  ) {
+    this.assertWrite(req)
+    return this.infra.test(storeId, provider, req.adminUser?.userId)
   }
 
   /* ─── Google Sheets sync status ──────────────────────────── */

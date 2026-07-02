@@ -3,10 +3,19 @@ import { getApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'
 
-async function probe(url: string, timeoutMs: number) {
+function internalProbeHeaders(): Record<string, string> {
+  const secret = process.env.INTERNAL_HEALTH_SECRET
+  return secret ? { 'x-splaro-internal': secret } : {}
+}
+
+async function probe(url: string, timeoutMs: number, headers?: Record<string, string>) {
   const start = Date.now()
   try {
-    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
+    const res = await fetch(url, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: headers ?? {},
+    })
     return { ok: res.ok, latencyMs: Date.now() - start, status: res.status }
   } catch (err) {
     return {
@@ -29,12 +38,14 @@ export async function GET() {
   let databaseMessage: string | undefined
 
   if (apiProbe.ok) {
-    const dbProbe = await probe(`${base}/health/full`, 5000)
+    const probeHeaders = internalProbeHeaders()
+    const dbProbe = await probe(`${base}/health/full`, 5000, probeHeaders)
     if (dbProbe.ok) {
       try {
         const fullRes = await fetch(`${base}/health/full`, {
           cache: 'no-store',
           signal: AbortSignal.timeout(5000),
+          headers: probeHeaders,
         })
         if (fullRes.ok) {
           const full = (await fullRes.json()) as {

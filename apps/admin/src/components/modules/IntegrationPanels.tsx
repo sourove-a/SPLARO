@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import {
   Activity,
   Facebook,
@@ -7,17 +8,22 @@ import {
   RefreshCw,
   ShoppingCart,
   Webhook,
-  CheckCircle2,
-  XCircle,
-  Settings,
+  ChevronRight,
 } from 'lucide-react'
-import { AdminButton } from '@/components/ui/AdminButton'
-import { AdminNavLink } from '@/components/layout/AdminNavLink'
+import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
-import { useIntegrationsCatalog, useTestTelegramIntegration, useTestAiIntegration } from '@/lib/api/integration-hooks'
-import { ApiOfflineBanner, StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import {
+  useIntegrationsCatalog,
+  useTestTelegramIntegration,
+  useTestAiIntegration,
+  useTestGoogleIntegration,
+  useTestPaymentIntegration,
+} from '@/lib/api/integration-hooks'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { formatRelativeTime } from '@/lib/api/orders'
+import type { IntegrationCard } from '@/lib/api/integrations'
+import { integrationActionLabel, integrationSetupPath } from '@/lib/integrations/routes'
+import { cn } from '@/lib/utils/cn'
 
 const ICONS: Record<string, typeof Activity> = {
   telegram: Activity,
@@ -39,107 +45,179 @@ const ICONS: Record<string, typeof Activity> = {
   sms: Webhook,
 }
 
+function googleTestMode(provider: string): 'gmail' | 'sheets' | 'auto' | null {
+  if (provider === 'gmail') return 'gmail'
+  if (provider === 'google_sheets') return 'sheets'
+  if (provider === 'google_drive') return 'auto'
+  return null
+}
+
+function canTest(provider: string) {
+  return (
+    provider === 'telegram' ||
+    provider === 'openai' ||
+    provider === 'bkash' ||
+    provider === 'nagad' ||
+    provider === 'sslcommerz' ||
+    Boolean(googleTestMode(provider))
+  )
+}
+
+function IntegrationRow({
+  item,
+  testing,
+  disabled,
+  onTest,
+}: {
+  item: IntegrationCard
+  testing: boolean
+  disabled: boolean
+  onTest: () => void
+}) {
+  const Icon = ICONS[item.id] ?? Plug
+  const href = integrationSetupPath(item.provider, item.connected)
+  const testable = canTest(item.provider) && item.connected
+
+  return (
+    <div
+      className={cn(
+        'integ-row',
+        item.connected && 'integ-row--on',
+        item.status === 'error' && 'integ-row--err',
+      )}
+    >
+      <div className="integ-row__main">
+        <span className="integ-row__icon">
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="integ-row__copy min-w-0">
+          <div className="integ-row__head">
+            <p className="integ-row__name">{item.name}</p>
+            <span
+              className={cn(
+                'integ-row__pill',
+                item.connected && 'integ-row__pill--on',
+                item.status === 'error' && 'integ-row__pill--err',
+              )}
+            >
+              {item.connected ? 'Connected' : item.status === 'error' ? 'Error' : 'Off'}
+            </span>
+          </div>
+          <p className="integ-row__detail">
+            {item.connectionDetail ?? (item.connected ? 'Ready' : 'Not configured')}
+          </p>
+          {item.lastError ? <p className="integ-row__error">{item.lastError}</p> : null}
+        </div>
+      </div>
+
+      <div className="integ-row__actions">
+        {testable ? (
+          <AdminButton
+            variant="ghost"
+            className="integ-row__btn integ-row__btn--ghost"
+            loading={testing}
+            disabled={disabled}
+            onClick={onTest}
+          >
+            Test
+          </AdminButton>
+        ) : null}
+        <AdminLinkButton
+          href={href}
+          variant={item.connected ? 'ghost' : 'gold'}
+          className="integ-row__btn"
+        >
+          {integrationActionLabel(item.connected)}
+          <ChevronRight className="h-3.5 w-3.5 opacity-60" />
+        </AdminLinkButton>
+      </div>
+    </div>
+  )
+}
+
 export function AllIntegrationsPanel(_props: ModuleContextProps) {
-  const { data, isError, isLoading, refetch, isFetching } = useIntegrationsCatalog()
+  const { data, isError, error, isLoading, refetch, isFetching } = useIntegrationsCatalog()
   const testTelegram = useTestTelegramIntegration()
   const testAi = useTestAiIntegration()
+  const testGoogle = useTestGoogleIntegration()
+  const testPayment = useTestPaymentIntegration()
+  const [testingId, setTestingId] = useState<string | null>(null)
 
   const items = data?.integrations ?? []
+  const connectedCount = items.filter((i) => i.connected).length
 
-  const runTest = async (provider: string, name: string) => {
+  const sorted = useMemo(
+    () => [...items].sort((a, b) => Number(b.connected) - Number(a.connected) || a.name.localeCompare(b.name)),
+    [items],
+  )
+
+  const runTest = async (item: IntegrationCard) => {
+    setTestingId(item.id)
     try {
-      if (provider === 'telegram') {
+      if (item.provider === 'telegram') {
         const r = await testTelegram.mutateAsync('SPLARO integration test')
-        toastOk(r.message || 'Telegram connected successfully', `test-${provider}`)
-      } else if (provider === 'openai') {
+        toastOk(r.message || 'Telegram OK', `test-${item.provider}`)
+      } else if (item.provider === 'openai') {
         const r = await testAi.mutateAsync({ testPrompt: 'Reply: SPLARO OK' })
-        toastOk(r.message, `test-${provider}`)
+        toastOk(r.message, `test-${item.provider}`)
+      } else if (item.provider === 'bkash' || item.provider === 'nagad' || item.provider === 'sslcommerz') {
+        const r = await testPayment.mutateAsync(item.provider)
+        toastOk(r.message, `test-${item.provider}`)
       } else {
-        toastFail(`${name} test not wired yet — configure and save first.`, `test-${provider}`)
-        return
+        const mode = googleTestMode(item.provider)
+        if (!mode) return
+        const r = await testGoogle.mutateAsync(mode)
+        toastOk(r.message || `${item.name} OK`, `test-${item.provider}`)
       }
       await refetch()
     } catch (err) {
-      toastFail(err instanceof Error ? err.message : `${name} test failed`, `test-${provider}-fail`)
+      toastFail(err instanceof Error ? err.message : `${item.name} failed`, `test-${item.provider}-fail`)
+    } finally {
+      setTestingId(null)
     }
   }
 
+  const loadError =
+    isError && error instanceof Error
+      ? error.message.includes('401') || error.message.toLowerCase().includes('authentication')
+        ? 'Session expired — log in again.'
+        : error.message
+      : isError
+        ? 'API offline — run pnpm dev:api'
+        : null
+
   return (
-    <div className="space-y-5">
-      <StorefrontLiveBar
-        items={[
-          {
-            label: 'Integrations API',
-            value: isLoading ? '…' : isError ? 'Offline' : `${items.filter((i) => i.connected).length}/${items.length} connected`,
-            ok: !isError,
-            hint: 'GET /admin/integrations',
-          },
-          {
-            label: 'Testable now',
-            value: `${items.filter((i) => i.provider === 'telegram' || i.provider === 'openai').length} providers`,
-            ok: !isError,
-            hint: 'Telegram + AI test wired',
-          },
-        ]}
-        onRefresh={() => void refetch()}
-        refreshing={isFetching}
-      />
-      {isError ? <ApiOfflineBanner message="Integrations API offline — platform status above still updates." /> : null}
-      <div className="flex justify-end">
-        <AdminButton loading={isFetching} onClick={() => void refetch()}>
+    <div className="integ-page">
+      <div className="integ-page__bar">
+        <div>
+          <p className="integ-page__stat">
+            {isLoading ? '…' : `${connectedCount} / ${items.length}`}
+            <span className="integ-page__stat-label">connected</span>
+          </p>
+        </div>
+        <AdminButton variant="ghost" loading={isFetching} onClick={() => void refetch()}>
           <RefreshCw className="h-4 w-4" />
-          Refresh status
+          Refresh
         </AdminButton>
       </div>
+
+      {loadError ? <ApiOfflineBanner message={loadError} /> : null}
+
       {isLoading ? (
-        <p className="text-sm font-semibold text-[var(--admin-text-muted)]">Loading integrations from database…</p>
+        <p className="integ-page__loading">Loading…</p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => {
-            const Icon = ICONS[item.id] ?? Plug
-            return (
-              <div key={item.id} className="admin-module-card !p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-[#5E7CFF]" />
-                    <p className="admin-module-card__title">{item.name}</p>
-                  </div>
-                  {item.connected ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-amber-600" />
-                  )}
-                </div>
-                <p className="mt-2 text-xs font-semibold capitalize text-[var(--admin-text-muted)]">
-                  {item.connected ? 'Connected' : item.status === 'error' ? 'Error' : 'Not connected'}
-                </p>
-                <p className="text-[10px] font-semibold text-[var(--admin-text-muted)]">
-                  {item.lastTestedAt ? `Tested ${formatRelativeTime(item.lastTestedAt)}` : 'Never tested'}
-                </p>
-                {item.lastError ? (
-                  <p className="mt-1 text-[10px] font-semibold text-red-600">{item.lastError}</p>
-                ) : null}
-                <div className="mt-3 flex flex-col gap-2">
-                  <AdminNavLink href={item.configurePath} className="admin-btn w-full justify-center px-3 py-2 text-xs font-black">
-                    <Settings className="h-3.5 w-3.5" />
-                    Configure
-                  </AdminNavLink>
-                  <AdminButton
-                    className="w-full"
-                    loading={testTelegram.isPending || testAi.isPending}
-                    onClick={() => void runTest(item.provider, item.name)}
-                  >
-                    Test connection
-                  </AdminButton>
-                </div>
-              </div>
-            )
-          })}
+        <div className="integ-list">
+          {sorted.map((item) => (
+            <IntegrationRow
+              key={item.id}
+              item={item}
+              testing={testingId === item.id}
+              disabled={Boolean(testingId)}
+              onTest={() => void runTest(item)}
+            />
+          ))}
         </div>
       )}
-      <AdminNavLink href="/dashboard/api-health" className="text-xs font-black text-[#5E7CFF] hover:underline">
-        View API Health →
-      </AdminNavLink>
     </div>
   )
 }
@@ -147,10 +225,10 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
 export function WebhooksPanel() {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[var(--admin-text-muted)]">Webhook management — see Developer API Center.</p>
-      <AdminNavLink href="/dashboard/developer/api-center" className="admin-btn admin-btn--gold inline-flex px-4 py-2 text-xs font-black">
-        Developer API Center
-      </AdminNavLink>
+      <p className="text-sm text-[var(--admin-text-muted)]">Webhook management — Developer API Center.</p>
+      <AdminLinkButton href="/dashboard/developer/api-center" variant="gold" className="px-4 py-2 text-xs font-black">
+        API Center
+      </AdminLinkButton>
     </div>
   )
 }
@@ -158,10 +236,10 @@ export function WebhooksPanel() {
 export function MetaBusinessPanel() {
   return (
     <div className="space-y-4">
-      <p className="text-sm">Meta Pixel & GA4 — saved via Settings API (PostgreSQL).</p>
-      <AdminNavLink href="/dashboard/settings" className="admin-btn admin-btn--gold inline-flex px-4 py-2 text-xs font-black">
-        Store Settings
-      </AdminNavLink>
+      <p className="text-sm text-[var(--admin-text-muted)]">Meta Pixel & GA4 — Marketing settings.</p>
+      <AdminLinkButton href="/dashboard/settings?section=marketing" variant="gold" className="px-4 py-2 text-xs font-black">
+        Marketing settings
+      </AdminLinkButton>
     </div>
   )
 }

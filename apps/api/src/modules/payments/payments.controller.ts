@@ -77,8 +77,6 @@ export class PaymentsController {
     }
   }
 
-  // ── Nagad ─────────────────────────────────────────────────
-
   @Public()
   @Post('nagad/init')
   initNagadPayment(@Body() body: { orderId: string; amount: number; callbackUrl: string }) {
@@ -94,7 +92,7 @@ export class PaymentsController {
   ) {
     const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.com.bd'
     try {
-      const result = await this.nagad.verifyPayment(paymentRefId)
+      const result = await this.nagad.verifyPayment(paymentRefId, orderId)
       const paid = result.status === 'Success'
       if (paid && orderId) {
         const order = await this.prisma.order.findUnique({

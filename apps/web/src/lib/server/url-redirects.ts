@@ -1,5 +1,7 @@
+import { getApiBaseUrl } from '@splaro/config'
+
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1').replace(/\/+$/, '')
+const API_BASE = getApiBaseUrl()
 const CACHE_MS = 60_000
 
 export interface StorefrontRedirect {

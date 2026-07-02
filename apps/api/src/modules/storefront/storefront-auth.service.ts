@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
+import { EmailService } from '../email/email.service'
 import { CustomersService } from '../customers/customers.service'
 
 const SCRYPT_KEYLEN = 64
@@ -46,6 +47,7 @@ export class StorefrontAuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly customers: CustomersService,
+    private readonly email: EmailService,
   ) {}
 
   async signup(
@@ -200,6 +202,93 @@ export class StorefrontAuthService {
       where: { sessionToken, isRevoked: false },
       data: { isRevoked: true },
     })
+  }
+
+  async forgotPassword(
+    storeId: string,
+    emailRaw: string,
+  ): Promise<{ success: true; message: string; devToken?: string }> {
+    const email = normalizeEmail(emailRaw)
+    if (!email) throw new BadRequestException('Email is required')
+
+    const user = await this.prisma.user.findFirst({
+      where: { email, isActive: true },
+      select: { id: true, email: true, firstName: true },
+    })
+
+    const message = 'If that email exists, a reset link has been sent'
+
+    if (!user?.email) {
+      return { success: true, message }
+    }
+
+    const token = randomBytes(32).toString('hex')
+    const resetTokenExp = new Date(Date.now() + 60 * 60 * 1000)
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken: token, resetTokenExp },
+    })
+
+    const siteUrl = (
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      process.env.SITE_URL ??
+      'http://localhost:3000'
+    ).replace(/\/$/, '')
+    const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(token)}`
+
+    void this.email.sendForStore({
+      storeId,
+      to: user.email,
+      subject: 'Reset your SPLARO password',
+      html: `<p>Hi ${user.firstName},</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in 1 hour.</p>`,
+      text: `Reset your password: ${resetUrl}`,
+      transactional: true,
+    })
+
+    return {
+      success: true,
+      message,
+      ...(process.env.NODE_ENV !== 'production' ? { devToken: token } : {}),
+    }
+  }
+
+  async resetPassword(tokenRaw: string, password: string): Promise<{ success: true; message: string }> {
+    const token = tokenRaw?.trim()
+    if (!token) throw new BadRequestException('Token is required')
+    if (!password || password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters')
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExp: { gt: new Date() },
+        isActive: true,
+      },
+      select: { id: true },
+    })
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset token')
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: hashPassword(password),
+          resetToken: null,
+          resetTokenExp: null,
+        },
+      }),
+      this.prisma.deviceSession.updateMany({
+        where: { userId: user.id, isRevoked: false },
+        data: { isRevoked: true },
+      }),
+    ])
+
+    return { success: true, message: 'Password updated' }
   }
 
   async sessionPhone(sessionToken: string): Promise<string | null> {

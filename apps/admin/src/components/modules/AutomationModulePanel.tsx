@@ -10,14 +10,15 @@ import { AIProductAgentPanel } from '@/components/finance/AIProductAgentPanel'
 import { useAutomationRules, useExecutiveDashboard, useProducts, useSeoOverview, useTelegramLogs } from '@/lib/api/hooks'
 import { useTelegramIntegration, useTestTelegramIntegration } from '@/lib/api/integration-hooks'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
-import { ApiOfflineHint, StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { ApiOfflineHint } from '@/components/modules/PlatformUi'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { fetchSheetsDashboard, syncAllSheets, syncSheet, type SheetsDashboardData } from '@/lib/api/finance'
 import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 
@@ -305,7 +306,7 @@ export function GoogleSheetsSyncPanelLive() {
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <StorefrontLiveBar
+      <ModuleLiveStrip
         onRefresh={load}
         refreshing={busy}
         items={[

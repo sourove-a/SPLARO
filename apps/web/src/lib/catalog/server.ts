@@ -1,9 +1,8 @@
 import { unstable_cache } from 'next/cache'
-import { products as staticProducts } from '@/data/storefront'
 import type { StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductCardData } from '@splaro/types'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
-import { getProductBySlug, productSlug, toProductCard } from '@/lib/catalog/index'
+import { productSlug, toProductCard } from '@/lib/catalog/index'
 import {
   fetchLiveProductDetailBySlug,
   fetchLiveProductsRaw,
@@ -13,7 +12,7 @@ import {
 import { LISTING_PAGE_SIZE } from '@/lib/catalog/listing'
 import type { CollectionShopContext } from '@/lib/storefront/collection-context'
 
-export type CatalogSource = 'api' | 'static-fallback'
+export type CatalogSource = 'api' | 'api-unavailable' | 'empty'
 
 export interface CachedCatalog {
   products: (StorefrontProduct & { slug?: string })[]
@@ -23,13 +22,17 @@ export interface CachedCatalog {
   page?: number
 }
 
+const EMPTY_CATALOG: CachedCatalog = { products: [], source: 'api-unavailable' }
+
 const getCachedLiveCatalog = unstable_cache(
   async (): Promise<CachedCatalog> => {
     const live = await fetchLiveProductsRaw()
+    if (!live.length) {
+      return { products: [], source: 'empty' }
+    }
     return { products: live.map(sanitizeStorefrontProduct), source: 'api' }
   },
   ['splaro-storefront-catalog', 'v2-image-sanitize'],
-  // 10s so admin product changes reach the storefront near-instantly (real-time feel).
   { revalidate: 10, tags: ['storefront-products'] },
 )
 
@@ -37,7 +40,7 @@ export async function getStorefrontCatalog(): Promise<CachedCatalog> {
   try {
     return await getCachedLiveCatalog()
   } catch {
-    return { products: staticProducts.map(sanitizeStorefrontProduct), source: 'static-fallback' }
+    return EMPTY_CATALOG
   }
 }
 
@@ -56,19 +59,23 @@ export async function getStorefrontCatalogForCollection(
   ]
 
   for (const query of attempts) {
-    const listing = await fetchStorefrontProductListing({
-      ...query,
-      page: 1,
-      limit: LISTING_PAGE_SIZE,
-    })
-    if (listing.products.length > 0) {
-      return {
-        products: listing.products.map(sanitizeStorefrontProduct),
-        source: 'api',
-        total: listing.total,
-        totalPages: listing.totalPages,
-        page: listing.page,
+    try {
+      const listing = await fetchStorefrontProductListing({
+        ...query,
+        page: 1,
+        limit: LISTING_PAGE_SIZE,
+      })
+      if (listing.products.length > 0) {
+        return {
+          products: listing.products.map(sanitizeStorefrontProduct),
+          source: 'api',
+          total: listing.total,
+          totalPages: listing.totalPages,
+          page: listing.page,
+        }
       }
+    } catch {
+      /* try next query */
     }
   }
 
@@ -90,37 +97,20 @@ export async function getStorefrontCatalogForCollection(
       }
     }
   } catch {
-    /* fall through */
+    /* unavailable */
   }
 
-  const staticFiltered =
-    context.initialCategory === 'All'
-      ? staticProducts
-      : staticProducts.filter((product) => product.category === context.initialCategory)
-
-  return {
-    products: staticFiltered.map(sanitizeStorefrontProduct),
-    source: 'static-fallback',
-    total: staticFiltered.length,
-    totalPages: 1,
-    page: 1,
-  }
+  return { products: [], source: 'api-unavailable', total: 0, totalPages: 0, page: 1 }
 }
 
 export async function getProductDetailBySlug(
   slug: string,
 ): Promise<{ product: ProductDetailData; reviews: ProductReview[]; source: CatalogSource } | null> {
-  const staticProduct = getProductBySlug(slug)
-
   try {
     const live = await fetchLiveProductDetailBySlug(slug)
     if (live) return { ...live, source: 'api' }
   } catch {
-    /* API unavailable — fall back to static catalog */
-  }
-
-  if (staticProduct) {
-    return { product: staticProduct, reviews: [], source: 'static-fallback' }
+    /* API unavailable */
   }
 
   return null
@@ -132,15 +122,10 @@ export async function getRelatedProducts(
 ): Promise<ProductCardData[]> {
   try {
     const { products, source } = await getStorefrontCatalog()
-    const pool =
-      source === 'api' && products.length
-        ? products
-        : staticProducts.map(sanitizeStorefrontProduct)
+    if (source !== 'api' || !products.length) return []
 
-    const others = pool.filter((entry) => entry.id !== product.id)
+    const others = products.filter((entry) => entry.id !== product.id)
     const sameCategory = others.filter((entry) => entry.category === product.category)
-    // Prefer same-category, but never leave "You may also like" empty — fall back to
-    // other products so the section always has recommendations.
     const picks = sameCategory.length >= 2 ? sameCategory : others
     return picks.slice(0, limit).map((entry) => toProductCard(entry))
   } catch {
@@ -157,7 +142,24 @@ export async function getAllCatalogSlugs(): Promise<Array<{ slug: string }>> {
       }))
     }
   } catch {
-    /* fall through to static slugs */
+    /* unavailable */
   }
-  return staticProducts.map((p) => ({ slug: productSlug(p) }))
+  return []
+}
+
+/** Live footwear row products for /footwear landing page. */
+export async function fetchFootwearRowProducts(
+  parentCategorySlug: string,
+  limit = 12,
+): Promise<(StorefrontProduct & { slug: string })[]> {
+  try {
+    const listing = await fetchStorefrontProductListing({
+      parentCategorySlug,
+      page: 1,
+      limit,
+    })
+    return listing.products.map(sanitizeStorefrontProduct) as (StorefrontProduct & { slug: string })[]
+  } catch {
+    return []
+  }
 }

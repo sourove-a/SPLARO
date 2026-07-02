@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ChevronRight, Sparkles } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toastWarn } from '@/lib/admin/feedback'
 import { cn } from '@/lib/utils/cn'
 import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
@@ -83,11 +83,7 @@ function QuickActionChip({ action }: { action: QuickAction }) {
       type="button"
       onClick={
         action.onClick ??
-        (() =>
-          toast(`${action.label} opens soon.`, {
-            icon: '⏳',
-            style: { borderRadius: '14px', fontWeight: 600 },
-          }))
+        (() => toastWarn(`${action.label} opens soon.`, 'action-pending'))
       }
       className={chipClass}
     >
@@ -190,9 +186,7 @@ export function AdminPageShell({
               variant="gold"
               className="mt-5"
               onClick={() =>
-                toast.success('We will notify you when data is available.', {
-                  style: { borderRadius: '14px', fontWeight: 600 },
-                })
+                toastWarn('Notifications are not wired yet — check back after module goes live.', 'notify-pending')
               }
             >
               Notify me

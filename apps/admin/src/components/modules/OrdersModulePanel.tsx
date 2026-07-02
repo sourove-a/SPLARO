@@ -16,6 +16,7 @@ import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentSte
 import { OrderCreatePanel } from '@/components/modules/OrderCreatePanel'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import { useOrder, useUpdateOrderStatus, useDeleteOrder, useBookCourier } from '@/lib/api/hooks'
+import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
 import { mapPaymentMethod, mapOrderStatus } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { formatBDT } from '@/lib/utils/currency'
@@ -59,9 +60,11 @@ function SideCard({ title, icon: Icon, children }: { title: string; icon: React.
 
 export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; moduleHref: string }) {
   const { data: order, isLoading, isError, refetch } = useOrder(recordId)
+  const { data: steadfast } = useInfrastructureConfig('steadfast')
   const updateStatus = useUpdateOrderStatus()
   const deleteOrderMutation = useDeleteOrder()
   const bookCourier = useBookCourier()
+  const courierReady = Boolean(steadfast?.configured)
 
   if (isLoading) {
     return (
@@ -194,9 +197,22 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
               {order.courier?.consignmentId ? ` · ${order.courier.consignmentId}` : ''}
             </p>
             {!order.courier?.consignmentId ? (
-              <AdminButton variant="gold" className="mt-3 w-full !text-xs" loading={bookCourier.isPending} onClick={() => bookCourier.mutate({ id: order.id }, { onSuccess: (res) => { toastCourierResult(res, order.invoiceNumber); if (res.success && !res.simulated && res.consignmentId && !res.consignmentId.startsWith('DEV-')) void refetch() }, onError: () => toastFail('Could not book courier — is the API running?') })}>
-                <Truck style={{ width: 14, height: 14 }} /> Book courier
-              </AdminButton>
+              <>
+                {!courierReady ? (
+                  <p className="mt-3 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                    Steadfast not configured — save keys in Settings → Infrastructure before booking.
+                  </p>
+                ) : null}
+                <AdminButton
+                  variant="gold"
+                  className="mt-3 w-full !text-xs"
+                  disabled={!courierReady}
+                  loading={bookCourier.isPending}
+                  onClick={() => bookCourier.mutate({ id: order.id }, { onSuccess: (res) => { toastCourierResult(res, order.invoiceNumber); if (res.success && !res.simulated && res.consignmentId && !res.consignmentId.startsWith('DEV-')) void refetch() }, onError: () => toastFail('Could not book courier — is the API running?') })}
+                >
+                  <Truck style={{ width: 14, height: 14 }} /> Book courier
+                </AdminButton>
+              </>
             ) : null}
           </SideCard>
 

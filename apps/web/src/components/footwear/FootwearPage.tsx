@@ -12,6 +12,7 @@ import { formatBDT } from '@/lib/utils/currency'
 
 interface FootwearProduct {
   id: string
+  slug?: string
   name: string
   code: string
   colors: number
@@ -81,8 +82,9 @@ function ShoePlaceholder({ color, index }: { color?: string; index: number }) {
 
 function ProductCard({ item, index }: { item: FootwearProduct; index: number }) {
   const [hovered, setHovered] = useState(false)
+  const href = item.slug ? `/products/${item.slug}` : undefined
 
-  return (
+  const card = (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -148,6 +150,8 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
       </div>
     </motion.div>
   )
+
+  return href ? <Link href={href}>{card}</Link> : card
 }
 
 // ─── Horizontal Product Row ───────────────────────────────────────────────────
@@ -206,9 +210,13 @@ function ProductRowSection({ row }: { row: ProductRow }) {
         className="flex gap-4 overflow-x-auto pb-2 px-4 md:px-0 scroll-smooth"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {row.products.map((p, i) => (
-          <ProductCard key={p.id} item={p} index={i} />
-        ))}
+        {row.products.length === 0 ? (
+          <p className="px-1 text-sm text-[#6B6B6B]">
+            No live footwear products in this row yet — add products in Admin.
+          </p>
+        ) : (
+          row.products.map((p, i) => <ProductCard key={p.id} item={p} index={i} />)
+        )}
       </div>
     </section>
   )

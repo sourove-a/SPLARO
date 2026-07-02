@@ -74,6 +74,54 @@ export class CourierController {
     return { items, total, page: Number(page) || 1, limit: take }
   }
 
+  /** Courier performance stats — must be registered before :orderId routes */
+  @Get('stats/overview')
+  async stats(@Query('storeId') storeId: string, @Query('days') days?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const since = new Date()
+    since.setDate(since.getDate() - (Number(days) || 30))
+
+    const [byStatus, byProvider, recentFailed] = await Promise.all([
+      this.prisma.courierShipment.groupBy({
+        by: ['status'],
+        where: { order: { storeId: sid }, createdAt: { gte: since } },
+        _count: true,
+      }),
+      this.prisma.courierShipment.groupBy({
+        by: ['provider'],
+        where: { order: { storeId: sid }, createdAt: { gte: since } },
+        _count: true,
+      }),
+      this.prisma.courierShipment.findMany({
+        where: {
+          order: { storeId: sid },
+          status: 'FAILED',
+          createdAt: { gte: since },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: {
+          order: { select: { invoiceNumber: true, shippingName: true } },
+        },
+      }),
+    ])
+
+    return { byStatus, byProvider, recentFailed }
+  }
+
+  /** Bulk status update */
+  @Post('bulk/status')
+  async bulkStatus(@Body() body: { orderIds: string[]; status: CourierStatus }) {
+    const result = await this.prisma.courierShipment.updateMany({
+      where: { orderId: { in: body.orderIds } },
+      data: {
+        status: body.status,
+        ...(body.status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
+      },
+    })
+    return { updated: result.count }
+  }
+
   /** Single shipment detail with webhook events */
   @Get(':orderId')
   async detail(@Param('orderId') orderId: string) {
@@ -142,54 +190,6 @@ export class CourierController {
       },
     })
     return shipment
-  }
-
-  /** Bulk status update */
-  @Post('bulk/status')
-  async bulkStatus(@Body() body: { orderIds: string[]; status: CourierStatus }) {
-    const result = await this.prisma.courierShipment.updateMany({
-      where: { orderId: { in: body.orderIds } },
-      data: {
-        status: body.status,
-        ...(body.status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
-      },
-    })
-    return { updated: result.count }
-  }
-
-  /** Courier performance stats */
-  @Get('stats/overview')
-  async stats(@Query('storeId') storeId: string, @Query('days') days?: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const since = new Date()
-    since.setDate(since.getDate() - (Number(days) || 30))
-
-    const [byStatus, byProvider, recentFailed] = await Promise.all([
-      this.prisma.courierShipment.groupBy({
-        by: ['status'],
-        where: { order: { storeId: sid }, createdAt: { gte: since } },
-        _count: true,
-      }),
-      this.prisma.courierShipment.groupBy({
-        by: ['provider'],
-        where: { order: { storeId: sid }, createdAt: { gte: since } },
-        _count: true,
-      }),
-      this.prisma.courierShipment.findMany({
-        where: {
-          order: { storeId: sid },
-          status: 'FAILED',
-          createdAt: { gte: since },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: {
-          order: { select: { invoiceNumber: true, shippingName: true } },
-        },
-      }),
-    ])
-
-    return { byStatus, byProvider, recentFailed }
   }
 
   /** Webhook events for a shipment */

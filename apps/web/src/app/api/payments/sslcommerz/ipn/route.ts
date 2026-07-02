@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server'
-import { markOrderPaid } from '@/lib/server/orders'
-import { validateIPN } from '@/lib/server/payments/sslcommerz'
+import { getApiBaseUrl } from '@splaro/config'
 
 function payloadFromForm(formData: FormData): Record<string, string> {
   const payload: Record<string, string> = {}
-
   for (const [key, value] of formData.entries()) {
     if (typeof value === 'string') payload[key] = value
   }
-
   return payload
 }
 
+/** Forward SSLCommerz IPN to Nest API so order/payment update hits PostgreSQL. */
 export async function POST(request: Request) {
   let payload: Record<string, string> = {}
 
@@ -27,14 +25,13 @@ export async function POST(request: Request) {
     payload = payloadFromForm(formData)
   }
 
-  const result = await validateIPN(payload)
-  if (!result.valid || !result.orderId) {
-    return NextResponse.json({ error: result.message }, { status: 400 })
-  }
+  const res = await fetch(`${getApiBaseUrl()}/payments/ssl/ipn`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
 
-  if (result.transactionId) {
-    await markOrderPaid(result.orderId, result.transactionId)
-  }
-
-  return NextResponse.json(result)
+  const body = (await res.json().catch(() => ({ received: res.ok }))) as Record<string, unknown>
+  return NextResponse.json(body, { status: res.status })
 }

@@ -34,10 +34,12 @@ export class AdminAuthGuard implements CanActivate {
     if (isPublicApiPath(rawPath, request.method ?? 'GET')) return true
 
     const internalSecret = process.env['INTERNAL_HEALTH_SECRET']
+    const normalizedPath = rawPath.replace(/^\/api\/v1\//, '').replace(/^\//, '')
     if (
       internalSecret &&
       request.headers['x-splaro-internal'] === internalSecret &&
-      (request.method ?? 'GET').toUpperCase() === 'GET'
+      (request.method ?? 'GET').toUpperCase() === 'GET' &&
+      (normalizedPath === 'health' || normalizedPath.startsWith('health/'))
     ) {
       return true
     }

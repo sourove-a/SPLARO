@@ -4,7 +4,7 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params
-  return proxyAdminInvoiceRequest(id, '')
+  return proxyAdminInvoiceRequest(id, '', request)
 }

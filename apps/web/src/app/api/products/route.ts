@@ -14,28 +14,35 @@ export async function GET(request: Request) {
   const scoped = Boolean(collectionSlug || categorySlug || parentCategorySlug || searchParams.has('page'))
 
   if (scoped) {
-    const listing = await fetchStorefrontProductListing({
-      ...(collectionSlug ? { collectionSlug } : {}),
-      ...(categorySlug ? { categorySlug } : {}),
-      ...(parentCategorySlug ? { parentCategorySlug } : {}),
-      page,
-      limit,
-    })
+    try {
+      const listing = await fetchStorefrontProductListing({
+        ...(collectionSlug ? { collectionSlug } : {}),
+        ...(categorySlug ? { categorySlug } : {}),
+        ...(parentCategorySlug ? { parentCategorySlug } : {}),
+        page,
+        limit,
+      })
 
-    return NextResponse.json(
-      {
-        products: listing.products,
-        total: listing.total,
-        totalPages: listing.totalPages,
-        page: listing.page,
-        source: listing.products.length ? 'api' : 'empty',
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+      return NextResponse.json(
+        {
+          products: listing.products,
+          total: listing.total,
+          totalPages: listing.totalPages,
+          page: listing.page,
+          source: listing.products.length ? 'api' : 'empty',
         },
-      },
-    )
+        {
+          headers: {
+            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+          },
+        },
+      )
+    } catch {
+      return NextResponse.json(
+        { products: [], total: 0, totalPages: 0, page: 1, source: 'api-unavailable' },
+        { status: 503 },
+      )
+    }
   }
 
   const { products, source } = await getStorefrontCatalog()

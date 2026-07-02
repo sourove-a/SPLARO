@@ -14,6 +14,7 @@ import { AutomationModulePanel } from '@/components/automation'
 import { TelegramBotConfigPanel } from '@/components/telegram'
 import { OperationsHubPanel } from '@/components/courier'
 import { CommerceModulePanel } from '@/components/modules/CommerceModulePanel'
+import { PosPanel } from '@/components/pos/PosPanel'
 import { CommerceFinanceModulePanel } from '@/components/modules/CommerceFinanceModulePanel'
 import { OpsModulePanel } from '@/components/modules/OpsModulePanel'
 import { GrowthModulePanel } from '@/components/modules/GrowthModulePanel'
@@ -154,6 +155,7 @@ const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
   '/dashboard/tenants': wrapGeneric(SaaSModulePanel),
   '/dashboard/billing': wrapGeneric(SaaSModulePanel),
   '/dashboard/orders': wrapGeneric(OrdersModulePanel),
+  '/dashboard/pos': wrapStatic(PosPanel),
   '/dashboard/returns-rma': wrapGeneric(CommerceFinanceModulePanel),
   '/dashboard/subscriptions': wrapGeneric(CommerceFinanceModulePanel),
   '/dashboard/invoices': wrapGeneric(CommerceFinanceModulePanel),

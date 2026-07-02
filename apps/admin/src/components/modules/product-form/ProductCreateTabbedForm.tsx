@@ -2,6 +2,7 @@
 
 import { ChevronDown, ImagePlus, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
 import { BANGLA_PHRASE_CHIPS } from '@/lib/admin/product-description-draft'
 import type { CategoryPickerRow } from '@/lib/admin/category-picker'
 import { cn } from '@/lib/utils/cn'
@@ -80,6 +81,8 @@ interface ProductCreateTabbedFormProps {
   descriptionHintBn?: string
   showVariantControls?: boolean
   headerSlot?: React.ReactNode
+  /** Edit panel: publish toggle saves instantly via API */
+  onInstantPublish?: (nextPublished: boolean) => void
 }
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
@@ -96,19 +99,40 @@ function FormSection({
   hint,
   children,
   variant = 'default',
+  collapsible,
+  open,
+  onToggle,
 }: {
   title: string
   hint?: string
   children: React.ReactNode
   variant?: 'default' | 'accent' | 'bengali'
+  collapsible?: boolean
+  open?: boolean
+  onToggle?: () => void
 }) {
-  return (
-    <section className={cn('product-form-section', variant !== 'default' && `product-form-section--${variant}`)}>
-      <header className="product-form-section__head">
+  const head = (
+    <header className={cn('product-form-section__head', collapsible && 'product-form-section__head--inline')}>
+      <div>
         <h4 className="product-form-section__title">{title}</h4>
         {hint ? <p className="product-form-section__hint">{hint}</p> : null}
-      </header>
-      <div className="product-form-section__body">{children}</div>
+      </div>
+      {collapsible ? (
+        <ChevronDown className={cn('product-form-section__chevron', open && 'product-form-section__chevron--open')} />
+      ) : null}
+    </header>
+  )
+
+  return (
+    <section className={cn('product-form-section', variant !== 'default' && `product-form-section--${variant}`)}>
+      {collapsible ? (
+        <button type="button" className="product-form-section__toggle" onClick={onToggle} aria-expanded={open}>
+          {head}
+        </button>
+      ) : (
+        head
+      )}
+      {!collapsible || open ? <div className="product-form-section__body">{children}</div> : null}
     </section>
   )
 }
@@ -152,6 +176,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
     descriptionHintBn,
     showVariantControls = true,
     headerSlot,
+    onInstantPublish,
   } = props
 
   const tabs: { id: ProductCreateTab; label: string }[] = [
@@ -192,27 +217,16 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
           </div>
 
           <FormSection title="Product identity">
-            <div className="product-form-bilingual-row">
-              <label className="admin-field">
-                <FieldLabel required>Product Name (EN)</FieldLabel>
-                <input
-                  className="admin-input admin-input--premium"
-                  value={form.name}
-                  onChange={(e) => (onNameChange ? onNameChange(e.target.value) : set('name', e.target.value))}
-                  onBlur={onNameBlur}
-                  placeholder="Product name in English…"
-                />
-              </label>
-              <label className="admin-field">
-                <FieldLabel required>নাম (বাংলা)</FieldLabel>
-                <input
-                  className="admin-input admin-input--premium"
-                  value={form.nameBn}
-                  onChange={(e) => set('nameBn', e.target.value)}
-                  placeholder="বাংলায় পণ্যের নাম লিখুন…"
-                />
-              </label>
-            </div>
+            <label className="admin-field">
+              <FieldLabel required>Product Name</FieldLabel>
+              <input
+                className="admin-input admin-input--premium"
+                value={form.name}
+                onChange={(e) => (onNameChange ? onNameChange(e.target.value) : set('name', e.target.value))}
+                onBlur={onNameBlur}
+                placeholder="Product name in English…"
+              />
+            </label>
           </FormSection>
 
           <FormSection title="Descriptions" {...(descriptionHintEn ? { hint: descriptionHintEn } : {})}>
@@ -401,66 +415,62 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
               </div>
               </FormSection>
 
-              <section className="product-create-section">
-                <button type="button" className="product-create-section__toggle" onClick={onColorsOpenToggle} aria-expanded={colorsOpen}>
-                  <header className="product-create-section__head product-create-section__head--inline">
-                    <div>
-                      <h4 className="product-create-section__title">Colours</h4>
-                      <p className="product-create-section__hint">Select row → gallery thumb to assign image</p>
-                    </div>
-                    <ChevronDown className={cn('product-create-section__chevron', colorsOpen && 'product-create-section__chevron--open')} />
-                  </header>
-                </button>
-                {colorsOpen ? (
-                  <div className="product-color-builder">
-                    <div className="product-color-builder__head">
-                      <p className="text-xs font-semibold text-[var(--admin-text-secondary)]">Variant colours</p>
-                      <button type="button" className="product-color-add" onClick={onAddColorRow}>
-                        <Plus className="h-3.5 w-3.5" />
-                        Add colour
-                      </button>
-                    </div>
-                    <div className="product-color-list">
-                      {colorRows.map((row, index) => (
-                        <article
-                          key={row.id}
-                          className={cn('product-color-row', row.id === activeColorId && 'product-color-row--active')}
-                          onClick={() => onActiveColor(row.id)}
-                        >
-                          <div className="product-color-row__preview">
-                            {row.imageUrl ? (
-                              <img src={row.imageUrl} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              <ImagePlus className="h-4 w-4 text-[var(--admin-text-muted)]" />
-                            )}
-                          </div>
-                          <div className="product-color-row__fields">
-                            <input className="admin-input admin-input--premium" value={row.name} onChange={(e) => onUpdateColorRow(row.id, { name: e.target.value })} placeholder="Royal Blue" />
-                            <div className="product-color-row__meta">
-                              <label className="product-color-hex">
-                                <span className="product-color-hex__swatch" style={{ backgroundColor: row.hex }} aria-hidden />
-                                <input type="color" value={row.hex} onChange={(e) => onUpdateColorRow(row.id, { hex: e.target.value })} aria-label={`Colour ${index + 1}`} />
-                              </label>
-                              <select className="admin-input admin-input--premium product-color-row__select" value={row.imageUrl} onChange={(e) => onUpdateColorRow(row.id, { imageUrl: e.target.value })}>
-                                <option value="">Image…</option>
-                                {imageUrls.map((url, imageIndex) => <option key={url} value={url}>Image {imageIndex + 1}</option>)}
-                              </select>
-                            </div>
-                          </div>
-                          <button type="button" className="product-color-row__remove" onClick={(e) => { e.stopPropagation(); onRemoveColorRow(row.id) }} disabled={colorRows.length <= 1} aria-label="Remove colour">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </article>
-                      ))}
-                    </div>
+              <FormSection
+                title="Colours"
+                hint="Select row → gallery thumb to assign image"
+                collapsible
+                open={colorsOpen}
+                onToggle={onColorsOpenToggle}
+              >
+                <div className="product-color-builder product-color-builder--flat">
+                  <div className="product-color-builder__head">
+                    <p className="product-color-builder__label">Variant colours</p>
+                    <button type="button" className="product-color-add" onClick={onAddColorRow}>
+                      <Plus className="h-3.5 w-3.5" />
+                      Add colour
+                    </button>
                   </div>
-                ) : null}
-              </section>
+                  <div className="product-color-list">
+                    {colorRows.map((row, index) => (
+                      <article
+                        key={row.id}
+                        className={cn('product-color-row', row.id === activeColorId && 'product-color-row--active')}
+                        onClick={() => onActiveColor(row.id)}
+                      >
+                        <div className="product-color-row__preview">
+                          {row.imageUrl ? (
+                            <img src={row.imageUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <ImagePlus className="h-4 w-4 text-[var(--admin-text-muted)]" />
+                          )}
+                        </div>
+                        <div className="product-color-row__fields">
+                          <input className="admin-input admin-input--premium" value={row.name} onChange={(e) => onUpdateColorRow(row.id, { name: e.target.value })} placeholder="Royal Blue" />
+                          <div className="product-color-row__meta">
+                            <label className="product-color-hex">
+                              <span className="product-color-hex__swatch" style={{ backgroundColor: row.hex }} aria-hidden />
+                              <input type="color" value={row.hex} onChange={(e) => onUpdateColorRow(row.id, { hex: e.target.value })} aria-label={`Colour ${index + 1}`} />
+                            </label>
+                            <select className="admin-input admin-input--premium product-color-row__select" value={row.imageUrl} onChange={(e) => onUpdateColorRow(row.id, { imageUrl: e.target.value })}>
+                              <option value="">Image…</option>
+                              {imageUrls.map((url, imageIndex) => <option key={url} value={url}>Image {imageIndex + 1}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <button type="button" className="product-color-row__remove" onClick={(e) => { e.stopPropagation(); onRemoveColorRow(row.id) }} disabled={colorRows.length <= 1} aria-label="Remove colour">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </FormSection>
             </>
           ) : (
             <p className="product-form-variant-hint">Sizes, colours & stock — edit in <strong>Variants & Stock</strong> below.</p>
           )}
 
+          {showVariantControls !== false ? (
           <FormSection title="Visibility">
           <div className="product-form-section__grid-2">
             <label className="admin-field">
@@ -486,6 +496,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
             </label>
           </div>
           </FormSection>
+          ) : null}
         </div>
       ) : null}
 
@@ -508,13 +519,21 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
             </div>
           ) : null}
           </FormSection>
-          <label className="admin-check-row product-form-publish-row">
-            <span className="text-sm font-semibold text-[var(--admin-text)]">Publish on storefront immediately</span>
-            <input type="checkbox" checked={form.isPublished} onChange={(e) => {
-              set('isPublished', e.target.checked)
-              set('status', e.target.checked ? 'PUBLISHED' : 'DRAFT')
-            }} className="h-4 w-4 accent-[var(--admin-accent)]" />
-          </label>
+          <AdminSwitchRow
+            label="Publish on storefront"
+            desc={onInstantPublish ? 'Saves instantly · updates storefront' : 'Product goes live after you save.'}
+            checked={form.isPublished}
+            highlight
+            onChange={() => {
+              const next = !form.isPublished
+              if (onInstantPublish) {
+                onInstantPublish(next)
+                return
+              }
+              set('isPublished', next)
+              set('status', next ? 'PUBLISHED' : 'DRAFT')
+            }}
+          />
         </div>
       ) : null}
     </div>

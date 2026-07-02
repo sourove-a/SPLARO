@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   X,
@@ -12,6 +12,8 @@ import {
   Download,
   Copy,
   GripVertical,
+  Truck,
+  Hash,
 } from 'lucide-react'
 import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentStepper'
 import { AdminButton } from '@/components/ui/AdminButton'
@@ -23,10 +25,11 @@ import {
   downloadInvoicePdf,
   printInvoice,
 } from '@/lib/admin/admin-actions'
-import { toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { cn } from '@/lib/utils/cn'
 
 type PreviewTab = 'items' | 'delivery' | 'docs'
+type InvoiceAction = 'view' | 'pdf' | 'print' | null
 
 interface OrderLineItem {
   name: string
@@ -41,14 +44,21 @@ interface OrderPreviewData {
   customer: string
   phone: string
   city: string
+  address?: string
+  district?: string
   items: string
   lineItems?: OrderLineItem[]
   itemCount: number
   total: number
   payment: string
   courier: string
+  trackingCode?: string | null
+  consignmentId?: string | null
+  courierStatus?: string
+  paymentStatus?: string
   status: string
   apiStatus?: string
+  createdAt?: string
 }
 
 interface OrderPreviewCardProps {
@@ -69,6 +79,15 @@ function orderApiId(order: OrderPreviewData) {
   return order.linkId ?? order.id
 }
 
+function formatStatusLabel(status: string) {
+  return status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
+}
+
+function shortRef(id?: string) {
+  if (!id || id.length < 12) return null
+  return id.slice(0, 8)
+}
+
 export function OrderPreviewCard({
   order,
   onClose,
@@ -79,6 +98,7 @@ export function OrderPreviewCard({
   bookingCourier,
 }: OrderPreviewCardProps) {
   const [tab, setTab] = useState<PreviewTab>('items')
+  const [invoiceAction, setInvoiceAction] = useState<InvoiceAction>(null)
   const apiId = orderApiId(order)
   const parsedLines = order.items.split(',').map((s) => s.trim()).filter(Boolean)
   const displayItems: OrderLineItem[] =
@@ -94,11 +114,31 @@ export function OrderPreviewCard({
           }
         })
 
+  const runInvoiceAction = useCallback(
+    async (action: Exclude<InvoiceAction, null>) => {
+      setInvoiceAction(action)
+      try {
+        if (action === 'view') await downloadInvoice(apiId)
+        else if (action === 'pdf') await downloadInvoicePdf(apiId, order.id)
+        else await printInvoice(apiId)
+      } catch {
+        toastFail('Invoice request failed — check API connection.')
+      } finally {
+        setInvoiceAction(null)
+      }
+    },
+    [apiId, order.id],
+  )
+
   const copyInvoiceNumber = () => {
     void navigator.clipboard.writeText(order.id).then(() => {
       toastOk(`Copied ${order.id}`)
     })
   }
+
+  const fullAddress = [order.address, order.district, order.city].filter(Boolean).join(', ')
+  const hasCourier = order.courier && order.courier !== '—'
+  const statusLabel = formatStatusLabel(order.apiStatus ?? order.status)
 
   return (
     <>
@@ -120,176 +160,233 @@ export function OrderPreviewCard({
         exit={{ opacity: 0, scale: 0.98, x: '-50%', y: '-48%' }}
         transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       >
-          <div className="admin-order-preview__header">
-            <div className="flex items-center gap-2">
-              <GripVertical className="h-4 w-4 text-white/40" aria-hidden />
+        <div className="admin-order-preview__header">
+          <div className="admin-order-preview__header-main">
+            <GripVertical className="admin-order-preview__grip" aria-hidden />
+            <div className="min-w-0">
               <p id="order-preview-title" className="admin-order-preview__title">
                 Invoice {order.id}
               </p>
+              {shortRef(order.linkId) ? (
+                <p className="admin-order-preview__ref">Ref {shortRef(order.linkId)}</p>
+              ) : null}
             </div>
-            <div className="admin-order-preview__header-actions">
-              <AdminNavLink
-                href={`/dashboard/orders/${apiId}`}
-                className="admin-order-preview__icon-btn !p-0"
+            <span className={cn('admin-order-preview__status', `admin-order-preview__status--${order.status}`)}>
+              {statusLabel}
+            </span>
+          </div>
+          <div className="admin-order-preview__header-actions">
+            <AdminNavLink
+              href={`/dashboard/orders/${apiId}`}
+              className="admin-order-preview__icon-btn !p-0"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </AdminNavLink>
+            <button type="button" className="admin-order-preview__icon-btn" onClick={onClose} aria-label="Close">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-order-preview__meta">
+          <div className="admin-order-preview__customer-row">
+            <CustomerAvatar name={order.customer} />
+            <div className="admin-order-preview__customer min-w-0">
+              <p className="admin-order-preview__customer-name">{order.customer}</p>
+              <span className="admin-order-preview__contact">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                {order.payment}
+                {order.paymentStatus ? ` · ${formatStatusLabel(order.paymentStatus)}` : ''}
+                {order.city ? ` · ${order.city}` : ''}
+              </span>
+              <span className="admin-order-preview__contact">
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                {order.phone}
+              </span>
+            </div>
+            <p className="admin-order-preview__total">{formatBDT(order.total)}</p>
+          </div>
+
+          <div className="admin-order-preview__tabs" role="tablist" aria-label="Order preview sections">
+            {(['items', 'delivery', 'docs'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                className={cn('admin-order-preview__tab', tab === key && 'admin-order-preview__tab--active')}
+                onClick={() => setTab(key)}
               >
-                <ExternalLink className="h-4 w-4" />
-              </AdminNavLink>
-              <button type="button" className="admin-order-preview__icon-btn" onClick={onClose} aria-label="Close">
-                <X className="h-4 w-4" />
+                {key === 'items' ? 'Order items' : key === 'delivery' ? 'Delivery' : 'Invoice'}
               </button>
-            </div>
+            ))}
           </div>
+        </div>
 
-          <div className="admin-order-preview__meta">
-            <div className="flex items-start gap-3">
-              <CustomerAvatar name={order.customer} />
-              <div className="admin-order-preview__customer min-w-0">
-                <p className="admin-order-preview__customer-name">{order.customer}</p>
-                <span className="admin-order-preview__contact">
-                  <Mail className="h-3.5 w-3.5" />
-                  {order.payment} · {order.city}
-                </span>
-                <span className="admin-order-preview__contact">
-                  <Phone className="h-3.5 w-3.5" />
-                  {order.phone}
-                </span>
-              </div>
-            </div>
-
-            <div className="admin-order-preview__tabs">
-              {(['items', 'delivery', 'docs'] as const).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={cn('admin-order-preview__tab', tab === key && 'admin-order-preview__tab--active')}
-                  onClick={() => setTab(key)}
-                >
-                  {key === 'items' ? 'Order items' : key === 'delivery' ? 'Delivery' : 'Invoice'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="admin-order-preview__body">
-            {tab === 'items' ? (
-              <>
-                {displayItems.map((item, i) => (
-                  <div key={`${item.name}-${i}`} className="admin-order-preview__item">
-                    <div className="flex items-start gap-2.5">
-                      <OrderProductThumb
-                        src={item.image ?? null}
-                        alt={item.name}
-                        size="md"
-                        className="!ml-0 shrink-0"
-                      />
-                      <div>
-                        <p className="admin-order-preview__item-name">{item.name}</p>
-                        <p className="admin-order-preview__item-qty">Qty {item.quantity}</p>
-                      </div>
+        <div className="admin-order-preview__body">
+          {tab === 'items' ? (
+            <>
+              {displayItems.map((item, i) => (
+                <div key={`${item.name}-${i}`} className="admin-order-preview__item">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <OrderProductThumb
+                      src={item.image ?? null}
+                      alt={item.name}
+                      size="md"
+                      className="!ml-0 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="admin-order-preview__item-name">{item.name}</p>
+                      <p className="admin-order-preview__item-qty">Qty {item.quantity}</p>
                     </div>
-                    <span className="admin-order-preview__item-price">{formatBDT(item.lineTotal)}</span>
                   </div>
-                ))}
-                <div className="admin-order-preview__item !border-none !pt-3">
-                  <p className="admin-order-preview__item-name font-semibold">Total</p>
-                  <span className="admin-order-preview__item-price">{formatBDT(order.total)}</span>
+                  <span className="admin-order-preview__item-price">{formatBDT(item.lineTotal)}</span>
                 </div>
-              </>
-            ) : tab === 'delivery' ? (
-              <div className="space-y-3">
-                <p className="admin-order-preview__contact">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {order.city}
+              ))}
+              <div className="admin-order-preview__total-row">
+                <p className="admin-order-preview__item-name">Total</p>
+                <span className="admin-order-preview__item-price">{formatBDT(order.total)}</span>
+              </div>
+            </>
+          ) : tab === 'delivery' ? (
+            <div className="admin-order-preview__delivery">
+              <div className="admin-order-preview__panel">
+                <p className="admin-order-preview__panel-label">Ship to</p>
+                <p className="admin-order-preview__panel-value">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {fullAddress || order.city || '—'}
                 </p>
-                <p className="admin-order-preview__contact">
-                  <Phone className="h-3.5 w-3.5" />
+                <p className="admin-order-preview__panel-sub">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
                   {order.phone}
                 </p>
-                {order.courier && order.courier !== '—' ? (
-                  <CourierBadge provider={order.courier} variant="card" />
+              </div>
+
+              <div className="admin-order-preview__panel">
+                <p className="admin-order-preview__panel-label">Courier</p>
+                {hasCourier ? (
+                  <>
+                    <CourierBadge provider={order.courier} variant="card" />
+                    {order.consignmentId ? (
+                      <p className="admin-order-preview__panel-sub">
+                        <Hash className="h-3.5 w-3.5 shrink-0" />
+                        {order.consignmentId}
+                      </p>
+                    ) : null}
+                    {order.trackingCode ? (
+                      <p className="admin-order-preview__panel-sub">
+                        <Truck className="h-3.5 w-3.5 shrink-0" />
+                        {order.trackingCode}
+                      </p>
+                    ) : null}
+                    {order.courierStatus ? (
+                      <p className="admin-order-preview__panel-meta">{formatStatusLabel(order.courierStatus)}</p>
+                    ) : null}
+                  </>
                 ) : (
-                  <p className="text-xs text-[#71717a]">No courier assigned yet.</p>
+                  <p className="admin-order-preview__panel-empty">No courier assigned yet.</p>
                 )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-[#71717a]">Premium SPLARO invoice for {order.id}.</p>
-                <AdminButton
-                  variant="ghost"
-                  className="admin-order-preview__action !text-xs w-full justify-start"
-                  onClick={() => downloadInvoice(apiId)}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View invoice
-                </AdminButton>
-                <AdminButton
-                  variant="ghost"
-                  className="admin-order-preview__action !text-xs w-full justify-start"
-                  onClick={() => downloadInvoicePdf(apiId, order.id)}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download PDF
-                </AdminButton>
-                <AdminButton
-                  variant="ghost"
-                  className="admin-order-preview__action !text-xs w-full justify-start"
-                  onClick={() => printInvoice(apiId)}
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  Print invoice
-                </AdminButton>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="admin-order-preview__docs">
+              <p className="admin-order-preview__docs-lead">Premium SPLARO invoice for {order.id}.</p>
+              <AdminButton
+                variant="ghost"
+                className="admin-order-preview__action admin-order-preview__action--row"
+                loading={invoiceAction === 'view'}
+                disabled={Boolean(invoiceAction)}
+                onClick={() => void runInvoiceAction('view')}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View invoice
+              </AdminButton>
+              <AdminButton
+                variant="ghost"
+                className="admin-order-preview__action admin-order-preview__action--row"
+                loading={invoiceAction === 'pdf'}
+                disabled={Boolean(invoiceAction)}
+                onClick={() => void runInvoiceAction('pdf')}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download PDF
+              </AdminButton>
+              <AdminButton
+                variant="ghost"
+                className="admin-order-preview__action admin-order-preview__action--row"
+                loading={invoiceAction === 'print'}
+                disabled={Boolean(invoiceAction)}
+                onClick={() => void runInvoiceAction('print')}
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print invoice
+              </AdminButton>
+            </div>
+          )}
+        </div>
 
+        <div className="admin-order-preview__fulfillment">
           <OrderFulfillmentStepper
             compact
             status={order.apiStatus ?? order.status.toUpperCase()}
             loading={Boolean(advancing)}
             onAdvance={(nextStatus) => onAdvance?.(nextStatus)}
           />
+        </div>
 
-          <div className="admin-order-preview__footer">
+        <div className="admin-order-preview__footer">
+          <AdminButton
+            variant="ghost"
+            className="admin-order-preview__action"
+            loading={invoiceAction === 'pdf'}
+            disabled={Boolean(invoiceAction)}
+            onClick={() => void runInvoiceAction('pdf')}
+          >
+            <Download className="h-3.5 w-3.5" />
+            PDF
+          </AdminButton>
+          <AdminButton
+            variant="ghost"
+            className="admin-order-preview__action"
+            loading={invoiceAction === 'print'}
+            disabled={Boolean(invoiceAction)}
+            onClick={() => void runInvoiceAction('print')}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Print
+          </AdminButton>
+          <AdminButton
+            variant="ghost"
+            className="admin-order-preview__action"
+            disabled={Boolean(invoiceAction)}
+            onClick={copyInvoiceNumber}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy #
+          </AdminButton>
+          {!hasCourier && onBookCourier ? (
+            <AdminButton
+              variant="dark"
+              className="admin-order-preview__action admin-order-preview__action--courier"
+              loading={Boolean(bookingCourier)}
+              disabled={Boolean(invoiceAction) || Boolean(bookingCourier)}
+              onClick={onBookCourier}
+            >
+              <Truck className="h-3.5 w-3.5" />
+              Book courier
+            </AdminButton>
+          ) : null}
+          {order.status !== 'cancelled' && order.status !== 'delivered' && onCancel ? (
             <AdminButton
               variant="ghost"
-              className="admin-order-preview__action !text-xs"
-              onClick={() => downloadInvoicePdf(apiId, order.id)}
+              className="admin-order-preview__action admin-order-preview__action--danger"
+              disabled={Boolean(invoiceAction)}
+              onClick={onCancel}
             >
-              <Download className="h-3.5 w-3.5" />
-              PDF
+              Cancel
             </AdminButton>
-            <AdminButton
-              variant="ghost"
-              className="admin-order-preview__action !text-xs"
-              onClick={() => printInvoice(apiId)}
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Print
-            </AdminButton>
-            <AdminButton
-              variant="ghost"
-              className="admin-order-preview__action !text-xs"
-              onClick={copyInvoiceNumber}
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Copy #
-            </AdminButton>
-            {order.courier === '—' && onBookCourier ? (
-              <AdminButton
-                variant="ghost"
-                className="admin-order-preview__action !text-xs"
-                loading={Boolean(bookingCourier)}
-                onClick={onBookCourier}
-              >
-                Book courier
-              </AdminButton>
-            ) : null}
-            {order.status !== 'cancelled' && order.status !== 'delivered' && onCancel ? (
-              <AdminButton variant="ghost" className="admin-order-preview__action !text-xs" onClick={onCancel}>
-                Cancel
-              </AdminButton>
-            ) : null}
-          </div>
+          ) : null}
+        </div>
       </motion.div>
     </>
   )

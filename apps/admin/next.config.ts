@@ -13,6 +13,7 @@ const config: NextConfig = {
       { protocol: 'https', hostname: 'cdn.splaro.com' },
       { protocol: 'https', hostname: 'cdn.splaro.com.bd' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'media.aarong.com', pathname: '/media/catalog/product/**' },
       { protocol: 'https', hostname: 'placehold.co' },
       { protocol: 'http', hostname: 'localhost', port: '3000', pathname: '/uploads/**' },
     ],

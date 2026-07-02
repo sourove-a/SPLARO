@@ -1,272 +1,150 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
-import { PrismaService } from '../../common/prisma.service'
-import { resolveStoreId } from '../../common/store.util'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req } from '@nestjs/common'
+import type { Request } from 'express'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { SecurityService } from './security.service'
+
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
 @Controller('admin/security')
 export class SecurityController {
-  constructor(
-    private readonly security: SecurityService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly security: SecurityService) {}
 
   @Get()
-  overview(@Query('storeId') storeId: string) {
-    return this.security.overview(storeId)
+  overview(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.security.overview(storeId, req.adminUser)
   }
 
-  // ── Audit Logs ─────────────────────────────────────────────
-
   @Get('audit-logs')
-  async auditLogs(
+  auditLogs(
+    @Req() req: AdminRequest,
     @Query('storeId') storeId: string,
     @Query('page') page = 1,
     @Query('limit') limit = 50,
     @Query('action') action?: string,
     @Query('userId') userId?: string,
   ) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const where = {
-      storeId: sid,
-      ...(action ? { action: { contains: action, mode: 'insensitive' as const } } : {}),
-      ...(userId ? { userId } : {}),
-    }
-    const [logs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        include: { user: { select: { firstName: true, lastName: true, email: true } } },
-        orderBy: { createdAt: 'desc' },
-        skip: (Number(page) - 1) * Number(limit),
-        take: Number(limit),
-      }),
-      this.prisma.auditLog.count({ where }),
-    ])
-    return { logs, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
+    return this.security.listAuditLogs(storeId, req.adminUser, { page: Number(page), limit: Number(limit), action, userId })
   }
 
-  // ── Sessions ───────────────────────────────────────────────
+  @Get('permissions')
+  getPermissions(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.security.getPermissions(storeId, req.adminUser)
+  }
+
+  @Put('permissions/:role')
+  saveRolePermissions(
+    @Query('storeId') storeId: string,
+    @Param('role') role: string,
+    @Body() body: { permissions: { module: string; view: boolean; create: boolean; edit: boolean; delete: boolean }[] },
+    @Req() req: AdminRequest,
+  ) {
+    return this.security.saveRolePermissions(storeId, role, body.permissions, req.adminUser, req)
+  }
 
   @Get('sessions')
-  async sessions(@Query('storeId') storeId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    return this.prisma.deviceSession.findMany({
-      where: {
-        isRevoked: false,
-        expiresAt: { gt: new Date() },
-        user: { staffRoles: { some: { storeId: sid } } },
-      },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
-      orderBy: { lastActive: 'desc' },
-    })
+  sessions(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.security.listSessions(storeId, req.adminUser)
   }
 
   @Delete('sessions/:id')
-  async revokeSession(@Param('id') id: string) {
-    await this.prisma.deviceSession.update({ where: { id }, data: { isRevoked: true } })
-    return { revoked: true }
+  revokeSession(@Param('id') id: string, @Req() req: AdminRequest) {
+    return this.security.revokeSession(id, req.adminUser, req)
   }
 
   @Post('sessions/revoke-all')
-  async revokeAllSessions(@Query('storeId') storeId: string, @Body('userId') userId?: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const where = userId
-      ? { userId }
-      : { user: { staffRoles: { some: { storeId: sid } } } }
-    const { count } = await this.prisma.deviceSession.updateMany({ where, data: { isRevoked: true } })
-    return { revoked: count }
+  revokeAllSessions(
+    @Query('storeId') storeId: string,
+    @Body('userId') userId: string | undefined,
+    @Req() req: AdminRequest,
+  ) {
+    return this.security.revokeAllSessions(storeId, userId, req.adminUser, req)
   }
 
-  // ── IP Rules ───────────────────────────────────────────────
-
   @Get('ip-rules')
-  listIpRules() {
-    return this.prisma.ipRule.findMany({ orderBy: { createdAt: 'desc' } })
+  listIpRules(@Req() req: AdminRequest) {
+    return this.security.listIpRules(req.adminUser)
   }
 
   @Post('ip-rules')
-  createIpRule(@Body() body: { ip: string; type: 'ALLOW' | 'BLOCK'; note?: string; expiresAt?: string }) {
-    return this.prisma.ipRule.create({
-      data: {
-        ip: body.ip,
-        type: body.type,
-        note: body.note,
-        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
-      },
-    })
+  createIpRule(
+    @Body() body: { ip: string; type: 'ALLOW' | 'BLOCK'; note?: string; expiresAt?: string },
+    @Req() req: AdminRequest,
+  ) {
+    return this.security.createIpRule(body, req.adminUser, req)
   }
 
   @Delete('ip-rules/:id')
-  deleteIpRule(@Param('id') id: string) {
-    return this.prisma.ipRule.delete({ where: { id } })
+  deleteIpRule(@Param('id') id: string, @Req() req: AdminRequest) {
+    return this.security.deleteIpRule(id, req.adminUser, req)
   }
 
-  // ── Staff / Roles ──────────────────────────────────────────
-
   @Get('staff')
-  async staff(@Query('storeId') storeId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    return this.prisma.staffRole.findMany({
-      where: { storeId: sid },
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, isActive: true, lastLoginAt: true, twoFAEnabled: true } },
-      },
-    })
+  staff(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.security.listStaff(storeId, req.adminUser)
+  }
+
+  @Post('staff/invite')
+  inviteStaff(
+    @Query('storeId') storeId: string,
+    @Body() body: { email: string; firstName: string; lastName?: string; role: string; password: string },
+    @Req() req: AdminRequest,
+  ) {
+    return this.security.inviteStaff(storeId, body, req.adminUser, req)
   }
 
   @Post('staff')
-  async addStaff(
+  addStaff(
     @Query('storeId') storeId: string,
     @Body() body: { userId: string; role: string; permissions?: string[] },
+    @Req() req: AdminRequest,
   ) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    return this.prisma.staffRole.upsert({
-      where: { userId_storeId: { userId: body.userId, storeId: sid } },
-      create: { userId: body.userId, storeId: sid, role: body.role as never, permissions: body.permissions ?? [] },
-      update: { role: body.role as never, permissions: body.permissions ?? [] },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
-    })
+    return this.security.assignStaff(storeId, body, req.adminUser, req)
   }
 
   @Patch('staff/:userId')
-  async updateStaff(
+  updateStaff(
     @Query('storeId') storeId: string,
     @Param('userId') userId: string,
     @Body() body: { role?: string; permissions?: string[]; isActive?: boolean },
+    @Req() req: AdminRequest,
   ) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const updates: Promise<unknown>[] = []
-
-    if (body.role !== undefined || body.permissions !== undefined) {
-      updates.push(
-        this.prisma.staffRole.update({
-          where: { userId_storeId: { userId, storeId: sid } },
-          data: {
-            ...(body.role !== undefined ? { role: body.role as never } : {}),
-            ...(body.permissions !== undefined ? { permissions: body.permissions } : {}),
-          },
-        }),
-      )
-    }
-
-    if (body.isActive !== undefined) {
-      updates.push(this.prisma.user.update({ where: { id: userId }, data: { isActive: body.isActive } }))
-    }
-
-    await Promise.all(updates)
-    return { updated: true }
+    return this.security.updateStaff(storeId, userId, body, req.adminUser, req)
   }
 
   @Delete('staff/:userId')
-  async removeStaff(@Query('storeId') storeId: string, @Param('userId') userId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    await this.prisma.staffRole.delete({ where: { userId_storeId: { userId, storeId: sid } } })
-    return { removed: true }
+  removeStaff(
+    @Query('storeId') storeId: string,
+    @Param('userId') userId: string,
+    @Req() req: AdminRequest,
+  ) {
+    return this.security.removeStaff(storeId, userId, req.adminUser, req)
   }
 
-  // ── Login history ──────────────────────────────────────────
-
   @Get('login-history')
-  async loginHistory(
+  loginHistory(
+    @Req() req: AdminRequest,
     @Query('storeId') storeId: string,
     @Query('userId') userId?: string,
     @Query('success') success?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const take = Math.min(Number(limit) || 50, 200)
-    const skip = (Math.max(Number(page) || 1, 1) - 1) * take
-
-    const where = {
-      user: { staffRoles: { some: { storeId: sid } } },
-      ...(userId ? { userId } : {}),
-      ...(success !== undefined ? { success: success === 'true' } : {}),
-    }
-
-    const [items, total] = await Promise.all([
-      this.prisma.loginHistory.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take,
-        include: {
-          user: { select: { firstName: true, lastName: true, email: true } },
-        },
-      }),
-      this.prisma.loginHistory.count({ where }),
-    ])
-
-    return { items, total, page: Number(page) || 1, limit: take }
+    return this.security.loginHistory(storeId, req.adminUser, { userId, success, page, limit })
   }
 
   @Get('login-history/stats')
-  async loginStats(@Query('storeId') storeId: string, @Query('days') days?: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const since = new Date()
-    since.setDate(since.getDate() - (Number(days) || 14))
-
-    const [total, failed, byDevice] = await Promise.all([
-      this.prisma.loginHistory.count({
-        where: { user: { staffRoles: { some: { storeId: sid } } }, createdAt: { gte: since } },
-      }),
-      this.prisma.loginHistory.count({
-        where: {
-          user: { staffRoles: { some: { storeId: sid } } },
-          createdAt: { gte: since },
-          success: false,
-        },
-      }),
-      this.prisma.loginHistory.groupBy({
-        by: ['device'],
-        where: { user: { staffRoles: { some: { storeId: sid } } }, createdAt: { gte: since } },
-        _count: true,
-      }),
-    ])
-
-    return {
-      period: `${Number(days) || 14}d`,
-      totalLogins: total,
-      failedLogins: failed,
-      successRate: total > 0 ? Math.round(((total - failed) / total) * 100) : 100,
-      byDevice,
-    }
+  loginStats(@Req() req: AdminRequest, @Query('storeId') storeId: string, @Query('days') days?: string) {
+    return this.security.loginStats(storeId, req.adminUser, days)
   }
 
-  // ── Fraud & COD risk ───────────────────────────────────────
-
   @Get('fraud/alerts')
-  async fraudAlerts(@Query('storeId') storeId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const [highRiskOrders, highRiskCustomers, recentFlaggedOrders] = await Promise.all([
-      this.prisma.order.count({ where: { storeId: sid, isCodRisk: true, status: 'PENDING' } }),
-      this.prisma.customer.count({ where: { storeId: sid, codRiskScore: { gte: 70 } } }),
-      this.prisma.order.findMany({
-        where: { storeId: sid, fraudScore: { gte: 60 } },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        select: {
-          id: true,
-          invoiceNumber: true,
-          shippingName: true,
-          shippingPhone: true,
-          total: true,
-          fraudScore: true,
-          fraudFlags: true,
-          isCodRisk: true,
-          status: true,
-          createdAt: true,
-        },
-      }),
-    ])
-
-    return {
-      summary: { highRiskOrders, highRiskCustomers },
-      recentFlaggedOrders,
-    }
+  fraudAlerts(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.security.fraudAlerts(storeId, req.adminUser)
   }
 
   @Patch('fraud/orders/:orderId')
-  async updateFraudFlags(
+  updateFraudFlags(
+    @Query('storeId') storeId: string,
     @Param('orderId') orderId: string,
     @Body()
     body: {
@@ -275,35 +153,13 @@ export class SecurityController {
       isCodRisk?: boolean
       requireAdvancePayment?: boolean
     },
+    @Req() req: AdminRequest,
   ) {
-    return this.prisma.order.update({
-      where: { id: orderId },
-      data: {
-        ...(body.fraudScore !== undefined ? { fraudScore: body.fraudScore } : {}),
-        ...(body.fraudFlags !== undefined ? { fraudFlags: body.fraudFlags } : {}),
-        ...(body.isCodRisk !== undefined ? { isCodRisk: body.isCodRisk } : {}),
-        ...(body.requireAdvancePayment !== undefined ? { requireAdvancePayment: body.requireAdvancePayment } : {}),
-      },
-      select: { id: true, invoiceNumber: true, fraudScore: true, fraudFlags: true, isCodRisk: true },
-    })
+    return this.security.updateFraudFlags(storeId, orderId, body, req.adminUser, req)
   }
 
-  // ── 2FA ────────────────────────────────────────────────────
-
   @Get('2fa/status')
-  async twoFaStatus(@Query('storeId') storeId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    const staff = await this.prisma.staffRole.findMany({
-      where: { storeId: sid },
-      include: { user: { select: { id: true, firstName: true, twoFAEnabled: true } } },
-    })
-    const enabled = staff.filter((s) => s.user.twoFAEnabled).length
-    return {
-      total: staff.length,
-      enabled,
-      disabled: staff.length - enabled,
-      coverage: staff.length > 0 ? Math.round((enabled / staff.length) * 100) : 0,
-      staff: staff.map((s) => ({ userId: s.userId, name: s.user.firstName, twoFAEnabled: s.user.twoFAEnabled })),
-    }
+  twoFaStatus(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    return this.security.twoFaStatus(storeId, req.adminUser)
   }
 }

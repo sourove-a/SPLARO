@@ -17,13 +17,13 @@ import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 import { InvoiceDetailPanel } from '@/components/modules/InvoiceDetailPanel'
-import { StorefrontLiveBar } from '@/components/modules/PlatformUi'
+import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { formatBDT, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
 /* ── Design tokens ────────────────────────────────────────── */
 
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 
 type KpiTone = 'gold' | 'warn' | 'success' | 'danger' | 'neutral'
 
@@ -491,7 +491,7 @@ function InvoicesPanel() {
 
   return (
     <div className="admin-commerce-panel settings-section-enter">
-      <StorefrontLiveBar
+      <ModuleLiveStrip
         items={[
           {
             label: 'Invoice list API',
@@ -764,7 +764,7 @@ function TransactionsPanel() {
 
   return (
     <div className="admin-commerce-panel settings-section-enter">
-      <StorefrontLiveBar
+      <ModuleLiveStrip
         items={[
           {
             label: 'Transactions API',

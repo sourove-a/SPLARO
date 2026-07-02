@@ -13,9 +13,14 @@ export async function GET() {
     if (res.ok) {
       return NextResponse.json(await res.json())
     }
+    return NextResponse.json(
+      { enabled: false, count: 0, codes: [], error: 'Coupon API unavailable' },
+      { status: res.status >= 500 ? 503 : res.status },
+    )
   } catch {
-    // API offline
+    return NextResponse.json(
+      { enabled: false, count: 0, codes: [], error: 'Coupon service offline' },
+      { status: 503 },
+    )
   }
-
-  return NextResponse.json({ enabled: false, count: 0, codes: [] })
 }

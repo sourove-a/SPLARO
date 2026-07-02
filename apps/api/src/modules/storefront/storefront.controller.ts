@@ -371,6 +371,24 @@ export class StorefrontController {
     })
   }
 
+  @Public()
+  @Post('auth/forgot-password')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async authForgotPassword(
+    @Query('storeId') storeId: string,
+    @Body() body: { email?: string },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.storefrontAuth.forgotPassword(sid, body.email ?? '')
+  }
+
+  @Public()
+  @Post('auth/reset-password')
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  async authResetPassword(@Body() body: { token?: string; password?: string }) {
+    return this.storefrontAuth.resetPassword(body.token ?? '', body.password ?? '')
+  }
+
   @Get('auth/me')
   async authMe(
     @Headers('authorization') authorization?: string,

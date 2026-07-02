@@ -104,7 +104,7 @@ import { AdminHubController } from './modules/admin-hub/admin-hub.controller'
 import { AdminHubService } from './modules/admin-hub/admin-hub.service'
 import { AnalyticsController, AnalyticsService } from './modules/analytics'
 import { AiExecutiveController, AiProductAgentController, AiService } from './modules/ai'
-import { AuthController, AuthService } from './modules/auth'
+import { AuthController, AuthService, AdminLoginTokenService } from './modules/auth'
 import { ContentController, ContentService, LegalPagesService } from './modules/content'
 import { GoogleSheetsController, GoogleSheetsService } from './modules/google-sheets'
 import { ReportsController, ReportsService } from './modules/reports'
@@ -133,6 +133,8 @@ import {
   EncryptionService,
   TelegramIntegrationService,
   AiIntegrationService,
+  PaymentIntegrationService,
+  InfrastructureIntegrationService,
   IntegrationAuditService,
 } from './modules/integrations'
 import {
@@ -289,6 +291,7 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
     AnalyticsService,
     AiService,
     AuthService,
+    AdminLoginTokenService,
     ContentService,
     LegalPagesService,
     GoogleSheetsService,
@@ -316,6 +319,8 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
     IntegrationsService,
     TelegramIntegrationService,
     AiIntegrationService,
+    PaymentIntegrationService,
+    InfrastructureIntegrationService,
     IntegrationAuditService,
     GoogleWorkspaceService,
     GoogleOAuthService,

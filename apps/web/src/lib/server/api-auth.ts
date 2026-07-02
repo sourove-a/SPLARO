@@ -113,6 +113,42 @@ export async function apiAuthLogout(sessionToken: string): Promise<void> {
   }).catch(() => undefined)
 }
 
+export async function apiForgotPassword(
+  email: string,
+): Promise<{ success: true; message: string; devToken?: string } | { error: string }> {
+  const res = await fetch(
+    apiUrl(`/storefront/auth/forgot-password?storeId=${encodeURIComponent(STORE_ID)}`),
+    {
+      method: 'POST',
+      headers: sessionHeaders(),
+      body: JSON.stringify({ email }),
+      cache: 'no-store',
+    },
+  )
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Could not process password reset' }
+  }
+  return (await res.json()) as { success: true; message: string; devToken?: string }
+}
+
+export async function apiResetPassword(
+  token: string,
+  password: string,
+): Promise<{ success: true; message: string } | { error: string }> {
+  const res = await fetch(apiUrl('/storefront/auth/reset-password'), {
+    method: 'POST',
+    headers: sessionHeaders(),
+    body: JSON.stringify({ token, password }),
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Invalid or expired reset token' }
+  }
+  return (await res.json()) as { success: true; message: string }
+}
+
 export async function apiSendOtp(phone: string): Promise<{
   sent: boolean
   devCode?: string
@@ -194,7 +230,9 @@ export async function apiSearchProducts(
     ),
     { headers: { Accept: 'application/json' }, cache: 'no-store' },
   )
-  if (!res.ok) return []
+  if (!res.ok) {
+    throw new Error(`Search API ${res.status}`)
+  }
   const payload = (await res.json()) as { products?: Record<string, unknown>[] }
   return payload.products ?? []
 }

@@ -1,3 +1,4 @@
+import { fetchAdminInvoice, parseInvoiceError } from '@/lib/api/invoice-access'
 import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
 
 const STORAGE_PREFIX = 'splaro-admin:'
@@ -82,20 +83,35 @@ export function exportTableFromContainer(container: HTMLElement | null, slug: st
   return true
 }
 
-export function downloadInvoice(orderId: string) {
-  window.open(
-    `/api/orders/${encodeURIComponent(orderId)}/invoice`,
-    '_blank',
-    'noopener,noreferrer',
-  )
+function openInvoiceHtml(html: string) {
+  const popup = window.open('', '_blank', 'noopener,noreferrer')
+  if (!popup) {
+    toastFail('Pop-up blocked — allow pop-ups to view invoice.')
+    return false
+  }
+  popup.document.write(html)
+  popup.document.close()
+  return true
 }
 
-export function printInvoice(orderId: string) {
-  window.open(
-    `/api/orders/${encodeURIComponent(orderId)}/invoice/print`,
-    '_blank',
-    'noopener,noreferrer',
-  )
+export async function downloadInvoice(orderId: string) {
+  const res = await fetchAdminInvoice(orderId)
+  if (!res.ok) {
+    toastFail(await parseInvoiceError(res))
+    return
+  }
+  const html = await res.text()
+  openInvoiceHtml(html)
+}
+
+export async function printInvoice(orderId: string) {
+  const res = await fetchAdminInvoice(orderId, '/print')
+  if (!res.ok) {
+    toastFail(await parseInvoiceError(res))
+    return
+  }
+  const html = await res.text()
+  openInvoiceHtml(html)
 }
 
 export function printProductLabel(opts: {
@@ -149,14 +165,14 @@ export function printProductLabel(opts: {
   popup.document.close()
 }
 
-export function downloadInvoicePdf(orderId: string, invoiceNumber?: string) {
-  const anchor = document.createElement('a')
-  anchor.href = `/api/orders/${encodeURIComponent(orderId)}/invoice/pdf`
-  anchor.download = `${invoiceNumber ?? orderId}.pdf`
-  anchor.rel = 'noopener'
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
+export async function downloadInvoicePdf(orderId: string, invoiceNumber?: string) {
+  const res = await fetchAdminInvoice(orderId, '/pdf')
+  if (!res.ok) {
+    toastFail(await parseInvoiceError(res))
+    return
+  }
+  const blob = await res.blob()
+  downloadBlob(`${invoiceNumber ?? orderId}.pdf`, blob, 'application/pdf')
 }
 
 /** Verified API persistence — green only after server confirms. */

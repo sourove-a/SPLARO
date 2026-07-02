@@ -7,7 +7,7 @@ import { useDashboardStats, useOrders } from '@/lib/api/hooks'
 import { formatBDT } from '@/lib/utils/currency'
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const GOLD = '#5E7CFF'
+const GOLD = '#c8a97e'
 const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
 const GOLD_BORDER = 'rgba(200,169,126,0.32)'
 

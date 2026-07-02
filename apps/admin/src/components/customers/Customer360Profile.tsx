@@ -190,7 +190,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
               className={cn(
                 'px-4 py-3 text-xs font-medium transition-colors',
                 activeTab === tab
-                  ? light ? 'border-b-2 border-[#5E7CFF] text-[#111111]' : 'border-b-2 border-gold text-gold'
+                  ? light ? 'border-b-2 border-[var(--admin-brand-gold)] text-[#111111]' : 'border-b-2 border-[var(--admin-brand-gold)] text-[var(--admin-brand-gold)]'
                   : light ? 'text-[#6B6B6B] hover:text-[#111111]' : 'text-white/40 hover:text-white/70',
               )}
             >

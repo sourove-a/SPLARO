@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import {
   Building2,
   CreditCard,
@@ -13,8 +12,10 @@ import {
   Wifi,
   BarChart3,
   WifiOff,
+  Cloud,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 
 export type SettingsSection =
   | 'general'
@@ -26,19 +27,31 @@ export type SettingsSection =
   | 'shipping'
   | 'notifications'
   | 'marketing'
+  | 'infrastructure'
   | 'domain'
 
+const SETTINGS_SECTIONS = new Set<SettingsSection>([
+  'general', 'branding', 'contact', 'homepage', 'navigation', 'payments', 'shipping', 'notifications', 'marketing', 'infrastructure', 'domain',
+])
+
+function isSettingsSection(value: string | null): value is SettingsSection {
+  return Boolean(value && SETTINGS_SECTIONS.has(value as SettingsSection))
+}
+
+export { isSettingsSection }
+
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof Globe; desc: string }[] = [
-  { id: 'general', label: 'General', icon: Building2, desc: 'Name, currency, timezone' },
+  { id: 'general', label: 'General', icon: Building2, desc: 'Store name, currency, SKU' },
   { id: 'branding', label: 'Branding', icon: Palette, desc: 'Logo, favicon, footer' },
   { id: 'contact', label: 'Contact & Social', icon: Globe, desc: 'Phone, email, socials' },
-  { id: 'homepage', label: 'Homepage', icon: Home, desc: 'Sections, marquee, offers' },
-  { id: 'navigation', label: 'Navigation', icon: Navigation, desc: 'Header & footer links' },
-  { id: 'payments', label: 'Payments', icon: CreditCard, desc: 'bKash, Nagad, COD' },
-  { id: 'shipping', label: 'Shipping', icon: Truck, desc: 'Delivery charges' },
-  { id: 'notifications', label: 'Notifications', icon: Mail, desc: 'SMTP, Telegram' },
-  { id: 'marketing', label: 'Marketing', icon: BarChart3, desc: 'Pixel, Analytics' },
-  { id: 'domain', label: 'Domain & SEO', icon: Wifi, desc: 'Domain, meta tags' },
+  { id: 'homepage', label: 'Homepage', icon: Home, desc: 'Hero, marquee, offers' },
+  { id: 'navigation', label: 'Navigation', icon: Navigation, desc: 'Header & footer menus' },
+  { id: 'payments', label: 'Payments', icon: CreditCard, desc: 'bKash, Nagad, COD, SSL' },
+  { id: 'shipping', label: 'Shipping', icon: Truck, desc: 'Dhaka & outside charges' },
+  { id: 'notifications', label: 'Notifications', icon: Mail, desc: 'SMTP, Telegram, newsletter' },
+  { id: 'marketing', label: 'Marketing', icon: BarChart3, desc: 'Meta Pixel, GA4' },
+  { id: 'infrastructure', label: 'Infrastructure', icon: Cloud, desc: 'R2 storage, Steadfast' },
+  { id: 'domain', label: 'Domain & SEO', icon: Wifi, desc: 'Custom domain, meta tags' },
 ]
 
 interface Props {
@@ -48,37 +61,11 @@ interface Props {
 }
 
 function ConnectionStatus({ settingsLoaded }: { settingsLoaded: boolean }) {
-  const [apiReachable, setApiReachable] = useState<boolean | null>(null)
-  const [latency, setLatency] = useState<number | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const ping = async () => {
-      try {
-        const res = await fetch('/api/ping', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
-        const data = (await res.json()) as { online?: boolean; latencyMs?: number | null }
-        if (cancelled) return
-        setApiReachable(Boolean(data.online))
-        setLatency(data.online && typeof data.latencyMs === 'number' ? data.latencyMs : null)
-      } catch {
-        if (!cancelled) {
-          setApiReachable(false)
-          setLatency(null)
-        }
-      }
-    }
-
-    void ping()
-    const id = window.setInterval(() => void ping(), 30_000)
-    return () => {
-      cancelled = true
-      window.clearInterval(id)
-    }
-  }, [])
-
-  const online = settingsLoaded && apiReachable !== false
-  const checking = apiReachable === null
+  const { api, checking } = useAdminConnection(30_000)
+  const apiReachable = api.pulse === 'online' || api.pulse === 'degraded'
+  const latency = api.latencyMs
+  const online = settingsLoaded && apiReachable
+  const isChecking = checking && api.pulse === 'checking'
 
   return (
     <div
@@ -97,16 +84,16 @@ function ConnectionStatus({ settingsLoaded }: { settingsLoaded: boolean }) {
       </span>
       <div className="settings-nav-status__body">
         <p className="settings-nav-status__title">
-          {checking ? 'Checking API…' : online ? 'API connected' : 'API offline'}
+          {isChecking ? 'Checking API…' : online ? 'API connected' : 'API offline'}
         </p>
         <p className="settings-nav-status__sub">
-          {checking
+          {isChecking
             ? 'Pinging backend health…'
             : !settingsLoaded
               ? 'Settings not loaded — start API'
-              : apiReachable === false
+              : !apiReachable
                 ? 'Cannot reach API — save disabled'
-                : latency !== null
+                : latency != null
                   ? `${latency}ms · settings loaded from server`
                   : 'Settings loaded from server'}
         </p>

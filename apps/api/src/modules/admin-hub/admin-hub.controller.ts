@@ -45,6 +45,19 @@ export class AdminHubController {
     return this.hub.createSupplier(storeId, body)
   }
 
+  @Post('procurement/purchase-orders')
+  createPurchaseOrder(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      supplierId: string
+      notes?: string
+      items: { productName: string; sku?: string; quantity: number; unitCost: number }[]
+    },
+  ) {
+    return this.hub.createPurchaseOrder(storeId, body)
+  }
+
   @Post('support/tickets')
   createTicket(
     @Query('storeId') storeId: string,
