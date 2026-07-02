@@ -1,6 +1,5 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { buildAdminApiUrl } from './client'
 import { getAdminApiToken, setAdminApiToken } from '@/lib/auth/api-token'
-import { getStoreId } from './client'
 
 export type InvoiceSuffix = '' | '/print' | '/pdf'
 
@@ -23,10 +22,8 @@ async function resolveAdminToken(): Promise<string | null> {
 }
 
 export function invoiceApiUrl(orderId: string, suffix: InvoiceSuffix = ''): string {
-  const base = getApiBaseUrl()
-  const sid = getStoreId()
   const path = `/admin/orders/${encodeURIComponent(orderId)}/invoice${suffix}`
-  return `${base}${path}?storeId=${encodeURIComponent(sid)}`
+  return buildAdminApiUrl(path)
 }
 
 /** Authenticated fetch for invoice HTML/PDF — uses session token (same as apiFetch). */
