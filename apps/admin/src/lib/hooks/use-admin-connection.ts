@@ -58,8 +58,52 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
   const refresh = useCallback(async () => {
     setChecking(true)
     try {
-      const res = await fetch('/api/ping', { cache: 'no-store', signal: AbortSignal.timeout(8000) })
-      const data = (await res.json()) as PingResponse
+      let data: PingResponse | null = null
+
+      try {
+        const res = await fetch('/api/ping', { cache: 'no-store', signal: AbortSignal.timeout(8000) })
+        if (res.ok) {
+          data = (await res.json()) as PingResponse
+        }
+      } catch {
+        /* try fallback */
+      }
+
+      if (!data) {
+        const res = await fetch('/api/proxy/health', {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(8000),
+        })
+        const online = res.ok
+        let databaseOnline = false
+        if (online) {
+          try {
+            const fullRes = await fetch('/api/proxy/health/full', {
+              cache: 'no-store',
+              signal: AbortSignal.timeout(8000),
+            })
+            if (fullRes.ok) {
+              const full = (await fullRes.json()) as {
+                checks?: { id: string; status: string }[]
+              }
+              databaseOnline = full.checks?.find((c) => c.id === 'postgresql')?.status === 'healthy'
+            }
+          } catch {
+            /* optional */
+          }
+        }
+        data = {
+          online,
+          latencyMs: null,
+          checkedAt: new Date().toISOString(),
+          services: {
+            api: { online, message: online ? 'HTTP 200' : 'Start pnpm dev:api' },
+            storefront: { online: false, message: 'Start pnpm dev:web' },
+            database: { online: databaseOnline },
+          },
+        }
+      }
+
       const services = data.services
 
       if (services) {
@@ -78,7 +122,7 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
 
       setLastChecked(data.checkedAt ? new Date(data.checkedAt) : new Date())
     } catch {
-      setApi({ pulse: 'offline', latencyMs: null, message: 'Admin proxy unreachable' })
+      setApi({ pulse: 'offline', latencyMs: null, message: 'Admin proxy unreachable — restart pnpm dev:admin' })
       setStorefront({ pulse: 'offline', latencyMs: null })
       setDatabase({ pulse: 'offline', latencyMs: null })
       setLastChecked(new Date())

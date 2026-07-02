@@ -10,7 +10,6 @@ import {
   SCROLL_ROUTE_TOP,
   subscribeSmoothScrollEligibility,
 } from '@/lib/motion/scroll'
-import 'lenis/dist/lenis.css'
 
 function LenisRouteSync() {
   const pathname = usePathname()
