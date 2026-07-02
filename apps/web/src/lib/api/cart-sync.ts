@@ -1,9 +1,21 @@
-import { getApiBaseUrl } from '@splaro/config'
 import type { CartItem } from '@/store/cartStore'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 export type CartSyncResult = { ok: true } | { ok: false; error: string }
+
+function cartApiPath(sessionId: string, suffix = ''): string {
+  const base = `/api/cart/${encodeURIComponent(sessionId)}${suffix}`
+  const sep = base.includes('?') ? '&' : '?'
+  return `${base}${sep}storeId=${encodeURIComponent(STORE_ID)}`
+}
+
+function cartSyncError(res: Response | null, fallback: string): string {
+  if (res?.status === 503) {
+    return 'Cart sync is offline — start the API server (pnpm dev:api) or check API_URL.'
+  }
+  return fallback
+}
 
 function cartSessionId(): string {
   if (typeof window === 'undefined') return ''
@@ -46,14 +58,16 @@ export async function pullServerCart(
   const sessionId = cartSessionId()
   if (!sessionId) return { ok: true }
 
-  const base = getApiBaseUrl()
   try {
-    const res = await fetch(
-      `${base}/storefront/cart/${encodeURIComponent(sessionId)}?storeId=${encodeURIComponent(STORE_ID)}`,
-      { cache: 'no-store' },
-    )
+    const res = await fetch(cartApiPath(sessionId), { cache: 'no-store', credentials: 'include' })
     if (!res.ok) {
-      return { ok: false, error: 'Could not load your cart from the server. Your device cart is still saved locally.' }
+      return {
+        ok: false,
+        error: cartSyncError(
+          res,
+          'Could not load your cart from the server. Your device cart is still saved locally.',
+        ),
+      }
     }
 
     const payload = (await res.json()) as {
@@ -74,14 +88,13 @@ export async function clearServerCart(): Promise<CartSyncResult> {
   const sessionId = cartSessionId()
   if (!sessionId) return { ok: true }
 
-  const base = getApiBaseUrl()
   try {
-    const res = await fetch(
-      `${base}/storefront/cart/${encodeURIComponent(sessionId)}/clear?storeId=${encodeURIComponent(STORE_ID)}`,
-      { method: 'POST' },
-    )
+    const res = await fetch(cartApiPath(sessionId, '/clear'), {
+      method: 'POST',
+      credentials: 'include',
+    })
     if (!res.ok) {
-      return { ok: false, error: 'Could not clear server cart.' }
+      return { ok: false, error: cartSyncError(res, 'Could not clear server cart.') }
     }
     return { ok: true }
   } catch {
@@ -93,7 +106,6 @@ export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResul
   const sessionId = cartSessionId()
   if (!sessionId) return { ok: true }
 
-  const base = getApiBaseUrl()
   const cleared = await clearServerCart()
   if (!cleared.ok) return cleared
 
@@ -101,20 +113,24 @@ export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResul
 
   try {
     for (const item of items) {
-      const res = await fetch(
-        `${base}/storefront/cart/${encodeURIComponent(sessionId)}/items?storeId=${encodeURIComponent(STORE_ID)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-          }),
-        },
-      )
+      const res = await fetch(cartApiPath(sessionId, '/items'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        }),
+      })
       if (!res.ok) {
-        return { ok: false, error: 'Could not sync cart to server — changes are saved on this device only.' }
+        return {
+          ok: false,
+          error: cartSyncError(
+            res,
+            'Could not sync cart to server — changes are saved on this device only.',
+          ),
+        }
       }
     }
     return { ok: true }
