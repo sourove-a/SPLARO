@@ -68,7 +68,7 @@ jobs:
         run: pnpm --filter @splaro/web lint
 
       - name: Database push
-        run: pnpm db:push
+        run: cd packages/database && npx prisma db push
 
       - name: Build packages
         run: pnpm build
