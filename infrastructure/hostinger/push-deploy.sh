@@ -24,8 +24,10 @@ Requires: hPanel → Deployments → GitHub connected, auto-deploy on push.
 
 hPanel build settings (once):
   Package manager: npm
-  Build command:   bash scripts/hostinger-build.sh
-  Start command:   node apps/web/.next/standalone/apps/web/server.js
+  Framework:       Express
+  Build command:   npm run build
+  Start command:   npm start
+  Output dir:      apps/web/.next/standalone/apps/web
 
 See infrastructure/hostinger/HPANEL.md
 EOF

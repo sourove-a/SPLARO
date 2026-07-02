@@ -8,14 +8,17 @@ Hostinger shared Node.js **cannot use pnpm via Corepack** — it crashes with:
 
 | Setting | Value |
 |---------|--------|
-| **Package manager** | **npm** (not pnpm) |
+| **Framework preset** | **Express** (or Other if available) |
+| **Package manager** | **npm** (not pnpm — corepack pnpm 11 crashes on Alt-NodeJS) |
 | **Node.js** | 20.x |
-| **Framework** | Other |
-| **Root directory** | `/` (repo root) |
-| **Build command** | `bash scripts/hostinger-build.sh` |
-| **Start command** | `node apps/web/.next/standalone/apps/web/server.js` |
+| **Root directory** | `./` |
+| **Build command** | `npm run build` |
+| **Start command** | `npm start` |
 | **Output directory** | `apps/web/.next/standalone/apps/web` |
 | **Port** | 3000 (default) |
+
+`npm run build` auto-detects Hostinger (no pnpm workspace) and runs `scripts/hostinger-build.sh`.
+You can also use `bash scripts/hostinger-build.sh` directly.
 
 ## Environment variables
 

@@ -8,9 +8,18 @@ cd "$ROOT"
 
 log() { echo "[hostinger-build $(date '+%H:%M:%S')] $*"; }
 
-log "Root=$ROOT Node=$(node -v)"
+log "Root=$ROOT Node=$(node -v) PWD=$PWD"
+
+# Defaults for Next.js build when hPanel env vars are not set yet
+export NODE_ENV=production
+export NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://splaro.co}"
+export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.splaro.co/api/v1}"
+export NEXT_PUBLIC_ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.splaro.co}"
+export NEXT_PUBLIC_STORE_ID="${NEXT_PUBLIC_STORE_ID:-splaro}"
+export NEXT_PUBLIC_CDN_URL="${NEXT_PUBLIC_CDN_URL:-https://splaro.co}"
 
 # Disable broken corepack pnpm 11.x → ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING
+log "Ensuring pnpm 9.x..."
 bash "$ROOT/infrastructure/hostinger/ensure-pnpm.sh"
 export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
 export PATH="$PNPM_HOME:$HOME/.local/bin:$PATH"
@@ -26,4 +35,11 @@ pnpm build:web
 log "Preparing Next.js standalone bundle..."
 node "$ROOT/scripts/prepare-next-standalone.mjs" apps/web
 
-log "Build complete — start: node apps/web/.next/standalone/apps/web/server.js"
+STANDALONE="$ROOT/apps/web/.next/standalone/apps/web/server.js"
+if [ ! -f "$STANDALONE" ]; then
+  log "ERROR: standalone server missing at $STANDALONE"
+  exit 1
+fi
+
+log "Build OK — standalone: $STANDALONE"
+log "Start: npm start  OR  node apps/web/.next/standalone/apps/web/server.js"
