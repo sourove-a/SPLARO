@@ -7,6 +7,7 @@ import { spawnSync } from 'child_process'
 import { existsSync, readdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { getListeningPids, reclaimPort } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -72,6 +73,17 @@ run('pnpm', ['--filter', '@splaro/web', 'lint'])
 run('bash', ['-lc', 'cd packages/database && npx prisma db push'], {
   label: 'prisma db push',
 })
+
+// next build overwrites apps/*/.next — stop next dev first or chunks go missing (./899.js)
+async function stopNextDevBeforeBuild() {
+  for (const port of [3000, 3001]) {
+    if (!getListeningPids(port).length) continue
+    console.log(`\n⚠️  Stopping :${port} before build (avoids corrupt Next .next cache)`)
+    await reclaimPort(port, { force: true })
+  }
+}
+await stopNextDevBeforeBuild()
+
 run('pnpm', ['build'])
 
 assertFile(resolve(ROOT, 'packages/types/dist/index.js'), 'packages/types/dist')

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "predev": "node ../../scripts/ensure-next-cache.mjs apps/admin && node ../../scripts/verify-css.mjs && node ../../scripts/check-api-up.mjs",
-    "prebuild": "node ../../scripts/verify-css.mjs",
+    "prebuild": "node ../../scripts/verify-css.mjs && node ../../scripts/stop-next-dev-for-build.mjs 3001",
     "dev": "next dev --port 3001",
     "dev:fresh": "node ../../scripts/ensure-next-cache.mjs --fresh apps/admin && next dev --port 3001",
     "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Admin CSS cache cleared — run pnpm dev:admin'",
