@@ -35,7 +35,8 @@ sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no \
 
 sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no \
   "$ROOT/infrastructure/hostinger/deploy-remote.sh" \
-  "${SSH_USER}@${SSH_HOST}:/tmp/splaro-deploy-remote.sh"
+  "$ROOT/infrastructure/hostinger/ensure-pnpm.sh" \
+  "${SSH_USER}@${SSH_HOST}:/tmp/"
 
 sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" << 'REMOTE'
 set -euo pipefail
@@ -44,7 +45,7 @@ mv ~/splaro.env ~/splaro/.env
 chmod 600 ~/splaro/.env
 export SPLARO_APP_DIR="$HOME/splaro"
 export SPLARO_DOMAIN=splaro.co
-bash /tmp/splaro-deploy-remote.sh
+bash /tmp/deploy-remote.sh
 REMOTE
 
 rm -f "$ENV_FILE"

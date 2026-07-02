@@ -58,7 +58,9 @@
     "css:fix:admin": "pnpm --filter @splaro/admin css:fix",
     "icons:generate": "node scripts/generate-splaro-icons.mjs",
     "preflight:api": "node scripts/api-preflight.mjs",
-    "ci:verify": "node scripts/ci-verify.mjs"
+    "ci:verify": "node scripts/ci-verify.mjs",
+    "build:hostinger": "bash scripts/hostinger-build.sh",
+    "start:hostinger": "node apps/web/.next/standalone/apps/web/server.js"
   },
   "pnpm": {
     "overrides": {
@@ -79,5 +81,5 @@
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.4.0"
+  "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a"
 }

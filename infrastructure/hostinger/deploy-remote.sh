@@ -26,11 +26,12 @@ if [ "$NODE_MAJOR" -lt 20 ]; then
   die "Node 20+ required (found $(node -v))"
 fi
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  log "Installing pnpm..."
-  npm install -g pnpm@9.4.0
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/ensure-pnpm.sh"
+export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+export PATH="$PNPM_HOME:$HOME/.local/bin:$PATH"
 require_cmd pnpm
+log "Using pnpm $(pnpm --version)"
 
 # Remote DB (Neon/Supabase) allowed; local Postgres required otherwise
 HAS_REMOTE_DB=false
@@ -45,10 +46,15 @@ fi
 
 if [ "$HAS_REMOTE_DB" = false ]; then
   if ! command -v psql >/dev/null 2>&1; then
-    die "PostgreSQL not found. Use VPS or set DATABASE_URL to Neon/Supabase in .env"
+    log "WARNING: No local PostgreSQL — set DATABASE_URL to Neon/Supabase in .env for shared hosting"
+    log "  Example: DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/splaro_db?sslmode=require"
+    if [ -z "${DATABASE_URL:-}" ]; then
+      die "DATABASE_URL required. Shared hosting needs Neon/Supabase — see .env.example"
+    fi
+    HAS_REMOTE_DB=true
   fi
   if ! command -v redis-cli >/dev/null 2>&1; then
-    log "WARNING: redis-cli not found — API may run degraded"
+    log "WARNING: redis-cli not found — set REDIS_ENABLED=false or use Upstash REDIS_URL"
   fi
 fi
 
