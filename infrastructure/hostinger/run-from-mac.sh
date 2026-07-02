@@ -1,42 +1,56 @@
 #!/bin/bash
-# Run SPLARO deploy on Hostinger from your Mac (after SSH is enabled in hPanel)
-#
-# 1. hPanel → Advanced → SSH Access → Enable
-# 2. Whitelist your IP if prompted
-# 3. export SSHPASS='your-ssh-password'
-# 4. bash infrastructure/hostinger/run-from-mac.sh
-
+# One-shot deploy from your Mac → Hostinger (needs SSH enabled in hPanel)
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SSH_HOST="${SSH_HOST:-145.79.25.203}"
 SSH_PORT="${SSH_PORT:-65002}"
 SSH_USER="${SSH_USER:-u134578371}"
 
 if [ -z "${SSHPASS:-}" ]; then
-  echo "Set SSHPASS first: export SSHPASS='your-password'"
+  echo "export SSHPASS='your-hostinger-ssh-password'"
   exit 1
 fi
 
-if ! command -v sshpass >/dev/null 2>&1; then
-  echo "Install sshpass: brew install hudochenkov/sshpass/sshpass"
+command -v sshpass >/dev/null || { echo "brew install hudochenkov/sshpass/sshpass"; exit 1; }
+
+echo "Testing SSH ${SSH_USER}@${SSH_HOST}:${SSH_PORT} ..."
+if ! sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
+  "${SSH_USER}@${SSH_HOST}" 'echo SSH_OK && node -v 2>/dev/null || echo NO_NODE'; then
+  echo ""
+  echo "SSH failed. Fix in hPanel:"
+  echo "  1. Advanced → SSH Access → Enable"
+  echo "  2. Copy the IP shown there (may differ from ${SSH_HOST})"
+  echo "  3. Try mobile hotspot if ISP blocks port 65002"
+  echo "  4. Or use GitHub Actions: add secrets + run Deploy Hostinger workflow"
   exit 1
 fi
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-REMOTE_SCRIPT="/tmp/splaro-deploy-remote.sh"
+ENV_FILE="$(mktemp)"
+bash "$ROOT/infrastructure/hostinger/generate-production-env.sh" > "$ENV_FILE"
+echo "Uploading .env + deploy script..."
 
-echo "Uploading deploy script..."
+sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no \
+  "$ENV_FILE" "${SSH_USER}@${SSH_HOST}:~/splaro.env"
+
 sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no \
   "$ROOT/infrastructure/hostinger/deploy-remote.sh" \
-  "${SSH_USER}@${SSH_HOST}:${REMOTE_SCRIPT}"
+  "${SSH_USER}@${SSH_HOST}:/tmp/splaro-deploy-remote.sh"
 
-echo "Running remote deploy (may take 10–20 min)..."
-sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no \
-  "${SSH_USER}@${SSH_HOST}" \
-  "chmod +x ${REMOTE_SCRIPT} && SPLARO_DOMAIN=splaro.co bash ${REMOTE_SCRIPT}"
+sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" << 'REMOTE'
+set -euo pipefail
+mkdir -p ~/splaro
+mv ~/splaro.env ~/splaro/.env
+chmod 600 ~/splaro/.env
+export SPLARO_APP_DIR="$HOME/splaro"
+export SPLARO_DOMAIN=splaro.co
+bash /tmp/splaro-deploy-remote.sh
+REMOTE
+
+rm -f "$ENV_FILE"
 
 echo ""
 echo "Live checks:"
-curl -sI --max-time 20 "https://splaro.co" | head -5
-curl -sI --max-time 20 "https://api.splaro.co/api/v1/health" | head -5
-curl -sI --max-time 20 "https://admin.splaro.co" | head -5
+curl -sI --max-time 20 https://splaro.co | head -6
+curl -sf --max-time 20 https://api.splaro.co/api/v1/health || echo "api: pending DNS/SSL"
+curl -sI --max-time 20 https://admin.splaro.co | head -6

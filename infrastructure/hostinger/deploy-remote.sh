@@ -5,7 +5,7 @@
 set -euo pipefail
 
 DOMAIN="${SPLARO_DOMAIN:-splaro.co}"
-APP_DIR="${SPLARO_APP_DIR:-/var/www/splaro}"
+APP_DIR="${SPLARO_APP_DIR:-$HOME/splaro}"
 REPO_URL="${SPLARO_REPO:-https://github.com/sourove-a/SPLARO.git}"
 BRANCH="${SPLARO_BRANCH:-main}"
 
@@ -16,23 +16,40 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing command: $1"
 }
 
-log "SPLARO deploy — domain=$DOMAIN app=$APP_DIR"
+log "SPLARO deploy — domain=$DOMAIN app=$APP_DIR user=$(whoami)"
 
 require_cmd git
 require_cmd node
-require_cmd pnpm
 
 NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
 if [ "$NODE_MAJOR" -lt 20 ]; then
   die "Node 20+ required (found $(node -v))"
 fi
 
-if ! command -v psql >/dev/null 2>&1; then
-  die "PostgreSQL client not found. SPLARO needs a VPS with Postgres+Redis (shared PHP hosting cannot run the full stack)."
+if ! command -v pnpm >/dev/null 2>&1; then
+  log "Installing pnpm..."
+  npm install -g pnpm@9.4.0
+fi
+require_cmd pnpm
+
+# Remote DB (Neon/Supabase) allowed; local Postgres required otherwise
+HAS_REMOTE_DB=false
+if [ -f "$APP_DIR/.env" ]; then
+  # shellcheck disable=SC1091
+  set -a && source "$APP_DIR/.env" && set +a
+  if [[ "${DATABASE_URL:-}" == *"neon.tech"* ]] || [[ "${DATABASE_URL:-}" == *"supabase.co"* ]]; then
+    HAS_REMOTE_DB=true
+    log "Using remote PostgreSQL"
+  fi
 fi
 
-if ! command -v redis-cli >/dev/null 2>&1; then
-  die "Redis not found. Install Redis or use a VPS."
+if [ "$HAS_REMOTE_DB" = false ]; then
+  if ! command -v psql >/dev/null 2>&1; then
+    die "PostgreSQL not found. Use VPS or set DATABASE_URL to Neon/Supabase in .env"
+  fi
+  if ! command -v redis-cli >/dev/null 2>&1; then
+    log "WARNING: redis-cli not found — API may run degraded"
+  fi
 fi
 
 mkdir -p "$APP_DIR"
@@ -73,7 +90,10 @@ pnpm install --frozen-lockfile
 
 log "Prisma generate + migrate..."
 pnpm db:generate
-pnpm db:migrate:prod
+pnpm db:migrate:prod || pnpm db:push
+
+log "Seed database (idempotent)..."
+pnpm db:seed || log "Seed skipped or partial — check logs"
 
 log "Building apps..."
 pnpm build:all
@@ -82,10 +102,11 @@ log "PM2 reload..."
 if ! command -v pm2 >/dev/null 2>&1; then
   npm install -g pm2
 fi
+export SPLARO_APP_DIR="$APP_DIR"
 pm2 startOrReload infrastructure/pm2/ecosystem.config.js --update-env
 pm2 save
 
-if command -v nginx >/dev/null 2>&1 && [ -w /etc/nginx/sites-available ]; then
+if command -v nginx >/dev/null 2>&1 && [ -w /etc/nginx/sites-available ] 2>/dev/null; then
   log "Installing nginx vhosts for $DOMAIN..."
   cp infrastructure/hostinger/splaro-co-web.conf /etc/nginx/sites-available/splaro-co-web.conf
   cp infrastructure/hostinger/splaro-co-admin.conf /etc/nginx/sites-available/splaro-co-admin.conf

@@ -1,8 +1,10 @@
+const APP_ROOT = process.env.SPLARO_APP_DIR || '/var/www/splaro';
+
 module.exports = {
   apps: [
     {
       name: 'splaro-web',
-      cwd: '/var/www/splaro/apps/web',
+      cwd: `${APP_ROOT}/apps/web`,
       script: 'node',
       args: '.next/standalone/server.js',
       env: {
@@ -27,7 +29,7 @@ module.exports = {
     },
     {
       name: 'splaro-admin',
-      cwd: '/var/www/splaro/apps/admin',
+      cwd: `${APP_ROOT}/apps/admin`,
       script: 'node',
       args: '.next/standalone/server.js',
       env: {
@@ -50,7 +52,7 @@ module.exports = {
     },
     {
       name: 'splaro-api',
-      cwd: '/var/www/splaro/apps/api',
+      cwd: `${APP_ROOT}/apps/api`,
       script: 'dist/main.js',
       env: {
         NODE_ENV: 'production',
@@ -75,7 +77,7 @@ module.exports = {
     },
     {
       name: 'splaro-worker',
-      cwd: '/var/www/splaro/apps/worker',
+      cwd: `${APP_ROOT}/apps/worker`,
       script: 'dist/index.js',
       env: {
         NODE_ENV: 'production',
@@ -95,7 +97,7 @@ module.exports = {
     },
     {
       name: 'splaro-print',
-      cwd: '/var/www/splaro/tools/print-service',
+      cwd: `${APP_ROOT}/tools/print-service`,
       script: 'dist/index.js',
       env: {
         NODE_ENV: 'production',

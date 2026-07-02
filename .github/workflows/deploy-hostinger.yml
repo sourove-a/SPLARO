@@ -1,0 +1,59 @@
+name: Deploy Hostinger
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hostinger
+  cancel-in-progress: true
+
+jobs:
+  ssh-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test SSH port
+        run: |
+          nc -zv -w 10 "${{ secrets.HOSTINGER_HOST }}" "${{ secrets.HOSTINGER_PORT || 65002 }}"
+
+  deploy:
+    needs: ssh-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remote deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          password: ${{ secrets.HOSTINGER_PASSWORD }}
+          port: ${{ secrets.HOSTINGER_PORT || 65002 }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            APP_DIR="$HOME/splaro"
+            mkdir -p "$APP_DIR"
+            echo "${{ secrets.SPLARO_PRODUCTION_ENV_B64 }}" | base64 -d > "$APP_DIR/.env"
+            chmod 600 "$APP_DIR/.env"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone https://github.com/sourove-a/SPLARO.git "$APP_DIR"
+            else
+              cd "$APP_DIR" && git pull origin main
+            fi
+            cd "$APP_DIR"
+            export SPLARO_APP_DIR="$APP_DIR"
+            export SPLARO_DOMAIN=splaro.co
+            bash infrastructure/hostinger/deploy-remote.sh
+
+      - name: Live smoke test
+        run: |
+          sleep 15
+          echo "=== splaro.co ==="
+          curl -sI --max-time 30 https://splaro.co | head -8 || true
+          echo "=== api health ==="
+          curl -sf --max-time 30 https://api.splaro.co/api/v1/health || echo "API not ready"
+          echo "=== admin ==="
+          curl -sI --max-time 30 https://admin.splaro.co | head -8 || true
