@@ -57,7 +57,8 @@
     "css:fix:web": "pnpm --filter @splaro/web css:fix",
     "css:fix:admin": "pnpm --filter @splaro/admin css:fix",
     "icons:generate": "node scripts/generate-splaro-icons.mjs",
-    "preflight:api": "node scripts/api-preflight.mjs"
+    "preflight:api": "node scripts/api-preflight.mjs",
+    "ci:verify": "node scripts/ci-verify.mjs"
   },
   "pnpm": {
     "overrides": {

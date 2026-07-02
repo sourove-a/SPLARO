@@ -47,6 +47,7 @@ export class AppController {
 
   @Get('health/routes')
   @SkipThrottle()
+  @Public()
   async routeHealth(@Query('storeId') storeId = 'splaro', @Req() req?: Request) {
     const port =
       process.env['API_PORT'] ?? process.env['PORT_API'] ?? process.env['PORT'] ?? '4000'

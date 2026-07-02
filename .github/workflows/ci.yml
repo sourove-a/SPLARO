@@ -73,8 +73,11 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Verify built CSS artifacts
+      - name: Verify build artifacts
         run: |
+          test -f packages/types/dist/index.js
+          test -f packages/config/dist/index.js
+          test -f apps/api/dist/main.js
           test -d apps/web/.next/static/css && ls apps/web/.next/static/css/*.css
           test -d apps/admin/.next/static/css && ls apps/admin/.next/static/css/*.css
 
