@@ -43,6 +43,8 @@
     "print:start": "cd tools/print-service && pnpm build && pnpm start",
     "invoice:test": "cd tools/invoice-generator && pnpm build && pnpm test",
     "deploy": "bash infrastructure/scripts/deploy.sh",
+    "deploy:hostinger": "bash infrastructure/hostinger/push-deploy.sh",
+    "deploy:hostinger:ssh": "bash infrastructure/hostinger/run-from-mac.sh",
     "setup:server": "bash infrastructure/scripts/setup-server.sh",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "check": "turbo run check",
