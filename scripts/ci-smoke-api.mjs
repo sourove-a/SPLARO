@@ -16,6 +16,7 @@ const env = {
   CI: 'true',
   JWT_SECRET: process.env.JWT_SECRET ?? 'ci-jwt-secret-min-32-characters-long',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'ci-refresh-secret-min-32-characters',
+  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY ?? 'ci-encryption-key-min-32-characters-long',
   API_PORT: String(port),
   REDIS_HOST: process.env.REDIS_HOST ?? '127.0.0.1',
   REDIS_PORT: process.env.REDIS_PORT ?? '6379',

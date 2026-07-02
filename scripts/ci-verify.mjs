@@ -20,6 +20,7 @@ const CI_ENV = {
   REDIS_ENABLED: process.env.REDIS_ENABLED ?? 'true',
   JWT_SECRET: process.env.JWT_SECRET ?? 'ci-jwt-secret-min-32-characters-long',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'ci-refresh-secret-min-32-characters',
+  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY ?? 'ci-encryption-key-min-32-characters-long',
   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000/api/v1',
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://127.0.0.1:3000',
   NEXT_PUBLIC_STORE_ID: process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro',
