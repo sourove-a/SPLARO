@@ -34,6 +34,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --) shift; continue ;;
     -m|--message)
       COMMIT_MSG="${2:-}"
       [ -n "$COMMIT_MSG" ] || { echo "ERROR: -m needs a message" >&2; exit 1; }

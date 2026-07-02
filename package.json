@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "dev:stack": "node scripts/dev-stack.mjs",
+    "dev:reset": "node scripts/dev-reset.mjs",
     "dev:web": "turbo run dev --filter=@splaro/web",
     "dev:admin": "turbo run dev --filter=@splaro/admin",
     "dev:api": "turbo run dev --filter=@splaro/api",

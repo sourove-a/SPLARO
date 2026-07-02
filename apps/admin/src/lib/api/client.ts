@@ -1,5 +1,5 @@
 import { getApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
-import { getAdminApiToken, setAdminApiToken } from '@/lib/auth/api-token'
+import { clearAdminApiToken, getAdminApiToken, setAdminApiToken } from '@/lib/auth/api-token'
 
 export { SPLARO_DOMAINS, getApiBaseUrl }
 
@@ -9,9 +9,10 @@ const MAX_RETRIES = 2
 
 function parseApiErrorBody(body: string): string {
   try {
-    const json = JSON.parse(body) as { message?: string | string[] }
+    const json = JSON.parse(body) as { message?: string | string[]; error?: string }
     if (Array.isArray(json.message)) return json.message.join(', ')
     if (json.message) return json.message
+    if (json.error) return json.error
   } catch {
     /* plain text */
   }
@@ -107,7 +108,7 @@ export async function apiFetch<T>(
   const method = (init.method ?? 'GET').toUpperCase()
 
   let lastError: unknown
-  let tokenRefreshed = false
+  let authRetried = false
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
@@ -115,11 +116,11 @@ export async function apiFetch<T>(
     }
 
     let apiToken = getAdminApiToken()
+    const useCookieOnly = authRetried && !apiToken
 
-    // On first attempt with no token, try to recover from cookie before giving up
-    if (!apiToken && !tokenRefreshed && typeof window !== 'undefined') {
+    // Recover session from httpOnly cookie when sessionStorage is empty
+    if (!apiToken && typeof window !== 'undefined') {
       apiToken = await refreshTokenFromCookie()
-      tokenRefreshed = true
     }
 
     const controller = new AbortController()
@@ -131,7 +132,7 @@ export async function apiFetch<T>(
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
+          ...(!useCookieOnly && apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
           ...(init.headers ?? {}),
         },
         credentials: 'include',
@@ -140,11 +141,13 @@ export async function apiFetch<T>(
       clearTimeout(timer)
 
       if (!res.ok) {
-        // On 401, attempt one token refresh from cookie then retry
-        if (res.status === 401 && !tokenRefreshed && typeof window !== 'undefined') {
-          tokenRefreshed = true
+        // Stale sessionStorage token blocks proxy cookie auth — clear and retry
+        if (res.status === 401 && !authRetried && typeof window !== 'undefined') {
+          authRetried = true
+          clearAdminApiToken()
           const fresh = await refreshTokenFromCookie()
           if (fresh) continue
+          continue // cookie-only retry (no Authorization header)
         }
         const body = await res.text().catch(() => res.statusText)
         const message = parseApiErrorBody(body) || `API error ${res.status}`

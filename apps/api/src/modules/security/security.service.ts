@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import type { UserRole } from '@prisma/client'
 import type { Request } from 'express'
@@ -50,6 +51,9 @@ export class SecurityService {
   }
 
   private assertCanViewSecurity(actor?: AdminSessionPayload) {
+    if (!actor?.role) {
+      throw new UnauthorizedException('Not authenticated')
+    }
     const role = this.actorRole(actor)
     if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) {
       throw new ForbiddenException('Insufficient permissions to view security data')
@@ -57,6 +61,9 @@ export class SecurityService {
   }
 
   private assertSuperAdmin(actor?: AdminSessionPayload) {
+    if (!actor?.role) {
+      throw new UnauthorizedException('Not authenticated')
+    }
     if (this.actorRole(actor) !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Only Super Admin can perform this action')
     }
@@ -67,12 +74,18 @@ export class SecurityService {
   }
 
   private assertCanInvite(actor?: AdminSessionPayload) {
+    if (!actor?.role) {
+      throw new UnauthorizedException('Not authenticated')
+    }
     if (this.actorRole(actor) !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Only Super Admin can invite admin users')
     }
   }
 
   private assertCanManageStaff(actor?: AdminSessionPayload) {
+    if (!actor?.role) {
+      throw new UnauthorizedException('Not authenticated')
+    }
     const role = this.actorRole(actor)
     if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {
       throw new ForbiddenException('Insufficient permissions to manage staff')
@@ -80,6 +93,9 @@ export class SecurityService {
   }
 
   private assertCanRemoveStaff(actor?: AdminSessionPayload) {
+    if (!actor?.role) {
+      throw new UnauthorizedException('Not authenticated')
+    }
     if (this.actorRole(actor) !== 'SUPER_ADMIN') {
       throw new ForbiddenException('Only Super Admin can remove admin users')
     }

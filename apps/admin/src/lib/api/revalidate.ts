@@ -4,7 +4,7 @@ const SECRET = process.env.REVALIDATE_SECRET ?? ''
 export async function revalidateWebCache(tags?: string[]): Promise<void> {
   if (!SECRET) return
   try {
-    await fetch(`${WEB_URL}/api/revalidate`, {
+    const res = await fetch(`${WEB_URL}/api/revalidate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -15,7 +15,15 @@ export async function revalidateWebCache(tags?: string[]): Promise<void> {
       }),
       signal: AbortSignal.timeout(5000),
     })
-  } catch {
-    // non-fatal — web may be down or revalidate not critical
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      console.error('[revalidate] Web cache invalidation failed:', res.status, body.slice(0, 200))
+    }
+  } catch (err) {
+    console.error(
+      '[revalidate] Web cache invalidation error:',
+      err instanceof Error ? err.message : err,
+      { tags },
+    )
   }
 }

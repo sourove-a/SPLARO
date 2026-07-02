@@ -2,6 +2,35 @@ import { getApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
 
 export { SPLARO_DOMAINS, getApiBaseUrl }
 
+function parseApiErrorBody(body: string): string {
+  try {
+    const json = JSON.parse(body) as { message?: string | string[]; error?: string }
+    if (Array.isArray(json.message)) return json.message.join(', ')
+    if (json.message) return json.message
+    if (json.error) return json.error
+  } catch {
+    /* plain text */
+  }
+  return body.trim() || 'Request failed'
+}
+
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly body?: string,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+async function readErrorMessage(res: Response): Promise<string> {
+  const body = await res.text().catch(() => '')
+  const message = parseApiErrorBody(body) || res.statusText || 'Request failed'
+  return message
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const base = getApiBaseUrl()
   const url = path.startsWith('http') ? path : `${base}${path.startsWith('/') ? path : `/${path}`}`
@@ -16,7 +45,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   })
 
   if (!res.ok) {
-    throw new Error(await res.text().catch(() => res.statusText))
+    const message = await readErrorMessage(res)
+    throw new ApiError(res.status, `API ${res.status}: ${message}`)
   }
 
   return res.json() as Promise<T>

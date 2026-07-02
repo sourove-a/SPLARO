@@ -134,7 +134,14 @@ export class SslCommerzService {
   async validateIpn(body: SslCommerzIpnPayload, invoiceNumber?: string): Promise<boolean> {
     if (!body.val_id || body.status !== 'VALID') return false
 
-    const { creds } = await this.getCredentials(undefined, invoiceNumber ?? body.tran_id)
+    const tranId = invoiceNumber ?? body.tran_id
+    const hashOk = await this.verifyHash(body, tranId)
+    if (!hashOk) {
+      this.logger.warn(`SSLCommerz verify_sign mismatch for ${tranId}`)
+      return false
+    }
+
+    const { creds } = await this.getCredentials(undefined, tranId)
     const baseUrl = this.baseUrl(creds)
 
     const res = await fetch(
@@ -144,11 +151,35 @@ export class SslCommerzService {
 
     if (!res.ok) return false
     const data = (await res.json()) as { status?: string; tran_id?: string; amount?: string }
-    return data.status === 'VALID' && data.tran_id === body.tran_id
+    if (data.status !== 'VALID' || data.tran_id !== body.tran_id) return false
+
+    const order = await this.prisma.order.findUnique({
+      where: { invoiceNumber: tranId },
+      select: { total: true },
+    })
+    if (order) {
+      const paid = parseFloat(data.amount ?? body.amount ?? '0')
+      const expected = Number(order.total)
+      if (!Number.isFinite(paid) || Math.abs(paid - expected) > 0.01) {
+        this.logger.warn(
+          `SSLCommerz amount mismatch for ${tranId}: paid=${paid} expected=${expected}`,
+        )
+        return false
+      }
+    }
+
+    return true
   }
 
   async verifyHash(body: SslCommerzIpnPayload, invoiceNumber?: string): Promise<boolean> {
-    if (!body.verify_sign || !body.verify_key) return true
+    if (!body.verify_sign || !body.verify_key) {
+      const { creds } = await this.getCredentials(undefined, invoiceNumber ?? body.tran_id)
+      if (!creds.sandbox) {
+        this.logger.warn(`SSLCommerz missing verify_sign for ${body.tran_id}`)
+        return false
+      }
+      return true
+    }
     const { creds } = await this.getCredentials(undefined, invoiceNumber ?? body.tran_id)
     const keys = body.verify_key.split(',')
     const parts: string[] = []

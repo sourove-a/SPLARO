@@ -1,4 +1,4 @@
-import { apiFetch, buildAdminApiUrl, getStoreId } from './client'
+import { apiFetch, buildAdminApiUrl } from './client'
 import { getAdminApiToken } from '@/lib/auth/api-token'
 
 export interface FinanceDashboardData {
