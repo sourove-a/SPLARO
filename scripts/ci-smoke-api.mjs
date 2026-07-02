@@ -1,0 +1,111 @@
+#!/usr/bin/env node
+/**
+ * API smoke test — used by GitHub Actions and ci-verify.mjs
+ */
+import { spawn } from 'child_process'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+import { reclaimPort, waitForPortFree } from './api-port.mjs'
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const API_DIR = resolve(ROOT, 'apps/api')
+const port = Number(process.env.API_PORT ?? 4000)
+
+const env = {
+  ...process.env,
+  JWT_SECRET: process.env.JWT_SECRET ?? 'ci-jwt-secret-min-32-characters-long',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'ci-refresh-secret-min-32-characters',
+  API_PORT: String(port),
+  REDIS_HOST: process.env.REDIS_HOST ?? '127.0.0.1',
+  REDIS_PORT: process.env.REDIS_PORT ?? '6379',
+  REDIS_URL: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
+  DATABASE_URL:
+    process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/splaro_db',
+}
+
+function fail(msg, stderr = '') {
+  console.error(`\n❌ API smoke: ${msg}`)
+  if (stderr) console.error(stderr.slice(-4000))
+  process.exit(1)
+}
+
+console.log('▶ API preflight')
+await import('./api-preflight.mjs')
+
+await reclaimPort(port, { force: true })
+await waitForPortFree(port, 10_000)
+
+console.log(`▶ Starting API on :${port}`)
+const child = spawn('node', ['dist/main.js'], {
+  cwd: API_DIR,
+  env,
+  stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true,
+})
+
+let stderr = ''
+child.stderr?.on('data', (chunk) => {
+  const text = chunk.toString()
+  stderr += text
+  if (text.includes('ERROR') || text.includes('Bootstrap failed')) {
+    process.stderr.write(text)
+  }
+})
+
+let healthOk = false
+const deadline = Date.now() + 90_000
+
+while (Date.now() < deadline) {
+  await new Promise((r) => setTimeout(r, 2000))
+  if (child.exitCode !== null) {
+    fail(`API exited with code ${child.exitCode}`, stderr)
+  }
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/v1/health`, {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.ok) {
+      const body = await res.text()
+      if (body.includes('"status":"ok"') || body.includes('"status": "ok"')) {
+        healthOk = true
+        break
+      }
+    }
+  } catch {
+    /* retry */
+  }
+}
+
+if (!healthOk) fail('Timed out waiting for /api/v1/health', stderr)
+
+console.log('✅ /api/v1/health')
+
+let routesOk = false
+try {
+  const res = await fetch(
+    `http://127.0.0.1:${port}/api/v1/health/routes?storeId=splaro`,
+    { signal: AbortSignal.timeout(30_000) },
+  )
+  const body = await res.text()
+  if (!res.ok) fail(`health/routes HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
+  if (!body.includes('healthy')) fail(`health/routes missing healthy marker: ${body.slice(0, 500)}`, stderr)
+  routesOk = true
+} catch (err) {
+  fail(err instanceof Error ? err.message : 'health/routes fetch failed', stderr)
+}
+
+if (!routesOk) fail('health/routes check failed', stderr)
+
+console.log('✅ /api/v1/health/routes')
+
+try {
+  process.kill(-child.pid, 'SIGTERM')
+} catch {
+  try {
+    child.kill('SIGTERM')
+  } catch {
+    /* done */
+  }
+}
+
+console.log('✅ API smoke passed')

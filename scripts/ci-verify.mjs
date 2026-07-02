@@ -3,11 +3,10 @@
  * Local CI mirror — same steps as .github/workflows/ci.yml
  * Usage: pnpm ci:verify
  */
-import { spawn, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import { existsSync, readdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { reclaimPort, waitForPortFree } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -63,79 +62,6 @@ function assertGlobDir(dir, pattern, label) {
   console.log(`✅ ${label} (${files.length} file(s))`)
 }
 
-async function smokeTestApi() {
-  console.log('\n▶ API smoke test')
-  const apiDir = resolve(ROOT, 'apps/api')
-  const port = Number(CI_ENV.API_PORT)
-
-  await reclaimPort(port, { force: true })
-  await waitForPortFree(port, 8000)
-
-  const child = spawn('node', ['dist/main.js'], {
-    cwd: apiDir,
-    env: CI_ENV,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
-  })
-
-  let stderr = ''
-  child.stderr?.on('data', (chunk) => {
-    stderr += chunk.toString()
-  })
-
-  const deadline = Date.now() + 30_000
-  let healthOk = false
-  let routesOk = false
-
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 1000))
-    try {
-      const health = await fetch(`http://127.0.0.1:${port}/api/v1/health`, {
-        signal: AbortSignal.timeout(3000),
-      })
-      if (health.ok) {
-        const body = await health.text()
-        if (body.includes('ok')) healthOk = true
-      }
-      const routes = await fetch(
-        `http://127.0.0.1:${port}/api/v1/health/routes?storeId=splaro`,
-        { signal: AbortSignal.timeout(8000) },
-      )
-      if (routes.ok) {
-        const body = await routes.text()
-        if (body.includes('healthy')) routesOk = true
-      }
-      if (healthOk && routesOk) break
-    } catch {
-      /* retry */
-    }
-  }
-
-  try {
-    process.kill(-child.pid, 'SIGTERM')
-  } catch {
-    try {
-      child.kill('SIGTERM')
-    } catch {
-      /* already dead */
-    }
-  }
-
-  if (!healthOk) {
-    console.error('❌ API health check failed')
-    if (stderr) console.error(stderr.slice(-2000))
-    process.exit(1)
-  }
-  console.log('✅ API /health')
-
-  if (!routesOk) {
-    console.error('❌ API /health/routes check failed')
-    if (stderr) console.error(stderr.slice(-2000))
-    process.exit(1)
-  }
-  console.log('✅ API /health/routes')
-}
-
 console.log('═══ SPLARO CI verify (local) ═══')
 
 run('pnpm', ['install', '--frozen-lockfile'])
@@ -153,7 +79,6 @@ assertFile(resolve(ROOT, 'apps/api/dist/main.js'), 'apps/api/dist/main.js')
 assertGlobDir(resolve(ROOT, 'apps/web/.next/static/css'), /\.css$/, 'web CSS artifacts')
 assertGlobDir(resolve(ROOT, 'apps/admin/.next/static/css'), /\.css$/, 'admin CSS artifacts')
 
-run('node', ['scripts/api-preflight.mjs'], { label: 'api preflight' })
-await smokeTestApi()
+run('node', ['scripts/ci-smoke-api.mjs'], { label: 'API smoke test' })
 
 console.log('\n═══ CI verify passed ═══\n')
