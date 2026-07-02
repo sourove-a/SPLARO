@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from '@splaro/config'
 import type { LegalPageContent } from '@splaro/types'
+import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -44,13 +45,17 @@ function parseLandingContent(row: {
 }
 
 export async function getLandingPage(slug: string): Promise<LegalPageContent | null> {
+  if (isCiOrProductionBuild()) {
+    return null
+  }
+
   try {
     const base = getApiBaseUrl()
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${base}/storefront/landing-pages/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 120 } },
     )
-    if (!res.ok) return null
+    if (!res?.ok) return null
     const row = (await res.json()) as {
       title: string
       content: string | null

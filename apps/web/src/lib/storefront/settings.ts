@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@splaro/config'
+import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import {
   DEFAULT_CATALOG_CHANNELS,
   filterFooterGroupsByCatalogChannels,
@@ -422,11 +423,16 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
 }
 
 async function fetchSettingsRaw(): Promise<StorefrontSettings> {
+  if (isCiOrProductionBuild()) {
+    return FALLBACK_SETTINGS
+  }
+
   const base = getApiBaseUrl()
-  const res = await fetch(`${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`, {
-    cache: 'no-store',
-  })
-  if (!res.ok) throw new Error(`Settings API ${res.status}`)
+  const res = await fetchWithTimeout(
+    `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
+    { cache: 'no-store' },
+  )
+  if (!res?.ok) throw new Error(`Settings API ${res?.status ?? 'unavailable'}`)
   return (await res.json()) as StorefrontSettings
 }
 

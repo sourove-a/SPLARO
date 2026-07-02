@@ -4,19 +4,24 @@ import {
   type LegalPageContent,
   type LegalPageSlug,
 } from '@splaro/types'
+import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 export async function getLegalPage(slug: LegalPageSlug): Promise<LegalPageContent> {
   const fallback = DEFAULT_LEGAL_PAGES[slug]
 
+  if (isCiOrProductionBuild()) {
+    return fallback
+  }
+
   try {
     const base = getApiBaseUrl()
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${base}/storefront/legal-pages/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 120 } },
     )
-    if (!res.ok) return fallback
+    if (!res?.ok) return fallback
 
     const data = (await res.json()) as LegalPageContent
     return {

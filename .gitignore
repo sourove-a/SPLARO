@@ -46,6 +46,11 @@ desktop.ini
 
 # Dev screenshots accidentally saved in repo root
 /*.png
+/*.jpeg
+/*.jpg
+
+# Local product uploads (use CDN/R2 in production)
+apps/web/public/uploads/
 
 # Local tool / MCP caches
 .playwright-mcp/
