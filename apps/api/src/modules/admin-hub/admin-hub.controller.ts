@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common'
 import { AdminHubService } from './admin-hub.service'
 import type { SupportTicketChannel, TaskPriority } from '@prisma/client'
 
@@ -27,6 +27,21 @@ export class AdminHubController {
   @Get('marketing/overview')
   marketingOverview(@Query('storeId') storeId: string) {
     return this.hub.marketingOverview(storeId)
+  }
+
+  @Patch('marketing/social-channels')
+  updateSocialChannels(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      instagram?: string
+      facebook?: string
+      tiktok?: string
+      youtube?: string
+      whatsapp?: string
+    },
+  ) {
+    return this.hub.updateSocialChannels(storeId, body)
   }
 
   @Post('marketing/affiliates')

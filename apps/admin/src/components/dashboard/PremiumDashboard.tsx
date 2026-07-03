@@ -46,7 +46,7 @@ function StorePerformanceCard({
     <div className="admin-glass-mini p-4 transition-transform duration-200 hover:-translate-y-0.5">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">{label}</p>
-        <Icon className="h-4 w-4 text-[#5E7CFF]" strokeWidth={1.75} />
+        <Icon className="h-4 w-4 text-[var(--admin-accent)]" strokeWidth={1.75} />
       </div>
       <p className="mt-2 text-xl font-black text-[var(--admin-text)]">{value}</p>
       {change !== undefined ? (
@@ -95,7 +95,7 @@ export function PremiumDashboard() {
             <div className="admin-hero__inner flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-[#5E7CFF]" strokeWidth={2} />
+                  <Sparkles className="h-3.5 w-3.5 text-[var(--admin-accent)]" strokeWidth={2} />
                   <p className="admin-page-eyebrow">Commerce OS</p>
                 </div>
                 <h1 className="admin-page-title mt-1.5">
@@ -147,7 +147,9 @@ export function PremiumDashboard() {
           <StatCard title="Total Customers" value={fmtNum(customers)} change={stats?.customers.change} icon={Users} loading={isLoading} sparkline />
           <StatCard title="Net Profit" value={fmt(netProfit)} change={stats?.revenue.change} icon={TrendingUp} color="green" loading={isLoading} sparkline />
           <StatCard title="Avg Order Value" value={fmt(aov)} change={stats?.avgOrderValue.change} icon={BarChart3} loading={isLoading} sparkline />
-          <StatCard title="Conversion" value="3.2%" change={12} icon={Percent} color="gold" loading={isLoading} sparkline />
+          {/* No analytics/visitor tracking is wired up yet — show an honest
+              empty value instead of an invented conversion percentage. */}
+          <StatCard title="Conversion" value="—" icon={Percent} color="gold" loading={isLoading} />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
@@ -157,11 +159,13 @@ export function PremiumDashboard() {
           <ChannelDonutChart period={dateRange} />
         </div>
 
+        {/* Visitors / conversion / return-rate have no live data source yet —
+            "—" is honest; fabricated numbers are not. */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StorePerformanceCard label="Visitors" value="24.8K" change={8.4} icon={Users} />
-          <StorePerformanceCard label="Conversion Rate" value="3.2%" change={12} icon={Percent} />
+          <StorePerformanceCard label="Visitors" value="—" icon={Users} />
+          <StorePerformanceCard label="Conversion Rate" value="—" icon={Percent} />
           <StorePerformanceCard label="Avg Order Value" value={fmt(aov)} icon={ShoppingBag} {...(stats?.avgOrderValue.change !== undefined ? { change: stats.avgOrderValue.change } : {})} />
-          <StorePerformanceCard label="Return Rate" value="1.8%" change={-4} icon={TrendingUp} />
+          <StorePerformanceCard label="Return Rate" value="—" icon={TrendingUp} />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">

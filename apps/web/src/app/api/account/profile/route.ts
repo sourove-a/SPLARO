@@ -10,9 +10,13 @@ function apiUrl(path: string): string {
 
 export async function GET() {
   const sessionToken = await getSessionToken()
-  const user = sessionToken ? await apiAuthMe(sessionToken) : null
+  if (!sessionToken) {
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+  }
+
+  const user = await apiAuthMe(sessionToken)
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Session expired' }, { status: 401 })
   }
 
   const customer = user.phone ? await fetchCustomerProfile(user.phone) : null
@@ -31,7 +35,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const sessionToken = await getSessionToken()
   if (!sessionToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   }
 
   const body = (await request.json()) as { name?: string; avatar?: string | null }

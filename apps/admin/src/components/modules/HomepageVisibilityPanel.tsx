@@ -6,7 +6,6 @@ import type { AdminSettingsData } from '@/lib/api/settings'
 const SECTIONS: { key: keyof AdminSettingsData['homepage']; label: string; hint: string }[] = [
   { key: 'hero', label: 'Hero slider', hint: 'Top homepage banner' },
   { key: 'marquee', label: 'Marquee strip', hint: 'Scrolling text under hero' },
-  { key: 'collections', label: 'Collection tiles', hint: 'Shop by collection grid' },
   { key: 'trustBar', label: 'Trust bar', hint: 'Delivery / payment badges' },
   { key: 'catalog', label: 'Product catalog', hint: 'Full shop grid on homepage' },
   { key: 'specialOffer', label: 'Special offer', hint: 'Promo / countdown block' },

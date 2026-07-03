@@ -61,7 +61,7 @@ function QuickActionChip({ action }: { action: QuickAction }) {
     action.variant === 'gold' && 'admin-glass-chip--gold',
   )
 
-  const icon = action.variant === 'gold' ? <Sparkles className="h-3 w-3 text-[#5E7CFF]" /> : null
+  const icon = action.variant === 'gold' ? <Sparkles className="h-3 w-3 text-[var(--admin-accent)]" /> : null
 
   if (action.href) {
     return (
@@ -108,8 +108,10 @@ export function AdminPageShell({
 }: AdminPageShellProps) {
   return (
     <div className={cn('admin-module-canvas space-y-6', className)}>
-      <div className="admin-page-header">
-        <div className="admin-page-header__inner flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="admin-page-header admin-glass-panel">
+        <span className="admin-glass-panel__surface" aria-hidden="true" />
+        <span className="admin-glass-panel__sheen" aria-hidden="true" />
+        <div className="admin-page-header__inner admin-glass-panel__body flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1 space-y-2">
             {breadcrumbs && breadcrumbs.length > 0 ? (
               <nav aria-label="Breadcrumb" className="admin-breadcrumb">

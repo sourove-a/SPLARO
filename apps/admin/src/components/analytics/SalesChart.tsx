@@ -42,10 +42,10 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-[14px] border border-[rgba(17,17,17,0.08)] bg-[rgba(255,255,255,0.97)] px-3.5 py-2.5 shadow-[0_8px_24px_rgba(17,17,17,0.1)] backdrop-blur-xl">
-      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#6B6B6B]">{label}</p>
+    <div className="admin-chart-tooltip">
+      <p className="admin-chart-tooltip__label">{label}</p>
       {payload.map((p) => (
-        <p key={p.dataKey} className="text-sm font-black text-[#111111]">
+        <p key={p.dataKey} className="admin-chart-tooltip__value">
           {formatBDT(p.value)}
         </p>
       ))}
@@ -58,37 +58,6 @@ function periodToPlLabel(period: string): 'daily' | 'weekly' | 'monthly' | 'year
   if (period === '7 Days') return 'weekly'
   if (period === 'Quarter') return 'yearly'
   return 'monthly'
-}
-
-function buildDistribution(total: number, period: string): ChartDataPoint[] {
-  if (total === 0) return []
-
-  const days =
-    period === 'Today' ? 1 :
-    period === '7 Days' ? 7 :
-    period === 'Quarter' ? 12 :
-    30
-
-  if (days === 1) {
-    return [{ label: 'Today', revenue: total }]
-  }
-
-  const weights = Array.from({ length: days }, (_, i) => 0.55 + ((i * 17 + days * 3) % 50) / 100)
-  const weightSum = weights.reduce((a, b) => a + b, 0)
-  const now = new Date()
-
-  return weights.map((w, i) => {
-    const d = new Date(now)
-    d.setDate(d.getDate() - (days - 1 - i))
-    const label =
-      days <= 7
-        ? d.toLocaleDateString('en-BD', { weekday: 'short' })
-        : days <= 30
-          ? d.toLocaleDateString('en-BD', { day: 'numeric', month: 'short' })
-          : d.toLocaleDateString('en-BD', { month: 'short' })
-
-    return { label, revenue: Math.round((w / weightSum) * total) }
-  })
 }
 
 export function SalesChart({
@@ -114,11 +83,10 @@ export function SalesChart({
         const revenue = summary.totals?.grossRevenue ?? 0
         setTotal(revenue)
 
-        if (Array.isArray(summary.timeline) && summary.timeline.length > 1) {
-          setData(summary.timeline)
-        } else {
-          setData(buildDistribution(revenue, period))
-        }
+        // Only chart the real timeline from the API. The old fallback drew a
+        // pseudo-random daily split of the total, which looked like data but
+        // was invented — better an honest empty state.
+        setData(Array.isArray(summary.timeline) && summary.timeline.length > 0 ? summary.timeline : [])
       })
       .catch(() => {
         if (cancelled) return
@@ -139,15 +107,15 @@ export function SalesChart({
     <div className="admin-module-card">
       <div className="mb-5 flex items-start justify-between">
         <div>
-          <h3 className="text-[0.9375rem] font-black tracking-tight text-[#111111]">{title}</h3>
-          <p className="mt-1 text-[0.78rem] font-semibold text-[#6B6B6B]">
+          <h3 className="text-[0.9375rem] font-black tracking-tight text-[var(--admin-text)]">{title}</h3>
+          <p className="mt-1 text-[0.78rem] font-semibold text-[var(--admin-text-muted)]">
             {subtitle ?? `${period} — revenue from delivered orders`}
           </p>
         </div>
         {!compact ? (
           <div className="text-right">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6B6B]">Total</p>
-            <p className="mt-0.5 text-xl font-black text-[#111111]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">Total</p>
+            <p className="mt-0.5 text-xl font-black text-[var(--admin-text)]">
               {loading ? '…' : offline ? '—' : formatBDT(total)}
             </p>
           </div>
@@ -160,7 +128,7 @@ export function SalesChart({
             {[40, 65, 50, 80, 60, 90, 70].map((h, i) => (
               <div
                 key={i}
-                className="flex-1 rounded-t-sm bg-[rgba(17,17,17,0.06)]"
+                className="flex-1 rounded-t-sm bg-[var(--admin-accent-muted)]"
                 style={{ height: `${h}%` }}
               />
             ))}
@@ -168,14 +136,22 @@ export function SalesChart({
         </div>
       ) : offline || data.length === 0 ? (
         <div
-          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(17,17,17,0.08)] bg-[rgba(17,17,17,0.02)] text-center"
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--admin-glass-border-subtle)] bg-[var(--admin-accent-muted)] text-center"
           style={{ height: chartHeight }}
         >
-          <p className="text-sm font-semibold text-[#6B6B6B]">
-            {offline ? 'API offline — start backend on port 4000' : 'No revenue data yet'}
+          <p className="text-sm font-semibold text-[var(--admin-text-muted)]">
+            {offline
+              ? 'API offline — start backend on port 4000'
+              : total > 0
+                ? `${formatBDT(total)} total — no daily breakdown available`
+                : 'No revenue data yet'}
           </p>
-          <p className="text-xs font-medium text-[#6B6B6B]/60">
-            {offline ? 'Chart loads when API is connected' : 'Complete orders to see revenue chart'}
+          <p className="text-xs font-medium text-[var(--admin-text-muted)] opacity-80">
+            {offline
+              ? 'Chart loads when API is connected'
+              : total > 0
+                ? 'The chart appears once the API returns a revenue timeline'
+                : 'Complete orders to see revenue chart'}
           </p>
         </div>
       ) : (
@@ -183,34 +159,34 @@ export function SalesChart({
           <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#5E7CFF" stopOpacity={0.22} />
-                <stop offset="100%" stopColor="#5E7CFF" stopOpacity={0.01} />
+                <stop offset="0%" stopColor="#16181d" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="#16181d" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,17,17,0.05)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-glass-border-subtle)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fill: '#6B6B6B', fontSize: 10, fontWeight: 600 }}
+              tick={{ fill: 'var(--admin-text-muted)', fontSize: 10, fontWeight: 600 }}
               axisLine={false}
               tickLine={false}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fill: '#6B6B6B', fontSize: 10, fontWeight: 600 }}
+              tick={{ fill: 'var(--admin-text-muted)', fontSize: 10, fontWeight: 600 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => v >= 1000 ? `৳${Math.round(v / 1000)}k` : `৳${v}`}
               width={52}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(200,169,126,0.2)', strokeWidth: 1.5 }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--admin-accent-border)', strokeWidth: 1.5 }} />
             <Area
               type="monotone"
               dataKey="revenue"
-              stroke="#5E7CFF"
+              stroke="var(--admin-accent)"
               strokeWidth={2}
               fill="url(#revenueGradient)"
               dot={false}
-              activeDot={{ r: 4.5, fill: '#5E7CFF', stroke: '#fff', strokeWidth: 2 }}
+              activeDot={{ r: 4.5, fill: 'var(--admin-accent)', stroke: 'var(--admin-surface)', strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>

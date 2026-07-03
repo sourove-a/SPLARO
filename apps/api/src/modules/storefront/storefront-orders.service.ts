@@ -3,7 +3,7 @@ import { verifyInvoiceAccessToken } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { assessOrderFraud } from '../../common/fraud.util'
-import { normalizeBdPhone } from '../../common/bd-phone.util'
+import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { MetaCapiService } from '../marketing/meta-capi.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { OrderEventsService } from '../orders/order-events.service'
@@ -57,6 +57,13 @@ export interface CreateStorefrontOrderInput {
   userAgent?: string
 }
 
+/** Must match the storefront checkout's prepaid discount (apps/web lib/utils/currency.ts). */
+const DIGITAL_PAYMENT_DISCOUNT_RATE = 0.05
+/** Legacy flat delivery fee the web checkout still sends. */
+const LEGACY_FLAT_DELIVERY_BDT = 120
+/** Rounding tolerance when comparing client-displayed total to server total. */
+const TOTAL_TOLERANCE_BDT = 5
+
 function mapPaymentMethod(method: string): PaymentMethod {
   const normalized = method.toLowerCase()
   if (normalized.includes('bkash')) return 'BKASH'
@@ -75,27 +82,119 @@ export class StorefrontOrdersService {
     @Optional() private readonly orderEvents: OrderEventsService,
   ) {}
 
+  /**
+   * Resolve the database variant for an order line. Storefront clients may
+   * send a real variantId, or size/color hints (color can be a hex code or a
+   * name), or nothing at all — degrade gracefully instead of rejecting orders.
+   */
+  private async findVariantForItem(
+    db: Prisma.TransactionClient,
+    sid: string,
+    item: StorefrontOrderItemInput,
+  ) {
+    // Only published products are sellable — knowing a draft product's id must not
+    // allow ordering it.
+    const base = { productId: item.productId, product: { storeId: sid, isPublished: true } }
+    const include = { product: { select: { basePrice: true } } } as const
+
+    if (item.variantId) {
+      const byId = await db.productVariant.findFirst({
+        where: { id: item.variantId, ...base },
+        include,
+      })
+      if (byId) return byId
+    }
+
+    const color = item.color?.trim()
+    const colorWhere = color
+      ? { OR: [{ color }, { colorHex: color.toLowerCase() }, { colorName: color }] }
+      : {}
+    const sizeWhere = item.size ? { size: item.size } : {}
+
+    return (
+      (await db.productVariant.findFirst({ where: { ...base, ...sizeWhere, ...colorWhere }, include })) ??
+      (await db.productVariant.findFirst({ where: { ...base, ...sizeWhere }, include })) ??
+      (await db.productVariant.findFirst({ where: { ...base, stock: { gte: 1 } }, include })) ??
+      (await db.productVariant.findFirst({ where: base, include }))
+    )
+  }
+
+  /**
+   * Validate a coupon server-side with the same rules as the public
+   * `storefront/coupons/validate` endpoint. Throws on invalid so an order can
+   * never sneak through with a discount the coupon does not grant.
+   */
+  private async validateCouponForOrder(
+    sid: string,
+    code: string,
+    subtotal: number,
+  ): Promise<{ couponId: string; discount: number; freeShipping: boolean }> {
+    const normalized = code.trim().toUpperCase()
+    const coupon = await this.prisma.coupon.findFirst({
+      where: { storeId: sid, code: normalized, isActive: true },
+    })
+    if (!coupon) throw new BadRequestException('Invalid coupon code')
+
+    const now = new Date()
+    if (coupon.startsAt && coupon.startsAt > now) {
+      throw new BadRequestException('Coupon not active yet')
+    }
+    if (coupon.expiresAt && coupon.expiresAt < now) {
+      throw new BadRequestException('Coupon expired')
+    }
+    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+      throw new BadRequestException('Coupon usage limit reached')
+    }
+    const minOrder = coupon.minOrderAmount ? Number(coupon.minOrderAmount) : 0
+    if (minOrder && subtotal < minOrder) {
+      throw new BadRequestException(
+        `Coupon requires a minimum order of BDT ${minOrder.toLocaleString('en-BD')}`,
+      )
+    }
+
+    if (coupon.type === 'FREE_SHIPPING') {
+      return { couponId: coupon.id, discount: 0, freeShipping: true }
+    }
+    if (coupon.type === 'PERCENTAGE') {
+      const raw = Math.round(subtotal * (Number(coupon.value) / 100))
+      const max = coupon.maxDiscountAmount ? Number(coupon.maxDiscountAmount) : raw
+      return { couponId: coupon.id, discount: Math.min(raw, max), freeShipping: false }
+    }
+    return {
+      couponId: coupon.id,
+      discount: Math.min(Number(coupon.value), subtotal),
+      freeShipping: false,
+    }
+  }
+
   async create(input: CreateStorefrontOrderInput) {
     if (!input.items.length) {
       throw new BadRequestException('Order must include at least one item')
     }
 
+    if (!isValidBdMobile(input.customer.phone)) {
+      throw new BadRequestException(
+        'Valid Bangladeshi mobile number required (01XXXXXXXXX)',
+      )
+    }
+
     const sid = await resolveStoreId(this.prisma, input.storeId)
     const errors: string[] = []
 
+    // Resolve every line to a real DB variant and take prices from the
+    // database — client-sent prices are never trusted for money math.
+    const lines: {
+      item: StorefrontOrderItemInput
+      variant: NonNullable<Awaited<ReturnType<StorefrontOrdersService['findVariantForItem']>>>
+      unitPrice: number
+    }[] = []
+
     for (const item of input.items) {
-      const variant = item.variantId
-        ? await this.prisma.productVariant.findFirst({
-            where: { id: item.variantId, productId: item.productId, product: { storeId: sid } },
-          })
-        : await this.prisma.productVariant.findFirst({
-            where: {
-              productId: item.productId,
-              product: { storeId: sid },
-              ...(item.size ? { size: item.size } : {}),
-              ...(item.color ? { color: item.color } : {}),
-            },
-          })
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 500) {
+        throw new BadRequestException(`${item.name}: invalid quantity`)
+      }
+
+      const variant = await this.findVariantForItem(this.prisma, sid, item)
 
       if (!variant) {
         errors.push(`${item.name}: variant not found`)
@@ -104,15 +203,69 @@ export class StorefrontOrdersService {
 
       if (variant.stock < item.quantity) {
         errors.push(`${item.name}: only ${variant.stock} left in stock`)
+        continue
       }
+
+      const variantPrice = Number(variant.price)
+      const unitPrice = variantPrice > 0 ? variantPrice : Number(variant.product.basePrice)
+      lines.push({ item, variant, unitPrice })
     }
 
     if (errors.length) {
       throw new BadRequestException(errors.join('; '))
     }
 
-    const invoiceNumber = await this.nextInvoiceNumber(sid)
     const paymentMethod = mapPaymentMethod(input.paymentMethod)
+
+    // ── Server-side money math ────────────────────────────────
+    const serverSubtotal = Math.round(
+      lines.reduce((sum, line) => sum + line.unitPrice * line.item.quantity, 0),
+    )
+
+    const coupon = input.couponCode
+      ? await this.validateCouponForOrder(sid, input.couponCode, serverSubtotal)
+      : null
+
+    const digitalDiscount =
+      paymentMethod === 'CASH_ON_DELIVERY'
+        ? 0
+        : Math.round(serverSubtotal * DIGITAL_PAYMENT_DISCOUNT_RATE)
+    const serverDiscount = digitalDiscount + (coupon?.discount ?? 0)
+
+    const settings = await this.prisma.siteSettings.findUnique({ where: { storeId: sid } })
+    const freeThreshold = Number(settings?.freeDeliveryThreshold ?? 0)
+    const freeDelivery =
+      Boolean(coupon?.freeShipping) ||
+      serverSubtotal === 0 ||
+      (freeThreshold > 0 && serverSubtotal >= freeThreshold)
+
+    let delivery = 0
+    if (!freeDelivery) {
+      const allowedCharges = new Set(
+        [
+          Number(settings?.dhakaDeliveryCharge ?? 60),
+          Number(settings?.outsideDhakaCharge ?? 120),
+          LEGACY_FLAT_DELIVERY_BDT,
+        ].map((value) => Math.round(value)),
+      )
+      const clientDelivery = Math.round(Number(input.delivery ?? 0))
+      if (!allowedCharges.has(clientDelivery)) {
+        throw new BadRequestException(
+          'Delivery charge is out of date — refresh the page and try again',
+        )
+      }
+      delivery = clientDelivery
+    }
+
+    const serverTotal = Math.max(0, Math.round(serverSubtotal + delivery - serverDiscount))
+
+    if (Math.abs(Math.round(Number(input.total ?? 0)) - serverTotal) > TOTAL_TOLERANCE_BDT) {
+      throw new BadRequestException(
+        'Order total is out of date — prices may have changed. Refresh the page and try again.',
+      )
+    }
+
+    const invoiceNumber = await this.nextInvoiceNumber(sid)
     const paymentStatus: PaymentStatus = 'PENDING'
     const status: OrderStatus = 'PENDING'
 
@@ -130,7 +283,7 @@ export class StorefrontOrdersService {
 
     const fraud = assessOrderFraud({
       paymentMethod,
-      total: input.total,
+      total: serverTotal,
       phone: normalizedPhone,
       recentOrdersFromPhone: recentPhoneOrders,
       hasFbclid: Boolean(input.attribution?.fbclid),
@@ -139,6 +292,26 @@ export class StorefrontOrdersService {
     const attr = input.attribution
 
     const order = await this.prisma.$transaction(async (tx) => {
+      // Guarded decrement: `stock >= quantity` in the WHERE clause makes the
+      // check-and-decrement atomic, so two concurrent checkouts can never
+      // oversell the last unit or push stock negative.
+      for (const line of lines) {
+        const updated = await tx.productVariant.updateMany({
+          where: { id: line.variant.id, stock: { gte: line.item.quantity } },
+          data: { stock: { decrement: line.item.quantity } },
+        })
+        if (updated.count === 0) {
+          throw new BadRequestException(`${line.item.name}: just sold out — please refresh your cart`)
+        }
+      }
+
+      if (coupon) {
+        await tx.coupon.update({
+          where: { id: coupon.couponId },
+          data: { usedCount: { increment: 1 } },
+        })
+      }
+
       const created = await tx.order.create({
         data: {
           storeId: sid,
@@ -146,11 +319,11 @@ export class StorefrontOrdersService {
           status,
           paymentStatus,
           paymentMethod,
-          subtotal: input.subtotal,
-          deliveryCharge: input.delivery,
-          discount: input.discount,
-          total: input.total,
-          couponCode: input.couponCode,
+          subtotal: serverSubtotal,
+          deliveryCharge: delivery,
+          discount: serverDiscount,
+          total: serverTotal,
+          couponCode: coupon ? input.couponCode : null,
           shippingName: input.customer.name,
           shippingPhone: normalizedPhone,
           shippingEmail,
@@ -173,39 +346,17 @@ export class StorefrontOrdersService {
           landingPage: attr?.landingPage ?? null,
           clientIp: input.clientIp ?? null,
           items: {
-            create: await Promise.all(
-              input.items.map(async (item) => {
-                const variant = item.variantId
-                  ? await tx.productVariant.findUnique({ where: { id: item.variantId } })
-                  : await tx.productVariant.findFirst({
-                      where: {
-                        productId: item.productId,
-                        ...(item.size ? { size: item.size } : {}),
-                        ...(item.color ? { color: item.color } : {}),
-                      },
-                    })
-
-                if (variant) {
-                  await tx.productVariant.update({
-                    where: { id: variant.id },
-                    data: { stock: { decrement: item.quantity } },
-                  })
-                }
-
-                const lineTotal = item.price * item.quantity
-                return {
-                  product: { connect: { id: item.productId } },
-                  ...(variant?.id ? { variant: { connect: { id: variant.id } } } : {}),
-                  productName: item.name,
-                  variantName: [item.size, item.color].filter(Boolean).join(' / ') || null,
-                  sku: variant?.sku ?? null,
-                  image: item.image ?? variant?.image ?? null,
-                  price: item.price,
-                  quantity: item.quantity,
-                  subtotal: lineTotal,
-                } satisfies Prisma.OrderItemCreateWithoutOrderInput
-              }),
-            ),
+            create: lines.map(({ item, variant, unitPrice }) => ({
+              product: { connect: { id: item.productId } },
+              variant: { connect: { id: variant.id } },
+              productName: item.name,
+              variantName: [item.size, item.color].filter(Boolean).join(' / ') || null,
+              sku: variant.sku ?? null,
+              image: item.image ?? variant.image ?? null,
+              price: unitPrice,
+              quantity: item.quantity,
+              subtotal: unitPrice * item.quantity,
+            }) satisfies Prisma.OrderItemCreateWithoutOrderInput),
           },
           statusHistory: {
             create: { status, note: 'Order placed from storefront' },
@@ -214,7 +365,7 @@ export class StorefrontOrdersService {
             create: {
               method: paymentMethod,
               status: paymentStatus,
-              amount: input.total,
+              amount: serverTotal,
               currency: 'BDT',
             },
           },
@@ -229,6 +380,7 @@ export class StorefrontOrdersService {
     })
 
     void this.metaCapi.trackPurchase({
+      storeId: sid,
       orderId: order.id,
       total: Number(order.total),
       email: input.customer.email,

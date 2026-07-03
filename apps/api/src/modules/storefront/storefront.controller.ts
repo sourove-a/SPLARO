@@ -10,6 +10,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   Query,
   Req,
   Patch,
@@ -422,13 +423,14 @@ export class StorefrontController {
     @Headers('authorization') authorization?: string,
     @Headers('x-splaro-session') sessionHeader?: string,
   ) {
-    await resolveStoreId(this.prisma, storeId)
+    const sid = await resolveStoreId(this.prisma, storeId)
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     if (!sessionToken) throw new UnauthorizedException('Not signed in')
     const user = await this.storefrontAuth.validateSession(sessionToken)
-    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+    if (!user) throw new UnauthorizedException('Not signed in')
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
 
-    const productIds = await this.storefrontWishlist.listProductIds(user.customerId)
+    const productIds = await this.storefrontWishlist.listProductIds(customerId)
     return { productIds }
   }
 
@@ -439,13 +441,14 @@ export class StorefrontController {
     @Headers('authorization') authorization?: string,
     @Headers('x-splaro-session') sessionHeader?: string,
   ) {
-    await resolveStoreId(this.prisma, storeId)
+    const sid = await resolveStoreId(this.prisma, storeId)
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     if (!sessionToken) throw new UnauthorizedException('Not signed in')
     const user = await this.storefrontAuth.validateSession(sessionToken)
-    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+    if (!user) throw new UnauthorizedException('Not signed in')
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
 
-    const productIds = await this.storefrontWishlist.merge(user.customerId, body.productIds ?? [])
+    const productIds = await this.storefrontWishlist.merge(customerId, body.productIds ?? [])
     return { productIds }
   }
 
@@ -460,9 +463,10 @@ export class StorefrontController {
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     if (!sessionToken) throw new UnauthorizedException('Not signed in')
     const user = await this.storefrontAuth.validateSession(sessionToken)
-    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+    if (!user) throw new UnauthorizedException('Not signed in')
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
 
-    return this.storefrontWishlist.toggle(sid, user.customerId, body.productId ?? '')
+    return this.storefrontWishlist.toggle(sid, customerId, body.productId ?? '')
   }
 
   @Post('auth/logout')
@@ -732,14 +736,28 @@ export class StorefrontController {
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
 
+    const product = await this.prisma.product.findFirst({
+      where: { id: body.productId, storeId: sid, isPublished: true },
+      select: { id: true },
+    })
+    if (!product) throw new NotFoundException('Product not found or no longer available')
+
+    const qty = Math.max(1, body.quantity ?? 1)
+    const variantId = body.variantId?.trim() || null
+
+    if (variantId) {
+      const variant = await this.prisma.productVariant.findFirst({
+        where: { id: variantId, productId: body.productId },
+        select: { id: true },
+      })
+      if (!variant) throw new NotFoundException('Product variant not found')
+    }
+
     const cart = await this.prisma.cartSession.upsert({
       where: { sessionId },
       create: { sessionId, storeId: sid, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
       update: { updatedAt: new Date() },
     })
-
-    const qty = Math.max(1, body.quantity ?? 1)
-    const variantId = body.variantId?.trim() || null
 
     const existing = await this.prisma.cartItem.findFirst({
       where: {
@@ -764,6 +782,64 @@ export class StorefrontController {
         },
       })
     }
+
+    return this.getCart(storeId, sessionId)
+  }
+
+  /**
+   * Atomically replace the cart contents. Unlike clear-then-add from the
+   * client, this runs in one transaction so a mid-sync failure can never
+   * leave the server cart wiped.
+   */
+  @Put('cart/:sessionId')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async replaceCart(
+    @Query('storeId') storeId: string,
+    @Param('sessionId') sessionId: string,
+    @Body() body: { items?: { productId: string; variantId?: string; quantity?: number }[] },
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const requested = Array.isArray(body.items) ? body.items.slice(0, 100) : []
+
+    // Validate up front — invalid lines are skipped, not fatal, so a single
+    // stale local item can't block syncing the rest of the cart.
+    const validated: { productId: string; variantId: string | null; quantity: number }[] = []
+    for (const item of requested) {
+      if (!item?.productId) continue
+      const product = await this.prisma.product.findFirst({
+        where: { id: item.productId, storeId: sid, isPublished: true },
+        select: { id: true },
+      })
+      if (!product) continue
+
+      const variantId = item.variantId?.trim() || null
+      if (variantId) {
+        const variant = await this.prisma.productVariant.findFirst({
+          where: { id: variantId, productId: item.productId },
+          select: { id: true },
+        })
+        if (!variant) continue
+      }
+      validated.push({
+        productId: item.productId,
+        variantId,
+        quantity: Math.min(500, Math.max(1, Math.round(Number(item.quantity ?? 1)))),
+      })
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const cart = await tx.cartSession.upsert({
+        where: { sessionId },
+        create: { sessionId, storeId: sid, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+        update: { updatedAt: new Date() },
+      })
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
+      if (validated.length) {
+        await tx.cartItem.createMany({
+          data: validated.map((item) => ({ cartId: cart.id, ...item })),
+        })
+      }
+    })
 
     return this.getCart(storeId, sessionId)
   }
@@ -797,7 +873,8 @@ export class StorefrontController {
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     if (!sessionToken) throw new UnauthorizedException('Sign in to leave a review')
     const user = await this.storefrontAuth.validateSession(sessionToken)
-    if (!user?.customerId) throw new UnauthorizedException('Customer account required')
+    if (!user) throw new UnauthorizedException('Sign in to leave a review')
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
 
     if (!body.productId || !body.rating) throw new BadRequestException('productId and rating required')
     if (body.rating < 1 || body.rating > 5) throw new BadRequestException('Rating must be 1-5')
@@ -814,7 +891,7 @@ export class StorefrontController {
     if (!product) throw new NotFoundException('Product not found')
 
     const existing = await this.prisma.review.findFirst({
-      where: { productId: body.productId, customerId: user.customerId },
+      where: { productId: body.productId, customerId },
     })
     if (existing) throw new BadRequestException('You have already reviewed this product')
 
@@ -822,7 +899,7 @@ export class StorefrontController {
       where: {
         productId: body.productId,
         order: {
-          customerId: user.customerId,
+          customerId,
           status: { notIn: ['CANCELLED', 'REFUNDED'] },
         },
       },
@@ -832,7 +909,7 @@ export class StorefrontController {
     const review = await this.prisma.review.create({
       data: {
         productId: body.productId,
-        customerId: user.customerId,
+        customerId,
         rating: body.rating,
         title: body.title?.trim() || null,
         body: text,

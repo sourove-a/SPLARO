@@ -27,8 +27,14 @@ export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=4096"
 
 log "Installing monorepo dependencies (pnpm $(pnpm --version))..."
 log "NOTE: --prod=false keeps devDeps (tailwind, typescript); --ignore-scripts skips prisma postinstall"
-# Prevent recursive root postinstall while pnpm install runs
 SKIP_SPLARO_POSTINSTALL=1 NODE_ENV=development pnpm install --frozen-lockfile --prod=false --ignore-scripts
+
+log "Generating Prisma client for workspace packages..."
+if [ -n "${DATABASE_URL:-}" ]; then
+  SKIP_SPLARO_POSTINSTALL=1 pnpm db:generate
+else
+  log "DATABASE_URL unset — skip prisma generate (OK for storefront-only Git build)"
+fi
 
 export NODE_ENV=production
 

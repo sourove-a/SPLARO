@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import toast from 'react-hot-toast'
 
 interface WishlistStore {
   productIds: string[]
@@ -15,16 +16,25 @@ interface WishlistStore {
   syncWithAccount: () => Promise<void>
 }
 
-async function postToggle(productId: string): Promise<string[] | null> {
+type ToggleResult =
+  | { ok: true; productIds: string[] | null; guest: boolean }
+  | { ok: false; error: string }
+
+async function postToggle(productId: string): Promise<ToggleResult> {
   const response = await fetch('/api/account/wishlist', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ productId }),
   })
-  if (!response.ok) return null
+  // 401 = guest browsing — the wishlist lives on this device only, which is
+  // expected and not an error.
+  if (response.status === 401) return { ok: true, productIds: null, guest: true }
+  if (!response.ok) {
+    return { ok: false, error: `Wishlist could not be saved (${response.status})` }
+  }
   const payload = (await response.json()) as { productIds?: string[] }
-  return payload.productIds ?? null
+  return { ok: true, productIds: payload.productIds ?? null, guest: false }
 }
 
 export const useWishlistStore = create<WishlistStore>()(
@@ -45,11 +55,19 @@ export const useWishlistStore = create<WishlistStore>()(
         set({ productIds: optimistic })
 
         void postToggle(productId)
-          .then((productIds) => {
-            if (productIds) set({ productIds })
+          .then((result) => {
+            if (result.ok) {
+              if (result.productIds) set({ productIds: result.productIds })
+              return
+            }
+            // API rejected the change — revert and tell the truth instead of
+            // keeping a heart that was never saved.
+            set({ productIds: previous })
+            toast.error(result.error, { id: 'wishlist-toggle' })
           })
           .catch(() => {
             set({ productIds: previous })
+            toast.error('Wishlist is offline — change was not saved.', { id: 'wishlist-toggle' })
           })
       },
 

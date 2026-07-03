@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
+import { importWithChunkRetry } from '@/lib/loadable-retry'
 
 const FooterEarthGlobe = dynamic(
-  () => import('@/components/earth/FooterEarthGlobe').then((m) => m.FooterEarthGlobe),
+  importWithChunkRetry(() =>
+    import('@/components/earth/FooterEarthGlobe').then((m) => m.FooterEarthGlobe),
+  ),
   { ssr: false },
 )
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -24,7 +24,7 @@ import {
   Truck,
   UserRound,
 } from 'lucide-react'
-import { useAuthStore, type AuthUser } from '@/store/authStore'
+import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import type { ProductCardData } from '@/types/product'
 import { ProductCard } from '@/components/product/ProductCard/ProductCard'
@@ -41,6 +41,13 @@ import {
   type DeliveryStage,
   type StoredOrder,
 } from '@/lib/orders'
+import { AccountGlass } from '@/components/account/AccountGlass'
+import {
+  ApiError,
+  fetchAccountProfile,
+  fetchWishlistProducts,
+  updateAccountProfile,
+} from '@/lib/api/account'
 import { cn } from '@/lib/utils/cn'
 
 type AccountSection =
@@ -147,7 +154,7 @@ function OrderCard({
               className="object-cover object-top"
             />
           ) : (
-            <Package className="h-6 w-6 text-black/25" strokeWidth={1.75} />
+            <Package className="account-icon-muted h-6 w-6" strokeWidth={1.75} />
           )}
         </div>
 
@@ -239,6 +246,58 @@ export default function AccountDashboard() {
   const [loyalty, setLoyalty] = useState({ points: 0, tier: 'BRONZE', memberSince: '' })
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [connectionError, setConnectionError] = useState('')
+
+  const redirectToLogin = useCallback(() => {
+    const tab = searchParams.get('tab')
+    const next = tab ? `/account?tab=${tab}` : '/account'
+    router.replace(`/login?next=${encodeURIComponent(next)}`)
+  }, [router, searchParams])
+
+  const handleSessionExpired = useCallback(async () => {
+    await signOut()
+    redirectToLogin()
+  }, [signOut, redirectToLogin])
+
+  const loadAccountProfile = useCallback(async () => {
+    setProfileLoading(true)
+    setConnectionError('')
+
+    try {
+      const data = await fetchAccountProfile()
+      setLoyalty({
+        points: data.profile.loyaltyPoints,
+        tier: data.profile.loyaltyTier,
+        memberSince: data.profile.memberSince ?? '',
+      })
+
+      const current = useAuthStore.getState().user
+      if (current) {
+        setUser({
+          ...current,
+          ...(data.user.avatar ? { avatar: data.user.avatar } : {}),
+          ...(data.user.phoneVerified ? { phoneVerified: true } : {}),
+          ...(data.user.loyaltyTier ? { loyaltyTier: data.user.loyaltyTier } : {}),
+        })
+      }
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.isAuthError) {
+        await handleSessionExpired()
+        return
+      }
+
+      const message =
+        error instanceof ApiError
+          ? error.isNetworkError
+            ? 'Could not reach SPLARO servers. Check your connection and retry.'
+            : error.message
+          : 'Could not load account data. Please refresh.'
+      setConnectionError(message)
+    } finally {
+      setProfileLoading(false)
+    }
+  }, [handleSessionExpired, setUser])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -249,52 +308,37 @@ export default function AccountDashboard() {
   useEffect(() => {
     if (!authHydrated) return
     if (!user) {
-      const tab = searchParams.get('tab')
-      const next = tab ? `/account?tab=${tab}` : '/account'
-      router.replace(`/login?next=${encodeURIComponent(next)}`)
+      redirectToLogin()
     }
-  }, [authHydrated, user, router, searchParams])
+  }, [authHydrated, user, redirectToLogin])
 
   useEffect(() => {
     if (!user) return
-    setProfile(user)
+    setProfile({
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+    })
     fetchUserOrders().then(setOrders)
 
     const savedCustomer = window.localStorage.getItem('splaro-customer')
     if (savedCustomer) {
-      const parsed = JSON.parse(savedCustomer) as { address?: string; city?: string }
-      setAddress({
-        address: parsed.address ?? '',
-        city: parsed.city ?? 'Dhaka',
-      })
+      try {
+        const parsed = JSON.parse(savedCustomer) as { address?: string; city?: string }
+        setAddress({
+          address: parsed.address ?? '',
+          city: parsed.city ?? 'Dhaka',
+        })
+      } catch {
+        /* ignore corrupt local draft */
+      }
     }
   }, [user])
 
   useEffect(() => {
-    if (!user) return
-    fetch('/api/account/profile', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: {
-        profile?: { loyaltyPoints: number; loyaltyTier: string; memberSince: string }
-        user?: { avatar?: string | null; phoneVerified?: boolean; loyaltyTier?: string }
-      } | null) => {
-        if (!data?.profile) return
-        setLoyalty({
-          points: data.profile.loyaltyPoints,
-          tier: data.profile.loyaltyTier,
-          memberSince: data.profile.memberSince,
-        })
-        if (data.user) {
-          setUser({
-            ...user,
-            ...(data.user.avatar ? { avatar: data.user.avatar } : {}),
-            ...(data.user.phoneVerified ? { phoneVerified: true } : {}),
-            ...(data.user.loyaltyTier ? { loyaltyTier: data.user.loyaltyTier } : {}),
-          })
-        }
-      })
-      .catch(() => undefined)
-  }, [user, setUser])
+    if (!authHydrated || !user?.id) return
+    void loadAccountProfile()
+  }, [authHydrated, user?.id, loadAccountProfile])
 
   useEffect(() => {
     if (!wishlistIds.length) {
@@ -302,13 +346,8 @@ export default function AccountDashboard() {
       return
     }
 
-    fetch(`/api/account/wishlist/products?ids=${encodeURIComponent(wishlistIds.join(','))}`, {
-      credentials: 'include',
-    })
-      .then((res) => (res.ok ? res.json() : { products: [] }))
-      .then((payload: { products?: ProductCardData[] }) => {
-        setWishlistProducts(payload.products ?? [])
-      })
+    fetchWishlistProducts(wishlistIds)
+      .then(setWishlistProducts)
       .catch(() => setWishlistProducts([]))
   }, [wishlistIds])
 
@@ -331,18 +370,9 @@ export default function AccountDashboard() {
     setSaved(false)
 
     try {
-      const response = await fetch('/api/account/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name: profile.name }),
-      })
-      const payload = (await response.json()) as {
-        user?: { name: string; email: string; phone: string; avatar?: string | null }
-        error?: string
-      }
+      const payload = await updateAccountProfile({ name: profile.name })
 
-      if (!response.ok || !payload.user) {
+      if (!payload.user) {
         setSaveError(payload.error ?? 'Could not save profile')
         return
       }
@@ -359,8 +389,14 @@ export default function AccountDashboard() {
         JSON.stringify({ ...profile, ...address }),
       )
       setSaved(true)
-    } catch {
-      setSaveError('Network error. Please try again.')
+    } catch (error) {
+      if (error instanceof ApiError && error.isAuthError) {
+        await handleSessionExpired()
+        return
+      }
+      setSaveError(
+        error instanceof ApiError ? error.message : 'Network error. Please try again.',
+      )
     }
   }
 
@@ -377,20 +413,24 @@ export default function AccountDashboard() {
       const avatar = typeof reader.result === 'string' ? reader.result : null
       if (!avatar) return
 
-      const response = await fetch('/api/account/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ avatar }),
-      })
-      const payload = (await response.json()) as { user?: AuthUser; error?: string }
-      if (!response.ok || !payload.user) {
-        setSaveError(payload.error ?? 'Could not upload photo')
-        return
+      try {
+        const payload = await updateAccountProfile({ avatar })
+        if (!payload.user) {
+          setSaveError(payload.error ?? 'Could not upload photo')
+          return
+        }
+        signIn({ ...user, ...payload.user })
+        setSaved(true)
+        setSaveError('')
+      } catch (error) {
+        if (error instanceof ApiError && error.isAuthError) {
+          await handleSessionExpired()
+          return
+        }
+        setSaveError(
+          error instanceof ApiError ? error.message : 'Could not upload photo',
+        )
       }
-      signIn({ ...user, ...payload.user })
-      setSaved(true)
-      setSaveError('')
     }
     reader.readAsDataURL(file)
   }
@@ -406,10 +446,10 @@ export default function AccountDashboard() {
   if (!authHydrated || !user) {
     return (
       <div className="account-shell account-shell--loading">
-        <div className="account-glass account-glass--center">
-          <UserRound className="mx-auto h-8 w-8 text-black/30" strokeWidth={2} />
-          <p className="mt-4 text-sm font-semibold text-black/45">Loading your account...</p>
-        </div>
+        <AccountGlass center>
+          <UserRound className="account-icon-muted mx-auto h-8 w-8" strokeWidth={2} />
+          <p className="account-loading-text mt-4 text-sm font-semibold">Loading your account...</p>
+        </AccountGlass>
       </div>
     )
   }
@@ -429,7 +469,7 @@ export default function AccountDashboard() {
           Back
         </button>
 
-        <aside className="account-sidebar account-glass">
+        <AccountGlass className="account-sidebar">
           <div className="account-sidebar__profile">
             <div className="account-avatar-wrap">
               <div className="account-avatar">
@@ -494,9 +534,21 @@ export default function AccountDashboard() {
               <span className="account-nav__label">Sign Out</span>
             </button>
           </div>
-        </aside>
+        </AccountGlass>
 
         <main className="account-main">
+          {connectionError ? (
+            <div className="account-connection-banner" role="alert">
+              <p>{connectionError}</p>
+              <button
+                type="button"
+                className="account-link-btn"
+                onClick={() => void loadAccountProfile()}
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
           {section === 'orders' ? (
             <>
               <div className="account-main__head">
@@ -517,7 +569,7 @@ export default function AccountDashboard() {
                   { label: 'Delivered', value: stats.delivered },
                   { label: 'Returns', value: stats.returns },
                 ].map((item) => (
-                  <div key={item.label} className="account-stat account-glass">
+                  <AccountGlass key={item.label} className="account-stat">
                     <div className="account-stat__icon">
                       <Package className="h-4 w-4" strokeWidth={2} />
                     </div>
@@ -525,7 +577,7 @@ export default function AccountDashboard() {
                       <p className="account-stat__value">{String(item.value).padStart(2, '0')}</p>
                       <p className="account-stat__label">{item.label}</p>
                     </div>
-                  </div>
+                  </AccountGlass>
                 ))}
               </div>
 
@@ -541,16 +593,16 @@ export default function AccountDashboard() {
                 {activeOrder ? (
                   <OrderCard order={activeOrder} featured />
                 ) : (
-                  <div className="account-empty account-glass">
-                    <ShoppingBag className="mx-auto h-8 w-8 text-black/20" strokeWidth={1.75} />
-                    <p className="mt-4 text-lg font-bold text-black/80">No active orders</p>
-                    <p className="mt-2 text-sm font-medium text-black/45">
+                  <AccountGlass className="account-empty">
+                    <ShoppingBag className="account-icon-muted mx-auto h-8 w-8" strokeWidth={1.75} />
+                    <p className="account-empty__title mt-4 text-lg font-bold">No active orders</p>
+                    <p className="account-empty__text mt-2 text-sm font-medium">
                       Place an order to see live delivery tracking here.
                     </p>
                     <Link href="/shop" className="account-btn account-btn--primary mt-5">
                       Shop SPLARO
                     </Link>
-                  </div>
+                  </AccountGlass>
                 )}
               </section>
 
@@ -570,9 +622,9 @@ export default function AccountDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="account-empty account-glass">
-                    <p className="text-sm font-medium text-black/45">Your recent orders will appear here.</p>
-                  </div>
+                  <AccountGlass className="account-empty">
+                    <p className="account-empty__text text-sm font-medium">Your recent orders will appear here.</p>
+                  </AccountGlass>
                 )}
               </section>
 
@@ -598,7 +650,7 @@ export default function AccountDashboard() {
                   { label: 'Delivered', value: stats.delivered },
                   { label: 'Returns', value: stats.returns },
                 ].map((item) => (
-                  <div key={item.label} className="account-stat account-glass">
+                  <AccountGlass key={item.label} className="account-stat">
                     <div className="account-stat__icon">
                       <Package className="h-4 w-4" strokeWidth={2} />
                     </div>
@@ -606,10 +658,10 @@ export default function AccountDashboard() {
                       <p className="account-stat__value">{String(item.value).padStart(2, '0')}</p>
                       <p className="account-stat__label">{item.label}</p>
                     </div>
-                  </div>
+                  </AccountGlass>
                 ))}
               </div>
-              <div className="account-glass account-panel">
+              <AccountGlass className="account-panel">
                 <h2 className="account-section__title">Quick Access</h2>
                 <div className="account-quick-grid">
                   {navItems.slice(1, 5).map(({ id, label, icon: Icon }) => (
@@ -624,7 +676,7 @@ export default function AccountDashboard() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </AccountGlass>
               <TrustStrip />
             </>
           ) : null}
@@ -644,12 +696,12 @@ export default function AccountDashboard() {
                   ))}
                 </div>
               ) : (
-                <div className="account-empty account-glass">
-                  <p className="text-sm font-medium text-black/45">No orders yet.</p>
+                <AccountGlass className="account-empty">
+                  <p className="account-empty__text text-sm font-medium">No orders yet.</p>
                   <Link href="/shop" className="account-btn account-btn--primary mt-5">
                     Start Shopping
                   </Link>
-                </div>
+                </AccountGlass>
               )}
             </>
           ) : null}
@@ -662,7 +714,7 @@ export default function AccountDashboard() {
                   <p className="account-subtitle">Your default delivery details for faster checkout.</p>
                 </div>
               </div>
-              <div className="account-glass account-panel">
+              <AccountGlass className="account-panel">
                 <div className="account-address-card">
                   <div className="account-address-card__icon">
                     <MapPin className="h-4 w-4" strokeWidth={2} />
@@ -682,7 +734,7 @@ export default function AccountDashboard() {
                     <p className="account-address-card__phone">{user.phone}</p>
                   </div>
                 </div>
-              </div>
+              </AccountGlass>
             </>
           ) : null}
 
@@ -701,13 +753,13 @@ export default function AccountDashboard() {
                   ))}
                 </div>
               ) : (
-                <div className="account-empty account-glass">
-                  <Heart className="mx-auto h-8 w-8 text-black/20" strokeWidth={1.75} />
-                  <p className="mt-4 text-lg font-bold text-black/80">Your wishlist is empty</p>
+                <AccountGlass className="account-empty">
+                  <Heart className="account-icon-muted mx-auto h-8 w-8" strokeWidth={1.75} />
+                  <p className="account-empty__title mt-4 text-lg font-bold">Your wishlist is empty</p>
                   <Link href="/shop" className="account-btn account-btn--primary mt-5">
                     Explore Shop
                   </Link>
-                </div>
+                </AccountGlass>
               )}
             </>
           ) : null}
@@ -720,7 +772,8 @@ export default function AccountDashboard() {
                   <p className="account-subtitle">Update your profile and account details.</p>
                 </div>
               </div>
-              <form onSubmit={handleProfileSave} className="account-glass account-panel">
+              <AccountGlass className="account-panel">
+                <form onSubmit={handleProfileSave}>
                 <div className="account-form-grid">
                   <label className="account-field">
                     <span>Full name</span>
@@ -776,10 +829,11 @@ export default function AccountDashboard() {
                     {saveError}
                   </p>
                 ) : null}
-                <button type="submit" className="account-btn account-btn--primary">
+                <button type="submit" className="account-btn account-btn--primary" disabled={profileLoading}>
                   Save Changes
                 </button>
-              </form>
+                </form>
+              </AccountGlass>
             </>
           ) : null}
 

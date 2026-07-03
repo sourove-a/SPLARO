@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { refreshWithToast } from '@/lib/admin/feedback'
 import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ModulePanelShell } from '@/components/modules/ModulePanelShell'
@@ -102,7 +103,7 @@ export function LiveCategoriesPanel() {
         searchPlaceholder="Search category or slug..."
         createLabel="Add category"
         onCreate={() => setShowForm(true)}
-        onRefresh={() => { refetch(); toast.success('Categories synced from database.') }}
+        onRefresh={() => void refreshWithToast(() => refetch(), 'Categories synced from database.')}
         onExport={() => toast.error('CSV export is not available yet — feature pending.')}
         tableIcon={FolderTree}
         tableTitle={`Categories · ${filtered.length} live results`}
@@ -127,10 +128,10 @@ export function LiveCategoriesPanel() {
                 <td className="text-xs">{c.isActive === false ? 'inactive' : 'active'}</td>
                 <td>
                   <div className="flex gap-1">
-                    <AdminButton className="!px-2 !text-xs" onClick={() => handleRename(c.id, c.name)}>
+                    <AdminButton size="sm" onClick={() => handleRename(c.id, c.name)}>
                       <Pencil className="h-3 w-3" />
                     </AdminButton>
-                    <AdminButton className="!px-2 !text-xs !text-red-700" onClick={() => handleDelete(c.id, c.name, c._count?.products ?? 0)}>
+                    <AdminButton variant="danger" size="sm" onClick={() => handleDelete(c.id, c.name, c._count?.products ?? 0)}>
                       <Trash2 className="h-3 w-3" />
                     </AdminButton>
                   </div>

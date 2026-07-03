@@ -144,7 +144,11 @@ export class AgentDiagnosticsService {
         } else if (provider === 'sslcommerz') {
           connected = store?.settings?.sslcommerzEnabled ?? false
         } else if (provider === 'meta_pixel') {
-          connected = Boolean(store?.settings?.facebookPixelId)
+          const { resolveMetaAccessToken, resolveMetaPixelId } = await import(
+            '../../marketing/meta-marketing.util'
+          )
+          const pixelId = resolveMetaPixelId(store?.settings ?? undefined)
+          connected = Boolean(pixelId && resolveMetaAccessToken())
         } else if (provider === 'google_analytics') {
           connected = Boolean(store?.settings?.googleAnalyticsId)
         } else if (provider === 'smtp') {

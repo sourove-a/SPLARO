@@ -220,11 +220,48 @@ export class SslCommerzService {
   ): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber },
-      select: { id: true, storeId: true },
+      select: { id: true, storeId: true, total: true, status: true, paymentStatus: true },
     })
     if (!order) {
       this.logger.warn(`SSLCommerz callback: order ${invoiceNumber} not found`)
       return
+    }
+
+    if (status === 'PAID') {
+      // Idempotency: duplicate/late IPN must not re-confirm a paid order.
+      if (order.paymentStatus === 'PAID') {
+        this.logger.warn(`SSLCommerz callback for already-paid order ${invoiceNumber} ignored`)
+        return
+      }
+      // A cancelled/refunded order must not flip back to CONFIRMED.
+      if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+        this.logger.error(
+          `SSLCommerz payment received for ${order.status} order ${invoiceNumber} — needs manual refund`,
+        )
+        await this.prisma.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            status: order.status,
+            note: `SSLCommerz payment of ${body.amount} received AFTER ${order.status} — manual refund required`,
+          },
+        })
+        return
+      }
+      // Underpayment guard.
+      const paidAmount = parseFloat(body.amount ?? '0')
+      if (paidAmount + 1 < Number(order.total)) {
+        this.logger.error(
+          `SSLCommerz underpayment for ${invoiceNumber}: paid ${paidAmount}, order total ${Number(order.total)} — order NOT confirmed`,
+        )
+        await this.prisma.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            status: order.status,
+            note: `SSLCommerz paid ${paidAmount} of ${Number(order.total)} — amount mismatch, order not confirmed`,
+          },
+        })
+        return
+      }
     }
 
     const existing = await this.prisma.payment.findFirst({ where: { orderId: order.id } })

@@ -25,6 +25,23 @@ export async function clearCartOnApi(sessionId: string): Promise<Response> {
   )
 }
 
+export async function replaceCartOnApi(
+  sessionId: string,
+  items: { productId: string; variantId?: string; quantity: number }[],
+): Promise<Response> {
+  return fetch(
+    apiUrl(
+      `/storefront/cart/${encodeURIComponent(sessionId)}?storeId=${encodeURIComponent(STORE_ID)}`,
+    ),
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+      cache: 'no-store',
+    },
+  )
+}
+
 export async function addCartItemOnApi(
   sessionId: string,
   body: { productId: string; variantId?: string; quantity: number },

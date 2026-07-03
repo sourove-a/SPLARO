@@ -93,7 +93,7 @@ export function AiContentPanelLive() {
                   <span className={STATUS_CLASS[i.status === 'completed' ? 'success' : 'processing']}>{i.status}</span>
                 </td>
                 <td>
-                  <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => window.location.assign('/dashboard/products')}>
+                  <AdminButton size="sm" onClick={() => window.location.assign('/dashboard/products')}>
                     Edit
                   </AdminButton>
                 </td>
@@ -166,8 +166,10 @@ export function AiSeoPanelLive() {
                 </td>
                 <td className="text-xs font-semibold text-[#5E7CFF]">{f.fix}</td>
                 <td>
-                  <AdminButton variant="gold" className="!px-2 !py-1 !text-xs" onClick={() => window.location.assign('/dashboard/products')}>
-                    Apply fix
+                  {/* Honest label: this opens the product editor — it does not
+                      apply anything automatically. */}
+                  <AdminButton variant="gold" size="sm" onClick={() => window.location.assign('/dashboard/products')}>
+                    Edit product
                   </AdminButton>
                 </td>
               </tr>
@@ -207,12 +209,12 @@ export function AiAnalyticsPanelLive() {
       query=""
       onQuery={() => {}}
       searchPlaceholder=""
-      createLabel="Run forecast"
+      createLabel="Refresh KPIs"
       onCreate={() => void refetch()}
       onRefresh={() => void refreshWithToast(refetch, 'Analytics refreshed')}
       tableIcon={LineChart}
-      tableTitle="AI predictions (live KPIs)"
-      footer="From executive dashboard — month-to-date"
+      tableTitle="Live business KPIs"
+      footer="From executive dashboard — month-to-date (no AI forecasting yet)"
     >
       <table className="admin-module-table">
         <thead>
@@ -305,7 +307,7 @@ export function AiCustomerInsightsPanelLive() {
               </td>
               <td className="text-xs font-semibold text-[#5E7CFF]">{s.action}</td>
               <td>
-                <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => toastNotImplemented('Campaign from segment')}>
+                <AdminButton size="sm" onClick={() => toastNotImplemented('Campaign from segment')}>
                   Activate
                 </AdminButton>
               </td>

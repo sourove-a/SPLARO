@@ -8,6 +8,15 @@ export interface ColorOption {
   image: string
 }
 
+export interface StorefrontVariantRef {
+  /** Real database variant id — required for cart sync and order placement */
+  id: string
+  size?: string
+  colorHex?: string
+  stock: number
+  isActive: boolean
+}
+
 export interface StorefrontProduct {
   id: string
   name: string
@@ -29,6 +38,8 @@ export interface StorefrontProduct {
   media?: { type: 'image' | 'video'; url: string; alt?: string }[]
   fit: string
   material: string
+  /** Real API variants (id + size + colorHex) so quick-add can send a valid variantId */
+  variantRefs?: StorefrontVariantRef[]
 }
 
 export function isStorefrontNewArrival(product: StorefrontProduct) {

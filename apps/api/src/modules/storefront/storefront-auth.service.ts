@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
 import { EmailService } from '../email/email.service'
@@ -169,6 +170,51 @@ export class StorefrontAuthService {
     })
 
     return this.toAuthUser(session.user, session.user.customer?.id, session.user.customer?.loyaltyTier)
+  }
+
+  /**
+   * Resolve the customer id for a signed-in user, creating the Customer record
+   * on demand (legacy/seeded users can have a User row without a Customer row).
+   */
+  async ensureCustomerId(user: StorefrontAuthUser, storeId: string): Promise<string> {
+    if (user.customerId) return user.customerId
+
+    const existing = await this.prisma.customer.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    })
+    if (existing) return existing.id
+
+    const parts = user.name.trim().split(/\s+/).filter(Boolean)
+    const firstName = parts[0] ?? 'Customer'
+    const lastName = parts.slice(1).join(' ') || firstName
+
+    try {
+      const customer = await this.prisma.customer.create({
+        data: {
+          userId: user.id,
+          storeId,
+          firstName,
+          lastName,
+          email: user.email,
+          phone: user.phone,
+        },
+        select: { id: true },
+      })
+      return customer.id
+    } catch (err) {
+      // Two parallel requests (e.g. wishlist toggle + review) can both pass
+      // the findUnique check and race the create. On the unique-constraint
+      // loss, return the winner's row instead of failing the request.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const winner = await this.prisma.customer.findUnique({
+          where: { userId: user.id },
+          select: { id: true },
+        })
+        if (winner) return winner.id
+      }
+      throw err
+    }
   }
 
   async updateProfile(

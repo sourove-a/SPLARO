@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import {
+  formatSocialHandle,
+  resolveSocialUrl,
+  type SocialPlatformKey,
+} from '../settings/social-channel-defaults'
 import type { Prisma, SupportTicketChannel, TaskPriority } from '@prisma/client'
 
 const STATIC_CMS_PAGES = [
@@ -20,6 +25,113 @@ export class AdminHubService {
 
   private sid(storeIdOrSlug: string) {
     return resolveStoreId(this.prisma, storeIdOrSlug)
+  }
+
+  private async buildSocialChannels(storeId: string, whatsappInboxCount: number) {
+    const settings = await this.prisma.siteSettings.findUnique({ where: { storeId } })
+
+    const platforms: { id: string; platform: string; key: SocialPlatformKey }[] = [
+      { id: 'instagram', platform: 'Instagram', key: 'instagram' },
+      { id: 'facebook', platform: 'Facebook', key: 'facebook' },
+      { id: 'tiktok', platform: 'TikTok', key: 'tiktok' },
+      { id: 'youtube', platform: 'YouTube', key: 'youtube' },
+    ]
+
+    const channels = platforms.map(({ id, platform, key }) => {
+      const stored =
+        key === 'instagram'
+          ? settings?.instagramUrl
+          : key === 'facebook'
+            ? settings?.facebookUrl
+            : key === 'tiktok'
+              ? settings?.tiktokUrl
+              : settings?.youtubeUrl
+      const resolved = resolveSocialUrl(stored, key)
+      return {
+        id,
+        platform,
+        storedUrl: resolved.storedUrl,
+        url: resolved.url,
+        handle: formatSocialHandle(id, resolved.url),
+        status: resolved.status,
+        storefrontVisible: resolved.storefrontVisible,
+        inboxCount: 0,
+      }
+    })
+
+    const whatsappStored = settings?.whatsappNumber?.trim() ?? ''
+    channels.push({
+      id: 'whatsapp',
+      platform: 'WhatsApp',
+      storedUrl: whatsappStored || null,
+      url: whatsappStored ? `https://wa.me/${whatsappStored.replace(/\D/g, '')}` : '',
+      handle: whatsappStored || '—',
+      status: whatsappStored ? 'live' : 'empty',
+      storefrontVisible: Boolean(whatsappStored),
+      inboxCount: whatsappInboxCount,
+    })
+
+    const visible = channels.filter((c) => c.storefrontVisible).length
+    const savedInDb = channels.filter((c) => c.status === 'live').length
+
+    return {
+      channels,
+      summary: {
+        total: channels.length,
+        storefrontLive: visible,
+        savedInDatabase: savedInDb,
+        usingBrandDefaults: channels.filter((c) => c.status === 'default').length,
+      },
+    }
+  }
+
+  async updateSocialChannels(
+    storeIdOrSlug: string,
+    body: {
+      instagram?: string
+      facebook?: string
+      tiktok?: string
+      youtube?: string
+      whatsapp?: string
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true },
+    })
+    if (!store) throw new NotFoundException(`Store not found: ${storeIdOrSlug}`)
+
+    const normalize = (v: string | undefined) => {
+      if (v === undefined) return undefined
+      const trimmed = v.trim()
+      return trimmed || null
+    }
+
+    await this.prisma.siteSettings.upsert({
+      where: { storeId },
+      create: {
+        storeId,
+        instagramUrl: normalize(body.instagram) ?? null,
+        facebookUrl: normalize(body.facebook) ?? null,
+        tiktokUrl: normalize(body.tiktok) ?? null,
+        youtubeUrl: normalize(body.youtube) ?? null,
+        whatsappNumber: normalize(body.whatsapp) ?? null,
+      },
+      update: {
+        ...(body.instagram !== undefined ? { instagramUrl: normalize(body.instagram) } : {}),
+        ...(body.facebook !== undefined ? { facebookUrl: normalize(body.facebook) } : {}),
+        ...(body.tiktok !== undefined ? { tiktokUrl: normalize(body.tiktok) } : {}),
+        ...(body.youtube !== undefined ? { youtubeUrl: normalize(body.youtube) } : {}),
+        ...(body.whatsapp !== undefined ? { whatsappNumber: normalize(body.whatsapp) } : {}),
+      },
+    })
+
+    const whatsappLogs = await this.prisma.notificationDeliveryLog.count({
+      where: { storeId, channel: 'WHATSAPP' },
+    })
+
+    return this.buildSocialChannels(storeId, whatsappLogs)
   }
 
   async contentOverview(storeIdOrSlug: string) {
@@ -149,16 +261,19 @@ export class AdminHubService {
       }
     })
 
+    // No Search Console / Bing Webmaster integration is connected, so real
+    // index status is unknown. Report 'unknown' honestly — `status` reflects
+    // meta completeness, which IS real data from the catalog.
     const indexPages = [
       ...products.slice(0, 15).map((p) => ({
         url: `/products/${p.slug}`,
-        google: p.metaTitle && p.metaDescription ? 'indexed' : 'pending',
-        bing: p.metaTitle ? 'indexed' : 'not indexed',
-        lastCrawl: p.updatedAt.toISOString(),
+        google: 'unknown',
+        bing: 'unknown',
+        lastCrawl: null as string | null,
         status: p.metaTitle && p.metaDescription ? 'good' : 'warning',
       })),
       ...collections > 0
-        ? [{ url: '/collections', google: 'indexed', bing: 'indexed', lastCrawl: new Date().toISOString(), status: 'good' }]
+        ? [{ url: '/collections', google: 'unknown', bing: 'unknown', lastCrawl: null as string | null, status: 'good' }]
         : [],
     ]
 
@@ -285,8 +400,19 @@ export class AdminHubService {
     ])
 
     const whatsappCampaigns = campaigns.filter((c) => c.type === 'WHATSAPP')
+    const social = await this.buildSocialChannels(storeId, whatsappLogs.length)
 
-    return { affiliates, campaigns, whatsappLogs, whatsappCampaigns, emailCampaigns, emailLogs, smsLogs }
+    return {
+      affiliates,
+      campaigns,
+      whatsappLogs,
+      whatsappCampaigns,
+      emailCampaigns,
+      emailLogs,
+      smsLogs,
+      socialChannels: social.channels,
+      socialSummary: social.summary,
+    }
   }
 
   async notificationsOverview(storeIdOrSlug: string) {

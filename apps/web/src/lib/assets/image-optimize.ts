@@ -51,10 +51,24 @@ export function optimizeImageSrc(
     return sanitized
   }
 
+  const width = REMOTE_WIDTH[profile]
+  const quality = IMAGE_QUALITY[profile]
+
+  // Aarong media CDN: request only the width we render instead of the stored 1920px original.
+  if (sanitized.includes('media.aarong.com')) {
+    try {
+      const parsed = new URL(sanitized)
+      parsed.searchParams.set('width', String(width))
+      parsed.searchParams.set('height', '')
+      parsed.searchParams.set('optimize', 'high')
+      return parsed.toString()
+    } catch {
+      return sanitized
+    }
+  }
+
   if (!isOptimizableRemote(sanitized)) return sanitized
 
   const base = sanitized.split('?')[0]!
-  const width = REMOTE_WIDTH[profile]
-  const quality = IMAGE_QUALITY[profile]
-  return `${base}?w=${width}&q=${quality}&auto=format&fit=crop`
+  return `${base}?w=${width}&q=${quality}&auto=format&fit=max`
 }

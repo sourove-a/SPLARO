@@ -3,12 +3,10 @@
 import { useCallback } from 'react'
 import Link from 'next/link'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
-import { Heart, ShoppingBag } from 'lucide-react'
-import { useCartStore } from '@/store/cartStore'
+import { Heart, ChevronUp, ChevronDown, ShoppingBag } from 'lucide-react'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
-import { trackAddToCart } from '@/lib/analytics/meta-pixel'
 
 export interface IlynProductCardProps {
   id: string
@@ -36,6 +34,8 @@ export interface IlynProductCardProps {
   fit?: 'contain' | 'cover'
   /** Override the internal cart handler (e.g. size/color aware). */
   onAddToBag?: () => void
+  /** Shop listing uses bag icon; homepage uses clean studio panel. */
+  variant?: 'default' | 'shop' | 'homepage'
 }
 
 export function IlynProductCard({
@@ -56,10 +56,10 @@ export function IlynProductCard({
   sizes: _sizes = [],
   href,
   priority = false,
-  fit = 'cover',
+  fit = 'contain',
   onAddToBag,
+  variant = 'default',
 }: IlynProductCardProps) {
-  const addToCart = useCartStore((s) => s.addItem)
   const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
   const saved = wishlistHydrated && isInWishlist(id)
@@ -72,41 +72,33 @@ export function IlynProductCard({
   const tag = collection ?? category
   const showStatus = status && status !== 'Ready'
   const secondImage = imageHover ?? image
+  const isShop = variant === 'shop'
+  const isHomepage = variant === 'homepage'
+  const imageFit = isHomepage ? 'cover' : fit
+  const showCollectionTag = Boolean(tag) && !isHomepage
 
-  const handleBag = useCallback(
+  const handleCardAction = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      if (!inStock) return
-      if (onAddToBag) {
-        onAddToBag()
+      if (isShop || isHomepage) {
+        onAddToBag?.()
         return
       }
-      addToCart({
-        productId: id,
-        variantId: id,
-        quantity: 1,
-        name,
-        price,
-        image,
-        slug,
-      })
-      trackAddToCart({ id, name, price })
-    },
-    [addToCart, id, image, inStock, name, onAddToBag, price, slug],
-  )
-
-  const handleWishlist = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
       toggleWishlist(id)
     },
-    [toggleWishlist, id],
+    [id, isHomepage, isShop, onAddToBag, toggleWishlist],
   )
 
   return (
-    <article className={cn('ilyn-card group', !inStock && 'ilyn-card--out-of-stock')}>
+    <article
+      className={cn(
+        'ilyn-card group',
+        !inStock && 'ilyn-card--out-of-stock',
+        isShop && 'ilyn-card--shop',
+        isHomepage && 'ilyn-card--homepage',
+      )}
+    >
       <div className="ilyn-card__media">
         <Link href={link} className="ilyn-card__link" aria-label={name} prefetch={false}>
           <StorefrontImage
@@ -114,10 +106,11 @@ export function IlynProductCard({
             alt={name}
             profile="card"
             fill
+            fit={imageFit}
             priority={priority}
             className={cn(
               'ilyn-card__img ilyn-card__img--primary',
-              fit === 'cover' ? 'ilyn-card__img--cover' : 'ilyn-card__img--contain',
+              imageFit === 'cover' ? 'ilyn-card__img--cover' : 'ilyn-card__img--contain',
             )}
           />
           <StorefrontImage
@@ -126,9 +119,10 @@ export function IlynProductCard({
             profile="card"
             aria-hidden
             fill
+            fit={imageFit}
             className={cn(
               'ilyn-card__img ilyn-card__img--hover',
-              fit === 'cover' ? 'ilyn-card__img--cover' : 'ilyn-card__img--contain',
+              imageFit === 'cover' ? 'ilyn-card__img--cover' : 'ilyn-card__img--contain',
             )}
           />
         </Link>
@@ -147,51 +141,48 @@ export function IlynProductCard({
           <span className="ilyn-card__badge ilyn-card__badge--sale">-{discount}%</span>
         )}
 
-        {tag && <span className="ilyn-card__collection">{tag}</span>}
+        {showCollectionTag ? <span className="ilyn-card__collection">{tag}</span> : null}
 
-        {!inStock ? (
-          <span className="ilyn-card__sold-badge">Sold out</span>
-        ) : (
-          <div className="ilyn-card__dock">
-            <button
-              type="button"
-              className="ilyn-card__dock-bag"
-              onClick={handleBag}
-              aria-label={`Add ${name} to bag`}
-            >
-              <ShoppingBag size={16} strokeWidth={1.65} />
-            </button>
-          </div>
-        )}
+        {!inStock ? <span className="ilyn-card__sold-badge">Sold out</span> : null}
 
-        <button
-          type="button"
-          className={cn('ilyn-card__wish', saved && 'ilyn-card__wish--saved', 'ilyn-card__wish--touch')}
-          onClick={handleWishlist}
-          aria-pressed={saved}
-          aria-label={saved ? 'Remove from saved' : 'Save product'}
-        >
-          <Heart size={14} strokeWidth={1.6} className={cn(saved && 'fill-current')} />
-        </button>
+        {inStock ? (
+          <button
+            type="button"
+            className={cn(
+              'ilyn-card__wish',
+              !isShop && !isHomepage && saved && 'ilyn-card__wish--saved',
+              'ilyn-card__wish--touch',
+              isHomepage && 'ilyn-card__wish--homepage',
+            )}
+            onClick={handleCardAction}
+            aria-pressed={isShop || isHomepage ? undefined : saved}
+            aria-label={isShop || isHomepage ? `Add ${name} to bag` : saved ? 'Remove from saved' : 'Save product'}
+          >
+            {isShop || isHomepage ? (
+              <ShoppingBag size={isHomepage ? 16 : 13} strokeWidth={1.5} />
+            ) : (
+              <Heart size={13} strokeWidth={1.5} className={cn(saved && 'fill-current')} />
+            )}
+          </button>
+        ) : null}
       </div>
 
       <Link href={link} className="ilyn-card__info" tabIndex={-1} prefetch={false}>
-        <div className="ilyn-card__info-top">
-          {category && <span className="ilyn-card__category">{category}</span>}
-          {productCode && <span className="ilyn-card__code">{productCode}</span>}
+        <div className="ilyn-card__title-row">
+          <h3 className="ilyn-card__name">{name}</h3>
+          {productCode ? <span className="ilyn-card__code">{productCode}</span> : null}
         </div>
-        <h3 className="ilyn-card__name">{name}</h3>
 
         {colorHexes.length > 0 && (
           <div className="ilyn-card__colors">
             <span>
               {colorHexes.length} color{colorHexes.length > 1 ? 's' : ''}
             </span>
-            <span className="ilyn-card__dots" aria-hidden>
-              {colorHexes.slice(0, 3).map((c) => (
-                <span key={c} className="ilyn-card__dot" style={{ backgroundColor: c }} />
-              ))}
-            </span>
+            {isShop && !isHomepage ? (
+              <ChevronDown size={11} strokeWidth={2} aria-hidden />
+            ) : (
+              <ChevronUp size={11} strokeWidth={2} aria-hidden />
+            )}
           </div>
         )}
 

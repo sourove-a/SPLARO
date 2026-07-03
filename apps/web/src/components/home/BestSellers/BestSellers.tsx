@@ -170,7 +170,6 @@ export function BestSellers() {
                 imageHover={product.imageHover}
                 collection={product.category}
                 {...(product.sold ? { meta: `${product.sold} sold` } : {})}
-                fit="cover"
               />
             </motion.div>
           ))}

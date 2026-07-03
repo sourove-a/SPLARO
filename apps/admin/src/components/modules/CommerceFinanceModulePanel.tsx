@@ -53,7 +53,7 @@ function CommerceToolbar({ summary, onRefresh }: { summary: string; onRefresh?: 
     <div className="admin-commerce-toolbar">
       <p className="admin-commerce-toolbar__meta" dangerouslySetInnerHTML={{ __html: summary }} />
       {onRefresh ? (
-        <AdminButton className="!text-xs" onClick={onRefresh}>
+        <AdminButton size="sm" onClick={onRefresh}>
           <RefreshCw size={14} />
           Refresh
         </AdminButton>
@@ -280,14 +280,15 @@ function ReturnsRmaPanel() {
                             <>
                               <AdminButton
                                 variant="gold"
-                                className="!text-xs"
+                                size="sm"
                                 loading={updateReturn.isPending}
                                 onClick={() => applyStatus(row, 'APPROVED', 'Approved from admin panel')}
                               >
                                 <CheckCircle2 size={13} /> Approve
                               </AdminButton>
                               <AdminButton
-                                className="!text-xs"
+                                variant="danger"
+                                size="sm"
                                 loading={updateReturn.isPending}
                                 onClick={() => {
                                   if (!window.confirm(`Reject RMA ${row.rmaNumber}?`)) return
@@ -301,7 +302,7 @@ function ReturnsRmaPanel() {
                           {row.status === 'approved' && (
                             <AdminButton
                               variant="gold"
-                              className="!text-xs"
+                              size="sm"
                               loading={updateReturn.isPending}
                               onClick={() => applyStatus(row, 'ITEM_RECEIVED', 'Items received at warehouse')}
                             >
@@ -311,7 +312,7 @@ function ReturnsRmaPanel() {
                           {row.status === 'received' && (
                             <AdminButton
                               variant="gold"
-                              className="!text-xs"
+                              size="sm"
                               loading={updateReturn.isPending}
                               onClick={() => applyStatus(row, 'REFUNDED', 'Refund processed', row.amount)}
                             >
@@ -319,7 +320,7 @@ function ReturnsRmaPanel() {
                             </AdminButton>
                           )}
                           <AdminButton
-                            className="!text-xs"
+                            size="sm"
                             onClick={() => window.open(`/dashboard/orders/${row.orderId}`, '_self')}
                           >
                             <Printer size={13} /> View order
@@ -702,11 +703,11 @@ function TransactionExpandDetail({
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {status === 'pending' && gateway === 'COD' && (
-          <AdminButton variant="gold" className="!text-xs" loading={markingPaid} onClick={onMarkPaid}>
+          <AdminButton variant="gold" size="sm" loading={markingPaid} onClick={onMarkPaid}>
             <CheckCircle2 size={13} /> Confirm COD payment
           </AdminButton>
         )}
-        <AdminButton className="!text-xs" onClick={onOpenOrder}>
+        <AdminButton size="sm" onClick={onOpenOrder}>
           Open order
         </AdminButton>
       </div>

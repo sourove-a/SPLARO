@@ -114,11 +114,11 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <AdminButton onClick={() => { void refreshWithToast(() => refetch(), 'Order refreshed.') }}><RefreshCw style={{ width: 16, height: 16 }} /> Refresh</AdminButton>
               {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' ? (
-                <AdminButton variant="ghost" loading={updateStatus.isPending} className="!text-amber-800 hover:!bg-amber-50" onClick={() => { if (!window.confirm(`Cancel order ${order.invoiceNumber}?`)) return; updateStatus.mutate({ id: order.id, status: 'CANCELLED', note: 'Cancelled from admin panel' }, { onSuccess: () => { toastOk('Order cancelled.'); void refetch() }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not cancel order.') }) }}>
+                <AdminButton variant="warning" loading={updateStatus.isPending} onClick={() => { if (!window.confirm(`Cancel order ${order.invoiceNumber}?`)) return; updateStatus.mutate({ id: order.id, status: 'CANCELLED', note: 'Cancelled from admin panel' }, { onSuccess: () => { toastOk('Order cancelled.'); void refetch() }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not cancel order.') }) }}>
                   <XCircle style={{ width: 16, height: 16 }} /> Cancel
                 </AdminButton>
               ) : null}
-              <AdminButton variant="ghost" loading={deleteOrderMutation.isPending} className="!text-red-700 hover:!bg-red-50" onClick={() => { if (!window.confirm(`Delete order ${order.invoiceNumber}? This cannot be undone.`)) return; deleteOrderMutation.mutate(order.id, { onSuccess: () => { toastOk('Order deleted.'); window.location.href = moduleHref }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete order.') }) }}>
+              <AdminButton variant="danger" loading={deleteOrderMutation.isPending} onClick={() => { if (!window.confirm(`Delete order ${order.invoiceNumber}? This cannot be undone.`)) return; deleteOrderMutation.mutate(order.id, { onSuccess: () => { toastOk('Order deleted.'); window.location.href = moduleHref }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete order.') }) }}>
                 <Trash2 style={{ width: 16, height: 16 }} /> Delete
               </AdminButton>
             </div>
@@ -205,7 +205,8 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
                 ) : null}
                 <AdminButton
                   variant="gold"
-                  className="mt-3 w-full !text-xs"
+                  size="sm"
+                  className="mt-3 w-full"
                   disabled={!courierReady}
                   loading={bookCourier.isPending}
                   onClick={() => bookCourier.mutate({ id: order.id }, { onSuccess: (res) => { toastCourierResult(res, order.invoiceNumber); if (res.success && !res.simulated && res.consignmentId && !res.consignmentId.startsWith('DEV-')) void refetch() }, onError: () => toastFail('Could not book courier — is the API running?') })}

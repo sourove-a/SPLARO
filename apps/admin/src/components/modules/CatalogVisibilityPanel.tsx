@@ -156,20 +156,20 @@ export function CatalogVisibilityPanel({
         ) : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <AdminButton variant="ghost" className="!text-xs" onClick={() => void refetchStats()}>
+          <AdminButton variant="ghost" size="sm" onClick={() => void refetchStats()}>
             <Boxes className="h-3.5 w-3.5" />
             Refresh stock
           </AdminButton>
-          <AdminButton variant="ghost" className="!text-xs" onClick={hideEmptyCollections}>
+          <AdminButton variant="ghost" size="sm" onClick={hideEmptyCollections}>
             <EyeOff className="h-3.5 w-3.5" />
             Hide empty collections
           </AdminButton>
-          <AdminButton variant="ghost" className="!text-xs" onClick={publishAll}>
+          <AdminButton variant="ghost" size="sm" onClick={publishAll}>
             <Eye className="h-3.5 w-3.5" />
             Publish all
           </AdminButton>
           {dirty ? (
-            <AdminButton variant="ghost" className="!text-xs" onClick={resetChanges}>
+            <AdminButton variant="ghost" size="sm" onClick={resetChanges}>
               <RotateCcw className="h-3.5 w-3.5" />
               Reset
             </AdminButton>
@@ -276,7 +276,7 @@ export function CatalogVisibilityPanel({
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <AdminButton
-                  className="!text-xs"
+                  size="sm"
                   variant={channel.published ? 'ghost' : 'gold'}
                   onClick={() => togglePublished(channel.slug)}
                 >
@@ -313,7 +313,7 @@ export function CatalogVisibilityPanel({
         <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-amber-200/80 bg-amber-50/95 px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl">
           <p className="text-xs font-bold text-amber-950">Catalog visibility changes not saved yet.</p>
           <div className="flex gap-2">
-            <AdminButton variant="ghost" className="!text-xs" onClick={resetChanges}>
+            <AdminButton variant="ghost" size="sm" onClick={resetChanges}>
               Discard
             </AdminButton>
             <AdminButton variant="gold" loading={saving} onClick={onSave}>

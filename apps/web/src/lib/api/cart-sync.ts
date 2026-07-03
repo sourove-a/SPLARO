@@ -106,31 +106,29 @@ export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResul
   const sessionId = cartSessionId()
   if (!sessionId) return { ok: true }
 
-  const cleared = await clearServerCart()
-  if (!cleared.ok) return cleared
-
-  if (!items.length) return { ok: true }
-
+  // Atomic replace on the server (single PUT in one DB transaction) — the
+  // old clear-then-add flow could wipe the server cart and then fail
+  // half-way, losing items.
   try {
-    for (const item of items) {
-      const res = await fetch(cartApiPath(sessionId, '/items'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+    const res = await fetch(cartApiPath(sessionId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        items: items.map((item) => ({
           productId: item.productId,
-          variantId: item.variantId,
+          ...(item.variantId ? { variantId: item.variantId } : {}),
           quantity: item.quantity,
-        }),
-      })
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: cartSyncError(
-            res,
-            'Could not sync cart to server — changes are saved on this device only.',
-          ),
-        }
+        })),
+      }),
+    })
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: cartSyncError(
+          res,
+          'Could not sync cart to server — changes are saved on this device only.',
+        ),
       }
     }
     return { ok: true }

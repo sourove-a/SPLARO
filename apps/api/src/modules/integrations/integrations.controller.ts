@@ -10,6 +10,8 @@ import { InfrastructureIntegrationService } from './infrastructure-integration.s
 import { IntegrationsService } from './integrations.service'
 import { PaymentIntegrationService, type PaymentProvider } from './payment-integration.service'
 import { TelegramIntegrationService, type TelegramIntegrationDto } from './telegram-integration.service'
+import { MetaCapiService } from '../marketing/meta-capi.service'
+import { resolveMetaAccessToken, resolveMetaPixelId } from '../marketing/meta-marketing.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -49,6 +51,7 @@ export class IntegrationsController {
     private readonly config: ConfigService,
     private readonly payments: PaymentIntegrationService,
     private readonly infra: InfrastructureIntegrationService,
+    private readonly metaCapi: MetaCapiService,
   ) {}
 
   private assertWrite(req: AdminRequest) {
@@ -136,8 +139,19 @@ export class IntegrationsController {
       }
     }
     if (provider === 'meta_pixel') {
-      const id = settings?.facebookPixelId as string | undefined
-      return { connected: Boolean(id), detail: id ? `Pixel ${id}` : 'Add Pixel ID in settings' }
+      const id = resolveMetaPixelId(
+        settings?.facebookPixelId ? { facebookPixelId: String(settings.facebookPixelId) } : undefined,
+      )
+      const token = resolveMetaAccessToken()
+      const connected = Boolean(id && token)
+      return {
+        connected,
+        detail: connected
+          ? `Pixel ${id} · CAPI token ready`
+          : id
+            ? `Pixel ${id} — add FB_CAPI_ACCESS_TOKEN in .env`
+            : 'Add Pixel ID in Marketing settings',
+      }
     }
     if (provider === 'google_analytics') {
       const id = settings?.googleAnalyticsId as string | undefined
@@ -295,6 +309,21 @@ export class IntegrationsController {
   updateTelegram(@Query('storeId') storeId: string, @Body() body: TelegramIntegrationDto, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
     return this.telegram.update(storeId, body, userId)
+  }
+
+  @Post('marketing/meta/test')
+  async testMeta(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    this.assertWrite(req)
+    const sid = await this.integrations.resolveStore(storeId)
+    const result = await this.metaCapi.testConnection(sid)
+    await this.integrations.recordTest({
+      storeId: sid,
+      provider: 'meta_pixel',
+      success: result.ok,
+      message: result.message,
+      userId: req.adminUser?.userId,
+    })
+    return result
   }
 
   @Post('telegram/test')

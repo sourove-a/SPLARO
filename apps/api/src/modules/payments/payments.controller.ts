@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Get, Logger, Post, Query, Res } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Logger, Optional, Post, Query, Res } from '@nestjs/common'
 import type { Response } from 'express'
 import { Public } from '../../common/auth/public.decorator'
 import { PrismaService } from '../../common/prisma.service'
 import { OrderEventsService } from '../orders/order-events.service'
+import { CourierService } from '../courier/courier.service'
 import { BkashService } from './bkash.service'
 import { NagadService } from './nagad.service'
 import { SslCommerzService, type SslCommerzIpnPayload } from './sslcommerz.service'
@@ -17,13 +18,32 @@ export class PaymentsController {
     private readonly ssl: SslCommerzService,
     private readonly prisma: PrismaService,
     private readonly orderEvents: OrderEventsService,
+    @Optional() private readonly courier: CourierService | null,
   ) {}
 
   // ── bKash ─────────────────────────────────────────────────
 
   @Public()
   @Post('bkash/create')
-  createBkashPayment(@Body() body: { amount: number; invoiceNumber: string; callbackUrl: string }) {
+  async createBkashPayment(
+    @Body() body: { amount: number; invoiceNumber: string; callbackUrl: string },
+  ) {
+    // Never initiate a gateway payment for an amount the order doesn't owe —
+    // otherwise a ৳1 payment could later confirm a ৳10,000 invoice.
+    const order = await this.prisma.order.findUnique({
+      where: { invoiceNumber: body.invoiceNumber },
+      select: { total: true, status: true, paymentStatus: true },
+    })
+    if (!order) throw new BadRequestException('Order not found for this invoice')
+    if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+      throw new BadRequestException('This order is no longer payable')
+    }
+    if (order.paymentStatus === 'PAID') {
+      throw new BadRequestException('This order is already paid')
+    }
+    if (Math.abs(Number(body.amount) - Number(order.total)) > 1) {
+      throw new BadRequestException('Payment amount does not match the order total')
+    }
     return this.bkash.createPayment(body)
   }
 
@@ -175,9 +195,47 @@ export class PaymentsController {
   ): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber },
-      select: { id: true, storeId: true },
+      select: { id: true, storeId: true, total: true, status: true, paymentStatus: true },
     })
     if (!order) return
+
+    // Idempotency: a duplicate/late callback must not re-confirm or overwrite
+    // the transaction id of an already-paid order.
+    if (order.paymentStatus === 'PAID') {
+      this.logger.warn(`${gateway} callback for already-paid order ${invoiceNumber} ignored (TxID: ${transactionId})`)
+      return
+    }
+
+    // A cancelled/refunded order must never flip back to CONFIRMED because a
+    // stale gateway callback arrived. Record the event for manual reconciliation.
+    if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+      this.logger.error(
+        `${gateway} payment received for ${order.status} order ${invoiceNumber} (TxID: ${transactionId}, amount: ${amount}) — needs manual refund`,
+      )
+      await this.prisma.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: order.status,
+          note: `${gateway} payment of ${amount} received AFTER ${order.status} (TxID: ${transactionId}) — manual refund required`,
+        },
+      })
+      return
+    }
+
+    // Underpayment guard: the paid amount must cover the order total.
+    if (Number(amount) + 1 < Number(order.total)) {
+      this.logger.error(
+        `${gateway} underpayment for ${invoiceNumber}: paid ${amount}, order total ${Number(order.total)} (TxID: ${transactionId}) — order NOT confirmed`,
+      )
+      await this.prisma.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: order.status,
+          note: `${gateway} paid ${amount} of ${Number(order.total)} (TxID: ${transactionId}) — amount mismatch, order not confirmed`,
+        },
+      })
+      return
+    }
 
     const existingPayment = await this.prisma.payment.findFirst({ where: { orderId: order.id } })
     const method = gateway.toUpperCase() as 'BKASH' | 'NAGAD' | 'SSLCOMMERZ'
@@ -186,7 +244,7 @@ export class PaymentsController {
       existingPayment
         ? this.prisma.payment.update({
             where: { id: existingPayment.id },
-            data: { status: 'PAID', transactionId },
+            data: { status: 'PAID', method, amount, transactionId, paidAt: new Date() },
           })
         : this.prisma.payment.create({
             data: {
@@ -214,15 +272,47 @@ export class PaymentsController {
 
     void this.orderEvents.onPaymentReceived(order.storeId, order.id, amount, gateway)
     void this.orderEvents.onStatusChanged(order.storeId, order.id, 'CONFIRMED')
+
+    // Prepaid orders skip auto courier booking at placement; book now that
+    // the payment is verified.
+    if (process.env.AUTO_COURIER_BOOK !== 'false') {
+      void this.courier
+        ?.bookCourier(order.id)
+        .catch((err) =>
+          this.logger.error(
+            `Auto courier booking after ${gateway} payment failed for ${invoiceNumber}: ${err instanceof Error ? err.message : 'unknown'}`,
+          ),
+        )
+    }
   }
 
   private async firePaymentEvent(invoiceNumber: string): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber },
-      select: { id: true, storeId: true, total: true },
+      select: {
+        id: true,
+        storeId: true,
+        total: true,
+        paymentStatus: true,
+        courier: { select: { consignmentId: true } },
+      },
     })
-    if (order) {
-      void this.orderEvents.onPaymentReceived(order.storeId, order.id, Number(order.total), 'sslcommerz')
+    if (!order) return
+
+    void this.orderEvents.onPaymentReceived(order.storeId, order.id, Number(order.total), 'sslcommerz')
+
+    if (
+      order.paymentStatus === 'PAID' &&
+      !order.courier?.consignmentId &&
+      process.env.AUTO_COURIER_BOOK !== 'false'
+    ) {
+      void this.courier
+        ?.bookCourier(order.id)
+        .catch((err) =>
+          this.logger.error(
+            `Auto courier booking after SSLCommerz payment failed for ${invoiceNumber}: ${err instanceof Error ? err.message : 'unknown'}`,
+          ),
+        )
     }
   }
 }

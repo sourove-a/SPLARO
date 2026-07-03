@@ -392,7 +392,7 @@ function CourierHubView({
         <div className="admin-module-table-head">
           <Truck className="h-4 w-4" />
           <p className="font-black text-[var(--admin-text-strong)]">Shipments</p>
-          <AdminButton variant="ghost" className="ml-auto !px-2 !py-1" onClick={() => void refetch()}>
+          <AdminButton variant="ghost" className="ml-auto" size="sm" onClick={() => void refetch()}>
             <RefreshCw className={cn('h-3.5 w-3.5', listLoading && 'animate-spin')} />
           </AdminButton>
         </div>
@@ -630,7 +630,7 @@ function SupplierManagementView({
           <div className="admin-module-table-head">
             <Building2 className="h-4 w-4" />
             <p className="font-black text-[var(--admin-text-strong)]">Suppliers</p>
-            <AdminButton variant="ghost" className="ml-auto !px-2 !py-1" onClick={() => void refetch()}>
+            <AdminButton variant="ghost" className="ml-auto" size="sm" onClick={() => void refetch()}>
               <RefreshCw className="h-3.5 w-3.5" />
             </AdminButton>
           </div>

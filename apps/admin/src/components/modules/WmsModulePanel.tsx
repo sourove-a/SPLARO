@@ -400,7 +400,7 @@ function StockTransfersPanel() {
                   <td style={TD}><StatusPill value={t.status.replace(/_/g, ' ').toLowerCase()} /></td>
                   <td style={TD}>
                     {t.status === 'PENDING' ? (
-                      <AdminButton variant="gold" className="!px-2 !py-1 !text-xs" onClick={() => toast('Pick list coming soon.')}>Pick</AdminButton>
+                      <AdminButton variant="gold" size="sm" onClick={() => toast('Pick list coming soon.')}>Pick</AdminButton>
                     ) : (
                       <RowActionsMenu recordName={t.id} moduleHref="/dashboard/wms/transfers" recordId={t.id} />
                     )}

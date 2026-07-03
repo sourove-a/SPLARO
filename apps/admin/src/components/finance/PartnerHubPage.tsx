@@ -648,7 +648,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                       </td>
                       <td>
                         {row.status === 'PENDING' ? (
-                          <AdminButton variant="gold" className="!px-2 !py-1 !text-xs" onClick={() => handleApproveExpense(row.id)}>
+                          <AdminButton variant="gold" size="sm" onClick={() => handleApproveExpense(row.id)}>
                             Approve
                           </AdminButton>
                         ) : (

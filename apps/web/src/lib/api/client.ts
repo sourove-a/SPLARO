@@ -23,6 +23,18 @@ export class ApiError extends Error {
     super(message)
     this.name = 'ApiError'
   }
+
+  get isAuthError() {
+    return this.status === 401 || this.status === 403
+  }
+
+  get isNetworkError() {
+    return this.status === 0
+  }
+
+  get isServerError() {
+    return this.status >= 500
+  }
 }
 
 async function readErrorMessage(res: Response): Promise<string> {

@@ -10,6 +10,7 @@ import {
   fetchTelegramIntegration,
   testAiIntegration,
   testInfrastructureIntegration,
+  testMetaIntegration,
   testPaymentIntegration,
   testTelegramIntegration,
   updateAiIntegration,
@@ -48,6 +49,17 @@ export function useUpdateTelegramIntegration() {
     mutationFn: updateTelegramIntegration,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['integration-telegram'] })
+      await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+      await qc.invalidateQueries({ queryKey: ['admin-settings'] })
+    },
+  })
+}
+
+export function useTestMetaIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: testMetaIntegration,
+    onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
       await qc.invalidateQueries({ queryKey: ['admin-settings'] })
     },

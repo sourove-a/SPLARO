@@ -218,7 +218,7 @@ export function ProductDetailPanel({
                         alt={product.name}
                         fill
                         sizes="(max-width: 1024px) 92vw, 42vw"
-                        className="object-cover object-[center_10%]"
+                        className="object-contain object-center"
                         priority
                       />
                     )}
@@ -274,7 +274,7 @@ export function ProductDetailPanel({
                           <span className="pp-gallery__thumb-play" aria-hidden>Play</span>
                         </>
                       ) : (
-                        <Image src={item.url} alt="" fill sizes="64px" className="object-cover object-[center_10%]" />
+                        <Image src={item.url} alt="" fill sizes="64px" className="object-contain object-center" />
                       )}
                     </button>
                   ))}
@@ -337,7 +337,7 @@ export function ProductDetailPanel({
                           alt={opt.name}
                           fill
                           sizes="72px"
-                          className="object-cover object-[center_10%]"
+                          className="object-contain object-center"
                         />
                       </button>
                     ))}

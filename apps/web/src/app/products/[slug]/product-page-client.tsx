@@ -31,6 +31,7 @@ import { trackAddToCart, trackViewContent } from '@/lib/analytics/meta-pixel'
 import type { ProductDetailData, ProductCardData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
@@ -278,6 +279,21 @@ export default function ProductPageClient({
     }
   }, [selectedColor, selectedSize, sizeStock, sizes])
 
+  // Warm the browser cache for neighbouring gallery images so arrows switch instantly.
+  useEffect(() => {
+    if (typeof window === 'undefined' || media.length < 2) return
+    const neighbours = [
+      media[(activeImage + 1) % media.length],
+      media[(activeImage - 1 + media.length) % media.length],
+    ]
+    for (const item of neighbours) {
+      if (item?.type !== 'image' || !item.url) continue
+      const img = new window.Image()
+      img.decoding = 'async'
+      img.src = optimizeImageSrc(item.url, 'gallery')
+    }
+  }, [activeImage, media])
+
   const productCode = product.sku ?? product.slug.replace(/-/g, ' ').slice(0, 12).toUpperCase()
 
   const detailSections = useMemo(() => {
@@ -326,9 +342,17 @@ export default function ProductPageClient({
 
   const buildSelectedCartItem = (): CartItem | null => {
     if (!inStock) return null
+    // Synthetic variant ids (product.id or `${product.id}-…`) are UI-only —
+    // the API rejects them, so only send ids that came from the database.
+    const realVariantId =
+      activeVariant?.id &&
+      activeVariant.id !== product.id &&
+      !activeVariant.id.startsWith(`${product.id}-`)
+        ? activeVariant.id
+        : undefined
     const item: CartItem = {
       productId: product.id,
-      variantId: activeVariant?.id ?? product.id,
+      ...(realVariantId ? { variantId: realVariantId } : {}),
       quantity,
       name: product.name,
       price: product.price,
@@ -475,6 +499,7 @@ export default function ProductPageClient({
                       alt={product.name}
                       profile="gallery"
                       fill
+                      fit="cover"
                       className="pp-gallery__img"
                       priority
                     />
@@ -877,6 +902,7 @@ export default function ProductPageClient({
                   alt={product.name}
                   profile="lightbox"
                   fill
+                  fit="contain"
                   className="pp-lightbox__media"
                   draggable={false}
                 />

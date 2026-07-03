@@ -107,7 +107,10 @@ export function IndexMonitorPanelLive() {
   const [query, setQuery] = useState('')
   const pages = data?.indexPages ?? []
   const filtered = useMemo(() => pages.filter((p) => !query || p.url.includes(query)), [query, pages])
-  const indexed = pages.filter((p) => p.google === 'indexed').length
+  // Real index status needs a Search Console connection — until then the
+  // KPIs report meta completeness, which comes from the live catalog.
+  const metaComplete = pages.filter((p) => p.status === 'good').length
+  const needsMeta = pages.filter((p) => p.status === 'warning').length
   const errors = pages.filter((p) => p.status === 'error').length
 
   return (
@@ -115,14 +118,14 @@ export function IndexMonitorPanelLive() {
       {isOffline ? <ApiOfflineHint message="API offline — index monitor data unavailable." /> : null}
     <ModulePanelShell
       kpis={[
-        ['Indexed', indexed, 'success'],
-        ['Pending', pages.filter((p) => p.google === 'pending').length, 'warning'],
+        ['Meta complete', metaComplete, 'success'],
+        ['Needs meta', needsMeta, 'warning'],
         ['Issues', errors, 'gold'],
         ['Monitored', pages.length, 'default'],
       ]}
       pipeline={[
-        ['Indexed', indexed],
-        ['Pending', pages.filter((p) => p.google === 'pending').length],
+        ['Meta OK', metaComplete],
+        ['Needs meta', needsMeta],
         ['Products', pages.filter((p) => p.url.startsWith('/products')).length],
         ['Collections', pages.filter((p) => p.url.startsWith('/collections')).length],
         ['API', 'Live'],
@@ -163,20 +166,20 @@ export function IndexMonitorPanelLive() {
             {filtered.map((p) => (
               <tr key={p.url}>
                 <td className="font-mono text-xs">{p.url}</td>
-                <td>
-                  <span
-                    className={SEO_STATUS[p.google === 'indexed' ? 'good' : p.google === 'pending' ? 'warning' : 'error']}
-                  >
-                    {p.google}
-                  </span>
+                <td className="muted text-xs">
+                  {p.google === 'unknown' ? '— connect Search Console' : (
+                    <span className={SEO_STATUS[p.google === 'indexed' ? 'good' : p.google === 'pending' ? 'warning' : 'error']}>
+                      {p.google}
+                    </span>
+                  )}
                 </td>
-                <td className="text-xs">{p.bing}</td>
-                <td className="muted text-xs">{formatRelativeTime(p.lastCrawl)}</td>
+                <td className="muted text-xs">{p.bing === 'unknown' ? '—' : p.bing}</td>
+                <td className="muted text-xs">{p.lastCrawl ? formatRelativeTime(p.lastCrawl) : '—'}</td>
                 <td>
                   <span className={SEO_STATUS[asSeoStatus(p.status)]}>{p.status}</span>
                 </td>
                 <td>
-                  <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                  <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>
                     Re-crawl
                   </AdminButton>
                 </td>
@@ -324,7 +327,7 @@ export function SitemapManagerPanelLive() {
                 <span className={SEO_STATUS[asSeoStatus(s.status)]}>{s.status}</span>
               </td>
               <td>
-                <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>
                   Ping
                 </AdminButton>
               </td>
@@ -528,7 +531,7 @@ export function RedirectManagerPanelLive() {
                 <td>
                   <div className="flex items-center gap-1">
                     {r.source === 'rule' ? (
-                      <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => handleEdit(r)}>
+                      <AdminButton size="sm" onClick={() => handleEdit(r)}>
                         Edit
                       </AdminButton>
                     ) : null}

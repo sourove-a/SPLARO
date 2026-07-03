@@ -1,40 +1,35 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useAuthStore, type AuthUser } from '@/store/authStore'
+import { useLayoutEffect } from 'react'
+import { useAuthStore } from '@/store/authStore'
+import { reconcileAuthSession } from '@/lib/api/session'
 
 export function SessionHydrator() {
   const setUser = useAuthStore((state) => state.setUser)
   const setHydrated = useAuthStore((state) => state.setHydrated)
 
-  useEffect(() => {
-    const run = () => {
-      fetch('/api/auth/me', { credentials: 'include' })
-        .then(async (res) => {
-          if (!res.ok) {
-            setUser(null)
-            return
-          }
+  useLayoutEffect(() => {
+    let cancelled = false
 
-          const payload = (await res.json()) as { user?: AuthUser | null }
-          setUser(payload?.user ?? null)
-        })
-        .catch(() => setUser(null))
-        .finally(() => setHydrated())
+    reconcileAuthSession()
+      .then((serverUser) => {
+        if (cancelled) return
+        if (serverUser === null) {
+          setUser(null)
+        } else {
+          setUser(serverUser)
+        }
+      })
+      .catch(() => {
+        // Network/API outage — keep cached user; account page surfaces connection errors.
+      })
+      .finally(() => {
+        if (!cancelled) setHydrated()
+      })
+
+    return () => {
+      cancelled = true
     }
-
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
-      cancelIdleCallback?: (id: number) => void
-    }
-
-    if (idleWindow.requestIdleCallback) {
-      const id = idleWindow.requestIdleCallback(run, { timeout: 2000 })
-      return () => idleWindow.cancelIdleCallback?.(id)
-    }
-
-    const timer = window.setTimeout(run, 0)
-    return () => window.clearTimeout(timer)
   }, [setHydrated, setUser])
 
   return null

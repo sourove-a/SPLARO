@@ -45,7 +45,13 @@ export class OrderNotificationsService {
       isCodRisk: order.isCodRisk,
     })
 
-    if (process.env.AUTO_COURIER_BOOK !== 'false' && !order.courier?.consignmentId) {
+    // Auto-book courier only for orders that are payable on delivery.
+    // Prepaid orders (bKash/Nagad/SSL/card) are still PENDING payment at
+    // placement — booking is triggered from payment confirmation instead,
+    // so abandoned checkouts never create real consignments.
+    const payableNow =
+      order.paymentMethod === 'CASH_ON_DELIVERY' || order.paymentStatus === 'PAID'
+    if (payableNow && process.env.AUTO_COURIER_BOOK !== 'false' && !order.courier?.consignmentId) {
       void this.courier
         ?.bookCourier(order.id)
         .catch((err) =>

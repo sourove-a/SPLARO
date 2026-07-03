@@ -117,7 +117,7 @@ export function WhatsAppPanelLive() {
                     </td>
                     <td className="muted text-xs">{formatRelativeTime(w.createdAt)}</td>
                     <td>
-                      <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                      <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>
                         <Send className="h-3 w-3" /> View
                       </AdminButton>
                     </td>
@@ -300,18 +300,18 @@ export function InfluencersPanelLive() {
 
   const influencers = useMemo(() => {
     const affiliates = data?.affiliates ?? []
-    const campaigns = data?.campaigns ?? []
-    return affiliates.map((a, i) => {
-      const campaign = campaigns[i % Math.max(campaigns.length, 1)]
+    return affiliates.map((a) => {
       const status: InfluencerStatus =
         a.status === 'ACTIVE' ? 'active' : a.status === 'PENDING' ? 'negotiating' : 'completed'
+      // Only real affiliate data — no invented @handles, platforms, or
+      // random campaign assignments. Unknown fields show "—".
       return {
         id: a.id,
         name: a.name,
-        handle: a.email ? `@${a.email.split('@')[0]}` : a.code,
-        platform: 'Instagram' as const,
+        handle: a.code,
+        platform: '—',
         followers: '—',
-        campaign: campaign?.name ?? 'Brand collab',
+        campaign: '—',
         deliverables: `${Number(a.commissionRate)}% commission`,
         fee: Number(a.totalEarned),
         engagement: '—',
@@ -370,11 +370,11 @@ export function InfluencersPanelLive() {
       onTab={(k) => setStatusFilter(k as InfluencerStatus | 'all')}
       tableIcon={Star}
       tableTitle={`Influencers · ${filtered.length} results`}
-      footer="Mapped from affiliate partners + campaigns"
+      footer="Mapped from affiliate partners"
       extraFilters={
         <div className="flex items-center gap-2">
           <Instagram className="h-3.5 w-3.5 text-[#6B6B6B]" />
-          <span className="text-[11px] font-bold text-[#6B6B6B]">Partners with campaign assignments</span>
+          <span className="text-[11px] font-bold text-[#6B6B6B]">Affiliate partners — social profiles not linked yet</span>
         </div>
       }
     >

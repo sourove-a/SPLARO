@@ -61,6 +61,7 @@
     "css:fix:admin": "pnpm --filter @splaro/admin css:fix",
     "icons:generate": "node scripts/generate-splaro-icons.mjs",
     "preflight:api": "node scripts/api-preflight.mjs",
+    "verify:production": "node scripts/verify-production.mjs",
     "ci:verify": "node scripts/ci-verify.mjs",
     "build:hostinger": "bash scripts/hostinger-build.sh",
     "start:hostinger": "node apps/web/.next/standalone/apps/web/server.js",

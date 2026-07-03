@@ -362,21 +362,21 @@ function CampaignsPanel() {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                               {(c.status === 'draft' || c.status === 'scheduled') && (
                                 <>
-                                  <AdminButton variant="gold" className="!text-xs" loading={busy} onClick={() => handleSend(c)}>
+                                  <AdminButton variant="gold" size="sm" loading={busy} onClick={() => handleSend(c)}>
                                     <Send className="h-3.5 w-3.5" /> Send now
                                   </AdminButton>
-                                  <AdminButton className="!text-xs" loading={busy} onClick={() => handleSchedule(c)}>
+                                  <AdminButton size="sm" loading={busy} onClick={() => handleSchedule(c)}>
                                     Schedule
                                   </AdminButton>
                                 </>
                               )}
-                              <AdminButton className="!text-xs" loading={busy} onClick={() => handleDuplicate(c)}>
+                              <AdminButton size="sm" loading={busy} onClick={() => handleDuplicate(c)}>
                                 <Copy className="h-3.5 w-3.5" /> Duplicate
                               </AdminButton>
-                              <AdminButton className="!text-xs" loading={busy} onClick={() => { void navigator.clipboard?.writeText(c.id); toastOk('Campaign ID copied.') }}>
+                              <AdminButton size="sm" loading={busy} onClick={() => { void navigator.clipboard?.writeText(c.id); toastOk('Campaign ID copied.') }}>
                                 <Copy className="h-3.5 w-3.5" /> Copy ID
                               </AdminButton>
-                              <AdminButton className="!text-xs" loading={busy} onClick={() => handleDelete(c)}>
+                              <AdminButton variant="danger" size="sm" loading={busy} onClick={() => handleDelete(c)}>
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </AdminButton>
                             </div>

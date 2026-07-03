@@ -175,8 +175,16 @@ async function main() {
 
   await prisma.siteSettings.upsert({
     where: { storeId: store.id },
-    create: { storeId: store.id },
-    update: {},
+    create: {
+      storeId: store.id,
+      facebookPixelId: process.env['FB_PIXEL_ID'] ?? process.env['NEXT_PUBLIC_FB_PIXEL_ID'] ?? null,
+      googleAnalyticsId: process.env['GA4_MEASUREMENT_ID'] ?? process.env['NEXT_PUBLIC_GA_MEASUREMENT_ID'] ?? null,
+    },
+    update: {
+      // Only overwrite when env provides a value — never clobber admin-set IDs on reseed.
+      facebookPixelId: process.env['FB_PIXEL_ID'] ?? process.env['NEXT_PUBLIC_FB_PIXEL_ID'] ?? undefined,
+      googleAnalyticsId: process.env['GA4_MEASUREMENT_ID'] ?? process.env['NEXT_PUBLIC_GA_MEASUREMENT_ID'] ?? undefined,
+    },
   })
 
   const categoryDefs = [

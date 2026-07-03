@@ -49,6 +49,24 @@ export interface SeoOverview {
   summary: { avgScore: number; criticalErrors: number; warnings: number; products: number }
 }
 
+export interface MarketingSocialChannel {
+  id: string
+  platform: string
+  storedUrl: string | null
+  url: string
+  handle: string
+  status: 'live' | 'default' | 'empty'
+  storefrontVisible: boolean
+  inboxCount: number
+}
+
+export interface MarketingSocialSummary {
+  total: number
+  storefrontLive: number
+  savedInDatabase: number
+  usingBrandDefaults: number
+}
+
 export interface MarketingOverview {
   affiliates: {
     id: string
@@ -66,6 +84,8 @@ export interface MarketingOverview {
   emailCampaigns: { id: string; name: string; status: string; totalSent: number }[]
   emailLogs: { id: string; recipient: string; subject: string | null; body: string | null; status: string; createdAt: string }[]
   smsLogs: { id: string; recipient: string; subject: string | null; body: string | null; status: string; createdAt: string }[]
+  socialChannels?: MarketingSocialChannel[]
+  socialSummary?: MarketingSocialSummary
 }
 
 export function fetchContentOverview() {
@@ -85,6 +105,19 @@ export function fetchSeoOverview() {
 
 export function fetchMarketingOverview() {
   return apiFetch<MarketingOverview>('/admin/hub/marketing/overview')
+}
+
+export function updateSocialChannels(data: {
+  instagram?: string
+  facebook?: string
+  tiktok?: string
+  youtube?: string
+  whatsapp?: string
+}) {
+  return apiFetch<{ channels: MarketingSocialChannel[]; summary: MarketingSocialSummary }>(
+    '/admin/hub/marketing/social-channels',
+    { method: 'PATCH', body: JSON.stringify(data) },
+  )
 }
 
 export function createAffiliate(data: { name: string; email?: string; code: string; commissionRate?: number }) {

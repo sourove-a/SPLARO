@@ -7,8 +7,6 @@ import { toastFail, toastWarn } from '@/lib/admin/feedback'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { cn } from '@/lib/utils/cn'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface CategoryItem {
   id: string
   label: string
@@ -54,8 +52,6 @@ interface FootwearConfig {
 const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
 const API_URL = '/api/footwear-config'
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function ToggleSwitch({
   checked,
   onChange,
@@ -66,26 +62,26 @@ function ToggleSwitch({
   label: string
 }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer select-none">
+    <label className="footwear-toggle">
       <button
+        type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5E7CFF]/50 border',
-          checked
-            ? 'bg-[#111111] border-[#111111]'
-            : 'bg-[#F4F5F7] border-[rgba(17,17,17,0.12)]',
+          'footwear-toggle__track',
+          checked ? 'footwear-toggle__track--on' : 'footwear-toggle__track--off',
         )}
       >
         <span
           className={cn(
-            'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200',
-            checked ? 'translate-x-5' : 'translate-x-0',
+            'footwear-toggle__thumb',
+            checked && 'footwear-toggle__thumb--on',
           )}
         />
       </button>
-      <span className="text-sm font-medium text-[#111]">{label}</span>
+      <span className="footwear-toggle__label">{label}</span>
     </label>
   )
 }
@@ -108,50 +104,56 @@ function SectionCard({
   const [open, setOpen] = useState(true)
 
   return (
-    <div
+    <section
       className={cn(
-        'rounded-2xl border transition-all duration-200',
-        visible
-          ? 'border-[rgba(17,17,17,0.08)] bg-white'
-          : 'border-[rgba(17,17,17,0.05)] bg-[#F8F8F8] opacity-60',
+        'footwear-section admin-module-card',
+        !visible && 'footwear-section--dimmed',
       )}
     >
-      <div className="flex items-center justify-between px-5 py-4">
-        <div className="flex items-center gap-3">
-          <span className={cn('w-2 h-2 rounded-full', visible ? 'bg-emerald-500' : 'bg-gray-300')} />
-          <span className="font-semibold text-[#111] text-sm">{title}</span>
-          {badge && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F4F5F7] text-[#6B6B6B] border border-[rgba(17,17,17,0.08)]">
-              {badge}
-            </span>
-          )}
+      <div className="footwear-section__head">
+        <div className="footwear-section__title-wrap">
+          <span className={cn('footwear-section__dot', visible ? 'footwear-section__dot--on' : 'footwear-section__dot--off')} />
+          <span className="footwear-section__title">{title}</span>
+          {badge ? <span className="footwear-section__badge">{badge}</span> : null}
         </div>
-        <div className="flex items-center gap-3">
-          <ToggleSwitch
-            checked={visible}
-            onChange={onToggle}
-            label={visible ? 'Visible' : 'Hidden'}
-          />
-          {collapsible && children && (
+        <div className="footwear-section__actions">
+          <ToggleSwitch checked={visible} onChange={onToggle} label={visible ? 'Visible' : 'Hidden'} />
+          {collapsible && children ? (
             <button
-              onClick={() => setOpen(o => !o)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F4F5F7] text-[#6B6B6B] transition-colors"
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              className="footwear-section__collapse"
+              aria-expanded={open}
+              aria-label={open ? 'Collapse section' : 'Expand section'}
             >
               {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
-      {open && children && (
-        <div className="border-t border-[rgba(17,17,17,0.06)] px-5 py-4">
-          {children}
-        </div>
-      )}
-    </div>
+      {open && children ? (
+        <div className="footwear-section__body">{children}</div>
+      ) : null}
+    </section>
   )
 }
 
-// ─── Panel ────────────────────────────────────────────────────────────────────
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <label className={cn('footwear-field', className)}>
+      <span className="footwear-field__label">{label}</span>
+      {children}
+    </label>
+  )
+}
 
 export function FootwearPagePanel() {
   const [config, setConfig] = useState<FootwearConfig | null>(null)
@@ -165,7 +167,10 @@ export function FootwearPagePanel() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       })
-      .then((data) => { setConfig(data); setLoading(false) })
+      .then((data) => {
+        setConfig(data)
+        setLoading(false)
+      })
       .catch(() => {
         toastFail('Failed to load footwear config', 'footwear-config-load')
         setLoading(false)
@@ -173,7 +178,7 @@ export function FootwearPagePanel() {
   }, [])
 
   function update(fn: (c: FootwearConfig) => FootwearConfig) {
-    setConfig(prev => prev ? fn(prev) : prev)
+    setConfig((prev) => (prev ? fn(prev) : prev))
     setDirty(true)
   }
 
@@ -201,14 +206,18 @@ export function FootwearPagePanel() {
   function reset() {
     setLoading(true)
     fetch(API_URL)
-      .then(r => r.json())
-      .then(data => { setConfig(data); setDirty(false); setLoading(false) })
+      .then((r) => r.json())
+      .then((data) => {
+        setConfig(data)
+        setDirty(false)
+        setLoading(false)
+      })
   }
 
   if (loading) {
     return (
-      <div className="flex h-48 items-center justify-center">
-        <Loader2 className="animate-spin text-[#6B6B6B]" size={28} />
+      <div className="footwear-panel__loading">
+        <Loader2 className="animate-spin" size={28} />
       </div>
     )
   }
@@ -216,26 +225,23 @@ export function FootwearPagePanel() {
   if (!config) return null
 
   return (
-    <div className="space-y-4">
-      <p className="rounded-[14px] border border-amber-200/60 bg-amber-50/70 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+    <div className="footwear-panel">
+      <p className="footwear-panel__notice">
         Local config file — saves to storefront JSON, not NestJS API. Use for dev/content edits; deploy or restart web to go live.
       </p>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+
+      <div className="footwear-panel__toolbar">
         <a
           href={`${WEB_BASE}/footwear`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(17,17,17,0.10)] bg-white px-3 py-2 text-xs font-medium text-[#6B6B6B] transition-colors hover:border-[rgba(17,17,17,0.20)]"
+          className="footwear-panel__btn"
         >
           <ExternalLink size={12} />
           Preview
         </a>
         {dirty ? (
-          <button
-            type="button"
-            onClick={reset}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(17,17,17,0.10)] bg-white px-3 py-2 text-xs font-medium text-[#6B6B6B] transition-colors hover:bg-[#F4F5F7]"
-          >
+          <button type="button" onClick={reset} className="footwear-panel__btn">
             <RotateCcw size={12} />
             Reset
           </button>
@@ -246,97 +252,89 @@ export function FootwearPagePanel() {
         </AdminButton>
       </div>
 
-      <div className="max-w-2xl space-y-4">
+      {dirty ? (
+        <div className="footwear-panel__dirty">
+          <span className="footwear-panel__dirty-dot" />
+          Unsaved changes — click Save to publish
+        </div>
+      ) : null}
 
-        {/* Dirty indicator */}
-        {dirty && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            Unsaved changes — click Save to publish
-          </div>
-        )}
-
-        {/* ── Hero Banner ── */}
+      <div className="footwear-panel__layout">
         <SectionCard
           title="Hero Banner"
           badge="Full-width image"
           visible={config.heroBanner.visible}
-          onToggle={v => update(c => ({ ...c, heroBanner: { ...c.heroBanner, visible: v } }))}
+          onToggle={(v) => update((c) => ({ ...c, heroBanner: { ...c.heroBanner, visible: v } }))}
         >
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium text-[#6B6B6B] mb-1 block">Title</label>
+          <div className="footwear-section__fields footwear-section__fields--hero">
+            <Field label="Title">
               <input
-                className="w-full px-3 py-2 rounded-lg border border-[rgba(17,17,17,0.10)] text-sm text-[#111] bg-[#FAFAFA] focus:outline-none focus:border-[#5E7CFF] transition-colors"
+                className="admin-input"
                 value={config.heroBanner.title}
-                onChange={e => update(c => ({ ...c, heroBanner: { ...c.heroBanner, title: e.target.value } }))}
+                onChange={(e) => update((c) => ({ ...c, heroBanner: { ...c.heroBanner, title: e.target.value } }))}
               />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[#6B6B6B] mb-1 block">Subtitle</label>
+            </Field>
+            <Field label="Subtitle">
               <input
-                className="w-full px-3 py-2 rounded-lg border border-[rgba(17,17,17,0.10)] text-sm text-[#111] bg-[#FAFAFA] focus:outline-none focus:border-[#5E7CFF] transition-colors"
+                className="admin-input"
                 value={config.heroBanner.subtitle}
-                onChange={e => update(c => ({ ...c, heroBanner: { ...c.heroBanner, subtitle: e.target.value } }))}
+                onChange={(e) => update((c) => ({ ...c, heroBanner: { ...c.heroBanner, subtitle: e.target.value } }))}
               />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[#6B6B6B] mb-1 block">Image URL</label>
+            </Field>
+            <Field label="Image URL" className="footwear-field--wide">
               <input
-                className="w-full px-3 py-2 rounded-lg border border-[rgba(17,17,17,0.10)] text-sm text-[#111] bg-[#FAFAFA] focus:outline-none focus:border-[#5E7CFF] transition-colors font-mono"
+                className="admin-input font-mono"
                 value={config.heroBanner.image}
-                onChange={e => update(c => ({ ...c, heroBanner: { ...c.heroBanner, image: e.target.value } }))}
+                onChange={(e) => update((c) => ({ ...c, heroBanner: { ...c.heroBanner, image: e.target.value } }))}
               />
-            </div>
+            </Field>
           </div>
         </SectionCard>
 
-        {/* ── Shop By Category ── */}
         <SectionCard
           title="Shop By Category"
-          badge={`${config.shopByCategory.categories.filter(c => c.visible).length} categories`}
+          badge={`${config.shopByCategory.categories.filter((c) => c.visible).length} categories`}
           visible={config.shopByCategory.visible}
-          onToggle={v => update(c => ({ ...c, shopByCategory: { ...c.shopByCategory, visible: v } }))}
+          onToggle={(v) => update((c) => ({ ...c, shopByCategory: { ...c.shopByCategory, visible: v } }))}
         >
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium text-[#6B6B6B] mb-1 block">Section Title</label>
+          <div className="footwear-section__fields">
+            <Field label="Section Title" className="footwear-field--wide">
               <input
-                className="w-full px-3 py-2 rounded-lg border border-[rgba(17,17,17,0.10)] text-sm text-[#111] bg-[#FAFAFA] focus:outline-none focus:border-[#5E7CFF] transition-colors"
+                className="admin-input"
                 value={config.shopByCategory.title}
-                onChange={e => update(c => ({
-                  ...c,
-                  shopByCategory: { ...c.shopByCategory, title: e.target.value },
-                }))}
+                onChange={(e) =>
+                  update((c) => ({
+                    ...c,
+                    shopByCategory: { ...c.shopByCategory, title: e.target.value },
+                  }))
+                }
               />
-            </div>
+            </Field>
 
-            <div>
-              <p className="text-xs font-medium text-[#6B6B6B] mb-2">Categories</p>
-              <div className="space-y-2">
+            <div className="footwear-field footwear-field--wide">
+              <span className="footwear-field__label">Categories</span>
+              <div className="footwear-categories-grid">
                 {config.shopByCategory.categories.map((cat, i) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[rgba(17,17,17,0.07)] bg-[#FAFAFA]"
-                  >
-                    <span className={cn('w-2 h-2 rounded-full shrink-0', cat.visible ? 'bg-emerald-500' : 'bg-gray-300')} />
-                    <span className="text-sm font-medium text-[#111] flex-1">{cat.label}</span>
-                    <span className="text-xs text-[#9CA3AF] font-mono">{cat.href}</span>
+                  <div key={cat.id} className="footwear-list-item">
+                    <span className={cn('footwear-section__dot shrink-0', cat.visible ? 'footwear-section__dot--on' : 'footwear-section__dot--off')} />
+                    <span className="footwear-list-item__label">{cat.label}</span>
+                    <span className="footwear-list-item__meta">{cat.href}</span>
                     <button
-                      onClick={() => update(c => ({
-                        ...c,
-                        shopByCategory: {
-                          ...c.shopByCategory,
-                          categories: c.shopByCategory.categories.map((cc, j) =>
-                            j === i ? { ...cc, visible: !cc.visible } : cc,
-                          ),
-                        },
-                      }))}
+                      type="button"
+                      onClick={() =>
+                        update((c) => ({
+                          ...c,
+                          shopByCategory: {
+                            ...c.shopByCategory,
+                            categories: c.shopByCategory.categories.map((cc, j) =>
+                              j === i ? { ...cc, visible: !cc.visible } : cc,
+                            ),
+                          },
+                        }))
+                      }
                       className={cn(
-                        'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors',
-                        cat.visible
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          : 'border-[rgba(17,17,17,0.10)] bg-white text-[#6B6B6B] hover:bg-[#F4F5F7]',
+                        'footwear-visibility-btn',
+                        cat.visible ? 'footwear-visibility-btn--on' : 'footwear-visibility-btn--off',
                       )}
                     >
                       {cat.visible ? <Eye size={11} /> : <EyeOff size={11} />}
@@ -349,69 +347,67 @@ export function FootwearPagePanel() {
           </div>
         </SectionCard>
 
-        {/* ── Product Rows ── */}
-        {config.productRows.map((row, ri) => (
-          <SectionCard
-            key={row.id}
-            title={row.title}
-            badge={`${row.products.length} products`}
-            visible={row.visible}
-            onToggle={v => update(c => ({
-              ...c,
-              productRows: c.productRows.map((r, j) => j === ri ? { ...r, visible: v } : r),
-            }))}
-          >
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-[#6B6B6B] mb-1 block">Title</label>
+        <div className="footwear-panel__rows">
+          {config.productRows.map((row, ri) => (
+            <SectionCard
+              key={row.id}
+              title={row.title}
+              badge={`${row.products.length} products`}
+              visible={row.visible}
+              onToggle={(v) =>
+                update((c) => ({
+                  ...c,
+                  productRows: c.productRows.map((r, j) => (j === ri ? { ...r, visible: v } : r)),
+                }))
+              }
+            >
+              <div className="footwear-section__fields">
+                <Field label="Title">
                   <input
-                    className="w-full px-3 py-2 rounded-lg border border-[rgba(17,17,17,0.10)] text-sm text-[#111] bg-[#FAFAFA] focus:outline-none focus:border-[#5E7CFF] transition-colors"
+                    className="admin-input"
                     value={row.title}
-                    onChange={e => update(c => ({
-                      ...c,
-                      productRows: c.productRows.map((r, j) =>
-                        j === ri ? { ...r, title: e.target.value } : r,
-                      ),
-                    }))}
+                    onChange={(e) =>
+                      update((c) => ({
+                        ...c,
+                        productRows: c.productRows.map((r, j) =>
+                          j === ri ? { ...r, title: e.target.value } : r,
+                        ),
+                      }))
+                    }
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[#6B6B6B] mb-1 block">Subtitle</label>
+                </Field>
+                <Field label="Subtitle">
                   <input
-                    className="w-full px-3 py-2 rounded-lg border border-[rgba(17,17,17,0.10)] text-sm text-[#111] bg-[#FAFAFA] focus:outline-none focus:border-[#5E7CFF] transition-colors"
+                    className="admin-input"
                     value={row.subtitle}
-                    onChange={e => update(c => ({
-                      ...c,
-                      productRows: c.productRows.map((r, j) =>
-                        j === ri ? { ...r, subtitle: e.target.value } : r,
-                      ),
-                    }))}
+                    onChange={(e) =>
+                      update((c) => ({
+                        ...c,
+                        productRows: c.productRows.map((r, j) =>
+                          j === ri ? { ...r, subtitle: e.target.value } : r,
+                        ),
+                      }))
+                    }
                   />
+                </Field>
+
+                <div className="footwear-field footwear-field--wide">
+                  <span className="footwear-field__label">Products in this row</span>
+                  <div className="footwear-products-grid">
+                    {row.products.map((p) => (
+                      <div key={p.id} className="footwear-product-chip">
+                        <span className="footwear-product-chip__code">{p.code}</span>
+                        <span className="footwear-product-chip__name">{p.name}</span>
+                        <span className="footwear-product-chip__meta">{p.colors} colors</span>
+                        <span className="footwear-product-chip__price">৳{p.price.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Product list (visibility only) */}
-              <div>
-                <p className="text-xs font-medium text-[#6B6B6B] mb-2">Products in this row</p>
-                <div className="space-y-1.5">
-                  {row.products.map(p => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FAFAFA] border border-[rgba(17,17,17,0.06)]"
-                    >
-                      <span className="text-xs font-mono text-[#9CA3AF] w-14 shrink-0">{p.code}</span>
-                      <span className="text-sm text-[#111] flex-1">{p.name}</span>
-                      <span className="text-xs text-[#6B6B6B]">{p.colors} colors</span>
-                      <span className="text-xs font-bold text-[#111]">৳{p.price.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-        ))}
-
+            </SectionCard>
+          ))}
+        </div>
       </div>
     </div>
   )

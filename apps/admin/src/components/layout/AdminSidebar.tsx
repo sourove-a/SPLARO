@@ -54,9 +54,24 @@ function groupByName(name: string) {
   return adminNavGroups.find((group) => group.group === name)
 }
 
+const SECTION_ICON_MAP: Record<string, string> = {
+  Overview: 'LayoutDashboard',
+  Executive: 'Crown',
+  Commerce: 'ShoppingBag',
+  Catalog: 'Package',
+  Customers: 'Users',
+  Marketing: 'Megaphone',
+  Content: 'Layers',
+  Finance: 'Wallet',
+  Integrations: 'Plug',
+  'SEO & AI': 'Sparkles',
+  Operations: 'Workflow',
+  Platform: 'Boxes',
+}
+
 function NavIcon({ name }: { name: string }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle
-  return <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+  return <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} />
 }
 
 function SidebarItem({
@@ -83,7 +98,9 @@ function SidebarItem({
       {...(onNavigate ? { onNavigate } : {})}
       {...(tooltip ? { title: tooltip } : {})}
     >
-      <NavIcon name={item.icon} />
+      <span className="admin-nav-item__icon" aria-hidden="true">
+        <NavIcon name={item.icon} />
+      </span>
       {!collapsed ? <span className="truncate">{item.label}</span> : null}
       {!collapsed && item.badge ? (
         <span className="admin-nav-badge">{item.badge}</span>
@@ -119,12 +136,13 @@ function SidebarDrawerSection({
   )
   const [open, setOpen] = useState(defaultOpen || isActive)
   const itemCount = groups.reduce((total, group) => total + group.items.length, 0)
-  const sectionCountLabel = groups.length === 1 ? 'section' : 'sections'
   const toolCountLabel = itemCount === 1 ? 'tool' : 'tools'
 
   useEffect(() => {
     if (isActive) setOpen(true)
   }, [isActive])
+
+  const sectionIcon = SECTION_ICON_MAP[title] ?? groups[0]?.items[0]?.icon ?? 'Folder'
 
   if (collapsed) {
     return (
@@ -143,20 +161,35 @@ function SidebarDrawerSection({
   }
 
   return (
-    <div className={cn('admin-sidebar__drawer', `admin-sidebar__drawer--${variant}`, isActive && 'admin-sidebar__drawer--active')}>
+    <div
+      className={cn(
+        'admin-sidebar__drawer',
+        `admin-sidebar__drawer--${variant}`,
+        isActive && 'admin-sidebar__drawer--active',
+        open && 'admin-sidebar__drawer--open',
+      )}
+    >
+      <span className="admin-sidebar__drawer-sheen" aria-hidden="true" />
       <button
         type="button"
         className="admin-sidebar__drawer-trigger"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <span className="min-w-0">
-          <span className="admin-sidebar__drawer-title">{title}</span>
-          <span className="admin-sidebar__drawer-meta">
-            {groups.length} {sectionCountLabel} · {itemCount} {toolCountLabel}
+        <span className="admin-sidebar__drawer-leading">
+          <span className="admin-sidebar__drawer-icon" aria-hidden="true">
+            <NavIcon name={sectionIcon} />
+          </span>
+          <span className="min-w-0">
+            <span className="admin-sidebar__drawer-title">{title}</span>
+            <span className="admin-sidebar__drawer-meta">
+              <span className="admin-sidebar__drawer-chip">{itemCount} {toolCountLabel}</span>
+            </span>
           </span>
         </span>
-        <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')} strokeWidth={1.8} />
+        <span className={cn('admin-sidebar__drawer-chevron', open && 'admin-sidebar__drawer-chevron--open')}>
+          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} />
+        </span>
       </button>
 
       <AnimatePresence initial={false}>
@@ -221,7 +254,9 @@ function SidebarNav({
 
       {!collapsed ? (
         <p className="admin-sidebar__group admin-sidebar__group--advanced">
-          Advanced · আরো টুলস
+          <span className="admin-sidebar__group-line" aria-hidden="true" />
+          Advanced modules
+          <span className="admin-sidebar__group-line" aria-hidden="true" />
         </p>
       ) : null}
 
@@ -329,10 +364,14 @@ export function AdminSidebar() {
         animate={{ width: collapsed ? 88 : 280 }}
         transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
-          'admin-sidebar relative m-4 mr-0 hidden h-[calc(100vh-2rem)] min-h-0 shrink-0 flex-col overflow-hidden lg:flex',
+          'admin-sidebar admin-glass-panel relative m-4 mr-0 hidden h-[calc(100vh-2rem)] min-h-0 shrink-0 flex-col overflow-hidden lg:flex',
         )}
       >
-        {sidebarContent}
+        <span className="admin-glass-panel__surface" aria-hidden="true" />
+        <span className="admin-glass-panel__sheen" aria-hidden="true" />
+        <div className="admin-glass-panel__body relative flex min-h-0 flex-1 flex-col">
+          {sidebarContent}
+        </div>
       </motion.aside>
 
       <AnimatePresence>
@@ -352,8 +391,11 @@ export function AdminSidebar() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -300, opacity: 0 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="admin-sidebar fixed left-0 top-0 z-[100] m-0 flex h-full w-[280px] flex-col rounded-none lg:hidden"
+              className="admin-sidebar admin-glass-panel fixed left-0 top-0 z-[100] m-0 flex h-full w-[280px] flex-col rounded-none lg:hidden"
             >
+              <span className="admin-glass-panel__surface" aria-hidden="true" />
+              <span className="admin-glass-panel__sheen" aria-hidden="true" />
+              <div className="admin-glass-panel__body relative flex min-h-0 flex-1 flex-col">
               <button
                 type="button"
                 className="absolute right-3 top-3 rounded-full p-2 hover:bg-black/5"
@@ -363,6 +405,7 @@ export function AdminSidebar() {
                 <X className="h-4 w-4" />
               </button>
               {sidebarContent}
+              </div>
             </motion.aside>
           </>
         ) : null}

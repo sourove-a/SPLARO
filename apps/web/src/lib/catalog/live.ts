@@ -264,6 +264,16 @@ export function mapLiveProduct(
     .filter((v) => v.isActive !== false)
     .reduce((sum, v) => sum + Number(v.stock ?? 0), 0)
 
+  const variantRefs = variants
+    .filter((v): v is LiveVariant & { id: string } => Boolean(v.id))
+    .map((v) => ({
+      id: v.id,
+      ...(v.size ? { size: v.size } : {}),
+      ...(v.colorHex ? { colorHex: v.colorHex.toLowerCase() } : {}),
+      stock: Number(v.stock ?? 0),
+      isActive: v.isActive !== false,
+    }))
+
   return {
     id: p.id,
     slug: p.slug,
@@ -286,6 +296,7 @@ export function mapLiveProduct(
     ...(media.length ? { media } : {}),
     fit: p.fitType ?? 'Regular',
     material: p.fabricContent ?? 'Premium fabric',
+    ...(variantRefs.length ? { variantRefs } : {}),
   }
 }
 
@@ -383,7 +394,10 @@ export async function fetchLiveProductDetailBySlug(
   const base = getApiBaseUrl()
   const url = `${base}/storefront/products/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`
   const res = await fetchWithTimeout(url, { next: { revalidate: 15 } })
-  if (!res.ok) return null
+  // Only a real 404 means "product does not exist" — any other failure must throw
+  // so callers don't turn a transient API outage into a permanent not-found page.
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Product API responded ${res.status} for ${slug}`)
   const data = (await res.json()) as { product: LiveProduct | null }
   return data.product ? mapLiveProductDetail(data.product) : null
 }

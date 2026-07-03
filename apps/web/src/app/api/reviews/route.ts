@@ -14,7 +14,7 @@ async function requireSession() {
   const sessionToken = await getSessionToken()
   if (!sessionToken) return null
   const user = await apiAuthMe(sessionToken)
-  if (!user?.customerId) return null
+  if (!user) return null
   return { sessionToken, user }
 }
 

@@ -139,7 +139,24 @@ export class ProfitLossService {
       },
     })
 
-    return { period: { from, to }, totals, orderCount: calculations.length, partners }
+    // Real per-day revenue timeline for the admin sales chart — grouped from
+    // actual profit calculations, never synthesized.
+    const byDay = new Map<string, number>()
+    for (const c of calculations) {
+      const key = new Date(c.calculatedAt).toISOString().slice(0, 10)
+      byDay.set(key, (byDay.get(key) ?? 0) + Number(c.grossRevenue))
+    }
+    const timeline = [...byDay.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, revenue]) => ({
+        label: new Date(`${key}T00:00:00`).toLocaleDateString('en-BD', {
+          day: 'numeric',
+          month: 'short',
+        }),
+        revenue: Math.round(revenue),
+      }))
+
+    return { period: { from, to }, totals, orderCount: calculations.length, partners, timeline }
   }
 
   async getDailyProfit(storeIdOrSlug: string, date = new Date()) {

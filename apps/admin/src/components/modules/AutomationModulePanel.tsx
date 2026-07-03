@@ -447,7 +447,7 @@ export function AiSeoAgentPanelLive() {
                   <td style={TD}>{p.hasMetaTitle ? '✓' : '✗'}</td>
                   <td style={TD}>{p.hasMetaDescription ? '✓' : '✗'}</td>
                   <td style={TD}>
-                    <AdminButton className="!px-2 !py-1 !text-xs" onClick={() => toast.error('This action is not available yet — feature pending.')}>Review</AdminButton>
+                    <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>Review</AdminButton>
                   </td>
                 </tr>
               ))}

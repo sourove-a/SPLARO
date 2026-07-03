@@ -77,9 +77,10 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      // No variantId here — ProductCardData carries no real variant ids and the
+      // API rejects fabricated ones. The server resolves the variant by product.
       addToCart({
         productId: product.id,
-        variantId: product.id,
         quantity: 1,
         name: product.name,
         price: product.price,

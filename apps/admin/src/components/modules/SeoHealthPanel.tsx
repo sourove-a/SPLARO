@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import toast from 'react-hot-toast'
+import { refreshWithToast } from '@/lib/admin/feedback'
 import { AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ApiOfflineHint } from '@/components/modules/PlatformUi'
@@ -136,8 +136,7 @@ export function SeoHealthPanel() {
       <AdminButton
         variant="gold"
         onClick={() => {
-          void refetch()
-          toast.success('SEO audit refreshed from catalog.')
+          void refreshWithToast(() => refetch(), 'SEO audit refreshed from catalog.')
         }}
       >
         Refresh SEO audit

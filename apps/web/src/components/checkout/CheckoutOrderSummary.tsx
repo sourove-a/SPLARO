@@ -77,7 +77,7 @@ export function CheckoutOrderSummary({
                     alt={item.name}
                     fill
                     sizes="56px"
-                    className="object-cover object-top"
+                    className="object-contain object-center"
                   />
                 </div>
                 <div className="checkout-item__meta">

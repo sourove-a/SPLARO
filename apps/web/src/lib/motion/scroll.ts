@@ -8,12 +8,12 @@ export const scrollEaseOutExpo = (t: number) =>
 export const SCROLL_ANCHOR_OFFSET = -120
 
 export const SCROLL_TO_TOP: ScrollToOptions = {
-  duration: 1.1,
+  duration: 0.85,
   easing: scrollEaseOutExpo,
 }
 
 export const SCROLL_ROUTE_TOP: ScrollToOptions = {
-  duration: 0.55,
+  duration: 0.4,
   easing: scrollEaseOutExpo,
 }
 
@@ -34,12 +34,15 @@ const LENIS_SHARED = {
   anchors: SCROLL_ANCHOR,
 } satisfies Partial<LenisOptions>
 
-/** Desktop wheel — lerp inertia, no syncTouch */
+/**
+ * Desktop wheel — fast response, silky settle.
+ * Higher lerp = tracks input quickly (no laggy float), easing absorbs the stop.
+ */
 const LENIS_DESKTOP_OPTIONS = {
   ...LENIS_SHARED,
-  lerp: 0.072,
+  lerp: 0.115,
   smoothWheel: true,
-  wheelMultiplier: 0.88,
+  wheelMultiplier: 1.05,
   syncTouch: false,
   touchMultiplier: 1,
 } satisfies LenisOptions
@@ -50,11 +53,11 @@ const LENIS_DESKTOP_OPTIONS = {
  */
 const LENIS_TOUCH_OPTIONS = {
   ...LENIS_SHARED,
-  lerp: 0.095,
+  lerp: 0.13,
   smoothWheel: false,
   wheelMultiplier: 1,
   syncTouch: true,
-  touchMultiplier: 1.05,
+  touchMultiplier: 1.15,
 } satisfies LenisOptions
 
 function getScrollMedia() {

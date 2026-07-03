@@ -49,23 +49,23 @@ export function InvoiceActionsBar({ orderId, invoiceNumber, customerPhone }: Inv
         Premium invoice
       </p>
       <div className="flex flex-wrap gap-2">
-        <AdminButton className="!text-xs" onClick={() => downloadInvoice(orderId)}>
+        <AdminButton size="sm" onClick={() => downloadInvoice(orderId)}>
           <Eye className="h-3.5 w-3.5" />
           View
         </AdminButton>
-        <AdminButton className="!text-xs" onClick={() => downloadInvoicePdf(orderId, invoiceNumber)}>
+        <AdminButton size="sm" onClick={() => downloadInvoicePdf(orderId, invoiceNumber)}>
           <Download className="h-3.5 w-3.5" />
           Download PDF
         </AdminButton>
-        <AdminButton className="!text-xs" onClick={() => printInvoice(orderId)}>
+        <AdminButton size="sm" onClick={() => printInvoice(orderId)}>
           <Printer className="h-3.5 w-3.5" />
           Print
         </AdminButton>
-        <AdminButton className="!text-xs" variant="gold" onClick={() => void sendEmail()}>
+        <AdminButton size="sm" variant="gold" onClick={() => void sendEmail()}>
           <Mail className="h-3.5 w-3.5" />
           Email customer
         </AdminButton>
-        <AdminButton className="!text-xs" variant="ghost" onClick={() => void sendWhatsApp()}>
+        <AdminButton size="sm" variant="ghost" onClick={() => void sendWhatsApp()}>
           <MessageCircle className="h-3.5 w-3.5" />
           WhatsApp
         </AdminButton>

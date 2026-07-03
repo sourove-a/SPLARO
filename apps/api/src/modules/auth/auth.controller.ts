@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Headers, Post, Req, UnauthorizedException } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
 import { AuthService } from './auth.service'
 
@@ -6,6 +7,7 @@ import { AuthService } from './auth.service'
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('request-login')
   async requestLogin(@Body() body: { email?: string; storeId?: string }) {
     const email = body.email?.trim()
@@ -15,6 +17,7 @@ export class AuthController {
     return this.auth.validateAdminEmail(email, body.storeId)
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   async login(
     @Body() body: { email?: string; token?: string; password?: string; storeId?: string },

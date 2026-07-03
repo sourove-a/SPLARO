@@ -5,10 +5,12 @@ import { type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
 import { isExternalHref, markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 
-type AdminButtonVariant = 'default' | 'gold' | 'ghost' | 'dark'
+type AdminButtonVariant = 'default' | 'gold' | 'ghost' | 'dark' | 'danger' | 'warning'
+type AdminButtonSize = 'sm' | 'md'
 
 interface AdminButtonBaseProps {
   variant?: AdminButtonVariant
+  size?: AdminButtonSize
   className?: string
   children: ReactNode
   loading?: boolean
@@ -29,10 +31,27 @@ const variantClass: Record<AdminButtonVariant, string> = {
   gold: 'admin-btn admin-btn--gold',
   ghost: 'admin-btn admin-btn--ghost',
   dark: 'admin-btn admin-btn--dark',
+  danger: 'admin-btn admin-btn--danger',
+  warning: 'admin-btn admin-btn--warning',
+}
+
+const sizeClass: Record<AdminButtonSize, string | undefined> = {
+  md: undefined,
+  sm: 'admin-btn--sm',
+}
+
+function adminBtnClass(
+  variant: AdminButtonVariant,
+  size: AdminButtonSize,
+  className?: string,
+  loading?: boolean,
+) {
+  return cn(variantClass[variant], sizeClass[size], loading && 'admin-btn--loading', className)
 }
 
 export function AdminButton({
   variant = 'default',
+  size = 'md',
   className,
   children,
   loading,
@@ -44,7 +63,7 @@ export function AdminButton({
       type="button"
       {...props}
       disabled={disabled || loading}
-      className={cn(variantClass[variant], loading && 'admin-btn--loading', className)}
+      className={adminBtnClass(variant, size, className, loading)}
     >
       {children}
     </button>
@@ -54,6 +73,7 @@ export function AdminButton({
 export function AdminLinkButton({
   href,
   variant = 'default',
+  size = 'md',
   className,
   children,
   external,
@@ -65,7 +85,7 @@ export function AdminLinkButton({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={cn(variantClass[variant], className)}
+        className={adminBtnClass(variant, size, className, loading)}
       >
         {children}
       </a>
@@ -78,7 +98,7 @@ export function AdminLinkButton({
       scroll={false}
       prefetch
       onClick={() => markAdminLinkNavigation(href)}
-      className={cn(variantClass[variant], loading && 'admin-btn--loading', className)}
+      className={adminBtnClass(variant, size, className, loading)}
     >
       {children}
     </Link>

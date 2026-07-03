@@ -53,6 +53,12 @@ export function fetchIntegrations() {
   return apiFetch<{ integrations: IntegrationCard[] }>('/admin/integrations')
 }
 
+export async function testMetaIntegration() {
+  return apiFetch<{ ok: boolean; message: string; pixelId?: string }>('/admin/integrations/marketing/meta/test', {
+    method: 'POST',
+  })
+}
+
 export function fetchTelegramIntegration() {
   return apiFetch<TelegramIntegration>('/admin/integrations/telegram')
 }

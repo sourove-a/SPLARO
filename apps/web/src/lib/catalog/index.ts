@@ -3,6 +3,7 @@ import {
   products,
   slugFromCategory,
   type StorefrontProduct,
+  type StorefrontVariantRef,
 } from '@/data/storefront'
 import type {
   ColorOption,
@@ -51,6 +52,35 @@ function deterministicStock(productId: string, size: string, colorHex: string): 
 
 export function variantId(productId: string, size: string, colorHex: string): string {
   return `${productId}__${size}__${colorHex.replace('#', '')}`
+}
+
+/**
+ * Resolve a REAL database variant for quick-add buttons.
+ * Never fabricate variant ids — the API rejects unknown ids on cart sync
+ * and order placement. Returns null when the product has no live variants
+ * (in that case omit variantId and let the API resolve by size/color).
+ */
+export function resolveQuickAddVariant(
+  product: Pick<StorefrontProduct, 'variantRefs'>,
+  size?: string,
+  colorHex?: string,
+): StorefrontVariantRef | null {
+  const refs = (product.variantRefs ?? []).filter((ref) => ref.isActive)
+  if (!refs.length) return null
+
+  const hex = colorHex?.toLowerCase()
+  const matches = (ref: StorefrontVariantRef, checkSize: boolean, checkColor: boolean) =>
+    (!checkSize || !size || ref.size === size) &&
+    (!checkColor || !hex || ref.colorHex === hex)
+
+  return (
+    refs.find((ref) => ref.stock > 0 && matches(ref, true, true)) ??
+    refs.find((ref) => matches(ref, true, true)) ??
+    refs.find((ref) => ref.stock > 0 && matches(ref, true, false)) ??
+    refs.find((ref) => ref.stock > 0) ??
+    refs[0] ??
+    null
+  )
 }
 
 export function generateVariants(product: StorefrontProduct): ProductVariantData[] {

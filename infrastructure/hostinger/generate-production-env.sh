@@ -15,6 +15,9 @@ HEALTH="$(rand 24)"
 ENC="$(rand 32)"
 ADMIN_PASS="$(rand 16)"
 
+DB_URL="${DATABASE_URL:-postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_db}"
+DB_SHADOW="${DATABASE_URL_SHADOW:-postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_shadow_db}"
+
 cat <<EOF
 NODE_ENV=production
 NEXT_PUBLIC_SITE_URL=https://splaro.co
@@ -35,8 +38,8 @@ ADMIN_SESSION_SECRET=${ADMIN_SESS}
 REVALIDATE_SECRET=${REVAL}
 INTERNAL_HEALTH_SECRET=${HEALTH}
 ENCRYPTION_KEY=${ENC}
-DATABASE_URL=postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_db
-DATABASE_URL_SHADOW=postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_shadow_db
+DATABASE_URL=${DB_URL}
+DATABASE_URL_SHADOW=${DB_SHADOW}
 REDIS_URL=redis://127.0.0.1:6379
 REDIS_ENABLED=true
 API_PORT=4000

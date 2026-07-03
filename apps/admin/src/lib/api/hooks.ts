@@ -53,6 +53,7 @@ import {
   createBlogPost,
   fetchSeoOverview,
   fetchMarketingOverview,
+  updateSocialChannels,
   createAffiliate,
   createSupplier,
   createPurchaseOrder,
@@ -502,7 +503,19 @@ export function useMarketingOverview() {
     queryKey: ['marketing-overview'],
     queryFn: fetchMarketingOverview,
     staleTime: 30_000,
-    retry: 1,
+    refetchOnWindowFocus: true,
+    retry: 2,
+  })
+}
+
+export function useUpdateSocialChannels() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: updateSocialChannels,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['marketing-overview'] })
+      void qc.invalidateQueries({ queryKey: ['admin-settings'] })
+    },
   })
 }
 

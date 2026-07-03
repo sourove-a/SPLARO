@@ -267,7 +267,7 @@ function HeroSliderPanel() {
         <KpiCard label="Slides" value={isLoading ? '…' : usingFallback ? HERO_DEFAULT_SLIDES.length : slides.length} />
         <KpiCard label="Live" value={usingFallback ? HERO_DEFAULT_SLIDES.length : slides.filter((s) => s.status === 'published').length} />
         <KpiCard label="Hidden" value={slides.filter((s) => s.status === 'draft').length} />
-        <KpiCard label="Source" value="Live API" />
+        <KpiCard label="Source" value={isLoading ? '…' : usingFallback ? 'Built-in defaults' : 'Live API'} />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

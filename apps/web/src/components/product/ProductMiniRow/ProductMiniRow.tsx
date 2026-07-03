@@ -30,7 +30,7 @@ export function ProductMiniRow({ title, products, onSelect }: ProductMiniRowProp
                 alt={item.name}
                 fill
                 sizes="120px"
-                className="object-cover object-top"
+                className="object-contain object-center"
               />
             </div>
             <div className="product-mini-card__body">

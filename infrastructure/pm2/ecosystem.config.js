@@ -1,4 +1,8 @@
-const APP_ROOT = process.env.SPLARO_APP_DIR || '/var/www/splaro';
+const path = require('node:path')
+const os = require('node:os')
+
+const APP_ROOT = process.env.SPLARO_APP_DIR || '/var/www/splaro'
+const LOG_DIR = process.env.SPLARO_LOG_DIR || path.join(APP_ROOT, 'logs')
 
 module.exports = {
   apps: [
@@ -19,9 +23,9 @@ module.exports = {
       exec_mode: 'cluster',
       watch: false,
       max_memory_restart: '512M',
-      log_file: '/var/log/splaro/web.log',
-      error_file: '/var/log/splaro/web-error.log',
-      out_file: '/var/log/splaro/web-out.log',
+      log_file: `${LOG_DIR}/web.log`,
+      error_file: `${LOG_DIR}/web-error.log`,
+      out_file: `${LOG_DIR}/web-out.log`,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       restart_delay: 4000,
@@ -44,9 +48,9 @@ module.exports = {
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '512M',
-      log_file: '/var/log/splaro/admin.log',
-      error_file: '/var/log/splaro/admin-error.log',
-      out_file: '/var/log/splaro/admin-out.log',
+      log_file: `${LOG_DIR}/admin.log`,
+      error_file: `${LOG_DIR}/admin-error.log`,
+      out_file: `${LOG_DIR}/admin-out.log`,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       autorestart: true,
     },
@@ -66,9 +70,9 @@ module.exports = {
       exec_mode: 'cluster',
       watch: false,
       max_memory_restart: '768M',
-      log_file: '/var/log/splaro/api.log',
-      error_file: '/var/log/splaro/api-error.log',
-      out_file: '/var/log/splaro/api-out.log',
+      log_file: `${LOG_DIR}/api.log`,
+      error_file: `${LOG_DIR}/api-error.log`,
+      out_file: `${LOG_DIR}/api-out.log`,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
       restart_delay: 4000,
@@ -88,9 +92,9 @@ module.exports = {
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '512M',
-      log_file: '/var/log/splaro/worker.log',
-      error_file: '/var/log/splaro/worker-error.log',
-      out_file: '/var/log/splaro/worker-out.log',
+      log_file: `${LOG_DIR}/worker.log`,
+      error_file: `${LOG_DIR}/worker-error.log`,
+      out_file: `${LOG_DIR}/worker-out.log`,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       autorestart: true,
       restart_delay: 5000,
@@ -107,7 +111,7 @@ module.exports = {
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '256M',
-      log_file: '/var/log/splaro/print.log',
+      log_file: `${LOG_DIR}/print.log`,
       autorestart: true,
     },
   ],

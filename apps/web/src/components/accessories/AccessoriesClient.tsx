@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/LiquidGlass'
 import { ACCESSORIES_FILTER_CATEGORIES } from '@/lib/storefront/accessories-nav'
 import type { CatalogProduct } from '@/lib/catalog/live'
+import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { formatBDT } from '@/lib/utils/currency'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
@@ -143,14 +144,16 @@ function AddToCartButton({ product }: { product: CatalogProduct }) {
       type="button"
       aria-label={`Add ${product.name} to cart`}
       onClick={() => {
+        const variant = resolveQuickAddVariant(product)
         addToCart({
           productId: product.id,
-          variantId: product.id,
           quantity: 1,
           name: product.name,
           price: product.price,
           image: product.image,
           slug: product.slug,
+          ...(variant ? { variantId: variant.id } : {}),
+          ...(variant?.size ? { size: variant.size } : {}),
         })
       }}
       className="shop-bag-btn"
@@ -226,7 +229,6 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
         {...(product.code ? { productCode: product.code } : {})}
         colorHexes={colorHexes}
         status={product.status}
-        fit="cover"
       />
     </motion.div>
   )

@@ -166,7 +166,7 @@ export async function POST(request: Request) {
 
   let couponDiscount = 0
   if (body.couponCode) {
-    const coupon = validateCoupon(body.couponCode, subtotal)
+    const coupon = await validateCoupon(body.couponCode, subtotal)
     if (!coupon.valid) {
       return NextResponse.json({ error: coupon.message }, { status: 400 })
     }

@@ -106,14 +106,15 @@ export async function getStorefrontCatalogForCollection(
 export async function getProductDetailBySlug(
   slug: string,
 ): Promise<{ product: ProductDetailData; reviews: ProductReview[]; source: CatalogSource } | null> {
+  // null = product genuinely does not exist (safe to show 404).
+  // API outages retry once, then throw so the route error boundary renders instead of a fake 404.
   try {
     const live = await fetchLiveProductDetailBySlug(slug)
-    if (live) return { ...live, source: 'api' }
+    return live ? { ...live, source: 'api' } : null
   } catch {
-    /* API unavailable */
+    const live = await fetchLiveProductDetailBySlug(slug)
+    return live ? { ...live, source: 'api' } : null
   }
-
-  return null
 }
 
 export async function getRelatedProducts(

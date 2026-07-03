@@ -22,7 +22,7 @@ export function CartLineItem({ item, onDecrease, onIncrease, onRemove }: CartLin
               alt={item.name}
               width={64}
               height={80}
-              className="h-full w-full object-cover object-top"
+              className="h-full w-full object-contain object-center"
             />
           ) : (
             <div className="h-full w-full bg-ivory-300" />

@@ -1,6 +1,8 @@
 import { Controller, Delete, Get, Header, NotFoundException, Patch, Param, Query, Body, Post, Inject, StreamableFile } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
+import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
+import { restoreOrderStock } from '../../common/order-stock.util'
 import { StorefrontOrdersService } from '../storefront/storefront-orders.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
 import { GoogleSheetsFinanceService } from '../finance/finance-support.service'
@@ -133,31 +135,60 @@ export class OrdersController {
     return order
   }
 
-  @Patch(':id/status')
-  async updateStatus(@Param('id') id: string, @Body() body: { status: string; note?: string }) {
-    const order = await this.prisma.order.update({
+  private async applyStatusChange(id: string, statusRaw: string, note?: string) {
+    const existing = await this.prisma.order.findUnique({
       where: { id },
-      data: {
-        status: body.status as never,
-        ...(body.status === 'CONFIRMED' ? { confirmedAt: new Date() } : {}),
-        ...(body.status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
-        ...(body.status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
-      },
+      select: { id: true, storeId: true, status: true },
+    })
+    if (!existing) throw new NotFoundException('Order not found')
+
+    const status = assertOrderStatusTransition(existing.status, statusRaw)
+    const shouldRestoreStock =
+      STOCK_RESTORING_STATUSES.includes(status) &&
+      !STOCK_RESTORING_STATUSES.includes(existing.status)
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id },
+        data: {
+          status,
+          ...(status === 'CONFIRMED' ? { confirmedAt: new Date() } : {}),
+          ...(status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
+          ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
+        },
+      })
+
+      if (shouldRestoreStock) {
+        await restoreOrderStock(tx, id, `Stock restored — order ${status.toLowerCase()}`)
+      }
+
+      await tx.orderStatusHistory.create({
+        data: { orderId: id, status, note: note ?? `Status changed to ${status}` },
+      })
+
+      return updated
     })
 
-    if (body.note) {
+    if (note) {
       await this.prisma.orderNote.create({
-        data: { orderId: id, body: body.note, isPrivate: true },
+        data: { orderId: id, body: note, isPrivate: true },
       })
     }
 
-    if (body.status === 'DELIVERED') {
+    return order
+  }
+
+  @Patch(':id/status')
+  async updateStatus(@Param('id') id: string, @Body() body: { status: string; note?: string }) {
+    const order = await this.applyStatusChange(id, body.status, body.note)
+
+    if (order.status === 'DELIVERED') {
       await this.profitLoss.calculateOrderProfit(order.storeId, id)
       await this.sheets.queueSync(order.storeId, 'ORDERS', id, 'ORDER')
       await this.sheets.queueSync(order.storeId, 'PROFIT_LOSS', id, 'ORDER')
     }
 
-    void this.orderEvents.onStatusChanged(order.storeId, id, body.status as OrderStatus, body.note)
+    void this.orderEvents.onStatusChanged(order.storeId, id, order.status, body.note)
 
     return order
   }
@@ -198,20 +229,8 @@ export class OrdersController {
     const results = await Promise.all(
       body.orderIds.map(async (orderId) => {
         try {
-          const order = await this.prisma.order.update({
-            where: { id: orderId },
-            data: {
-              status: body.status as never,
-              ...(body.status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
-              ...(body.status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
-            },
-          })
-          if (body.note) {
-            await this.prisma.orderNote.create({
-              data: { orderId, body: body.note, isPrivate: true },
-            })
-          }
-          void this.orderEvents.onStatusChanged(order.storeId, orderId, body.status as OrderStatus, body.note)
+          const order = await this.applyStatusChange(orderId, body.status, body.note)
+          void this.orderEvents.onStatusChanged(order.storeId, orderId, order.status, body.note)
           return { orderId, success: true, invoiceNumber: order.invoiceNumber }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Update failed'
@@ -347,7 +366,12 @@ export class OrdersController {
     if (!existing) throw new NotFoundException('Order not found')
 
     try {
-      const deleted = await this.prisma.$transaction((tx) => deleteOrderWithRelations(tx, id))
+      const deleted = await this.prisma.$transaction(async (tx) => {
+        // Return items to inventory before wiping the order (no-op when a
+        // prior cancel/refund already restored them).
+        await restoreOrderStock(tx, id, `Stock restored — order ${existing.invoiceNumber} deleted`)
+        return deleteOrderWithRelations(tx, id)
+      })
       if (!deleted) throw new NotFoundException('Order not found')
 
       void this.telegramHub.notifyOrderDeleted(existing.storeId, existing)

@@ -105,7 +105,6 @@ export function NewArrivals() {
                 imageHover={product.imageHover}
                 collection={product.category}
                 status={product.isNew ? 'New' : 'Ready'}
-                fit="cover"
               />
             </motion.div>
           ))}

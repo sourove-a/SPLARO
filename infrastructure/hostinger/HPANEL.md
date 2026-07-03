@@ -1,77 +1,149 @@
-# Hostinger Git Deploy (splaro.co)
+# Hostinger Deploy — splaro.co (web + admin + API)
 
-Hostinger shared Node.js **cannot use pnpm via Corepack** — it crashes with:
+## Two deployment modes
 
-`ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING` (corepack pnpm 11.x on Alt-NodeJS).
+| Mode | What runs | Best for |
+|------|-----------|----------|
+| **A. Git deploy (hPanel)** | Storefront only (`splaro.co`) | Quick web-only; API must live elsewhere |
+| **B. SSH full deploy** | Web + admin + API on one server | **Recommended** — full SPLARO stack |
 
-## hPanel settings (Deployments → Settings → Redeploy)
+---
+
+## Mode A — Git deploy (storefront only)
+
+Hostinger shared Node.js runs **one** app. This builds **web only**.
+
+### hPanel → Deployments → Settings
 
 | Setting | Value |
 |---------|--------|
-| **Framework preset** | **Express** (or Other if available) |
-| **Package manager** | **npm** (not pnpm — corepack pnpm 11 crashes on Alt-NodeJS) |
-| **Node.js** | 20.x |
-| **Root directory** | `./` |
-| **Build command** | `npm run build` |
-| **Start command** | `npm start` |
-| **Output directory** | `apps/web/.next/standalone/apps/web` (or `dist` — created as symlink during build) |
-| **Port** | 3000 (default) |
+| Framework | **Express** |
+| Package manager | **npm** (not pnpm) |
+| Node.js | 20.x |
+| Build command | `npm run build` |
+| Start command | `npm start` |
+| Output directory | `apps/web/.next/standalone/apps/web` or `dist` |
 
-`npm run build` auto-detects Hostinger (no pnpm workspace) and runs `scripts/hostinger-build.sh`.
-You can also use `bash scripts/hostinger-build.sh` directly.
+### Required env vars (hPanel → Environment)
 
-## Environment variables
+```
+NODE_ENV=production
+NEXT_PUBLIC_SITE_URL=https://splaro.co
+NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1
+NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co
+NEXT_PUBLIC_CDN_URL=https://splaro.co
+```
 
-Import production `.env` in hPanel (Deployments → Environment variables).
+Build log should show:
+```
+[ensure-pnpm] OK — pnpm 9.4.0
+Building storefront (@splaro/web)...
+Build OK — standalone: .../server.js
+```
 
-Minimum for storefront build/runtime:
+Push from Mac: `pnpm deploy:hostinger`
 
-- `NODE_ENV=production`
-- `NEXT_PUBLIC_SITE_URL=https://splaro.co`
-- `NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1`
-- `NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co`
+---
 
-API/admin on separate subdomains need **VPS** or separate Hostinger Node apps — see `deploy-remote.sh`.
+## Mode B — Full stack (web + admin + API) — **recommended**
 
-## After changing settings
+Use **Hostinger VPS** or SSH-enabled hosting + PM2.
 
-1. Save settings
-2. Click **Redeploy**
-3. Build logs should show `[ensure-pnpm] OK — pnpm 9.4.0` then `pnpm install`
+### 1. DNS (hPanel → Domains → DNS)
 
-## Full stack (web + admin + API + PostgreSQL)
+| Type | Name | Points to |
+|------|------|-----------|
+| A | `@` | Server IP |
+| A | `www` | Server IP |
+| A | `admin` | Server IP |
+| A | `api` | Server IP |
 
-Use **Hostinger KVM VPS** + `infrastructure/hostinger/deploy-remote.sh`, not shared Git deploy.
+### 2. Database
 
-### VPS deploy (recommended)
+**Option 1 — Neon (easiest on shared/VPS without local Postgres):**
+```
+DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/splaro_db?sslmode=require
+```
 
-1. Clone repo to `~/splaro` on the VPS
-2. Copy `.env` from `infrastructure/hostinger/.env.splaro.co.production` or run:
-   `bash infrastructure/hostinger/generate-production-env.sh > ~/splaro/.env`
-3. Set `DATABASE_URL` — local Postgres on VPS **or** Neon/Supabase for managed DB
-4. Run: `bash infrastructure/hostinger/deploy-remote.sh`
+**Option 2 — Local Postgres on VPS** (setup-server.sh)
 
-The script runs `pnpm build:all`, `prepare-next-standalone` for web + admin, then PM2 reload.
+### 3. Deploy on server
 
-PM2 starts:
-- `apps/web/.next/standalone/apps/web/server.js` on :3000
-- `apps/admin/.next/standalone/apps/admin/server.js` on :3001
-- `apps/api/dist/main.js` on :4000
+**hPanel Browser Terminal** (if Mac SSH times out):
 
-### SSH blocked from Mac?
+```bash
+mkdir -p ~/splaro/logs
+cd ~/splaro || git clone https://github.com/sourove-a/SPLARO.git ~/splaro
+cd ~/splaro
 
-If `ssh -p 65002` times out:
+# First time only — generate secrets:
+bash infrastructure/hostinger/generate-production-env.sh > .env
+# Edit .env — set DATABASE_URL (Neon) if no local Postgres
+chmod 600 .env
 
-1. hPanel → **Advanced → SSH Access** → enable, verify IP/port
-2. Try mobile hotspot (ISP may block port 65002)
-3. **hPanel Browser Terminal** (no local SSH):
-   ```bash
-   cd ~/splaro && git pull origin main && bash infrastructure/hostinger/deploy-remote.sh
-   ```
-4. GitHub Actions workflow with `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSHPASS` secrets
+export SPLARO_APP_DIR=$HOME/splaro
+bash infrastructure/hostinger/deploy-remote.sh
+```
 
-### Production env notes
+### 4. What deploy-remote.sh does
 
-- Set `PAYMENT_DEV_STUB=false` for real bKash/Nagad/SSLCommerz
-- Set `NEXT_PUBLIC_CDN_URL` if product images are on R2/CDN (`/uploads` rewrite uses this)
-- Never commit real `.env` — use `generate-production-env.sh` for random secrets
+1. `pnpm install` + Prisma migrate + seed
+2. `pnpm build:all` (web, admin, api)
+3. `prepare-next-standalone` for web + admin
+4. PM2 starts:
+   - `splaro-web` → :3000
+   - `splaro-admin` → :3001
+   - `splaro-api` → :4000
+5. nginx vhosts (if root) or manual hPanel reverse proxy
+
+### 5. Reverse proxy (if no nginx root)
+
+Point in hPanel:
+- `splaro.co` → `127.0.0.1:3000`
+- `admin.splaro.co` → `127.0.0.1:3001`
+- `api.splaro.co` → `127.0.0.1:4000`
+
+Config templates: `infrastructure/hostinger/splaro-co-*.conf`
+
+### 6. Verify
+
+```bash
+curl -s http://127.0.0.1:4000/api/v1/health
+pm2 status
+pm2 logs splaro-api --lines 50
+```
+
+From Mac (after deploy):
+```bash
+pnpm verify:production
+```
+
+### 7. GitHub Actions (SSH from cloud)
+
+Repo → Settings → Secrets:
+- `HOSTINGER_HOST`, `HOSTINGER_PORT` (65002), `HOSTINGER_USER`, `HOSTINGER_PASSWORD`
+- `SPLARO_PRODUCTION_ENV_B64` = `base64 -i .env`
+
+Actions → **Deploy Hostinger** → Run workflow
+
+---
+
+## Mac SSH blocked?
+
+Port 65002 often blocked by ISP. Use:
+1. hPanel **Browser Terminal**
+2. Mobile hotspot
+3. GitHub Actions deploy workflow
+4. `pnpm deploy:hostinger` for web-only Git redeploy
+
+---
+
+## Production checklist
+
+- [ ] `PAYMENT_DEV_STUB=false`
+- [ ] `DATABASE_URL` set (Neon or local)
+- [ ] `JWT_SECRET` / `ENCRYPTION_KEY` — random, not defaults
+- [ ] `CORS_ORIGINS=https://splaro.co,https://admin.splaro.co`
+- [ ] API health: `https://api.splaro.co/api/v1/health` → 200
+- [ ] Admin login works (not fake green toast)
+- [ ] SSL on all three subdomains

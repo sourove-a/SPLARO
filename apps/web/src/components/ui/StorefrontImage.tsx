@@ -1,4 +1,8 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import Image, { type ImageProps } from 'next/image'
+import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import {
   IMAGE_BLUR_PLACEHOLDER,
   IMAGE_QUALITY,
@@ -12,6 +16,7 @@ type StorefrontImageProps = Omit<ImageProps, 'src' | 'placeholder' | 'blurDataUR
   src: string
   profile?: ImageProfile
   withBlur?: boolean
+  fit?: 'contain' | 'cover'
 }
 
 export function StorefrontImage({
@@ -20,11 +25,18 @@ export function StorefrontImage({
   quality,
   sizes,
   withBlur = true,
+  fit,
   className,
   alt,
   ...rest
 }: StorefrontImageProps) {
   const optimizedSrc = optimizeImageSrc(src, profile)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [optimizedSrc])
+
   const useBlur = withBlur && (rest.fill !== undefined || (rest.width !== undefined && rest.height !== undefined))
 
   const sizeMap: Record<ImageProfile, string> = {
@@ -37,11 +49,17 @@ export function StorefrontImage({
 
   return (
     <Image
-      src={optimizedSrc}
+      src={failed ? PRODUCT_IMAGE_PLACEHOLDER : optimizedSrc}
       alt={alt}
+      onError={() => setFailed(true)}
       sizes={sizes ?? sizeMap[profile]}
       quality={quality ?? IMAGE_QUALITY[profile]}
-      className={cn('sf-image', className)}
+      className={cn(
+        'sf-image',
+        fit === 'cover' && 'sf-image--cover',
+        fit === 'contain' && 'sf-image--contain',
+        className,
+      )}
       {...(useBlur ? { placeholder: 'blur' as const, blurDataURL: IMAGE_BLUR_PLACEHOLDER } : {})}
       {...rest}
     />

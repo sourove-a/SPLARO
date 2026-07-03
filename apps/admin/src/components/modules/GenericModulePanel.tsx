@@ -31,7 +31,7 @@ export function GenericModulePanel({ navItem, moduleHref }: ModuleContextProps) 
         <AdminNavLink href="/dashboard" className="admin-btn admin-btn--gold px-4 py-2 text-xs font-black">
           Back to dashboard
         </AdminNavLink>
-        <AdminButton className="!text-xs" onClick={() => window.history.back()}>
+        <AdminButton size="sm" onClick={() => window.history.back()}>
           Go back
         </AdminButton>
       </div>

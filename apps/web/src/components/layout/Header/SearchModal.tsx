@@ -226,7 +226,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                                   alt={cat.label}
                                   fill
                                   sizes="66px"
-                                  className="object-cover object-top"
+                                  className="object-contain object-center"
                                 />
                               </div>
                               <p className="search-modal__cat-label">{cat.label}</p>

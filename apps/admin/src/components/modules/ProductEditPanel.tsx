@@ -580,10 +580,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
           {form.slug ? (
             <>
-              <AdminButton variant="ghost" className="!text-xs" onClick={() => void handleCopyStorefrontUrl()}>
+              <AdminButton variant="ghost" size="sm" onClick={() => void handleCopyStorefrontUrl()}>
                 <Copy className="h-3.5 w-3.5" /> Copy link
               </AdminButton>
-              <AdminButton variant="ghost" className="!text-xs" onClick={handleOpenStorefront} disabled={!form.isPublished}>
+              <AdminButton variant="ghost" size="sm" onClick={handleOpenStorefront} disabled={!form.isPublished}>
                 <ExternalLink className="h-3.5 w-3.5" /> View live
               </AdminButton>
             </>
@@ -894,10 +894,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[var(--admin-text-muted)]">Storefront link</p>
                 <p className="break-all font-mono text-[10px] font-semibold text-[var(--admin-text-secondary)]">{storefrontUrl}</p>
                 <div className="flex flex-wrap gap-2">
-                  <AdminButton variant="ghost" className="!text-xs" onClick={() => void handleCopyStorefrontUrl()}>
+                  <AdminButton variant="ghost" size="sm" onClick={() => void handleCopyStorefrontUrl()}>
                     <Copy className="h-3 w-3" /> Copy
                   </AdminButton>
-                  <AdminButton variant="ghost" className="!text-xs" onClick={handleOpenStorefront} disabled={!form.isPublished}>
+                  <AdminButton variant="ghost" size="sm" onClick={handleOpenStorefront} disabled={!form.isPublished}>
                     <ExternalLink className="h-3 w-3" /> Open
                   </AdminButton>
                 </div>
@@ -916,8 +916,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             </div>
             <p className="mb-3 text-xs font-semibold text-red-400/90">Hides product from storefront. Cannot be undone.</p>
             <AdminButton
-              variant="ghost"
-              className="!w-full !justify-center !border-red-500/25 !text-red-400 hover:!bg-red-500/10"
+              variant="danger"
+              className="w-full justify-center border border-red-500/25"
               loading={deleteProduct.isPending}
               onClick={handleArchive}
             >

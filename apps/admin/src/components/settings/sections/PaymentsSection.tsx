@@ -11,6 +11,31 @@ import {
 } from '@/lib/api/integration-hooks'
 import { SectionCard, SectionPageHeader, Toggle, SaveBar, type SectionProps } from './shared'
 
+function isMaskedValue(v: string) {
+  return v === '••••••••' || /^•+$/.test(v)
+}
+
+function isDraftComplete(draft: Record<string, string>, fieldDefs: { key: string }[]) {
+  return fieldDefs.every((f) => {
+    const v = (draft[f.key] ?? '').trim()
+    return v.length > 0
+  })
+}
+
+function draftHasUnsavedKeys(
+  draft: Record<string, string>,
+  fields: Record<string, string | boolean>,
+  fieldDefs: { key: string }[],
+) {
+  return fieldDefs.some((f) => {
+    const v = (draft[f.key] ?? '').trim()
+    if (!v || isMaskedValue(v)) return false
+    const server = String(fields[f.key] ?? '').trim()
+    if (isMaskedValue(server)) return true
+    return v !== server
+  })
+}
+
 function ConfigField({
   label,
   value,
@@ -55,23 +80,23 @@ function PaymentProviderBlock({
   testing,
   onSaveCredentials,
   onTest,
-  onToggleAttempt,
 }: {
   title: string
   desc: string
   enabled: boolean
-  onToggle: () => void
-  onToggleAttempt?: () => boolean
+  onToggle: (force?: boolean) => void
   fields: Record<string, string | boolean>
   fieldDefs: { key: string; label: string; placeholder?: string }[]
   source: string
   configured: boolean
   saving: boolean
   testing: boolean
-  onSaveCredentials: (body: Record<string, string | boolean>) => void
-  onTest: () => void
+  onSaveCredentials: (body: Record<string, string | boolean>) => Promise<{ configured: boolean } | undefined>
+  onTest: () => void | Promise<void>
 }) {
   const [draft, setDraft] = useState<Record<string, string>>({})
+  const [enabling, setEnabling] = useState(false)
+  const showCredentials = true
 
   useEffect(() => {
     const next: Record<string, string> = {}
@@ -82,31 +107,56 @@ function PaymentProviderBlock({
     setDraft(next)
   }, [fields, fieldDefs])
 
+  const handleEnableToggle = async () => {
+    if (enabled) {
+      onToggle()
+      return
+    }
+    if (configured) {
+      onToggle()
+      return
+    }
+    if (!isDraftComplete(draft, fieldDefs)) {
+      toastFail(`Fill all ${title} API fields below, then Save keys.`, 'pay-keys-required')
+      return
+    }
+    setEnabling(true)
+    try {
+      const saved = await onSaveCredentials(draft)
+      if (!saved?.configured) {
+        toastFail('Keys saved but still incomplete — check every field.', 'pay-keys-incomplete')
+        return
+      }
+      onToggle(true)
+      toastOk(`${title} keys saved — enable checkout, then Save at bottom.`, `pay-enable-${title}`)
+    } finally {
+      setEnabling(false)
+    }
+  }
+
+  const handleTest = async () => {
+    if (!configured && !isDraftComplete(draft, fieldDefs)) {
+      toastFail('Fill all API fields below before testing.', 'pay-test-empty')
+      return
+    }
+    if (!configured || draftHasUnsavedKeys(draft, fields, fieldDefs)) {
+      const saved = await onSaveCredentials(draft)
+      if (!saved?.configured) return
+    }
+    await onTest()
+  }
+
   return (
     <SectionCard title={title} subtitle={desc} accent={enabled && configured}>
-      <Toggle
-        label={`Enable ${title}`}
-        desc={desc}
-        checked={enabled}
-        onChange={() => {
-          if (!enabled && onToggleAttempt && !onToggleAttempt()) return
-          onToggle()
-        }}
-      />
-      {enabled && !configured ? (
-        <p className="mt-2 text-[11px] font-bold text-red-600 dark:text-red-400">
-          Save API keys before checkout can use {title}. Toggle will not go live until keys are verified on server.
-        </p>
-      ) : null}
-      {enabled ? (
-        <div className="mt-4 space-y-3 border-t border-[var(--admin-glass-border-subtle)] pt-4">
+      {showCredentials ? (
+        <div className="mb-4 space-y-3 rounded-xl border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-accent-muted)]/40 p-4">
           <p className="text-[11px] font-semibold text-[var(--admin-text-muted)]">
-            API credentials
+            Step 1 — API credentials
             {source === 'database' ? ' · encrypted on server' : source === 'env' ? ' · from .env' : ''}
             {configured ? (
-              <span className="ml-1 text-emerald-600">Ready</span>
+              <span className="ml-1 text-emerald-600 dark:text-emerald-400">Ready</span>
             ) : (
-              <span className="ml-1 text-amber-600">Keys required</span>
+              <span className="ml-1 text-amber-600 dark:text-amber-400">Fill & save keys first</span>
             )}
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -121,14 +171,27 @@ function PaymentProviderBlock({
             ))}
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
-            <AdminButton variant="gold" loading={saving} onClick={() => onSaveCredentials(draft)}>
+            <AdminButton variant="gold" loading={saving} onClick={() => void onSaveCredentials(draft)}>
               Save keys
             </AdminButton>
-            <AdminButton variant="ghost" loading={testing} onClick={onTest}>
-              Test
+            <AdminButton variant="ghost" loading={testing} onClick={() => void handleTest()}>
+              Test API
             </AdminButton>
           </div>
         </div>
+      ) : null}
+
+      <Toggle
+        label={`Step 2 — Enable ${title} at checkout`}
+        desc={configured ? desc : 'Save keys above first, then turn on checkout.'}
+        checked={enabled}
+        onChange={() => void handleEnableToggle()}
+        disabled={enabling}
+      />
+      {enabled && !configured ? (
+        <p className="mt-2 text-[11px] font-bold text-red-600 dark:text-red-400">
+          Checkout toggle is on but keys are not verified — save & test API keys above.
+        </p>
       ) : null}
     </SectionCard>
   )
@@ -140,21 +203,13 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
   const testPay = useTestPaymentIntegration()
   const [busy, setBusy] = useState<string | null>(null)
 
-  const toggle = (key: keyof typeof draft.payments, configured?: boolean) => {
+  const toggle = (key: keyof typeof draft.payments, configured?: boolean, force?: boolean) => {
     const next = !draft.payments[key]
-    if (next && configured === false) {
-      toastFail('Save and test API keys first — cannot enable without credentials.', `pay-enable-${key}`)
+    if (next && !force && configured === false) {
+      toastFail('Save API keys in Step 1 first, then enable checkout.', `pay-enable-${key}`)
       return
     }
     setDraft((p) => ({ ...p, payments: { ...p.payments, [key]: next } }))
-  }
-
-  const guardEnable = (configured: boolean) => {
-    if (!configured) {
-      toastFail('API keys required — save credentials below first.', 'pay-keys-required')
-      return false
-    }
-    return true
   }
 
   const byProvider = new Map((data?.items ?? []).map((i) => [i.provider, i]))
@@ -162,10 +217,12 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
   const saveCredentials = async (provider: string, body: Record<string, string | boolean>) => {
     setBusy(provider)
     try {
-      await updatePay.mutateAsync({ provider, body })
+      const saved = await updatePay.mutateAsync({ provider, body })
       toastApiSaved(`${provider} keys`)
+      return saved
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Save failed', `pay-${provider}`)
+      return undefined
     } finally {
       setBusy(null)
     }
@@ -225,8 +282,7 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
         title="bKash"
         desc="bKash tokenized checkout."
         enabled={Boolean(draft.payments.bkash)}
-        onToggle={() => toggle('bkash', byProvider.get('bkash')?.configured)}
-        onToggleAttempt={() => guardEnable(Boolean(byProvider.get('bkash')?.configured))}
+        onToggle={(force) => toggle('bkash', byProvider.get('bkash')?.configured, force)}
         fields={byProvider.get('bkash')?.fields ?? {}}
         source={byProvider.get('bkash')?.source ?? 'none'}
         configured={Boolean(byProvider.get('bkash')?.configured)}
@@ -238,16 +294,15 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
           { key: 'username', label: 'Username' },
           { key: 'password', label: 'Password' },
         ]}
-        onSaveCredentials={(body) => void saveCredentials('bkash', body)}
-        onTest={() => void testProvider('bkash')}
+        onSaveCredentials={(body) => saveCredentials('bkash', body)}
+        onTest={() => testProvider('bkash')}
       />
 
       <PaymentProviderBlock
         title="Nagad"
         desc="Nagad merchant API."
         enabled={Boolean(draft.payments.nagad)}
-        onToggle={() => toggle('nagad', byProvider.get('nagad')?.configured)}
-        onToggleAttempt={() => guardEnable(Boolean(byProvider.get('nagad')?.configured))}
+        onToggle={(force) => toggle('nagad', byProvider.get('nagad')?.configured, force)}
         fields={byProvider.get('nagad')?.fields ?? {}}
         source={byProvider.get('nagad')?.source ?? 'none'}
         configured={Boolean(byProvider.get('nagad')?.configured)}
@@ -259,16 +314,15 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
           { key: 'publicKey', label: 'Public Key' },
           { key: 'privateKey', label: 'Private Key' },
         ]}
-        onSaveCredentials={(body) => void saveCredentials('nagad', body)}
-        onTest={() => void testProvider('nagad')}
+        onSaveCredentials={(body) => saveCredentials('nagad', body)}
+        onTest={() => testProvider('nagad')}
       />
 
       <PaymentProviderBlock
         title="SSLCommerz"
         desc="Cards and net banking."
         enabled={Boolean(draft.payments.sslcommerz)}
-        onToggle={() => toggle('sslcommerz', byProvider.get('sslcommerz')?.configured)}
-        onToggleAttempt={() => guardEnable(Boolean(byProvider.get('sslcommerz')?.configured))}
+        onToggle={(force) => toggle('sslcommerz', byProvider.get('sslcommerz')?.configured, force)}
         fields={byProvider.get('sslcommerz')?.fields ?? {}}
         source={byProvider.get('sslcommerz')?.source ?? 'none'}
         configured={Boolean(byProvider.get('sslcommerz')?.configured)}
@@ -278,8 +332,8 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
           { key: 'storeId', label: 'Store ID' },
           { key: 'storePassword', label: 'Store Password' },
         ]}
-        onSaveCredentials={(body) => void saveCredentials('sslcommerz', body)}
-        onTest={() => void testProvider('sslcommerz')}
+        onSaveCredentials={(body) => saveCredentials('sslcommerz', body)}
+        onTest={() => testProvider('sslcommerz')}
       />
 
       <SaveBar label="Save checkout toggles" saving={saving} disabled={!apiOnline} onClick={saveAll} />

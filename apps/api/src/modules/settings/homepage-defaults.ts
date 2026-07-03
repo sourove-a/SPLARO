@@ -113,7 +113,7 @@ export const DEFAULT_OUR_STORY: OurStoryConfig = {
 export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionsConfig = {
   hero: true,
   marquee: true,
-  collections: true,
+  collections: false,
   trustBar: true,
   catalog: true,
   specialOffer: true,

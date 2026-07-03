@@ -388,10 +388,10 @@ function ProductsPanel() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         <a href={`/dashboard/products/${p.linkId}/edit`} className="admin-catalog-action admin-catalog-action--primary">Edit product</a>
                         <a href={`/dashboard/inventory?sku=${p.id}`} className="admin-catalog-action">View inventory</a>
-                        <AdminButton className="!text-xs" onClick={() => handlePrintLabel(p)}>
+                        <AdminButton size="sm" onClick={() => handlePrintLabel(p)}>
                           <Printer className="h-3.5 w-3.5" /> Print label
                         </AdminButton>
-                        <AdminButton className="!text-xs !text-red-700" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
+                        <AdminButton variant="danger" size="sm" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
                           Archive
                         </AdminButton>
                       </div>
@@ -455,7 +455,7 @@ function CollectionsPanel() {
                   <td className={TD}><StatusPill value={c.isActive ? 'published' : 'draft'} /></td>
                   <td className={TD} style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>—</td>
                   <td className={TD}>
-                    <AdminButton className="!text-xs" onClick={() => toggleVisibility(c.id, c.name, c.isActive)}>
+                    <AdminButton size="sm" onClick={() => toggleVisibility(c.id, c.name, c.isActive)}>
                       {c.isActive ? 'Hide' : 'Publish'}
                     </AdminButton>
                   </td>
@@ -518,7 +518,7 @@ function InventoryVariantAdjust({
         value={stock}
         onChange={(e) => setStock(e.target.value)}
       />
-      <AdminButton className="!text-xs" loading={updateVariant.isPending} onClick={save}>
+      <AdminButton size="sm" loading={updateVariant.isPending} onClick={save}>
         Save
       </AdminButton>
     </div>
@@ -767,7 +767,7 @@ function BrandsPanel() {
                 <td className={TD} style={{ fontSize: 12 }}>{b.vendorLabel ?? '—'}</td>
                 <td className={TD} style={{ fontSize: 12 }}>{b.country}</td>
                 <td className={TD}><StatusPill value={b.isActive ? 'active' : 'draft'} /></td>
-                <td className={TD}><AdminButton className="!text-xs" onClick={() => toggleActive(b.id, b.name, b.isActive)}>{b.isActive ? 'Deactivate' : 'Activate'}</AdminButton></td>
+                <td className={TD}><AdminButton size="sm" onClick={() => toggleActive(b.id, b.name, b.isActive)}>{b.isActive ? 'Deactivate' : 'Activate'}</AdminButton></td>
               </tr>
             ))}
           </tbody>

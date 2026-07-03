@@ -199,7 +199,7 @@ function CustomersView() {
           <p className="admin-customers-head__title">Customers</p>
           <p className="admin-customers-head__meta">{filtered.length} customers</p>
         </div>
-        <AdminButton className="!text-xs" onClick={() => void refetch()}>
+        <AdminButton size="sm" onClick={() => void refetch()}>
           <RefreshCw size={14} />
           Refresh
         </AdminButton>

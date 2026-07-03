@@ -8,7 +8,7 @@ import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanel
 import { useProducts, useSettings } from '@/lib/api/hooks'
 import { fetchProductQR, productStatus } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-import { toastFail } from '@/lib/admin/feedback'
+import { refreshWithToast, toastFail } from '@/lib/admin/feedback'
 
 type CodeMode = 'sku' | 'qr' | 'barcode'
 
@@ -118,7 +118,7 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
         searchPlaceholder="Search product or SKU..."
         createLabel={meta.createLabel}
         onCreate={bulkGenerate}
-        onRefresh={() => { refetch(); toast.success('Product codes synced.') }}
+        onRefresh={() => void refreshWithToast(() => refetch(), 'Product codes synced.')}
         onExport={() => toastFail('Export not available yet.')}
         tableIcon={Icon}
         tableTitle={`${meta.title} · ${filtered.length} products`}

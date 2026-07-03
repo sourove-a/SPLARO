@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyInvoiceAccessToken } from '@splaro/config'
-import { getSessionUser } from '@/lib/server/auth'
+import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { resolveOrderById } from '@/lib/server/orders'
 
 interface RouteContext {
@@ -9,7 +9,11 @@ interface RouteContext {
 
 export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params
-  const sessionUser = await getSessionUser()
+  // Validate against the backend API session (same as /api/orders GET) —
+  // the legacy file-based session store never contains API tokens, which
+  // made this route 403 for every logged-in customer.
+  const sessionToken = await getSessionToken()
+  const sessionUser = sessionToken ? await apiAuthMe(sessionToken) : null
   const { searchParams } = new URL(request.url)
   const key = searchParams.get('key')
   const queryPhone = searchParams.get('phone')?.replace(/\D/g, '') ?? ''

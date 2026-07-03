@@ -1,13 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { Bell, Download, FileSpreadsheet, Instagram, MessageCircle, Search, Share2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
 import { ApiOfflineBanner, KpiGrid } from '@/components/modules/PlatformUi'
-import { useNotificationsOverview, useMarketingOverview, useSettings } from '@/lib/api/hooks'
+import { useNotificationsOverview, useMarketingOverview, useUpdateSocialChannels } from '@/lib/api/hooks'
 import { fetchOrders } from '@/lib/api/orders'
 import { fetchCustomers } from '@/lib/api/customers'
 import { fetchProducts } from '@/lib/api/products'
@@ -195,80 +196,199 @@ export function NotificationCenterPanelLive() {
 }
 
 export function SocialCommercePanelLive() {
-  const { data: settings, isError: settingsError } = useSettings()
-  const { data: marketing, isError: marketingError } = useMarketingOverview()
+  const { data: marketing, isError, isLoading, refetch } = useMarketingOverview()
+  const updateSocial = useUpdateSocialChannels()
   const [query, setQuery] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({
+    instagram: '',
+    facebook: '',
+    tiktok: '',
+    youtube: '',
+    whatsapp: '',
+  })
 
-  const channels = useMemo(() => {
-    const social = settings?.social
-    const rows = [
-      { id: 'ig', platform: 'Instagram', handle: social?.instagram || '—', status: social?.instagram ? 'connected' : 'disconnected', inbox: 0 },
-      { id: 'fb', platform: 'Facebook', handle: social?.facebook || '—', status: social?.facebook ? 'connected' : 'disconnected', inbox: 0 },
-      { id: 'tt', platform: 'TikTok', handle: social?.tiktok || '—', status: social?.tiktok ? 'connected' : 'disconnected', inbox: 0 },
-      { id: 'wa', platform: 'WhatsApp', handle: settings?.contact.whatsapp || '—', status: settings?.contact.whatsapp ? 'connected' : 'disconnected', inbox: marketing?.whatsappLogs.length ?? 0 },
-    ]
-    return rows
-  }, [settings, marketing])
+  const channels = marketing?.socialChannels ?? []
 
-  const filtered = channels.filter((c) => !query || c.platform.toLowerCase().includes(query.toLowerCase()))
+  useEffect(() => {
+    if (!marketing?.socialChannels?.length) return
+    const byId = Object.fromEntries(marketing.socialChannels.map((c) => [c.id, c]))
+    setDraft({
+      instagram: byId.instagram?.storedUrl ?? byId.instagram?.url ?? '',
+      facebook: byId.facebook?.storedUrl ?? byId.facebook?.url ?? '',
+      tiktok: byId.tiktok?.storedUrl ?? byId.tiktok?.url ?? '',
+      youtube: byId.youtube?.storedUrl ?? byId.youtube?.url ?? '',
+      whatsapp: byId.whatsapp?.storedUrl ?? byId.whatsapp?.handle ?? '',
+    })
+  }, [marketing?.socialChannels])
 
-  if (settingsError || marketingError) return <ApiOfflineBanner message="Social commerce API offline." />
+  const filtered = channels.filter(
+    (c) => !query || c.platform.toLowerCase().includes(query.toLowerCase()),
+  )
 
-  const connected = channels.filter((c) => c.status === 'connected').length
+  if (isError) return <ApiOfflineBanner message="Social Hub API offline — run pnpm dev:stack" />
+
+  const summary = marketing?.socialSummary
+  const storefrontLive = summary?.storefrontLive ?? channels.filter((c) => c.storefrontVisible).length
+
+  const statusLabel = (status: string) => {
+    if (status === 'live') return 'Connected'
+    if (status === 'default') return 'Live on storefront'
+    return 'Not linked'
+  }
+
+  const statusClass = (status: string) => {
+    if (status === 'live' || status === 'default') return STATUS_CLASS.active
+    return STATUS_CLASS.draft
+  }
+
+  async function handleSave() {
+    try {
+      await updateSocial.mutateAsync({
+        instagram: draft.instagram,
+        facebook: draft.facebook,
+        tiktok: draft.tiktok,
+        youtube: draft.youtube,
+        whatsapp: draft.whatsapp,
+      })
+      toastOk('Social channels saved to database.')
+      setEditing(false)
+      void refetch()
+    } catch {
+      toastFail('Save failed — check API connection.')
+    }
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="social-hub-panel space-y-5">
       <KpiGrid
         items={[
-          ['Channels', channels.length, 'default'],
-          ['Connected', connected, 'success'],
-          ['WhatsApp msgs', marketing?.whatsappLogs.length ?? 0, 'gold'],
-          ['Campaigns', marketing?.campaigns.length ?? 0, 'warning'],
+          ['Channels', summary?.total ?? channels.length, 'default'],
+          ['Live on storefront', storefrontLive, 'success'],
+          ['Saved in DB', summary?.savedInDatabase ?? 0, 'gold'],
+          ['WhatsApp msgs', marketing?.whatsappLogs.length ?? 0, 'warning'],
         ]}
       />
-      <div className="admin-search max-w-md">
-        <Search className="h-4 w-4" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search platform..."
-          className="flex-1 bg-transparent text-sm font-semibold outline-none"
-        />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="admin-search max-w-md flex-1">
+          <Search className="h-4 w-4" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search platform..."
+            className="flex-1 bg-transparent text-sm font-semibold outline-none"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <AdminButton variant="ghost" onClick={() => setEditing((v) => !v)}>
+            {editing ? 'Cancel edit' : 'Edit links'}
+          </AdminButton>
+          <AdminNavLink href="/dashboard/settings" className="admin-btn admin-btn--gold px-4 py-2 text-xs font-black">
+            Store settings
+          </AdminNavLink>
+        </div>
       </div>
+
+      {editing ? (
+        <div className="admin-module-card social-hub-panel__editor">
+          <p className="admin-module-card__title">Social profile URLs</p>
+          <p className="admin-module-card__subtitle">
+            Saves to database — same links used on storefront footer and Social Hub status.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {(
+              [
+                ['instagram', 'Instagram URL'],
+                ['facebook', 'Facebook URL'],
+                ['tiktok', 'TikTok URL'],
+                ['youtube', 'YouTube URL'],
+                ['whatsapp', 'WhatsApp number'],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="block space-y-1.5">
+                <span className="footwear-field__label">{label}</span>
+                <input
+                  className="admin-input"
+                  value={draft[key]}
+                  onChange={(e) => setDraft((p) => ({ ...p, [key]: e.target.value }))}
+                  placeholder={key === 'whatsapp' ? '+8801XXXXXXXXX' : `https://${key}.com/...`}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <AdminButton variant="gold" onClick={handleSave} disabled={updateSocial.isPending}>
+              {updateSocial.isPending ? 'Saving…' : 'Save to API'}
+            </AdminButton>
+          </div>
+        </div>
+      ) : null}
+
       <div className="admin-module-table-wrap">
         <table className="admin-module-table">
           <thead>
             <tr>
               <th>Platform</th>
-              <th>Handle / number</th>
+              <th>Handle / URL</th>
+              <th>Source</th>
               <th>Inbox</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c) => (
-              <tr key={c.id}>
-                <td className="font-semibold">
-                  <span className="inline-flex items-center gap-1">
-                    {c.platform === 'Instagram' ? <Instagram className="h-3.5 w-3.5 text-[#5E7CFF]" /> : null}
-                    {c.platform === 'WhatsApp' ? <MessageCircle className="h-3.5 w-3.5 text-[#5E7CFF]" /> : null}
-                    {c.platform === 'Facebook' ? <Share2 className="h-3.5 w-3.5 text-[#5E7CFF]" /> : null}
-                    {c.platform}
-                  </span>
-                </td>
-                <td className="text-xs">{c.handle}</td>
-                <td>{c.inbox > 0 ? c.inbox : '—'}</td>
-                <td>
-                  <span className={STATUS_CLASS[c.status === 'connected' ? 'active' : 'draft']}>{c.status}</span>
+            {isLoading ? (
+              <tr>
+                <td colSpan={5} className="muted py-8 text-center">
+                  Loading social channels…
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.map((c) => (
+                <tr key={c.id}>
+                  <td className="font-semibold">
+                    <span className="inline-flex items-center gap-1.5">
+                      {c.platform === 'Instagram' ? <Instagram className="h-3.5 w-3.5 text-[var(--admin-accent)]" /> : null}
+                      {c.platform === 'WhatsApp' ? <MessageCircle className="h-3.5 w-3.5 text-[var(--admin-accent)]" /> : null}
+                      {c.platform === 'Facebook' || c.platform === 'YouTube' ? (
+                        <Share2 className="h-3.5 w-3.5 text-[var(--admin-accent)]" />
+                      ) : null}
+                      {c.platform}
+                    </span>
+                  </td>
+                  <td className="text-xs">
+                    {c.url ? (
+                      <a
+                        href={c.url.startsWith('http') ? c.url : `https://${c.url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-[var(--admin-accent)] hover:underline"
+                      >
+                        {c.handle}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="text-xs muted">
+                    {c.status === 'live' ? 'Database' : c.status === 'default' ? 'Brand default' : '—'}
+                  </td>
+                  <td>{c.inboxCount > 0 ? c.inboxCount : '—'}</td>
+                  <td>
+                    <span className={statusClass(c.status)}>{statusLabel(c.status)}</span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      <AdminNavLink href="/dashboard/all-integrations" className="admin-btn admin-btn--gold px-4 py-2 text-xs font-black">
-        Connect social channels
-      </AdminNavLink>
+
+      {summary?.usingBrandDefaults ? (
+        <p className="social-hub-panel__hint text-xs font-semibold text-[var(--admin-text-secondary)]">
+          {summary.usingBrandDefaults} channel(s) use SPLARO brand defaults on the storefront — click &quot;Edit links&quot; then Save to store custom URLs in the database.
+        </p>
+      ) : null}
     </div>
   )
 }
