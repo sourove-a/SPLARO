@@ -2,6 +2,7 @@ import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { resolve } from 'path'
 import { BullModule } from '@nestjs/bullmq'
+import { noopQueueProviders, redisQueuesEnabled } from './common/noop-queue.providers'
 import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
@@ -152,6 +153,33 @@ import {
 } from './modules/google-workspace'
 import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-live.cron'
 
+const queueImports = redisQueuesEnabled()
+  ? [
+      BullModule.forRootAsync({
+        useFactory: () => ({
+          connection: {
+            host: process.env['REDIS_HOST'] ?? 'localhost',
+            port: parseInt(process.env['REDIS_PORT'] ?? '6379'),
+            password: process.env['REDIS_PASSWORD'] || undefined,
+            maxRetriesPerRequest: 3,
+            lazyConnect: true,
+            enableOfflineQueue: false,
+          },
+        }),
+      }),
+      BullModule.registerQueue(
+        { name: 'courier' },
+        { name: 'invoices' },
+        { name: 'sheets' },
+        { name: 'ai-jobs' },
+        { name: 'marketing' },
+        { name: 'google-sync' },
+      ),
+    ]
+  : []
+
+const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyncProcessor] : noopQueueProviders()
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -170,26 +198,7 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
         limit: Number(process.env['THROTTLE_LIMIT'] ?? (process.env.NODE_ENV === 'production' ? '200' : '1000')),
       },
     ]),
-    BullModule.forRootAsync({
-      useFactory: () => ({
-        connection: {
-          host: process.env['REDIS_HOST'] ?? 'localhost',
-          port: parseInt(process.env['REDIS_PORT'] ?? '6379'),
-          password: process.env['REDIS_PASSWORD'] || undefined,
-          maxRetriesPerRequest: 3,
-          lazyConnect: true,
-          enableOfflineQueue: false,
-        },
-      }),
-    }),
-    BullModule.registerQueue(
-      { name: 'courier' },
-      { name: 'invoices' },
-      { name: 'sheets' },
-      { name: 'ai-jobs' },
-      { name: 'marketing' },
-      { name: 'google-sync' },
-    ),
+    ...queueImports,
   ],
   controllers: [
     AppController,
@@ -257,7 +266,7 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
     TelegramService,
     AutomationService,
     CourierService,
-    CourierProcessor,
+    ...queueWorkerProviders,
     SteadfastService,
     RedxService,
     PathaoService,
@@ -329,7 +338,7 @@ import { GoogleSheetsLiveCron } from './modules/google-workspace/google-sheets-l
     GoogleGmailService,
     GoogleDriveService,
     GoogleSyncQueueService,
-    GoogleSyncProcessor,
+    ...(redisQueuesEnabled() ? [GoogleSyncProcessor] : []),
     GoogleAuditService,
     GoogleSheetsLiveCron,
     GoogleServiceAccountService,

@@ -27,17 +27,19 @@ export function LazyFooterEarthGlobe() {
 
   useEffect(() => {
     void preloadFooterEarthAssets()
+    // Mount WebGL quickly — external CDN textures were slow/unreliable on mobile BD networks.
+    const t = window.setTimeout(() => setShowGlobe(true), 120)
+    return () => window.clearTimeout(t)
   }, [])
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host) return
+    if (!host || showGlobe) return
 
     const activate = () => setShowGlobe(true)
-
     const margin = buildRootMargin()
 
-    let observer = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) activate()
       },
@@ -45,25 +47,8 @@ export function LazyFooterEarthGlobe() {
     )
     observer.observe(host)
 
-    const onResize = () => {
-      observer.disconnect()
-      const newMargin = buildRootMargin()
-      observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry?.isIntersecting) activate()
-        },
-        { rootMargin: newMargin, threshold: 0 },
-      )
-      observer.observe(host)
-    }
-
-    window.addEventListener('resize', onResize, { passive: true })
-
-    return () => {
-      window.removeEventListener('resize', onResize)
-      observer.disconnect()
-    }
-  }, [])
+    return () => observer.disconnect()
+  }, [showGlobe])
 
   return (
     <div ref={hostRef} className="site-footer__earth" aria-hidden>

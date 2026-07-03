@@ -391,6 +391,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
 
     if (isFooter) {
       const compact = isCompactFooterViewport()
+      const segments = compact ? 48 : FOOTER_CONFIG.segments
       const stars = buildFooterStarfield(compact ? 1000 : 1600)
       starMaterial = stars.material as THREE.ShaderMaterial
       scene.add(stars)
@@ -404,7 +405,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       textures.push(dayMap, nightMap, bumpMap, cloudMap, moonMap)
       ;[dayMap, nightMap, bumpMap, cloudMap, moonMap].forEach((t) => setTextureQuality(t, renderer))
 
-      const dayGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius, FOOTER_CONFIG.segments, FOOTER_CONFIG.segments)
+      const dayGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius, segments, segments)
       const dayMat = new THREE.MeshStandardMaterial({
         map: dayMap,
         bumpMap,
@@ -415,7 +416,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       root.add(new THREE.Mesh(dayGeo, dayMat))
       disposables.push(dayGeo, dayMat)
 
-      const cloudGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.004, FOOTER_CONFIG.segments, FOOTER_CONFIG.segments)
+      const cloudGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.004, segments, segments)
       const cloudMat = new THREE.MeshPhongMaterial({
         map: cloudMap,
         transparent: true,
@@ -427,7 +428,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       root.add(new THREE.Mesh(cloudGeo, cloudMat))
       disposables.push(cloudGeo, cloudMat)
 
-      const nightGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.006, FOOTER_CONFIG.segments, FOOTER_CONFIG.segments)
+      const nightGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.006, segments, segments)
       const nightMat = new THREE.MeshBasicMaterial({
         map: nightMap,
         transparent: true,
