@@ -12,7 +12,7 @@ log "Root=$ROOT Node=$(node -v) PWD=$PWD"
 
 # Next.js public env (do NOT set NODE_ENV=production before pnpm install — skips devDeps)
 export NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://splaro.co}"
-export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://splaro.co/api/v1}"
+export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.splaro.co/api/v1}"
 export NEXT_PUBLIC_ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.splaro.co}"
 export NEXT_PUBLIC_STORE_ID="${NEXT_PUBLIC_STORE_ID:-splaro}"
 export NEXT_PUBLIC_CDN_URL="${NEXT_PUBLIC_CDN_URL:-https://splaro.co}"

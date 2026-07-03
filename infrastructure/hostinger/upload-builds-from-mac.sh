@@ -27,12 +27,12 @@ tar -czf - \
   apps/web/.next/standalone \
   apps/admin/.next/standalone \
   apps/api/dist \
-  | sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no \
+  | sshpass -e ssh -T -p "$SSH_PORT" -o StrictHostKeyChecking=no \
     "${SSH_USER}@${SSH_HOST}" \
     "cd ${REPO_REMOTE} && tar -xzf - && echo EXTRACT_OK"
 
 log "Configuring on server..."
-sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" << 'REMOTE'
+sshpass -e ssh -T -p "$SSH_PORT" -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" << 'REMOTE'
 set -euo pipefail
 export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$HOME/pgenv/bin:$PATH"
 REPO="$HOME/domains/splaro.co/public_html/.builds/source/repository"
