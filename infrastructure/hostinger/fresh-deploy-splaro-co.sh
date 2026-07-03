@@ -51,10 +51,12 @@ git fetch origin main
 git checkout main
 git pull origin main
 
-# ── 3. Production .env (splaro.co domains) ──
+# ── 3. Production .env (splaro.co domains) — never wipe existing DATABASE_URL ──
 if [ ! -f .env ]; then
   bash infrastructure/hostinger/generate-production-env.sh > .env
   log "Generated new .env — review secrets"
+else
+  log "Keeping existing .env (DATABASE_URL preserved)"
 fi
 
 upsert_env() {
