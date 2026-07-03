@@ -45,6 +45,7 @@
     "invoice:test": "cd tools/invoice-generator && pnpm build && pnpm test",
     "deploy": "bash infrastructure/scripts/deploy.sh",
     "deploy:hostinger": "bash infrastructure/hostinger/push-deploy.sh",
+    "deploy:hostinger:fresh": "bash infrastructure/hostinger/push-deploy.sh -- -m \"deploy: splaro.co fresh\" && bash infrastructure/hostinger/run-fresh-deploy.sh",
     "deploy:hostinger:ssh": "bash infrastructure/hostinger/run-from-mac.sh",
     "setup:server": "bash infrastructure/scripts/setup-server.sh",
     "clean": "turbo run clean && rm -rf node_modules .turbo",

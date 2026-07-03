@@ -67,11 +67,11 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 process.env.REDIS_ENABLED = process.env.REDIS_ENABLED || 'false'
 process.env.NEXT_PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://splaro.co'
 process.env.NEXT_PUBLIC_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://splaro.co/api/v1'
+  process.env.NEXT_PUBLIC_API_URL || 'https://api.splaro.co/api/v1'
 process.env.NEXT_PUBLIC_ADMIN_URL =
   process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.splaro.co'
 process.env.WEB_URL = process.env.WEB_URL || 'https://splaro.co'
-process.env.API_URL = process.env.API_URL || 'https://splaro.co'
+process.env.API_URL = process.env.API_URL || 'https://api.splaro.co'
 process.env.CORS_ORIGINS =
   process.env.CORS_ORIGINS || 'https://splaro.co,https://admin.splaro.co'
 

@@ -28,10 +28,10 @@ if [ -f .env ]; then
   for line in \
     'REDIS_ENABLED=false' \
     'NEXT_PUBLIC_SITE_URL=https://splaro.co' \
-    'NEXT_PUBLIC_API_URL=https://splaro.co/api/v1' \
+    'NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1' \
     'NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co' \
     'WEB_URL=https://splaro.co' \
-    'API_URL=https://splaro.co' \
+    'API_URL=https://api.splaro.co' \
     'CORS_ORIGINS=https://splaro.co,https://admin.splaro.co' \
     'API_PORT=4000' \
     'INTERNAL_WEB_PORT=3001' \
