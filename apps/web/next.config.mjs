@@ -25,6 +25,8 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion', 'date-fns'],
+    // CloudLinux NPROC counts threads — parallel build workers get the process killed
+    ...(onHostinger ? { cpus: 1, workerThreads: false } : {}),
   },
   eslint: {
     ignoreDuringBuilds: onHostinger,
@@ -36,11 +38,9 @@ const nextConfig = {
   images: {
     unoptimized: !isProd || onHostinger,
     remotePatterns: [
-      { protocol: 'https', hostname: 'cdn.splaro.com.bd' },
       { protocol: 'https', hostname: 'cdn.splaro.co' },
       { protocol: 'https', hostname: 'splaro.co' },
       { protocol: 'https', hostname: '**.r2.cloudflarestorage.com' },
-      { protocol: 'https', hostname: 'splaro.com.bd' },
       { protocol: 'https', hostname: 'placehold.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       {
@@ -93,8 +93,8 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://cdn.splaro.com.bd https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
-              "media-src 'self' blob: https://cdn.splaro.com.bd https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https:",
+              "img-src 'self' data: blob: https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
+              "media-src 'self' blob: https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src ${connectSrc}`,
               "frame-src 'none'",

@@ -28,10 +28,21 @@ export NEXT_PUBLIC_CDN_URL="${NEXT_PUBLIC_CDN_URL:-https://splaro.co}"
 export WEB_URL="${WEB_URL:-https://splaro.co}"
 export ADMIN_URL="${ADMIN_URL:-https://admin.splaro.co}"
 export SPLARO_HOSTINGER=1
-export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
 export NEXT_TELEMETRY_DISABLED=1
 export CI=1
 export NODE_ENV=production
+
+# CloudLinux NPROC counts THREADS: without affinity + pool limits the Rust/SWC
+# workers spawn one thread per visible core (64) and the kernel kills the build
+# ("thread caused non-unwinding panic"). Pin to 2 cores and shrink every pool.
+LEAN=""
+if [ "$ON_HOSTINGER" = "1" ]; then
+  export NODE_OPTIONS="--v8-pool-size=1 --max-old-space-size=1536"
+  export UV_THREADPOOL_SIZE=2
+  command -v taskset >/dev/null 2>&1 && LEAN="taskset -c 0,1"
+else
+  export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
+fi
 
 bash "$ROOT/infrastructure/hostinger/ensure-pnpm.sh"
 export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
@@ -84,7 +95,7 @@ fi
 
 log "Building storefront (@splaro/web)…"
 rm -rf "$ROOT/apps/web/.next"
-(cd "$ROOT/apps/web" && NEXT_DISABLE_TURBOPACK=1 node "$NEXT_BIN" build)
+(cd "$ROOT/apps/web" && NEXT_DISABLE_TURBOPACK=1 $LEAN node "$NEXT_BIN" build)
 [ -f "$WEB_TS_BAK" ] && mv "$WEB_TS_BAK" "$WEB_TS"
 node "$ROOT/scripts/prepare-next-standalone.mjs" apps/web
 
@@ -98,7 +109,7 @@ if [ "${SPLARO_BUILD_ADMIN:-0}" = "1" ]; then
   ADMIN_TS_BAK="$ROOT/apps/admin/next.config.ts.hostinger-bak"
   [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ADMIN_TS" ] && mv "$ADMIN_TS" "$ADMIN_TS_BAK"
   rm -rf "$ROOT/apps/admin/.next"
-  (cd "$ROOT/apps/admin" && NEXT_DISABLE_TURBOPACK=1 node "$NEXT_BIN" build) || { log "ERROR: admin build failed"; exit 1; }
+  (cd "$ROOT/apps/admin" && NEXT_DISABLE_TURBOPACK=1 $LEAN node "$NEXT_BIN" build) || { log "ERROR: admin build failed"; exit 1; }
   [ -f "$ADMIN_TS_BAK" ] && mv "$ADMIN_TS_BAK" "$ADMIN_TS"
   node "$ROOT/scripts/prepare-next-standalone.mjs" apps/admin 2>/dev/null || true
   log "Admin build OK"
@@ -108,7 +119,7 @@ if [ "${SPLARO_BUILD_API:-0}" = "1" ]; then
   log "Building API…"
   pnpm --filter @splaro/config run build 2>/dev/null || true
   pnpm --filter @splaro/types run build 2>/dev/null || true
-  pnpm --filter @splaro/api run build || { log "ERROR: API build failed"; exit 1; }
+  $LEAN pnpm --filter @splaro/api run build || { log "ERROR: API build failed"; exit 1; }
   [ -f "$ROOT/apps/api/dist/main.js" ] || { log "ERROR: missing apps/api/dist/main.js"; exit 1; }
   log "API build OK"
 fi

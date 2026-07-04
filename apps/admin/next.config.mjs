@@ -7,6 +7,7 @@ const web = webOrigin.replace(/\/$/, '')
 const nextConfig = {
   output: 'standalone',
   transpilePackages: ['@splaro/database', '@splaro/config', '@splaro/types'],
+  experimental: onHostinger ? { cpus: 1, workerThreads: false } : {},
   eslint: { ignoreDuringBuilds: onHostinger },
   typescript: { ignoreBuildErrors: onHostinger },
   images: {
