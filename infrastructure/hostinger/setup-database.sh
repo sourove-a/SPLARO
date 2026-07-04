@@ -1,8 +1,7 @@
 #!/bin/bash
-# Configure Neon PostgreSQL for SPLARO on Hostinger shared hosting.
-# Usage:
-#   export DATABASE_URL='postgresql://user:pass@ep-xxx.neon.tech/splaro_db?sslmode=require'
-#   bash infrastructure/hostinger/setup-database.sh
+# Configure PostgreSQL for SPLARO on Hostinger.
+# Remote: export DATABASE_URL='postgresql://...@ep-xxx.neon.tech/splaro_db?sslmode=require'
+# Hostinger-only (same account): leave unset or use 127.0.0.1 — delegates to setup-local-postgres.sh
 set -euo pipefail
 
 REPO="${SPLARO_REPO_DIR:-$HOME/domains/splaro.co/public_html/.builds/source/repository}"
@@ -14,13 +13,13 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 cd "$REPO"
 
 if [ -z "${DATABASE_URL:-}" ]; then
-  die "Set DATABASE_URL to a remote Postgres (Neon recommended). Example:
-  export DATABASE_URL='postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/splaro_db?sslmode=require'
-  Get one free at https://console.neon.tech"
+  log "No DATABASE_URL — using Hostinger user-space PostgreSQL..."
+  exec bash "$REPO/infrastructure/hostinger/setup-local-postgres.sh"
 fi
 
 if [[ "${DATABASE_URL}" == *"127.0.0.1"* ]] || [[ "${DATABASE_URL}" == *"localhost"* ]]; then
-  die "DATABASE_URL must point to remote Postgres (Neon/Supabase). Local Postgres is not available on shared hosting."
+  log "Local DATABASE_URL — using Hostinger user-space PostgreSQL..."
+  exec bash "$REPO/infrastructure/hostinger/setup-local-postgres.sh"
 fi
 
 log "Updating .env DATABASE_URL..."

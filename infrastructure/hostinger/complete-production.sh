@@ -43,6 +43,7 @@ upsert "INTERNAL_WEB_PORT=3001"
 upsert "ADMIN_PORT=3002"
 upsert "PORT=3000"
 upsert "PAYMENT_DEV_STUB=false"
+bash "$REPO/infrastructure/hostinger/apply-hostinger-mysql-env.sh" 2>/dev/null || true
 chmod 600 .env
 set -a && source .env && set +a
 
@@ -152,21 +153,19 @@ rm -f "$API_HTDOCS/default.php"
 touch "$API_HTDOCS/nodejs/tmp/restart.txt"
 log "api.splaro.co Passenger configured"
 
-# ── Database (Neon remote only) ──
-if [ -n "${DATABASE_URL:-}" ] && [[ "${DATABASE_URL}" != *"127.0.0.1"* ]] && [[ "${DATABASE_URL}" != *"localhost"* ]]; then
+# ── Database (Hostinger account: user-space PostgreSQL — NOT MySQL) ──
+DB_URL="${DATABASE_URL:-}"
+if [ -z "$DB_URL" ] && grep -q '^DATABASE_URL=' .env 2>/dev/null; then
+  DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-)
+fi
+if [ -n "$DB_URL" ] && [[ "$DB_URL" != *"127.0.0.1"* ]] && [[ "$DB_URL" != *"localhost"* ]]; then
+  export DATABASE_URL="$DB_URL"
   log "Running database setup (remote Postgres)..."
   bash "$REPO/infrastructure/hostinger/setup-database.sh" 2>&1 | tail -15
-elif grep -q '^DATABASE_URL=postgresql://' .env 2>/dev/null; then
-  DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-)
-  if [[ "$DB_URL" != *"127.0.0.1"* ]] && [[ "$DB_URL" != *"localhost"* ]]; then
-    export DATABASE_URL="$DB_URL"
-    log "Running database setup from .env..."
-    bash "$REPO/infrastructure/hostinger/setup-database.sh" 2>&1 | tail -15
-  else
-    log "WARN: DATABASE_URL points to localhost — set Neon URL in .env"
-  fi
 else
-  log "WARN: DATABASE_URL not set — products/orders will 500 until Neon is configured"
+  log "Hostinger-only DB: installing PostgreSQL on this account (MySQL u134578371_SPLARO is not used by SPLARO)..."
+  bash "$REPO/infrastructure/hostinger/setup-local-postgres.sh" 2>&1 | tail -20 || \
+    log "WARN: PostgreSQL setup failed — check ~/pgsql/postgres.log"
 fi
 
 sleep 15
