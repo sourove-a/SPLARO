@@ -82,9 +82,9 @@ const standaloneWeb = path.join(standaloneRoot, 'apps/web')
 const webServer = path.join(standaloneWeb, 'server.js')
 
 const nodePaths = [
+  path.join(repo, 'node_modules'),
   path.join(standaloneRoot, 'node_modules'),
   path.join(standaloneWeb, 'node_modules'),
-  path.join(repo, 'node_modules'),
   path.join(repo, 'apps/api/node_modules'),
   path.join(repo, 'apps/web/node_modules'),
   path.join(repo, 'packages/database/node_modules'),

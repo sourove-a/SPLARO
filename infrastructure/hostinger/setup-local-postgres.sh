@@ -17,6 +17,10 @@ cd "$PGDIR"
 install_via_conda() {
   local conda="$HOME/miniconda3/bin/conda"
   if [ ! -x "$conda" ]; then
+    if [ -d "$HOME/miniconda3" ] && [ ! -x "$conda" ]; then
+      log "Removing broken miniconda3 install..."
+      rm -rf "$HOME/miniconda3"
+    fi
     log "Installing Miniconda (user-space)..."
     curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh
     bash miniconda.sh -b -p "$HOME/miniconda3"

@@ -53,7 +53,7 @@ fi
 
 log "Building storefront (@splaro/web)..."
 rm -rf "$ROOT/apps/web/.next"
-(cd "$ROOT/apps/web" && node "$NEXT_BIN" build)
+(cd "$ROOT/apps/web" && NEXT_DISABLE_TURBOPACK=1 node "$NEXT_BIN" build)
 
 [ -f "$WEB_TS_BAK" ] && mv "$WEB_TS_BAK" "$WEB_TS"
 
@@ -70,7 +70,7 @@ if [ "${SPLARO_BUILD_ADMIN:-0}" = "1" ]; then
   ADMIN_TS_BAK="$ROOT/apps/admin/next.config.ts.hostinger-bak"
   [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ADMIN_TS" ] && mv "$ADMIN_TS" "$ADMIN_TS_BAK"
   rm -rf "$ROOT/apps/admin/.next"
-  (cd "$ROOT/apps/admin" && node "$NEXT_BIN" build) || log "Admin build failed (non-fatal)"
+  (cd "$ROOT/apps/admin" && NEXT_DISABLE_TURBOPACK=1 node "$NEXT_BIN" build) || log "Admin build failed (non-fatal)"
   [ -f "$ADMIN_TS_BAK" ] && mv "$ADMIN_TS_BAK" "$ADMIN_TS"
   node "$ROOT/scripts/prepare-next-standalone.mjs" apps/admin 2>/dev/null || true
 fi
