@@ -84,7 +84,10 @@ fi
 # Passenger: api (hPanel subfolder public_html/api)
 if [ -d "$API_HTDOCS" ]; then
   mkdir -p "$API_HTDOCS/nodejs/tmp"
-  cp "$REPO/infrastructure/hostinger/passenger-api-proxy.cjs" "$API_HTDOCS/nodejs/app.cjs"
+  # MUST be the combined proxy: the splaro.co apex vhost is served from this
+  # app too (hPanel maps it here) — api-only proxy turns the storefront into
+  # Nest "Cannot GET /" 404s.
+  cp "$REPO/infrastructure/hostinger/passenger-proxy-only.cjs" "$API_HTDOCS/nodejs/app.cjs"
   cat > "$API_HTDOCS/.htaccess" <<EOF
 PassengerAppRoot ${USER_HOME}/domains/splaro.co/public_html/api/nodejs
 PassengerAppType node
