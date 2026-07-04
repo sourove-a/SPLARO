@@ -2,6 +2,11 @@ name: Deploy Hostinger
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure/hostinger/**'
+      - '.github/workflows/deploy-hostinger.yml'
 
 concurrency:
   group: deploy-hostinger
