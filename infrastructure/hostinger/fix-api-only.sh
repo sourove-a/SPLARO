@@ -109,7 +109,7 @@ pkill -f "apps/api/dist/main.js" 2>/dev/null || true
 sleep 2
 mkdir -p "$NODEJS"
 cd "$REPO/apps/api"
-API_PORT=4000 nohup node dist/main.js >> "$NODEJS/api.log" 2>&1 &
+API_PORT=4000 nohup /opt/alt/alt-nodejs20/root/usr/bin/node dist/main.js >> "$NODEJS/api.log" 2>&1 &
 sleep 12
 
 HEALTH=$(curl -s -m 15 "http://127.0.0.1:4000/api/v1/health" 2>/dev/null || echo "FAIL")
