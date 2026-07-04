@@ -41,6 +41,7 @@ if [ -f .env ]; then
     grep -q "^${key}=" .env 2>/dev/null && sed -i "s|^${key}=.*|${line}|" .env || echo "$line" >> .env
   done
   chmod 600 .env
+  set -a && source .env && set +a
 fi
 
 # ── 3. Prisma OpenSSL 3 binary (shared hosting) ──
@@ -48,7 +49,6 @@ SCHEMA="$REPO/packages/database/prisma/schema.prisma"
 if [ -f "$SCHEMA" ] && ! grep -q 'debian-openssl-3.0.x' "$SCHEMA"; then
   sed -i '/previewFeatures = \["fullTextSearch", "fullTextIndex"\]/a\  binaryTargets   = ["native", "debian-openssl-3.0.x"]' "$SCHEMA"
 fi
-set -a && source .env && set +a
 log "Prisma generate..."
 pnpm db:generate 2>&1 | tail -5 || true
 

@@ -1,6 +1,6 @@
 #!/bin/bash
-# SPLARO — Hostinger Git deploy build (hPanel "Build command")
-# hPanel MUST use Package manager: npm (not pnpm — corepack pnpm 11 crashes on Alt-NodeJS)
+# SPLARO — Hostinger Git deploy build (hPanel "Build command": npm run build)
+# Web-only by default — admin/API via hpanel-recovery.sh after first deploy.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,106 +8,83 @@ cd "$ROOT"
 
 log() { echo "[hostinger-build $(date '+%H:%M:%S')] $*"; }
 
-log "Root=$ROOT Node=$(node -v) PWD=$PWD"
+log "Root=$ROOT Node=$(node -v)"
 
-# Next.js public env (do NOT set NODE_ENV=production before pnpm install — skips devDeps)
 export NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://splaro.co}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.splaro.co/api/v1}"
 export NEXT_PUBLIC_ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.splaro.co}"
 export NEXT_PUBLIC_STORE_ID="${NEXT_PUBLIC_STORE_ID:-splaro}"
 export NEXT_PUBLIC_CDN_URL="${NEXT_PUBLIC_CDN_URL:-https://splaro.co}"
+export SPLARO_HOSTINGER=1
+export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
+export NEXT_TELEMETRY_DISABLED=1
+export CI=1
 
-# Disable broken corepack pnpm 11.x → ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING
-log "Ensuring pnpm 9.x..."
 bash "$ROOT/infrastructure/hostinger/ensure-pnpm.sh"
 export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
 export PATH="$PNPM_HOME:$HOME/.local/bin:$PATH"
 
-export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=4096"
-export SPLARO_HOSTINGER=1
-export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-2}"
+# Skip heavy install if deps already present (redeploy)
+if [ -d node_modules/.pnpm ] && [ -f pnpm-lock.yaml ]; then
+  log "node_modules present — skip pnpm install"
+else
+  log "Installing dependencies (pnpm $(pnpm --version))..."
+  SKIP_SPLARO_POSTINSTALL=1 NODE_ENV=development \
+    pnpm install --frozen-lockfile --prod=false --ignore-scripts
+fi
 
-log "Installing monorepo dependencies (pnpm $(pnpm --version))..."
-log "NOTE: --prod=false keeps devDeps (tailwind, typescript); --ignore-scripts skips prisma postinstall"
-SKIP_SPLARO_POSTINSTALL=1 NODE_ENV=development pnpm install --frozen-lockfile --prod=false --ignore-scripts
-
-log "Fixing binary permissions (Hostinger EACCES on turbo/prisma/next)..."
 find "$ROOT/node_modules" -type f \( \
-  -path '*/@turbo/linux-64/bin/turbo' \
-  -o -path '*/prisma/build/index.js' \
-  -o -path '*/next/dist/bin/next' \
-  -o -path '*/.bin/*' \
+  -path '*/next/dist/bin/next' -o -path '*/.bin/*' \
 \) -exec chmod +x {} + 2>/dev/null || true
 
-log "Generating Prisma client for workspace packages..."
-if [ -n "${DATABASE_URL:-}" ]; then
-  SKIP_SPLARO_POSTINSTALL=1 pnpm db:generate
-else
-  log "DATABASE_URL unset — skip prisma generate (OK for storefront-only Git build)"
-fi
+NEXT_BIN=$(find "$ROOT/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | head -1)
+[ -n "$NEXT_BIN" ] || { log "ERROR: next binary not found"; exit 1; }
+log "Next.js: $NEXT_BIN"
 
 export NODE_ENV=production
 
-log "Building storefront (@splaro/web)..."
-NEXT_BIN=$(find "$ROOT/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | head -1)
-[ -n "$NEXT_BIN" ] || { log "ERROR: next binary not found"; exit 1; }
-# Use next.config.mjs — bypass pnpm prebuild (verify-css needs next.config.ts)
-if [ -f "$ROOT/apps/web/next.config.mjs" ] && [ -f "$ROOT/apps/web/next.config.ts" ]; then
-  mv "$ROOT/apps/web/next.config.ts" "$ROOT/apps/web/next.config.ts.hostinger-bak"
-  log "Using next.config.mjs for Hostinger build"
-fi
-(cd "$ROOT/apps/web" && node "$NEXT_BIN" build)
-if [ -f "$ROOT/apps/web/next.config.ts.hostinger-bak" ]; then
-  mv "$ROOT/apps/web/next.config.ts.hostinger-bak" "$ROOT/apps/web/next.config.ts"
+# Force next.config.mjs (TS config causes turbopack panic on shared hosting)
+WEB_TS="$ROOT/apps/web/next.config.ts"
+WEB_TS_BAK="$ROOT/apps/web/next.config.ts.hostinger-bak"
+if [ -f "$ROOT/apps/web/next.config.mjs" ] && [ -f "$WEB_TS" ]; then
+  mv "$WEB_TS" "$WEB_TS_BAK"
+  log "Using apps/web/next.config.mjs"
 fi
 
-log "Preparing Next.js standalone bundle..."
+log "Building storefront (@splaro/web)..."
+rm -rf "$ROOT/apps/web/.next"
+(cd "$ROOT/apps/web" && node "$NEXT_BIN" build)
+
+[ -f "$WEB_TS_BAK" ] && mv "$WEB_TS_BAK" "$WEB_TS"
+
 node "$ROOT/scripts/prepare-next-standalone.mjs" apps/web
 
 STANDALONE="$ROOT/apps/web/.next/standalone/apps/web/server.js"
-if [ ! -f "$STANDALONE" ]; then
-  log "ERROR: standalone server missing at $STANDALONE"
-  exit 1
-fi
+[ -f "$STANDALONE" ] || { log "ERROR: missing $STANDALONE"; exit 1; }
+log "Build OK — $STANDALONE"
 
-log "Build OK — standalone: $STANDALONE"
-
-# Full stack: admin + API (set SPLARO_BUILD_ADMIN=0 for web-only)
-if [ "${SPLARO_BUILD_ADMIN:-1}" = "1" ]; then
-  log "Building admin (@splaro/admin)..."
-  if [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ROOT/apps/admin/next.config.ts" ]; then
-    mv "$ROOT/apps/admin/next.config.ts" "$ROOT/apps/admin/next.config.ts.hostinger-bak"
-  fi
-  NEXT_BIN=$(find "$ROOT/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | head -1)
-  (cd "$ROOT/apps/admin" && node "$NEXT_BIN" build) || log "Admin build failed — deploy web only"
-  if [ -f "$ROOT/apps/admin/next.config.ts.hostinger-bak" ]; then
-    mv "$ROOT/apps/admin/next.config.ts.hostinger-bak" "$ROOT/apps/admin/next.config.ts"
-  fi
+# Optional full stack (off by default — run hpanel-recovery.sh for admin+API)
+if [ "${SPLARO_BUILD_ADMIN:-0}" = "1" ]; then
+  log "Building admin..."
+  ADMIN_TS="$ROOT/apps/admin/next.config.ts"
+  ADMIN_TS_BAK="$ROOT/apps/admin/next.config.ts.hostinger-bak"
+  [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ADMIN_TS" ] && mv "$ADMIN_TS" "$ADMIN_TS_BAK"
+  rm -rf "$ROOT/apps/admin/.next"
+  (cd "$ROOT/apps/admin" && node "$NEXT_BIN" build) || log "Admin build failed (non-fatal)"
+  [ -f "$ADMIN_TS_BAK" ] && mv "$ADMIN_TS_BAK" "$ADMIN_TS"
   node "$ROOT/scripts/prepare-next-standalone.mjs" apps/admin 2>/dev/null || true
 fi
 
-# API build (needs @splaro/config + @splaro/types)
-if [ "${SPLARO_BUILD_API:-1}" = "1" ]; then
-  log "Building API packages..."
+if [ "${SPLARO_BUILD_API:-0}" = "1" ]; then
+  log "Building API..."
   pnpm --filter @splaro/config run build 2>/dev/null || true
   pnpm --filter @splaro/types run build 2>/dev/null || true
-  pnpm --filter @splaro/api run build 2>/dev/null || {
-    (cd "$ROOT/apps/api" && npx tsc -p tsconfig.json --skipLibCheck) || log "API build failed"
-  }
+  pnpm --filter @splaro/api run build 2>/dev/null || true
 fi
 
-# Hostinger Express preset often expects ./dist — symlink for compatibility
-DIST_LINK="$ROOT/dist"
-rm -rf "$DIST_LINK"
-ln -sfn apps/web/.next/standalone/apps/web "$DIST_LINK"
+rm -rf "$ROOT/dist"
+ln -sfn apps/web/.next/standalone/apps/web "$ROOT/dist"
 log "Linked dist → apps/web/.next/standalone/apps/web"
 
-log "Start: npm start  OR  node apps/web/.next/standalone/apps/web/server.js"
-
-# Post-build: apply Passenger stack + env fixes (API + web proxy)
-if [ -f "$ROOT/infrastructure/hostinger/fix-all-production.sh" ]; then
-  log "Running fix-all-production.sh..."
-  bash "$ROOT/infrastructure/hostinger/fix-all-production.sh" || log "fix-all warning (non-fatal)"
-elif [ -f "$ROOT/infrastructure/hostinger/fix-production.sh" ]; then
-  bash "$ROOT/infrastructure/hostinger/fix-production.sh" || true
-fi
+echo "$(date -Iseconds)" > "$ROOT/.hostinger-build-done"
+log "Done — npm start to run storefront"
