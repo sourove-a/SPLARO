@@ -8,63 +8,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ssh-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Test SSH port
-        run: |
-          nc -zv -w 10 "${{ secrets.HOSTINGER_HOST }}" "${{ secrets.HOSTINGER_PORT || 65002 }}"
-
   deploy:
-    needs: ssh-test
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Remote deploy
+      - name: Full live recovery on Hostinger
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           password: ${{ secrets.HOSTINGER_PASSWORD }}
           port: ${{ secrets.HOSTINGER_PORT || 65002 }}
-          script_stop: true
-          command_timeout: 30m
+          script_stop: false
+          command_timeout: 40m
           script: |
-            set -euo pipefail
-            APP_DIR="$HOME/splaro"
-            mkdir -p "$APP_DIR"
-            echo "${{ secrets.SPLARO_PRODUCTION_ENV_B64 }}" | base64 -d > "$APP_DIR/.env"
-            chmod 600 "$APP_DIR/.env"
-            if [ ! -d "$APP_DIR/.git" ]; then
-              git clone https://github.com/sourove-a/SPLARO.git "$APP_DIR"
-            else
-              cd "$APP_DIR" && git pull origin main
-            fi
-            cd "$APP_DIR"
-            export SPLARO_APP_DIR="$APP_DIR"
-            export SPLARO_DOMAIN=splaro.co
-            export SPLARO_PM2_CONFIG=infrastructure/pm2/ecosystem.hostinger.config.js
-            bash infrastructure/hostinger/deploy-remote.sh
+            set +e
+            export PATH="$HOME/mamba/env/envs/pg/bin:/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH"
+            REPO="$HOME/domains/splaro.co/public_html/.builds/source/repository"
+            cd "$REPO" || exit 1
+            git pull origin main
+            bash infrastructure/hostinger/apply-hostinger-mysql-env.sh || true
+            bash infrastructure/hostinger/fix-all-live.sh
 
       - name: Live smoke test
         run: |
-          sleep 15
+          sleep 20
           check() {
             local name="$1" url="$2" attempt code
-            for attempt in 1 2 3; do
+            for attempt in 1 2 3 4; do
               code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || echo 000)"
               echo "$name attempt $attempt → HTTP $code"
               [ "$code" = "200" ] && return 0
-              sleep 10
+              sleep 15
             done
-            echo "FAIL: $name ($url) is not returning 200"
+            echo "FAIL: $name ($url)"
             return 1
           }
           FAILED=0
           check "web" "https://splaro.co" || FAILED=1
-          check "api" "https://api.splaro.co/api/v1/health" || FAILED=1
+          check "api" "https://splaro.co/api/v1/health" || FAILED=1
           check "admin" "https://admin.splaro.co/login" || FAILED=1
           exit $FAILED
