@@ -29,8 +29,7 @@ jobs:
             REPO="$HOME/domains/splaro.co/public_html/.builds/source/repository"
             cd "$REPO" || exit 1
             git pull origin main
-            bash infrastructure/hostinger/apply-hostinger-mysql-env.sh || true
-            bash infrastructure/hostinger/fix-all-live.sh
+            bash infrastructure/hostinger/ssh-fix-all.sh
 
       - name: Live smoke test
         run: |

@@ -14,11 +14,11 @@ echo ""
 cd "$REPO" || { echo "Repo missing — redeploy from GitHub first"; exit 1; }
 git pull origin main
 
-bash infrastructure/hostinger/apply-hostinger-mysql-env.sh
-echo "MySQL env OK (phpMyAdmin) — SPLARO API still uses PostgreSQL (DATABASE_URL)"
-
-bash infrastructure/hostinger/complete-production.sh
-bash infrastructure/hostinger/verify-production.sh
+if [ -f "$REPO/infrastructure/hostinger/fix-all-live.sh" ]; then
+  bash "$REPO/infrastructure/hostinger/fix-all-live.sh"
+elif [ -f "$REPO/infrastructure/hostinger/complete-production.sh" ]; then
+  bash "$REPO/infrastructure/hostinger/complete-production.sh"
+fi
 echo "Store:  https://splaro.co"
 echo "Admin:  https://admin.splaro.co/login"
 echo "API:    https://api.splaro.co/api/v1/health"

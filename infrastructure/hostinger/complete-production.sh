@@ -2,7 +2,8 @@
 # SPLARO full production orchestrator — Hostinger shared hosting
 # Memory-safe: one service at a time, proxy-only Passenger, next start (not standalone server.js)
 set +e
-export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH"
+export PATH="$HOME/mamba/env/envs/pg/bin:/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}"
 
 REPO="${SPLARO_REPO_DIR:-$HOME/domains/splaro.co/public_html/.builds/source/repository}"
 NODEJS="$HOME/domains/splaro.co/nodejs"
@@ -10,6 +11,10 @@ ADMIN_HTDOCS="$HOME/domains/splaro.co/public_html/admin"
 API_HTDOCS="$HOME/domains/splaro.co/public_html/api"
 WEB_STANDALONE="$REPO/apps/web/.next/standalone/apps/web"
 ADMIN_STANDALONE="$REPO/apps/admin/.next/standalone/apps/admin"
+WEB_UPLOAD="$HOME/splaro-web-full/web-standalone/apps/web"
+ADMIN_UPLOAD="$HOME/splaro-admin-full/admin-standalone/apps/admin"
+WEB_UPLOAD_ST="$HOME/splaro-web-full/web-standalone"
+ADMIN_UPLOAD_ST="$HOME/splaro-admin-full/admin-standalone"
 NEXT_BIN=$(find "$REPO/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | head -1)
 USER_HOME="${HOME:-/home/u134578371}"
 
@@ -56,6 +61,19 @@ fi
 # ── Earth textures ──
 bash infrastructure/hostinger/patch-earth-textures.sh 2>/dev/null || true
 
+# ── Database FIRST (before API start) ──
+log "Setting up PostgreSQL..."
+bash "$REPO/infrastructure/hostinger/setup-local-postgres.sh" 2>&1 | tail -15 || \
+  log "WARN: PostgreSQL setup failed — check ~/pgsql/postgres.log"
+set -a && source .env && set +a
+
+# ── Build API if missing ──
+if [ ! -f "$REPO/apps/api/dist/main.js" ]; then
+  log "Building API..."
+  pnpm install --filter @splaro/api... --filter @splaro/database... --no-frozen-lockfile 2>&1 | tail -6
+  pnpm --filter @splaro/api run build 2>&1 | tail -5
+fi
+
 # ── Kill stale processes (staggered) ──
 log "Stopping stale processes..."
 pkill -f "next/dist/bin/next start" 2>/dev/null || true
@@ -75,9 +93,18 @@ fi
 
 # ── Start web (:3001) ──
 if [ -n "$NEXT_BIN" ] && [ -d "$REPO/apps/web/.next" ]; then
-  log "Starting web on :3001..."
+  log "Starting web on :3001 (next start)..."
   cd "$REPO/apps/web"
   PORT=3001 HOSTNAME=127.0.0.1 nohup node "$NEXT_BIN" start >> "$NODEJS/web.log" 2>&1 &
+  sleep 10
+  curl -sf -m 8 "http://127.0.0.1:3001/" >/dev/null && log "web :3001 OK" || log "web :3001 DOWN"
+elif [ -f "$WEB_UPLOAD/server.js" ]; then
+  log "Starting web on :3001 (uploaded standalone)..."
+  pkill -f "splaro-web-full.*server.js" 2>/dev/null || true
+  sleep 2
+  cd "$WEB_UPLOAD"
+  PORT=3001 HOSTNAME=127.0.0.1 NODE_PATH="$WEB_UPLOAD_ST/node_modules:$WEB_UPLOAD/node_modules:$REPO/node_modules" \
+    nohup node server.js >> "$NODEJS/web.log" 2>&1 &
   sleep 10
   curl -sf -m 8 "http://127.0.0.1:3001/" >/dev/null && log "web :3001 OK" || log "web :3001 DOWN"
 else
@@ -97,10 +124,20 @@ fi
 
 # ── Start admin (:3002) ──
 if [ -n "$NEXT_BIN" ] && [ -d "$REPO/apps/admin/.next" ]; then
-  log "Starting admin on :3002..."
+  log "Starting admin on :3002 (next start)..."
   mkdir -p "$ADMIN_HTDOCS/nodejs"
   cd "$REPO/apps/admin"
   PORT=3002 HOSTNAME=127.0.0.1 nohup node "$NEXT_BIN" start >> "$ADMIN_HTDOCS/nodejs/admin.log" 2>&1 &
+  sleep 10
+  curl -sf -m 8 "http://127.0.0.1:3002/login" >/dev/null && log "admin :3002 OK" || log "admin :3002 DOWN"
+elif [ -f "$ADMIN_UPLOAD/server.js" ]; then
+  log "Starting admin on :3002 (uploaded standalone)..."
+  pkill -f "splaro-admin-full.*server.js" 2>/dev/null || true
+  sleep 2
+  mkdir -p "$ADMIN_HTDOCS/nodejs"
+  cd "$ADMIN_UPLOAD"
+  PORT=3002 HOSTNAME=127.0.0.1 NODE_PATH="$ADMIN_UPLOAD_ST/node_modules:$ADMIN_UPLOAD/node_modules:$REPO/node_modules" \
+    nohup node server.js >> "$ADMIN_HTDOCS/nodejs/admin.log" 2>&1 &
   sleep 10
   curl -sf -m 8 "http://127.0.0.1:3002/login" >/dev/null && log "admin :3002 OK" || log "admin :3002 DOWN"
 fi
@@ -152,21 +189,6 @@ EOF
 rm -f "$API_HTDOCS/default.php"
 touch "$API_HTDOCS/nodejs/tmp/restart.txt"
 log "api.splaro.co Passenger configured"
-
-# ── Database (Hostinger account: user-space PostgreSQL — NOT MySQL) ──
-DB_URL="${DATABASE_URL:-}"
-if [ -z "$DB_URL" ] && grep -q '^DATABASE_URL=' .env 2>/dev/null; then
-  DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-)
-fi
-if [ -n "$DB_URL" ] && [[ "$DB_URL" != *"127.0.0.1"* ]] && [[ "$DB_URL" != *"localhost"* ]]; then
-  export DATABASE_URL="$DB_URL"
-  log "Running database setup (remote Postgres)..."
-  bash "$REPO/infrastructure/hostinger/setup-database.sh" 2>&1 | tail -15
-else
-  log "Hostinger-only DB: installing PostgreSQL on this account (MySQL u134578371_SPLARO is not used by SPLARO)..."
-  bash "$REPO/infrastructure/hostinger/setup-local-postgres.sh" 2>&1 | tail -20 || \
-    log "WARN: PostgreSQL setup failed — check ~/pgsql/postgres.log"
-fi
 
 sleep 15
 log "=== Running verification ==="
