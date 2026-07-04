@@ -46,12 +46,18 @@ async function main() {
       data: {
         name: 'SPLARO',
         slug: 'splaro',
-        domain: 'splaro.com.bd',
-        email: 'info@splaro.com.bd',
+        domain: 'splaro.co',
+        email: 'splaro.bd@gmail.com',
         ownerId: admin.id,
       },
     })
     console.log('Created SPLARO store')
+  } else if (store.domain !== 'splaro.co') {
+    store = await prisma.store.update({
+      where: { id: store.id },
+      data: { domain: 'splaro.co', email: 'splaro.bd@gmail.com' },
+    })
+    console.log('Updated store domain → splaro.co')
   }
 
   await prisma.staffRole.upsert({

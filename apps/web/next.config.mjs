@@ -9,7 +9,7 @@ const connectSrc = [
   apiOrigin,
   'http://localhost:4000',
   'http://127.0.0.1:4000',
-  'https://api.splaro.com.bd',
+  'https://splaro.co',
   'https://api.splaro.co',
   'https://www.google-analytics.com',
   'https://www.facebook.com',

@@ -100,7 +100,7 @@ export class OrdersController {
   async invoiceWhatsApp(@Param('id') id: string) {
     const order = await this.invoices.loadOrder(id)
     const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://www.splaro.com.bd'
+      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co'
     return {
       supportUrl: this.invoices.buildWhatsAppShareUrl(order, siteUrl),
       customerUrl: this.invoices.buildCustomerWhatsAppUrl(order),

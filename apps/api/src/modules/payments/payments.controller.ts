@@ -79,7 +79,7 @@ export class PaymentsController {
     @Query('status') status: string,
     @Res() res: Response,
   ) {
-    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.com.bd'
+    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
     try {
       if (status === 'success' && paymentID) {
         const result = await this.bkash.executePayment(paymentID)
@@ -110,7 +110,7 @@ export class PaymentsController {
     @Query('orderId') orderId: string,
     @Res() res: Response,
   ) {
-    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.com.bd'
+    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
     try {
       const result = await this.nagad.verifyPayment(paymentRefId, orderId)
       const paid = result.status === 'Success'
@@ -155,7 +155,7 @@ export class PaymentsController {
   @Public()
   @Post('ssl/success')
   async sslSuccess(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
-    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.com.bd'
+    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
     const result = await this.ssl.handleCallback(body, 'success')
     if (result.ok) void this.firePaymentEvent(result.invoiceNumber)
     return res.redirect(`${siteUrl}/payment/${result.ok ? 'success' : 'failed'}?invoice=${result.invoiceNumber}`)
@@ -164,7 +164,7 @@ export class PaymentsController {
   @Public()
   @Post('ssl/fail')
   sslFail(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
-    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.com.bd'
+    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
     void this.ssl.handleCallback(body, 'fail')
     return res.redirect(`${siteUrl}/payment/failed?invoice=${body.tran_id}`)
   }
@@ -172,7 +172,7 @@ export class PaymentsController {
   @Public()
   @Post('ssl/cancel')
   sslCancel(@Body() body: SslCommerzIpnPayload, @Res() res: Response) {
-    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.com.bd'
+    const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
     void this.ssl.handleCallback(body, 'cancel')
     return res.redirect(`${siteUrl}/payment/cancelled?invoice=${body.tran_id}`)
   }

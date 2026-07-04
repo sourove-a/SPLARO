@@ -29,7 +29,8 @@ fi
 # Web (:3001)
 if ! curl -sf -m 3 "http://127.0.0.1:3001/" >/dev/null 2>&1; then
   log "Starting web on :3001"
-  pkill -f "next/dist/bin/next start" 2>/dev/null || true
+  pkill -f "apps/web.*next/dist/bin/next start" 2>/dev/null || true
+  pkill -f "apps/web/.next/standalone.*server.js" 2>/dev/null || true
   sleep 2
   cd "$REPO/apps/web"
   PORT=3001 HOSTNAME=127.0.0.1 nohup node "$NEXT_BIN" start >> "$NODEJS/web.log" 2>&1 &

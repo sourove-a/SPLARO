@@ -1,8 +1,7 @@
 name: Deploy Hostinger (Git)
 
-# Hostinger hPanel pulls this repo on every push to main (Git integration).
-# No SSH secrets required — build runs on Hostinger: npm install → npm run build → npm start
-# Full stack (web + admin + API) starts via post-git-deploy.sh after build.
+# Hostinger hPanel pulls main on push — npm install → npm run build → npm start
+# No SSH secrets. Smoke test confirms splaro.co + admin + API after build.
 
 on:
   workflow_dispatch:
@@ -16,49 +15,38 @@ concurrency:
 jobs:
   hostinger-git-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - name: Deploy info
         run: |
-          echo "✅ Push to main — Hostinger hPanel auto-deploys (no SSH)"
-          echo ""
-          echo "Hostinger runs on server:"
-          echo "  1. git pull origin main"
-          echo "  2. npm install"
-          echo "  3. npm run build  → scripts/hostinger-build.sh"
-          echo "  4. post-git-deploy.sh → web + admin + API"
-          echo ""
-          echo "hPanel → Websites → splaro.co → Deployments (build log)"
+          echo "Push to main → Hostinger hPanel auto-deploys (no SSH)"
+          echo "Build: npm run build → post-git-deploy.sh"
+          echo "Start: npm start → passenger-stack-app (web + api + proxy)"
           echo "Commit: ${{ github.sha }}"
 
-      - name: Wait for Hostinger build
+      - name: Wait for Hostinger build (up to 12 min)
         run: |
-          echo "Waiting 6 minutes for Hostinger Git build + post-deploy…"
-          sleep 360
-
-      - name: Live smoke test
-        run: |
+          echo "Polling live URLs (Hostinger build ~8–12 min on shared hosting)…"
           check() {
-            local name="$1" url="$2" attempt code
-            for attempt in 1 2 3 4 5 6; do
-              code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || echo 000)"
-              echo "$name attempt $attempt → HTTP $code ($url)"
-              [ "$code" = "200" ] && return 0
-              sleep 20
-            done
-            echo "FAIL: $name ($url)"
-            return 1
+            local name="$1" url="$2"
+            local code
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || echo 000)"
+            echo "$name → HTTP $code ($url)"
+            [ "$code" = "200" ]
           }
-          FAILED=0
-          check "web" "https://splaro.co" || FAILED=1
-          check "api" "https://splaro.co/api/v1/health" || FAILED=1
-          check "admin" "https://admin.splaro.co/login" || FAILED=1
-          if [ "$FAILED" = "1" ]; then
-            echo ""
-            echo "::warning::Live check failed — open hPanel → Deployments → latest build log"
-            echo "One-time fix in hPanel SSH Terminal:"
-            echo "  bash ~/domains/splaro.co/public_html/.builds/source/repository/infrastructure/hostinger/splaro-start-services.sh"
-          fi
-          exit 0
+          for round in $(seq 1 24); do
+            echo "--- round $round/24 ($(date -u +%H:%M:%S) UTC) ---"
+            WEB_OK=0; API_OK=0; ADMIN_OK=0
+            check web "https://splaro.co" && WEB_OK=1 || true
+            check api "https://splaro.co/api/v1/health" && API_OK=1 || true
+            check admin "https://admin.splaro.co/login" && ADMIN_OK=1 || true
+            [ "$WEB_OK" = "1" ] && [ "$API_OK" = "1" ] && [ "$ADMIN_OK" = "1" ] && exit 0
+            sleep 30
+          done
+          echo "::error::Live deploy not healthy after 12 minutes"
+          echo "hPanel → splaro.co → Deployments → latest build log"
+          echo "Or hPanel SSH Terminal (one-time):"
+          echo "  bash ~/domains/splaro.co/public_html/.builds/source/repository/infrastructure/hostinger/splaro-start-services.sh"
+          exit 1

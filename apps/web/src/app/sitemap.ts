@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { productSlug } from '@/lib/catalog/index'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.com.bd'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 
 // Re-generate hourly so newly published products surface to search + AI engines fast.
 export const revalidate = 3600

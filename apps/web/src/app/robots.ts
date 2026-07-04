@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.com.bd'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 
 // AI answer-engine + assistant crawlers. Explicitly welcomed so SPLARO products are
 // eligible to be cited when users ask ChatGPT / Claude / Perplexity / Gemini

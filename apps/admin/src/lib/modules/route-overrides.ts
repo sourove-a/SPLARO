@@ -168,7 +168,7 @@ const R: Record<string, RouteTemplate> = {
       { name: 'Store · SPLARO Luxury Fashion', status: 'active', updated: 'Saved', metric: 'General' },
       { name: 'bKash + SSLCommerz + COD', status: 'active', updated: 'Live', metric: 'Payments' },
     ],
-    highlights: ['Domain: splaro.com.bd', 'Currency: BDT (৳)', 'Timezone: Asia/Dhaka'],
+    highlights: ['Domain: splaro.co', 'Currency: BDT (৳)', 'Timezone: Asia/Dhaka'],
   },
 }
 
@@ -189,7 +189,7 @@ function generateRouteTemplate(navItem: FlatAdminRoute): RouteTemplate {
       { name: 'Backup scheduled', status: 'pending', updated: 'Tonight', metric: '02:00 AM' },
     ],
     SaaS: [
-      { name: 'splaro.com.bd tenant', status: 'active', updated: 'Live', metric: 'Primary' },
+      { name: 'splaro.co tenant', status: 'active', updated: 'Live', metric: 'Primary' },
       { name: 'Subscription renewal', status: 'active', updated: '15d left', metric: 'Pro plan' },
       { name: 'Domain SSL renewed', status: 'active', updated: 'Yesterday', metric: 'Auto' },
     ],
@@ -230,7 +230,7 @@ function generateRouteTemplate(navItem: FlatAdminRoute): RouteTemplate {
     highlights: [
       navItem.description ?? `Manage ${navItem.label.toLowerCase()} in SPLARO Commerce OS.`,
       `Module group: ${navItem.group}`,
-      'Connected to api.splaro.com.bd when live.',
+      'Connected to splaro.co/api/v1 when live.',
     ],
   }
 }

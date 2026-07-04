@@ -20,6 +20,7 @@ const repo = resolveRepoDir()
 
 const API_PORT = Number(process.env.API_PORT || 4000)
 const WEB_PORT = Number(process.env.INTERNAL_WEB_PORT || 3001)
+const ADMIN_PORT = Number(process.env.ADMIN_PORT || 3002)
 const PASSENGER_PORT = Number(process.env.PORT || 3000)
 
 function loadEnvFile(filePath) {
@@ -67,11 +68,11 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 process.env.REDIS_ENABLED = process.env.REDIS_ENABLED || 'false'
 process.env.NEXT_PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://splaro.co'
 process.env.NEXT_PUBLIC_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://api.splaro.co/api/v1'
+  process.env.NEXT_PUBLIC_API_URL || 'https://splaro.co/api/v1'
 process.env.NEXT_PUBLIC_ADMIN_URL =
   process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.splaro.co'
 process.env.WEB_URL = process.env.WEB_URL || 'https://splaro.co'
-process.env.API_URL = process.env.API_URL || 'https://api.splaro.co'
+process.env.API_URL = process.env.API_URL || 'https://splaro.co'
 process.env.CORS_ORIGINS =
   process.env.CORS_ORIGINS || 'https://splaro.co,https://admin.splaro.co'
 
@@ -80,11 +81,17 @@ const apiMain = path.join(apiDir, 'dist/main.js')
 const standaloneRoot = path.join(repo, 'apps/web/.next/standalone')
 const standaloneWeb = path.join(standaloneRoot, 'apps/web')
 const webServer = path.join(standaloneWeb, 'server.js')
+const adminStandaloneRoot = path.join(repo, 'apps/admin/.next/standalone')
+const standaloneAdmin = path.join(adminStandaloneRoot, 'apps/admin')
+const adminServer = path.join(standaloneAdmin, 'server.js')
 
 const nodePaths = [
   path.join(repo, 'node_modules'),
   path.join(standaloneRoot, 'node_modules'),
   path.join(standaloneWeb, 'node_modules'),
+  path.join(adminStandaloneRoot, 'node_modules'),
+  path.join(standaloneAdmin, 'node_modules'),
+  path.join(repo, 'apps/admin/node_modules'),
   path.join(repo, 'apps/api/node_modules'),
   path.join(repo, 'apps/web/node_modules'),
   path.join(repo, 'packages/database/node_modules'),
@@ -130,6 +137,20 @@ if (fs.existsSync(webServer)) {
   })
 } else {
   console.error('[splaro-stack] Web standalone missing:', webServer)
+}
+
+if (fs.existsSync(adminServer)) {
+  startChild('admin', adminServer, {
+    cwd: standaloneAdmin,
+    env: {
+      ...process.env,
+      NODE_PATH: nodePathStr,
+      PORT: String(ADMIN_PORT),
+      HOSTNAME: '127.0.0.1',
+    },
+  })
+} else {
+  console.warn('[splaro-stack] Admin standalone missing (admin.splaro.co may be down):', adminServer)
 }
 
 function proxyRequest(req, res, port) {
@@ -180,7 +201,7 @@ setTimeout(() => {
 
   server.listen(PASSENGER_PORT, '0.0.0.0', () => {
     console.log(
-      `[splaro-stack] listening :${PASSENGER_PORT} → api:${API_PORT} web:${WEB_PORT}`,
+      `[splaro-stack] listening :${PASSENGER_PORT} → api:${API_PORT} web:${WEB_PORT} admin:${ADMIN_PORT}`,
     )
   })
 }, 8000)

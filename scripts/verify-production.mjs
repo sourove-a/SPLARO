@@ -7,10 +7,15 @@
 import { spawnSync } from 'node:child_process'
 
 const domain = process.env.SPLARO_DOMAIN || 'splaro.co'
+const isLocal = domain === '127.0.0.1' || domain === 'localhost'
+const scheme = isLocal ? 'http' : 'https'
+const webHost = isLocal ? `${domain}:3000` : domain
+const adminHost = isLocal ? `${domain}:3001` : `admin.${domain}`
+const apiHost = isLocal ? `${domain}:4000` : domain
 const targets = [
-  { name: 'web', url: `https://${domain}`, expect: [200, 301, 302, 307, 308] },
-  { name: 'admin', url: `https://admin.${domain}`, expect: [200, 301, 302, 307, 308] },
-  { name: 'api-health', url: `https://api.${domain}/api/v1/health`, expect: [200] },
+  { name: 'web', url: `${scheme}://${webHost}`, expect: [200, 301, 302, 307, 308] },
+  { name: 'admin', url: `${scheme}://${adminHost}/login`, expect: [200, 301, 302, 307, 308] },
+  { name: 'api-health', url: `${scheme}://${apiHost}/api/v1/health`, expect: [200] },
 ]
 
 let failed = 0

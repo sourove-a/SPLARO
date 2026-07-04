@@ -181,7 +181,7 @@ export default function AdminLoginPage() {
                   required
                   type="email"
                   autoComplete="email"
-                  placeholder="admin@splaro.com.bd"
+                  placeholder="splaro.bd@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="admin-auth-input"

@@ -33,7 +33,7 @@ export function AdminHeader() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { setTheme, resolvedTheme } = useTheme()
-  const [user, setUser] = useState<SessionUser>({ name: 'Super Admin', email: 'admin@splaro.com.bd', role: 'admin' })
+  const [user, setUser] = useState<SessionUser>({ name: 'Super Admin', email: 'splaro.bd@gmail.com', role: 'admin' })
 
   useEffect(() => {
     setMounted(true)

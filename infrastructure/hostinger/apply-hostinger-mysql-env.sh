@@ -10,7 +10,7 @@ MYSQL_HOST="${MYSQL_HOST:-localhost}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
 MYSQL_DATABASE="${MYSQL_DATABASE:-u134578371_SPLARO}"
 MYSQL_USER="${MYSQL_USER:-u134578371_splaro}"
-MYSQL_PASSWORD="${MYSQL_PASSWORD:-7+bJ0:/T}"
+MYSQL_PASSWORD="${MYSQL_PASSWORD:-}"
 PHPMYADMIN_URL="${PHPMYADMIN_URL:-https://hpanel.hostinger.com/websites/splaro.co/databases/php-my-admin}"
 
 urlencode() {
