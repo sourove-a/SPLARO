@@ -9,14 +9,16 @@
 
 ---
 
-## Mode A — Git deploy (storefront only)
+## Mode A — Git deploy (recommended — no SSH)
 
-Hostinger shared Node.js runs **one** app. This builds **web only**.
+Hostinger hPanel **GitHub connect** → every `git push origin main` auto-deploys.
 
 ### hPanel → Deployments → Settings
 
 | Setting | Value |
 |---------|--------|
+| Repository | `sourove-a/SPLARO` branch `main` |
+| Auto deploy | **On** (push to main) |
 | Framework | **Express** |
 | Package manager | **npm** (not pnpm) |
 | Node.js | 20.x |
@@ -24,24 +26,30 @@ Hostinger shared Node.js runs **one** app. This builds **web only**.
 | Start command | `npm start` |
 | Output directory | `apps/web/.next/standalone/apps/web` or `dist` |
 
-### Required env vars (hPanel → Environment)
+### What runs on each push (no SSH secrets)
 
-```
-NODE_ENV=production
-NEXT_PUBLIC_SITE_URL=https://splaro.co
-NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1
-NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co
-NEXT_PUBLIC_CDN_URL=https://splaro.co
+1. Hostinger pulls `main`
+2. `npm install` → `npm run build` → `scripts/hostinger-build.sh` (web + admin + API)
+3. `post-git-deploy.sh` → starts web, admin, API, Passenger proxies
+4. GitHub Actions **Deploy Hostinger (Git)** waits ~6 min then smoke-tests live URLs
+
+Push from Mac:
+
+```bash
+git push origin main
+# or
+pnpm deploy:hostinger
 ```
 
 Build log should show:
+
 ```
 [ensure-pnpm] OK — pnpm 9.4.0
-Building storefront (@splaro/web)...
-Build OK — standalone: .../server.js
+[hostinger-build] Hostinger server detected — full stack build enabled
+[post-git-deploy] Starting full stack after Git deploy…
 ```
 
-Push from Mac: `pnpm deploy:hostinger`
+**No GitHub SSH secrets needed.** Old SSH-based recovery is optional (hPanel terminal only).
 
 ---
 
@@ -118,13 +126,13 @@ From Mac (after deploy):
 pnpm verify:production
 ```
 
-### 7. GitHub Actions (SSH from cloud)
+### 7. GitHub Actions (Git auto-deploy — no SSH)
 
-Repo → Settings → Secrets:
-- `HOSTINGER_HOST`, `HOSTINGER_PORT` (65002), `HOSTINGER_USER`, `HOSTINGER_PASSWORD`
-- `SPLARO_PRODUCTION_ENV_B64` = `base64 -i .env`
+**No secrets required.** Push to `main` → Hostinger hPanel pulls and builds automatically.
 
-Actions → **Deploy Hostinger** → Run workflow
+GitHub Actions workflow **Deploy Hostinger (Git)** only waits and smoke-tests live URLs.
+
+Optional one-time hPanel env vars: see `.env.example` (DATABASE_URL, TELEGRAM_BOT_TOKEN, etc.)
 
 ---
 

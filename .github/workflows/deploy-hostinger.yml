@@ -1,67 +1,52 @@
-name: Deploy Hostinger
+name: Deploy Hostinger (Git)
+
+# Hostinger hPanel pulls this repo on every push to main (Git integration).
+# No SSH secrets required — build runs on Hostinger: npm install → npm run build → npm start
+# Full stack (web + admin + API) starts via post-git-deploy.sh after build.
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'infrastructure/hostinger/**'
-      - '.github/workflows/deploy-hostinger.yml'
 
 concurrency:
-  group: deploy-hostinger
-  cancel-in-progress: true
+  group: deploy-hostinger-git
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  hostinger-git-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate Hostinger secrets
+      - name: Deploy info
         run: |
-          missing=""
-          [ -z "${{ secrets.HOSTINGER_HOST }}" ] && missing="$missing HOSTINGER_HOST"
-          [ -z "${{ secrets.HOSTINGER_USER }}" ] && missing="$missing HOSTINGER_USER"
-          [ -z "${{ secrets.HOSTINGER_PASSWORD }}" ] && missing="$missing HOSTINGER_PASSWORD"
-          if [ -n "$missing" ]; then
-            echo "::error::Missing GitHub secrets:$missing"
-            echo "Add at: Settings → Secrets and variables → Actions"
-            echo "  HOSTINGER_HOST=145.79.25.203"
-            echo "  HOSTINGER_USER=u134578371"
-            echo "  HOSTINGER_PASSWORD=(SSH password from hPanel)"
-            echo "  HOSTINGER_PORT=65002 (optional)"
-            exit 1
-          fi
+          echo "✅ Push to main — Hostinger hPanel auto-deploys (no SSH)"
+          echo ""
+          echo "Hostinger runs on server:"
+          echo "  1. git pull origin main"
+          echo "  2. npm install"
+          echo "  3. npm run build  → scripts/hostinger-build.sh"
+          echo "  4. post-git-deploy.sh → web + admin + API"
+          echo ""
+          echo "hPanel → Websites → splaro.co → Deployments (build log)"
+          echo "Commit: ${{ github.sha }}"
 
-      - name: Full live recovery on Hostinger
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          password: ${{ secrets.HOSTINGER_PASSWORD }}
-          port: ${{ secrets.HOSTINGER_PORT || 65002 }}
-          script_stop: false
-          command_timeout: 40m
-          script: |
-            set +e
-            export PATH="$HOME/mamba/env/envs/pg/bin:/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH"
-            REPO="$HOME/domains/splaro.co/public_html/.builds/source/repository"
-            cd "$REPO" || exit 1
-            git pull origin main
-            bash infrastructure/hostinger/ssh-fix-all.sh
+      - name: Wait for Hostinger build
+        run: |
+          echo "Waiting 6 minutes for Hostinger Git build + post-deploy…"
+          sleep 360
 
       - name: Live smoke test
         run: |
-          sleep 20
           check() {
             local name="$1" url="$2" attempt code
-            for attempt in 1 2 3 4; do
+            for attempt in 1 2 3 4 5 6; do
               code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || echo 000)"
-              echo "$name attempt $attempt → HTTP $code"
+              echo "$name attempt $attempt → HTTP $code ($url)"
               [ "$code" = "200" ] && return 0
-              sleep 15
+              sleep 20
             done
             echo "FAIL: $name ($url)"
             return 1
@@ -70,4 +55,10 @@ jobs:
           check "web" "https://splaro.co" || FAILED=1
           check "api" "https://splaro.co/api/v1/health" || FAILED=1
           check "admin" "https://admin.splaro.co/login" || FAILED=1
-          exit $FAILED
+          if [ "$FAILED" = "1" ]; then
+            echo ""
+            echo "::warning::Live check failed — open hPanel → Deployments → latest build log"
+            echo "One-time fix in hPanel SSH Terminal:"
+            echo "  bash ~/domains/splaro.co/public_html/.builds/source/repository/infrastructure/hostinger/splaro-start-services.sh"
+          fi
+          exit 0

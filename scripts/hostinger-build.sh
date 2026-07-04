@@ -8,6 +8,13 @@ cd "$ROOT"
 
 log() { echo "[hostinger-build $(date '+%H:%M:%S')] $*"; }
 
+# Hostinger Git checkout — build full stack + start services after build (no GitHub SSH)
+if [[ "$ROOT" == *".builds/source/repository"* ]] || [[ -d "${HOME:-}/domains/splaro.co" ]]; then
+  export SPLARO_BUILD_ADMIN="${SPLARO_BUILD_ADMIN:-1}"
+  export SPLARO_BUILD_API="${SPLARO_BUILD_API:-1}"
+  log "Hostinger server detected — full stack build enabled"
+fi
+
 log "Root=$ROOT Node=$(node -v)"
 
 export NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://splaro.co}"
@@ -88,3 +95,11 @@ log "Linked dist → apps/web/.next/standalone/apps/web"
 
 echo "$(date -Iseconds)" > "$ROOT/.hostinger-build-done"
 log "Done — npm start to run storefront"
+
+POST_DEPLOY="$ROOT/infrastructure/hostinger/post-git-deploy.sh"
+if [[ "$ROOT" == *".builds/source/repository"* ]] && { [ -x "$POST_DEPLOY" ] || [ -f "$POST_DEPLOY" ]; }; then
+  log "Scheduling post-git-deploy (web + admin + API) in background…"
+  mkdir -p "$HOME/domains/splaro.co/nodejs" 2>/dev/null || true
+  chmod +x "$POST_DEPLOY" 2>/dev/null || true
+  nohup bash "$POST_DEPLOY" >> "${HOME}/domains/splaro.co/nodejs/post-git-deploy.log" 2>&1 &
+fi
