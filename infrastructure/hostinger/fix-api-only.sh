@@ -88,9 +88,19 @@ else
 fi
 pnpm db:seed 2>&1 | tail -4 || log "Seed skipped (non-fatal)"
 
-# ── 4. Build API ──
+# ── 4. Build workspace packages + API ──
+log "Building @splaro/types and @splaro/config..."
+pnpm --filter @splaro/types run build 2>&1 | tail -3
+pnpm --filter @splaro/config run build 2>&1 | tail -3
+
 log "Building API..."
-pnpm --filter @splaro/api run build 2>&1 | tail -6
+if pnpm --filter @splaro/api run build 2>&1 | tail -6; then
+  log "API built on server"
+elif [ -f "$REPO/apps/api/dist/main.js" ]; then
+  log "Using existing apps/api/dist (uploaded or prior build)"
+else
+  die "API build failed — run on Mac: pnpm --filter @splaro/api run build && scp dist to server"
+fi
 [ -f "$REPO/apps/api/dist/main.js" ] || die "API build failed — dist/main.js missing"
 
 # ── 5. Start API on :4000 ──
