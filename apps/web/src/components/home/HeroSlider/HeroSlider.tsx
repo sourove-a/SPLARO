@@ -104,14 +104,42 @@ const HERO_MEDIA_STYLE = {
   objectPosition: 'center center',
 }
 
+/**
+ * Video plays everywhere (mobile included). Only disabled when the user has
+ * explicitly asked for less — Save-Data mode or prefers-reduced-motion.
+ * The real jank fix is mounting <video> for the ACTIVE slide only, with the
+ * poster image painting instantly while the stream buffers.
+ */
+function useAllowHeroVideo(): boolean {
+  const [allow, setAllow] = useState(true)
+
+  useEffect(() => {
+    const saveData =
+      (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData ===
+      true
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    const update = () => {
+      setAllow(!saveData && !reducedMotion.matches)
+    }
+    update()
+    reducedMotion.addEventListener('change', update)
+    return () => reducedMotion.removeEventListener('change', update)
+  }, [])
+
+  return allow
+}
+
 function HeroBackground({
   slide,
   isActive,
   priority,
+  allowVideo,
 }: {
   slide: HeroSlide
   isActive: boolean
   priority: boolean
+  allowVideo: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoFailed, setVideoFailed] = useState(false)
@@ -133,7 +161,9 @@ function HeroBackground({
     video.pause()
   }, [isActive, slide.video, videoFailed])
 
-  if (slide.video && !videoFailed) {
+  // Only mount the <video> for the active slide — a preloading neighbour
+  // slide decoding video in the background is what made mobiles stutter.
+  if (slide.video && !videoFailed && allowVideo && isActive) {
     return (
       <video
         ref={videoRef}
@@ -182,6 +212,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
+  const allowVideo = useAllowHeroVideo()
   const slide = slides[Math.min(index, slides.length - 1)]!
 
   const goTo = useCallback((next: number) => {
@@ -230,7 +261,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
             >
               <div className="hero-slide__media">
                 {(isActive || slideIndex === (index + 1) % slides.length) && (
-                  <HeroBackground slide={item} isActive={isActive} priority={slideIndex === 0} />
+                  <HeroBackground slide={item} isActive={isActive} priority={slideIndex === 0} allowVideo={allowVideo} />
                 )}
               </div>
               <div className="hero-overlay" aria-hidden />
