@@ -49,13 +49,14 @@ fi
 export NODE_ENV=production
 
 log "Building storefront (@splaro/web)..."
-# Use next.config.mjs on shared hosting (avoids TS/turbopack config load thread errors)
+NEXT_BIN=$(find "$ROOT/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | head -1)
+[ -n "$NEXT_BIN" ] || { log "ERROR: next binary not found"; exit 1; }
+# Use next.config.mjs — bypass pnpm prebuild (verify-css needs next.config.ts)
 if [ -f "$ROOT/apps/web/next.config.mjs" ] && [ -f "$ROOT/apps/web/next.config.ts" ]; then
   mv "$ROOT/apps/web/next.config.ts" "$ROOT/apps/web/next.config.ts.hostinger-bak"
   log "Using next.config.mjs for Hostinger build"
 fi
-# Direct pnpm filter avoids turbo spawn EACCES on shared hosting
-pnpm --filter @splaro/web run build
+(cd "$ROOT/apps/web" && node "$NEXT_BIN" build)
 if [ -f "$ROOT/apps/web/next.config.ts.hostinger-bak" ]; then
   mv "$ROOT/apps/web/next.config.ts.hostinger-bak" "$ROOT/apps/web/next.config.ts"
 fi
@@ -71,8 +72,8 @@ fi
 
 log "Build OK — standalone: $STANDALONE"
 
-# Optional: SPLARO_BUILD_ADMIN=1 to also build admin panel on same server
-if [ "${SPLARO_BUILD_ADMIN:-0}" = "1" ]; then
+# Full stack: admin + API (set SPLARO_BUILD_ADMIN=0 for web-only)
+if [ "${SPLARO_BUILD_ADMIN:-1}" = "1" ]; then
   log "Building admin (@splaro/admin)..."
   if [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ROOT/apps/admin/next.config.ts" ]; then
     mv "$ROOT/apps/admin/next.config.ts" "$ROOT/apps/admin/next.config.ts.hostinger-bak"
@@ -83,6 +84,16 @@ if [ "${SPLARO_BUILD_ADMIN:-0}" = "1" ]; then
     mv "$ROOT/apps/admin/next.config.ts.hostinger-bak" "$ROOT/apps/admin/next.config.ts"
   fi
   node "$ROOT/scripts/prepare-next-standalone.mjs" apps/admin 2>/dev/null || true
+fi
+
+# API build (needs @splaro/config + @splaro/types)
+if [ "${SPLARO_BUILD_API:-1}" = "1" ]; then
+  log "Building API packages..."
+  pnpm --filter @splaro/config run build 2>/dev/null || true
+  pnpm --filter @splaro/types run build 2>/dev/null || true
+  pnpm --filter @splaro/api run build 2>/dev/null || {
+    (cd "$ROOT/apps/api" && npx tsc -p tsconfig.json --skipLibCheck) || log "API build failed"
+  }
 fi
 
 # Hostinger Express preset often expects ./dist — symlink for compatibility

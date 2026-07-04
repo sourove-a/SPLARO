@@ -1,39 +1,70 @@
 #!/bin/bash
-# Paste this in hPanel → Advanced → SSH Terminal (when SSH from Mac fails)
-# Recovers splaro.co after Mac upload or Git pull
+# hPanel → Advanced → SSH Terminal — paste and run after git pull
+# Full splaro.co + admin.splaro.co recovery
 set -euo pipefail
-export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$HOME/pgenv/bin:$PATH"
+export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$HOME/pgenv/bin:$HOME/pgsql/pgsql/bin:$HOME/miniconda3/bin:$PATH"
 REPO="$HOME/domains/splaro.co/public_html/.builds/source/repository"
+NODEJS="$HOME/domains/splaro.co/nodejs"
 cd "$REPO"
 git pull origin main
 
+# .env — set DATABASE_URL in hPanel Environment if using Neon Postgres
+if [ ! -f .env ]; then
+  bash infrastructure/hostinger/generate-production-env.sh > .env
+fi
 upsert() { k="${1%%=*}"; grep -q "^${k}=" .env 2>/dev/null && sed -i "s|^${k}=.*|${1}|" .env || echo "$1" >> .env; }
-upsert "DATABASE_URL=postgresql://splaro_user:IRoiC9VlqPGRrW4dud1t@127.0.0.1:5433/splaro_db"
+upsert "NODE_ENV=production"
 upsert "NEXT_PUBLIC_SITE_URL=https://splaro.co"
 upsert "NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1"
 upsert "NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co"
 upsert "API_URL=https://api.splaro.co"
+upsert "WEB_URL=https://splaro.co"
+upsert "ADMIN_URL=https://admin.splaro.co"
+upsert "CORS_ORIGINS=https://splaro.co,https://admin.splaro.co"
 upsert "REDIS_ENABLED=false"
+upsert "API_PORT=4000"
+upsert "INTERNAL_WEB_PORT=3001"
 chmod 600 .env
 
-$HOME/pgenv/bin/pg_ctl -D $HOME/pgsql/data -l $HOME/pgsql/postgres.log -o "-p 5433" start 2>/dev/null || true
-
-# Build on server (skip if Mac upload already placed artifacts)
-if [ ! -f apps/web/.next/standalone/apps/web/server.js ]; then
-  echo "Building web+admin+api on server..."
-  SPLARO_HOSTINGER=1 NODE_OPTIONS="--max-old-space-size=4096" bash scripts/hostinger-build.sh
-  SPLARO_BUILD_ADMIN=1 SPLARO_HOSTINGER=1 bash scripts/hostinger-build.sh
-  pnpm --filter @splaro/api run build
-  node scripts/prepare-next-standalone.mjs apps/admin
+# PostgreSQL (local) — skip if using Neon DATABASE_URL in hPanel env
+if [[ "${DATABASE_URL:-}" != *"neon.tech"* ]] && [[ "${DATABASE_URL:-}" != *"supabase.co"* ]]; then
+  bash infrastructure/hostinger/setup-local-postgres.sh || echo "PG setup skipped — add Neon DATABASE_URL in hPanel"
 fi
 
-cp infrastructure/hostinger/passenger-stack-app.cjs $HOME/domains/splaro.co/nodejs/app.cjs
-touch $HOME/domains/splaro.co/nodejs/tmp/restart.txt
-bash infrastructure/hostinger/setup-passenger-admin.sh
-[ -d "$HOME/domains/api.splaro.co" ] && bash infrastructure/hostinger/setup-passenger-api.sh || echo "Create api.splaro.co subdomain in hPanel first"
+# Build web + admin + API on server
+export SPLARO_HOSTINGER=1 SPLARO_BUILD_ADMIN=1 SPLARO_BUILD_API=1
+export NODE_OPTIONS="--max-old-space-size=4096"
+set -a && source .env && set +a
+bash scripts/hostinger-build.sh
+
+# Prisma migrate (needs working DATABASE_URL)
+PRISMA="$REPO/node_modules/.pnpm/prisma@5.22.0/node_modules/prisma/build/index.js"
+if [ -f "$PRISMA" ] && [ -n "${DATABASE_URL:-}" ]; then
+  node "$PRISMA" db push --schema=packages/database/prisma/schema.prisma || true
+  node "$PRISMA" db seed --schema=packages/database/prisma/schema.prisma 2>/dev/null || true
+fi
+
+# Passenger
+mkdir -p "$NODEJS/tmp"
+cp infrastructure/hostinger/passenger-stack-app.cjs "$NODEJS/app.cjs"
+cat > "$HOME/domains/splaro.co/public_html/.htaccess" <<EOF
+PassengerAppRoot $NODEJS
+PassengerAppType node
+PassengerNodejs /opt/alt/alt-nodejs20/root/bin/node
+PassengerStartupFile app.cjs
+PassengerBaseURI /
+PassengerRestartDir $NODEJS/tmp
+RewriteRule ^\.builds - [F,L]
+DirectoryIndex disabled
+EOF
+touch "$NODEJS/tmp/restart.txt"
+[ -d "$HOME/domains/admin.splaro.co" ] && bash infrastructure/hostinger/setup-passenger-admin.sh || echo "Create admin.splaro.co subdomain in hPanel"
+[ -d "$HOME/domains/api.splaro.co" ] && bash infrastructure/hostinger/setup-passenger-api.sh || echo "Create api.splaro.co subdomain in hPanel"
 bash infrastructure/hostinger/patch-earth-textures.sh 2>/dev/null || true
 
 sleep 20
-curl -s https://splaro.co/api/v1/health
-echo
-curl -s -o /dev/null -w "web:%{http_code} admin:%{http_code} api:%{http_code}\n" https://splaro.co/ https://admin.splaro.co/login https://api.splaro.co/api/v1/health
+echo "=== Health ==="
+curl -sf http://127.0.0.1:4000/api/v1/health && echo || echo "api-local: down"
+curl -s -o /dev/null -w "web:%{http_code} " https://splaro.co/
+curl -s -o /dev/null -w "admin:%{http_code} " https://admin.splaro.co/login
+curl -s -o /dev/null -w "api:%{http_code}\n" https://api.splaro.co/api/v1/health 2>/dev/null || true
