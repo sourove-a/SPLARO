@@ -14,7 +14,6 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: '**.r2.cloudflarestorage.com' },
       { protocol: 'https', hostname: 'cdn.splaro.co' },
-      { protocol: 'https', hostname: 'cdn.splaro.com.bd' },
       { protocol: 'https', hostname: 'splaro.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       {

@@ -64,6 +64,11 @@ NEXT_BIN=$(find "$ROOT/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | 
 [ -n "$NEXT_BIN" ] || { log "ERROR: next binary not found"; exit 1; }
 log "Next.js: $NEXT_BIN"
 
+# Workspace packages resolve to dist/ — build them before any Next/API build
+log "Building workspace packages (@splaro/config, @splaro/types)…"
+$LEAN pnpm --filter @splaro/config run build 2>&1 | tail -2 || { log "ERROR: config build failed"; exit 1; }
+$LEAN pnpm --filter @splaro/types run build 2>&1 | tail -2 || { log "ERROR: types build failed"; exit 1; }
+
 # Database — PostgreSQL for SPLARO app (orders/admin). MySQL = phpMyAdmin only.
 if [ "$ON_HOSTINGER" = "1" ]; then
   bash "$ROOT/infrastructure/hostinger/apply-hostinger-mysql-env.sh" 2>&1 | tail -8 || log "WARN: MySQL env skipped"
