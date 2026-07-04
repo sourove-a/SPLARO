@@ -1,6 +1,6 @@
 /** @type {import('next-sitemap').IConfig} */
 module.exports = {
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://splaro.com.bd',
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://splaro.co',
   generateRobotsTxt: false, // We have our own robots.txt
   sitemapSize: 5000,
   changefreq: 'daily',

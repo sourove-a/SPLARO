@@ -708,7 +708,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                   form.slug ? (
                     <div className="product-form-slug-row">
                       <Link2 className="h-3.5 w-3.5 flex-shrink-0 text-[var(--admin-accent)]" strokeWidth={2} />
-                      <span className="text-[11px] text-[var(--admin-text-muted)]">splaro.com.bd/products/</span>
+                      <span className="text-[11px] text-[var(--admin-text-muted)]">splaro.co/products/</span>
                       <input
                         className="flex-1 bg-transparent text-[11px] font-black text-[var(--admin-text)] outline-none"
                         value={form.slug}
@@ -847,7 +847,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
             </p>
             <AdminSwitchRow
               label={form.isPublished ? 'Live on store' : 'Draft'}
-              desc={form.isPublished ? 'Visible on splaro.com.bd' : 'Hidden until published'}
+              desc={form.isPublished ? 'Visible on splaro.co' : 'Hidden until published'}
               checked={form.isPublished}
               disabled={visibilityBusy !== null}
               highlight

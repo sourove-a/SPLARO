@@ -1,13 +1,32 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req } from '@nestjs/common'
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
+import { DatabaseConnectionService, type DatabaseCredentialsInput } from './database-connection.service'
 import { SecurityService } from './security.service'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
 @Controller('admin/security')
 export class SecurityController {
-  constructor(private readonly security: SecurityService) {}
+  constructor(
+    private readonly security: SecurityService,
+    private readonly databaseConnection: DatabaseConnectionService,
+  ) {}
+
+  @Get('database')
+  databaseInfo(@Req() req: AdminRequest) {
+    return this.databaseConnection.info(req.adminUser)
+  }
+
+  @Post('database/test')
+  databaseTest(@Body() body: DatabaseCredentialsInput, @Req() req: AdminRequest) {
+    return this.databaseConnection.test(body, req.adminUser)
+  }
+
+  @Post('database')
+  databaseSave(@Body() body: DatabaseCredentialsInput, @Req() req: AdminRequest) {
+    return this.databaseConnection.save(body, req.adminUser)
+  }
 
   @Get()
   overview(@Query('storeId') storeId: string, @Req() req: AdminRequest) {

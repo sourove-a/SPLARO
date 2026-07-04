@@ -49,7 +49,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
     sections: [
       {
         heading: 'Overview',
-        body: 'SPLARO ("we", "our", "us") operates splaro.com.bd and related channels. This Privacy Policy explains how we handle your data when you browse, purchase, or contact us. By using our services, you agree to the practices described here.',
+        body: 'SPLARO ("we", "our", "us") operates splaro.co and related channels. This Privacy Policy explains how we handle your data when you browse, purchase, or contact us. By using our services, you agree to the practices described here.',
       },
       {
         heading: 'Information we collect',
@@ -73,11 +73,11 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Your rights',
-        body: 'You may request access, correction, or deletion of personal data by emailing support@splaro.com.bd. We respond within 15 business days. You may opt out of promotional messages via the unsubscribe link or by replying STOP to SMS.',
+        body: 'You may request access, correction, or deletion of personal data by emailing support@splaro.co. We respond within 15 business days. You may opt out of promotional messages via the unsubscribe link or by replying STOP to SMS.',
       },
       {
         heading: 'Contact',
-        body: 'For privacy questions, contact SPLARO Customer Care at support@splaro.com.bd or 09666-774577, Sector 13, Road 12, Uttara, Dhaka 1230, Bangladesh.',
+        body: 'For privacy questions, contact SPLARO Customer Care at support@splaro.co or 09666-774577, Sector 13, Road 12, Uttara, Dhaka 1230, Bangladesh.',
       },
     ],
   },
@@ -163,7 +163,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'How to initiate a return',
-        body: 'Email support@splaro.com.bd or message us on WhatsApp with your order number, item name, and reason. Our team will provide a return authorisation and pickup or drop-off instructions within 1 business day.',
+        body: 'Email support@splaro.co or message us on WhatsApp with your order number, item name, and reason. Our team will provide a return authorisation and pickup or drop-off instructions within 1 business day.',
       },
       {
         heading: 'Exchanges',
@@ -193,7 +193,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Order support',
-        body: 'For order tracking, delivery updates, or payment issues, have your order number ready (format SPL-YYYY-XXXXX). You can also track orders at splaro.com.bd/track-order.',
+        body: 'For order tracking, delivery updates, or payment issues, have your order number ready (format SPL-YYYY-XXXXX). You can also track orders at splaro.co/track-order.',
       },
     ],
   },
@@ -285,7 +285,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Contributors',
-        body: 'The SPLARO Journal features photographers, stylists, and writers from across Bangladesh. Interested in collaborating? Email editorial@splaro.com.bd with your portfolio.',
+        body: 'The SPLARO Journal features photographers, stylists, and writers from across Bangladesh. Interested in collaborating? Email editorial@splaro.co with your portfolio.',
       },
     ],
   },
@@ -337,7 +337,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'Failed payments',
-        body: 'If a digital payment fails but funds are deducted, contact your provider first, then email support@splaro.com.bd with transaction ID. We will release or confirm your order once verified.',
+        body: 'If a digital payment fails but funds are deducted, contact your provider first, then email support@splaro.co with transaction ID. We will release or confirm your order once verified.',
       },
       {
         heading: 'Invoices',

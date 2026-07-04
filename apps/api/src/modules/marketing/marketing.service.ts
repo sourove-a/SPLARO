@@ -116,7 +116,7 @@ export class MarketingService {
       return {
         subject: `New arrivals just for you — SPLARO`,
         body: `Discover our latest collection at SPLARO. Shop now and enjoy exclusive member benefits.`,
-        smsText: `SPLARO: New arrivals! Shop now at splaro.com.bd`,
+        smsText: `SPLARO: New arrivals! Shop now at splaro.co`,
       }
     }
 

@@ -634,11 +634,11 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             </label>
             <label className="admin-field">
               <span className="admin-kpi__label">From email</span>
-              <input className="admin-input" type="email" placeholder="noreply@splaro.com.bd" value={draft.smtp.fromEmail} onChange={(e) => setDraft((p) => ({ ...p, smtp: { ...p.smtp, fromEmail: e.target.value } }))} />
+              <input className="admin-input" type="email" placeholder="noreply@splaro.co" value={draft.smtp.fromEmail} onChange={(e) => setDraft((p) => ({ ...p, smtp: { ...p.smtp, fromEmail: e.target.value } }))} />
             </label>
             <label className="admin-field md:col-span-2">
               <span className="admin-kpi__label">Reply-to (optional)</span>
-              <input className="admin-input" type="email" placeholder="support@splaro.com.bd" value={draft.smtp.replyTo ?? ''} onChange={(e) => setDraft((p) => ({ ...p, smtp: { ...p.smtp, replyTo: e.target.value } }))} />
+              <input className="admin-input" type="email" placeholder="support@splaro.co" value={draft.smtp.replyTo ?? ''} onChange={(e) => setDraft((p) => ({ ...p, smtp: { ...p.smtp, replyTo: e.target.value } }))} />
             </label>
           </div>
           <AdminButton

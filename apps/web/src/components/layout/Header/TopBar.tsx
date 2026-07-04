@@ -11,7 +11,7 @@ export function TopBar() {
   const email =
     settings.store.email?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL ||
-    'support@splaro.com.bd'
+    'support@splaro.co'
   const phone =
     settings.store.phone?.trim() ||
     process.env.NEXT_PUBLIC_SUPPORT_PHONE ||

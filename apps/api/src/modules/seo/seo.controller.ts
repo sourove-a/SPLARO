@@ -67,7 +67,7 @@ export class SeoController {
   @Public()
   @Get('schema/organization')
   getOrganizationSchema(@Query('siteUrl') siteUrl?: string) {
-    return this.seoService.generateOrganizationSchema(siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.com.bd')
+    return this.seoService.generateOrganizationSchema(siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co')
   }
 
   /** Product JSON-LD schema */
@@ -83,7 +83,7 @@ export class SeoController {
     })
     if (!product) return { error: 'Product not found' }
 
-    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.com.bd'
+    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
     const variant = product.variants[0]
 
     return this.seoService.generateProductSchema({
@@ -103,7 +103,7 @@ export class SeoController {
   @Public()
   @Get('schema/breadcrumb')
   getBreadcrumbSchema(@Query('siteUrl') siteUrl: string, @Query('path') path: string) {
-    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.com.bd'
+    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
     const parts = path.split('/').filter(Boolean)
     const items = [{ name: 'Home', url: site }]
     let current = site

@@ -59,7 +59,8 @@ if [ "$ON_HOSTINGER" = "1" ]; then
   set -a && [ -f .env ] && source .env && set +a
   if [ -z "${DATABASE_URL:-}" ]; then
     log "Installing PostgreSQL (SPLARO app database)…"
-    bash "$ROOT/infrastructure/hostinger/setup-local-postgres.sh" 2>&1 | tail -15
+    timeout 420 bash "$ROOT/infrastructure/hostinger/setup-local-postgres.sh" 2>&1 | tail -15 \
+      || log "WARN: PostgreSQL setup timed out — set DATABASE_URL in hPanel env and redeploy"
   else
     log "Database migrate + seed…"
     (cd "$ROOT/packages/database" && npx prisma generate 2>&1 | tail -3) || true
@@ -117,6 +118,7 @@ ln -sfn apps/web/.next/standalone/apps/web "$ROOT/dist"
 log "Linked dist → web standalone"
 
 if [ "$ON_HOSTINGER" = "1" ]; then
+  bash "$ROOT/infrastructure/hostinger/install-passenger-main.sh" 2>&1 | tail -5 || log "WARN: main passenger install skipped"
   bash "$ROOT/infrastructure/hostinger/install-passenger-proxies.sh" 2>&1 | tail -5 || true
   if [ -n "${DATABASE_URL:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_ADMIN_USER_ID:-}" ]; then
     TELEGRAM_STORE_SLUG="${TELEGRAM_STORE_SLUG:-splaro}" \

@@ -518,7 +518,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
           <div className="product-form-actions">
             <AdminSwitchRow
               label={form.isPublished ? 'Publish live on storefront' : 'Save as draft'}
-              desc={form.isPublished ? 'Product will be visible on splaro.com.bd after create' : 'Hidden until you publish from edit'}
+              desc={form.isPublished ? 'Product will be visible on splaro.co after create' : 'Hidden until you publish from edit'}
               checked={form.isPublished}
               highlight
               onChange={() => {

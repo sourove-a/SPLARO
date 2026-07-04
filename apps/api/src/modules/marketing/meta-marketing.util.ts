@@ -20,5 +20,5 @@ export function resolveMetaPixelId(settings?: { facebookPixelId?: string | null 
 }
 
 export function resolveMetaWebUrl(): string {
-  return process.env['WEB_URL']?.trim() || process.env['NEXT_PUBLIC_SITE_URL']?.trim() || 'https://splaro.com.bd'
+  return process.env['WEB_URL']?.trim() || process.env['NEXT_PUBLIC_SITE_URL']?.trim() || 'https://splaro.co'
 }

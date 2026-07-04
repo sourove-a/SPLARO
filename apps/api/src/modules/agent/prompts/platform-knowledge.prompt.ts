@@ -6,7 +6,7 @@ export const PLATFORM_KNOWLEDGE_PROMPT = `
 ## SPLARO PLATFORM KNOWLEDGE (always true — use for every answer)
 
 ### What SPLARO is
-- Luxury women's fashion eCommerce for Bangladesh (splaro.com.bd)
+- Luxury women's fashion eCommerce for Bangladesh (splaro.co)
 - Currency: BDT (৳) | Timezone: Asia/Dhaka | Language: admin writes Bangla, Banglish, or English — match their language
 - Monorepo: apps/web (storefront :3000), apps/admin (dashboard :3001), apps/api (NestJS :4000)
 - Always run full stack: \`pnpm dev:stack\` (admin/web alone cannot reach API)

@@ -6,9 +6,9 @@ import type { PartnerTransactionType, FinanceTransactionStatus } from '@prisma/c
 import { Decimal } from '@prisma/client/runtime/library'
 
 const DEFAULT_PARTNERS = [
-  { name: 'SOUROVE', slug: 'sourove', email: 'sourove@splaro.com.bd', sharePercent: 33.33 },
-  { name: 'RAJU', slug: 'raju', email: 'raju@splaro.com.bd', sharePercent: 33.33 },
-  { name: 'HRIDOY', slug: 'hridoy', email: 'hridoy@splaro.com.bd', sharePercent: 33.34 },
+  { name: 'SOUROVE', slug: 'sourove', email: 'sourove@splaro.co', sharePercent: 33.33 },
+  { name: 'RAJU', slug: 'raju', email: 'raju@splaro.co', sharePercent: 33.33 },
+  { name: 'HRIDOY', slug: 'hridoy', email: 'hridoy@splaro.co', sharePercent: 33.34 },
 ] as const
 
 @Injectable()

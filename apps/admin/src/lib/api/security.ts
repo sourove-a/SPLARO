@@ -89,3 +89,43 @@ export function revokeSecuritySession(sessionId: string) {
     method: 'DELETE',
   })
 }
+
+// ─── Database connection (SUPER_ADMIN only) ──────────────────────────────────
+
+export interface DatabaseConnectionInfo {
+  host: string
+  port: string
+  database: string
+  user: string
+  passwordSet: boolean
+  connected: boolean
+  envFile: string | null
+  backupFile: string | null
+}
+
+export interface DatabaseCredentialsInput {
+  url?: string
+  host?: string
+  port?: string
+  database?: string
+  user?: string
+  password?: string
+}
+
+export function fetchDatabaseConnection() {
+  return apiFetch<DatabaseConnectionInfo>('/admin/security/database')
+}
+
+export function testDatabaseConnection(input: DatabaseCredentialsInput) {
+  return apiFetch<{ ok: boolean; message: string }>('/admin/security/database/test', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function saveDatabaseConnection(input: DatabaseCredentialsInput) {
+  return apiFetch<{ ok: boolean; message: string; files: string[] }>('/admin/security/database', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}

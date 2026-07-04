@@ -190,7 +190,7 @@ export class AIProductAgentService {
       .slice(0, 6)
     const sku = `SPL-${skuBase}-${Date.now().toString().slice(-4)}`
     const rmCode = `RM-${skuBase}-${input.color?.slice(0, 3).toUpperCase() ?? 'STD'}`
-    const siteUrl = this.config.get('WEB_URL') ?? 'https://splaro.com.bd'
+    const siteUrl = this.config.get('WEB_URL') ?? 'https://splaro.co'
     const slug = input.productName.toLowerCase().replace(/\s+/g, '-').slice(0, 60)
 
     const base = {

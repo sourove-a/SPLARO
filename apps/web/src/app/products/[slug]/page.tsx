@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   }
 
   const { product } = result
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.com.bd'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 
   return {
     title: product.metaTitle ?? product.name,
@@ -45,7 +45,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const { product, reviews } = result
   const related = await getRelatedProducts(product)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.com.bd'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 
   const jsonLd = {
     '@context': 'https://schema.org',

@@ -4,7 +4,7 @@
 
 - Hostinger KVM VPS (minimum: 4 vCPU, 8GB RAM, 100GB NVMe)
 - Ubuntu 22.04 LTS
-- Domain: splaro.com.bd (DNS pointed to VPS IP)
+- Domain: splaro.co (DNS pointed to VPS IP)
 - GitHub repository with SPLARO codebase
 
 ---
@@ -41,7 +41,7 @@ nano .env.local  # Fill in all values
 - `DATABASE_URL` — point to your local PostgreSQL
 - `REDIS_URL` — local Redis
 - `JWT_SECRET` — generate: `openssl rand -base64 64`
-- `NEXT_PUBLIC_SITE_URL` — `https://splaro.com.bd`
+- `NEXT_PUBLIC_SITE_URL` — `https://splaro.co`
 
 ---
 
@@ -60,11 +60,11 @@ nginx -t && systemctl reload nginx
 
 ```bash
 certbot --nginx \
-  -d splaro.com.bd \
-  -d www.splaro.com.bd \
-  -d api.splaro.com.bd \
-  -d admin.splaro.com.bd \
-  --email info@splaro.com.bd \
+  -d splaro.co \
+  -d www.splaro.co \
+  -d api.splaro.co \
+  -d admin.splaro.co \
+  --email info@splaro.co \
   --agree-tos \
   --non-interactive
 ```
@@ -101,9 +101,9 @@ pm2 logs splaro-web
 pm2 logs splaro-api
 
 # Test URLs
-curl -I https://splaro.com.bd
-curl -I https://api.splaro.com.bd/api/v1/health
-curl -I https://admin.splaro.com.bd
+curl -I https://splaro.co
+curl -I https://api.splaro.co/api/v1/health
+curl -I https://admin.splaro.co
 ```
 
 ---

@@ -24,7 +24,7 @@ Admin panel login PostgreSQL theke ashe, MySQL theke na.
 | Node.js | 20 |
 | Build | `npm run build` |
 | Start | `npm start` |
-| Output | `dist` |
+| Output | `dist` (symlink — Passenger uses `domains/splaro.co/nodejs/app.cjs`) |
 
 ## 2. hPanel → Environment variables (copy-paste)
 

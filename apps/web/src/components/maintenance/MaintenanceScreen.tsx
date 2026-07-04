@@ -39,8 +39,8 @@ export function MaintenanceScreen({
 
         <p className="maint-footer">
           Need help?{' '}
-          <a href="mailto:info@splaro.com.bd" className="maint-footer__link">
-            info@splaro.com.bd
+          <a href="mailto:info@splaro.co" className="maint-footer__link">
+            info@splaro.co
           </a>
         </p>
       </div>

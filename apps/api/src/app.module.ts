@@ -116,7 +116,7 @@ import { InvoiceController } from './modules/invoices/invoice.controller'
 import { PosController } from './modules/pos/pos.controller'
 import { PosService } from './modules/pos/pos.service'
 import { SaasController, SaasService } from './modules/saas'
-import { SecurityController, SecurityService } from './modules/security'
+import { DatabaseConnectionService, SecurityController, SecurityService } from './modules/security'
 import { WebhooksController, WebhooksService } from './modules/webhooks'
 import { PrintController, PrintService } from './modules/print'
 import {
@@ -308,6 +308,7 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     RmaService,
     SaasService,
     SecurityService,
+    DatabaseConnectionService,
     WebhooksService,
     PrintService,
     CommerceOsService,

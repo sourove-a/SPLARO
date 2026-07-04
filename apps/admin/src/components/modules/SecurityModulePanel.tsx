@@ -17,6 +17,12 @@ import {
   useUpdateStaffRole,
 } from '@/lib/api/hooks'
 import type { PermissionRow } from '@/lib/api/security'
+import {
+  fetchDatabaseConnection,
+  saveDatabaseConnection,
+  testDatabaseConnection,
+  type DatabaseConnectionInfo,
+} from '@/lib/api/security'
 import { ASSIGNABLE_STAFF_ROLES, CEO_EMAIL } from '@/lib/auth/role-label'
 import { SecuritySubNav } from '@/components/security/SecuritySubNav'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
@@ -191,7 +197,7 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
           </label>
           <label className="block space-y-1.5">
             <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Email</span>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="admin-input w-full" placeholder="admin@splaro.com.bd" />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="admin-input w-full" placeholder="admin@splaro.co" />
           </label>
           <label className="block space-y-1.5">
             <span className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--admin-text-muted)]">Role</span>
@@ -569,6 +575,130 @@ function AuditLogsView({ data, isLoading, refetch }: { data: ReturnType<typeof u
   )
 }
 
+function DatabaseConnectionCard() {
+  const [info, setInfo] = useState<DatabaseConnectionInfo | null>(null)
+  const [loadError, setLoadError] = useState('')
+  const [form, setForm] = useState({ host: '', port: '', database: '', user: '', password: '' })
+  const [busy, setBusy] = useState<'test' | 'save' | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  useEffect(() => {
+    fetchDatabaseConnection()
+      .then((data) => {
+        setInfo(data)
+        setForm((p) => ({ ...p, host: data.host, port: data.port, database: data.database, user: data.user }))
+      })
+      .catch((e: Error) => setLoadError(e.message))
+  }, [])
+
+  const payload = () => ({
+    host: form.host.trim(),
+    port: form.port.trim(),
+    database: form.database.trim(),
+    user: form.user.trim(),
+    password: form.password,
+  })
+
+  const runTest = async () => {
+    setBusy('test')
+    setResult(null)
+    try {
+      setResult(await testDatabaseConnection(payload()))
+    } catch (e) {
+      setResult({ ok: false, message: e instanceof Error ? e.message : 'Test failed' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const runSave = async () => {
+    setBusy('save')
+    setResult(null)
+    try {
+      const res = await saveDatabaseConnection(payload())
+      setResult(res)
+      toastApiSaved('Database credentials saved')
+      setForm((p) => ({ ...p, password: '' }))
+      setInfo(await fetchDatabaseConnection())
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Save failed'
+      setResult({ ok: false, message })
+      toastFail(message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const fieldStyle = { display: 'flex', flexDirection: 'column' as const, gap: 4 }
+  const labelStyle = { fontSize: 11, fontWeight: 700, color: 'var(--admin-text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }
+
+  return (
+    <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="admin-module-icon-ring" style={{ width: 36, height: 36 }}>
+            <KeyRound style={{ width: 16, height: 16 }} />
+          </div>
+          <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Database connection</p>
+        </div>
+        {info && (
+          <span style={{ fontSize: 12, fontWeight: 900, color: info.connected ? '#15803D' : '#B91C1C' }}>
+            {info.connected ? '● Connected' : '● Disconnected'}
+          </span>
+        )}
+      </div>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: '0 0 16px' }}>
+        Changed the PostgreSQL password in hPanel? Enter it here — Test verifies the connection, Save writes it to the
+        server .env and the watchdog backup so restarts and redeploys keep working.
+      </p>
+
+      {loadError ? (
+        <p style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C', margin: 0 }}>{loadError}</p>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 12 }}>
+            <div style={fieldStyle}>
+              <span style={labelStyle}>Host</span>
+              <input className="admin-input" value={form.host} onChange={(e) => setForm((p) => ({ ...p, host: e.target.value }))} placeholder="localhost" />
+            </div>
+            <div style={fieldStyle}>
+              <span style={labelStyle}>Port</span>
+              <input className="admin-input" value={form.port} onChange={(e) => setForm((p) => ({ ...p, port: e.target.value }))} placeholder="5432" />
+            </div>
+            <div style={fieldStyle}>
+              <span style={labelStyle}>Database</span>
+              <input className="admin-input" value={form.database} onChange={(e) => setForm((p) => ({ ...p, database: e.target.value }))} placeholder="splaro_db" />
+            </div>
+            <div style={fieldStyle}>
+              <span style={labelStyle}>User</span>
+              <input className="admin-input" value={form.user} onChange={(e) => setForm((p) => ({ ...p, user: e.target.value }))} placeholder="postgres" />
+            </div>
+          </div>
+          <div style={{ ...fieldStyle, marginBottom: 16 }}>
+            <span style={labelStyle}>New password {info?.passwordSet ? '(leave blank to keep current)' : ''}</span>
+            <input className="admin-input" type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="••••••••" autoComplete="new-password" />
+          </div>
+
+          {result && (
+            <div className="settings-card admin-panel-glass-subtle" style={{ padding: '10px 14px', marginBottom: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: result.ok ? '#15803D' : '#B91C1C', margin: 0 }}>{result.message}</p>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <GoldBtn disabled={busy !== null} onClick={() => void runTest()}>
+              {busy === 'test' ? 'Testing…' : 'Test connection'}
+            </GoldBtn>
+            <GoldBtn disabled={busy !== null} onClick={() => void runSave()}>
+              {busy === 'save' ? 'Saving…' : 'Test & save'}
+            </GoldBtn>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function SecurityCenterView({
   data,
   isLoading,
@@ -683,6 +813,8 @@ function SecurityCenterView({
           )}
         </div>
       )}
+
+      {isSuperAdmin(actorRole) && <DatabaseConnectionCard />}
     </div>
   )
 }

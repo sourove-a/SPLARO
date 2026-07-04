@@ -116,7 +116,7 @@ export function Footer() {
   const [openSection, setOpenSection] = useState<string>('')
 
   const phone = settings.store.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || ''
-  const email = settings.store.email || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@splaro.com.bd'
+  const email = settings.store.email || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@splaro.co'
   // 1:1 with admin Contact & Social → WhatsApp; falls back to store phone when empty.
   const whatsapp = settings.social.whatsapp || settings.store.phone || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
   const tagline = settings.config.footerTagline?.trim() ?? ''

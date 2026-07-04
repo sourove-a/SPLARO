@@ -412,7 +412,7 @@ export function CmsPanelLive() {
                 <tr className="bg-[var(--admin-surface-hover)]">
                   <td colSpan={6} className="!py-3">
                     <div className="flex flex-wrap gap-2">
-                      <AdminNavLink href={`https://splaro.com.bd${p.slug}`} className="admin-btn !text-xs">
+                      <AdminNavLink href={`https://splaro.co${p.slug}`} className="admin-btn !text-xs">
                         <Eye className="h-3.5 w-3.5" /> View live
                       </AdminNavLink>
                       {p.id.startsWith('static-') ? (
@@ -679,7 +679,7 @@ export function HomePagePanelLive() {
       tableTitle={`Homepage sections · ${filtered.length}`}
       footer="Derived from live banners, collections, and storefront settings"
       extraFilters={
-        <AdminNavLink href="https://splaro.com.bd" className="admin-btn !text-xs">
+        <AdminNavLink href="https://splaro.co" className="admin-btn !text-xs">
           <ExternalLink className="h-3.5 w-3.5" /> Preview storefront
         </AdminNavLink>
       }

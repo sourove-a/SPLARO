@@ -329,7 +329,7 @@ export function GoogleMerchantPanel() {
   return (
     <div className="admin-module-card">
       <p className="admin-module-card__title">Google Merchant feed</p>
-      <AdminButton variant="gold" className="mt-3" onClick={() => window.open('https://splaro.com.bd/feeds/google-merchant.xml', '_blank')}>
+      <AdminButton variant="gold" className="mt-3" onClick={() => window.open('https://splaro.co/feeds/google-merchant.xml', '_blank')}>
         View feed
       </AdminButton>
     </div>

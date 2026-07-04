@@ -108,7 +108,7 @@ export async function printThermalReceipt(
   printer.drawLine()
   printer.alignCenter()
   printer.println('Thank you for choosing SPLARO')
-  printer.println('splaro.com.bd')
+  printer.println('splaro.co')
   printer.newLine()
 
   printer.cut()

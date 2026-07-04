@@ -10,7 +10,7 @@ import { resolveWhatsAppNumber, resolveSupportPhone, whatsAppHref } from '@/lib/
 export function ContactExtras() {
   const settings = useStorefrontSettings()
   const phone = resolveSupportPhone(settings)
-  const email = settings.store.email?.trim() || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@splaro.com.bd'
+  const email = settings.store.email?.trim() || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@splaro.co'
   const whatsappHref = whatsAppHref(resolveWhatsAppNumber(settings))
   const [submitted, setSubmitted] = useState(false)
 

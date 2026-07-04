@@ -15,9 +15,9 @@ fi
 upsert() { k="${1%%=*}"; grep -q "^${k}=" .env 2>/dev/null && sed -i "s|^${k}=.*|${1}|" .env || echo "$1" >> .env; }
 upsert "NODE_ENV=production"
 upsert "NEXT_PUBLIC_SITE_URL=https://splaro.co"
-upsert "NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1"
+upsert "NEXT_PUBLIC_API_URL=https://splaro.co/api/v1"
 upsert "NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co"
-upsert "API_URL=https://api.splaro.co"
+upsert "API_URL=https://splaro.co"
 upsert "WEB_URL=https://splaro.co"
 upsert "ADMIN_URL=https://admin.splaro.co"
 upsert "CORS_ORIGINS=https://splaro.co,https://admin.splaro.co"

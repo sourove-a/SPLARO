@@ -63,7 +63,7 @@ export class PlatformService {
         id: store.id,
         name: store.name,
         slug: store.slug,
-        domain: store.domain ?? `${store.slug}.splaro.com.bd`,
+        domain: store.domain ?? `${store.slug}.splaro.co`,
         email: store.email,
         isActive: store.isActive,
         currency: store.currency,

@@ -73,7 +73,7 @@ export async function startSslCommerzCheckout(input: {
       invoiceNumber: input.invoiceNumber,
       amount: input.amount,
       customerName: input.customer.name,
-      customerEmail: input.customer.email || 'hello@splaro.com.bd',
+      customerEmail: input.customer.email || 'hello@splaro.co',
       customerPhone: input.customer.phone,
       customerAddress: input.customer.address,
       customerCity: input.customer.city,

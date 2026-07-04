@@ -513,7 +513,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
           </label>
           {(form.metaTitle || form.metaDescription) ? (
             <div className="product-seo-preview">
-              <p className="product-seo-preview__url">splaro.com.bd › products</p>
+              <p className="product-seo-preview__url">splaro.co › products</p>
               <p className="product-seo-preview__title">{form.metaTitle || form.name}</p>
               <p className="product-seo-preview__desc">{form.metaDescription}</p>
             </div>
