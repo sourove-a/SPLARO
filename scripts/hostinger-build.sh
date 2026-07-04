@@ -124,7 +124,8 @@ if [ "${SPLARO_BUILD_API:-0}" = "1" ]; then
   log "Building API…"
   pnpm --filter @splaro/config run build 2>/dev/null || true
   pnpm --filter @splaro/types run build 2>/dev/null || true
-  $LEAN pnpm --filter @splaro/api run build || { log "ERROR: API build failed"; exit 1; }
+  NODE_OPTIONS="--v8-pool-size=1 --max-old-space-size=2560" \
+    $LEAN pnpm --filter @splaro/api run build || { log "ERROR: API build failed"; exit 1; }
   [ -f "$ROOT/apps/api/dist/main.js" ] || { log "ERROR: missing apps/api/dist/main.js"; exit 1; }
   log "API build OK"
 fi
