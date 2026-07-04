@@ -70,7 +70,8 @@ set -a && source .env && set +a
 # ── Build API if missing ──
 if [ ! -f "$REPO/apps/api/dist/main.js" ]; then
   log "Building API..."
-  pnpm install --filter @splaro/api... --filter @splaro/database... --no-frozen-lockfile 2>&1 | tail -6
+  pnpm install --filter @splaro/api... --filter @splaro/database... --no-frozen-lockfile --ignore-scripts 2>&1 | tail -6
+  export PATH="$REPO/node_modules/.bin:$PATH"
   pnpm --filter @splaro/api run build 2>&1 | tail -5
 fi
 

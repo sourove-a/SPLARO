@@ -71,8 +71,9 @@ if [ -f "$SCHEMA" ] && ! grep -q 'debian-openssl-3.0.x' "$SCHEMA"; then
 fi
 
 # ── 3. Dependencies (API + database only) ──
-log "Installing API dependencies (filtered)..."
-pnpm install --filter @splaro/api... --filter @splaro/database... --no-frozen-lockfile 2>&1 | tail -8
+log "Installing API dependencies (filtered, no postinstall)..."
+pnpm install --filter @splaro/api... --filter @splaro/database... --no-frozen-lockfile --ignore-scripts 2>&1 | tail -8
+export PATH="$REPO/node_modules/.bin:$PATH"
 
 PRISMA="$REPO/node_modules/.pnpm/prisma@5.22.0/node_modules/prisma/build/index.js"
 [ -f "$PRISMA" ] || PRISMA=$(find "$REPO/node_modules" -path '*/prisma/build/index.js' 2>/dev/null | head -1)

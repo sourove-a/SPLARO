@@ -19,6 +19,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate Hostinger secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.HOSTINGER_HOST }}" ] && missing="$missing HOSTINGER_HOST"
+          [ -z "${{ secrets.HOSTINGER_USER }}" ] && missing="$missing HOSTINGER_USER"
+          [ -z "${{ secrets.HOSTINGER_PASSWORD }}" ] && missing="$missing HOSTINGER_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing GitHub secrets:$missing"
+            echo "Add at: Settings → Secrets and variables → Actions"
+            echo "  HOSTINGER_HOST=145.79.25.203"
+            echo "  HOSTINGER_USER=u134578371"
+            echo "  HOSTINGER_PASSWORD=(SSH password from hPanel)"
+            echo "  HOSTINGER_PORT=65002 (optional)"
+            exit 1
+          fi
+
       - name: Full live recovery on Hostinger
         uses: appleboy/ssh-action@v1.2.0
         with:
