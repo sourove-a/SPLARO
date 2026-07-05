@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import {
   DEFAULT_CATALOG_CHANNELS,
@@ -427,7 +427,7 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
     return FALLBACK_SETTINGS
   }
 
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const res = await fetchWithTimeout(
     `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
     { cache: 'no-store' },

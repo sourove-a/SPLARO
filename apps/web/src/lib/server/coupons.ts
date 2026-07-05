@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -19,7 +19,7 @@ export interface CouponResult {
  */
 export async function validateCoupon(code: string, subtotal: number): Promise<CouponResult> {
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const res = await fetch(
       `${base}/storefront/coupons/validate?storeId=${encodeURIComponent(STORE_ID)}`,
       {

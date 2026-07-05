@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { apiAuthMe, getSessionToken, sessionHeaders } from '@/lib/server/api-auth'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 function apiUrl(path: string): string {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 

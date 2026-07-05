@@ -15,18 +15,44 @@ const devSite = 'http://localhost:3000'
 const devAdmin = 'http://localhost:3001'
 const devApi = 'http://localhost:4000'
 
+/** Normalize any API origin to …/api/v1 */
+function normalizeApiBase(base: string): string {
+  const trimmed = base.replace(/\/+$/, '')
+  if (trimmed.endsWith('/api/v1')) return trimmed
+  if (trimmed.endsWith('/api')) return `${trimmed}/v1`
+  return `${trimmed}/api/v1`
+}
+
 export const SPLARO_DOMAINS = {
   site: env('NEXT_PUBLIC_SITE_URL', env('WEB_URL', isProd ? 'https://splaro.co' : devSite)),
   admin: env('NEXT_PUBLIC_ADMIN_URL', env('ADMIN_URL', isProd ? 'https://admin.splaro.co' : devAdmin)),
-  api: env('NEXT_PUBLIC_API_URL', env('API_URL', isProd ? 'https://api.splaro.co' : devApi)),
+  // Hostinger: same-origin proxy at splaro.co/api/v1 (api.splaro.co optional)
+  api: env('NEXT_PUBLIC_API_URL', env('API_URL', isProd ? 'https://splaro.co/api/v1' : devApi)),
 } as const
 
-/** API base including version prefix — e.g. https://api.splaro.co/api/v1 */
+/** Public API base — browser + SSR HTML. e.g. https://splaro.co/api/v1 */
 export function getApiBaseUrl(): string {
-  const base = SPLARO_DOMAINS.api.replace(/\/+$/, '')
-  if (base.endsWith('/api/v1')) return base
-  if (base.endsWith('/api')) return `${base}/v1`
-  return `${base}/api/v1`
+  return normalizeApiBase(SPLARO_DOMAINS.api)
+}
+
+/**
+ * Server-only API base — prefers loopback on Hostinger so SSR/sitemap never
+ * round-trips through external TLS/proxy (fixes timeout + connection flakes).
+ */
+export function getServerApiBaseUrl(): string {
+  const internal = process.env.INTERNAL_API_URL?.trim()
+  if (internal) return normalizeApiBase(internal)
+
+  const onHostinger =
+    process.env.SPLARO_HOSTINGER === '1' ||
+    (typeof process.env.HOME === 'string' && process.env.HOME.includes('domains/splaro.co'))
+
+  if (onHostinger) {
+    const port = process.env.API_PORT ?? process.env.PORT_API ?? '4000'
+    return normalizeApiBase(`http://127.0.0.1:${port}`)
+  }
+
+  return getApiBaseUrl()
 }
 
 /** Parse CORS origins from env (supports CORS_ORIGIN and CORS_ORIGINS) */

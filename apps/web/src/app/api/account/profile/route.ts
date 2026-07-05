@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { apiAuthMe, getSessionToken, sessionHeaders } from '@/lib/server/api-auth'
 import { fetchCustomerProfile } from '@/lib/catalog/live'
 
 function apiUrl(path: string): string {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 

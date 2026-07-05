@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl, verifyInvoiceAccessToken } from '@splaro/config'
+import { getServerApiBaseUrl, verifyInvoiceAccessToken } from '@splaro/config'
 import { getSessionUser } from '@/lib/server/auth'
 import { renderInvoiceHtml, resolveOrderById } from '@/lib/server/orders'
 
@@ -14,7 +14,7 @@ async function fetchApiInvoiceHtml(
   opts: { key?: string | null; phone?: string | null },
 ): Promise<string | null> {
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const params = new URLSearchParams({ storeId: STORE_ID })
     if (opts.key) params.set('key', opts.key)
     if (opts.phone) params.set('phone', opts.phone)

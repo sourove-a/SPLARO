@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
+import { getServerApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(healthCache.payload)
   }
 
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const sid = encodeURIComponent(STORE_ID)
   const routeProbeHeaders = probeAuthHeaders(authHeader)
 

@@ -1,9 +1,9 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 function apiUrl(path: string): string {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   return `${base}${path.startsWith('/') ? path : `/${path}`}`
 }
 

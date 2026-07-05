@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import {
   DEFAULT_LEGAL_PAGES,
   type LegalPageContent,
@@ -16,7 +16,7 @@ export async function getLegalPage(slug: LegalPageSlug): Promise<LegalPageConten
   }
 
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const res = await fetchWithTimeout(
       `${base}/storefront/legal-pages/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 120 } },

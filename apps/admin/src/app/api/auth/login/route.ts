@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { ADMIN_SESSION_COOKIE, createAdminSessionToken, sessionCookieOptions } from '@/lib/auth/session'
 
 export async function POST(request: Request) {
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   }
 
   const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
 
   try {
     const res = await fetch(`${base}/admin/auth/login`, {

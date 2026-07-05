@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { getAdminSessionToken } from '@/lib/auth/server-session'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -20,7 +20,7 @@ export async function proxyAdminInvoiceRequest(
     )
   }
 
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const url = `${base}/admin/orders/${encodeURIComponent(orderId)}/invoice${suffix}?storeId=${encodeURIComponent(STORE_ID)}`
 
   const upstream = await fetch(url, {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { ADMIN_SESSION_COOKIE } from '@/lib/auth/session'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +21,7 @@ async function proxyToApi(request: NextRequest, context: RouteContext): Promise<
     return NextResponse.json({ message: 'Invalid API path' }, { status: 400 })
   }
 
-  const base = getApiBaseUrl().replace(/\/+$/, '')
+  const base = getServerApiBaseUrl().replace(/\/+$/, '')
   const upstreamUrl = `${base}/${path.join('/')}${request.nextUrl.search}`
 
   const cookieStore = await cookies()

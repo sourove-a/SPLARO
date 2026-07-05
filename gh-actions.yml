@@ -1,0 +1,901 @@
+- generic [ref=f111e2]:
+  - generic [ref=f111e3]:
+    - link "Skip to content" [ref=f111e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=f111e6]:
+      - heading "Navigation Menu" [level=2] [ref=f111e7]
+      - generic [ref=f111e8]:
+        - link "Homepage" [ref=f111e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=f111e11]
+        - generic [ref=f111e13]:
+          - navigation "Global" [ref=f111e16]:
+            - list [ref=f111e17]:
+              - listitem [ref=f111e18]:
+                - button "Platform" [ref=f111e20] [cursor=pointer]:
+                  - text: Platform
+                  - img [ref=f111e21]
+              - listitem [ref=f111e23]:
+                - button "Solutions" [ref=f111e25] [cursor=pointer]:
+                  - text: Solutions
+                  - img [ref=f111e26]
+              - listitem [ref=f111e28]:
+                - button "Resources" [ref=f111e30] [cursor=pointer]:
+                  - text: Resources
+                  - img [ref=f111e31]
+              - listitem [ref=f111e33]:
+                - button "Open Source" [ref=f111e35] [cursor=pointer]:
+                  - text: Open Source
+                  - img [ref=f111e36]
+              - listitem [ref=f111e38]:
+                - button "Enterprise" [ref=f111e40] [cursor=pointer]:
+                  - text: Enterprise
+                  - img [ref=f111e41]
+              - listitem [ref=f111e43]:
+                - link "Pricing" [ref=f111e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+                  - generic [ref=f111e45]: Pricing
+          - generic [ref=f111e46]:
+            - button "Search or jump to…" [ref=f111e49] [cursor=pointer]:
+              - img [ref=f111e51]
+            - link "Sign in" [ref=f111e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fsourove-a%2FSPLARO%2Factions
+            - link "Sign up" [ref=f111e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E%2Factions%2Findex&source=header-repo&source_repo=sourove-a%2FSPLARO
+            - button "Appearance settings" [ref=f111e58] [cursor=pointer]:
+              - img
+  - main [ref=f111e62]:
+    - generic [ref=f111e63]:
+      - generic [ref=f111e64]:
+        - generic [ref=f111e66]:
+          - img [ref=f111e67]
+          - link "sourove-a" [ref=f111e70] [cursor=pointer]:
+            - /url: /sourove-a
+          - generic [ref=f111e71]: /
+          - strong [ref=f111e72]:
+            - link "SPLARO" [ref=f111e73] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO
+          - generic [ref=f111e74]: Public
+        - generic [ref=f111e75]:
+          - list:
+            - listitem [ref=f111e76]:
+              - link "You must be signed in to change notification settings" [ref=f111e77] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f111e78]
+                - text: Notifications
+            - listitem [ref=f111e80]:
+              - link "Fork 0" [ref=f111e81] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f111e82]
+                - text: Fork
+                - generic "0" [ref=f111e84]
+            - listitem [ref=f111e85]:
+              - link "You must be signed in to star a repository" [ref=f111e87] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f111e88]
+                - text: Star
+                - generic "0 users starred this repository" [ref=f111e90]: "0"
+      - navigation "Repository" [ref=f111e91]:
+        - list [ref=f111e92]:
+          - listitem [ref=f111e93]:
+            - link "Code" [ref=f111e94] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO
+              - img [ref=f111e95]
+              - generic [ref=f111e97]: Code
+          - listitem [ref=f111e98]:
+            - link "Issues" [ref=f111e99] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/issues
+              - img [ref=f111e100]
+              - generic [ref=f111e103]: Issues
+          - listitem [ref=f111e104]:
+            - link "Pull requests" [ref=f111e105] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/pulls
+              - img [ref=f111e106]
+              - generic [ref=f111e108]: Pull requests
+          - listitem [ref=f111e109]:
+            - link "Actions" [ref=f111e110] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions
+              - img [ref=f111e111]
+              - generic [ref=f111e113]: Actions
+          - listitem [ref=f111e114]:
+            - link "Projects" [ref=f111e115] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/projects
+              - img [ref=f111e116]
+              - generic [ref=f111e118]: Projects
+          - listitem [ref=f111e119]:
+            - link "Security and quality" [ref=f111e120] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/security
+              - img [ref=f111e121]
+              - generic [ref=f111e123]: Security and quality
+          - listitem [ref=f111e124]:
+            - link "Insights" [ref=f111e125] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/pulse
+              - img [ref=f111e126]
+              - generic [ref=f111e128]: Insights
+    - generic [ref=f111e130]:
+      - 'heading "Actions: sourove-a/SPLARO" [level=1] [ref=f111e131]'
+      - generic [ref=f111e134]:
+        - generic [ref=f111e135]:
+          - heading "Actions" [level=2] [ref=f111e137]
+          - navigation "Actions Workflows" [ref=f111e141]:
+            - list [ref=f111e143]:
+              - listitem [ref=f111e144]:
+                - link "All workflows" [ref=f111e145] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/actions
+                  - generic [ref=f111e146]: All workflows
+              - listitem [ref=f111e147]
+              - listitem [ref=f111e148]:
+                - list "Workflows" [ref=f111e152]:
+                  - listitem [ref=f111e153]:
+                    - link "CI" [ref=f111e154] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/ci.yml
+                      - generic [ref=f111e155]: CI
+                  - listitem [ref=f111e156]:
+                    - link "Copilot code review" [ref=f111e157] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/copilot-pull-request-reviewer/copilot-pull-request-reviewer
+                      - generic [ref=f111e158]: Copilot code review
+                  - listitem [ref=f111e159]:
+                    - link "Copilot coding agent" [ref=f111e160] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/copilot-swe-agent/copilot
+                      - generic [ref=f111e161]: Copilot coding agent
+                  - listitem [ref=f111e162]:
+                    - link "Deploy Hostinger" [ref=f111e163] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/deploy-hostinger.yml
+                      - generic [ref=f111e164]: Deploy Hostinger
+              - listitem [ref=f111e165]
+              - listitem [ref=f111e166]:
+                - generic [ref=f111e169]:
+                  - heading "Management" [level=3] [ref=f111e171]
+                  - list "Management" [ref=f111e172]:
+                    - listitem [ref=f111e173]:
+                      - link "Caches" [ref=f111e174] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/actions/caches
+                        - generic:
+                          - img
+                        - generic [ref=f111e175]: Caches
+        - generic [ref=f111e178]:
+          - generic [ref=f111e179]:
+            - generic [ref=f111e180]:
+              - heading "All workflows" [level=2] [ref=f111e182]:
+                - generic [ref=f111e184]: All workflows
+              - search [ref=f111e188]:
+                - combobox "Filter workflow runs" [ref=f111e189]
+                - img
+            - generic [ref=f111e190]: Showing runs from all workflows
+          - generic [ref=f111e191]:
+            - generic [ref=f111e192]:
+              - strong [ref=f111e195]: 95 workflow runs
+              - generic [ref=f111e196]:
+                - button "Workflow" [ref=f111e200] [cursor=pointer]:
+                  - generic [ref=f111e202]: Workflow
+                  - generic:
+                    - img
+                - button "Event" [ref=f111e206] [cursor=pointer]:
+                  - generic [ref=f111e208]: Event
+                  - generic:
+                    - img
+                - button "Status" [ref=f111e212] [cursor=pointer]:
+                  - generic [ref=f111e214]: Status
+                  - generic:
+                    - img
+                - button "Branch" [ref=f111e218] [cursor=pointer]:
+                  - generic [ref=f111e220]: Branch
+                  - generic:
+                    - img
+                - button "Actor" [ref=f111e224] [cursor=pointer]:
+                  - generic [ref=f111e226]: Actor
+                  - generic:
+                    - img
+            - generic [ref=f111e227]:
+              - generic [ref=f111e229]:
+                - generic [ref=f111e230]:
+                  - 'link "currently running: Run 92 of CI. ci(deploy): auto-run Hostinger deploy on infrastructure push" [ref=f111e231] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654223
+                    - img "currently running:" [ref=f111e234]
+                    - generic [ref=f111e238]: "ci(deploy): auto-run Hostinger deploy on infrastructure push"
+                  - generic [ref=f111e239]:
+                    - text: "CI #92:"
+                    - generic [ref=f111e240]:
+                      - text: Commit
+                      - link "e92dc5b" [ref=f111e241] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/e92dc5bb34a8d0d471f59f3b9a56f3b0cb6af72d
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e242] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e244] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e246]:
+                  - generic [ref=f111e247]:
+                    - generic [ref=f111e248]:
+                      - img [ref=f111e250]
+                      - generic "Jul 4, 2026, 6:05 PM GMT+6" [ref=f111e252]: now
+                    - generic [ref=f111e253]:
+                      - img [ref=f111e254]
+                      - text: In progress
+                  - group [ref=f111e257]:
+                    - generic "Show options" [ref=f111e258] [cursor=pointer]:
+                      - img "Show options" [ref=f111e259]
+              - generic [ref=f111e262]:
+                - generic [ref=f111e263]:
+                  - 'link "failed: Run 1 of Deploy Hostinger. ci(deploy): auto-run Hostinger deploy on infrastructure push" [ref=f111e264] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654176
+                    - img "failed:" [ref=f111e266]
+                    - generic [ref=f111e268]: "ci(deploy): auto-run Hostinger deploy on infrastructure push"
+                  - generic [ref=f111e269]:
+                    - text: "Deploy Hostinger #1:"
+                    - generic [ref=f111e270]:
+                      - text: Commit
+                      - link "e92dc5b" [ref=f111e271] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/e92dc5bb34a8d0d471f59f3b9a56f3b0cb6af72d
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e272] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e274] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e276]:
+                  - generic [ref=f111e277]:
+                    - generic [ref=f111e278]:
+                      - img [ref=f111e280]
+                      - generic "Jul 4, 2026, 6:05 PM GMT+6" [ref=f111e282]: now
+                    - generic [ref=f111e283]:
+                      - img "Run duration" [ref=f111e284]
+                      - text: 12s
+                  - group [ref=f111e287]:
+                    - generic "Show options" [ref=f111e288] [cursor=pointer]:
+                      - img "Show options" [ref=f111e289]
+              - generic [ref=f111e292]:
+                - generic [ref=f111e293]:
+                  - 'link "currently running: Run 91 of CI. fix(deploy): micromamba Postgres first, DB before API start" [ref=f111e294] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28705639098
+                    - img "currently running:" [ref=f111e297]
+                    - generic [ref=f111e301]: "fix(deploy): micromamba Postgres first, DB before API start"
+                  - generic [ref=f111e302]:
+                    - text: "CI #91:"
+                    - generic [ref=f111e303]:
+                      - text: Commit
+                      - link "7cf1113" [ref=f111e304] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/7cf1113e11b7b8b14ce802e7231c73b70611eff8
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e305] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e307] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e309]:
+                  - generic [ref=f111e310]:
+                    - generic [ref=f111e311]:
+                      - img [ref=f111e313]
+                      - generic "Jul 4, 2026, 6:04 PM GMT+6" [ref=f111e315]: 1 minute ago
+                    - generic [ref=f111e316]:
+                      - img [ref=f111e317]
+                      - text: In progress
+                  - group [ref=f111e320]:
+                    - generic "Show options" [ref=f111e321] [cursor=pointer]:
+                      - img "Show options" [ref=f111e322]
+              - generic [ref=f111e325]:
+                - generic [ref=f111e326]:
+                  - 'link "currently running: Run 90 of CI. feat(deploy): fix-all-live script + GitHub Actions Hostinger recovery" [ref=f111e327] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28705587080
+                    - img "currently running:" [ref=f111e330]
+                    - generic [ref=f111e334]: "feat(deploy): fix-all-live script + GitHub Actions Hostinger recovery"
+                  - generic [ref=f111e335]:
+                    - text: "CI #90:"
+                    - generic [ref=f111e336]:
+                      - text: Commit
+                      - link "593f8d9" [ref=f111e337] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/593f8d900530d3a6d38d23ae243bd5541095cece
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e338] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e340] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e342]:
+                  - generic [ref=f111e343]:
+                    - generic [ref=f111e344]:
+                      - img [ref=f111e346]
+                      - generic "Jul 4, 2026, 6:02 PM GMT+6" [ref=f111e348]: 3 minutes ago
+                    - generic [ref=f111e349]:
+                      - img [ref=f111e350]
+                      - text: In progress
+                  - group [ref=f111e353]:
+                    - generic "Show options" [ref=f111e354] [cursor=pointer]:
+                      - img "Show options" [ref=f111e355]
+              - generic [ref=f111e358]:
+                - generic [ref=f111e359]:
+                  - 'link "completed successfully: Run 89 of CI. feat(deploy): add fix-api-only script for Hostinger recovery" [ref=f111e360] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28705390589
+                    - img "completed successfully:" [ref=f111e362]
+                    - generic [ref=f111e364]: "feat(deploy): add fix-api-only script for Hostinger recovery"
+                  - generic [ref=f111e365]:
+                    - text: "CI #89:"
+                    - generic [ref=f111e366]:
+                      - text: Commit
+                      - link "49ebadb" [ref=f111e367] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/49ebadb5efe2c009605efa7b49765a81a957a6be
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e368] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e370] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e372]:
+                  - generic [ref=f111e373]:
+                    - generic [ref=f111e374]:
+                      - img [ref=f111e376]
+                      - generic "Jul 4, 2026, 5:54 PM GMT+6" [ref=f111e378]: 11 minutes ago
+                    - generic [ref=f111e379]:
+                      - img "Run duration" [ref=f111e380]
+                      - text: 3m 32s
+                  - group [ref=f111e383]:
+                    - generic "Show options" [ref=f111e384] [cursor=pointer]:
+                      - img "Show options" [ref=f111e385]
+              - generic [ref=f111e388]:
+                - generic [ref=f111e389]:
+                  - 'link "completed successfully: Run 88 of CI. feat(deploy): Hostinger MySQL env + go-live script for splaro.co" [ref=f111e390] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28704179577
+                    - img "completed successfully:" [ref=f111e392]
+                    - generic [ref=f111e394]: "feat(deploy): Hostinger MySQL env + go-live script for splaro.co"
+                  - generic [ref=f111e395]:
+                    - text: "CI #88:"
+                    - generic [ref=f111e396]:
+                      - text: Commit
+                      - link "aa230a2" [ref=f111e397] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/aa230a20da41fafd13a24daa9b3bb2d7f89199e0
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e398] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e400] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e402]:
+                  - generic [ref=f111e403]:
+                    - generic [ref=f111e404]:
+                      - img [ref=f111e406]
+                      - generic "Jul 4, 2026, 5:03 PM GMT+6" [ref=f111e408]: Today at 5:03 PM
+                    - generic [ref=f111e409]:
+                      - img "Run duration" [ref=f111e410]
+                      - text: 2m 55s
+                  - group [ref=f111e413]:
+                    - generic "Show options" [ref=f111e414] [cursor=pointer]:
+                      - img "Show options" [ref=f111e415]
+              - generic [ref=f111e418]:
+                - generic [ref=f111e419]:
+                  - 'link "completed successfully: Run 87 of CI. feat(deploy): add complete-production orchestrator for splaro.co" [ref=f111e420] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28702188173
+                    - img "completed successfully:" [ref=f111e422]
+                    - generic [ref=f111e424]: "feat(deploy): add complete-production orchestrator for splaro.co"
+                  - generic [ref=f111e425]:
+                    - text: "CI #87:"
+                    - generic [ref=f111e426]:
+                      - text: Commit
+                      - link "07048a4" [ref=f111e427] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/07048a45550dfd0d63ce94d1f88bf461f68557d1
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e428] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e430] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e432]:
+                  - generic [ref=f111e433]:
+                    - generic [ref=f111e434]:
+                      - img [ref=f111e436]
+                      - generic "Jul 4, 2026, 3:38 PM GMT+6" [ref=f111e438]: Today at 3:38 PM
+                    - generic [ref=f111e439]:
+                      - img "Run duration" [ref=f111e440]
+                      - text: 3m 21s
+                  - group [ref=f111e443]:
+                    - generic "Show options" [ref=f111e444] [cursor=pointer]:
+                      - img "Show options" [ref=f111e445]
+              - generic [ref=f111e448]:
+                - generic [ref=f111e449]:
+                  - 'link "completed successfully: Run 86 of CI. fix(deploy): stop postinstall timeout on Hostinger Git build" [ref=f111e450] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28700352333
+                    - img "completed successfully:" [ref=f111e452]
+                    - generic [ref=f111e454]: "fix(deploy): stop postinstall timeout on Hostinger Git build"
+                  - generic [ref=f111e455]:
+                    - text: "CI #86:"
+                    - generic [ref=f111e456]:
+                      - text: Commit
+                      - link "2290c9a" [ref=f111e457] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/2290c9ae00ab1e7b1d97655f12a1c567ee0349d3
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e458] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e460] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e462]:
+                  - generic [ref=f111e463]:
+                    - generic [ref=f111e464]:
+                      - img [ref=f111e466]
+                      - generic "Jul 4, 2026, 2:20 PM GMT+6" [ref=f111e468]: Today at 2:20 PM
+                    - generic [ref=f111e469]:
+                      - img "Run duration" [ref=f111e470]
+                      - text: 3m 8s
+                  - group [ref=f111e473]:
+                    - generic "Show options" [ref=f111e474] [cursor=pointer]:
+                      - img "Show options" [ref=f111e475]
+              - generic [ref=f111e478]:
+                - generic [ref=f111e479]:
+                  - 'link "completed successfully: Run 85 of CI. fix(deploy): Hostinger build bypass prebuild and enable full stack" [ref=f111e480] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28699993161
+                    - img "completed successfully:" [ref=f111e482]
+                    - generic [ref=f111e484]: "fix(deploy): Hostinger build bypass prebuild and enable full stack"
+                  - generic [ref=f111e485]:
+                    - text: "CI #85:"
+                    - generic [ref=f111e486]:
+                      - text: Commit
+                      - link "61498e3" [ref=f111e487] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/61498e3bf08aadef8a1ee71d58c3d8198ffda7bf
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e488] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e490] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e492]:
+                  - generic [ref=f111e493]:
+                    - generic [ref=f111e494]:
+                      - img [ref=f111e496]
+                      - generic "Jul 4, 2026, 2:05 PM GMT+6" [ref=f111e498]: Today at 2:05 PM
+                    - generic [ref=f111e499]:
+                      - img "Run duration" [ref=f111e500]
+                      - text: 3m 35s
+                  - group [ref=f111e503]:
+                    - generic "Show options" [ref=f111e504] [cursor=pointer]:
+                      - img "Show options" [ref=f111e505]
+              - generic [ref=f111e508]:
+                - generic [ref=f111e509]:
+                  - 'link "completed successfully: Run 84 of CI. feat(deploy): bootstrap Hostinger from empty account state" [ref=f111e510] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28679714877
+                    - img "completed successfully:" [ref=f111e512]
+                    - generic [ref=f111e514]: "feat(deploy): bootstrap Hostinger from empty account state"
+                  - generic [ref=f111e515]:
+                    - text: "CI #84:"
+                    - generic [ref=f111e516]:
+                      - text: Commit
+                      - link "6621c77" [ref=f111e517] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/6621c77203750337c607ce58a3ad36ed4cce95fd
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e518] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e520] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e522]:
+                  - generic [ref=f111e523]:
+                    - generic [ref=f111e524]:
+                      - img [ref=f111e526]
+                      - generic "Jul 4, 2026, 1:25 AM GMT+6" [ref=f111e528]: Jul 4, 1:25 AM GMT+6
+                    - generic [ref=f111e529]:
+                      - img "Run duration" [ref=f111e530]
+                      - text: 3m 20s
+                  - group [ref=f111e533]:
+                    - generic "Show options" [ref=f111e534] [cursor=pointer]:
+                      - img "Show options" [ref=f111e535]
+              - generic [ref=f111e538]:
+                - generic [ref=f111e539]:
+                  - 'link "completed successfully: Run 83 of CI. fix(deploy): preserve DATABASE_URL and add Mac build upload path" [ref=f111e540] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28678453451
+                    - img "completed successfully:" [ref=f111e542]
+                    - generic [ref=f111e544]: "fix(deploy): preserve DATABASE_URL and add Mac build upload path"
+                  - generic [ref=f111e545]:
+                    - text: "CI #83:"
+                    - generic [ref=f111e546]:
+                      - text: Commit
+                      - link "af05f53" [ref=f111e547] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/af05f53d6a560bd927b4cb60ee93c1a0b10ecb36
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e548] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e550] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e552]:
+                  - generic [ref=f111e553]:
+                    - generic [ref=f111e554]:
+                      - img [ref=f111e556]
+                      - generic "Jul 4, 2026, 12:52 AM GMT+6" [ref=f111e558]: Jul 4, 12:52 AM GMT+6
+                    - generic [ref=f111e559]:
+                      - img "Run duration" [ref=f111e560]
+                      - text: 3m 45s
+                  - group [ref=f111e563]:
+                    - generic "Show options" [ref=f111e564] [cursor=pointer]:
+                      - img "Show options" [ref=f111e565]
+              - generic [ref=f111e568]:
+                - generic [ref=f111e569]:
+                  - 'link "completed successfully: Run 82 of CI. feat(deploy): fresh splaro.co deploy with admin and api subdomains" [ref=f111e570] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28678136016
+                    - img "completed successfully:" [ref=f111e572]
+                    - generic [ref=f111e574]: "feat(deploy): fresh splaro.co deploy with admin and api subdomains"
+                  - generic [ref=f111e575]:
+                    - text: "CI #82:"
+                    - generic [ref=f111e576]:
+                      - text: Commit
+                      - link "f153f06" [ref=f111e577] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/f153f06400322f7ff139abf88ec46ceeb2aeb640
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e578] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e580] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e582]:
+                  - generic [ref=f111e583]:
+                    - generic [ref=f111e584]:
+                      - img [ref=f111e586]
+                      - generic "Jul 4, 2026, 12:43 AM GMT+6" [ref=f111e588]: Jul 4, 12:43 AM GMT+6
+                    - generic [ref=f111e589]:
+                      - img "Run duration" [ref=f111e590]
+                      - text: 3m 26s
+                  - group [ref=f111e593]:
+                    - generic "Show options" [ref=f111e594] [cursor=pointer]:
+                      - img "Show options" [ref=f111e595]
+              - generic [ref=f111e598]:
+                - generic [ref=f111e599]:
+                  - 'link "completed successfully: Run 81 of CI. Add Hostinger deploy scripts, earth assets, admin config, and DB reco…" [ref=f111e600] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28668241395
+                    - img "completed successfully:" [ref=f111e602]
+                    - generic [ref=f111e604]: Add Hostinger deploy scripts, earth assets, admin config, and DB reco…
+                  - generic [ref=f111e605]:
+                    - text: "CI #81:"
+                    - generic [ref=f111e606]:
+                      - text: Commit
+                      - link "9727ab5" [ref=f111e607] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/9727ab5cccea3ee70e32444c1d529801258ee2b4
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e608] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e610] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e612]:
+                  - generic [ref=f111e613]:
+                    - generic [ref=f111e614]:
+                      - img [ref=f111e616]
+                      - generic "Jul 3, 2026, 8:56 PM GMT+6" [ref=f111e618]: Jul 3, 8:56 PM GMT+6
+                    - generic [ref=f111e619]:
+                      - img "Run duration" [ref=f111e620]
+                      - text: 3m 17s
+                  - group [ref=f111e623]:
+                    - generic "Show options" [ref=f111e624] [cursor=pointer]:
+                      - img "Show options" [ref=f111e625]
+              - generic [ref=f111e628]:
+                - generic [ref=f111e629]:
+                  - 'link "completed successfully: Run 80 of CI. fix: admin login redesign, commerce integrity, deploy hardening" [ref=f111e630] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28647452539
+                    - img "completed successfully:" [ref=f111e632]
+                    - generic [ref=f111e634]: "fix: admin login redesign, commerce integrity, deploy hardening"
+                  - generic [ref=f111e635]:
+                    - text: "CI #80:"
+                    - generic [ref=f111e636]:
+                      - text: Commit
+                      - link "0ab37f2" [ref=f111e637] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/0ab37f2cfbb236af40a49bea2538d3e00e579400
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e638] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e640] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e642]:
+                  - generic [ref=f111e643]:
+                    - generic [ref=f111e644]:
+                      - img [ref=f111e646]
+                      - generic "Jul 3, 2026, 2:08 PM GMT+6" [ref=f111e648]: Jul 3, 2:08 PM GMT+6
+                    - generic [ref=f111e649]:
+                      - img "Run duration" [ref=f111e650]
+                      - text: 3m 30s
+                  - group [ref=f111e653]:
+                    - generic "Show options" [ref=f111e654] [cursor=pointer]:
+                      - img "Show options" [ref=f111e655]
+              - generic [ref=f111e658]:
+                - generic [ref=f111e659]:
+                  - 'link "completed successfully: Run 79 of CI. fix(deploy): install devDeps on Hostinger despite NODE_ENV" [ref=f111e660] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28609824048
+                    - img "completed successfully:" [ref=f111e662]
+                    - generic [ref=f111e664]: "fix(deploy): install devDeps on Hostinger despite NODE_ENV"
+                  - generic [ref=f111e665]:
+                    - text: "CI #79:"
+                    - generic [ref=f111e666]:
+                      - text: Commit
+                      - link "4af5307" [ref=f111e667] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/4af5307f94d5479e984fc088daa790644fc6ac07
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e668] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e670] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e672]:
+                  - generic [ref=f111e673]:
+                    - generic [ref=f111e674]:
+                      - img [ref=f111e676]
+                      - generic "Jul 2, 2026, 11:38 PM GMT+6" [ref=f111e678]: Jul 2, 11:38 PM GMT+6
+                    - generic [ref=f111e679]:
+                      - img "Run duration" [ref=f111e680]
+                      - text: 3m 36s
+                  - group [ref=f111e683]:
+                    - generic "Show options" [ref=f111e684] [cursor=pointer]:
+                      - img "Show options" [ref=f111e685]
+              - generic [ref=f111e688]:
+                - generic [ref=f111e689]:
+                  - 'link "completed successfully: Run 78 of CI. fix(deploy): run Hostinger build on npm postinstall" [ref=f111e690] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28609631798
+                    - img "completed successfully:" [ref=f111e692]
+                    - generic [ref=f111e694]: "fix(deploy): run Hostinger build on npm postinstall"
+                  - generic [ref=f111e695]:
+                    - text: "CI #78:"
+                    - generic [ref=f111e696]:
+                      - text: Commit
+                      - link "760b2ac" [ref=f111e697] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/760b2ac1dae67932b2f9afb8d3d278d8118924f7
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e698] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e700] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e702]:
+                  - generic [ref=f111e703]:
+                    - generic [ref=f111e704]:
+                      - img [ref=f111e706]
+                      - generic "Jul 2, 2026, 11:35 PM GMT+6" [ref=f111e708]: Jul 2, 11:35 PM GMT+6
+                    - generic [ref=f111e709]:
+                      - img "Run duration" [ref=f111e710]
+                      - text: 3m 29s
+                  - group [ref=f111e713]:
+                    - generic "Show options" [ref=f111e714] [cursor=pointer]:
+                      - img "Show options" [ref=f111e715]
+              - generic [ref=f111e718]:
+                - generic [ref=f111e719]:
+                  - 'link "completed successfully: Run 77 of CI. fix(deploy): auto-detect Hostinger npm build path" [ref=f111e720] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28609376709
+                    - img "completed successfully:" [ref=f111e722]
+                    - generic [ref=f111e724]: "fix(deploy): auto-detect Hostinger npm build path"
+                  - generic [ref=f111e725]:
+                    - text: "CI #77:"
+                    - generic [ref=f111e726]:
+                      - text: Commit
+                      - link "1392b97" [ref=f111e727] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/1392b976086486962e9b9328d660ab859fa8edae
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e728] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e730] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e732]:
+                  - generic [ref=f111e733]:
+                    - generic [ref=f111e734]:
+                      - img [ref=f111e736]
+                      - generic "Jul 2, 2026, 11:31 PM GMT+6" [ref=f111e738]: Jul 2, 11:31 PM GMT+6
+                    - generic [ref=f111e739]:
+                      - img "Run duration" [ref=f111e740]
+                      - text: 3m 31s
+                  - group [ref=f111e743]:
+                    - generic "Show options" [ref=f111e744] [cursor=pointer]:
+                      - img "Show options" [ref=f111e745]
+              - generic [ref=f111e748]:
+                - generic [ref=f111e749]:
+                  - 'link "completed successfully: Run 76 of CI. fix: full-stack health, images, domains, and VPS deploy" [ref=f111e750] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28608972097
+                    - img "completed successfully:" [ref=f111e752]
+                    - generic [ref=f111e754]: "fix: full-stack health, images, domains, and VPS deploy"
+                  - generic [ref=f111e755]:
+                    - text: "CI #76:"
+                    - generic [ref=f111e756]:
+                      - text: Commit
+                      - link "0d35187" [ref=f111e757] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/0d351871ff4c8a01bc2fd16a14668bc5227988b8
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e758] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e760] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e762]:
+                  - generic [ref=f111e763]:
+                    - generic [ref=f111e764]:
+                      - img [ref=f111e766]
+                      - generic "Jul 2, 2026, 11:24 PM GMT+6" [ref=f111e768]: Jul 2, 11:24 PM GMT+6
+                    - generic [ref=f111e769]:
+                      - img "Run duration" [ref=f111e770]
+                      - text: 3m 32s
+                  - group [ref=f111e773]:
+                    - generic "Show options" [ref=f111e774] [cursor=pointer]:
+                      - img "Show options" [ref=f111e775]
+              - generic [ref=f111e778]:
+                - generic [ref=f111e779]:
+                  - 'link "completed successfully: Run 75 of CI. fix(dev): prevent corrupt Next cache during build" [ref=f111e780] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28608235846
+                    - img "completed successfully:" [ref=f111e782]
+                    - generic [ref=f111e784]: "fix(dev): prevent corrupt Next cache during build"
+                  - generic [ref=f111e785]:
+                    - text: "CI #75:"
+                    - generic [ref=f111e786]:
+                      - text: Commit
+                      - link "1961bf2" [ref=f111e787] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/1961bf274011c3e74c2434acff1db7e40c27ddb5
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e788] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e790] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e792]:
+                  - generic [ref=f111e793]:
+                    - generic [ref=f111e794]:
+                      - img [ref=f111e796]
+                      - generic "Jul 2, 2026, 11:11 PM GMT+6" [ref=f111e798]: Jul 2, 11:11 PM GMT+6
+                    - generic [ref=f111e799]:
+                      - img "Run duration" [ref=f111e800]
+                      - text: 3m 23s
+                  - group [ref=f111e803]:
+                    - generic "Show options" [ref=f111e804] [cursor=pointer]:
+                      - img "Show options" [ref=f111e805]
+              - generic [ref=f111e808]:
+                - generic [ref=f111e809]:
+                  - 'link "completed successfully: Run 74 of CI. fix: harden admin auth, payments, and deploy tooling" [ref=f111e810] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28608087371
+                    - img "completed successfully:" [ref=f111e812]
+                    - generic [ref=f111e814]: "fix: harden admin auth, payments, and deploy tooling"
+                  - generic [ref=f111e815]:
+                    - text: "CI #74:"
+                    - generic [ref=f111e816]:
+                      - text: Commit
+                      - link "96cac33" [ref=f111e817] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/96cac33d2f892f0e450b199a47ce37cb93716359
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e818] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e820] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e822]:
+                  - generic [ref=f111e823]:
+                    - generic [ref=f111e824]:
+                      - img [ref=f111e826]
+                      - generic "Jul 2, 2026, 11:09 PM GMT+6" [ref=f111e828]: Jul 2, 11:09 PM GMT+6
+                    - generic [ref=f111e829]:
+                      - img "Run duration" [ref=f111e830]
+                      - text: 3m 7s
+                  - group [ref=f111e833]:
+                    - generic "Show options" [ref=f111e834] [cursor=pointer]:
+                      - img "Show options" [ref=f111e835]
+              - generic [ref=f111e838]:
+                - generic [ref=f111e839]:
+                  - 'link "completed successfully: Run 73 of CI. chore(deploy): add pnpm deploy:hostinger push command" [ref=f111e840] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28596680701
+                    - img "completed successfully:" [ref=f111e842]
+                    - generic [ref=f111e844]: "chore(deploy): add pnpm deploy:hostinger push command"
+                  - generic [ref=f111e845]:
+                    - text: "CI #73:"
+                    - generic [ref=f111e846]:
+                      - text: Commit
+                      - link "4c34433" [ref=f111e847] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/4c344330e175836faca348a8390138e59bcb44b5
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e848] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e850] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e852]:
+                  - generic [ref=f111e853]:
+                    - generic [ref=f111e854]:
+                      - img [ref=f111e856]
+                      - generic "Jul 2, 2026, 8:11 PM GMT+6" [ref=f111e858]: Jul 2, 8:11 PM GMT+6
+                    - generic [ref=f111e859]:
+                      - img "Run duration" [ref=f111e860]
+                      - text: 3m 27s
+                  - group [ref=f111e863]:
+                    - generic "Show options" [ref=f111e864] [cursor=pointer]:
+                      - img "Show options" [ref=f111e865]
+              - generic [ref=f111e868]:
+                - generic [ref=f111e869]:
+                  - 'link "completed successfully: Run 72 of CI. fix(deploy): bypass Hostinger corepack pnpm 11 crash" [ref=f111e870] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28596478952
+                    - img "completed successfully:" [ref=f111e872]
+                    - generic [ref=f111e874]: "fix(deploy): bypass Hostinger corepack pnpm 11 crash"
+                  - generic [ref=f111e875]:
+                    - text: "CI #72:"
+                    - generic [ref=f111e876]:
+                      - text: Commit
+                      - link "edc0f6c" [ref=f111e877] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/edc0f6c09a2c714b94444f9607f5db8412f13c82
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e878] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e880] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e882]:
+                  - generic [ref=f111e883]:
+                    - generic [ref=f111e884]:
+                      - img [ref=f111e886]
+                      - generic "Jul 2, 2026, 8:08 PM GMT+6" [ref=f111e888]: Jul 2, 8:08 PM GMT+6
+                    - generic [ref=f111e889]:
+                      - img "Run duration" [ref=f111e890]
+                      - text: 3m 21s
+                  - group [ref=f111e893]:
+                    - generic "Show options" [ref=f111e894] [cursor=pointer]:
+                      - img "Show options" [ref=f111e895]
+              - generic [ref=f111e898]:
+                - generic [ref=f111e899]:
+                  - 'link "completed successfully: Run 71 of CI." [ref=f111e900] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28595182166
+                    - img "completed successfully:" [ref=f111e902]
+                    - generic [ref=f111e904]: CI
+                  - generic [ref=f111e905]:
+                    - text: "CI #71:"
+                    - generic [ref=f111e906]:
+                      - text: by
+                      - link "sourove-a" [ref=f111e907] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e909] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e911]:
+                  - generic [ref=f111e912]:
+                    - generic [ref=f111e913]:
+                      - img [ref=f111e915]
+                      - generic "Jul 2, 2026, 7:49 PM GMT+6" [ref=f111e917]: Jul 2, 7:49 PM GMT+6
+                    - generic [ref=f111e918]:
+                      - img "Run duration" [ref=f111e919]
+                      - text: 3m 56s
+                  - group [ref=f111e922]:
+                    - generic "Show options" [ref=f111e923] [cursor=pointer]:
+                      - img "Show options" [ref=f111e924]
+              - generic [ref=f111e927]:
+                - generic [ref=f111e928]:
+                  - 'link "completed successfully: Run 70 of CI. fix(admin): proxy invoice API requests" [ref=f111e929] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28594688537
+                    - img "completed successfully:" [ref=f111e931]
+                    - generic [ref=f111e933]: "fix(admin): proxy invoice API requests"
+                  - generic [ref=f111e934]:
+                    - text: "CI #70:"
+                    - generic [ref=f111e935]:
+                      - text: Commit
+                      - link "2ee7e36" [ref=f111e936] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/2ee7e36f52e46fae180c476386097b6b9f961e31
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e937] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e939] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e941]:
+                  - generic [ref=f111e942]:
+                    - generic [ref=f111e943]:
+                      - img [ref=f111e945]
+                      - generic "Jul 2, 2026, 7:42 PM GMT+6" [ref=f111e947]: Jul 2, 7:42 PM GMT+6
+                    - generic [ref=f111e948]:
+                      - img "Run duration" [ref=f111e949]
+                      - text: 3m 23s
+                  - group [ref=f111e952]:
+                    - generic "Show options" [ref=f111e953] [cursor=pointer]:
+                      - img "Show options" [ref=f111e954]
+              - generic [ref=f111e957]:
+                - generic [ref=f111e958]:
+                  - 'link "completed successfully: Run 69 of CI. fix(admin): proxy finance downloads" [ref=f111e959] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28594673066
+                    - img "completed successfully:" [ref=f111e961]
+                    - generic [ref=f111e963]: "fix(admin): proxy finance downloads"
+                  - generic [ref=f111e964]:
+                    - text: "CI #69:"
+                    - generic [ref=f111e965]:
+                      - text: Commit
+                      - link "88e0994" [ref=f111e966] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/commit/88e0994cfe738af8abf4b2d07f30475a8370c99d
+                      - text: pushed by
+                      - link "sourove-a" [ref=f111e967] [cursor=pointer]:
+                        - /url: /sourove-a
+                - link "main" [ref=f111e969] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/tree/refs/heads/main
+                - generic [ref=f111e971]:
+                  - generic [ref=f111e972]:
+                    - generic [ref=f111e973]:
+                      - img [ref=f111e975]
+                      - generic "Jul 2, 2026, 7:41 PM GMT+6" [ref=f111e977]: Jul 2, 7:41 PM GMT+6
+                    - generic [ref=f111e978]:
+                      - img "Run duration" [ref=f111e979]
+                      - text: 3m 9s
+                  - group [ref=f111e982]:
+                    - generic "Show options" [ref=f111e983] [cursor=pointer]:
+                      - img "Show options" [ref=f111e984]
+          - navigation "Pagination" [ref=f111e988]:
+            - generic "Previous page" [ref=f111e989]: Previous
+            - emphasis [ref=f111e990] [cursor=pointer]: "1"
+            - link "Page 2" [ref=f111e991] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions?page=2
+              - text: "2"
+            - link "Page 3" [ref=f111e992] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions?page=3
+              - text: "3"
+            - link "Page 4" [ref=f111e993] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions?page=4
+              - text: "4"
+            - link "Next page" [ref=f111e994] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions?page=2
+              - text: Next

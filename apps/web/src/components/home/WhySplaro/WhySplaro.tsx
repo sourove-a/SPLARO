@@ -16,9 +16,9 @@ const StoryEarthGlobe = dynamic(
   { ssr: false },
 )
 
-const SPLARO_LOGO_WHITE = '/images/logo/splaro-logo-white.png'
-const SPLARO_LOGO = '/images/logo/splaro-logo.png'
-const SPLARO_MARK = '/images/logo/splaro-brand-mark-transparent.png'
+const SPLARO_LOGO_WHITE = '/images/logo/splaro-logo-white.svg'
+const SPLARO_LOGO = '/images/logo/splaro-logo-dark.svg'
+const SPLARO_MARK = '/images/logo/splaro-brand.svg'
 
 const PILLAR_ICONS: Record<StoryPillarIcon, LucideIcon> = {
   sprout: Sprout,

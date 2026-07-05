@@ -1,0 +1,191 @@
+- generic [ref=f103e2]:
+  - generic [ref=f103e3]:
+    - link "Skip to content" [ref=f103e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=f103e6]:
+      - heading "Navigation Menu" [level=2] [ref=f103e7]
+      - generic [ref=f103e8]:
+        - link "Homepage" [ref=f103e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=f103e11]
+        - generic [ref=f103e13]:
+          - navigation "Global" [ref=f103e16]:
+            - list [ref=f103e17]:
+              - listitem [ref=f103e18]:
+                - button "Platform" [ref=f103e20] [cursor=pointer]:
+                  - text: Platform
+                  - img [ref=f103e21]
+              - listitem [ref=f103e23]:
+                - button "Solutions" [ref=f103e25] [cursor=pointer]:
+                  - text: Solutions
+                  - img [ref=f103e26]
+              - listitem [ref=f103e28]:
+                - button "Resources" [ref=f103e30] [cursor=pointer]:
+                  - text: Resources
+                  - img [ref=f103e31]
+              - listitem [ref=f103e33]:
+                - button "Open Source" [ref=f103e35] [cursor=pointer]:
+                  - text: Open Source
+                  - img [ref=f103e36]
+              - listitem [ref=f103e38]:
+                - button "Enterprise" [ref=f103e40] [cursor=pointer]:
+                  - text: Enterprise
+                  - img [ref=f103e41]
+              - listitem [ref=f103e43]:
+                - link "Pricing" [ref=f103e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+                  - generic [ref=f103e45]: Pricing
+          - generic [ref=f103e46]:
+            - button "Search or jump to…" [ref=f103e49] [cursor=pointer]:
+              - img [ref=f103e51]
+            - link "Sign in" [ref=f103e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fsourove-a%2FSPLARO%2Factions%2Fworkflows%2Fdeploy-hostinger.yml
+            - link "Sign up" [ref=f103e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E%2Factions%2Findex&source=header-repo&source_repo=sourove-a%2FSPLARO
+            - button "Appearance settings" [ref=f103e58] [cursor=pointer]:
+              - img
+  - main [ref=f103e62]:
+    - generic [ref=f103e63]:
+      - generic [ref=f103e64]:
+        - generic [ref=f103e66]:
+          - img [ref=f103e67]
+          - link "sourove-a" [ref=f103e70] [cursor=pointer]:
+            - /url: /sourove-a
+          - generic [ref=f103e71]: /
+          - strong [ref=f103e72]:
+            - link "SPLARO" [ref=f103e73] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO
+          - generic [ref=f103e74]: Public
+        - generic [ref=f103e75]:
+          - list:
+            - listitem [ref=f103e76]:
+              - link "You must be signed in to change notification settings" [ref=f103e77] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f103e78]
+                - text: Notifications
+            - listitem [ref=f103e80]:
+              - link "Fork 0" [ref=f103e81] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f103e82]
+                - text: Fork
+                - generic "0" [ref=f103e84]
+            - listitem [ref=f103e85]:
+              - link "You must be signed in to star a repository" [ref=f103e87] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f103e88]
+                - text: Star
+                - generic "0 users starred this repository" [ref=f103e90]: "0"
+      - navigation "Repository" [ref=f103e91]:
+        - list [ref=f103e92]:
+          - listitem [ref=f103e93]:
+            - link "Code" [ref=f103e94] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO
+              - img [ref=f103e95]
+              - generic [ref=f103e97]: Code
+          - listitem [ref=f103e98]:
+            - link "Issues" [ref=f103e99] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/issues
+              - img [ref=f103e100]
+              - generic [ref=f103e103]: Issues
+          - listitem [ref=f103e104]:
+            - link "Pull requests" [ref=f103e105] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/pulls
+              - img [ref=f103e106]
+              - generic [ref=f103e108]: Pull requests
+          - listitem [ref=f103e109]:
+            - link "Actions" [ref=f103e110] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions
+              - img [ref=f103e111]
+              - generic [ref=f103e113]: Actions
+          - listitem [ref=f103e114]:
+            - link "Projects" [ref=f103e115] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/projects
+              - img [ref=f103e116]
+              - generic [ref=f103e118]: Projects
+          - listitem [ref=f103e119]:
+            - link "Security and quality" [ref=f103e120] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/security
+              - img [ref=f103e121]
+              - generic [ref=f103e123]: Security and quality
+          - listitem [ref=f103e124]:
+            - link "Insights" [ref=f103e125] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/pulse
+              - img [ref=f103e126]
+              - generic [ref=f103e128]: Insights
+    - generic [ref=f103e130]:
+      - 'heading "Actions: sourove-a/SPLARO" [level=1] [ref=f103e131]'
+      - generic [ref=f103e134]:
+        - generic [ref=f103e135]:
+          - heading "Actions" [level=2] [ref=f103e137]
+          - navigation "Actions Workflows" [ref=f103e141]:
+            - list [ref=f103e143]:
+              - listitem [ref=f103e144]:
+                - link "All workflows" [ref=f103e145] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/actions
+                  - generic [ref=f103e146]: All workflows
+              - listitem [ref=f103e147]
+              - listitem [ref=f103e148]:
+                - list "Workflows" [ref=f103e152]:
+                  - listitem [ref=f103e153]:
+                    - link "CI" [ref=f103e154] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/ci.yml
+                      - generic [ref=f103e155]: CI
+                  - listitem [ref=f103e156]:
+                    - link "Copilot code review" [ref=f103e157] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/copilot-pull-request-reviewer/copilot-pull-request-reviewer
+                      - generic [ref=f103e158]: Copilot code review
+                  - listitem [ref=f103e159]:
+                    - link "Copilot coding agent" [ref=f103e160] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/copilot-swe-agent/copilot
+                      - generic [ref=f103e161]: Copilot coding agent
+                  - listitem [ref=f103e162]:
+                    - link "Deploy Hostinger" [ref=f103e163] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/actions/workflows/deploy-hostinger.yml
+                      - generic [ref=f103e164]: Deploy Hostinger
+              - listitem [ref=f103e165]
+              - listitem [ref=f103e166]:
+                - generic [ref=f103e169]:
+                  - heading "Management" [level=3] [ref=f103e171]
+                  - list "Management" [ref=f103e172]:
+                    - listitem [ref=f103e173]:
+                      - link "Caches" [ref=f103e174] [cursor=pointer]:
+                        - /url: /sourove-a/SPLARO/actions/caches
+                        - generic:
+                          - img
+                        - generic [ref=f103e175]: Caches
+        - generic [ref=f103e178]:
+          - generic [ref=f103e179]:
+            - generic [ref=f103e180]:
+              - heading "Deploy Hostinger" [level=2] [ref=f103e182]:
+                - generic [ref=f103e184]: Deploy Hostinger
+              - generic [ref=f103e185]:
+                - search [ref=f103e188]:
+                  - combobox "Filter workflow runs" [ref=f103e189]
+                  - img
+                - button "Show workflow options" [ref=f103e192] [cursor=pointer]:
+                  - img
+            - link "deploy-hostinger.yml" [ref=f103e194] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/blob/main/.github/workflows/deploy-hostinger.yml
+          - generic [ref=f103e195]:
+            - generic [ref=f103e196]:
+              - strong [ref=f103e199]: 0 workflow runs
+              - generic [ref=f103e200]:
+                - button "Event" [ref=f103e204] [cursor=pointer]:
+                  - generic [ref=f103e206]: Event
+                  - generic:
+                    - img
+                - button "Status" [ref=f103e210] [cursor=pointer]:
+                  - generic [ref=f103e212]: Status
+                  - generic:
+                    - img
+                - button "Branch" [ref=f103e216] [cursor=pointer]:
+                  - generic [ref=f103e218]: Branch
+                  - generic:
+                    - img
+                - button "Actor" [ref=f103e222] [cursor=pointer]:
+                  - generic [ref=f103e224]: Actor
+                  - generic:
+                    - img
+            - generic [ref=f103e226]:
+              - img "GitHub Actions" [ref=f103e227]
+              - heading "This workflow has no runs yet." [level=3] [ref=f103e228]

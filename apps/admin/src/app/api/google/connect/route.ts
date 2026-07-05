@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { ADMIN_SESSION_COOKIE } from '@/lib/auth/session'
@@ -12,7 +12,7 @@ export async function GET() {
     return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(CONNECT_FALLBACK)}`, process.env.NEXT_PUBLIC_ADMIN_URL ?? 'http://localhost:3001'))
   }
 
-  const apiBase = getApiBaseUrl()
+  const apiBase = getServerApiBaseUrl()
   const res = await fetch(`${apiBase}/admin/google/oauth-url`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',

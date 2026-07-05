@@ -14,6 +14,9 @@ function cartSyncError(res: Response | null, fallback: string): string {
   if (res?.status === 503) {
     return 'Cart sync is offline — start the API server (pnpm dev:api) or check API_URL.'
   }
+  if (res?.status === 500) {
+    return 'Cart sync failed — database connection issue on the server. Cart is saved on this device only.'
+  }
   return fallback
 }
 

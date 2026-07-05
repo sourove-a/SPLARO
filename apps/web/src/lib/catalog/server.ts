@@ -2,7 +2,7 @@ import { unstable_cache } from 'next/cache'
 import type { StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductCardData } from '@splaro/types'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
-import { productSlug, toProductCard, getAllProductSlugs } from '@/lib/catalog/index'
+import { productSlug, toProductCard, getAllProductSlugs, getProductBySlug } from '@/lib/catalog/index'
 import {
   fetchLiveProductDetailBySlug,
   fetchLiveProductsRaw,
@@ -106,15 +106,23 @@ export async function getStorefrontCatalogForCollection(
 export async function getProductDetailBySlug(
   slug: string,
 ): Promise<{ product: ProductDetailData; reviews: ProductReview[]; source: CatalogSource } | null> {
-  // null = product genuinely does not exist (safe to show 404).
-  // API outages retry once, then throw so the route error boundary renders instead of a fake 404.
   try {
     const live = await fetchLiveProductDetailBySlug(slug)
-    return live ? { ...live, source: 'api' } : null
+    if (live) return { ...live, source: 'api' }
   } catch {
-    const live = await fetchLiveProductDetailBySlug(slug)
-    return live ? { ...live, source: 'api' } : null
+    try {
+      const live = await fetchLiveProductDetailBySlug(slug)
+      if (live) return { ...live, source: 'api' }
+    } catch {
+      /* API unavailable — fall back to bundled catalog */
+    }
   }
+
+  const staticProduct = getProductBySlug(slug)
+  if (staticProduct) {
+    return { product: staticProduct, reviews: [], source: 'api-unavailable' }
+  }
+  return null
 }
 
 export async function getRelatedProducts(

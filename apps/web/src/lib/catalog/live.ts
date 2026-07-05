@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { slugFromCategory } from '@/data/storefront'
 import type { Category, ColorOption, StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductVariantData } from '@splaro/types'
@@ -11,7 +11,7 @@ import {
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
-function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 5000): Promise<Response> {
+function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 12000): Promise<Response> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), ms)
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer))
@@ -364,7 +364,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
 }
 
 export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slug: string })[]> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}`
   const res = await fetchWithTimeout(url, { cache: 'no-store' })
   if (!res.ok) throw new Error(`Storefront API ${res.status}`)
@@ -380,7 +380,7 @@ export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProd
   const unique = [...new Set(ids.filter(Boolean))]
   if (!unique.length) return []
 
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}&ids=${encodeURIComponent(unique.join(','))}`
   const res = await fetchWithTimeout(url, { cache: 'no-store' })
   if (!res.ok) return []
@@ -391,7 +391,7 @@ export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProd
 export async function fetchLiveProductDetailBySlug(
   slug: string,
 ): Promise<{ product: ProductDetailData; reviews: ProductReview[] } | null> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`
   const res = await fetchWithTimeout(url, { next: { revalidate: 15 } })
   // Only a real 404 means "product does not exist" — any other failure must throw
@@ -432,7 +432,7 @@ export async function fetchStorefrontProductListing(
   totalPages: number
   page: number
 }> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const params = new URLSearchParams({
     storeId: STORE_ID,
     page: String(query.page ?? 1),
@@ -476,7 +476,7 @@ export async function fetchLiveCollections(): Promise<
     imageUrl?: string | null
   }>
 > {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const url = `${base}/storefront/collections?storeId=${encodeURIComponent(STORE_ID)}`
 
   try {
@@ -508,7 +508,7 @@ export async function fetchProductsByCategory(
   page = 1,
   limit = 40,
 ): Promise<{ products: CatalogProduct[]; total: number; totalPages: number }> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const params = new URLSearchParams({
     storeId: STORE_ID,
     categorySlug,
@@ -537,7 +537,7 @@ export async function fetchAllAccessories(): Promise<{
   products: CatalogProduct[]
   total: number
 }> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
 
   async function load(params: URLSearchParams) {
     const res = await fetchWithTimeout(`${base}/storefront/products?${params}`, {
@@ -573,7 +573,7 @@ export async function fetchAllAccessories(): Promise<{
 }
 
 export async function fetchCustomerProfile(phone: string) {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const url = `${base}/storefront/customer/profile?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`
   const res = await fetchWithTimeout(url, { cache: 'no-store' })
   if (!res.ok) return null

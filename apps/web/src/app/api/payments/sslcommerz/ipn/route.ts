@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 function payloadFromForm(formData: FormData): Record<string, string> {
   const payload: Record<string, string> = {}
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     payload = payloadFromForm(formData)
   }
 
-  const res = await fetch(`${getApiBaseUrl()}/payments/ssl/ipn`, {
+  const res = await fetch(`${getServerApiBaseUrl()}/payments/ssl/ipn`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

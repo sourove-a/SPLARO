@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { verifyPassword, hashPassword } from './crypto'
 import { CEO_EMAIL, formatAdminDisplayName } from './role-label'
 
@@ -43,7 +43,7 @@ async function authenticateAdminFromDatabase(
   email: string,
   password: string,
 ): Promise<AdminUserRecord | null> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
 
   try {

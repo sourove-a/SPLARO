@@ -3,22 +3,22 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 
 const logoAssets = {
-  /** Header/footer — full Arabic + SPLARO wordmark (transparent PNG). */
+  /** Header/footer — SPLARO wordmark on light backgrounds */
   light: {
-    src: '/images/logo/splaro-brand-mark-transparent.png',
-    width: 1024,
-    height: 682,
+    src: '/images/logo/splaro-logo-dark.svg',
+    width: 200,
+    height: 50,
   },
   dark: {
-    src: '/images/logo/splaro-logo-white.png',
-    width: 750,
-    height: 423,
+    src: '/images/logo/splaro-logo-white.svg',
+    width: 200,
+    height: 50,
   },
   /** Auth / login pages */
   brand: {
-    src: '/images/logo/splaro-brand-mark-transparent.png',
-    width: 1024,
-    height: 682,
+    src: '/images/logo/splaro-brand.svg',
+    width: 200,
+    height: 50,
   },
 } as const
 

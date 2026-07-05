@@ -139,7 +139,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               '@type': 'Organization',
               name: 'SPLARO',
               url: siteUrl,
-              logo: `${siteUrl}/images/logo/splaro-logo.png`,
+              logo: `${siteUrl}/images/logo/splaro-brand.svg`,
               description: 'Premium everyday fashion storefront',
               contactPoint: {
                 '@type': 'ContactPoint',
@@ -183,7 +183,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@id': `${siteUrl}/#store`,
                   name: 'SPLARO',
                   url: siteUrl,
-                  image: `${siteUrl}/images/logo/splaro-logo.png`,
+                  image: `${siteUrl}/images/logo/splaro-brand.svg`,
                   description:
                     'Premium Bangladeshi fashion store — luxury women’s wear, ethnic & modest fashion, footwear, bags and accessories with nationwide delivery.',
                   priceRange: '৳৳',

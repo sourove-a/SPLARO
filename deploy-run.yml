@@ -1,0 +1,255 @@
+- generic [ref=f111e2]:
+  - generic [ref=f111e3]:
+    - link "Skip to content" [ref=f111e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=f111e6]:
+      - heading "Navigation Menu" [level=2] [ref=f111e7]
+      - generic [ref=f111e8]:
+        - link "Homepage" [ref=f111e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=f111e11]
+        - generic [ref=f111e13]:
+          - navigation "Global" [ref=f111e16]:
+            - list [ref=f111e17]:
+              - listitem [ref=f111e18]:
+                - button "Platform" [ref=f111e20] [cursor=pointer]:
+                  - text: Platform
+                  - img [ref=f111e21]
+              - listitem [ref=f111e23]:
+                - button "Solutions" [ref=f111e25] [cursor=pointer]:
+                  - text: Solutions
+                  - img [ref=f111e26]
+              - listitem [ref=f111e28]:
+                - button "Resources" [ref=f111e30] [cursor=pointer]:
+                  - text: Resources
+                  - img [ref=f111e31]
+              - listitem [ref=f111e33]:
+                - button "Open Source" [ref=f111e35] [cursor=pointer]:
+                  - text: Open Source
+                  - img [ref=f111e36]
+              - listitem [ref=f111e38]:
+                - button "Enterprise" [ref=f111e40] [cursor=pointer]:
+                  - text: Enterprise
+                  - img [ref=f111e41]
+              - listitem [ref=f111e43]:
+                - link "Pricing" [ref=f111e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+                  - generic [ref=f111e45]: Pricing
+          - generic [ref=f111e46]:
+            - button "Search or jump to…" [ref=f111e49] [cursor=pointer]:
+              - img [ref=f111e51]
+            - link "Sign in" [ref=f111e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fsourove-a%2FSPLARO%2Factions
+            - link "Sign up" [ref=f111e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E%2Factions%2Findex&source=header-repo&source_repo=sourove-a%2FSPLARO
+            - button "Appearance settings" [ref=f111e58] [cursor=pointer]:
+              - img
+  - main [ref=f111e62]:
+    - generic [ref=f111e63]:
+      - generic [ref=f111e64]:
+        - generic [ref=f111e66]:
+          - img [ref=f111e67]
+          - link "sourove-a" [ref=f111e70] [cursor=pointer]:
+            - /url: /sourove-a
+          - generic [ref=f111e71]: /
+          - strong [ref=f111e72]:
+            - link "SPLARO" [ref=f111e73] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO
+          - generic [ref=f111e74]: Public
+        - generic [ref=f111e75]:
+          - list:
+            - listitem [ref=f111e76]:
+              - link "You must be signed in to change notification settings" [ref=f111e77] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f111e78]
+                - text: Notifications
+            - listitem [ref=f111e80]:
+              - link "Fork 0" [ref=f111e81] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f111e82]
+                - text: Fork
+                - generic "0" [ref=f111e84]
+            - listitem [ref=f111e85]:
+              - link "You must be signed in to star a repository" [ref=f111e87] [cursor=pointer]:
+                - /url: /login?return_to=%2Fsourove-a%2FSPLARO
+                - img [ref=f111e88]
+                - text: Star
+                - generic "0 users starred this repository" [ref=f111e90]: "0"
+      - navigation "Repository" [ref=f111e91]:
+        - list [ref=f111e92]:
+          - listitem [ref=f111e93]:
+            - link "Code" [ref=f111e94] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO
+              - img [ref=f111e95]
+              - generic [ref=f111e97]: Code
+          - listitem [ref=f111e98]:
+            - link "Issues" [ref=f111e99] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/issues
+              - img [ref=f111e100]
+              - generic [ref=f111e103]: Issues
+          - listitem [ref=f111e104]:
+            - link "Pull requests" [ref=f111e105] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/pulls
+              - img [ref=f111e106]
+              - generic [ref=f111e108]: Pull requests
+          - listitem [ref=f111e109]:
+            - link "Actions" [ref=f111e110] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/actions
+              - img [ref=f111e111]
+              - generic [ref=f111e113]: Actions
+          - listitem [ref=f111e114]:
+            - link "Projects" [ref=f111e115] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/projects
+              - img [ref=f111e116]
+              - generic [ref=f111e118]: Projects
+          - listitem [ref=f111e119]:
+            - link "Security and quality" [ref=f111e120] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/security
+              - img [ref=f111e121]
+              - generic [ref=f111e123]: Security and quality
+          - listitem [ref=f111e124]:
+            - link "Insights" [ref=f111e125] [cursor=pointer]:
+              - /url: /sourove-a/SPLARO/pulse
+              - img [ref=f111e126]
+              - generic [ref=f111e128]: Insights
+    - generic [ref=f111e999]:
+      - generic [ref=f111e1002]:
+        - link "Deploy Hostinger" [ref=f111e1005] [cursor=pointer]:
+          - /url: /sourove-a/SPLARO/actions/workflows/deploy-hostinger.yml
+          - img [ref=f111e1006]
+          - generic [ref=f111e1008]: Deploy Hostinger
+        - generic [ref=f111e1009]:
+          - generic [ref=f111e1010]:
+            - img "failed:" [ref=f111e1014]
+            - 'heading "ci(deploy): auto-run Hostinger deploy on infrastructure push #1" [level=1] [ref=f111e1016]':
+              - generic [ref=f111e1017]: "ci(deploy): auto-run Hostinger deploy on infrastructure push #1"
+          - link "Sign in to view logs" [ref=f111e1020] [cursor=pointer]:
+            - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fsourove-a%2FSPLARO%2Factions%2Fruns%2F28705654176
+      - generic [ref=f111e1021]:
+        - navigation "Workflow run" [ref=f111e1118]:
+          - list [ref=f111e1119]:
+            - listitem [ref=f111e1120]:
+              - link "Summary" [ref=f111e1121] [cursor=pointer]:
+                - /url: /sourove-a/SPLARO/actions/runs/28705654176
+                - generic:
+                  - img
+                - generic [ref=f111e1123]: Summary
+            - generic [ref=f111e1124]:
+              - heading "All jobs" [level=4] [ref=f111e1125]
+              - button "Filter by job status" [ref=f111e1126] [cursor=pointer]:
+                - img [ref=f111e1127]
+            - listitem [ref=f111e1129]
+            - listitem [ref=f111e1130]:
+              - list [ref=f111e1131]:
+                - listitem [ref=f111e1132]:
+                  - link "deploy" [ref=f111e1133] [cursor=pointer]:
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654176/job/85130752436
+                    - generic:
+                      - img
+                    - generic [ref=f111e1135]: deploy
+            - listitem [ref=f111e1136]
+            - listitem [ref=f111e1137]:
+              - heading "Run details" [level=3] [ref=f111e1139]
+              - list "Run details" [ref=f111e1140]:
+                - listitem [ref=f111e1141]:
+                  - link "Usage" [ref=f111e1142] [cursor=pointer]:
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654176/usage
+                    - generic:
+                      - img
+                    - generic [ref=f111e1144]: Usage
+                - listitem [ref=f111e1145]:
+                  - link "Workflow file" [ref=f111e1146] [cursor=pointer]:
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654176/workflow
+                    - generic:
+                      - img
+                    - generic [ref=f111e1148]: Workflow file
+        - generic [ref=f111e1024]:
+          - region "Workflow run summary" [ref=f111e1025]:
+            - generic [ref=f111e1026]:
+              - generic [ref=f111e1027]:
+                - generic [ref=f111e1028]: Triggered via push July 4, 2026 12:05now
+                - generic [ref=f111e1029]:
+                  - link "@sourove-a sourove-a" [ref=f111e1030] [cursor=pointer]:
+                    - /url: /sourove-a
+                    - img "@sourove-a" [ref=f111e1031]
+                    - text: sourove-a
+                  - generic [ref=f111e1032]:
+                    - generic [ref=f111e1033]: pushed
+                    - link "e92dc5b" [ref=f111e1034] [cursor=pointer]:
+                      - /url: /sourove-a/SPLARO/commit/e92dc5bb34a8d0d471f59f3b9a56f3b0cb6af72d
+                      - img [ref=f111e1035]
+                      - text: e92dc5b
+                  - link "main" [ref=f111e1037] [cursor=pointer]:
+                    - /url: /sourove-a/SPLARO/tree/refs/heads/main
+              - generic [ref=f111e1038]:
+                - generic [ref=f111e1039]: Status
+                - text: Failure
+              - generic [ref=f111e1040]:
+                - generic [ref=f111e1041]: Total duration
+                - link "12s" [ref=f111e1042] [cursor=pointer]:
+                  - /url: /sourove-a/SPLARO/actions/runs/28705654176/usage
+              - generic [ref=f111e1043]:
+                - generic [ref=f111e1044]: Artifacts
+                - text: –
+          - region "Workflow run graph" [ref=f111e1045]:
+            - generic [ref=f111e1047]:
+              - generic [ref=f111e1049]:
+                - heading "deploy-hostinger.yml" [level=2] [ref=f111e1050]:
+                  - link "deploy-hostinger.yml" [ref=f111e1051] [cursor=pointer]:
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654176/workflow
+                - generic [ref=f111e1052]: "on: push"
+              - generic [ref=f111e1054]:
+                - generic [ref=f111e1055]:
+                  - img
+                  - img
+                  - 'link "failed: deploy 7s" [ref=f111e1059] [cursor=pointer]':
+                    - /url: /sourove-a/SPLARO/actions/runs/28705654176/job/85130752436
+                    - generic [ref=f111e1061]:
+                      - img "failed:" [ref=f111e1063]
+                      - generic [ref=f111e1066]: deploy
+                      - generic [ref=f111e1067]: 7s
+                - generic [ref=f111e1068]:
+                  - paragraph [ref=f111e1069]: Oh hello! Nice to see you.
+                  - paragraph [ref=f111e1070]:
+                    - text: Made with ❤️ by
+                    - link [ref=f111e1071] [cursor=pointer]:
+                      - /url: https://actions.github.io/humans.txt
+                      - text: humans.txt
+              - generic [ref=f111e1072]:
+                - button "Fit to window" [disabled] [ref=f111e1073]:
+                  - img
+                - generic [ref=f111e1074]:
+                  - button "Zoom out" [disabled] [ref=f111e1076]:
+                    - img
+                  - button "Zoom in" [disabled] [ref=f111e1078]:
+                    - img
+          - region "Annotations" [ref=f111e1079]:
+            - generic [ref=f111e1080]:
+              - generic [ref=f111e1082]:
+                - heading "Annotations" [level=2] [ref=f111e1083]
+                - generic [ref=f111e1084]: 1 error and 1 warning
+              - table [ref=f111e1085]:
+                - rowgroup [ref=f111e1086]:
+                  - row "deploy Process completed with exit code 1." [ref=f111e1149]:
+                    - cell "deploy Process completed with exit code 1." [ref=f111e1150]:
+                      - generic [ref=f111e1089]:
+                        - img [ref=f111e1091]
+                        - generic [ref=f111e1093]:
+                          - link "deploy" [ref=f111e1094] [cursor=pointer]:
+                            - /url: /sourove-a/SPLARO/actions/runs/28705654176/job/85130752436#step:3:75
+                            - strong [ref=f111e1095]: deploy
+                          - generic [ref=f111e1098]: Process completed with exit code 1.
+                  - 'row "deploy Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/ Show more" [ref=f111e1100]':
+                    - 'cell "deploy Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/ Show more" [ref=f111e1101]':
+                      - generic [ref=f111e1102]:
+                        - img [ref=f111e1104]
+                        - generic [ref=f111e1106]:
+                          - link "deploy" [ref=f111e1107] [cursor=pointer]:
+                            - /url: /sourove-a/SPLARO/actions/runs/28705654176/job/85130752436#step:9:2
+                            - strong [ref=f111e1108]: deploy
+                          - generic [ref=f111e1109]:
+                            - generic [ref=f111e1111]:
+                              - text: "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see:"
+                              - link "https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/" [ref=f111e1112] [cursor=pointer]:
+                                - /url: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+                            - button "Show more" [ref=f111e1113] [cursor=pointer]

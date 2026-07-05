@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -17,7 +17,7 @@ export async function notifyCustomerSignup(input: {
   passwordHash?: string
   source?: string
 }): Promise<void> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   try {
     await fetch(
       `${base}/storefront/events/customer-signup?storeId=${encodeURIComponent(STORE_ID)}`,
@@ -35,7 +35,7 @@ export async function notifyCustomerSignup(input: {
 
 /** Notify admin Telegram when storefront hits API connection issues. */
 export async function notifyStorefrontApiError(area: string, detail: string): Promise<void> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   try {
     await fetch(
       `${base}/storefront/events/api-error?storeId=${encodeURIComponent(STORE_ID)}`,

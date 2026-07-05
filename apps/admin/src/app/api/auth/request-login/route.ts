@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { email?: string }
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   }
 
   const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
 
   try {
     const res = await fetch(`${base}/admin/auth/request-login`, {

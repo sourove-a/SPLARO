@@ -1,7 +1,6 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
-const API_BASE = getApiBaseUrl()
 const CACHE_MS = 60_000
 
 export interface StorefrontRedirect {
@@ -30,7 +29,7 @@ export async function getStorefrontRedirects(): Promise<StorefrontRedirect[]> {
 
   try {
     const res = await fetch(
-      `${API_BASE}/storefront/redirects?storeId=${encodeURIComponent(STORE_ID)}`,
+      `${getServerApiBaseUrl()}/storefront/redirects?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 60 } },
     )
     if (!res.ok) return cache?.rules ?? []

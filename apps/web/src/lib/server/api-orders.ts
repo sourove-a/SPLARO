@@ -1,4 +1,4 @@
-import { buildInvoiceAccessToken, getApiBaseUrl } from '@splaro/config'
+import { buildInvoiceAccessToken, getServerApiBaseUrl } from '@splaro/config'
 import type { StoredOrder, StoredOrderItem } from '@/lib/server/store'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -129,7 +129,7 @@ function mapApiOrderToStored(order: {
 }
 
 export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<StoredOrder | null> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (input.clientIp) headers['X-Forwarded-For'] = input.clientIp
   if (input.userAgent) headers['User-Agent'] = input.userAgent
@@ -169,7 +169,7 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
 }
 
 export async function fetchOrdersViaApi(phone: string): Promise<StoredOrder[]> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const res = await fetch(
     `${base}/storefront/orders/track?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`,
     { cache: 'no-store' },
@@ -183,7 +183,7 @@ export async function fetchOrderByIdViaApi(
   orderId: string,
   options?: { accessKey?: string | null | undefined; phone?: string | null | undefined },
 ): Promise<StoredOrder | null> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
 
   const fetchOne = async (id: string): Promise<StoredOrder | null> => {
     try {
@@ -245,7 +245,7 @@ export async function fetchInvoiceHtmlViaApi(
   orderId: string,
   options?: { autoPrint?: boolean },
 ): Promise<string | null> {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const path = options?.autoPrint
     ? `/admin/orders/${encodeURIComponent(orderId)}/invoice/print`
     : `/admin/orders/${encodeURIComponent(orderId)}/invoice`

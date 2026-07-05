@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import type { LegalPageContent } from '@splaro/types'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 
@@ -50,7 +50,7 @@ export async function getLandingPage(slug: string): Promise<LegalPageContent | n
   }
 
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const res = await fetchWithTimeout(
       `${base}/storefront/landing-pages/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 120 } },

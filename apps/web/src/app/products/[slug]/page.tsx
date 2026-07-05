@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getAllCatalogSlugs, getProductDetailBySlug, getRelatedProducts } from '@/lib/catalog/server'
+import { productSlug } from '@/lib/catalog/index'
+import { getProductDetailBySlug, getRelatedProducts, getStorefrontCatalog } from '@/lib/catalog/server'
 import ProductPageClient from './product-page-client'
 
 interface ProductPageProps {
@@ -9,8 +10,18 @@ interface ProductPageProps {
 
 export const dynamicParams = true
 
+/** Pre-render only when live API catalog is available (avoids CI/build timeouts). */
 export async function generateStaticParams() {
-  return getAllCatalogSlugs()
+  if (process.env.CI === '1') return []
+  try {
+    const { products, source } = await getStorefrontCatalog()
+    if (source !== 'api' || !products.length) return []
+    return products.map((p) => ({
+      slug: (p.slug ?? productSlug(p)) as string,
+    }))
+  } catch {
+    return []
+  }
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
@@ -54,6 +65,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const { product, reviews } = result
   const related = await getRelatedProducts(product)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
+  const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const inStock = product.variants.some((variant) => variant.stock > 0)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -86,9 +99,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
           '@type': 'Offer',
           url: `${siteUrl}/products/${product.slug}`,
           priceCurrency: 'BDT',
-          price: product.price,
-          availability:
-            product.variants.some((variant) => variant.stock > 0)
+          price: String(product.price),
+          priceValidUntil,
+          itemCondition: 'https://schema.org/NewCondition',
+          availability: inStock
               ? 'https://schema.org/InStock'
               : 'https://schema.org/OutOfStock',
           seller: {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const res = await fetch(`${base}/storefront/coupons/validate?storeId=${encodeURIComponent(STORE_ID)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

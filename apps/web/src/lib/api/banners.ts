@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -18,7 +18,7 @@ export async function fetchHeroBanners(): Promise<HeroBanner[]> {
   }
 
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const res = await fetchWithTimeout(
       `${base}/storefront/banners?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 10 } },

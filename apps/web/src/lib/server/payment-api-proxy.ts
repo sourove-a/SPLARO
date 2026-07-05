@@ -1,7 +1,7 @@
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 function paymentsBase(): string {
-  return `${getApiBaseUrl()}/payments`
+  return `${getServerApiBaseUrl()}/payments`
 }
 
 async function readApiError(res: Response): Promise<string> {

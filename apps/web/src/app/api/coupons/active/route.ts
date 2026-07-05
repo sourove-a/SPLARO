@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 export async function GET() {
   try {
-    const base = getApiBaseUrl()
+    const base = getServerApiBaseUrl()
     const res = await fetch(
       `${base}/storefront/coupons/active?storeId=${encodeURIComponent(STORE_ID)}`,
       { cache: 'no-store' },

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
+import { getServerApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +29,7 @@ async function probe(url: string, timeoutMs: number, headers?: Record<string, st
 
 /** Same-origin ping for admin connection UI — API, storefront, database. */
 export async function GET() {
-  const base = getApiBaseUrl()
+  const base = getServerApiBaseUrl()
   const checkedAt = new Date().toISOString()
 
   const apiProbe = await probe(`${base}/health`, 3500)
