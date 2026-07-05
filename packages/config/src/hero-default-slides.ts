@@ -1,6 +1,10 @@
 /** Default homepage hero slides when no Banner rows exist in the database. */
+// 1080p (12.8MB) for desktop — the UHD 2560x1440 file was 31MB and stalled on mobile.
 export const HERO_DEFAULT_VIDEO =
-  'https://videos.pexels.com/video-files/1409899/1409899-uhd_2560_1440_25fps.mp4'
+  'https://videos.pexels.com/video-files/1409899/1409899-hd_1920_1080_25fps.mp4'
+// 540p (3.7MB) served to viewports ≤ 768px.
+export const HERO_DEFAULT_VIDEO_MOBILE =
+  'https://videos.pexels.com/video-files/1409899/1409899-sd_960_540_25fps.mp4'
 
 export interface HeroDefaultSlide {
   key: string

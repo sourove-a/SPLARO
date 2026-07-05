@@ -5,17 +5,21 @@ import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
 import { cn } from '@/lib/utils/cn'
-import { HERO_DEFAULT_VIDEO } from '@splaro/config'
+import { HERO_DEFAULT_VIDEO, HERO_DEFAULT_VIDEO_MOBILE } from '@splaro/config'
 
 const SLIDE_DURATION_MS = 5500
 
 /** Override via NEXT_PUBLIC_HERO_VIDEO — cinematic background on first slide */
 const HERO_VIDEO = process.env.NEXT_PUBLIC_HERO_VIDEO?.trim() || HERO_DEFAULT_VIDEO
+const HERO_VIDEO_MOBILE =
+  process.env.NEXT_PUBLIC_HERO_VIDEO_MOBILE?.trim() || HERO_DEFAULT_VIDEO_MOBILE || HERO_VIDEO
 
 export interface HeroSlide {
   id: string
   image: string
   video?: string
+  /** Lighter rendition served to viewports ≤ 768px. */
+  videoMobile?: string
   eyebrow: string
   title: string
   subtitle: string
@@ -54,7 +58,11 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   return {
     id: banner.id,
     image: isVideo ? '/images/logo/splaro-logo-white.svg' : heroImageSrc(media),
-    ...(isVideo ? { video: media } : index === 0 && HERO_VIDEO ? { video: HERO_VIDEO } : {}),
+    ...(isVideo
+      ? { video: media }
+      : index === 0 && HERO_VIDEO
+        ? { video: HERO_VIDEO, videoMobile: HERO_VIDEO_MOBILE }
+        : {}),
     eyebrow: index === 0 ? 'SPLARO COLLECTION' : subtitle || title,
     title,
     subtitle,
@@ -94,6 +102,21 @@ function useAllowHeroVideo(): boolean {
   return allow
 }
 
+/** ≤768px → serve the lighter mobile rendition. */
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  return isMobile
+}
+
 function HeroBackground({
   slide,
   isActive,
@@ -107,14 +130,16 @@ function HeroBackground({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoFailed, setVideoFailed] = useState(false)
+  const isMobile = useIsMobileViewport()
+  const videoSrc = isMobile && slide.videoMobile ? slide.videoMobile : slide.video
 
   useEffect(() => {
     setVideoFailed(false)
-  }, [slide.video])
+  }, [videoSrc])
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !slide.video || videoFailed) return
+    if (!video || !videoSrc || videoFailed) return
 
     if (isActive) {
       video.currentTime = 0
@@ -123,11 +148,12 @@ function HeroBackground({
     }
 
     video.pause()
-  }, [isActive, slide.video, videoFailed])
+  }, [isActive, videoSrc, videoFailed])
 
-  if (slide.video && !videoFailed && allowVideo && isActive) {
+  if (videoSrc && !videoFailed && allowVideo && isActive) {
     return (
       <video
+        key={videoSrc}
         ref={videoRef}
         className="hero-bg-video"
         style={HERO_MEDIA_STYLE}
@@ -146,7 +172,7 @@ function HeroBackground({
         }}
         onError={() => setVideoFailed(true)}
       >
-        <source src={slide.video} type={videoMimeType(slide.video)} />
+        <source src={videoSrc} type={videoMimeType(videoSrc)} />
       </video>
     )
   }
