@@ -30,8 +30,10 @@ echo "[deploy] build next..."
 (cd apps/admin && npx next build)
 
 echo "[deploy] pm2 reload (splaro only — hunterflow untouched)..."
-pm2 reload splaro-api splaro-web splaro-admin --update-env || \
-  pm2 start "$APP/infrastructure/vps/ecosystem.opt.config.js"
+# One reload per app — a single multi-name reload only restarted the first process.
+for proc in splaro-api splaro-web splaro-admin; do
+  pm2 reload "$proc" --update-env || pm2 start "$APP/infrastructure/vps/ecosystem.opt.config.js"
+done
 pm2 save
 
 echo "[deploy] health check..."
