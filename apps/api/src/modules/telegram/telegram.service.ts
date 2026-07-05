@@ -893,17 +893,18 @@ ${items}
   }
 
   private async resolveAdminLoginChatIds(storeId: string, email: string): Promise<string[]> {
-    const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
-    if (!config?.isActive) return []
-
     const normalizedEmail = email.trim().toLowerCase()
     const envAdminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim().toLowerCase()
     const envTelegramId = this.config.get<string>('TELEGRAM_ADMIN_USER_ID')?.trim()
     const ids = new Set<string>()
 
+    // Env-configured admin works even without a TelegramConfig row in the DB.
     if (envTelegramId && envAdminEmail === normalizedEmail) {
       ids.add(envTelegramId)
     }
+
+    const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
+    if (!config?.isActive) return [...ids]
 
     const teleUsers = await this.prisma.telegramUser.findMany({
       where: {
