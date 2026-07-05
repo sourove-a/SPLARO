@@ -26,9 +26,9 @@ jobs:
           echo "Start: npm start → passenger-stack-app (web + api + proxy)"
           echo "Commit: ${{ github.sha }}"
 
-      - name: Wait for Hostinger build (up to 12 min)
+      - name: Wait for Hostinger build (up to 25 min)
         run: |
-          echo "Polling live URLs (Hostinger build ~8–12 min on shared hosting)…"
+          echo "Polling live URLs (Hostinger build ~15–20 min on shared hosting)…"
           check() {
             local name="$1" url="$2"
             local code
@@ -36,8 +36,8 @@ jobs:
             echo "$name → HTTP $code ($url)"
             [ "$code" = "200" ]
           }
-          for round in $(seq 1 24); do
-            echo "--- round $round/24 ($(date -u +%H:%M:%S) UTC) ---"
+          for round in $(seq 1 50); do
+            echo "--- round $round/50 ($(date -u +%H:%M:%S) UTC) ---"
             WEB_OK=0; API_OK=0; ADMIN_OK=0
             check web "https://splaro.co" && WEB_OK=1 || true
             check api "https://splaro.co/api/v1/health" && API_OK=1 || true
@@ -45,7 +45,7 @@ jobs:
             [ "$WEB_OK" = "1" ] && [ "$API_OK" = "1" ] && [ "$ADMIN_OK" = "1" ] && exit 0
             sleep 30
           done
-          echo "::error::Live deploy not healthy after 12 minutes"
+          echo "::error::Live deploy not healthy after 25 minutes"
           echo "hPanel → splaro.co → Deployments → latest build log"
           echo "Or hPanel SSH Terminal (one-time):"
           echo "  bash ~/domains/splaro.co/public_html/.builds/source/repository/infrastructure/hostinger/splaro-start-services.sh"

@@ -11,8 +11,12 @@ const { spawn } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 
-const repo = __dirname
 const home = process.env.HOME || ''
+const repo =
+  process.env.SPLARO_REPO_DIR ||
+  (home.includes('/domains/splaro.co')
+    ? path.join(home, 'public_html/.builds/source/repository')
+    : path.join(home, 'domains/splaro.co/public_html/.builds/source/repository'))
 
 const REQUIRED_ARTIFACTS = [
   'apps/web/.next/BUILD_ID',
