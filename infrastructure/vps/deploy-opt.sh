@@ -17,9 +17,10 @@ echo "[deploy] install..."
 pnpm install --frozen-lockfile --prod=false --ignore-scripts
 
 echo "[deploy] prisma..."
-cd packages/database && npx prisma generate && npx prisma db push && cd ../..
+(cd packages/database && npx prisma generate && npx prisma db push)
 
 echo "[deploy] build packages + api..."
+cd "$APP"
 pnpm --filter @splaro/config run build
 pnpm --filter @splaro/types run build
 pnpm --filter @splaro/api run build
