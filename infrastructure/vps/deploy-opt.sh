@@ -26,8 +26,21 @@ pnpm --filter @splaro/types run build
 pnpm --filter @splaro/api run build
 
 echo "[deploy] build next..."
+# Keep previous hashed static chunks so browser tabs opened before the deploy
+# don't hit 404 "Loading chunk failed" on the new build.
+for app in web admin; do
+  [ -d "apps/$app/.next/static" ] && rm -rf "/tmp/splaro-prev-static-$app" \
+    && cp -r "apps/$app/.next/static" "/tmp/splaro-prev-static-$app" || true
+done
 (cd apps/web && npx next build)
 (cd apps/admin && npx next build)
+for app in web admin; do
+  prev="/tmp/splaro-prev-static-$app"
+  if [ -d "$prev" ]; then
+    cp -rn "$prev/." "apps/$app/.next/static/" 2>/dev/null || true
+    rm -rf "$prev"
+  fi
+done
 
 echo "[deploy] pm2 reload (splaro only — hunterflow untouched)..."
 # One reload per app — a single multi-name reload only restarted the first process.
