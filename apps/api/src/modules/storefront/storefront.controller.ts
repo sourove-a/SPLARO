@@ -639,10 +639,27 @@ export class StorefrontController {
   async listBanners(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.cache.getOrSet(this.cache.storeKey(sid, 'banners'), 60, async () => {
+      const now = new Date()
       const banners = await this.prisma.banner.findMany({
-        where: { storeId: sid, isActive: true, position: 'hero' },
+        where: {
+          storeId: sid,
+          isActive: true,
+          position: 'hero',
+          AND: [
+            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+            { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          ],
+        },
         orderBy: { sortOrder: 'asc' },
-        select: { id: true, title: true, subtitle: true, image: true, linkUrl: true, sortOrder: true },
+        select: {
+          id: true,
+          title: true,
+          subtitle: true,
+          image: true,
+          mobileImage: true,
+          linkUrl: true,
+          sortOrder: true,
+        },
       })
       return { banners, total: banners.length }
     })

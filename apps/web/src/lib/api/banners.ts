@@ -8,6 +8,8 @@ export interface HeroBanner {
   title?: string | null
   subtitle?: string | null
   image: string
+  /** Lighter media (image or video) served to mobile viewports. */
+  mobileImage?: string | null
   linkUrl?: string | null
   sortOrder: number
 }

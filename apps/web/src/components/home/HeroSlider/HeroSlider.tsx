@@ -48,6 +48,20 @@ function videoMimeType(url: string): string {
   return 'video/mp4'
 }
 
+/** For Pexels-hosted videos, derive the lightweight 540p rendition for mobile. */
+function mobileVideoFallback(url: string): string | undefined {
+  if (!url.includes('videos.pexels.com')) return undefined
+  const swapped = url.replace(/(uhd|hd)_\d+_\d+_(\d+fps)/, 'sd_960_540_$2')
+  return swapped !== url ? swapped : undefined
+}
+
+/** Mobile rendition for a DB video banner: explicit mobileImage video, else Pexels swap. */
+function bannerVideoMobile(banner: HeroBanner, media: string): { videoMobile: string } | {} {
+  const explicit = banner.mobileImage?.trim()
+  const mobile = explicit && isVideoUrl(explicit) ? explicit : mobileVideoFallback(media)
+  return mobile ? { videoMobile: mobile } : {}
+}
+
 function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   const media = banner.image?.trim() || ''
   const isVideo = isVideoUrl(media)
@@ -59,7 +73,7 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
     id: banner.id,
     image: isVideo ? '/images/logo/splaro-logo-white.svg' : heroImageSrc(media),
     ...(isVideo
-      ? { video: media }
+      ? { video: media, ...bannerVideoMobile(banner, media) }
       : index === 0 && HERO_VIDEO
         ? { video: HERO_VIDEO, videoMobile: HERO_VIDEO_MOBILE }
         : {}),
