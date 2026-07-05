@@ -230,7 +230,7 @@ function HelpdeskPanel() {
   const { data: telegram } = useTelegramIntegration()
   const createTicket = useCreateSupportTicket()
   const replyTicket = useReplyHelpdeskTicket()
-  const tickets = data?.tickets ?? []
+  const tickets = useMemo(() => data?.tickets ?? [], [data])
 
   const handleReply = (ticketId: string, subject: string) => {
     if (isOffline) {

@@ -5,8 +5,9 @@ name: Deploy Hostinger (Git)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
+  # Push disabled — SPLARO now deploys via deploy-vps.yml on VPS 194.238.24.155
+  # push:
+  #   branches: [main]
 
 concurrency:
   group: deploy-hostinger-git

@@ -413,7 +413,7 @@ function CollectionsPanel() {
   const { data, isError, isLoading, refetch } = useCollections()
   const createCollection = useCreateCollection()
   const updateCollection = useUpdateCollection()
-  const rows = data?.collections ?? []
+  const rows = useMemo(() => data?.collections ?? [], [data])
   const filtered = useMemo(() => { const q = query.toLowerCase(); return rows.filter((c) => !q || c.name.toLowerCase().includes(q)) }, [query, rows])
 
   const published = rows.filter((c) => c.isActive).length
@@ -726,7 +726,7 @@ function BrandsPanel() {
   const { data, isError, isLoading, refetch } = useBrands()
   const createBrand = useCreateBrand()
   const updateBrand = useUpdateBrand()
-  const rows = data?.brands ?? []
+  const rows = useMemo(() => data?.brands ?? [], [data])
   const filtered = useMemo(() => { const q = query.toLowerCase(); return rows.filter((b) => !q || b.name.toLowerCase().includes(q) || (b.vendorLabel ?? '').toLowerCase().includes(q)) }, [query, rows])
 
   const active = rows.filter((b) => b.isActive).length

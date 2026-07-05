@@ -11,7 +11,7 @@ import {
   MessageCircle,
   Phone,
 } from 'lucide-react'
-import { SplaroBrandLogo, logoUrlProp } from '@/components/brand/SplaroBrandLogo'
+import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { SOCIAL_BRAND_ICONS } from '@/components/ui/SocialBrandIcons'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { DEFAULT_STORE_ADDRESS, DEFAULT_STORE_LABEL } from '@/lib/storefront/defaults'
@@ -147,8 +147,8 @@ export function Footer() {
                     href="/"
                     size="footerLuxury"
                     tone="dark"
+                    logoUrl="/images/logo/splaro-logo-white.png"
                     className="footer-lux__logo"
-                    {...logoUrlProp(settings.store.logo)}
                   />
                   {tagline ? <p className="footer-lux__tagline">{tagline}</p> : null}
                 </div>
@@ -159,7 +159,9 @@ export function Footer() {
                       <MapPin className="h-4 w-4" strokeWidth={2} />
                     </div>
                     <div>
-                      <p className="footer-lux__store-label">{storeLabel}</p>
+                      {storeLabel ? (
+                        <p className="footer-lux__store-label">{storeLabel}</p>
+                      ) : null}
                       <address className="footer-lux__store-address whitespace-pre-line not-italic">
                         {address}
                       </address>

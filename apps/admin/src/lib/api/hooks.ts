@@ -67,6 +67,7 @@ import {
   fetchSitePages,
   updateSitePage,
 } from './content-pages'
+import type { PermissionRow } from './security'
 import { fetchRolePermissions, fetchSecuritySessions, inviteAdmin, removeStaff, revokeSecuritySession, saveRolePermissions, updateStaffRole } from './security'
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
@@ -1171,7 +1172,7 @@ export function useInviteAdmin() {
 export function useSaveRolePermissions() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ role, permissions }: { role: string; permissions: import('./security').PermissionRow[] }) =>
+    mutationFn: ({ role, permissions }: { role: string; permissions: PermissionRow[] }) =>
       saveRolePermissions(role, permissions),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['security-permissions'] })

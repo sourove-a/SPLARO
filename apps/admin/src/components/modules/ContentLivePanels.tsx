@@ -62,7 +62,7 @@ export function BlogPanelLive() {
   const createPost = useCreateBlogPost()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<PubStatus | 'all'>('all')
-  const posts = data?.posts ?? []
+  const posts = useMemo(() => data?.posts ?? [], [data])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
@@ -168,7 +168,7 @@ export function LookbooksPanelLive() {
   const { data, isError, isLoading, refetch } = useContentOverview()
   const createCollection = useCreateCollection()
   const [query, setQuery] = useState('')
-  const collections = data?.collections ?? []
+  const collections = useMemo(() => data?.collections ?? [], [data])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
@@ -253,7 +253,7 @@ export function LookbooksPanelLive() {
 export function ReelsPanelLive() {
   const { data, isError, isLoading, refetch } = useContentOverview()
   const [query, setQuery] = useState('')
-  const banners = data?.banners ?? []
+  const banners = useMemo(() => data?.banners ?? [], [data])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()

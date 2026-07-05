@@ -271,7 +271,7 @@ export function GoogleSheetsSyncPanelLive() {
 
   useEffect(() => { load() }, [])
 
-  const sheets = data?.sheets ?? []
+  const sheets = useMemo(() => data?.sheets ?? [], [data])
   const connection = data?.connection
   const filtered = useMemo(() => sheets.filter((s) => !query || s.sheetType.toLowerCase().includes(query.toLowerCase())), [query, sheets])
 

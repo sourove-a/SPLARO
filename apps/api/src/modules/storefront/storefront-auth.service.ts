@@ -3,6 +3,10 @@ import { Prisma } from '@prisma/client'
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
 import { EmailService } from '../email/email.service'
+import {
+  generatePasswordResetEmailHTML,
+  generatePasswordResetEmailText,
+} from '../email/password-reset-email.template'
 import { CustomersService } from '../customers/customers.service'
 
 const SCRYPT_KEYLEN = 64
@@ -287,8 +291,13 @@ export class StorefrontAuthService {
       storeId,
       to: user.email,
       subject: 'Reset your SPLARO password',
-      html: `<p>Hi ${user.firstName},</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in 1 hour.</p>`,
-      text: `Reset your password: ${resetUrl}`,
+      html: generatePasswordResetEmailHTML({
+        firstName: user.firstName,
+        resetUrl,
+        storeName: 'SPLARO',
+        siteUrl,
+      }),
+      text: generatePasswordResetEmailText({ firstName: user.firstName, resetUrl }),
       transactional: true,
     })
 

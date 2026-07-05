@@ -1,0 +1,25 @@
+; SPLARO — Cloudflare DNS (import manually or add one-by-one)
+; After adding splaro.co to Cloudflare, set Hostinger nameservers → Cloudflare NS
+; VPS IP: 194.238.24.155
+
+; ── Website (proxied = orange cloud ON for DDoS/WAF) ─────────
+Type    Name     Content            Proxy   TTL
+A       @        194.238.24.155     ON      Auto
+A       www      194.238.24.155     ON      Auto
+A       admin    194.238.24.155     ON      Auto
+A       api      194.238.24.155     ON      Auto
+
+; ── Email (Hostinger — proxy OFF / DNS only) ─────────────────
+Type    Name          Content                        Proxy   TTL
+MX      @             mx1.hostinger.com (prio 5)     OFF     Auto
+MX      @             mx2.hostinger.com (prio 10)    OFF     Auto
+TXT     @             v=spf1 include:_spf.mail.hostinger.com ~all   OFF   Auto
+CNAME   autoconfig    autoconfig.mail.hostinger.com    OFF     Auto
+CNAME   autodiscover  autodiscover.mail.hostinger.com  OFF     Auto
+
+; ── Cloudflare SSL (Dashboard) ───────────────────────────────
+; SSL/TLS → Overview → Full (strict)
+; SSL/TLS → Edge Certificates → Always Use HTTPS: ON
+; Security → Settings → Security Level: Medium
+; Security → Bots → Bot Fight Mode: ON (optional)
+; Speed → Optimization → Auto Minify: ON

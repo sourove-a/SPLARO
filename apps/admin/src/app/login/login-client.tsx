@@ -22,9 +22,6 @@ import { setAdminApiToken } from '@/lib/auth/api-token'
 const LOGIN_EMAIL =
   process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() || DEFAULT_ADMIN_EMAIL
 
-const TELEGRAM_BOT =
-  process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, '') || 'splaro_bot'
-
 const motionEase = [0.16, 1, 0.3, 1] as const
 
 type Step = 'email' | 'token'
@@ -50,6 +47,7 @@ export default function AdminLoginPage() {
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tokenHint, setTokenHint] = useState<string | null>(null)
 
   const panelMotion = reduceMotion
     ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 1 } }
@@ -67,28 +65,46 @@ export default function AdminLoginPage() {
     }
   }, [step])
 
+  const requestLoginToken = async (targetEmail: string) => {
+    const res = await fetch('/api/auth/request-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: targetEmail }),
+    })
+    const data = (await res.json()) as { error?: string; tokenSent?: boolean }
+    if (!res.ok) {
+      throw new Error(data.error ?? 'No admin account found for this email')
+    }
+    setTokenHint('Login token sent to your Telegram. Tap Copy Token, then paste below.')
+    return data
+  }
+
   const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoading(true)
     setError(null)
+    setTokenHint(null)
 
     try {
-      const res = await fetch('/api/auth/request-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = (await res.json()) as { error?: string }
-      if (!res.ok) {
-        setError(data.error ?? 'No admin account found for this email')
-        setLoading(false)
-        return
-      }
+      await requestLoginToken(email)
       setStep('token')
       setToken('')
       setLoading(false)
-    } catch {
-      setError('Unable to connect. Please try again.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to connect. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  const handleResendToken = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      await requestLoginToken(email)
+      setToken('')
+      setLoading(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend token.')
       setLoading(false)
     }
   }
@@ -142,8 +158,6 @@ export default function AdminLoginPage() {
     }
   }
 
-  const telegramUrl = `https://t.me/${TELEGRAM_BOT}`
-
   return (
     <AdminLoginShell>
       <div className="admin-auth-card__brand">
@@ -156,7 +170,7 @@ export default function AdminLoginPage() {
             <p className="admin-auth-card__subtitle">
               {step === 'email'
                 ? 'Orders · Products · Finance · Courier · AI'
-                : 'Secure one-time token from SPLARO Bot'}
+                : 'Secure one-time token via Telegram'}
             </p>
           </motion.div>
         </AnimatePresence>
@@ -214,20 +228,20 @@ export default function AdminLoginPage() {
             transition={panelTransition}
           >
             <div className="admin-auth-telegram">
-              <p className="admin-auth-telegram__title">Step 1 — Get token</p>
+              <p className="admin-auth-telegram__title">Check Telegram</p>
               <p className="admin-auth-telegram__text">
-                Open <strong>@{TELEGRAM_BOT}</strong> → send{' '}
-                <code>/login</code> → tap <strong>Copy Token</strong>
+                {tokenHint ??
+                  'Your one-time login token was sent to your linked SPLARO Telegram chat. Tap Copy Token in the bot message, then paste below.'}
               </p>
-              <a
-                href={telegramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => void handleResendToken()}
+                disabled={loading}
                 className="admin-auth-telegram__btn"
               >
                 <Send className="h-3 w-3" />
-                Open SPLARO Bot
-              </a>
+                {loading ? 'Sending…' : 'Resend token'}
+              </button>
             </div>
 
             <div className="admin-auth-email-chip">
@@ -236,7 +250,7 @@ export default function AdminLoginPage() {
             </div>
 
             <label className="admin-auth-field">
-              <span className="admin-auth-label">Step 2 — Paste token</span>
+              <span className="admin-auth-label">Paste token</span>
               <div className="admin-auth-field__wrap">
                 <span className="admin-auth-field__icon-chip" aria-hidden>
                   <ClipboardPaste className="h-4 w-4" strokeWidth={2} />
@@ -255,7 +269,7 @@ export default function AdminLoginPage() {
                   className="admin-auth-input admin-auth-input--token"
                 />
               </div>
-              <p className="admin-auth-hint">Paste from bot — auto-login when complete</p>
+              <p className="admin-auth-hint">Paste from Telegram — auto-login when complete</p>
             </label>
 
             {error ? (

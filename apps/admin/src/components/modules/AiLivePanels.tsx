@@ -27,7 +27,7 @@ export function AiAgentPanelLive() {
 export function AiContentPanelLive() {
   const { data, isError, refetch } = useSeoOverview()
   const [query, setQuery] = useState('')
-  const audits = data?.productAudits ?? []
+  const audits = useMemo(() => data?.productAudits ?? [], [data])
 
   const items = useMemo(
     () =>
@@ -242,7 +242,7 @@ export function AiAnalyticsPanelLive() {
 
 export function AiCustomerInsightsPanelLive() {
   const { data, isError, isLoading, refetch } = useCustomers({ limit: 200 })
-  const customers = data?.customers ?? []
+  const customers = useMemo(() => data?.customers ?? [], [data])
 
   const segments = useMemo(() => {
     const vip = customers.filter((c) => c.loyaltyTier === 'GOLD' || c.loyaltyTier === 'PLATINUM')

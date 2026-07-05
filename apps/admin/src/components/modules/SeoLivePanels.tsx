@@ -28,7 +28,7 @@ function asSeoStatus(s: string): SeoStatus {
 export function KeywordsPanelLive() {
   const { data, isOffline, isLoading, refetch } = useSeoOverview()
   const [query, setQuery] = useState('')
-  const keywords = data?.keywords ?? []
+  const keywords = useMemo(() => data?.keywords ?? [], [data])
   const filtered = useMemo(
     () => keywords.filter((k) => !query || k.keyword.includes(query.toLowerCase())),
     [query, keywords],
@@ -105,7 +105,7 @@ export function KeywordsPanelLive() {
 export function IndexMonitorPanelLive() {
   const { data, isOffline, refetch } = useSeoOverview()
   const [query, setQuery] = useState('')
-  const pages = data?.indexPages ?? []
+  const pages = useMemo(() => data?.indexPages ?? [], [data])
   const filtered = useMemo(() => pages.filter((p) => !query || p.url.includes(query)), [query, pages])
   // Real index status needs a Search Console connection — until then the
   // KPIs report meta completeness, which comes from the live catalog.

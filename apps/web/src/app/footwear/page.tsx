@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 export const revalidate = 60
 
 const ROW_CATEGORY_SLUGS: Record<string, string> = {
-  'mens-footwear': 'footwear-men',
-  'womens-footwear': 'footwear-women',
-  'kids-footwear': 'footwear-kids',
+  'mens-footwear': 'men-footwear',
+  'womens-footwear': 'women-footwear',
+  'kids-footwear': 'kids-footwear',
 }
 
 async function hydrateFootwearConfig(base: FootwearConfig): Promise<FootwearConfig> {
@@ -49,11 +49,11 @@ async function hydrateFootwearConfig(base: FootwearConfig): Promise<FootwearConf
         ...cat,
         href:
           cat.id === 'men'
-            ? '/c/footwear-men'
+            ? '/c/men-footwear'
             : cat.id === 'women'
-              ? '/c/footwear-women'
+              ? '/c/women-footwear'
               : cat.id === 'kids'
-                ? '/c/footwear-kids'
+                ? '/c/kids-footwear'
                 : cat.href,
       })),
     },

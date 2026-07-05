@@ -29,7 +29,7 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
   const { data: settings } = useSettings()
   const autoSku = settings?.catalog?.autoGenerateSku ?? false
 
-  const products = data?.products ?? []
+  const products = useMemo(() => data?.products ?? [], [data])
 
   const rows = useMemo(() => {
     return products.map((p) => {

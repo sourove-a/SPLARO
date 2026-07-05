@@ -117,7 +117,7 @@ function CustomersView() {
   const { data, isLoading, refetch } = useCustomers({ limit: 100 })
   const deleteCustomer = useDeleteCustomer()
   const blockCustomerMutation = useBlockCustomer()
-  const rows = data?.customers ?? []
+  const rows = useMemo(() => data?.customers ?? [], [data])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()

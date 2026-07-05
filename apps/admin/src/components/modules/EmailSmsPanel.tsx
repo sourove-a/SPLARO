@@ -23,10 +23,10 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
   const [channelFilter, setChannelFilter] = useState<'all' | 'Email' | 'SMS'>('all')
   const [showComposer, setShowComposer] = useState(true)
 
-  const customers = customerData?.customers ?? []
-  const emailCampaigns = data?.emailCampaigns ?? []
-  const emailLogs = data?.emailLogs ?? []
-  const smsLogs = data?.smsLogs ?? []
+  const customers = useMemo(() => customerData?.customers ?? [], [customerData])
+  const emailCampaigns = useMemo(() => data?.emailCampaigns ?? [], [data])
+  const emailLogs = useMemo(() => data?.emailLogs ?? [], [data])
+  const smsLogs = useMemo(() => data?.smsLogs ?? [], [data])
 
   const segments = useMemo(
     () => [

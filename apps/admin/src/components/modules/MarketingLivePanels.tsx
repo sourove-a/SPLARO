@@ -15,7 +15,7 @@ export function WhatsAppPanelLive() {
   const { data, isError, refetch } = useMarketingOverview()
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'inbox' | 'templates' | 'broadcasts'>('inbox')
-  const logs = data?.whatsappLogs ?? []
+  const logs = useMemo(() => data?.whatsappLogs ?? [], [data])
   const campaigns = data?.whatsappCampaigns ?? []
 
   const filtered = useMemo(() => {
@@ -169,7 +169,7 @@ export function AffiliatePanelLive() {
   const { data, isError, refetch } = useMarketingOverview()
   const createAffiliate = useCreateAffiliate()
   const [query, setQuery] = useState('')
-  const affiliates = data?.affiliates ?? []
+  const affiliates = useMemo(() => data?.affiliates ?? [], [data])
 
   const filtered = useMemo(
     () =>

@@ -176,7 +176,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
 
   const [txnForm, setTxnForm] = useState({ partnerId: '', amount: '', note: '' })
 
-  const partners = hub?.partners ?? []
+  const partners = useMemo(() => hub?.partners ?? [], [hub])
 
   const loadAll = useCallback(async () => {
     setLoading(true)

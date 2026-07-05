@@ -168,7 +168,7 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchResult, setBatchResult] = useState<{ pass: number; fail: number } | null>(null)
 
-  const items = data?.integrations ?? []
+  const items = useMemo(() => data?.integrations ?? [], [data])
   const connectedCount = items.filter((i) => i.connected).length
   const testableConnected = items.filter((i) => i.connected && canTest(i.provider))
 

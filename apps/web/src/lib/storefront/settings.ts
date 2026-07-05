@@ -142,7 +142,7 @@ export interface StorefrontSettings {
 export const FALLBACK_SETTINGS: StorefrontSettings = {
   store: {
     name: 'SPLARO',
-    logo: '',
+    logo: '/images/logo/splaro-brand-mark-transparent.png',
     email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@splaro.co',
     phone: process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? '',
     address: DEFAULT_STORE_ADDRESS,

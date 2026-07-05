@@ -1,5 +1,8 @@
 # SPLARO — Hostinger VPS Deployment Guide
 
+> **Bangla quick start:** [VPS-GO-LIVE-BN.md](./VPS-GO-LIVE-BN.md)  
+> **Mac prep:** `pnpm prep:vps` → **VPS go-live:** `bash infrastructure/vps/go-live.sh`
+
 ## Prerequisites
 
 - Hostinger KVM VPS (minimum: 4 vCPU, 8GB RAM, 100GB NVMe)

@@ -32,12 +32,12 @@ export class EmailService {
       where: { id: input.storeId },
       include: { settings: true },
     })
-    if (!store?.settings) return false
+    if (!store) return false
 
     const transactional = Boolean(input.transactional)
-    if (!transactional && !store.settings.emailEnabled) return false
+    if (!transactional && !store.settings?.emailEnabled) return false
 
-    const smtp = this.resolveSmtp(store.settings.storefrontConfig)
+    const smtp = this.resolveSmtp(store.settings?.storefrontConfig)
     if (smtp?.enabled && smtp.host && smtp.user && smtp.password) {
       const sent = await this.sendViaSmtp(smtp, store.name, input)
       if (sent) return true
@@ -121,7 +121,7 @@ export class EmailService {
       where: { id: storeId },
       include: { settings: true },
     })
-    const smtp = mergeStorefrontConfig(store?.settings?.storefrontConfig).smtp
+    const smtp = this.resolveSmtp(store?.settings?.storefrontConfig)
     if (!smtp?.host || !smtp.user || !smtp.password) {
       return { ok: false, message: 'SMTP host, user and password are required.' }
     }

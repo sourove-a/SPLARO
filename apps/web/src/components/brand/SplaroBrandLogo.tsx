@@ -5,20 +5,20 @@ import { cn } from '@/lib/utils/cn'
 const logoAssets = {
   /** Header/footer — SPLARO wordmark on light backgrounds */
   light: {
-    src: '/images/logo/splaro-logo-dark.svg',
+    src: '/images/logo/splaro-brand-mark-transparent.png',
     width: 200,
-    height: 50,
+    height: 80,
   },
   dark: {
-    src: '/images/logo/splaro-logo-white.svg',
+    src: '/images/logo/splaro-logo-white.png',
     width: 200,
-    height: 50,
+    height: 80,
   },
   /** Auth / login pages */
   brand: {
-    src: '/images/logo/splaro-brand.svg',
+    src: '/images/logo/splaro-brand-mark-transparent.png',
     width: 200,
-    height: 50,
+    height: 80,
   },
 } as const
 
@@ -39,15 +39,12 @@ interface SplaroBrandLogoProps {
   logoUrl?: string
 }
 
-/** Never use favicon/mark assets as the header/footer wordmark. */
+/** Block favicon/tab icons only — full brand wordmark PNGs are OK. */
 function isHeaderLogoUrl(url: string): boolean {
   const lower = url.toLowerCase()
-  return (
-    !lower.includes('favicon') &&
-    !lower.includes('brand-mark') &&
-    !lower.includes('arabic-logo') &&
-    !lower.endsWith('splaro-mark.png')
-  )
+  if (/favicon|brand-mark-tab|arabic-logo/.test(lower)) return false
+  if (lower.endsWith('splaro-mark.png')) return false
+  return true
 }
 
 export function resolveStoreLogo(logo: string): string {

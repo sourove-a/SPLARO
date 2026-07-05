@@ -3,6 +3,15 @@ import { getServerApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'
 
+const isProd = process.env.NODE_ENV === 'production'
+
+function offlineHint(service: 'api' | 'storefront'): string {
+  if (isProd) {
+    return service === 'api' ? 'API unreachable — check VPS splaro-api' : 'Storefront unreachable'
+  }
+  return service === 'api' ? 'Start pnpm dev:api' : 'Start pnpm dev:web'
+}
+
 function internalProbeHeaders(): Record<string, string> {
   const secret = process.env.INTERNAL_HEALTH_SECRET
   return secret ? { 'x-splaro-internal': secret } : {}
@@ -74,7 +83,7 @@ export async function GET() {
     api: {
       online: apiProbe.ok,
       latencyMs: apiProbe.latencyMs,
-      message: apiProbe.ok ? `HTTP ${apiProbe.status}` : apiProbe.message ?? 'Start pnpm dev:api',
+      message: apiProbe.ok ? `HTTP ${apiProbe.status}` : apiProbe.message ?? offlineHint('api'),
       url: `${base}/health`,
     },
     storefront: {
@@ -82,13 +91,13 @@ export async function GET() {
       latencyMs: storefrontProbe.latencyMs,
       message: storefrontProbe.ok
         ? `HTTP ${storefrontProbe.status}`
-        : storefrontProbe.message ?? 'Start pnpm dev:web',
+        : storefrontProbe.message ?? offlineHint('storefront'),
       url: SPLARO_DOMAINS.site,
     },
     database: {
       online: databaseOnline,
       latencyMs: databaseLatency,
-      message: databaseMessage ?? (databaseOnline ? 'PostgreSQL OK' : 'Check pnpm db:push'),
+      message: databaseMessage ?? (databaseOnline ? 'PostgreSQL OK' : isProd ? 'Database check failed' : 'Check pnpm db:push'),
     },
   }
 

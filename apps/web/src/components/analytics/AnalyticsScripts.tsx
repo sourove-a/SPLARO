@@ -3,13 +3,18 @@
 import Script from 'next/script'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 
+// Client-side fallback only — same priority as GoogleAnalyticsHead. The authoritative
+// value (incl. server-only GA4_MEASUREMENT_ID) arrives via the envGaId prop from layout.
 const ENV_GA_ID =
-  process.env.NEXT_PUBLIC_GA_ID ?? process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? ''
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? process.env.NEXT_PUBLIC_GA_ID ?? ''
 const ENV_FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID ?? ''
 
-export function AnalyticsScripts() {
+export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   const { marketing } = useStorefrontSettings()
-  const GA_ID = marketing?.googleAnalyticsId?.trim() || ENV_GA_ID
+  const envGa = (envGaId ?? ENV_GA_ID).trim()
+  const dbGa = marketing?.googleAnalyticsId?.trim() ?? ''
+  // Env GA loads in layout (GoogleAnalyticsHead). Inject here only if admin ID differs.
+  const GA_ID = dbGa && dbGa !== envGa ? dbGa : envGa ? '' : dbGa
   const FB_PIXEL_ID = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID
 
   if (!GA_ID && !FB_PIXEL_ID) return null

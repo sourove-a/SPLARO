@@ -366,10 +366,19 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
 export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slug: string })[]> {
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}`
-  const res = await fetchWithTimeout(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`Storefront API ${res.status}`)
-  const data = (await res.json()) as { products: LiveProduct[] }
-  return (data.products ?? []).map(mapLiveProduct)
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, { cache: 'no-store' }, 12_000)
+      if (!res.ok) throw new Error(`Storefront API ${res.status}`)
+      const data = (await res.json()) as { products: LiveProduct[] }
+      return (data.products ?? []).map(mapLiveProduct)
+    } catch (err) {
+      if (attempt === 1) throw err
+    }
+  }
+
+  return []
 }
 
 export async function fetchLiveProducts(): Promise<(StorefrontProduct & { slug: string })[]> {

@@ -206,6 +206,22 @@ export function updateSettings(data: Partial<AdminSettingsData>) {
   })
 }
 
+const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+
+export function verifySmtpConnection() {
+  return apiFetch<{ ok: boolean; message: string }>('/admin/notifications/verify/smtp', {
+    method: 'POST',
+    body: JSON.stringify({ storeId: STORE_ID }),
+  })
+}
+
+export function sendSmtpTestEmail(to: string) {
+  return apiFetch<{ ok: boolean }>('/admin/notifications/test/email', {
+    method: 'POST',
+    body: JSON.stringify({ storeId: STORE_ID, to }),
+  })
+}
+
 export interface NewsletterSubscriberRow {
   id: string
   email: string

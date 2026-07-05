@@ -43,8 +43,9 @@ systemctl enable postgresql
 systemctl start postgresql
 
 # Create database and user
+DB_PASS="${SPLARO_DB_PASS:-CHANGE_ME_STRONG_PASSWORD}"
 sudo -u postgres psql << EOF
-CREATE USER splaro_user WITH ENCRYPTED PASSWORD 'CHANGE_ME_STRONG_PASSWORD';
+CREATE USER splaro_user WITH ENCRYPTED PASSWORD '${DB_PASS}';
 CREATE DATABASE splaro_db OWNER splaro_user;
 CREATE DATABASE splaro_shadow_db OWNER splaro_user;
 GRANT ALL PRIVILEGES ON DATABASE splaro_db TO splaro_user;

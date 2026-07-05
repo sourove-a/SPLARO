@@ -197,6 +197,26 @@ export class AuthService {
     }
   }
 
+  async issueLoginTokenForEmail(
+    email: string,
+    storeIdRaw?: string,
+  ): Promise<{ code: string; email: string }> {
+    const admin = await this.resolveAdminStaff(email, storeIdRaw)
+    if (!admin) {
+      throw new UnauthorizedException('No admin account found for this email')
+    }
+
+    const code = await this.loginTokens.issue({
+      email: admin.email,
+      userId: admin.userId,
+      name: admin.name,
+      role: admin.role,
+      storeId: admin.storeId,
+    })
+
+    return { code, email: admin.email }
+  }
+
   async issueTelegramLoginToken(storeId: string): Promise<{ code: string; email: string }> {
     const admin = await this.resolvePrimaryAdminForStore(storeId)
     if (!admin) {

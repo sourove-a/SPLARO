@@ -26,14 +26,21 @@ const EMPTY_CATALOG: CachedCatalog = { products: [], source: 'api-unavailable' }
 
 const getCachedLiveCatalog = unstable_cache(
   async (): Promise<CachedCatalog> => {
-    const live = await fetchLiveProductsRaw()
-    if (!live.length) {
-      return { products: [], source: 'empty' }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const live = await fetchLiveProductsRaw()
+        if (!live.length) {
+          return { products: [], source: 'empty' }
+        }
+        return { products: live.map(sanitizeStorefrontProduct), source: 'api' }
+      } catch {
+        if (attempt === 1) break
+      }
     }
-    return { products: live.map(sanitizeStorefrontProduct), source: 'api' }
+    return EMPTY_CATALOG
   },
-  ['splaro-storefront-catalog', 'v2-image-sanitize'],
-  { revalidate: 10, tags: ['storefront-products'] },
+  ['splaro-storefront-catalog', 'v3-retry'],
+  { revalidate: 30, tags: ['storefront-products'] },
 )
 
 export async function getStorefrontCatalog(): Promise<CachedCatalog> {

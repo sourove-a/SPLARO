@@ -6,6 +6,7 @@ import { StorefrontChrome } from '@/components/layout/StorefrontChrome'
 import { Toaster } from '@/components/ui/Toast/Toaster'
 import { StorefrontSettingsProvider } from '@/components/providers/StorefrontSettingsProvider'
 import { AnalyticsScripts } from '@/components/analytics/AnalyticsScripts'
+import { GoogleAnalyticsHead, GA_ENV_ID } from '@/components/analytics/GoogleAnalyticsHead'
 import { AttributionCapture } from '@/components/analytics/AttributionCapture'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
 import { SPLARO_TAB_ICONS, splaroMetadataIcons } from '@splaro/config'
@@ -121,6 +122,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cormorant.variable}`}>
       <head>
+        <GoogleAnalyticsHead />
         <link rel="preconnect" href="https://cdn.splaro.co" />
         <link rel="dns-prefetch" href="https://cdn.splaro.co" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
@@ -200,7 +202,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS_SCRIPT }} />
         <Providers>
           <StorefrontSettingsProvider settings={settings}>
-            <AnalyticsScripts />
+            <AnalyticsScripts envGaId={GA_ENV_ID} />
             <AttributionCapture />
             <StorefrontChrome>{children}</StorefrontChrome>
             <Toaster />

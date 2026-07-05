@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+const isProd = process.env.NODE_ENV === 'production'
+
 export type ConnectionPulse = 'checking' | 'online' | 'degraded' | 'offline'
 
 export interface ServiceConnection {
@@ -122,7 +124,7 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
 
       setLastChecked(data.checkedAt ? new Date(data.checkedAt) : new Date())
     } catch {
-      setApi({ pulse: 'offline', latencyMs: null, message: 'Admin proxy unreachable — restart pnpm dev:admin' })
+      setApi({ pulse: 'offline', latencyMs: null, message: isProd ? 'Admin API proxy unreachable' : 'Admin proxy unreachable — restart pnpm dev:admin' })
       setStorefront({ pulse: 'offline', latencyMs: null })
       setDatabase({ pulse: 'offline', latencyMs: null })
       setLastChecked(new Date())

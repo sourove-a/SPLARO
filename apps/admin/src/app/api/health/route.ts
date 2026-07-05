@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { getServerApiBaseUrl, SPLARO_DOMAINS } from '@splaro/config'
 
 export const dynamic = 'force-dynamic'

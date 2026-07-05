@@ -1,0 +1,45 @@
+# SPLARO — Production DB only (optional)
+# App runs natively via PM2 — NOT in Docker.
+# Use when you prefer containerized Postgres + Redis instead of apt install.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#   DATABASE_URL=postgresql://splaro_user:PASSWORD@127.0.0.1:5432/splaro_db
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: splaro-postgres-prod
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:5432:5432'
+    environment:
+      POSTGRES_USER: splaro_user
+      POSTGRES_PASSWORD: ${SPLARO_DB_PASS:-CHANGE_ME_STRONG_PASSWORD}
+      POSTGRES_DB: splaro_db
+    volumes:
+      - splaro_pg_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U splaro_user -d splaro_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: splaro-redis-prod
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - splaro_redis_prod:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  splaro_pg_prod:
+  splaro_redis_prod:

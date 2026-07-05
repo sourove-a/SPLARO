@@ -265,7 +265,7 @@ export function emptyStorefrontConfig(): StorefrontConfig {
   return {
     footerTagline: '',
     footerCopyright: '',
-    storeLabel: 'Store',
+    storeLabel: '',
     headerNav: DEFAULT_HEADER_NAV,
     footerGroups: DEFAULT_FOOTER_GROUPS,
     marquee: { enabled: false, items: [] },
@@ -296,15 +296,16 @@ export function emptyStorefrontConfig(): StorefrontConfig {
     shippingZones: { dhakaSameDay: true, outsideDhaka: true },
     catalog: { autoGenerateSku: false },
     smtp: {
+      // Disabled until a password is saved — prevents new stores inheriting SPLARO's mailbox as active.
       enabled: false,
-      host: '',
+      host: 'smtp.hostinger.com',
       port: 587,
       secure: false,
-      user: '',
+      user: 'noreply@splaro.co',
       password: '',
       fromName: 'SPLARO',
-      fromEmail: '',
-      replyTo: '',
+      fromEmail: 'noreply@splaro.co',
+      replyTo: 'support@splaro.co',
     },
   }
 }

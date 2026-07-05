@@ -119,7 +119,7 @@ export function ExportCenterPanelLive() {
 export function NotificationCenterPanelLive() {
   const { data, isError, isLoading, refetch } = useNotificationsOverview()
   const [query, setQuery] = useState('')
-  const logs = data?.logs ?? []
+  const logs = useMemo(() => data?.logs ?? [], [data])
   const summary = data?.summary
 
   const filtered = useMemo(() => {

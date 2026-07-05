@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { NotificationsService } from './notifications.service'
@@ -59,12 +59,15 @@ export class NotificationsController {
   /** Send a test email */
   @Post('test/email')
   async testEmail(@Body() body: { storeId: string; to?: string }) {
+    const to = body.to?.trim()
+    if (!to) throw new BadRequestException('Recipient email address (to) is required')
     const sid = await resolveStoreId(this.prisma, body.storeId)
     const sent = await this.email.sendForStore({
       storeId: sid,
-      to: body.to ?? 'test@splaro.com',
+      to,
       subject: 'SPLARO test email ✓',
       html: '<h2>Test email from SPLARO</h2><p>Your SMTP configuration is working correctly.</p>',
+      transactional: true,
     })
     return { ok: sent }
   }

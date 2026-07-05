@@ -1,11 +1,15 @@
-import { Body, Controller, Get, Headers, Post, Req, UnauthorizedException } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Post, Req, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
 import { AuthService } from './auth.service'
+import { TelegramService } from '../telegram/telegram.service'
 
 @Controller('admin/auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly telegram: TelegramService,
+  ) {}
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('request-login')
@@ -14,7 +18,18 @@ export class AuthController {
     if (!email) {
       throw new UnauthorizedException('Email required')
     }
-    return this.auth.validateAdminEmail(email, body.storeId)
+
+    await this.auth.validateAdminEmail(email, body.storeId)
+    const { code, email: adminEmail } = await this.auth.issueLoginTokenForEmail(email, body.storeId)
+    const tokenSent = await this.telegram.sendLoginTokenForAdmin(body.storeId ?? 'splaro', adminEmail, code)
+
+    if (!tokenSent) {
+      throw new ServiceUnavailableException(
+        'Login token created but Telegram delivery failed. Open your SPLARO bot and send /login.',
+      )
+    }
+
+    return { ok: true, email: adminEmail, tokenSent: true }
   }
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

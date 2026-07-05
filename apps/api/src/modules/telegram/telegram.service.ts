@@ -1,13 +1,22 @@
-import { Inject, Injectable, Logger, OnModuleInit, forwardRef } from '@nestjs/common'
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleInit,
+  forwardRef,
+} from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ModuleRef } from '@nestjs/core'
 import { PrismaService } from '../../common/prisma.service'
+import { resolveStoreId } from '../../common/store.util'
 import { InvoiceService } from '../invoices/invoice.service'
 import { CourierService } from '../courier/courier.service'
 import { AgentService } from '../agent'
 import { AuthService } from '../auth/auth.service'
 import TelegramBot from 'node-telegram-bot-api'
 import { formatBDT } from '../../common/utils/currency'
+import { SPLARO_DOMAINS } from '@splaro/config'
 import type { TelegramRole } from '@prisma/client'
 import {
   BOT_COMMANDS,
@@ -33,7 +42,7 @@ interface TelegramCtx {
 }
 
 @Injectable()
-export class TelegramService implements OnModuleInit {
+export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(TelegramService.name)
   private bot: TelegramBot | null = null
 
@@ -60,27 +69,51 @@ export class TelegramService implements OnModuleInit {
     this.registerCommands()
 
     if (webhookUrl) {
-      const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')
-      try {
-        const info = await this.bot.getWebHookInfo()
-        const current = info?.url?.replace(/\/$/, '')
-        const target = webhookUrl.replace(/\/$/, '')
-        if (current !== target) {
-          await this.bot.setWebHook(
-            webhookUrl,
-            secret ? { secret_token: secret } : undefined,
-          )
-        }
-        this.logger.log(`Telegram bot initialized (webhook → ${target})`)
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : 'setWebHook failed'
-        this.logger.error(`Telegram webhook setup failed: ${errMsg}`)
-        this.logger.warn('Telegram webhook left unchanged — register manually if needed')
-      }
+      this.logger.log(`Telegram bot ready (webhook mode → ${webhookUrl.replace(/\/$/, '')})`)
     } else if (usePolling) {
       this.logger.log('Telegram bot initialized (polling)')
     } else {
       this.logger.log('Telegram bot ready (send-only — polling disabled on this process)')
+    }
+  }
+
+  /** Register webhook after HTTP server is listening so Telegram can reach the endpoint. */
+  async onApplicationBootstrap() {
+    const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.trim()
+    if (!this.bot || !webhookUrl) return
+
+    const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')
+    const target = webhookUrl.replace(/\/$/, '')
+
+    try {
+      await this.bot.setWebHook(webhookUrl, {
+        ...(secret ? { secret_token: secret } : {}),
+        allowed_updates: ['message', 'callback_query'],
+      })
+      const info = await this.bot.getWebHookInfo()
+      const registered = info?.url?.replace(/\/$/, '') ?? ''
+      if (registered === target) {
+        this.logger.log(`Telegram webhook registered → ${target}`)
+        return
+      }
+      this.logger.warn(`Telegram webhook mismatch (expected ${target}, got ${registered || 'empty'}) — retrying…`)
+      await new Promise((r) => setTimeout(r, 2000))
+      await this.bot.setWebHook(webhookUrl, {
+        ...(secret ? { secret_token: secret } : {}),
+        allowed_updates: ['message', 'callback_query'],
+      })
+      const retryInfo = await this.bot.getWebHookInfo()
+      const retryUrl = retryInfo?.url?.replace(/\/$/, '') ?? ''
+      if (retryUrl === target) {
+        this.logger.log(`Telegram webhook registered → ${target}`)
+        return
+      }
+      this.logger.error(
+        `Telegram webhook registration mismatch (expected ${target}, got ${retryUrl || 'empty'})`,
+      )
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'setWebHook failed'
+      this.logger.error(`Telegram webhook setup failed: ${errMsg}`)
     }
   }
 
@@ -807,17 +840,82 @@ ${items}
     try {
       const auth = this.moduleRef.get(AuthService, { strict: false })
       const { code, email } = await auth.issueTelegramLoginToken(ctx.storeId)
-      const adminUrl = this.config.get<string>('ADMIN_URL') ?? 'http://localhost:3001/login'
-      await this.bot?.sendMessage(
-        ctx.chatId,
-        `🔐 <b>Admin Panel Login</b>\n\nEmail: <code>${email}</code>\nToken: <code>${code}</code>\n\n⏱ Valid <b>5 min</b> · one-time\n📋 Tap <b>Copy Token</b> → paste in admin\n\n<i>${adminUrl}</i>`,
-        { parse_mode: 'HTML', reply_markup: loginCopyKeyboard(code) },
-      )
+      await this.sendLoginTokenForAdmin(ctx.storeId, email, code)
       await this.logCommand(ctx.chatId, '/login', ctx.userId)
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Token generation failed'
       await this.bot?.sendMessage(ctx.chatId, `❌ ${errMsg}`)
     }
+  }
+
+  /** Push admin login token to linked Telegram chat(s) — used by /login and admin request-login. */
+  async sendLoginTokenForAdmin(storeIdRaw: string, email: string, code: string): Promise<boolean> {
+    if (!this.bot) {
+      this.logger.warn('Telegram bot disabled — admin login token not delivered')
+      return false
+    }
+
+    try {
+      const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+      const chatIds = await this.resolveAdminLoginChatIds(storeId, email)
+      if (!chatIds.length) {
+        this.logger.warn(`No Telegram chat linked for admin login (${email})`)
+        return false
+      }
+
+      const adminUrl = this.adminLoginUrl()
+      const message = `🔐 <b>Admin Panel Login</b>\n\nEmail: <code>${email}</code>\nToken: <code>${code}</code>\n\n⏱ Valid <b>5 min</b> · one-time\n📋 Tap <b>Copy Token</b> → paste in admin\n\n<i>${adminUrl}</i>`
+
+      for (const chatId of chatIds) {
+        await this.bot.sendMessage(chatId, message, {
+          parse_mode: 'HTML',
+          reply_markup: loginCopyKeyboard(code),
+        })
+      }
+      return true
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'sendMessage failed'
+      this.logger.error(`Admin login token delivery failed: ${errMsg}`)
+      return false
+    }
+  }
+
+  private adminLoginUrl(): string {
+    const adminBase =
+      this.config.get<string>('ADMIN_URL')?.trim() ||
+      this.config.get<string>('NEXT_PUBLIC_ADMIN_URL')?.trim() ||
+      process.env['ADMIN_URL']?.trim() ||
+      process.env['NEXT_PUBLIC_ADMIN_URL']?.trim() ||
+      SPLARO_DOMAINS.admin
+    return adminBase.replace(/\/+$/, '').endsWith('/login')
+      ? adminBase.replace(/\/+$/, '')
+      : `${adminBase.replace(/\/+$/, '')}/login`
+  }
+
+  private async resolveAdminLoginChatIds(storeId: string, email: string): Promise<string[]> {
+    const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
+    if (!config?.isActive) return []
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const envAdminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim().toLowerCase()
+    const envTelegramId = this.config.get<string>('TELEGRAM_ADMIN_USER_ID')?.trim()
+    const ids = new Set<string>()
+
+    if (envTelegramId && envAdminEmail === normalizedEmail) {
+      ids.add(envTelegramId)
+    }
+
+    const teleUsers = await this.prisma.telegramUser.findMany({
+      where: {
+        configId: config.id,
+        isActive: true,
+        role: { in: ['SUPER_ADMIN', 'MANAGER'] },
+      },
+      select: { telegramId: true },
+    })
+    for (const user of teleUsers) ids.add(user.telegramId)
+
+    return [...ids]
   }
 
   private async executeLinkGroup(ctx: TelegramCtx): Promise<void> {

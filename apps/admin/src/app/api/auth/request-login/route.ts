@@ -19,15 +19,15 @@ export async function POST(request: Request) {
       cache: 'no-store',
     })
 
-    const data = (await res.json()) as { message?: string; email?: string }
+    const data = (await res.json()) as { message?: string; error?: string; email?: string; tokenSent?: boolean }
     if (!res.ok) {
       return NextResponse.json(
-        { error: data.message ?? 'No admin account found for this email' },
+        { error: data.message ?? data.error ?? 'No admin account found for this email' },
         { status: res.status },
       )
     }
 
-    return NextResponse.json({ ok: true, email: data.email ?? email })
+    return NextResponse.json({ ok: true, email: data.email ?? email, tokenSent: data.tokenSent ?? true })
   } catch {
     return NextResponse.json({ error: 'Unable to reach API. Is pnpm dev:stack running?' }, { status: 503 })
   }
