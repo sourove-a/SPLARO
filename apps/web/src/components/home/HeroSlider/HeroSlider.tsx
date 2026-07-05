@@ -5,8 +5,12 @@ import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
 import { cn } from '@/lib/utils/cn'
+import { HERO_DEFAULT_VIDEO } from '@splaro/config'
 
 const SLIDE_DURATION_MS = 5500
+
+/** Override via NEXT_PUBLIC_HERO_VIDEO — cinematic background on first slide */
+const HERO_VIDEO = process.env.NEXT_PUBLIC_HERO_VIDEO?.trim() || HERO_DEFAULT_VIDEO
 
 export interface HeroSlide {
   id: string
@@ -50,7 +54,7 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   return {
     id: banner.id,
     image: isVideo ? '/images/logo/splaro-logo-white.svg' : heroImageSrc(media),
-    ...(isVideo ? { video: media } : {}),
+    ...(isVideo ? { video: media } : index === 0 && HERO_VIDEO ? { video: HERO_VIDEO } : {}),
     eyebrow: index === 0 ? 'SPLARO COLLECTION' : subtitle || title,
     title,
     subtitle,
