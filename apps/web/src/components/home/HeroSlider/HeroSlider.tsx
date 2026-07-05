@@ -56,7 +56,7 @@ function mobileVideoFallback(url: string): string | undefined {
 }
 
 /** Mobile rendition for a DB video banner: explicit mobileImage video, else Pexels swap. */
-function bannerVideoMobile(banner: HeroBanner, media: string): { videoMobile: string } | {} {
+function bannerVideoMobile(banner: HeroBanner, media: string): { videoMobile?: string } {
   const explicit = banner.mobileImage?.trim()
   const mobile = explicit && isVideoUrl(explicit) ? explicit : mobileVideoFallback(media)
   return mobile ? { videoMobile: mobile } : {}

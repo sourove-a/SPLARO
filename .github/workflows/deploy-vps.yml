@@ -6,7 +6,11 @@ name: Deploy VPS
 
 on:
   workflow_dispatch:
-  push:
+  # Gated on CI: deploy only runs after the CI workflow succeeds on main,
+  # so lint/type/build failures never reach the VPS.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 concurrency:
@@ -17,7 +21,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    if: github.repository == 'sourove-a/SPLARO'
+    if: >-
+      github.repository == 'sourove-a/SPLARO' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.workflow_run.conclusion == 'success')
 
     steps:
       - uses: actions/checkout@v4
