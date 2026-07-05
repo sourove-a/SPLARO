@@ -53,10 +53,35 @@ export class TelegramService implements OnModuleInit {
       return
     }
 
-    this.bot = new TelegramBot(token, { polling: true })
+    const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.trim()
+    const usePolling = !webhookUrl && this.config.get<string>('SPLARO_TELEGRAM_POLLING') !== '0'
+    this.bot = new TelegramBot(token, { polling: usePolling })
     void this.bot.setMyCommands(BOT_COMMANDS).catch(() => undefined)
     this.registerCommands()
-    this.logger.log('Telegram bot initialized')
+
+    if (webhookUrl) {
+      const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')
+      try {
+        const info = await this.bot.getWebHookInfo()
+        const current = info?.url?.replace(/\/$/, '')
+        const target = webhookUrl.replace(/\/$/, '')
+        if (current !== target) {
+          await this.bot.setWebHook(
+            webhookUrl,
+            secret ? { secret_token: secret } : undefined,
+          )
+        }
+        this.logger.log(`Telegram bot initialized (webhook → ${target})`)
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'setWebHook failed'
+        this.logger.error(`Telegram webhook setup failed: ${errMsg}`)
+        this.logger.warn('Telegram webhook left unchanged — register manually if needed')
+      }
+    } else if (usePolling) {
+      this.logger.log('Telegram bot initialized (polling)')
+    } else {
+      this.logger.log('Telegram bot ready (send-only — polling disabled on this process)')
+    }
   }
 
   // ── SEND METHODS ──────────────────────────────────────────
@@ -901,8 +926,9 @@ ${items}
     return { chatId, userId, storeId: fallback.storeId, configId: fallback.id, isGroup }
   }
 
-  async handleWebhookUpdate(_body: unknown): Promise<void> {
-    // Webhook mode — polling used when TELEGRAM_BOT_TOKEN is set locally
+  async handleWebhookUpdate(body: unknown): Promise<void> {
+    if (!this.bot || !body || typeof body !== 'object') return
+    this.bot.processUpdate(body as TelegramBot.Update)
   }
 
   private async replyAgentChat(chatId: string, text: string, telegramUserId?: string): Promise<void> {

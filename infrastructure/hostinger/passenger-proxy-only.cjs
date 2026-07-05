@@ -27,7 +27,19 @@ function proxyRequest(req, res, port) {
   req.pipe(upstream)
 }
 
+function redirectWww(req, res) {
+  const host = String(req.headers.host || '').toLowerCase().split(':')[0]
+  if (host === 'www.splaro.co') {
+    const target = `https://splaro.co${req.url || '/'}`
+    res.writeHead(301, { Location: target, 'Content-Type': 'text/plain' })
+    res.end(`Redirecting to ${target}`)
+    return true
+  }
+  return false
+}
+
 const server = http.createServer((req, res) => {
+  if (redirectWww(req, res)) return
   const host = String(req.headers.host || '').toLowerCase()
   const url = req.url || '/'
   if (host.startsWith('api.')) {

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import type { HeroBanner } from '@/lib/api/banners'
 import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
@@ -68,8 +67,6 @@ const FALLBACK_SLIDES: HeroSlide[] = HERO_DEFAULT_SLIDES.map((slide, index) => (
   secondaryLabel: 'View Collection',
   stats: DEFAULT_STATS,
 }))
-
-const fadeEase = [0.22, 1, 0.36, 1] as const
 
 function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
   const media = banner.image?.trim() || ''
@@ -210,8 +207,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     return mapped.length ? mapped : FALLBACK_SLIDES
   }, [initialBanners])
 
+  const slidesSignature = useMemo(() => slides.map((s) => s.id).join('|'), [slides])
+
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
+  const [ready, setReady] = useState(false)
   const allowVideo = useAllowHeroVideo()
   const slide = slides[Math.min(index, slides.length - 1)]!
 
@@ -220,8 +220,12 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [slides.length])
 
   useEffect(() => {
+    setReady(true)
+  }, [])
+
+  useEffect(() => {
     setIndex(0)
-  }, [slides.length])
+  }, [slidesSignature])
 
   useEffect(() => {
     if (paused) return undefined
@@ -235,6 +239,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     <section
       className="home-hero-slider"
       data-section="hero"
+      data-slider-ready={ready ? 'true' : undefined}
       aria-label="Hero carousel"
       aria-roledescription="carousel"
       onMouseEnter={() => setPaused(true)}
@@ -251,11 +256,10 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
           const isActive = slideIndex === index
 
           return (
-            <motion.article
+            <article
               key={item.id}
               className="hero-slide"
-              animate={{ opacity: isActive ? 1 : 0 }}
-              transition={{ duration: 0.85, ease: fadeEase }}
+              data-active={isActive ? 'true' : 'false'}
               aria-hidden={!isActive}
               style={{ pointerEvents: isActive ? 'auto' : 'none' }}
             >
@@ -266,30 +270,32 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
               </div>
               <div className="hero-overlay" aria-hidden />
 
-              <div className="hero-content">
-                <p className="hero-eyebrow">{item.eyebrow}</p>
-                <h1>{item.title}</h1>
-                <p className="hero-subtitle">{item.subtitle}</p>
+              {isActive ? (
+                <div className="hero-content">
+                  <p className="hero-eyebrow">{item.eyebrow}</p>
+                  <h1>{item.title}</h1>
+                  <p className="hero-subtitle">{item.subtitle}</p>
 
-                <div className="hero-actions">
-                  <Link href={item.primaryHref} className="hero-btn hero-btn-primary">
-                    {item.primaryLabel}
-                  </Link>
-                  <Link href={item.secondaryHref} className="hero-btn hero-btn-secondary">
-                    {item.secondaryLabel}
-                  </Link>
-                </div>
+                  <div className="hero-actions">
+                    <Link href={item.primaryHref} className="hero-btn hero-btn-primary">
+                      {item.primaryLabel}
+                    </Link>
+                    <Link href={item.secondaryHref} className="hero-btn hero-btn-secondary">
+                      {item.secondaryLabel}
+                    </Link>
+                  </div>
 
-                <div className="hero-stats">
-                  {item.stats.map((stat) => (
-                    <div key={`${stat.strong}-${stat.span}`}>
-                      <strong>{stat.strong}</strong>
-                      <span>{stat.span}</span>
-                    </div>
-                  ))}
+                  <div className="hero-stats">
+                    {item.stats.map((stat) => (
+                      <div key={`${stat.strong}-${stat.span}`}>
+                        <strong>{stat.strong}</strong>
+                        <span>{stat.span}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </motion.article>
+              ) : null}
+            </article>
           )
         })}
       </div>

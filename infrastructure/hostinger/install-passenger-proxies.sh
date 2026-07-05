@@ -17,6 +17,10 @@ PassengerStartupFile ${startup}
 PassengerBaseURI /
 PassengerRestartDir ${nodejs}/tmp
 DirectoryIndex disabled
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^www\.splaro\.co [NC]
+RewriteRule ^ https://splaro.co%{REQUEST_URI} [R=301,L]
+RewriteRule ^\.builds - [F,L]
 EOF
   touch "$nodejs/tmp/restart.txt"
 }
@@ -44,9 +48,9 @@ install_proxy() {
 ADMIN_HTDOCS="$USER_HOME/domains/splaro.co/public_html/admin"
 install_proxy "admin" "$ADMIN_HTDOCS" "infrastructure/hostinger/passenger-admin-proxy.cjs" ":3002"
 
-# api — public_html/api (optional api.splaro.co subdomain)
+# api — public_html/api (hPanel also routes splaro.co apex through this vhost)
 API_HTDOCS="$USER_HOME/domains/splaro.co/public_html/api"
-install_proxy "api" "$API_HTDOCS" "infrastructure/hostinger/passenger-api-proxy.cjs" ":4000"
+install_proxy "api" "$API_HTDOCS" "infrastructure/hostinger/passenger-proxy-only.cjs" ":4000 + web :3001"
 
 # Legacy separate domain folders
 LEGACY_ADMIN="$USER_HOME/domains/admin.splaro.co/nodejs"

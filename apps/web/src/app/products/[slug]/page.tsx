@@ -27,6 +27,14 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   return {
     title: product.metaTitle ?? product.name,
     description: product.metaDescription ?? product.description,
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+    },
+    alternates: {
+      canonical: `${siteUrl}/products/${product.slug}`,
+    },
     openGraph: {
       title: product.name,
       description: product.shortDescription ?? product.description,
@@ -49,38 +57,56 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    description: product.description,
-    sku: product.sku,
-    image: product.images,
-    brand: {
-      '@type': 'Brand',
-      name: 'SPLARO',
-    },
-    offers: {
-      '@type': 'Offer',
-      url: `${siteUrl}/products/${product.slug}`,
-      priceCurrency: 'BDT',
-      price: product.price,
-      availability:
-        product.variants.some((variant) => variant.stock > 0)
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/OutOfStock',
-      seller: {
-        '@type': 'Organization',
-        name: 'SPLARO',
-      },
-    },
-    ...(product.reviewCount > 0
-      ? {
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: product.rating.toFixed(1),
-            reviewCount: product.reviewCount,
+    '@graph': [
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+          { '@type': 'ListItem', position: 2, name: 'Shop', item: `${siteUrl}/shop` },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: product.name,
+            item: `${siteUrl}/products/${product.slug}`,
           },
-        }
-      : {}),
+        ],
+      },
+      {
+        '@type': 'Product',
+        name: product.name,
+        description: product.description,
+        sku: product.sku,
+        image: product.images,
+        url: `${siteUrl}/products/${product.slug}`,
+        brand: {
+          '@type': 'Brand',
+          name: 'SPLARO',
+        },
+        offers: {
+          '@type': 'Offer',
+          url: `${siteUrl}/products/${product.slug}`,
+          priceCurrency: 'BDT',
+          price: product.price,
+          availability:
+            product.variants.some((variant) => variant.stock > 0)
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+          seller: {
+            '@type': 'Organization',
+            name: 'SPLARO',
+          },
+        },
+        ...(product.reviewCount > 0
+          ? {
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: product.rating.toFixed(1),
+                reviewCount: product.reviewCount,
+              },
+            }
+          : {}),
+      },
+    ],
   }
 
   return (

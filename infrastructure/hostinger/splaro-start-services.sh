@@ -43,7 +43,7 @@ if ! curl -sf -m 3 "http://127.0.0.1:4000/api/v1/health" >/dev/null 2>&1; then
   pkill -f "apps/api/dist/main.js" 2>/dev/null || true
   sleep 2
   cd "$REPO/apps/api"
-  API_PORT=4000 nohup node dist/main.js >> "$NODEJS/api.log" 2>&1 &
+  SPLARO_TELEGRAM_POLLING=1 API_PORT=4000 nohup node dist/main.js >> "$NODEJS/api.log" 2>&1 &
   sleep 8
 fi
 
@@ -95,6 +95,9 @@ PassengerNodejs /opt/alt/alt-nodejs20/root/bin/node
 PassengerStartupFile app.cjs
 PassengerBaseURI /
 PassengerRestartDir ${USER_HOME}/domains/splaro.co/public_html/api/nodejs/tmp
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^www\.splaro\.co [NC]
+RewriteRule ^ https://splaro.co%{REQUEST_URI} [R=301,L]
 DirectoryIndex disabled
 EOF
   touch "$API_HTDOCS/nodejs/tmp/restart.txt"

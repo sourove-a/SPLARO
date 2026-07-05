@@ -49,25 +49,25 @@ const drawer = {
   hidden: { x: '-100%' },
   show: {
     x: 0,
-    transition: { type: 'spring', damping: 34, stiffness: 340, mass: 0.82 },
+    transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] },
   },
   exit: {
     x: '-100%',
-    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+    transition: { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
   },
 }
 
 const list = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.045, delayChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.03, delayChildren: 0.05 } },
 }
 
 const itemMotion = {
-  hidden: { opacity: 0, x: -16 },
+  hidden: { opacity: 0, x: -10 },
   show: {
     opacity: 1,
     x: 0,
-    transition: { duration: 0.34, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] },
   },
 }
 
@@ -144,6 +144,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 size="header"
                 tone="light"
                 onClick={onClose}
+                className="mm-drawer__logo"
                 {...logoUrlProp(settings.store.logo)}
               />
               <button type="button" onClick={onClose} aria-label="Close menu" className="mm-drawer__close">

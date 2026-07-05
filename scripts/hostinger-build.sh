@@ -137,6 +137,7 @@ log "Linked dist → web standalone"
 if [ "$ON_HOSTINGER" = "1" ]; then
   bash "$ROOT/infrastructure/hostinger/install-passenger-main.sh" 2>&1 | tail -5 || log "WARN: main passenger install skipped"
   bash "$ROOT/infrastructure/hostinger/install-passenger-proxies.sh" 2>&1 | tail -5 || true
+  bash "$ROOT/infrastructure/hostinger/splaro-start-services.sh" 2>&1 | tail -12 || log "WARN: splaro-start-services skipped"
   if [ -n "${DATABASE_URL:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_ADMIN_USER_ID:-}" ]; then
     TELEGRAM_STORE_SLUG="${TELEGRAM_STORE_SLUG:-splaro}" \
       pnpm telegram:configure 2>&1 | tail -5 || log "WARN: telegram configure skipped"

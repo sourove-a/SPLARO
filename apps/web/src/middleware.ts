@@ -27,6 +27,14 @@ function redirectToTarget(request: NextRequest, target: string, status = 307) {
 }
 
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host')?.split(':')[0]?.toLowerCase()
+  if (host === 'www.splaro.co') {
+    const url = request.nextUrl.clone()
+    url.host = 'splaro.co'
+    url.protocol = 'https:'
+    return NextResponse.redirect(url, 301)
+  }
+
   const { pathname } = request.nextUrl
 
   const managedRedirects = await getStorefrontRedirects()

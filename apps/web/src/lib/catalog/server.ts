@@ -2,7 +2,7 @@ import { unstable_cache } from 'next/cache'
 import type { StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductCardData } from '@splaro/types'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
-import { productSlug, toProductCard } from '@/lib/catalog/index'
+import { productSlug, toProductCard, getAllProductSlugs } from '@/lib/catalog/index'
 import {
   fetchLiveProductDetailBySlug,
   fetchLiveProductsRaw,
@@ -137,15 +137,16 @@ export async function getRelatedProducts(
 export async function getAllCatalogSlugs(): Promise<Array<{ slug: string }>> {
   try {
     const { products, source } = await getStorefrontCatalog()
-    if (source === 'api' && products.length) {
+    if (products.length) {
       return products.map((p) => ({
         slug: ('slug' in p && p.slug ? p.slug : productSlug(p)) as string,
       }))
     }
+    if (source === 'empty') return []
   } catch {
     /* unavailable */
   }
-  return []
+  return getAllProductSlugs()
 }
 
 /** Live footwear row products for /footwear landing page. */

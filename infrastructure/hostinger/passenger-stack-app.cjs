@@ -103,6 +103,17 @@ Module._initPaths()
 
 const children = []
 
+function portHealthy(port, healthPath = '/') {
+  try {
+    const r = spawnSync('curl', ['-sf', '-m', '2', `http://127.0.0.1:${port}${healthPath}`], {
+      stdio: 'ignore',
+    })
+    return r.status === 0
+  } catch {
+    return false
+  }
+}
+
 function startChild(label, script, opts) {
   const child = fork(script, [], { stdio: 'inherit', ...opts })
   child.on('exit', (code, signal) => {
@@ -116,16 +127,23 @@ function startChild(label, script, opts) {
   return child
 }
 
-if (fs.existsSync(apiMain)) {
+if (fs.existsSync(apiMain) && !portHealthy(API_PORT, '/api/v1/health')) {
   startChild('api', apiMain, {
     cwd: apiDir,
-    env: { ...process.env, API_PORT: String(API_PORT), PORT: String(API_PORT) },
+    env: {
+      ...process.env,
+      API_PORT: String(API_PORT),
+      PORT: String(API_PORT),
+      SPLARO_TELEGRAM_POLLING: '0',
+    },
   })
+} else if (fs.existsSync(apiMain)) {
+  console.log('[splaro-stack] API already up on :' + API_PORT + ' — skip fork')
 } else {
   console.error('[splaro-stack] API build missing:', apiMain)
 }
 
-if (fs.existsSync(webServer)) {
+if (fs.existsSync(webServer) && !portHealthy(WEB_PORT)) {
   startChild('web', webServer, {
     cwd: standaloneWeb,
     env: {
@@ -135,11 +153,13 @@ if (fs.existsSync(webServer)) {
       HOSTNAME: '127.0.0.1',
     },
   })
+} else if (fs.existsSync(webServer)) {
+  console.log('[splaro-stack] Web already up on :' + WEB_PORT + ' — skip fork')
 } else {
   console.error('[splaro-stack] Web standalone missing:', webServer)
 }
 
-if (fs.existsSync(adminServer)) {
+if (fs.existsSync(adminServer) && !portHealthy(ADMIN_PORT, '/login')) {
   startChild('admin', adminServer, {
     cwd: standaloneAdmin,
     env: {
@@ -149,6 +169,8 @@ if (fs.existsSync(adminServer)) {
       HOSTNAME: '127.0.0.1',
     },
   })
+} else if (fs.existsSync(adminServer)) {
+  console.warn('[splaro-stack] Admin already up on :' + ADMIN_PORT + ' — skip fork')
 } else {
   console.warn('[splaro-stack] Admin standalone missing (admin.splaro.co may be down):', adminServer)
 }
@@ -190,7 +212,19 @@ process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
 setTimeout(() => {
+  function redirectWww(req, res) {
+    const host = String(req.headers.host || '').toLowerCase().split(':')[0]
+    if (host === 'www.splaro.co') {
+      const target = `https://splaro.co${req.url || '/'}`
+      res.writeHead(301, { Location: target, 'Content-Type': 'text/plain' })
+      res.end(`Redirecting to ${target}`)
+      return true
+    }
+    return false
+  }
+
   const server = http.createServer((req, res) => {
+    if (redirectWww(req, res)) return
     const url = req.url || '/'
     if (url === '/api/v1' || url.startsWith('/api/v1/')) {
       proxyRequest(req, res, API_PORT)
