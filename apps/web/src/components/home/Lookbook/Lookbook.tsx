@@ -28,7 +28,7 @@ const looks = [
     title: 'Quiet Elegance',
     category: 'Luxury Pret',
     href: '/c/luxury-pret',
-    image: 'https://images.unsplash.com/photo-1524504388-852ba15a6f8a?w=500&h=700&q=88&fit=crop',
+    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&h=700&q=88&fit=crop',
     tag: 'Bestseller',
   },
   {
@@ -36,7 +36,7 @@ const looks = [
     title: 'The Complete Woman',
     category: 'Three Piece',
     href: '/c/three-piece',
-    image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e1?w=500&h=700&q=88&fit=crop',
+    image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500&h=700&q=88&fit=crop',
     tag: 'Editorial',
   },
   {

@@ -18,13 +18,13 @@ const categories = [
   {
     name: 'Three Piece',
     slug: 'three-piece',
-    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b941b?w=700&h=950&q=90&fit=crop',
+    image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=700&h=950&q=90&fit=crop',
     subtitle: 'Coordinated Sets',
   },
   {
     name: 'Luxury Pret',
     slug: 'luxury-pret',
-    image: 'https://images.unsplash.com/photo-1524504388-852ba15a6f8a?w=700&h=950&q=90&fit=crop',
+    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=700&h=950&q=90&fit=crop',
     subtitle: 'Ready to Wear',
   },
   {
@@ -36,7 +36,7 @@ const categories = [
   {
     name: 'New In',
     slug: 'new-arrivals',
-    image: 'https://images.unsplash.com/photo-1583391733956-6c78276477e1?w=700&h=950&q=90&fit=crop',
+    image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=700&h=950&q=90&fit=crop',
     subtitle: 'Just Arrived',
   },
 ]

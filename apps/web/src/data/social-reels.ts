@@ -97,7 +97,7 @@ export const SOCIAL_REELS: SocialReelItem[] = [
     platform: 'facebook',
     title: 'SPLARO reel',
     poster:
-      'https://images.unsplash.com/photo-1539109136882-3b03691a9bab?w=720&h=1280&fit=crop&q=88&auto=format',
+      'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=720&h=1280&fit=crop&q=88&auto=format',
     previewSrc: 'https://assets.mixkit.co/videos/preview/mixkit-woman-doing-her-makeup-in-front-of-a-mirror-4298-large.mp4',
     watchUrl: 'https://www.facebook.com/SPLARO/reels/',
   },

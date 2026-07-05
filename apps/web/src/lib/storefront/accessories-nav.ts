@@ -65,7 +65,7 @@ export const ACCESSORIES_MEGA_HEROES = [
   {
     label: 'Eyewear Edit',
     href: '/accessories?cat=glasses',
-    image: 'https://images.unsplash.com/photo-1572635196233-14bffa7a35d5?w=800&q=88&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=88&auto=format&fit=crop',
   },
   {
     label: 'New Arrivals',

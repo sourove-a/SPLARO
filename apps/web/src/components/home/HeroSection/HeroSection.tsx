@@ -76,7 +76,7 @@ export function HeroSection() {
           >
             <Link href="/editorial" className="block h-full" tabIndex={0}>
               <Image
-                src="https://images.unsplash.com/photo-1469334031218-e382b71f7169?w=900&h=1100&q=90&fit=crop"
+                src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&h=1100&q=90&fit=crop"
                 alt="Inside Story — SPLARO Editorial"
                 fill
                 priority
@@ -126,7 +126,7 @@ export function HeroSection() {
             <Link href="/c/luxury-pret" className="block h-full" tabIndex={0}>
               {/* Background image with subtle reveal */}
               <Image
-                src="https://images.unsplash.com/photo-1524504388-852ba15a6f8a?w=900&h=600&q=85&fit=crop"
+                src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&h=600&q=85&fit=crop"
                 alt="Artful Living — SPLARO Luxury Pret"
                 fill
                 sizes="(max-width: 1024px) 50vw, 40vw"

@@ -346,7 +346,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
               label: 'Sandals',
               href: '/c/footwear-sandals',
               image:
-                'https://images.unsplash.com/photo-1606107557195-0f29cb4c3ada?w=800&q=88&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=88&auto=format&fit=crop',
             },
           ],
         },
@@ -430,15 +430,16 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
   const base = getServerApiBaseUrl()
   const res = await fetchWithTimeout(
     `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
-    { cache: 'no-store' },
+    // 10s ISR instead of no-store: no-store flipped statically-built pages to
+    // dynamic at runtime (Next app-static-to-dynamic-error → 500s on /, /shop,
+    // /signup) and forced an API roundtrip on every request. Admin saves now
+    // reach the storefront within ~10s.
+    { next: { revalidate: 10, tags: ['storefront-settings'] } },
   )
   if (!res?.ok) throw new Error(`Settings API ${res?.status ?? 'unavailable'}`)
   return (await res.json()) as StorefrontSettings
 }
 
-// No web-layer cache: admin saves reflect on the storefront instantly (real-time).
-// fetchSettingsRaw already uses `cache: 'no-store'`; the settings API is local and
-// server-cached, so reading fresh each render stays fast.
 const getCachedSettings = fetchSettingsRaw
 
 function normalizeHref(href: string): string {
