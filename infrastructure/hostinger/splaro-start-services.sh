@@ -3,7 +3,9 @@
 set +e
 export PATH="/opt/alt/alt-nodejs20/root/usr/bin:$HOME/.local/bin:$HOME/.local/share/pnpm:$PATH"
 
+# hPanel has used two checkout layouts — pick whichever holds the workspace.
 REPO="$HOME/domains/splaro.co/public_html/.builds/source/repository"
+[ -f "$REPO/pnpm-workspace.yaml" ] || REPO="$HOME/domains/splaro.co/nodejs"
 NODEJS="$HOME/domains/splaro.co/nodejs"
 ADMIN_HTDOCS="$HOME/domains/splaro.co/public_html/admin"
 API_HTDOCS="$HOME/domains/splaro.co/public_html/api"
@@ -15,6 +17,19 @@ log() { echo "[splaro-start $(date '+%H:%M:%S')] $*"; }
 
 cd "$REPO"
 [ -f .env ] && set -a && source .env && set +a
+export SPLARO_HOSTINGER=1
+export INTERNAL_API_URL="${INTERNAL_API_URL:-http://127.0.0.1:4000/api/v1}"
+
+# PostgreSQL :5433 — only when DATABASE_URL points at local Postgres (not Supabase/Neon)
+if [[ "${DATABASE_URL:-}" != *"supabase.co"* ]] && [[ "${DATABASE_URL:-}" != *"neon.tech"* ]]; then
+  export PATH="$HOME/pgenv/bin:$PATH"
+  PGDATA="${PGDATA:-$HOME/pgsql/data}"
+  if [ -d "$PGDATA" ] && ! pg_isready -h 127.0.0.1 -p 5433 -q 2>/dev/null; then
+    log "Starting local PostgreSQL on :5433"
+    pg_ctl -D "$PGDATA" -l "$HOME/pgsql/postgres.log" -o "-p 5433" start >/dev/null 2>&1 || true
+    sleep 2
+  fi
+fi
 
 # Sync .next for next start
 if [ -d "$WEB_STANDALONE/.next" ]; then
@@ -43,7 +58,7 @@ if ! curl -sf -m 3 "http://127.0.0.1:4000/api/v1/health" >/dev/null 2>&1; then
   pkill -f "apps/api/dist/main.js" 2>/dev/null || true
   sleep 2
   cd "$REPO/apps/api"
-  SPLARO_TELEGRAM_POLLING=1 API_PORT=4000 nohup node dist/main.js >> "$NODEJS/api.log" 2>&1 &
+  SPLARO_HOSTINGER=1 SPLARO_TELEGRAM_POLLING=1 API_PORT=4000 INTERNAL_API_URL="${INTERNAL_API_URL:-http://127.0.0.1:4000/api/v1}" nohup node dist/main.js >> "$NODEJS/api.log" 2>&1 &
   sleep 8
 fi
 

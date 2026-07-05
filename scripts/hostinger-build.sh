@@ -28,6 +28,7 @@ export NEXT_PUBLIC_CDN_URL="${NEXT_PUBLIC_CDN_URL:-https://splaro.co}"
 export WEB_URL="${WEB_URL:-https://splaro.co}"
 export ADMIN_URL="${ADMIN_URL:-https://admin.splaro.co}"
 export SPLARO_HOSTINGER=1
+export INTERNAL_API_URL="${INTERNAL_API_URL:-http://127.0.0.1:4000/api/v1}"
 export NEXT_TELEMETRY_DISABLED=1
 export CI=1
 export NODE_ENV=production
@@ -78,6 +79,17 @@ if [ "$ON_HOSTINGER" = "1" ]; then
     timeout 420 bash "$ROOT/infrastructure/hostinger/setup-local-postgres.sh" 2>&1 | tail -15 \
       || log "WARN: PostgreSQL setup timed out — set DATABASE_URL in hPanel env and redeploy"
   else
+    if [[ "${DATABASE_URL}" != *"supabase.co"* ]] && [[ "${DATABASE_URL}" != *"neon.tech"* ]]; then
+      export PATH="$HOME/pgenv/bin:${PATH:-}"
+      PGDATA="${PGDATA:-$HOME/pgsql/data}"
+      if [ -d "$PGDATA" ] && command -v pg_isready >/dev/null 2>&1; then
+        pg_isready -h 127.0.0.1 -p 5433 -q 2>/dev/null || \
+          pg_ctl -D "$PGDATA" -l "$HOME/pgsql/postgres.log" -o "-p 5433" start 2>/dev/null || \
+          log "WARN: could not start local PostgreSQL :5433"
+      fi
+    else
+      log "Remote database (Supabase/Neon) — skip local PostgreSQL"
+    fi
     log "Database migrate + seed…"
     (cd "$ROOT/packages/database" && npx prisma generate 2>&1 | tail -3) || true
     (cd "$ROOT/packages/database" && npx prisma db push --accept-data-loss 2>&1 | tail -5) || log "WARN: db push failed"

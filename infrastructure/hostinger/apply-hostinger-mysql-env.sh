@@ -4,6 +4,7 @@
 set -euo pipefail
 
 REPO="${SPLARO_REPO_DIR:-$HOME/domains/splaro.co/public_html/.builds/source/repository}"
+[ -f "$REPO/pnpm-workspace.yaml" ] || REPO="$HOME/domains/splaro.co/nodejs"
 ENV_FILE="${SPLARO_ENV_FILE:-$REPO/.env}"
 
 MYSQL_HOST="${MYSQL_HOST:-localhost}"

@@ -22,12 +22,14 @@ cat <<EOF
 NODE_ENV=production
 NEXT_PUBLIC_SITE_URL=https://splaro.co
 NEXT_PUBLIC_ADMIN_URL=https://admin.splaro.co
-NEXT_PUBLIC_API_URL=https://api.splaro.co/api/v1
+NEXT_PUBLIC_API_URL=https://splaro.co/api/v1
 NEXT_PUBLIC_CDN_URL=https://splaro.co
 WEB_URL=https://splaro.co
 ADMIN_URL=https://admin.splaro.co
-API_URL=https://api.splaro.co
-CORS_ORIGINS=https://splaro.co,https://admin.splaro.co
+API_URL=https://splaro.co
+INTERNAL_API_URL=http://127.0.0.1:4000/api/v1
+SPLARO_HOSTINGER=1
+CORS_ORIGINS=https://splaro.co,https://www.splaro.co,https://admin.splaro.co
 NEXTAUTH_URL=https://splaro.co
 NEXT_PUBLIC_STORE_ID=splaro
 NEXT_PUBLIC_ADMIN_EMAIL=splaro.bd@gmail.com

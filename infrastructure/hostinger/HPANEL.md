@@ -59,12 +59,21 @@ Use **Hostinger VPS** or SSH-enabled hosting + PM2.
 
 ### 1. DNS (hPanel → Domains → DNS)
 
+**Do not add `www` CNAME if a `www` A record already exists** — Hostinger will show:
+`DNS resource record is not valid or conflicts with another resource record`.
+
+Use **A records only** (recommended on Hostinger):
+
 | Type | Name | Points to |
 |------|------|-----------|
-| A | `@` | Server IP |
-| A | `www` | Server IP |
+| A | `@` | Server IP (`145.79.25.203`) |
+| A | `www` | **Same** server IP |
 | A | `admin` | Server IP |
-| A | `api` | Server IP |
+| A | `api` | Server IP (optional) |
+
+`www` → apex redirect is handled in app code (middleware + Passenger). TTL **300** while fixing, then **14400** is fine.
+
+If you prefer CNAME for `www`: **delete** the existing `www` A record first, then add `CNAME` `www` → `splaro.co` (never both).
 
 ### 2. Database
 

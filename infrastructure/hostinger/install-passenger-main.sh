@@ -2,6 +2,7 @@
 # splaro.co main domain — Passenger runs passenger-stack-app (web + api + admin proxy)
 set +e
 REPO="${SPLARO_REPO_DIR:-$HOME/domains/splaro.co/public_html/.builds/source/repository}"
+[ -f "$REPO/pnpm-workspace.yaml" ] || REPO="$HOME/domains/splaro.co/nodejs"
 DOMAIN="${SPLARO_DOMAIN:-splaro.co}"
 USER_HOME="${HOME:-/home/u134578371}"
 APP_ROOT="$USER_HOME/domains/$DOMAIN/nodejs"

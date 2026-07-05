@@ -12,11 +12,18 @@ const fs = require('fs')
 const path = require('path')
 
 const home = process.env.HOME || ''
+// hPanel has used two checkout layouts so far — probe for whichever exists.
+// __dirname is last: hPanel copies this entry into the runtime app root.
+const domainRoot = home.includes('/domains/splaro.co') ? home : path.join(home, 'domains/splaro.co')
+const repoCandidates = [
+  process.env.SPLARO_REPO_DIR,
+  path.join(domainRoot, 'public_html/.builds/source/repository'),
+  path.join(domainRoot, 'nodejs'),
+  __dirname,
+].filter(Boolean)
 const repo =
-  process.env.SPLARO_REPO_DIR ||
-  (home.includes('/domains/splaro.co')
-    ? path.join(home, 'public_html/.builds/source/repository')
-    : path.join(home, 'domains/splaro.co/public_html/.builds/source/repository'))
+  repoCandidates.find((dir) => fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) ||
+  repoCandidates[1]
 
 const REQUIRED_ARTIFACTS = [
   'apps/web/.next/BUILD_ID',

@@ -10,10 +10,13 @@ const Module = require('module')
 function resolveRepoDir() {
   if (process.env.SPLARO_REPO_DIR) return process.env.SPLARO_REPO_DIR
   const home = process.env.HOME || ''
-  if (home.includes('/domains/splaro.co')) {
-    return path.join(home, 'public_html/.builds/source/repository')
-  }
-  return path.join(home, 'domains/splaro.co/public_html/.builds/source/repository')
+  const domainRoot = home.includes('/domains/splaro.co') ? home : path.join(home, 'domains/splaro.co')
+  // hPanel has used two checkout layouts — pick whichever holds the workspace.
+  const candidates = [
+    path.join(domainRoot, 'public_html/.builds/source/repository'),
+    path.join(domainRoot, 'nodejs'),
+  ]
+  return candidates.find((dir) => fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) || candidates[0]
 }
 
 const repo = resolveRepoDir()

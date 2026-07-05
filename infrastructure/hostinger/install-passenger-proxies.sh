@@ -2,6 +2,7 @@
 # Configure admin.splaro.co + api.splaro.co Passenger proxies (runs during Git build).
 set +e
 REPO="${SPLARO_REPO_DIR:-$HOME/domains/splaro.co/public_html/.builds/source/repository}"
+[ -f "$REPO/pnpm-workspace.yaml" ] || REPO="$HOME/domains/splaro.co/nodejs"
 USER_HOME="${HOME:-/home/u134578371}"
 log() { echo "[passenger-install $(date '+%H:%M:%S')] $*"; }
 err() { echo "[passenger-install ERROR $(date '+%H:%M:%S')] $*" >&2; }
