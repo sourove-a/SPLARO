@@ -34,6 +34,14 @@ pm2 reload splaro-api splaro-web splaro-admin --update-env || \
   pm2 start "$APP/infrastructure/vps/ecosystem.opt.config.js"
 pm2 save
 
-sleep 5
-curl -sf http://127.0.0.1:4000/api/v1/health >/dev/null || { pm2 logs splaro-api --lines 20; exit 1; }
-echo "[deploy] OK $(date)"
+echo "[deploy] health check..."
+for i in $(seq 1 12); do
+  if curl -sf http://127.0.0.1:4000/api/v1/health >/dev/null; then
+    echo "[deploy] OK $(date)"
+    exit 0
+  fi
+  sleep 5
+done
+echo "[deploy] FAIL — API health check did not pass within 60s"
+pm2 logs splaro-api --lines 20 --nostream
+exit 1
