@@ -8,6 +8,14 @@ import { fileURLToPath } from 'url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+function resolveNextConfig(appDir) {
+  for (const name of ['next.config.mjs', 'next.config.ts', 'next.config.js']) {
+    const path = resolve(ROOT, appDir, name)
+    if (existsSync(path)) return path
+  }
+  throw new Error(`Missing next.config in ${appDir}`)
+}
+
 let failed = 0
 
 function check(label, fn) {
@@ -28,7 +36,7 @@ const apps = [
     globals: 'apps/web/src/app/globals.css',
     layout: 'apps/web/src/app/layout.tsx',
     authLayout: 'apps/web/src/app/(auth)/layout.tsx',
-    nextConfig: 'apps/web/next.config.ts',
+    nextConfigDir: 'apps/web',
     postcss: 'apps/web/postcss.config.mjs',
     tailwind: 'apps/web/tailwind.config.ts',
   },
@@ -36,7 +44,7 @@ const apps = [
     name: 'admin',
     globals: 'apps/admin/src/app/globals.css',
     layout: 'apps/admin/src/app/layout.tsx',
-    nextConfig: 'apps/admin/next.config.ts',
+    nextConfigDir: 'apps/admin',
     postcss: 'apps/admin/postcss.config.mjs',
     tailwind: 'apps/admin/tailwind.config.ts',
   },
@@ -74,7 +82,7 @@ for (const app of apps) {
     if (!cfg.includes('content:')) throw new Error('tailwind content paths missing')
   })
   check(`${app.name} next.config dev-safe headers`, () => {
-    const cfg = readFileSync(resolve(ROOT, app.nextConfig), 'utf8')
+    const cfg = readFileSync(resolveNextConfig(app.nextConfigDir), 'utf8')
     if (cfg.includes('Content-Security-Policy') && !cfg.includes('isProd')) {
       throw new Error('CSP must be gated with isProd — breaks localhost CSS in dev')
     }

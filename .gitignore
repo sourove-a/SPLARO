@@ -8,6 +8,8 @@ node_modules/
 .env.production
 .env.staging
 *.env
+infrastructure/hostinger/.env.splaro.co.production
+infrastructure/hostinger/hpanel-env.paste.txt
 
 # Next.js
 .next/

@@ -78,9 +78,12 @@ if [ "$AHEAD" = "0" ]; then
   exit 0
 fi
 
+echo "═══ Pre-deploy checks (type-check, lint, CSS, production env) ═══"
+node "$ROOT/scripts/pre-deploy.mjs"
+
 SHA="$(git rev-parse --short HEAD)"
 echo "Pushing $SHA → origin/$BRANCH ..."
-git push origin "HEAD:${BRANCH}"
+SPLARO_SKIP_PRE_PUSH=1 git push origin "HEAD:${BRANCH}"
 
 echo ""
 echo "Deploy started — Hostinger pulls main automatically."

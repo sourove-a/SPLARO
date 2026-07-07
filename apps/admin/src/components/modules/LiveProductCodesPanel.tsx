@@ -1,14 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { Hash, Pencil, QrCode, ScanBarcode } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
 import { useProducts, useSettings } from '@/lib/api/hooks'
 import { fetchProductQR, productStatus } from '@/lib/api/products'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
-import { refreshWithToast, toastFail } from '@/lib/admin/feedback'
+import { refreshWithToast, toastFail, toastWarn } from '@/lib/admin/feedback'
 
 type CodeMode = 'sku' | 'qr' | 'barcode'
 
@@ -40,6 +39,9 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
         name: p.name,
         productSku: p.sku ?? skus[0] ?? '—',
         variantSkus: skus,
+        rmCode: p.rmCode?.trim() || '—',
+        barcode: p.barcode?.trim() || '—',
+        qrStored: Boolean(p.qrCode?.trim()),
         status: productStatus(p),
         variantCount: variants.length,
       }
@@ -53,6 +55,8 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
         !q ||
         r.name.toLowerCase().includes(q) ||
         r.productSku.toLowerCase().includes(q) ||
+        r.rmCode.toLowerCase().includes(q) ||
+        r.barcode.toLowerCase().includes(q) ||
         r.variantSkus.some((s) => s.toLowerCase().includes(q)),
     )
   }, [rows, query])
@@ -65,9 +69,9 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
     try {
       const res = await fetchProductQR(productId)
       setQrPreview((prev) => ({ ...prev, [productId]: res.qr }))
-      toast.success(`QR ready for ${name}`)
+      toastWarn(`QR generated for ${name} — open product edit and save to persist on server.`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'QR generation failed')
+      toastFail(err instanceof Error ? err.message : 'QR generation failed')
     } finally {
       setBusyId(null)
     }
@@ -99,6 +103,12 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
         </div>
       ) : null}
 
+      {mode === 'barcode' ? (
+        <div className="rounded-[16px] border border-[rgba(17,17,17,0.08)] bg-[rgba(17,17,17,0.02)] px-4 py-3 text-xs font-semibold text-[var(--admin-text-secondary)]">
+          Barcode is manual entry only — no server-side auto-generate yet. Edit product → Identifiers & logistics.
+        </div>
+      ) : null}
+
       <ModulePanelShell
         kpis={[
           ['Products', rows.length, 'default'],
@@ -122,13 +132,19 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
         onExport={() => toastFail('Export not available yet.')}
         tableIcon={Icon}
         tableTitle={`${meta.title} · ${filtered.length} products`}
-        footer={isLoading ? 'Loading products…' : 'Live from database — enter SKUs manually for launch'}
+        footer={isLoading ? 'Loading products…' : 'Live from database — RM/barcode/QR persist after product save'}
       >
         <table className="admin-module-table">
           <thead>
             <tr>
               <th>Product</th>
               <th>SKU</th>
+              {mode === 'barcode' ? (
+                <>
+                  <th>RM code</th>
+                  <th>Barcode</th>
+                </>
+              ) : null}
               <th>Variants</th>
               <th>Status</th>
               <th>Action</th>
@@ -139,6 +155,12 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
               <tr key={row.id}>
                 <td className="font-semibold">{row.name}</td>
                 <td className="font-mono text-xs">{row.variantSkus.join(', ') || row.productSku}</td>
+                {mode === 'barcode' ? (
+                  <>
+                    <td className="font-mono text-xs">{row.rmCode}</td>
+                    <td className="font-mono text-xs">{row.barcode}</td>
+                  </>
+                ) : null}
                 <td>{row.variantCount}</td>
                 <td><span className={STATUS_CLASS[row.status]}>{row.status}</span></td>
                 <td>
@@ -146,27 +168,31 @@ export function LiveProductCodesPanel({ mode }: { mode: CodeMode }) {
                     {(mode === 'sku' || mode === 'barcode') ? (
                       <AdminButton
                         variant="gold"
-                        className="!px-2 !py-1 !text-xs"
+                        size="sm"
                         onClick={() => navigate(`/dashboard/products/${row.id}/edit`)}
                       >
                         <Pencil className="h-3 w-3" />
-                        Edit SKU
+                        {mode === 'barcode' ? 'Edit codes' : 'Edit SKU'}
                       </AdminButton>
                     ) : null}
-                    {(mode === 'qr' || mode === 'barcode') ? (
+                    {mode === 'qr' ? (
                       <AdminButton
                         variant="ghost"
-                        className="!px-2 !py-1 !text-xs"
+                        size="sm"
                         loading={busyId === row.id}
                         onClick={() => runQr(row.id, row.name)}
                       >
-                        QR
+                        Generate QR
                       </AdminButton>
                     ) : null}
                   </div>
-                  {qrPreview[row.id] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={qrPreview[row.id]} alt={`QR ${row.name}`} className="mt-2 h-16 w-16 rounded border border-black/8" />
+                  {mode === 'qr' && (qrPreview[row.id] || row.qrStored) ? (
+                    qrPreview[row.id] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={qrPreview[row.id]} alt={`QR ${row.name}`} className="mt-2 h-16 w-16 rounded border border-black/8" />
+                    ) : (
+                      <p className="mt-1 text-[10px] font-semibold text-emerald-700">QR stored on product</p>
+                    )
                   ) : null}
                 </td>
               </tr>

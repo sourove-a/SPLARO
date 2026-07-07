@@ -16,7 +16,11 @@ ENC="$(rand 32)"
 ADMIN_PASS="$(rand 16)"
 
 DB_URL="${DATABASE_URL:-postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_db}"
-DB_SHADOW="${DATABASE_URL_SHADOW:-postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_shadow_db}"
+if [[ "${DB_URL}" == *"neon.tech"* ]] || [[ "${DB_URL}" == *"supabase.co"* ]]; then
+  DB_SHADOW="${DATABASE_URL_SHADOW:-${DB_URL}}"
+else
+  DB_SHADOW="${DATABASE_URL_SHADOW:-postgresql://splaro_user:${DB_PASS}@127.0.0.1:5432/splaro_shadow_db}"
+fi
 
 cat <<EOF
 NODE_ENV=production
@@ -42,11 +46,10 @@ INTERNAL_HEALTH_SECRET=${HEALTH}
 ENCRYPTION_KEY=${ENC}
 DATABASE_URL=${DB_URL}
 DATABASE_URL_SHADOW=${DB_SHADOW}
-REDIS_URL=redis://127.0.0.1:6379
-REDIS_ENABLED=true
+REDIS_ENABLED=false
 API_PORT=4000
-PORT_WEB=3000
-PORT_ADMIN=3001
+INTERNAL_WEB_PORT=3001
+ADMIN_PORT=3002
 PAYMENT_DEV_STUB=false
 NEXT_PUBLIC_MAINTENANCE_MODE=false
 ADMIN_PASSWORD=${ADMIN_PASS}
