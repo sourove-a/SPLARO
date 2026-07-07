@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-APP_DIR="${SPLARO_APP_DIR:-/opt/splaro/app}"
+APP_DIR="${SPLARO_APP_DIR:-/var/www/splaro}"
 DEPLOY_USER="${SPLARO_DEPLOY_USER:-root}"
 REPO="${SPLARO_REPO:-sourove-a/SPLARO}"
 KEY_DIR="$([ "$DEPLOY_USER" = "root" ] && echo /root/.ssh || echo /home/$DEPLOY_USER/.ssh)"
@@ -59,9 +59,9 @@ if [ -d "$APP_DIR/.git" ]; then
   git remote set-url origin "git@github.com:${REPO}.git" 2>/dev/null || true
 fi
 
-# ── 3. Deploy script symlink ─────────────────────────────────
-if [ -f "$APP_DIR/infrastructure/vps/deploy-opt.sh" ]; then
-  cp "$APP_DIR/infrastructure/vps/deploy-opt.sh" /opt/splaro/deploy.sh
+# ── 3. Deploy script symlink (GitHub Actions → bash /opt/splaro/deploy.sh) ──
+if [ -f "$APP_DIR/infrastructure/vps/deploy.sh" ]; then
+  cp "$APP_DIR/infrastructure/vps/deploy.sh" /opt/splaro/deploy.sh
   chmod +x /opt/splaro/deploy.sh
 fi
 
@@ -73,7 +73,7 @@ echo "╚═══════════════════════�
 echo ""
 echo "=== A. Repo → Settings → Secrets and variables → Actions ==="
 echo ""
-echo "  VPS_HOST     = 194.238.24.155"
+echo "  VPS_HOST     = 147.93.171.45"
 echo "  VPS_USER     = root"
 echo "  VPS_SSH_KEY  = (paste private key below — full BEGIN/END block)"
 echo ""
