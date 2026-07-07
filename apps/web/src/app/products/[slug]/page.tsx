@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { productSlug } from '@/lib/catalog/index'
 import { getProductDetailBySlug, getRelatedProducts, getStorefrontCatalog } from '@/lib/catalog/server'
+import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import ProductPageClient from './product-page-client'
 
 interface ProductPageProps {
@@ -12,7 +13,7 @@ export const dynamicParams = true
 
 /** Pre-render only when live API catalog is available (avoids CI/build timeouts). */
 export async function generateStaticParams() {
-  if (process.env.CI === '1') return []
+  if (isCiOrProductionBuild()) return []
   try {
     const { products, source } = await getStorefrontCatalog()
     if (source !== 'api' || !products.length) return []

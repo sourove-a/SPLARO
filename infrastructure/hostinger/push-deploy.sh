@@ -79,7 +79,7 @@ if [ "$AHEAD" = "0" ]; then
 fi
 
 echo "═══ Pre-deploy checks (type-check, lint, CSS, production env) ═══"
-node "$ROOT/scripts/pre-deploy.mjs"
+SPLARO_PREDEPLOY_BUILD=1 node "$ROOT/scripts/pre-deploy.mjs"
 
 SHA="$(git rev-parse --short HEAD)"
 echo "Pushing $SHA → origin/$BRANCH ..."

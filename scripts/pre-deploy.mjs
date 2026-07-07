@@ -43,4 +43,11 @@ if (existsSync(PROD_ENV)) {
   console.log('\n⚠️  Skip production env check — missing infrastructure/hostinger/.env.splaro.co.production')
 }
 
+if (process.env.SPLARO_PREDEPLOY_BUILD === '1') {
+  run('pnpm', ['--filter', '@splaro/web', 'build'], {
+    label: 'web production build (SPLARO_PREDEPLOY_BUILD=1)',
+    env: { ...process.env, CI: '1' },
+  })
+}
+
 console.log('\n✅ Pre-deploy OK — safe to push (Hostinger will build on hPanel)\n')

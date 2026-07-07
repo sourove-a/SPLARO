@@ -1,6 +1,6 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 import { slugFromCategory } from '@/data/storefront'
-import type { Category, ColorOption, StorefrontProduct } from '@/data/storefront'
+import type { ColorOption, StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
@@ -8,13 +8,14 @@ import {
   LISTING_PAGE_SIZE,
   type StorefrontListingQuery,
 } from '@/lib/catalog/listing'
+import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { catalogFetchAttempts, catalogFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
+import { resolveShopCategory } from '@/lib/catalog/shop-category'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
-function fetchWithTimeout(url: string, opts: RequestInit = {}, ms = 12000): Promise<Response> {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), ms)
-  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(timer))
+function liveFetch(url: string, init: RequestInit & { timeoutMs?: number } = {}) {
+  return fetchWithTimeout(url, { timeoutMs: catalogFetchTimeoutMs(), ...init })
 }
 
 export interface ProductReview {
@@ -173,22 +174,6 @@ export function sortSizes(sizes: string[], categoryName?: string | null) {
   })
 }
 
-function mapCategory(name?: string | null): Exclude<Category, 'All'> {
-  const normalized = (name ?? 'Women').trim()
-  const map: Record<string, Exclude<Category, 'All'>> = {
-    Footwear: 'Footwear',
-    footwear: 'Footwear',
-    Men: 'Men',
-    men: 'Men',
-    Women: 'Women',
-    women: 'Women',
-    Kids: 'Kids',
-    kids: 'Kids',
-    Accessories: 'Accessories',
-    accessories: 'Accessories',
-  }
-  return map[normalized] ?? 'Women'
-}
 
 function mapReviews(reviews: LiveReview[] | undefined): ProductReview[] {
   return (reviews ?? []).map((review, index) => {
@@ -255,7 +240,7 @@ export function mapLiveProduct(
   const imageMedia = media.filter((item) => item.type === 'image')
   const img = sanitizeRemoteImageUrl(imageMedia[0]?.url, PRODUCT_IMAGE_PLACEHOLDER)
   const hover = sanitizeRemoteImageUrl(imageMedia[1]?.url, img)
-  const category = mapCategory(p.category?.name)
+  const category = resolveShopCategory(p.category?.name, p.category?.slug)
   const colorOptions = buildColorOptions(variants, img)
   const colors = colorOptions.map((option) => option.hex)
   const rawSizes = [...new Set(variants.map((v) => v.size).filter(Boolean))] as string[]
@@ -273,6 +258,17 @@ export function mapLiveProduct(
       stock: Number(v.stock ?? 0),
       isActive: v.isActive !== false,
     }))
+
+  const mappedReviews = mapReviews(p.reviews)
+  const apiRating = Number(p.rating ?? 0)
+  const apiReviewCount = p.reviewCount ?? mappedReviews.length
+  const rating =
+    apiRating > 0
+      ? apiRating
+      : mappedReviews.length
+        ? mappedReviews.reduce((sum, review) => sum + review.rating, 0) / mappedReviews.length
+        : 0
+  const reviewCount = apiReviewCount > 0 ? apiReviewCount : mappedReviews.length
 
   return {
     id: p.id,
@@ -297,6 +293,7 @@ export function mapLiveProduct(
     fit: p.fitType ?? 'Regular',
     material: p.fabricContent ?? 'Premium fabric',
     ...(variantRefs.length ? { variantRefs } : {}),
+    ...(rating > 0 && reviewCount > 0 ? { rating, reviewCount } : {}),
   }
 }
 
@@ -311,11 +308,17 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
       ? imageMedia.map((image) => sanitizeRemoteImageUrl(image.url))
       : [img, hover]
   ).filter(Boolean)
-  const category = mapCategory(p.category?.name)
+  const category = resolveShopCategory(p.category?.name, p.category?.slug)
   const colorOptions = buildColorOptions(p.variants ?? [], img).map(({ hex, name }) => ({ hex, name }))
   const reviews = mapReviews(p.reviews)
-  const rating = Number(p.rating ?? 0)
-  const reviewCount = p.reviewCount ?? reviews.length
+  const apiRating = Number(p.rating ?? 0)
+  const rating =
+    apiRating > 0
+      ? apiRating
+      : reviews.length
+        ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+        : 0
+  const reviewCount = (p.reviewCount ?? 0) > 0 ? (p.reviewCount ?? reviews.length) : reviews.length
 
   const schema = (p.schemaMarkup && typeof p.schemaMarkup === 'object' && !Array.isArray(p.schemaMarkup))
     ? p.schemaMarkup as Record<string, unknown>
@@ -336,8 +339,8 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     isNewArrival: Boolean(p.isNewArrival),
     isBestSeller: Boolean(p.isBestSeller),
     isOnSale: Boolean(p.isOnSale),
-    rating: rating > 0 ? rating : reviewCount > 0 ? 4.5 : 0,
-    reviewCount,
+    rating: rating > 0 && reviewCount > 0 ? rating : 0,
+    reviewCount: reviewCount > 0 ? reviewCount : 0,
     category,
     collectionSlug: slugFromCategory(category),
     description:
@@ -364,17 +367,20 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
 }
 
 export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slug: string })[]> {
+  if (isCiOrProductionBuild()) return []
+
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}`
+  const attempts = catalogFetchAttempts()
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const res = await fetchWithTimeout(url, { cache: 'no-store' }, 12_000)
-      if (!res.ok) throw new Error(`Storefront API ${res.status}`)
+      const res = await liveFetch(url, { cache: 'no-store' })
+      if (!res?.ok) throw new Error(`Storefront API ${res?.status ?? 'unavailable'}`)
       const data = (await res.json()) as { products: LiveProduct[] }
       return (data.products ?? []).map(mapLiveProduct)
     } catch (err) {
-      if (attempt === 1) throw err
+      if (attempt === attempts - 1) throw err
     }
   }
 
@@ -391,8 +397,8 @@ export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProd
 
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}&ids=${encodeURIComponent(unique.join(','))}`
-  const res = await fetchWithTimeout(url, { cache: 'no-store' })
-  if (!res.ok) return []
+  const res = await liveFetch(url, { cache: 'no-store' })
+  if (!res?.ok) return []
   const data = (await res.json()) as { products: LiveProduct[] }
   return (data.products ?? []).map(mapLiveProduct)
 }
@@ -402,7 +408,8 @@ export async function fetchLiveProductDetailBySlug(
 ): Promise<{ product: ProductDetailData; reviews: ProductReview[] } | null> {
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products/${encodeURIComponent(slug)}?storeId=${encodeURIComponent(STORE_ID)}`
-  const res = await fetchWithTimeout(url, { next: { revalidate: 15 } })
+  const res = await liveFetch(url, { next: { revalidate: 15 } })
+  if (!res) throw new Error(`Product API unavailable for ${slug}`)
   // Only a real 404 means "product does not exist" — any other failure must throw
   // so callers don't turn a transient API outage into a permanent not-found page.
   if (res.status === 404) return null
@@ -459,10 +466,10 @@ export async function fetchStorefrontProductListing(
   }
 
   try {
-    const res = await fetchWithTimeout(`${base}/storefront/products?${params}`, {
+    const res = await liveFetch(`${base}/storefront/products?${params}`, {
       next: { revalidate: 15, tags: ['storefront-products'] },
     })
-    if (!res.ok) return { products: [], total: 0, totalPages: 0, page: 1 }
+    if (!res?.ok) return { products: [], total: 0, totalPages: 0, page: 1 }
     const data = (await res.json()) as ProductsApiResponse
     const mapped = mapProductsResponse(data)
     return {
@@ -485,12 +492,14 @@ export async function fetchLiveCollections(): Promise<
     imageUrl?: string | null
   }>
 > {
+  if (isCiOrProductionBuild()) return []
+
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/collections?storeId=${encodeURIComponent(STORE_ID)}`
 
   try {
-    const res = await fetchWithTimeout(url, { next: { revalidate: 120 } })
-    if (!res.ok) return []
+    const res = await liveFetch(url, { next: { revalidate: 120 } })
+    if (!res?.ok) return []
     const data = (await res.json()) as {
       collections?: Array<{
         id: string
@@ -526,10 +535,10 @@ export async function fetchProductsByCategory(
   })
 
   try {
-    const res = await fetchWithTimeout(`${base}/storefront/products?${params}`, {
+    const res = await liveFetch(`${base}/storefront/products?${params}`, {
       next: { revalidate: 15, tags: [`products-${categorySlug}`] },
     })
-    if (!res.ok) return { products: [], total: 0, totalPages: 0 }
+    if (!res?.ok) return { products: [], total: 0, totalPages: 0 }
     const data = (await res.json()) as ProductsApiResponse
     const mapped = mapProductsResponse(data)
     return {
@@ -549,10 +558,10 @@ export async function fetchAllAccessories(): Promise<{
   const base = getServerApiBaseUrl()
 
   async function load(params: URLSearchParams) {
-    const res = await fetchWithTimeout(`${base}/storefront/products?${params}`, {
+    const res = await liveFetch(`${base}/storefront/products?${params}`, {
       next: { revalidate: 15, tags: ['products-accessories'] },
     })
-    if (!res.ok) return { products: [] as CatalogProduct[], total: 0 }
+    if (!res?.ok) return { products: [] as CatalogProduct[], total: 0 }
     const data = (await res.json()) as ProductsApiResponse
     const mapped = mapProductsResponse(data)
     return { products: mapped.products, total: mapped.total }
@@ -584,8 +593,8 @@ export async function fetchAllAccessories(): Promise<{
 export async function fetchCustomerProfile(phone: string) {
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/customer/profile?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`
-  const res = await fetchWithTimeout(url, { cache: 'no-store' })
-  if (!res.ok) return null
+  const res = await liveFetch(url, { cache: 'no-store' })
+  if (!res?.ok) return null
   const data = (await res.json()) as {
     customer: {
       loyaltyPoints: number
