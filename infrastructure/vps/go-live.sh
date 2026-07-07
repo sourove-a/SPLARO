@@ -59,8 +59,8 @@ if [[ "${DATABASE_URL:-}" == *"@127.0.0.1"* ]] || [[ "${DATABASE_URL:-}" == *"@l
 fi
 
 # ── First-time server setup ──────────────────────────────────
-if [ "$SKIP_SETUP" != "true" ] && ! command -v psql >/dev/null 2>&1; then
-  log "First run — installing Node, PostgreSQL, Redis, Nginx, PM2..."
+if [ "$SKIP_SETUP" != "true" ] && ! command -v nginx >/dev/null 2>&1; then
+  log "First run — installing Node, Redis, Nginx, PM2..."
   bash "$APP_DIR/infrastructure/scripts/setup-server.sh"
 elif [ -n "${SPLARO_DB_PASS:-}" ] && command -v psql >/dev/null 2>&1; then
   sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='splaro_user'" | grep -q 1 && \

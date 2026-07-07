@@ -32,10 +32,14 @@ apt-get install -y nodejs
 echo "Installing PNPM..."
 npm install -g pnpm pm2
 
-# ── POSTGRESQL ───────────────────────────────────────────────
+# ── POSTGRESQL (skip when using Neon/Supabase — remote DATABASE_URL) ──
+if [[ "${DATABASE_URL:-}" == *"neon.tech"* ]] || [[ "${DATABASE_URL:-}" == *"supabase.co"* ]]; then
+  echo "Remote DATABASE_URL — skipping local PostgreSQL install"
+else
 echo "Installing PostgreSQL $POSTGRES_VERSION..."
-sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+install -d /usr/share/postgresql-common/pgdg
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
 apt-get update -y
 apt-get install -y postgresql-$POSTGRES_VERSION
 
@@ -51,6 +55,7 @@ CREATE DATABASE splaro_shadow_db OWNER splaro_user;
 GRANT ALL PRIVILEGES ON DATABASE splaro_db TO splaro_user;
 GRANT ALL PRIVILEGES ON DATABASE splaro_shadow_db TO splaro_user;
 EOF
+fi
 
 # ── REDIS ────────────────────────────────────────────────────
 echo "Installing Redis $REDIS_VERSION..."
