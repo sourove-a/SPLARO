@@ -241,4 +241,4 @@ setTimeout(() => {
       `[splaro-stack] listening :${PASSENGER_PORT} → api:${API_PORT} web:${WEB_PORT} admin:${ADMIN_PORT}`,
     )
   })
-}, 8000)
+}, 1500)

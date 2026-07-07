@@ -41,6 +41,7 @@ if [ -d "$ADMIN_STANDALONE/.next" ]; then
   rsync -a "$ADMIN_STANDALONE/.next/" "$REPO/apps/admin/.next/" 2>/dev/null || true
 fi
 
+if [ "${SPLARO_SKIP_SERVICE_FORK:-0}" != "1" ]; then
 # Web (:3001)
 if ! curl -sf -m 3 "http://127.0.0.1:3001/" >/dev/null 2>&1; then
   log "Starting web on :3001"
@@ -73,11 +74,18 @@ if [ -d "$REPO/apps/admin/.next" ] && ! curl -sf -m 3 "http://127.0.0.1:3002/log
   sleep 8
 fi
 
-# Passenger: splaro.co
+# Passenger: splaro.co (legacy path — activate-hostinger-site uses stack-app)
 mkdir -p "$NODEJS/tmp"
-cp "$REPO/infrastructure/hostinger/passenger-proxy-only.cjs" "$NODEJS/app.cjs"
+if [ -f "$REPO/infrastructure/hostinger/passenger-stack-app.cjs" ]; then
+  cp "$REPO/infrastructure/hostinger/passenger-stack-app.cjs" "$NODEJS/app.cjs"
+else
+  cp "$REPO/infrastructure/hostinger/passenger-proxy-only.cjs" "$NODEJS/app.cjs"
+fi
 touch "$NODEJS/tmp/restart.txt"
-log "splaro.co Passenger proxy restarted"
+log "splaro.co Passenger app restarted"
+else
+  log "skip manual service fork (passenger-stack-app handles api/web/admin)"
+fi
 
 # Passenger: admin (hPanel subfolder public_html/admin)
 if [ -d "$ADMIN_HTDOCS" ]; then

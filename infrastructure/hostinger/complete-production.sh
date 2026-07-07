@@ -153,9 +153,20 @@ PassengerNodejs /opt/alt/alt-nodejs20/root/bin/node
 PassengerStartupFile app.cjs
 PassengerBaseURI /
 PassengerRestartDir $NODEJS/tmp
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^www\.splaro\.co [NC]
+RewriteRule ^ https://splaro.co%{REQUEST_URI} [R=301,L]
 RewriteRule ^\.builds - [F,L]
+RewriteRule ^index\.php$ - [L]
 DirectoryIndex disabled
+Options -Indexes
 EOF
+for stale in default.php index.php index.html default.htm; do
+  if [ -f "$HOME/domains/splaro.co/public_html/$stale" ]; then
+    mv "$HOME/domains/splaro.co/public_html/$stale" "$HOME/domains/splaro.co/public_html/${stale}.splaro-bak" 2>/dev/null \
+      || rm -f "$HOME/domains/splaro.co/public_html/$stale"
+  fi
+done
 touch "$NODEJS/tmp/restart.txt"
 log "splaro.co Passenger proxy configured"
 
@@ -175,9 +186,9 @@ rm -f "$ADMIN_HTDOCS/default.php"
 touch "$ADMIN_HTDOCS/nodejs/tmp/restart.txt"
 log "admin.splaro.co Passenger configured"
 
-# ── Passenger: api.splaro.co (public_html/api) ──
+# ── Passenger: api.splaro.co (public_html/api) — combined proxy (apex may route here) ──
 mkdir -p "$API_HTDOCS/nodejs/tmp"
-cp "$REPO/infrastructure/hostinger/passenger-api-proxy.cjs" "$API_HTDOCS/nodejs/app.cjs"
+cp "$REPO/infrastructure/hostinger/passenger-proxy-only.cjs" "$API_HTDOCS/nodejs/app.cjs"
 cat > "$API_HTDOCS/.htaccess" <<EOF
 PassengerAppRoot ${USER_HOME}/domains/splaro.co/public_html/api/nodejs
 PassengerAppType node

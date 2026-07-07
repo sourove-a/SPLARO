@@ -20,6 +20,14 @@ fi
 
 log "Root=$ROOT Node=$(node -v)"
 
+# Fail fast on missing/placeholder production env — before any expensive work.
+if [ "$ON_HOSTINGER" = "1" ]; then
+  node "$ROOT/scripts/validate-production-env.mjs" || {
+    log "ERROR: production env validation failed — fix hPanel environment variables"
+    exit 1
+  }
+fi
+
 export NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://splaro.co}"
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://splaro.co/api/v1}"
 export NEXT_PUBLIC_ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.splaro.co}"
@@ -90,16 +98,32 @@ if [ "$ON_HOSTINGER" = "1" ]; then
     else
       log "Remote database (Supabase/Neon) — skip local PostgreSQL"
     fi
-    log "Database migrate + seed…"
+    log "Database schema (prisma migrate deploy)…"
     (cd "$ROOT/packages/database" && npx prisma generate 2>&1 | tail -3) || true
-    (cd "$ROOT/packages/database" && npx prisma db push --accept-data-loss 2>&1 | tail -5) || log "WARN: db push failed"
-    pnpm db:seed 2>&1 | tail -8 || log "WARN: seed failed"
+    if (cd "$ROOT/packages/database" && npx prisma migrate deploy 2>&1 | tail -6); then
+      log "migrate deploy OK"
+    elif [ "${SPLARO_DB_PUSH_ACCEPT_DATA_LOSS:-0}" = "1" ]; then
+      log "WARN: migrate deploy failed — falling back to db push --accept-data-loss (explicitly enabled)"
+      (cd "$ROOT/packages/database" && npx prisma db push --accept-data-loss 2>&1 | tail -5) \
+        || { log "ERROR: db push failed"; exit 1; }
+    else
+      log "ERROR: prisma migrate deploy failed. Fix the migration state, or set"
+      log "       SPLARO_DB_PUSH_ACCEPT_DATA_LOSS=1 only if you accept possible data loss."
+      exit 1
+    fi
+    if [ "${SPLARO_RUN_SEED:-0}" = "1" ]; then
+      log "Database seed (SPLARO_RUN_SEED=1)…"
+      pnpm db:seed 2>&1 | tail -8 || { log "ERROR: seed failed"; exit 1; }
+    else
+      log "Seed skipped (set SPLARO_RUN_SEED=1 for one-time bootstrap)"
+    fi
   fi
   set -a && [ -f .env ] && source .env && set +a
 elif [ -n "${DATABASE_URL:-}" ]; then
-  log "Database migrate…"
+  log "Database schema (prisma migrate deploy)…"
   (cd "$ROOT/packages/database" && npx prisma generate 2>&1 | tail -3) || true
-  (cd "$ROOT/packages/database" && npx prisma db push --accept-data-loss 2>&1 | tail -5) || true
+  (cd "$ROOT/packages/database" && npx prisma migrate deploy 2>&1 | tail -6) \
+    || log "WARN: migrate deploy failed (non-Hostinger build — continuing)"
 fi
 
 # Force next.config.mjs on shared hosting
@@ -147,9 +171,12 @@ ln -sfn apps/web/.next/standalone/apps/web "$ROOT/dist"
 log "Linked dist → web standalone"
 
 if [ "$ON_HOSTINGER" = "1" ]; then
-  bash "$ROOT/infrastructure/hostinger/install-passenger-main.sh" 2>&1 | tail -5 || log "WARN: main passenger install skipped"
+  bash "$ROOT/infrastructure/hostinger/activate-hostinger-site.sh" 2>&1 | tail -15 \
+    || log "WARN: activate-hostinger-site skipped"
   bash "$ROOT/infrastructure/hostinger/install-passenger-proxies.sh" 2>&1 | tail -5 || true
-  bash "$ROOT/infrastructure/hostinger/splaro-start-services.sh" 2>&1 | tail -12 || log "WARN: splaro-start-services skipped"
+  # stack-app (activate-hostinger-site) starts api/web/admin — avoid duplicate forks
+  SPLARO_SKIP_SERVICE_FORK=1 bash "$ROOT/infrastructure/hostinger/splaro-start-services.sh" 2>&1 | tail -8 \
+    || log "WARN: splaro-start-services skipped"
   if [ -n "${DATABASE_URL:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_ADMIN_USER_ID:-}" ]; then
     TELEGRAM_STORE_SLUG="${TELEGRAM_STORE_SLUG:-splaro}" \
       pnpm telegram:configure 2>&1 | tail -5 || log "WARN: telegram configure skipped"

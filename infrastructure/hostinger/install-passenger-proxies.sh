@@ -28,6 +28,7 @@ EOF
 
 install_proxy() {
   local label="$1" htdocs="$2" proxy_src="$3" port_hint="$4"
+  mkdir -p "$htdocs" || true
   if ! mkdir -p "$htdocs/nodejs"; then
     err "cannot create $htdocs — $label proxy skipped"
     return 1
@@ -38,6 +39,11 @@ install_proxy() {
   fi
   cp "$REPO/$proxy_src" "$htdocs/nodejs/app.cjs"
   if write_htaccess "$htdocs" "$htdocs/nodejs" "app.cjs"; then
+    for stale in default.php index.php index.html; do
+      if [ -f "$htdocs/$stale" ]; then
+        mv "$htdocs/$stale" "$htdocs/${stale}.splaro-bak" 2>/dev/null || rm -f "$htdocs/$stale"
+      fi
+    done
     log "$label proxy → $port_hint ($htdocs)"
   else
     err "failed to write .htaccess for $label"

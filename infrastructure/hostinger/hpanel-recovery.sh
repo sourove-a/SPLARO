@@ -44,26 +44,10 @@ if [ -f "$PRISMA" ] && [ -n "${DATABASE_URL:-}" ]; then
   node "$PRISMA" db seed --schema=packages/database/prisma/schema.prisma 2>/dev/null || true
 fi
 
-# Passenger
-mkdir -p "$NODEJS/tmp"
-cp infrastructure/hostinger/passenger-proxy-only.cjs "$NODEJS/app.cjs"
-cat > "$HOME/domains/splaro.co/public_html/.htaccess" <<EOF
-PassengerAppRoot $NODEJS
-PassengerAppType node
-PassengerNodejs /opt/alt/alt-nodejs20/root/bin/node
-PassengerStartupFile app.cjs
-PassengerBaseURI /
-PassengerRestartDir $NODEJS/tmp
-RewriteEngine On
-RewriteCond %{HTTP_HOST} ^www\.splaro\.co [NC]
-RewriteRule ^ https://splaro.co%{REQUEST_URI} [R=301,L]
-RewriteRule ^\.builds - [F,L]
-DirectoryIndex disabled
-EOF
-touch "$NODEJS/tmp/restart.txt"
-cp infrastructure/hostinger/passenger-proxy-only.cjs "$NODEJS/app.cjs"
+# Passenger + remove Hostinger default page
+bash infrastructure/hostinger/activate-hostinger-site.sh
 bash infrastructure/hostinger/install-passenger-proxies.sh 2>&1 | tail -5 || true
-bash infrastructure/hostinger/splaro-start-services.sh 2>&1 | tail -10 || true
+SPLARO_SKIP_SERVICE_FORK=1 bash infrastructure/hostinger/splaro-start-services.sh 2>&1 | tail -10 || true
 [ -d "$HOME/domains/admin.splaro.co" ] && bash infrastructure/hostinger/setup-passenger-admin.sh || echo "Create admin.splaro.co subdomain in hPanel"
 [ -d "$HOME/domains/api.splaro.co" ] && bash infrastructure/hostinger/setup-passenger-api.sh || echo "Create api.splaro.co subdomain in hPanel"
 bash infrastructure/hostinger/patch-earth-textures.sh 2>/dev/null || true
