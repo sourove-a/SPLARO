@@ -70,6 +70,12 @@ export class AuthController {
       throw new UnauthorizedException('Telegram login token required')
     }
 
+    // Password login is a deliberate, opt-in fallback only — Telegram 2FA is
+    // the enforced admin login path. Disabled unless explicitly turned on.
+    if (process.env['ALLOW_ADMIN_PASSWORD_LOGIN'] !== 'true') {
+      throw new UnauthorizedException('Telegram login token required')
+    }
+
     const user = await this.auth.loginWithPassword(email, password, body.storeId, meta)
     return {
       ok: true,

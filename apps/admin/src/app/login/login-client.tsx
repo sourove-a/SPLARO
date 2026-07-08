@@ -24,7 +24,7 @@ const LOGIN_EMAIL =
 
 const motionEase = [0.16, 1, 0.3, 1] as const
 
-type Step = 'email' | 'token' | 'password'
+type Step = 'email' | 'token'
 
 function normalizeTokenInput(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8)
@@ -45,7 +45,6 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState(LOGIN_EMAIL)
   const [token, setToken] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tokenHint, setTokenHint] = useState<string | null>(null)
@@ -92,40 +91,7 @@ export default function AdminLoginPage() {
       setToken('')
       setLoading(false)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to connect. Please try again.'
-      // Telegram bot not configured — fall back to password sign-in instead of a dead end.
-      if (message.toLowerCase().includes('telegram')) {
-        setStep('password')
-        setError(null)
-        setLoading(false)
-        return
-      }
-      setError(message)
-      setLoading(false)
-    }
-  }
-
-  const submitPassword = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = (await res.json()) as { error?: string; apiToken?: string }
-      if (!res.ok) {
-        setError(data.error ?? 'Invalid password')
-        setLoading(false)
-        return
-      }
-      if (data.apiToken) setAdminApiToken(data.apiToken)
-      window.location.assign(next)
-    } catch {
-      setError('Unable to connect. Please try again.')
+      setError(err instanceof Error ? err.message : 'Unable to connect. Please try again.')
       setLoading(false)
     }
   }
@@ -199,81 +165,19 @@ export default function AdminLoginPage() {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div key={step} {...panelMotion} transition={panelTransition}>
             <h1 className="admin-auth-card__title">
-              {step === 'email' ? 'Admin sign in' : step === 'token' ? 'Verify with Telegram' : 'Sign in with password'}
+              {step === 'email' ? 'Admin sign in' : 'Verify with Telegram'}
             </h1>
             <p className="admin-auth-card__subtitle">
               {step === 'email'
                 ? 'Orders · Products · Finance · Courier · AI'
-                : step === 'token'
-                  ? 'Secure one-time token via Telegram'
-                  : 'Telegram bot unavailable — use your admin password'}
+                : 'Secure one-time token via Telegram'}
             </p>
           </motion.div>
         </AnimatePresence>
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
-        {step === 'password' ? (
-          <motion.form
-            key="password"
-            onSubmit={submitPassword}
-            className="admin-auth-form"
-            {...panelMotion}
-            transition={panelTransition}
-          >
-            <div className="admin-auth-email-chip">
-              <Mail className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{email}</span>
-            </div>
-
-            <label className="admin-auth-field">
-              <span className="admin-auth-label">Admin password</span>
-              <div className="admin-auth-field__wrap">
-                <span className="admin-auth-field__icon-chip" aria-hidden>
-                  <Lock className="h-4 w-4" strokeWidth={2} />
-                </span>
-                <input
-                  required
-                  type="password"
-                  autoComplete="current-password"
-                  autoFocus
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="admin-auth-input"
-                />
-              </div>
-            </label>
-
-            {error ? (
-              <div className="admin-auth-error" role="alert">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            ) : null}
-
-            <button type="submit" disabled={loading || !password} className="admin-auth-submit">
-              {loading ? (
-                <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
-              ) : (
-                <Lock className="h-4 w-4" strokeWidth={2.5} />
-              )}
-              {loading ? 'Signing in…' : 'Enter Commerce OS'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setStep('email')
-                setError(null)
-                setPassword('')
-              }}
-              className="admin-auth-back"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Change email
-            </button>
-          </motion.form>
-        ) : step === 'email' ? (
+        {step === 'email' ? (
           <motion.form
             key="email"
             onSubmit={handleEmailSubmit}
