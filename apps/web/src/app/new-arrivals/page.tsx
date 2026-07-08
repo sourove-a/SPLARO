@@ -3,7 +3,7 @@ import { ShopExperience } from '@/components/shop/ShopExperience'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 
 export const metadata: Metadata = {
-  title: 'New Arrivals — SPLARO',
+  title: 'New Arrivals',
   description: 'Discover the latest SPLARO arrivals — new season drops across apparel and footwear.',
 }
 

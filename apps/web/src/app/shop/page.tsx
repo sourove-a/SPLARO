@@ -6,7 +6,7 @@ import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 export const metadata: Metadata = {
-  title: 'Shop — SPLARO',
+  title: 'Shop',
   description:
     'Browse SPLARO Summer Edition, Men, Women, Kids, and Footwear. Filter by size and colour, pay with bKash or Nagad, and enjoy fast delivery.',
 }

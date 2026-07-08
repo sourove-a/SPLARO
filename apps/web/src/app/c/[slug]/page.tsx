@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const title = titleFromCollectionSlug(slug)
   return {
-    title: `${title} — Shop SPLARO`,
+    title: `${title} — Shop`,
     description: `Shop SPLARO ${title} collection with filters, quick add, and bKash or Nagad checkout.`,
     alternates: { canonical: collectionHref(slug) },
   }

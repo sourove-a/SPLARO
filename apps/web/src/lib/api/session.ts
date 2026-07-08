@@ -4,7 +4,7 @@ let sessionCheckPromise: Promise<AuthUser | null> | null = null
 
 /**
  * Verify httpOnly session cookie against the server.
- * Returns null only when the server confirms there is no session (401).
+ * Returns null when there is no active session.
  * Throws on network/server errors so callers can keep cached user state.
  */
 export async function reconcileAuthSession(): Promise<AuthUser | null> {
@@ -12,7 +12,6 @@ export async function reconcileAuthSession(): Promise<AuthUser | null> {
 
   sessionCheckPromise = (async () => {
     const res = await fetch('/api/auth/me', { credentials: 'include' })
-    if (res.status === 401) return null
     if (!res.ok) {
       throw new Error(`Session check failed (${res.status})`)
     }

@@ -4,7 +4,7 @@ import { fetchFootwearRowProducts } from '@/lib/catalog/server'
 import configJson from '@/data/footwear-page-config.json'
 
 export const metadata: Metadata = {
-  title: 'Footwear | SPLARO',
+  title: 'Footwear',
   description: 'Luxury handcrafted footwear — loafers, sandals, heels and more.',
 }
 

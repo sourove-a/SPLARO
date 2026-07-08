@@ -157,7 +157,7 @@ export function toProductDetail(product: StorefrontProduct): ProductDetailData {
     origin: 'Bangladesh',
     variants: generateVariants(product),
     tags: [product.category, product.status, product.fit],
-    metaTitle: `${product.name} | SPLARO`,
+    metaTitle: product.name,
     metaDescription: `Shop ${product.name} at SPLARO. ${product.material}, ${product.fit} fit. Price in BDT ${product.price.toLocaleString('en-BD')}.`,
   }
 }

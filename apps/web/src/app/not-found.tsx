@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Page Not Found — SPLARO',
+  title: 'Page Not Found',
 }
 
 export default function NotFound() {

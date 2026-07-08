@@ -1,6 +1,7 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 import type { LegalPageContent } from '@splaro/types'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { pageTitleSegment } from '@/lib/seo/page-title'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -14,7 +15,7 @@ function parseLandingContent(row: {
     title: row.title,
     description: row.metaDesc?.trim() || row.title,
     sections: [{ heading: row.title, body: row.content?.trim() || 'Content coming soon.' }],
-    metaTitle: row.metaTitle ?? row.title,
+    metaTitle: pageTitleSegment(row.metaTitle) || row.title,
     metaDescription: row.metaDesc ?? row.title,
   }
 
@@ -30,7 +31,7 @@ function parseLandingContent(row: {
           heading: section.heading?.trim() || 'Section',
           body: section.body?.trim() || '',
         })),
-        metaTitle: row.metaTitle ?? parsed.metaTitle ?? parsed.title ?? row.title,
+        metaTitle: pageTitleSegment(row.metaTitle ?? parsed.metaTitle) || parsed.title?.trim() || row.title,
         metaDescription: row.metaDesc ?? parsed.metaDescription ?? parsed.description ?? row.title,
       }
     }

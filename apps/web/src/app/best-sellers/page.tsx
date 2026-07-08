@@ -3,7 +3,7 @@ import { ShopExperience } from '@/components/shop/ShopExperience'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 
 export const metadata: Metadata = {
-  title: 'Best Sellers — SPLARO',
+  title: 'Best Sellers',
   description: 'Shop SPLARO best sellers — customer favourites across Summer Edition, Men, Women, Kids, and Footwear.',
 }
 

@@ -32,11 +32,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'SPLARO — Premium Everyday Storefront',
+    default: 'SPLARO — Luxury Fashion & Lifestyle',
     template: '%s | SPLARO',
   },
   description:
-    'Discover SPLARO products across Summer Edition, Men, Women, Kids, and Footwear with a polished liquid-glass shopping experience.',
+    'Discover SPLARO — quiet luxury fashion for women, men, and kids. Premium essentials, footwear, and accessories with worldwide craft heritage.',
   keywords: [
     'SPLARO',
     'premium fashion',
@@ -66,22 +66,22 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: siteUrl,
     siteName: 'SPLARO',
-    title: 'SPLARO — Premium Everyday Storefront',
+    title: 'SPLARO — Luxury Fashion & Lifestyle',
     description:
-      'A polished SPLARO storefront for Summer Edition, Men, Women, Kids, and Footwear.',
+      'Discover SPLARO — quiet luxury fashion for women, men, and kids. Premium essentials, footwear, and accessories.',
     images: [
       {
         url: `${siteUrl}/og-image.jpg`,
         width: 1200,
         height: 630,
-        alt: 'SPLARO — Premium Everyday Storefront',
+        alt: 'SPLARO — Luxury Fashion & Lifestyle',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SPLARO — Premium Everyday Storefront',
-    description: 'A polished storefront for Summer Edition, Men, Women, Kids, and Footwear.',
+    title: 'SPLARO — Luxury Fashion & Lifestyle',
+    description: 'Quiet luxury fashion — premium essentials, footwear, and accessories.',
     images: [`${siteUrl}/og-image.jpg`],
     creator: '@splaro_official',
   },
@@ -142,7 +142,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               name: 'SPLARO',
               url: siteUrl,
               logo: `${siteUrl}/images/logo/splaro-brand.svg`,
-              description: 'Premium everyday fashion storefront',
+              description: 'Luxury fashion and lifestyle — designed for the world, rooted in heritage.',
               contactPoint: {
                 '@type': 'ContactPoint',
                 telephone: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,

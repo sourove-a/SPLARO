@@ -5,6 +5,7 @@ import {
   type LegalPageSlug,
 } from '@splaro/types'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { pageTitleSegment } from '@/lib/seo/page-title'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -28,7 +29,7 @@ export async function getLegalPage(slug: LegalPageSlug): Promise<LegalPageConten
       title: data.title?.trim() || fallback.title,
       description: data.description?.trim() || fallback.description,
       sections: data.sections?.length ? data.sections : fallback.sections,
-      metaTitle: data.metaTitle ?? fallback.metaTitle ?? data.title ?? fallback.title,
+      metaTitle: pageTitleSegment(data.metaTitle ?? fallback.metaTitle) || data.title?.trim() || fallback.title,
       metaDescription:
         data.metaDescription ?? fallback.metaDescription ?? data.description ?? fallback.description,
     }

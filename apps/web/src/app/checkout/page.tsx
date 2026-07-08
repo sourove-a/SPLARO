@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import CheckoutPageClient from './page-client'
 
 export const metadata: Metadata = {
-  title: 'Checkout — SPLARO',
+  title: 'Checkout',
   description: 'Complete your SPLARO order with cash on delivery or SSLCommerz secure checkout.',
 }
 

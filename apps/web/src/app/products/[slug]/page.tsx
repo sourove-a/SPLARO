@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { productSlug } from '@/lib/catalog/index'
 import { getProductDetailBySlug, getRelatedProducts, getStorefrontCatalog } from '@/lib/catalog/server'
 import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { pageTitleSegment } from '@/lib/seo/page-title'
 import ProductPageClient from './product-page-client'
 
 interface ProductPageProps {
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 
   return {
-    title: product.metaTitle ?? product.name,
+    title: pageTitleSegment(product.metaTitle) || product.name,
     description: product.metaDescription ?? product.description,
     robots: {
       index: true,

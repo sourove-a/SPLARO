@@ -5,9 +5,8 @@ import { resolveHeroBanners } from '@/lib/api/hero-banners'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 
 export const metadata: Metadata = {
-  title: 'SPLARO — Premium Everyday Storefront',
   description:
-    'A polished SPLARO storefront for Summer Edition, Men, Women, Kids, and Footwear with a soft liquid-glass shopping experience.',
+    'Discover SPLARO — quiet luxury fashion for women, men, and kids. Premium essentials, footwear, and accessories.',
 }
 
 export const revalidate = 60

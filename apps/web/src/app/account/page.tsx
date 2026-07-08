@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import AccountDashboard from './page-client'
 
 export const metadata: Metadata = {
-  title: 'My Account — SPLARO',
+  title: 'My Account',
   description: 'Manage your SPLARO orders, addresses, and account settings.',
 }
 

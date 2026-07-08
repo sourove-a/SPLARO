@@ -11,6 +11,7 @@ import {
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import { catalogFetchAttempts, catalogFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 import { resolveShopCategory } from '@/lib/catalog/shop-category'
+import { pageTitleSegment } from '@/lib/seo/page-title'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -357,7 +358,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     origin: p.origin ?? 'Bangladesh',
     variants: buildVariants(p, Number(p.basePrice), img),
     tags: p.tags?.length ? p.tags : [category],
-    metaTitle: p.metaTitle ?? `${p.name} | SPLARO`,
+    metaTitle: pageTitleSegment(p.metaTitle) || p.name,
     metaDescription:
       p.metaDescription ??
       `Shop ${p.name} at SPLARO. Price in BDT ${Number(p.basePrice).toLocaleString('en-BD')}.`,

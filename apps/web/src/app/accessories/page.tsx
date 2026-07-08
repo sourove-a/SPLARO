@@ -4,7 +4,7 @@ import { AccessoriesClient } from '@/components/accessories/AccessoriesClient'
 import { fetchAllAccessories } from '@/lib/catalog/live'
 
 export const metadata: Metadata = {
-  title: 'Accessories | SPLARO',
+  title: 'Accessories',
   description:
     'Premium handcrafted accessories — eyewear, bags, jewelry, scarves and more from curated manufacturers.',
 }

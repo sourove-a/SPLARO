@@ -86,6 +86,11 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     await this.initializeBot()
   }
 
+  private isPrimaryClusterInstance(): boolean {
+    const instance = process.env.NODE_APP_INSTANCE ?? process.env.pm_id ?? '0'
+    return String(instance) === '0'
+  }
+
   private async initializeBot(): Promise<void> {
     const token = await this.resolveBotToken()
     if (!token) {
@@ -94,7 +99,11 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     }
 
     const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.trim()
-    const usePolling = !webhookUrl && this.config.get<string>('SPLARO_TELEGRAM_POLLING') !== '0'
+    const pollingEnv = this.config.get<string>('SPLARO_TELEGRAM_POLLING')
+    const usePolling =
+      !webhookUrl &&
+      this.isPrimaryClusterInstance() &&
+      pollingEnv !== '0'
     this.bot = new TelegramBot(token, { polling: usePolling })
     void this.bot.setMyCommands(BOT_COMMANDS).catch(() => undefined)
     this.registerCommands()
@@ -136,6 +145,10 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   async onApplicationBootstrap() {
     const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.trim()
     if (!this.bot || !webhookUrl) return
+    if (!this.isPrimaryClusterInstance()) {
+      this.logger.log('Telegram webhook registration skipped on secondary cluster instance')
+      return
+    }
 
     const secret = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')
     const target = webhookUrl.replace(/\/$/, '')
