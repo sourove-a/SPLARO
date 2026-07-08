@@ -15,6 +15,7 @@ import {
   Shield,
   Truck,
 } from 'lucide-react'
+import { displayOrderCode } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
 import {
   openOrderInvoice,
@@ -47,7 +48,7 @@ function formatPaymentLabel(method: string) {
 }
 
 function orderNumber(order: StoredOrder) {
-  return order.invoiceNumber ?? order.id
+  return displayOrderCode(order.invoiceNumber, order.id)
 }
 
 function isCancelled(order: StoredOrder) {

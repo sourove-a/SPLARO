@@ -5,8 +5,7 @@ import {
   User, Phone, Mail, MapPin, Calendar, ShoppingBag,
   DollarSign, Star, Clock, Bot, Plus, Ban, ShieldCheck,
 } from 'lucide-react'
-import { AdminNavLink } from '@/components/layout/AdminNavLink'
-import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 
@@ -144,7 +143,7 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
             </div>
             {onToggleBlock ? (
               <AdminButton
-                className="!text-xs"
+                size="sm"
                 variant={customer.isBlocked ? 'gold' : 'ghost'}
                 onClick={() => onToggleBlock(!customer.isBlocked)}
               >
@@ -223,9 +222,9 @@ export function Customer360Profile({ customer, onAddNote, onAddTag, onToggleBloc
                         <td className="font-black">{formatBDT(Number(order.total))}</td>
                         <td className="text-xs">{order.createdAt.slice(0, 10)}</td>
                         <td>
-                          <AdminNavLink href={`/dashboard/orders/${order.id}`} className="admin-btn !text-xs">
+                          <AdminLinkButton href={`/dashboard/orders/${order.invoiceNumber}`} size="sm">
                             View
-                          </AdminNavLink>
+                          </AdminLinkButton>
                         </td>
                       </tr>
                     ))}

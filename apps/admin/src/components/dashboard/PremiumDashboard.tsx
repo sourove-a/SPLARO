@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, type ElementType } from 'react'
-import toast from 'react-hot-toast'
 import {
   DollarSign,
   ShoppingBag,
@@ -9,7 +8,6 @@ import {
   TrendingUp,
   SlidersHorizontal,
   WifiOff,
-  Sparkles,
   Percent,
   BarChart3,
 } from 'lucide-react'
@@ -25,6 +23,7 @@ import { QuickActions } from '@/components/dashboard/QuickActions'
 import { StoreHealthCards } from '@/components/agent/StoreHealthCards'
 import { ClientDateTime } from '@/components/ui/ClientDateTime'
 import { formatBDT } from '@/lib/utils/currency'
+import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { useDashboardStats, useExecutiveDashboard } from '@/lib/api/hooks'
 import { useAdminUiStore } from '@/store/uiStore'
 
@@ -43,14 +42,14 @@ function StorePerformanceCard({
   icon: ElementType
 }) {
   return (
-    <div className="admin-glass-mini p-4 transition-transform duration-200 hover:-translate-y-0.5">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">{label}</p>
-        <Icon className="h-4 w-4 text-[var(--admin-accent)]" strokeWidth={1.75} />
+    <div className="admin-kpi">
+      <div className="flex items-center justify-between gap-2">
+        <p className="admin-kpi__label">{label}</p>
+        <Icon className="h-3.5 w-3.5 text-[var(--admin-text-muted)]" strokeWidth={1.75} />
       </div>
-      <p className="mt-2 text-xl font-black text-[var(--admin-text)]">{value}</p>
+      <p className="admin-kpi__value !text-xl">{value}</p>
       {change !== undefined ? (
-        <p className={`mt-1 text-[11px] font-bold ${change >= 0 ? 'text-[var(--admin-success)]' : 'text-[var(--admin-danger)]'}`}>
+        <p className={`mt-1 text-[11px] font-bold ${change >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
           {change >= 0 ? '↑' : '↓'} {Math.abs(change)}%
         </p>
       ) : null}
@@ -91,14 +90,11 @@ export function PremiumDashboard() {
     <div className="admin-dashboard-canvas min-h-full w-full space-y-6 pb-20">
       <div className="space-y-6">
         <div>
-          <div className="admin-hero">
-            <div className="admin-hero__inner flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="admin-page-header">
+            <div className="admin-page-header__inner flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-[var(--admin-accent)]" strokeWidth={2} />
-                  <p className="admin-page-eyebrow">Commerce OS</p>
-                </div>
-                <h1 className="admin-page-title mt-1.5">
+                <p className="admin-page-eyebrow">Commerce OS</p>
+                <h1 className="admin-page-title mt-1">
                   Welcome back, <span className="admin-page-title__accent">{userName}</span>
                 </h1>
                 <p className="mt-1.5 text-sm font-medium text-[var(--admin-text-secondary)]">
@@ -128,8 +124,9 @@ export function PremiumDashboard() {
 
                 <button
                   type="button"
-                  onClick={() => toast('Advanced filters coming soon.', { icon: '🎛️' })}
-                  className="admin-filter-btn"
+                  disabled
+                  title={BACKEND_NOT_CONNECTED_TITLE}
+                  className="admin-filter-btn cursor-not-allowed opacity-50"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2} />
                   Filters
@@ -149,7 +146,7 @@ export function PremiumDashboard() {
           <StatCard title="Avg Order Value" value={fmt(aov)} change={stats?.avgOrderValue.change} icon={BarChart3} loading={isLoading} sparkline />
           {/* No analytics/visitor tracking is wired up yet — show an honest
               empty value instead of an invented conversion percentage. */}
-          <StatCard title="Conversion" value="—" icon={Percent} color="gold" loading={isLoading} />
+          <StatCard title="Conversion" value="—" emptyHint="Visitor analytics not connected yet" icon={Percent} color="gold" loading={isLoading} />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">

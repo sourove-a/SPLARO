@@ -1,11 +1,11 @@
 const LOCAL_EARTH_BASE = '/images/earth'
 
 export const EARTH_TEXTURE_URLS = {
-  day: `${LOCAL_EARTH_BASE}/earth-day.jpg`,
-  night: `${LOCAL_EARTH_BASE}/earth-night.jpg`,
-  bump: `${LOCAL_EARTH_BASE}/earth-bump.png`,
-  clouds: `${LOCAL_EARTH_BASE}/earth-clouds.png`,
-  moon: `${LOCAL_EARTH_BASE}/moon.jpg`,
+  day: `${LOCAL_EARTH_BASE}/earth-day.webp`,
+  night: `${LOCAL_EARTH_BASE}/earth-night.webp`,
+  bump: `${LOCAL_EARTH_BASE}/earth-bump.webp`,
+  clouds: `${LOCAL_EARTH_BASE}/earth-clouds.webp`,
+  moon: `${LOCAL_EARTH_BASE}/moon.webp`,
 } as const
 
 let preloadPromise: Promise<void> | null = null

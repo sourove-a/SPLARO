@@ -10,6 +10,7 @@ import { formatCampaignType, mapCampaignStatus } from '@/lib/api/marketing'
 import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
+import { cn } from '@/lib/utils/cn'
 import { CouponsLivePanel } from '@/components/modules/CouponsLivePanel'
 import { WhatsAppPanelLive, AffiliatePanelLive, InfluencersPanelLive } from '@/components/modules/MarketingLivePanels'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
@@ -269,25 +270,25 @@ function CampaignsPanel() {
             <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--admin-text-muted)', pointerEvents: 'none' }} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search campaign name or ID…" className="admin-catalog-input" style={{ width: '100%', paddingLeft: 36, outline: 'none' }} />
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={() => setShowCreate((v) => !v)} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="flex gap-2">
+            <AdminButton variant="gold" size="sm" onClick={() => setShowCreate((v) => !v)}>
               <Plus style={{ width: 13, height: 13 }} /> New campaign
-            </button>
-            <button type="button" onClick={() => void refreshWithToast(refetch, 'Campaigns refreshed')} className="admin-catalog-action" style={{ padding: '8px 12px', cursor: 'pointer' }}>
+            </AdminButton>
+            <button type="button" onClick={() => void refreshWithToast(refetch, 'Campaigns refreshed')} className="admin-catalog-action" aria-label="Refresh campaigns">
               <RefreshCw style={{ width: 12, height: 12 }} />
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div className="flex flex-wrap gap-1.5">
           {TABS.map((t) => {
             const count = t === 'all' ? rows.length : rows.filter((c) => c.status === t).length
             return (
-              <button key={t} type="button" onClick={() => setStatusFilter(t as CampaignStatus | 'all')} style={{
-                background: statusFilter === t ? GOLD_LIGHT : 'rgba(255,255,255,0.7)',
-                border: `1px solid ${statusFilter === t ? GOLD_BORDER : 'rgba(255,255,255,0.8)'}`,
-                color: statusFilter === t ? '#8B6914' : 'var(--admin-text-secondary)',
-                borderRadius: 9, padding: '6px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s', textTransform: 'capitalize',
-              }}>
+              <button
+                key={t}
+                type="button"
+                onClick={() => setStatusFilter(t as CampaignStatus | 'all')}
+                className={cn('admin-filter-pill capitalize', statusFilter === t && 'admin-filter-pill--active')}
+              >
                 {t === 'all' ? 'All' : t} · {count}
               </button>
             )

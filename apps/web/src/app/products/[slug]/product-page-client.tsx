@@ -98,6 +98,7 @@ export default function ProductPageClient({
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [addedPulse, setAddedPulse] = useState(false)
+  const [addingToCart, setAddingToCart] = useState(false)
   const [descExpanded, setDescExpanded] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
@@ -375,10 +376,18 @@ export default function ProductPageClient({
   }
 
   const handleAddToCart = () => {
-    if (!addSelectedItemToCart()) return
+    if (addingToCart) return
+    setAddingToCart(true)
+    if (!addSelectedItemToCart()) {
+      setAddingToCart(false)
+      return
+    }
     setCartOpen(true)
     setAddedPulse(true)
-    setTimeout(() => setAddedPulse(false), 1200)
+    window.setTimeout(() => {
+      setAddingToCart(false)
+      setAddedPulse(false)
+    }, 1200)
   }
 
   const handleBuyNow = () => {
@@ -573,28 +582,39 @@ export default function ProductPageClient({
                 <p className="pp-info__weave">{product.weavingType}</p>
               ) : null}
               <p className="pp-info__code">Product Code: {productCode}</p>
-              {(product.reviewCount > 0 || reviews.length > 0) && (
-                <a href="#product-reviews-heading" className="pp-info__rating">
-                  <span className="pp-info__stars" aria-hidden>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          'pp-info__star',
-                          i < Math.round(product.rating > 0 ? product.rating : 4.5) && 'pp-info__star--filled',
-                        )}
-                        strokeWidth={1.5}
-                      />
-                    ))}
-                  </span>
-                  <span>{(product.rating > 0 ? product.rating : 4.5).toFixed(1)}</span>
-                  <span className="pp-info__rating-sep">·</span>
-                  <span>
-                    {product.reviewCount || reviews.length} review
-                    {(product.reviewCount || reviews.length) === 1 ? '' : 's'}
-                  </span>
-                </a>
-              )}
+              {(() => {
+                // Honest rating only: backend aggregate, else average of real
+                // approved reviews on this page — never an invented default.
+                const realRating =
+                  product.rating > 0
+                    ? product.rating
+                    : reviews.length > 0
+                      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                      : 0
+                const realCount = product.reviewCount || reviews.length
+                if (realCount <= 0 || realRating <= 0) return null
+                return (
+                  <a href="#product-reviews-heading" className="pp-info__rating">
+                    <span className="pp-info__stars" aria-hidden>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            'pp-info__star',
+                            i < Math.round(realRating) && 'pp-info__star--filled',
+                          )}
+                          strokeWidth={1.5}
+                        />
+                      ))}
+                    </span>
+                    <span>{realRating.toFixed(1)}</span>
+                    <span className="pp-info__rating-sep">·</span>
+                    <span>
+                      {realCount} review{realCount === 1 ? '' : 's'}
+                    </span>
+                  </a>
+                )
+              })()}
             </div>
 
             <div className="pp-info__lead">
@@ -685,12 +705,20 @@ export default function ProductPageClient({
             <div className="pp-info__ctas">
               <button
                 type="button"
-                className={cn('pp-btn-add pp-pressable', addedPulse && 'pp-btn-add--added')}
+                className={cn(
+                  'pp-btn-add pp-pressable',
+                  addedPulse && 'pp-btn-add--added',
+                  addingToCart && !addedPulse && 'pp-btn-add--pending',
+                )}
                 onClick={handleAddToCart}
-                disabled={!inStock}
+                disabled={!inStock || addingToCart}
               >
                 <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
-                {addedPulse ? 'Added to Bag!' : 'Add to bag'}
+                {addingToCart && !addedPulse
+                  ? 'Adding…'
+                  : addedPulse
+                    ? 'Added to Bag!'
+                    : 'Add to bag'}
               </button>
 
               <button

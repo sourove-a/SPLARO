@@ -2,8 +2,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Headphones, RefreshCw, ShieldCheck, ShoppingBag, Truck } from 'lucide-react'
 import type { CartItem } from '@/store/cartStore'
-import { formatBDT } from '@/lib/utils/currency'
-import { isDigitalPayment, type PaymentMethod } from '@/lib/checkout/payments'
+import { formatBDT, DIGITAL_PAYMENT_DISCOUNT_RATE } from '@/lib/utils/currency'
+import type { PaymentMethod } from '@/lib/checkout/payments'
 
 interface CheckoutOrderSummaryProps {
   items: CartItem[]
@@ -11,10 +11,22 @@ interface CheckoutOrderSummaryProps {
   subtotal: number
   delivery: number
   discount: number
+  digitalDiscount: number
   totalBdt: number
   payment: PaymentMethod
   deliveryProgress: number | null
   freeDeliveryThreshold: number
+}
+
+function formatVariantDetail(item: CartItem): string {
+  const parts: string[] = []
+  if (item.size) parts.push(`Size ${item.size}`)
+  if (item.color) {
+    const isHex = item.color.startsWith('#')
+    parts.push(isHex ? `Color ${item.color.toUpperCase()}` : item.color)
+  }
+  parts.push(`Qty ${item.quantity}`)
+  return parts.join(' · ')
 }
 
 export function CheckoutOrderSummary({
@@ -23,11 +35,15 @@ export function CheckoutOrderSummary({
   subtotal,
   delivery,
   discount,
+  digitalDiscount,
   totalBdt,
   payment,
   deliveryProgress,
   freeDeliveryThreshold,
 }: CheckoutOrderSummaryProps) {
+  const paymentLabel =
+    payment === 'Cash on Delivery' ? 'Cash on delivery' : payment
+
   return (
     <aside className="checkout-summary checkout-glass-panel">
       <div className="checkout-summary__head">
@@ -70,22 +86,19 @@ export function CheckoutOrderSummary({
         <>
           <div className="checkout-items">
             {items.map((item) => (
-              <div key={`${item.productId}-${item.variantId}`} className="checkout-item">
+              <div key={`${item.productId}-${item.variantId ?? ''}-${item.size ?? ''}`} className="checkout-item">
                 <div className="checkout-item__thumb">
                   <Image
                     src={item.image}
                     alt={item.name}
                     fill
-                    sizes="56px"
+                    sizes="64px"
                     className="object-contain object-center"
                   />
                 </div>
                 <div className="checkout-item__meta">
                   <p className="checkout-item__name">{item.name}</p>
-                  <p className="checkout-item__detail">
-                    Qty {item.quantity}
-                    {item.size ? ` · ${item.size}` : ''}
-                  </p>
+                  <p className="checkout-item__detail">{formatVariantDetail(item)}</p>
                 </div>
                 <p className="checkout-item__price">{formatBDT(item.price * item.quantity)}</p>
               </div>
@@ -102,7 +115,7 @@ export function CheckoutOrderSummary({
               <span>{delivery === 0 ? 'Free' : formatBDT(delivery)}</span>
             </div>
             {discount > 0 ? (
-              <div className="checkout-summary-line">
+              <div className="checkout-summary-line checkout-summary-line--discount">
                 <span>Discount</span>
                 <span>- {formatBDT(discount)}</span>
               </div>
@@ -112,44 +125,43 @@ export function CheckoutOrderSummary({
               <span>Total</span>
               <span>{formatBDT(totalBdt)}</span>
             </div>
+            <div className="checkout-summary-line checkout-summary-line--payment">
+              <span>Payment</span>
+              <span>{paymentLabel}</span>
+            </div>
           </div>
 
-          {isDigitalPayment(payment) ? (
-            <p className="checkout-promo">You save 5% with {payment}. Limited 2026 offer.</p>
+          {digitalDiscount > 0 && DIGITAL_PAYMENT_DISCOUNT_RATE > 0 ? (
+            <p className="checkout-promo">
+              {Math.round(DIGITAL_PAYMENT_DISCOUNT_RATE * 100)}% digital payment savings applied
+            </p>
           ) : null}
 
-          <div className="checkout-security">
-            <span className="checkout-security__icon">
-              <ShieldCheck className="h-4 w-4" strokeWidth={2.1} />
-            </span>
-            <div>
-              <p className="checkout-security__title">Your data is 100% safe and secure</p>
-              <p className="checkout-security__text">
-                We use SSL encryption and secure payment processing for every order.
-              </p>
-            </div>
-          </div>
+          <p className="checkout-security checkout-security--compact">
+            <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.1} />
+            <span>Secure checkout · SSL encrypted</span>
+          </p>
 
-          <div className="checkout-sidebar-trust">
+          <div className="checkout-sidebar-trust checkout-sidebar-trust--compact">
             <div className="checkout-sidebar-trust__card">
-              <Truck className="h-4 w-4" strokeWidth={2} />
+              <Truck className="h-3.5 w-3.5" strokeWidth={2} />
               <div>
                 <strong>Fast delivery</strong>
-                <span>Fast dispatch with live order updates.</span>
+                <span>Dispatch with live updates</span>
               </div>
             </div>
             <div className="checkout-sidebar-trust__card">
-              <RefreshCw className="h-4 w-4" strokeWidth={2} />
+              <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
               <div>
                 <strong>Easy returns</strong>
-                <span>Hassle-free returns within 7 days.</span>
+                <span>7-day hassle-free returns</span>
               </div>
             </div>
             <div className="checkout-sidebar-trust__card">
-              <Headphones className="h-4 w-4" strokeWidth={2} />
+              <Headphones className="h-3.5 w-3.5" strokeWidth={2} />
               <div>
-                <strong>24/7 support</strong>
-                <span>We&apos;re here to help you anytime.</span>
+                <strong>Support</strong>
+                <span>We&apos;re here to help</span>
               </div>
             </div>
           </div>

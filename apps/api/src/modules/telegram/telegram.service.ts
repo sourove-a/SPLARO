@@ -14,7 +14,14 @@ import { InvoiceService } from '../invoices/invoice.service'
 import { CourierService } from '../courier/courier.service'
 import { AgentService } from '../agent'
 import { AuthService } from '../auth/auth.service'
+import { AdminLoginTokenService } from '../auth/admin-login-token.service'
+import { TelegramIntegrationService } from '../integrations/telegram-integration.service'
+import { OrderEventsService } from '../orders/order-events.service'
+import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
+import { restoreOrderStock } from '../../common/order-stock.util'
 import TelegramBot from 'node-telegram-bot-api'
+import { mapStaffRoleToTelegram, maskTelegramId } from './telegram.util'
+import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
 import { formatBDT } from '../../common/utils/currency'
 import { SPLARO_DOMAINS } from '@splaro/config'
 import type { TelegramRole } from '@prisma/client'
@@ -45,6 +52,11 @@ interface TelegramCtx {
 export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(TelegramService.name)
   private bot: TelegramBot | null = null
+  private botTokenSource: 'env' | 'database' | 'none' = 'none'
+  private lastDeliveryStatus: 'success' | 'failed' | 'none' = 'none'
+  private lastDeliveryError: string | null = null
+  private lastDeliveryAt: Date | null = null
+  private readonly notificationDedupe = new Map<string, number>()
 
   constructor(
     @Inject(ConfigService) private readonly config: ConfigService,
@@ -52,13 +64,32 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     @Inject(InvoiceService) private readonly invoices: InvoiceService,
     @Inject(forwardRef(() => CourierService))
     private readonly courier: CourierService,
+    @Inject(forwardRef(() => TelegramIntegrationService))
+    private readonly telegramIntegration: TelegramIntegrationService,
     private readonly moduleRef: ModuleRef,
   ) {}
 
   async onModuleInit() {
-    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN')
+    await this.initializeBot()
+  }
+
+  /** Re-load bot token after admin saves credentials in the panel. */
+  async reinitializeBot(): Promise<void> {
+    if (this.bot) {
+      try {
+        await this.bot.stopPolling()
+      } catch {
+        /* polling may not be active */
+      }
+      this.bot = null
+    }
+    await this.initializeBot()
+  }
+
+  private async initializeBot(): Promise<void> {
+    const token = await this.resolveBotToken()
     if (!token) {
-      this.logger.warn('TELEGRAM_BOT_TOKEN not set — bot disabled')
+      this.logger.warn('Telegram bot token not configured (env or database) — bot disabled')
       return
     }
 
@@ -75,6 +106,30 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     } else {
       this.logger.log('Telegram bot ready (send-only — polling disabled on this process)')
     }
+  }
+
+  private async resolveBotToken(): Promise<string | null> {
+    const envToken = this.config.get<string>('TELEGRAM_BOT_TOKEN')?.trim()
+    if (envToken) {
+      this.botTokenSource = 'env'
+      return envToken
+    }
+
+    const slug = this.config.get<string>('TELEGRAM_STORE_SLUG')?.trim() || 'splaro'
+    try {
+      const storeId = await resolveStoreId(this.prisma, slug)
+      const cfg = await this.telegramIntegration.resolveRuntimeConfig(storeId)
+      if (cfg?.token) {
+        this.botTokenSource = 'database'
+        return cfg.token
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'resolveRuntimeConfig failed'
+      this.logger.warn(`Telegram DB token lookup failed: ${msg}`)
+    }
+
+    this.botTokenSource = 'none'
+    return null
   }
 
   /** Register webhook after HTTP server is listening so Telegram can reach the endpoint. */
@@ -124,8 +179,17 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     message: string,
     replyMarkup?: TelegramBot.InlineKeyboardMarkup,
   ): Promise<void> {
+    await this.sendToStoreWithResult(storeId, message, replyMarkup)
+  }
+
+  /** Returns whether the message was delivered to the store Telegram chat. */
+  async sendToStoreWithResult(
+    storeId: string,
+    message: string,
+    replyMarkup?: TelegramBot.InlineKeyboardMarkup,
+  ): Promise<boolean> {
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
-    if (!config?.isActive || !this.bot) return
+    if (!config?.isActive || !this.bot) return false
 
     try {
       await this.bot.sendMessage(config.chatId, message, {
@@ -135,12 +199,14 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       await this.prisma.telegramLog.create({
         data: { configId: config.id, type: 'NOTIFICATION', message, success: true },
       })
+      return true
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error'
       this.logger.error(`Telegram send failed: ${errMsg}`)
       await this.prisma.telegramLog.create({
         data: { configId: config.id, type: 'ERROR', message: errMsg, success: false },
       })
+      return false
     }
   }
 
@@ -262,6 +328,9 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
     itemCount: number
     isCodRisk: boolean
   }): Promise<void> {
+    const dedupeKey = `new-order:${storeId}:${order.invoiceNumber}`
+    if (!this.shouldSendNotification(dedupeKey)) return
+
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyOrders) return
 
@@ -305,6 +374,9 @@ Status: Ready to send invoices
     storeId: string,
     input: { invoiceNumber: string; status: 'started' | 'returned' | 'failed'; gateway?: string },
   ): Promise<void> {
+    const dedupeKey = `payment:${storeId}:${input.invoiceNumber}:${input.status}`
+    if (!this.shouldSendNotification(dedupeKey)) return
+
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.notifyPayments) return
 
@@ -485,10 +557,22 @@ ${items}
     route(/^\/expenses_today(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.EXPENSES_TODAY)
     route(/^\/sync_sheets(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.SYNC_SHEETS)
     route(/^\/api_health(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.API_HEALTH)
-    route(/^\/login(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.ADMIN_LOGIN)
+    route(/^\/status(?:@\w+)?(?:\s|$)/i, 'status')
+    route(/^\/orders(?:@\w+)?(?:\s|$)/i, 'orders')
     route(/^\/link_group(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.LINK_GROUP)
     route(/^\/group_info(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
     route(/^\/chat_id(?:@\w+)?(?:\s|$)/i, TG_CALLBACK.GROUP_INFO)
+
+    this.bot.onText(/^\/login(?:@\w+)?(?:\s+(.+))?$/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const tokenArg = match?.[1]?.trim()
+      if (tokenArg) {
+        await this.executeLoginWithToken(ctx, tokenArg, msg.from?.username)
+        return
+      }
+      await this.executeAdminLogin(ctx)
+    })
 
     this.bot.onText(/\/order (.+)/i, async (msg, match) => {
       const ctx = await this.resolveContext(msg)
@@ -497,6 +581,33 @@ ${items}
       if (!invoice) return
       await this.replyOrderTrack(ctx.chatId, invoice)
       await this.logCommand(ctx.chatId, `/order ${invoice}`, ctx.userId)
+    })
+
+    this.bot.onText(/\/confirm(?:@\w+)?(?:\s+(.+)|_order\s+(.+))/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = (match?.[1] ?? match?.[2])?.trim()
+      if (!invoice) return
+      await this.executeConfirmOrder(ctx, invoice)
+    })
+
+    this.bot.onText(/\/courier(?:@\w+)?(?:\s+(.+)|_order\s+(.+)|$)/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = (match?.[1] ?? match?.[2])?.trim()
+      if (!invoice) {
+        await this.bot?.sendMessage(ctx.chatId, 'Usage: <code>/courier SPL-1001</code>', { parse_mode: 'HTML' })
+        return
+      }
+      await this.executeBookCourier(ctx, invoice)
+    })
+
+    this.bot.onText(/\/cancel(?:@\w+)?(?:\s+(.+)|_order\s+(.+))/i, async (msg, match) => {
+      const ctx = await this.resolveContext(msg)
+      if (!ctx) return
+      const invoice = (match?.[1] ?? match?.[2])?.trim()
+      if (!invoice) return
+      await this.executeCancelOrder(ctx, invoice)
     })
 
     this.bot.onText(/\/book_courier (.+)/i, async (msg, match) => {
@@ -744,6 +855,12 @@ ${items}
           reply_markup: inlineMainMenu(),
         })
         break
+      case 'status':
+        await this.executeStatus(ctx)
+        break
+      case 'orders':
+        await this.executeOrdersList(ctx)
+        break
       default:
         break
     }
@@ -836,21 +953,86 @@ ${items}
   }
 
   private async executeAdminLogin(ctx: TelegramCtx): Promise<void> {
-    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
+    const linked = await this.checkUserPermission(ctx.userId, ['SUPER_ADMIN', 'MANAGER'], ctx.configId)
+    if (!linked) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        `🔐 <b>Admin login</b>\n\nYour Telegram is not linked yet.\n\n1. Open Admin → Telegram Bot\n2. Tap <b>Generate link token</b>\n3. Send here:\n<code>/login XXXX-XXXX</code>\n\nThen request login from the admin panel.`,
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
     try {
       const auth = this.moduleRef.get(AuthService, { strict: false })
       const { code, email } = await auth.issueTelegramLoginToken(ctx.storeId)
-      await this.sendLoginTokenForAdmin(ctx.storeId, email, code)
-      await this.logCommand(ctx.chatId, '/login', ctx.userId)
+      const sent = await this.sendLoginTokenForAdmin(ctx.storeId, email, code)
+      if (sent) {
+        await this.logCommand(ctx.chatId, '/login', ctx.userId)
+      } else {
+        await this.bot?.sendMessage(
+          ctx.chatId,
+          `❌ Could not deliver login token.\n\nToken: <code>${code}</code>\n\nCopy and paste at ${this.adminLoginUrl()}`,
+          { parse_mode: 'HTML', reply_markup: loginCopyKeyboard(code) },
+        )
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Token generation failed'
       await this.bot?.sendMessage(ctx.chatId, `❌ ${errMsg}`)
     }
   }
 
+  /** Link admin Telegram via one-time token from admin panel, then confirm. */
+  private async executeLoginWithToken(
+    ctx: TelegramCtx,
+    rawToken: string,
+    username?: string,
+  ): Promise<void> {
+    const loginTokens = this.moduleRef.get(AdminLoginTokenService, { strict: false })
+    const record = await loginTokens.peekByCode(rawToken)
+    if (!record) {
+      await this.bot?.sendMessage(
+        ctx.chatId,
+        '❌ Invalid, expired, or already used token.\n\nGenerate a new link token in Admin → Telegram Bot.',
+        { parse_mode: 'HTML' },
+      )
+      return
+    }
+
+    if (record.storeId !== ctx.storeId) {
+      await this.bot?.sendMessage(ctx.chatId, '❌ This token belongs to a different store.')
+      return
+    }
+
+    const telegramRole = mapStaffRoleToTelegram(record.role)
+    await this.prisma.telegramUser.upsert({
+      where: { configId_telegramId: { configId: ctx.configId, telegramId: ctx.userId } },
+      create: {
+        configId: ctx.configId,
+        telegramId: ctx.userId,
+        username: username ?? null,
+        role: telegramRole,
+        isActive: true,
+      },
+      update: {
+        username: username ?? null,
+        role: telegramRole,
+        isActive: true,
+      },
+    })
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `✅ <b>Telegram linked</b>\n\nAccount: <code>${record.email}</code>\nRole: ${telegramRole.replace(/_/g, ' ')}\n\nYou can now receive admin login tokens here.\nUse /login for a fresh panel token.`,
+      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+    )
+    await this.logCommand(ctx.chatId, '/login link', ctx.userId)
+  }
+
   /** Push admin login token to linked Telegram chat(s) — used by /login and admin request-login. */
   async sendLoginTokenForAdmin(storeIdRaw: string, email: string, code: string): Promise<boolean> {
     if (!this.bot) {
+      this.recordDeliveryFailure('Bot not running — configure TELEGRAM_BOT_TOKEN or save token in Admin → Telegram Bot')
       this.logger.warn('Telegram bot disabled — admin login token not delivered')
       return false
     }
@@ -859,6 +1041,7 @@ ${items}
       const storeId = await resolveStoreId(this.prisma, storeIdRaw)
       const chatIds = await this.resolveAdminLoginChatIds(storeId, email)
       if (!chatIds.length) {
+        this.recordDeliveryFailure('No linked admin Telegram chat — open bot and send /login TOKEN from Admin panel link token')
         this.logger.warn(`No Telegram chat linked for admin login (${email})`)
         return false
       }
@@ -872,11 +1055,245 @@ ${items}
           reply_markup: loginCopyKeyboard(code),
         })
       }
+      this.recordDeliverySuccess()
       return true
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'sendMessage failed'
+      this.recordDeliveryFailure(errMsg)
       this.logger.error(`Admin login token delivery failed: ${errMsg}`)
       return false
+    }
+  }
+
+  async getLoginDeliveryDiagnostics(storeIdRaw: string, email: string): Promise<TelegramDeliveryDiagnostics> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    if (!this.bot) {
+      const token = await this.resolveBotToken()
+      if (!token) {
+        return {
+          ok: false,
+          reason: 'Bot token not configured',
+          hint: 'Set TELEGRAM_BOT_TOKEN in env or save bot token in Admin → Telegram Bot.',
+        }
+      }
+      return {
+        ok: false,
+        reason: 'Bot failed to start',
+        hint: 'Check API logs for Telegram init errors (invalid token, webhook conflict).',
+      }
+    }
+
+    const chatIds = await this.resolveAdminLoginChatIds(storeId, email)
+    if (!chatIds.length) {
+      return {
+        ok: false,
+        reason: 'No linked admin Telegram chat',
+        hint: 'Open your SPLARO bot and send /login TOKEN using a link token from Admin → Telegram Bot.',
+      }
+    }
+
+    return { ok: true, reason: 'Delivery targets available', hint: 'Retry login from admin panel.' }
+  }
+
+  async getHealth(storeIdRaw: string): Promise<TelegramHealthSnapshot> {
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const config = await this.prisma.telegramConfig.findUnique({
+      where: { storeId },
+      include: {
+        users: {
+          where: { isActive: true, role: { in: ['SUPER_ADMIN', 'MANAGER'] } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    })
+
+    const tokenConfigured = this.botTokenSource !== 'none' || Boolean(await this.resolveBotToken())
+    const webhookUrl = this.config.get<string>('TELEGRAM_WEBHOOK_URL')?.trim() || null
+    const pollingEnv = this.config.get<string>('SPLARO_TELEGRAM_POLLING')
+    let transportMode: TelegramHealthSnapshot['transportMode'] = 'disabled'
+    if (this.bot) {
+      if (webhookUrl) transportMode = 'webhook'
+      else if (pollingEnv !== '0') transportMode = 'polling'
+      else transportMode = 'send-only'
+    }
+
+    let botUsername: string | null = null
+    let webhookRegistered = false
+    let networkVerified = false
+
+    if (this.bot) {
+      try {
+        const me = await this.bot.getMe()
+        botUsername = me.username ?? null
+        networkVerified = true
+        if (webhookUrl) {
+          const info = await this.bot.getWebHookInfo()
+          webhookRegistered = (info.url?.replace(/\/$/, '') ?? '') === webhookUrl.replace(/\/$/, '')
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'getMe failed'
+        this.logger.warn(`Telegram health check network error: ${msg}`)
+      }
+    }
+
+    const linkedAdmins = (config?.users ?? []).map((u) => ({
+      id: u.id,
+      telegramIdMasked: maskTelegramId(u.telegramId),
+      username: u.username,
+      role: u.role,
+    }))
+
+    return {
+      botTokenConfigured: tokenConfigured,
+      botTokenSource: this.botTokenSource,
+      botRunning: Boolean(this.bot),
+      botUsername,
+      transportMode,
+      webhookUrl,
+      webhookRegistered,
+      linkedAdminCount: linkedAdmins.length,
+      linkedAdmins,
+      configChatIdMasked: config?.chatId ? maskTelegramId(config.chatId) : null,
+      hasLinkedAdminChat: linkedAdmins.length > 0 || Boolean(config?.chatId),
+      lastDeliveryStatus: this.lastDeliveryStatus,
+      lastDeliveryError: this.lastDeliveryError,
+      lastDeliveryAt: this.lastDeliveryAt?.toISOString() ?? null,
+      networkVerified,
+    }
+  }
+
+  private recordDeliverySuccess(): void {
+    this.lastDeliveryStatus = 'success'
+    this.lastDeliveryError = null
+    this.lastDeliveryAt = new Date()
+  }
+
+  private recordDeliveryFailure(message: string): void {
+    this.lastDeliveryStatus = 'failed'
+    this.lastDeliveryError = message
+    this.lastDeliveryAt = new Date()
+  }
+
+  private shouldSendNotification(key: string, ttlMs = 60_000): boolean {
+    const now = Date.now()
+    const last = this.notificationDedupe.get(key)
+    if (last && now - last < ttlMs) return false
+    this.notificationDedupe.set(key, now)
+    if (this.notificationDedupe.size > 500) {
+      for (const [k, ts] of this.notificationDedupe) {
+        if (now - ts > ttlMs) this.notificationDedupe.delete(k)
+      }
+    }
+    return true
+  }
+
+  private async executeStatus(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const [pending, todayOrders, todayRevenue, latestHealth] = await Promise.all([
+      this.prisma.order.count({ where: { storeId: ctx.storeId, status: 'PENDING' } }),
+      this.prisma.order.count({ where: { storeId: ctx.storeId, createdAt: { gte: today } } }),
+      this.prisma.order.aggregate({
+        where: { storeId: ctx.storeId, createdAt: { gte: today }, status: { not: 'CANCELLED' } },
+        _sum: { total: true },
+      }),
+      this.prisma.systemHealthLog.findFirst({ where: { service: 'api' }, orderBy: { checkedAt: 'desc' } }),
+    ])
+
+    const apiStatus = latestHealth?.status ?? 'UP'
+    const apiEmoji = apiStatus === 'UP' ? '🟢' : '🔴'
+    const botOk = Boolean(this.bot)
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `${apiEmoji} <b>SPLARO Status</b>\n\nAPI: <b>${apiStatus}</b>${latestHealth?.responseMs ? ` (${latestHealth.responseMs}ms)` : ''}\nBot: ${botOk ? '🟢 Running' : '🔴 Disabled'}\n\n📦 Today: <b>${todayOrders}</b> orders · ${formatBDT(Number(todayRevenue._sum.total ?? 0))}\n⏳ Pending: <b>${pending}</b>`,
+      { parse_mode: 'HTML', reply_markup: inlineMainMenu() },
+    )
+    await this.logCommand(ctx.chatId, '/status', ctx.userId)
+  }
+
+  private async executeOrdersList(ctx: TelegramCtx): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER', 'ORDER_STAFF']))) return
+
+    const orders = await this.prisma.order.findMany({
+      where: { storeId: ctx.storeId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        invoiceNumber: true,
+        status: true,
+        total: true,
+        shippingName: true,
+        createdAt: true,
+      },
+    })
+
+    if (!orders.length) {
+      await this.bot?.sendMessage(ctx.chatId, '📦 No orders yet.')
+      return
+    }
+
+    const lines = orders
+      .map(
+        (o) =>
+          `• <code>${o.invoiceNumber}</code> · ${o.status.replace(/_/g, ' ')} · ${formatBDT(Number(o.total))}\n  ${o.shippingName}`,
+      )
+      .join('\n')
+
+    await this.bot?.sendMessage(
+      ctx.chatId,
+      `📦 <b>Latest orders</b>\n\n${lines}\n\n<i>/order SPL-1001 for details</i>`,
+      { parse_mode: 'HTML' },
+    )
+    await this.logCommand(ctx.chatId, '/orders', ctx.userId)
+  }
+
+  private async executeCancelOrder(ctx: TelegramCtx, invoiceNumber: string): Promise<void> {
+    if (!(await this.requireRoles(ctx, ['SUPER_ADMIN', 'MANAGER']))) return
+
+    const order = await this.prisma.order.findFirst({
+      where: { storeId: ctx.storeId, invoiceNumber },
+      select: { id: true, status: true },
+    })
+    if (!order) {
+      await this.bot?.sendMessage(ctx.chatId, '❌ Order not found')
+      return
+    }
+
+    try {
+      const status = assertOrderStatusTransition(order.status, 'CANCELLED')
+      const shouldRestoreStock =
+        STOCK_RESTORING_STATUSES.includes(status) &&
+        !STOCK_RESTORING_STATUSES.includes(order.status)
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status, cancelledAt: new Date() },
+        })
+        if (shouldRestoreStock) {
+          await restoreOrderStock(tx, order.id, `Stock restored — order cancelled via Telegram`)
+        }
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            status,
+            note: 'Cancelled via Telegram bot',
+          },
+        })
+      })
+
+      const orderEvents = this.moduleRef.get(OrderEventsService, { strict: false })
+      void orderEvents.onStatusChanged(ctx.storeId, order.id, 'CANCELLED', 'Cancelled via Telegram bot')
+
+      await this.bot?.sendMessage(ctx.chatId, `❌ Order <b>${invoiceNumber}</b> cancelled`, { parse_mode: 'HTML' })
+      await this.logCommand(ctx.chatId, `/cancel ${invoiceNumber}`, ctx.userId)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Cancel failed'
+      await this.bot?.sendMessage(ctx.chatId, `❌ ${errMsg}`)
     }
   }
 
@@ -905,6 +1322,10 @@ ${items}
 
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.isActive) return [...ids]
+
+    if (config.chatId?.trim()) {
+      ids.add(config.chatId.trim())
+    }
 
     const teleUsers = await this.prisma.telegramUser.findMany({
       where: {

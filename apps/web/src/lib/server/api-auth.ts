@@ -127,7 +127,8 @@ export async function apiForgotPassword(
   )
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
-    return { error: body.message ?? 'Could not process password reset' }
+    const message = body.message ?? 'Could not process password reset'
+    return { error: message }
   }
   return (await res.json()) as { success: true; message: string; devToken?: string }
 }

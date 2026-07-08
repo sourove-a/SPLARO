@@ -1,7 +1,21 @@
+import { createHash } from 'crypto'
 import { buildInvoiceAccessToken, getServerApiBaseUrl } from '@splaro/config'
 import type { StoredOrder, StoredOrderItem } from '@/lib/server/store'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+
+function checkoutIdempotencyKey(input: ApiCreateOrderInput): string {
+  const fingerprint = JSON.stringify({
+    phone: input.customer.phone,
+    total: input.total,
+    items: input.items.map((item) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+    })),
+  })
+  return createHash('sha256').update(fingerprint).digest('hex').slice(0, 32)
+}
 
 function internalApiHeaders(accept = 'application/json'): Record<string, string> {
   const headers: Record<string, string> = { Accept: accept }
@@ -57,7 +71,8 @@ export interface ApiCreateOrderInput {
 }
 
 function mapApiOrderToStored(order: {
-  id: string
+  id?: string
+  orderCode?: string
   invoiceNumber: string
   status: string
   createdAt: string | Date
@@ -88,10 +103,12 @@ function mapApiOrderToStored(order: {
   const updatedAt =
     typeof order.updatedAt === 'string' ? order.updatedAt : order.updatedAt.toISOString()
 
+  const publicCode = order.orderCode ?? order.invoiceNumber
+
   return {
-    id: order.id,
-    invoiceNumber: order.invoiceNumber,
-    invoiceAccessKey: buildInvoiceAccessToken(order.id),
+    id: publicCode,
+    invoiceNumber: publicCode,
+    invoiceAccessKey: buildInvoiceAccessToken(publicCode),
     createdAt,
     updatedAt,
     status: normalizeApiOrderStatus(order.status),
@@ -133,12 +150,15 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (input.clientIp) headers['X-Forwarded-For'] = input.clientIp
   if (input.userAgent) headers['User-Agent'] = input.userAgent
+  const idempotencyKey = checkoutIdempotencyKey(input)
+  headers['Idempotency-Key'] = idempotencyKey
 
   const res = await fetch(`${base}/storefront/orders?storeId=${encodeURIComponent(STORE_ID)}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
       storeId: STORE_ID,
+      idempotencyKey,
       customer: {
         ...input.customer,
         district: input.customer.city,

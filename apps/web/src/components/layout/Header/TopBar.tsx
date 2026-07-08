@@ -25,7 +25,7 @@ export function TopBar() {
     >
       <div className="site-topbar__inner">
         <div className="site-topbar__group">
-          <span className="site-topbar__label">BDT · ৳</span>
+          <span className="site-topbar__label">৳ BDT</span>
           <span className="site-topbar__divider" aria-hidden="true" />
           <Link href={`mailto:${email}`} className={linkClass}>
             <Mail className="h-4 w-4 shrink-0" strokeWidth={1.85} />

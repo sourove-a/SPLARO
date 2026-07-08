@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common'
+import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { EmailService } from '../email/email.service'
 import { generateInvoiceHTML } from '../invoices/invoice.template'
@@ -15,6 +15,7 @@ export class OrderNotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    @Inject(forwardRef(() => TelegramService))
     private readonly telegram: TelegramService,
     @Optional() private readonly courier: CourierService | null,
   ) {}

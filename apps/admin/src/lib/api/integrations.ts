@@ -19,6 +19,42 @@ export interface TelegramIntegration {
   updatedAt: string | null
 }
 
+export interface TelegramHealth {
+  botTokenConfigured: boolean
+  botTokenSource: 'env' | 'database' | 'none'
+  botRunning: boolean
+  botUsername: string | null
+  transportMode: 'polling' | 'webhook' | 'send-only' | 'disabled'
+  webhookUrl: string | null
+  webhookRegistered: boolean
+  linkedAdminCount: number
+  linkedAdmins: { id: string; telegramIdMasked: string; username: string | null; role: string }[]
+  configChatIdMasked: string | null
+  hasLinkedAdminChat: boolean
+  lastDeliveryStatus: 'success' | 'failed' | 'none'
+  lastDeliveryError: string | null
+  lastDeliveryAt: string | null
+  networkVerified: boolean
+  lastTestedAt: string | null
+  lastTestStatus: string | null
+  lastTestMessage: string | null
+}
+
+export interface TelegramLinkToken {
+  ok: boolean
+  code: string
+  email: string
+  expiresInSeconds: number
+  hint: string
+}
+
+export interface TelegramLinkedAdmin {
+  id: string
+  telegramIdMasked: string
+  username: string | null
+  role: string
+}
+
 export interface AiIntegration {
   provider: 'openai'
   apiKey: string | null
@@ -75,6 +111,24 @@ export function testTelegramIntegration(message?: string) {
     method: 'POST',
     body: JSON.stringify({ message }),
   })
+}
+
+export function fetchTelegramHealth() {
+  return apiFetch<TelegramHealth>('/admin/integrations/telegram/health')
+}
+
+export function generateTelegramLinkToken() {
+  return apiFetch<TelegramLinkToken>('/admin/integrations/telegram/link-token', { method: 'POST' })
+}
+
+export function fetchTelegramLinkedAdmins() {
+  return apiFetch<{ configChatIdMasked: string | null; linked: TelegramLinkedAdmin[] }>(
+    '/admin/integrations/telegram/linked-admins',
+  )
+}
+
+export function unlinkTelegramAdmin(id: string) {
+  return apiFetch<{ ok: boolean }>(`/admin/integrations/telegram/linked-admins/${id}`, { method: 'DELETE' })
 }
 
 export function fetchAiIntegration() {

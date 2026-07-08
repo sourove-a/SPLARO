@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import * as QRCode from 'qrcode'
 
@@ -119,6 +120,17 @@ export class ProductAdvancedService {
 
   // ── VERSION HISTORY ───────────────────────────────────────
 
+  /** Best-effort snapshot — never blocks the caller on failure. */
+  async trySaveProductVersion(productId: string, changedBy: string): Promise<void> {
+    try {
+      await this.saveProductVersion(productId, changedBy)
+    } catch (err) {
+      this.logger.warn(
+        `Version snapshot skipped for ${productId}: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
+
   async saveProductVersion(productId: string, changedBy: string): Promise<void> {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
@@ -151,28 +163,104 @@ export class ProductAdvancedService {
     }
   }
 
-  async restoreProductVersion(productId: string, versionId: string, restoredBy: string): Promise<void> {
+  async restoreProductVersion(
+    productId: string,
+    versionId: string,
+    restoredBy: string,
+  ): Promise<{ storeId: string }> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { storeId: true },
+    })
+    if (!product) throw new NotFoundException('Product not found')
+
     const version = await this.prisma.productVersion.findUnique({ where: { id: versionId } })
-    if (!version || version.productId !== productId) throw new Error('Version not found')
+    if (!version || version.productId !== productId) {
+      throw new NotFoundException('Version not found')
+    }
 
     const snapshot = version.snapshot as Record<string, unknown>
 
-    await this.saveProductVersion(productId, restoredBy)
+    await this.trySaveProductVersion(productId, restoredBy)
 
-    await this.prisma.product.update({
-      where: { id: productId },
-      data: {
-        name: snapshot['name'] as string,
-        description: snapshot['description'] as string | null,
-        basePrice: snapshot['basePrice'] as number,
-        compareAtPrice: snapshot['compareAtPrice'] as number | null,
-        metaTitle: snapshot['metaTitle'] as string | null,
-        metaDescription: snapshot['metaDescription'] as string | null,
-        tags: snapshot['tags'] as string[],
-      },
-    })
+    const str = (key: string): string | null | undefined => {
+      const value = snapshot[key]
+      return typeof value === 'string' ? value : value == null ? null : String(value)
+    }
+    const num = (key: string): number | null => {
+      const value = snapshot[key]
+      if (value == null) return null
+      const n = Number(value)
+      return Number.isFinite(n) ? n : null
+    }
+    const bool = (key: string): boolean => Boolean(snapshot[key])
+    const tags = Array.isArray(snapshot['tags']) ? (snapshot['tags'] as string[]) : []
+    const publishAtRaw = snapshot['publishAt']
+    const publishAt =
+      publishAtRaw != null && publishAtRaw !== ''
+        ? new Date(publishAtRaw as string | number | Date)
+        : null
+
+    const snapshotSlug = snapshot['slug'] != null ? str('slug') : null
+    if (snapshotSlug) {
+      const slugClash = await this.prisma.product.findFirst({
+        where: { storeId: product.storeId, slug: snapshotSlug, id: { not: productId } },
+        select: { id: true },
+      })
+      if (slugClash) {
+        throw new BadRequestException(
+          'Cannot restore: snapshot slug is already used by another product',
+        )
+      }
+    }
+
+    try {
+      await this.prisma.product.update({
+        where: { id: productId },
+        data: {
+          name: snapshot['name'] as string,
+          ...(snapshotSlug ? { slug: snapshotSlug } : {}),
+          description: str('description') ?? null,
+          shortDescription: str('shortDescription') ?? null,
+          basePrice: num('basePrice') ?? undefined,
+          compareAtPrice: snapshot['compareAtPrice'] != null ? num('compareAtPrice') : null,
+          costPrice: snapshot['costPrice'] != null ? num('costPrice') : null,
+          sku: str('sku') ?? null,
+          rmCode: str('rmCode') ?? null,
+          barcode: str('barcode') ?? null,
+          qrCode: str('qrCode') ?? null,
+          weight: snapshot['weight'] != null ? num('weight') : null,
+          badge: str('badge') ?? null,
+          isPublished: bool('isPublished'),
+          isHidden: bool('isHidden'),
+          status: str('status') ?? 'DRAFT',
+          publishAt: publishAt && !Number.isNaN(publishAt.getTime()) ? publishAt : null,
+          isFeatured: bool('isFeatured'),
+          isNewArrival: bool('isNewArrival'),
+          isBestSeller: bool('isBestSeller'),
+          fabricContent: str('fabricContent') ?? null,
+          fitType: str('fitType') ?? null,
+          occasion: str('occasion') ?? null,
+          season: str('season') ?? null,
+          careInstructions: str('careInstructions') ?? null,
+          metaTitle: str('metaTitle') ?? null,
+          metaDescription: str('metaDescription') ?? null,
+          tags,
+          ...(snapshot['categoryId'] != null ? { categoryId: str('categoryId') ?? null } : {}),
+          ...(snapshot['lowStockThreshold'] != null
+            ? { lowStockThreshold: Number(snapshot['lowStockThreshold']) || 5 }
+            : {}),
+        },
+      })
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new BadRequestException('Restore conflict: a unique field value is already in use')
+      }
+      throw err
+    }
 
     this.logger.log(`Product ${productId} restored to version ${version.version} by ${restoredBy}`)
+    return { storeId: product.storeId }
   }
 
   async getProductVersionHistory(productId: string) {

@@ -10,6 +10,7 @@ import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
 import { useSeoOverview, useRedirects, useCreateRedirect, useUpdateRedirect, useDeleteRedirect } from '@/lib/api/hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
+import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 
 type SeoStatus = 'good' | 'warning' | 'error' | 'pending'
 
@@ -58,7 +59,7 @@ export function KeywordsPanelLive() {
       createLabel="Add keyword"
       onCreate={() => toast('Keywords are derived from storefront search analytics.', { icon: '🔍' })}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Search}
       tableTitle={`Keywords · ${filtered.length}`}
       footer={`${keywords.length} keywords from search_analytics`}
@@ -134,9 +135,10 @@ export function IndexMonitorPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search URL..."
       createLabel="Request indexing"
-      onCreate={() => toast.error('This action is not available yet — feature pending.')}
+      createDisabled
+      onCreate={() => {}}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Globe}
       tableTitle={`Index monitor · ${filtered.length}`}
       footer={`${pages.length} URLs from published products`}
@@ -179,7 +181,7 @@ export function IndexMonitorPanelLive() {
                   <span className={SEO_STATUS[asSeoStatus(p.status)]}>{p.status}</span>
                 </td>
                 <td>
-                  <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                  <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
                     Re-crawl
                   </AdminButton>
                 </td>
@@ -219,9 +221,10 @@ export function SchemaManagerPanelLive() {
       onQuery={() => {}}
       searchPlaceholder=""
       createLabel="Validate all"
-      onCreate={() => toast.error('Schema validation is not available yet — feature pending.')}
+      createDisabled
+      onCreate={() => {}}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('Schema export is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Code}
       tableTitle="Structured data"
       footer={`${schemas.reduce((s, x) => s + x.pages, 0)} pages with schema`}
@@ -298,9 +301,10 @@ export function SitemapManagerPanelLive() {
       onQuery={() => {}}
       searchPlaceholder=""
       createLabel="Regenerate all"
-      onCreate={() => toast.error('This action is not available yet — feature pending.')}
+      createDisabled
+      onCreate={() => {}}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Map}
       tableTitle="XML sitemaps"
       footer="Counts from live catalog"
@@ -327,7 +331,7 @@ export function SitemapManagerPanelLive() {
                 <span className={SEO_STATUS[asSeoStatus(s.status)]}>{s.status}</span>
               </td>
               <td>
-                <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
                   Ping
                 </AdminButton>
               </td>

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { getProductBySlug } from '@/lib/catalog'
 import { fetchLiveProductDetailBySlug } from '@/lib/catalog/live'
 
 interface RouteContext {
@@ -18,14 +17,11 @@ export async function GET(_request: Request, context: RouteContext) {
         source: 'api',
       })
     }
-  } catch {
-    /* fall through */
-  }
-
-  const product = getProductBySlug(slug)
-  if (!product) {
     return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+  } catch {
+    return NextResponse.json(
+      { error: 'Product catalog is temporarily unavailable' },
+      { status: 503 },
+    )
   }
-
-  return NextResponse.json({ product, reviews: [], source: 'static' })
 }

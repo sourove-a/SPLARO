@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../../common/prisma.service'
+import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import MeiliSearch, { type Index } from 'meilisearch'
 
 export interface SearchResult {
@@ -133,12 +134,12 @@ export class SearchService implements OnModuleInit {
     if (!this.productIndex) throw new Error('Meilisearch not configured')
 
     const products = await this.prisma.product.findMany({
-      where: { storeId, isPublished: true },
+      where: storefrontVisibleProductWhere({ storeId }),
       include: {
         images: { take: 1, orderBy: { position: 'asc' } },
         category: { select: { name: true } },
         collections: { take: 1, include: { collection: { select: { name: true } } } },
-        variants: { select: { stock: true } },
+        variants: { where: { isActive: true }, select: { stock: true, isActive: true } },
       },
     })
 
@@ -155,7 +156,7 @@ export class SearchService implements OnModuleInit {
       collection: p.collections[0]?.collection.name,
       tags: p.tags,
       sku: p.sku ?? '',
-      inStock: p.variants.some(v => v.stock > 0),
+      inStock: p.variants.some((v) => v.isActive && v.stock > 0),
       createdAt: p.createdAt.toISOString(),
     }))
 
@@ -202,22 +203,21 @@ export class SearchService implements OnModuleInit {
 
     const products = await this.prisma.product.findMany({
       where: {
-        storeId,
-        isPublished: true,
+        ...storefrontVisibleProductWhere({ storeId }),
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
           { description: { contains: query, mode: 'insensitive' } },
           { tags: { has: query } },
         ],
         ...(filters?.category ? { category: { slug: filters.category } } : {}),
-        ...(filters?.inStockOnly ? { variants: { some: { stock: { gt: 0 } } } } : {}),
+        ...(filters?.inStockOnly ? { variants: { some: { isActive: true, stock: { gt: 0 } } } } : {}),
         ...(filters?.minPrice ? { basePrice: { gte: filters.minPrice } } : {}),
         ...(filters?.maxPrice ? { basePrice: { lte: filters.maxPrice } } : {}),
       },
       include: {
         images: { take: 1, orderBy: { position: 'asc' } },
         category: { select: { name: true } },
-        variants: { select: { stock: true } },
+        variants: { where: { isActive: true }, select: { stock: true, isActive: true } },
       },
       skip: offset,
       take: limit,
@@ -232,7 +232,7 @@ export class SearchService implements OnModuleInit {
       image: p.images[0]?.url,
       category: p.category?.name,
       tags: p.tags,
-      inStock: p.variants.some((v) => v.stock > 0),
+      inStock: p.variants.some((v) => v.isActive && v.stock > 0),
     }))
 
     return { hits, totalHits: hits.length, processingTimeMs: 0, query }

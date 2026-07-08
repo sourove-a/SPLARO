@@ -1,9 +1,9 @@
 'use client'
 
-import { WifiOff } from 'lucide-react'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModuleLiveStrip, type ModuleLiveItem } from '@/components/ui/connection/ModuleLiveStrip'
 import { PlatformConnectionPanel } from '@/components/ui/connection/PlatformConnectionPanel'
+import { AdminErrorState } from '@/components/ui/AdminUiPrimitives'
 import { cn } from '@/lib/utils/cn'
 
 export { ModuleLiveStrip, PlatformConnectionPanel }
@@ -17,14 +17,18 @@ export function ApiOfflineHint({ message }: { message?: string }) {
   )
 }
 
-export function ApiOfflineBanner({ message }: { message?: string }) {
+export function ApiOfflineBanner({ message, onRetry }: { message?: string; onRetry?: () => void }) {
   return (
-    <div className="admin-offline-banner">
-      <p className="flex items-center gap-2 text-sm font-black text-[var(--admin-text)]">
-        <WifiOff className="h-4 w-4 shrink-0" />
-        {message ?? 'API offline — run pnpm dev:stack (or pnpm dev:api)'}
-      </p>
-      <AdminNavLink href="/dashboard/api-health" className="mt-2 inline-flex text-xs font-black text-[var(--admin-text)] underline opacity-80">
+    <div className="mb-3 space-y-2">
+      <AdminErrorState
+        title="API offline"
+        message={message ?? 'Run pnpm dev:stack (or pnpm dev:api) and refresh.'}
+        {...(onRetry ? { onRetry } : {})}
+      />
+      <AdminNavLink
+        href="/dashboard/api-health"
+        className="inline-flex text-xs font-bold text-[var(--admin-text-secondary)] underline-offset-2 hover:underline"
+      >
         Open API Health →
       </AdminNavLink>
     </div>
@@ -35,7 +39,7 @@ export function KpiGrid({ items }: { items: [string, string | number, string][] 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {items.map(([label, value, tone]) => (
-        <div key={label} className="admin-kpi rounded-[20px]">
+        <div key={label} className="admin-kpi">
           <p className="admin-kpi__label">{label}</p>
           <p className={cn('admin-kpi__value', tone !== 'default' && `admin-kpi__value--${tone}`)}>{value}</p>
         </div>

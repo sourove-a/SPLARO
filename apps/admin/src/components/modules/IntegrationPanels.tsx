@@ -182,6 +182,7 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
     try {
       if (item.provider === 'telegram') {
         const r = await testTelegram.mutateAsync('SPLARO integration test')
+        if (!r.ok) throw new Error(r.message || 'Telegram test failed')
         toastOk(r.message || 'Telegram OK', `test-${item.provider}`)
       } else if (item.provider === 'openai') {
         const r = await testAi.mutateAsync({ testPrompt: 'Reply: SPLARO OK' })

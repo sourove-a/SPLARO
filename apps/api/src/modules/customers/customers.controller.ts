@@ -63,6 +63,40 @@ export class CustomersController {
     return { customers, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
   }
 
+  /** Export customers CSV — static segment before :id */
+  @Get('export')
+  async exportCsv(@Query('storeId') storeId: string, @Query('tier') tier?: string) {
+    const sid = await this.sid(storeId)
+    const customers = await this.prisma.customer.findMany({
+      where: { storeId: sid, ...(tier ? { loyaltyTier: tier as import('@prisma/client').LoyaltyTier } : {}) },
+      select: {
+        firstName: true, lastName: true, phone: true, email: true,
+        loyaltyTier: true, loyaltyPoints: true, totalOrders: true, totalSpent: true,
+        createdAt: true,
+      },
+      orderBy: { totalSpent: 'desc' },
+      take: 5000,
+    })
+
+    const header = 'First Name,Last Name,Phone,Email,Tier,Points,Orders,Spent,Joined'
+    const rows = customers.map((c) =>
+      [c.firstName, c.lastName, c.phone, c.email ?? '', c.loyaltyTier, c.loyaltyPoints, c.totalOrders, Number(c.totalSpent), c.createdAt.toISOString()].join(','),
+    )
+    return [header, ...rows].join('\n')
+  }
+
+  /** COD risk overview — static segment before :id */
+  @Get('cod-risk/stats')
+  async codRiskStats(@Query('storeId') storeId: string) {
+    const sid = await this.sid(storeId)
+    const [highRisk, medium, total] = await Promise.all([
+      this.prisma.customer.count({ where: { storeId: sid, codRiskScore: { gte: 70 } } }),
+      this.prisma.customer.count({ where: { storeId: sid, codRiskScore: { gte: 40, lt: 70 } } }),
+      this.prisma.customer.count({ where: { storeId: sid } }),
+    ])
+    return { total, highRisk, medium, low: total - highRisk - medium }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const customer = await this.prisma.customer.findUnique({
@@ -164,40 +198,6 @@ export class CustomersController {
       data: { tags: { push: body.tags } },
     })
     return { ok: true, updated: body.customerIds.length }
-  }
-
-  /** Export customers CSV */
-  @Get('export')
-  async exportCsv(@Query('storeId') storeId: string, @Query('tier') tier?: string) {
-    const sid = await this.sid(storeId)
-    const customers = await this.prisma.customer.findMany({
-      where: { storeId: sid, ...(tier ? { loyaltyTier: tier as import('@prisma/client').LoyaltyTier } : {}) },
-      select: {
-        firstName: true, lastName: true, phone: true, email: true,
-        loyaltyTier: true, loyaltyPoints: true, totalOrders: true, totalSpent: true,
-        createdAt: true,
-      },
-      orderBy: { totalSpent: 'desc' },
-      take: 5000,
-    })
-
-    const header = 'First Name,Last Name,Phone,Email,Tier,Points,Orders,Spent,Joined'
-    const rows = customers.map((c) =>
-      [c.firstName, c.lastName, c.phone, c.email ?? '', c.loyaltyTier, c.loyaltyPoints, c.totalOrders, Number(c.totalSpent), c.createdAt.toISOString()].join(','),
-    )
-    return [header, ...rows].join('\n')
-  }
-
-  /** COD risk overview */
-  @Get('cod-risk/stats')
-  async codRiskStats(@Query('storeId') storeId: string) {
-    const sid = await this.sid(storeId)
-    const [highRisk, medium, total] = await Promise.all([
-      this.prisma.customer.count({ where: { storeId: sid, codRiskScore: { gte: 70 } } }),
-      this.prisma.customer.count({ where: { storeId: sid, codRiskScore: { gte: 40, lt: 70 } } }),
-      this.prisma.customer.count({ where: { storeId: sid } }),
-    ])
-    return { total, highRisk, medium, low: total - highRisk - medium }
   }
 
   /** Get wishlist for a customer */

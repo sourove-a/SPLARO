@@ -102,9 +102,9 @@ export class SeoController {
   /** Breadcrumb JSON-LD schema */
   @Public()
   @Get('schema/breadcrumb')
-  getBreadcrumbSchema(@Query('siteUrl') siteUrl: string, @Query('path') path: string) {
+  getBreadcrumbSchema(@Query('siteUrl') siteUrl: string, @Query('path') path?: string) {
     const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
-    const parts = path.split('/').filter(Boolean)
+    const parts = (path ?? '').split('/').filter(Boolean)
     const items = [{ name: 'Home', url: site }]
     let current = site
     for (const part of parts) {

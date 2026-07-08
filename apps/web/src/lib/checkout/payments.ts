@@ -1,6 +1,13 @@
 import { PAYMENT_LOGO } from '@/lib/assets/brand'
+import { DIGITAL_PAYMENT_DISCOUNT_RATE } from '@/lib/utils/currency'
 
 export type PaymentMethod = 'Cash on Delivery' | 'bKash' | 'Nagad' | 'SSLCommerz'
+
+function digitalDiscountHint(): string {
+  if (DIGITAL_PAYMENT_DISCOUNT_RATE <= 0) return ''
+  const pct = Math.round(DIGITAL_PAYMENT_DISCOUNT_RATE * 100)
+  return ` · ${pct}% off at checkout`
+}
 
 export interface PaymentOption {
   id: PaymentMethod
@@ -29,7 +36,7 @@ export function buildPaymentOptions(visibility: PaymentVisibility): PaymentOptio
     options.push({
       id: 'bKash',
       label: 'bKash',
-      hint: 'Pay securely via bKash · 5% discount',
+      hint: `Pay securely via bKash${digitalDiscountHint()}`,
       logo: PAYMENT_LOGO.bkash,
     })
   }
@@ -38,7 +45,7 @@ export function buildPaymentOptions(visibility: PaymentVisibility): PaymentOptio
     options.push({
       id: 'Nagad',
       label: 'Nagad',
-      hint: 'Pay securely via Nagad · 5% discount',
+      hint: `Pay securely via Nagad${digitalDiscountHint()}`,
       logo: PAYMENT_LOGO.nagad,
     })
   }
@@ -46,7 +53,7 @@ export function buildPaymentOptions(visibility: PaymentVisibility): PaymentOptio
   options.push({
     id: 'SSLCommerz',
     label: 'SSLCommerz',
-    hint: 'Visa, MasterCard, AMEX & more · 5% discount',
+    hint: `Visa, MasterCard, AMEX & more${digitalDiscountHint()}`,
     logo: PAYMENT_LOGO.sslcommerz,
   })
 

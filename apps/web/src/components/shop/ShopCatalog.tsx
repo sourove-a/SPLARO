@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { ShopFilterBar } from '@/components/shop/ShopFilterBar'
-import { IlynProductCard } from '@/components/product/ProductCard/IlynProductCard'
+import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
   buildListingSearchParams,
@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils/cn'
 
 const PAGE_SIZE = LISTING_PAGE_SIZE
 const HOMEPAGE_PRODUCT_LIMIT = 8
+const GRID_EASE = [0.16, 1, 0.3, 1] as const
 
 type FilterKey = 'color' | 'size' | 'price' | 'sort' | null
 
@@ -76,6 +77,7 @@ export function ShopCatalog({
   layout = 'default',
 }: ShopCatalogProps) {
   const isHomepage = layout === 'homepage'
+  const reducedMotion = useReducedMotion()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
   const useApiListing = listingMode === 'scoped' && Boolean(collectionSlug || categorySlug)
@@ -231,6 +233,28 @@ export function ShopCatalog({
     const slice = filteredProducts.slice(0, visibleCount)
     return isHomepage ? slice.slice(0, HOMEPAGE_PRODUCT_LIMIT) : slice
   }, [filteredProducts, isHomepage, visibleCount])
+
+  const gridAnimationKey = useMemo(
+    () =>
+      [
+        currentCategory,
+        selectedColor,
+        selectedSize,
+        selectedPrice,
+        sortBy,
+        mobilePriceMin ?? '',
+        mobilePriceMax ?? '',
+      ].join('|'),
+    [
+      currentCategory,
+      mobilePriceMax,
+      mobilePriceMin,
+      selectedColor,
+      selectedPrice,
+      selectedSize,
+      sortBy,
+    ],
+  )
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
@@ -433,40 +457,54 @@ export function ShopCatalog({
         )}
 
         <div className={cn('shop-product-grid', isHomepage && 'shop-product-grid--homepage')}>
-          {visibleProducts.map((product, index) => {
-            const card = storefrontToCardData(product)
-            return (
-              <motion.div
-                key={product.id}
-                className="min-w-0"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.38, delay: Math.min(index * 0.03, 0.24), ease: [0.16, 1, 0.3, 1] }}
-              >
-                <IlynProductCard
-                  id={card.id}
-                  slug={card.slug}
-                  name={card.name}
-                  price={card.price}
-                  variant={isHomepage ? 'homepage' : 'shop'}
-                  fit="contain"
-                  {...(card.compareAtPrice ? { compareAtPrice: card.compareAtPrice } : {})}
-                  image={card.images[0] ?? ''}
-                  {...(card.images[1] ? { imageHover: card.images[1] } : {})}
-                  {...(product.code ? { productCode: product.code } : {})}
-                  colorHexes={product.colors}
-                  status={product.status}
-                  inStock={product.inStock ?? isStorefrontProductInStock(product)}
-                  sizes={product.sizes}
-                  href={getProductHref(product)}
-                  priority={index < 4}
-                  onAddToBag={() =>
-                    addProductToBag(product, product.sizes[0], product.colors[0], true)
+          <AnimatePresence mode="popLayout" initial={false}>
+            {visibleProducts.map((product, index) => {
+              const card = storefrontToCardData(product)
+              const motionProps = reducedMotion
+                ? { initial: false as const }
+                : {
+                    initial: { opacity: 0, y: 12, scale: 0.988 },
+                    animate: { opacity: 1, y: 0, scale: 1 },
+                    exit: { opacity: 0, y: -8, scale: 0.988 },
+                    transition: {
+                      duration: 0.34,
+                      delay: Math.min(index * 0.038, 0.28),
+                      ease: GRID_EASE,
+                    },
                   }
-                />
-              </motion.div>
-            )
-          })}
+
+              return (
+                <motion.div
+                  key={`${gridAnimationKey}:${product.id}`}
+                  className="shop-product-grid__cell min-w-0"
+                  layout={!reducedMotion}
+                  {...motionProps}
+                >
+                  <SplaroProductCard
+                    id={card.id}
+                    slug={card.slug}
+                    name={card.name}
+                    price={card.price}
+                    variant={isHomepage ? 'homepage' : 'shop'}
+                    fit="contain"
+                    {...(card.compareAtPrice ? { compareAtPrice: card.compareAtPrice } : {})}
+                    image={card.images[0] ?? ''}
+                    {...(card.images[1] ? { imageHover: card.images[1] } : {})}
+                    {...(product.code ? { productCode: product.code } : {})}
+                    colorHexes={product.colors}
+                    status={product.status}
+                    inStock={product.inStock ?? isStorefrontProductInStock(product)}
+                    sizes={product.sizes}
+                    href={getProductHref(product)}
+                    priority={index < 4}
+                    onAddToBag={() =>
+                      addProductToBag(product, product.sizes[0], product.colors[0], true)
+                    }
+                  />
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
         </div>
 
         {canLoadMore ? (

@@ -8,6 +8,8 @@ interface CheckoutFieldProps {
   hint?: string
   error?: string
   clientReady?: boolean
+  filled?: boolean
+  fieldId?: string
 }
 
 export function CheckoutField({
@@ -18,9 +20,14 @@ export function CheckoutField({
   hint,
   error,
   clientReady = true,
+  filled = false,
+  fieldId,
 }: CheckoutFieldProps) {
   return (
-    <label className={`checkout-field checkout-field--icon ${full ? 'checkout-field--full' : ''}`}>
+    <label
+      className={`checkout-field checkout-field--icon ${full ? 'checkout-field--full' : ''} ${filled ? 'checkout-field--filled' : ''} ${error ? 'checkout-field--error' : ''}`}
+      {...(fieldId ? { htmlFor: fieldId } : {})}
+    >
       <span className="checkout-field__label">{label}</span>
       <div className="checkout-input-wrap" suppressHydrationWarning>
         {clientReady ? children : <div className="checkout-input" aria-hidden />}

@@ -35,8 +35,7 @@ const LENIS_SHARED = {
 } satisfies Partial<LenisOptions>
 
 /**
- * Desktop wheel — fast response, silky settle.
- * Higher lerp = tracks input quickly (no laggy float), easing absorbs the stop.
+ * Desktop wheel — silky inertia; lower lerp = smoother float (not snappy/native).
  */
 const LENIS_DESKTOP_OPTIONS = {
   ...LENIS_SHARED,
@@ -49,7 +48,6 @@ const LENIS_DESKTOP_OPTIONS = {
 
 /**
  * Mobile / touch — premium Lenis inertia without fighting native momentum.
- * Higher lerp + syncTouch keeps swipe feel fluid on iOS/Android.
  */
 const LENIS_TOUCH_OPTIONS = {
   ...LENIS_SHARED,

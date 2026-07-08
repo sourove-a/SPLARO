@@ -1,6 +1,12 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 
+import { upstreamFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
+
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+
+function upstreamInit(init: RequestInit = {}): RequestInit {
+  return { ...init, signal: AbortSignal.timeout(upstreamFetchTimeoutMs()) }
+}
 
 function apiUrl(path: string): string {
   const base = getServerApiBaseUrl()
@@ -12,7 +18,7 @@ export async function fetchCartFromApi(sessionId: string): Promise<Response> {
     apiUrl(
       `/storefront/cart/${encodeURIComponent(sessionId)}?storeId=${encodeURIComponent(STORE_ID)}`,
     ),
-    { cache: 'no-store' },
+    upstreamInit({ cache: 'no-store' }),
   )
 }
 
@@ -21,7 +27,7 @@ export async function clearCartOnApi(sessionId: string): Promise<Response> {
     apiUrl(
       `/storefront/cart/${encodeURIComponent(sessionId)}/clear?storeId=${encodeURIComponent(STORE_ID)}`,
     ),
-    { method: 'POST', cache: 'no-store' },
+    upstreamInit({ method: 'POST', cache: 'no-store' }),
   )
 }
 
@@ -33,12 +39,12 @@ export async function replaceCartOnApi(
     apiUrl(
       `/storefront/cart/${encodeURIComponent(sessionId)}?storeId=${encodeURIComponent(STORE_ID)}`,
     ),
-    {
+    upstreamInit({
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items }),
       cache: 'no-store',
-    },
+    }),
   )
 }
 
@@ -50,11 +56,11 @@ export async function addCartItemOnApi(
     apiUrl(
       `/storefront/cart/${encodeURIComponent(sessionId)}/items?storeId=${encodeURIComponent(STORE_ID)}`,
     ),
-    {
+    upstreamInit({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       cache: 'no-store',
-    },
+    }),
   )
 }

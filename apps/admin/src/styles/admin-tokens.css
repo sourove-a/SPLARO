@@ -25,7 +25,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  border-radius: 22px;
+  border-radius: var(--admin-radius, 8px);
   border: 1px solid var(--admin-glass-border);
   background: var(--admin-glass-sheen);
   box-shadow: var(--admin-shadow-soft);
@@ -64,7 +64,7 @@
 }
 
 .admin-module-section {
-  border-radius: 18px;
+  border-radius: var(--admin-radius, 8px);
   border: 1px solid var(--admin-glass-border-subtle);
   background: var(--admin-glass-soft);
   padding: 1rem 1.05rem 1.1rem;

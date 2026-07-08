@@ -21,7 +21,7 @@ export default async function AccessoriesPage({ searchParams }: AccessoriesPageP
   const trimmedFilter = filter?.trim()
 
   return (
-    <Suspense fallback={<div className="min-h-screen lg-page-bg" />}>
+    <Suspense fallback={<div className="accessories-page min-h-[50vh]" />}>
       <AccessoriesClient
         products={products}
         total={total}

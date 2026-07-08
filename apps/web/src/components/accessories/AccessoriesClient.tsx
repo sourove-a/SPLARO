@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Award, ChevronRight, Eye, Heart, Shield, ShoppingBag, Zap } from 'lucide-react'
+import { Award, ChevronRight, Heart, Shield, ShoppingBag, Sparkles, Truck } from 'lucide-react'
 import {
   LiquidGlassFilterRow,
   LiquidGlassPagination,
@@ -17,16 +17,15 @@ import { formatBDT } from '@/lib/utils/currency'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
-import { IlynProductCard } from '@/components/product/ProductCard/IlynProductCard'
+import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
 
 const PAGE_SIZE = 12
 
-const FEATURE_PILLS = [
-  { icon: Shield, label: '2-Year Warranty', color: '#2D6A4F' },
-  { icon: Zap, label: 'Same-Day Ship', color: '#C8A97E' },
-  { icon: Award, label: 'Premium Quality', color: '#7C5CBF' },
-  { icon: Eye, label: 'UV400 Protected', color: '#4A7FA5' },
-]
+const TRUST_BADGES = [
+  { icon: Shield, label: 'Authentic quality' },
+  { icon: Truck, label: 'Nationwide delivery' },
+  { icon: Award, label: 'Curated edit' },
+] as const
 
 const CATEGORY_EMOJI: Record<string, string> = Object.fromEntries(
   ACCESSORIES_FILTER_CATEGORIES.map((cat) => [cat.id, cat.emoji]),
@@ -57,49 +56,6 @@ interface AccessoriesClientProps {
   total: number
   initialCat?: string
   initialFilter?: string
-}
-
-function AccessoriesHero() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="text-center mb-12"
-    >
-      <LiquidGlassPill size="sm" gold className="mb-4 uppercase tracking-widest !text-[0.65rem]">
-        ✦ Premium Accessories
-      </LiquidGlassPill>
-      <h1
-        className="text-5xl md:text-6xl font-light text-[#111111] mb-4 leading-tight"
-        style={{ fontFamily: 'var(--font-cormorant, Georgia), serif' }}
-      >
-        The Accessories
-        <span className="italic text-[#C8A97E]"> Atelier</span>
-      </h1>
-      <p className="text-[#6B6B6B] text-base max-w-xl mx-auto">
-        Handcrafted luxury accessories from curated manufacturers worldwide
-      </p>
-    </motion.div>
-  )
-}
-
-function FeaturePills() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.15 }}
-      className="flex flex-wrap justify-center gap-3 mb-10"
-    >
-      {FEATURE_PILLS.map(({ icon: Icon, label, color }) => (
-        <LiquidGlassPill key={label} size="sm" className="lg-pill--inset pointer-events-none">
-          <Icon size={14} style={{ color }} strokeWidth={2.5} />
-          {label}
-        </LiquidGlassPill>
-      ))}
-    </motion.div>
-  )
 }
 
 function CategoryPlaceholder({ categorySlug }: { categorySlug?: string }) {
@@ -167,15 +123,14 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
   const colorHexes = product.colorOptions?.map((c) => c.hex) ?? product.colors ?? []
   const collection = product.categoryName ?? product.category
 
-  // No image → keep the category placeholder card (with original quick actions)
   if (!product.image) {
     const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
     return (
       <motion.article
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.35, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.3, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
         className="group"
       >
         <div className="relative">
@@ -212,12 +167,12 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.35, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.3, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
     >
-      <IlynProductCard
+      <SplaroProductCard
         id={product.id}
         slug={product.slug}
         name={product.name}
@@ -242,7 +197,7 @@ function SortDropdown({
   onChange: (value: SortOption) => void
 }) {
   return (
-    <label className="inline-flex items-center gap-2">
+    <label className="inline-flex shrink-0 items-center gap-2">
       <span className="sr-only">Sort by</span>
       <LiquidGlassPill size="sm" className="lg-pill--inset cursor-pointer">
         <select
@@ -260,70 +215,89 @@ function SortDropdown({
   )
 }
 
-function EmptyState({
+function AccessoriesEmptyState({
   category,
+  catalogTotal,
   onReset,
 }: {
   category: string
+  catalogTotal: number
   onReset: () => void
 }) {
   const label =
     ACCESSORIES_FILTER_CATEGORIES.find((item) => item.id === category)?.label ?? category
+  const catalogEmpty = catalogTotal === 0
+  const filteredEmpty = !catalogEmpty && category !== 'all'
 
   return (
-    <div className="py-20 text-center">
-      <div className="lg-glass-card mb-6 inline-flex flex-col items-center rounded-2xl p-8">
-        <span className="mb-3 text-4xl">{CATEGORY_EMOJI[category] ?? '✦'}</span>
-        <h3
-          className="text-xl font-light text-[#111111]"
-          style={{ fontFamily: 'var(--font-cormorant, Georgia), serif' }}
-        >
-          Coming soon
-        </h3>
-        <p className="mt-1 text-sm text-[#6B6B6B]">
-          No {label.toLowerCase()} products yet — check back soon.
+    <div className="accessories-empty">
+      <div className="accessories-empty__panel lg-glass-card">
+        <span className="accessories-empty__mark" aria-hidden>
+          {CATEGORY_EMOJI[category] ?? '✦'}
+        </span>
+        <h2 className="accessories-empty__title">
+          {catalogEmpty
+            ? 'No accessories live yet'
+            : filteredEmpty
+              ? `No ${label.toLowerCase()} in this edit yet`
+              : 'Nothing matched this filter'}
+        </h2>
+        <p className="accessories-empty__body">
+          {catalogEmpty
+            ? 'Our accessories atelier is being curated. Every piece shown here will come from the live SPLARO catalog — nothing placeholder, nothing fake.'
+            : filteredEmpty
+              ? `We do not have published ${label.toLowerCase()} in the accessories collection right now. Browse the full edit or explore the main shop.`
+              : 'Try another category or reset the filters to see what is currently live.'}
         </p>
-        {category !== 'all' ? (
-          <LiquidGlassPill size="sm" className="mt-4" onClick={onReset}>
+        <div className="accessories-empty__actions">
+          <Link href="/shop" className="btn-luxury">
+            Shop all
+          </Link>
+          <Link href="/new-arrivals" className="btn-luxury-outline">
+            New arrivals
+          </Link>
+        </div>
+        {filteredEmpty ? (
+          <button type="button" className="accessories-empty__reset" onClick={onReset}>
             View all accessories
-          </LiquidGlassPill>
+          </button>
         ) : null}
       </div>
     </div>
   )
 }
 
-function BespokeCTA() {
+interface AccessoriesHeroProps {
+  catalogTotal: number
+}
+
+function AccessoriesHero({ catalogTotal }: AccessoriesHeroProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="relative mt-20 overflow-hidden rounded-3xl p-10 text-center lg-glass-card"
-    >
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 h-48 w-96 -translate-x-1/2 rounded-full opacity-20"
-        style={{ background: 'radial-gradient(circle, #C8A97E 0%, transparent 70%)', filter: 'blur(40px)' }}
-      />
-      <h2
-        className="relative mb-3 text-4xl font-light text-[#111111]"
-        style={{ fontFamily: 'var(--font-cormorant, Georgia), serif' }}
-      >
-        Bespoke Manufacturing
-      </h2>
-      <p className="relative mx-auto mb-8 max-w-md text-[#6B6B6B]">
-        Custom orders, OEM production, and private label accessories — crafted to your exact specifications.
-      </p>
-      <div className="relative flex flex-wrap justify-center gap-3">
-        <LiquidGlassPill size="lg" active className="!px-8 !py-3">
-          Start Custom Order
-        </LiquidGlassPill>
-        <LiquidGlassPill size="lg" className="!px-8 !py-3">
-          View Catalog
-        </LiquidGlassPill>
+    <header className="accessories-hero">
+      <p className="accessories-hero__eyebrow label-luxury">SPLARO Atelier</p>
+      <div className="accessories-hero__head">
+        <h1 className="accessories-hero__title">
+          Accessories
+          <span className="text-gold"> Edit</span>
+        </h1>
+        {catalogTotal > 0 ? (
+          <p className="accessories-hero__count">
+            {catalogTotal} live piece{catalogTotal === 1 ? '' : 's'}
+          </p>
+        ) : null}
       </div>
-    </motion.div>
+      <p className="accessories-hero__subtitle">
+        Eyewear, leather, jewelry, and finishing pieces from our live catalog.
+      </p>
+      <div className="accessories-hero__badges">
+        {TRUST_BADGES.map(({ icon: Icon, label }) => (
+          <span key={label} className="shop-trust-badge">
+            <Icon size={12} strokeWidth={2.2} className="text-gold" />
+            {label}
+          </span>
+        ))}
+      </div>
+    </header>
   )
 }
 
@@ -352,6 +326,7 @@ export function AccessoriesClient({
           id: cat.id,
           label: count > 0 && cat.id !== 'all' ? `${cat.label} (${count})` : cat.label,
           emoji: cat.emoji,
+          ...(count === 0 && cat.id !== 'all' && products.length > 0 ? { unavailable: true } : {}),
         }
       }),
     [products],
@@ -390,59 +365,68 @@ export function AccessoriesClient({
       ? 'All Accessories'
       : (ACCESSORIES_FILTER_CATEGORIES.find((item) => item.id === activeCat)?.label ?? 'Accessories')
 
-  return (
-    <section className="min-h-screen px-4 py-16 lg-page-bg">
-      <div className="mx-auto max-w-7xl">
-        <AccessoriesHero />
-        <FeaturePills />
+  const filterLabel =
+    initialFilter === 'new'
+      ? 'New arrivals'
+      : initialFilter === 'bestsellers'
+        ? 'Bestsellers'
+        : null
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-12"
-        >
-          <LiquidGlassFilterRow
-            items={filterItems}
-            activeId={activeCat}
-            goldActive
-            onChange={handleCategoryChange}
-            className="justify-center"
-          />
-        </motion.div>
+  return (
+    <section className="accessories-page">
+      <div className="accessories-page__inner">
+        <AccessoriesHero catalogTotal={total} />
+
+        <div className="accessories-toolbar">
+          <div className="accessories-toolbar__filters">
+            <div className="accessories-toolbar__scroll">
+              <LiquidGlassFilterRow
+                items={filterItems}
+                activeId={activeCat}
+                goldActive
+                onChange={handleCategoryChange}
+                size="sm"
+              />
+            </div>
+          </div>
+          {filtered.length > 0 ? (
+            <SortDropdown
+              value={sort}
+              onChange={(value) => {
+                setSort(value)
+                setPage(1)
+              }}
+            />
+          ) : null}
+        </div>
 
         {paginated.length === 0 ? (
-          <EmptyState
+          <AccessoriesEmptyState
             category={activeCat}
+            catalogTotal={total}
             onReset={() => {
-              setActiveCat('all')
-              setPage(1)
+              handleCategoryChange('all')
             }}
           />
         ) : (
           <>
-            <div className="mb-6 flex items-center justify-between">
+            <div className="accessories-grid-head">
               <div>
-                <h2
-                  className="text-3xl font-light text-[#111111]"
-                  style={{ fontFamily: 'var(--font-cormorant, Georgia), serif' }}
-                >
-                  {sectionTitle}
-                </h2>
-                <p className="mt-1 text-sm text-[#6B6B6B]">
-                  {filtered.length} items{total > filtered.length ? ` · ${total} in collection` : ''}
+                <h2 className="accessories-grid-head__title">{sectionTitle}</h2>
+                <p className="accessories-grid-head__meta">
+                  {filtered.length} live item{filtered.length === 1 ? '' : 's'}
+                  {filterLabel ? ` · ${filterLabel}` : ''}
+                  {total > filtered.length ? ` · ${total} in accessories collection` : ''}
                 </p>
               </div>
-              <SortDropdown
-                value={sort}
-                onChange={(value) => {
-                  setSort(value)
-                  setPage(1)
-                }}
-              />
+              {filtered.length > PAGE_SIZE ? (
+                <p className="accessories-grid-head__meta shrink-0">
+                  Page {page} of {totalPages}
+                </p>
+              ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="accessories-grid">
               <AnimatePresence mode="popLayout">
                 {paginated.map((product, index) => (
                   <AccessoryProductCard key={product.id} product={product} index={index} />
@@ -455,13 +439,18 @@ export function AccessoriesClient({
                 page={page}
                 totalPages={totalPages}
                 onPageChange={setPage}
-                className="mt-10 justify-center"
+                className="mt-8 justify-center"
               />
             ) : null}
           </>
         )}
 
-        <BespokeCTA />
+        {total === 0 ? (
+          <p className="mt-8 flex items-center justify-center gap-2 text-center text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-luxury-gray">
+            <Sparkles className="h-3.5 w-3.5 text-gold" strokeWidth={2} />
+            Catalog-connected · updates when accessories are published
+          </p>
+        ) : null}
       </div>
     </section>
   )

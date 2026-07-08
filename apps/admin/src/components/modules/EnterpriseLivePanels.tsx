@@ -88,7 +88,7 @@ export function ExportCenterPanelLive() {
             <div className="flex flex-wrap gap-2">
               <AdminButton
                 variant="gold"
-                className="!text-xs"
+                size="sm"
                 disabled={busy !== null}
                 onClick={() => void exportDataset(ex.kind, 'csv')}
               >
@@ -96,7 +96,7 @@ export function ExportCenterPanelLive() {
                 {busy === `${ex.kind}-csv` ? 'Exporting…' : 'CSV'}
               </AdminButton>
               <AdminButton
-                className="!text-xs"
+                size="sm"
                 disabled={busy !== null}
                 onClick={() => void exportDataset(ex.kind, 'excel')}
               >
@@ -156,7 +156,7 @@ export function NotificationCenterPanelLive() {
       createLabel="View channels"
       onCreate={() => toast('Configure channels in Integrations.', { icon: '🔔' })}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Bell}
       tableTitle={`Delivery log · ${filtered.length}`}
       footer="Live from notification_delivery_log"

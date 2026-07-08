@@ -5,18 +5,23 @@
 import { spawn } from 'child_process'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
-import { getApiPort, reclaimPort, waitForPortFree } from './api-port.mjs'
+import { cleanupOrphanApiProcesses, getApiPort, reclaimPort, waitForPortFree } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = resolve(ROOT, 'apps/api')
 const port = getApiPort()
 
+cleanupOrphanApiProcesses(port)
 const reclaim = await reclaimPort(port)
 if (reclaim.reason === 'healthy') {
+  // Do NOT spawn a duplicate — it loses the port race and ts-node-dev --respawn
+  // restarts the doomed child forever at ~90% CPU (zombie crash-loop).
   console.warn(
-    `\n⚠️  SPLARO API already running on :${port} (PID ${reclaim.pids[0]}).\n` +
-      `   Stop the other dev:api / dev:stack terminal, or set API_PORT.\n`,
+    `\n⚠️  SPLARO API already running on :${port} (PID ${reclaim.pids[0]}) — reusing it.\n` +
+      `   Stop the other dev:api / dev:stack terminal first for a fresh instance,\n` +
+      `   or set API_PORT to run a second one.\n`,
   )
+  process.exit(0)
 } else if (reclaim.reclaimed) {
   console.log(`🔧 Cleared stale listener on :${port}`)
   await waitForPortFree(port)

@@ -161,7 +161,7 @@ pnpm build:web        # Build web only
 | 12 | Dashboard / Analytics | ✅ Live | `/admin/dashboard/stats` |
 | 13 | Coupons | ✅ Live | Create, toggle, delete |
 | 14 | Settings | ✅ Live | Verified save + catalog SKU policy (manual default) |
-| 15 | Security (roles) | 🟡 Partial | Staff list API; permissions local |
+| 15 | Security (roles) | 🟡 Partial | Staff CRUD + permission matrix save to API (`siteSettings.adminRolePermissions` + `StaffRole.permissions`); API routes still enforce coarse role only (not per-module matrix) |
 | 16 | Telegram Integration | ✅ Complete | |
 | 17 | SEO / WMS / SaaS shells | ⬜ Preview | UI only — not daily-use ready |
 

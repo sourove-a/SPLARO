@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../../../common/prisma.service'
 import { RedisService } from '../../../common/redis.service'
 import { buildApiRouteProbes } from '../../../common/api-routes.manifest'
+import { runApiRouteProbes } from '../../../common/route-probe-runner'
 import { resolveStoreId } from '../../../common/store.util'
 import { IntegrationsService } from '../../integrations/integrations.service'
 import { PlatformService } from '../../platform/platform.service'
@@ -65,33 +66,7 @@ export class AgentDiagnosticsService {
     const headers: Record<string, string> = {}
     if (internalSecret) headers['x-splaro-internal'] = internalSecret
 
-    const results = await Promise.all(
-      probes.map(async (probe) => {
-        const url = `${base}${probe.path}`
-        const t0 = Date.now()
-        try {
-          const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers })
-          const ok = res.ok || (probe.allowNotFound && res.status === 404)
-          return {
-            id: probe.id,
-            name: probe.name,
-            group: probe.group,
-            status: ok ? ('healthy' as const) : res.status >= 500 ? ('down' as const) : ('degraded' as const),
-            latencyMs: Date.now() - t0,
-            message: `HTTP ${res.status}`,
-          }
-        } catch (err) {
-          return {
-            id: probe.id,
-            name: probe.name,
-            group: probe.group,
-            status: 'down' as const,
-            latencyMs: null,
-            message: err instanceof Error ? err.message : 'Unreachable',
-          }
-        }
-      }),
-    )
+    const results = await runApiRouteProbes({ base, probes, headers })
 
     const down = results.filter((r) => r.status === 'down')
     const degraded = results.filter((r) => r.status === 'degraded')

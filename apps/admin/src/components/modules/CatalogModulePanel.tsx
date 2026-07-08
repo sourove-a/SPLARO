@@ -85,13 +85,13 @@ function PanelHeader({ icon: Icon, title, kpis, children }: { icon: React.Elemen
 
 function Toolbar({
   query, onQuery, placeholder,
-  createLabel, onCreate,
+  createLabel, onCreate, createDisabled,
   onRefresh, onExport,
   tabs, activeTab, onTab,
   extra,
 }: {
   query: string; onQuery: (v: string) => void; placeholder?: string
-  createLabel?: string; onCreate?: () => void
+  createLabel?: string; onCreate?: () => void; createDisabled?: boolean
   onRefresh?: () => void; onExport?: () => void
   tabs?: { key: string; label: string; count: number }[]
   activeTab?: string; onTab?: (k: string) => void
@@ -112,7 +112,13 @@ function Toolbar({
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {onCreate && (
-            <button type="button" onClick={onCreate} className="admin-catalog-action admin-catalog-action--primary">
+            <button
+              type="button"
+              onClick={createDisabled ? undefined : onCreate}
+              disabled={createDisabled}
+              title={createDisabled ? 'Backend not connected — custom attribute API is not wired yet. Sizes/colors come from product variants.' : undefined}
+              className={cn('admin-catalog-action admin-catalog-action--primary', createDisabled && 'cursor-not-allowed opacity-50')}
+            >
               <Plus style={{ width: 13, height: 13 }} />
               {createLabel}
             </button>
@@ -174,9 +180,6 @@ function GlassTable({ title, footer, icon: Icon, children }: { title: string; fo
 const TH = 'admin-catalog-th'
 const TD = 'admin-catalog-td'
 
-function ErrorBanner({ msg }: { msg: string }) {
-  return <div className="admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #ef4444', color: '#f0a8a8', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{msg}</div>
-}
 
 // ─── Products ──────────────────────────────────────────────────────────────────
 type ProductStatus = 'active' | 'draft' | 'archived'
@@ -429,7 +432,7 @@ function CollectionsPanel() {
     updateCollection.mutate({ id, isActive: !isActive }, { onSuccess: () => toast.success(`${name} ${isActive ? 'hidden' : 'published'}.`), onError: () => toast.error('Could not update collection.') })
   }
 
-  if (isError) return <ErrorBanner msg="API offline — start API on port 4000, then run `pnpm db:push`." />
+  if (isError) return <ApiOfflineBanner message="API offline — start API on port 4000, then run `pnpm db:push`." />
 
   return (
     <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -744,7 +747,7 @@ function BrandsPanel() {
     updateBrand.mutate({ id, isActive: !isActive }, { onSuccess: () => toast.success(`${name} ${isActive ? 'deactivated' : 'activated'}.`), onError: () => toast.error('Could not update brand.') })
   }
 
-  if (isError) return <ErrorBanner msg="API offline — start API on port 4000, then run `pnpm db:push`." />
+  if (isError) return <ApiOfflineBanner message="API offline — start API on port 4000, then run `pnpm db:push`." />
 
   return (
     <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -815,7 +818,7 @@ function AttributesPanel() {
     toastOk(`Exported ${filtered.length} attribute${filtered.length === 1 ? '' : 's'}.`)
   }
 
-  if (isError) return <ErrorBanner msg="API offline — attributes are derived from live product variants." />
+  if (isError) return <ApiOfflineBanner message="API offline — attributes are derived from live product variants." />
 
   return (
     <div className="settings-section-enter admin-module-page" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -828,7 +831,8 @@ function AttributesPanel() {
       <Toolbar
         query={query} onQuery={setQuery} placeholder="Search attribute name…"
         createLabel="Add attribute"
-        onCreate={() => toast('Custom attribute API coming soon — sizes/colors come from product variants.', { icon: 'ℹ️' })}
+        createDisabled
+        onCreate={() => {}}
         onRefresh={() => void refetch()}
         onExport={exportAttributes}
       />

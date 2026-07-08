@@ -1,0 +1,565 @@
+/**
+ * SPLARO Admin — liquid glass UI polish
+ * Loaded before globals.css component rules; enhances without flattening glass layers.
+ */
+
+:root {
+  --admin-transition: 160ms ease;
+  --admin-motion-fast: 120ms;
+  --admin-motion-base: 160ms;
+  --admin-motion-slow: 200ms;
+  --admin-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --admin-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --admin-press-release-duration: 240ms;
+  --admin-press-release-ease: var(--admin-ease-spring);
+  --admin-press-down-duration: 80ms;
+  --admin-press-down-ease: var(--admin-ease-out);
+  --admin-press-scale: 0.97;
+  --admin-press-translate-y: 1px;
+  --admin-liquid-blur: 22px;
+  --admin-liquid-border: rgba(255, 255, 255, 0.42);
+  --admin-liquid-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.dark {
+  --admin-liquid-border: rgba(255, 255, 255, 0.11);
+  --admin-liquid-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* ── Liquid glass surfaces (enhance, do not strip) ── */
+.admin-glass-panel__surface,
+.admin-module-card,
+.admin-kpi,
+.admin-module-table-wrap,
+.admin-page-header,
+.admin-hero,
+.admin-module-toolbar,
+.admin-glass-mini,
+.product-form-section {
+  backdrop-filter: blur(var(--admin-liquid-blur)) saturate(1.08);
+  -webkit-backdrop-filter: blur(var(--admin-liquid-blur)) saturate(1.08);
+  box-shadow: var(--admin-glass-shadow, 0 10px 36px rgba(0, 0, 0, 0.08)), var(--admin-liquid-highlight);
+}
+
+.dark .admin-glass-panel__surface,
+.dark .admin-module-card,
+.dark .admin-kpi,
+.dark .admin-module-table-wrap,
+.dark .admin-page-header,
+.dark .admin-hero,
+.dark .product-form-section {
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.38), var(--admin-liquid-highlight);
+}
+
+/* ── Select: single chevron (wrapper only) ── */
+.admin-premium-select {
+  position: relative;
+  isolation: isolate;
+}
+
+.admin-premium-select__input {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+}
+
+.admin-premium-select:focus-within {
+  border-color: var(--admin-accent-border);
+  box-shadow: 0 0 0 3px var(--admin-accent-glow), var(--admin-liquid-highlight);
+}
+
+.admin-premium-select__input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Inputs: label, focus, disabled, error ── */
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.admin-input,
+.admin-input--premium {
+  transition:
+    border-color var(--admin-motion-base) ease,
+    box-shadow var(--admin-motion-base) ease,
+    background var(--admin-motion-base) ease;
+}
+
+.admin-input:focus,
+.admin-input--premium:focus,
+textarea.admin-input--premium:focus {
+  border-color: var(--admin-accent-border);
+  box-shadow: 0 0 0 3px var(--admin-accent-glow), var(--admin-liquid-highlight);
+  outline: none;
+}
+
+.admin-input:disabled,
+.admin-input--premium:disabled,
+.admin-premium-select:has(select:disabled) {
+  opacity: 0.58;
+  cursor: not-allowed;
+  filter: grayscale(0.08);
+}
+
+.admin-input[aria-invalid='true'],
+.admin-input--premium[aria-invalid='true'] {
+  border-color: rgba(239, 68, 68, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.product-form-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-secondary);
+}
+
+.dark .product-form-label {
+  color: rgba(243, 244, 246, 0.78);
+}
+
+/* ── Product form hierarchy ── */
+.product-form-tabs__nav {
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 14px;
+  border: 1px solid var(--admin-glass-border-subtle);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dark .product-form-tabs__nav {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.product-form-tabs__tab {
+  flex: 1;
+  min-width: 0;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition:
+    background var(--admin-motion-base) ease,
+    color var(--admin-motion-base) ease,
+    box-shadow var(--admin-motion-base) ease;
+}
+
+.product-form-tabs__tab--active {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.product-form-section {
+  padding: 1rem 1.05rem 1.15rem;
+}
+
+.product-form-section__head {
+  margin-bottom: 0.85rem;
+}
+
+.product-form-category-block__selects {
+  display: grid;
+  gap: 0.65rem;
+}
+
+@media (min-width: 640px) {
+  .product-form-category-block__selects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.product-form-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* ── KPI / dashboard ── */
+.admin-kpi {
+  min-height: 6.5rem;
+  transition:
+    border-color var(--admin-motion-base) ease,
+    box-shadow var(--admin-motion-base) ease,
+    transform var(--admin-motion-base) var(--admin-ease-out);
+}
+
+.admin-kpi:hover {
+  border-color: var(--admin-glass-border);
+  box-shadow: var(--admin-glass-shadow-hover, 0 14px 44px rgba(0, 0, 0, 0.1));
+}
+
+.admin-kpi__label {
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  color: var(--admin-text-muted);
+}
+
+.dark .admin-kpi__label {
+  color: rgba(209, 213, 219, 0.82);
+}
+
+.admin-kpi__value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.admin-kpi__value--empty {
+  opacity: 0.45;
+}
+
+.admin-kpi__empty-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--admin-text-muted);
+}
+
+.dark .admin-kpi__value {
+  color: rgba(249, 250, 251, 0.96);
+}
+
+/* ── Tables ── */
+.admin-module-table-wrap {
+  overflow: auto;
+  max-height: min(70vh, 720px);
+}
+
+.admin-module-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--admin-glass-strong, rgba(255, 255, 255, 0.9));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 var(--admin-glass-border-subtle);
+}
+
+.dark .admin-module-table thead th {
+  background: rgba(22, 24, 30, 0.92);
+}
+
+.admin-module-table tbody tr {
+  transition: background var(--admin-motion-fast) ease;
+}
+
+.admin-module-table tbody tr:hover {
+  background: rgba(17, 24, 39, 0.028);
+}
+
+.dark .admin-module-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Quick actions ── */
+.admin-quick-tile {
+  min-height: 5.5rem;
+  padding: 0.85rem 0.65rem;
+  transition:
+    border-color var(--admin-motion-base) ease,
+    background var(--admin-motion-base) ease,
+    transform var(--admin-motion-fast) ease;
+}
+
+.admin-quick-tile:hover {
+  border-color: var(--admin-glass-border);
+}
+
+/* ── Chips & disabled honesty ── */
+.admin-glass-chip--disabled,
+.admin-glass-chip[aria-disabled='true'],
+span.admin-glass-chip.pointer-events-none {
+  opacity: 0.72;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.admin-btn:disabled,
+.admin-btn.admin-btn--loading {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Alerts (never hide) ── */
+.admin-alert--missing,
+.admin-alert--warning,
+.admin-error-state,
+.admin-backend-missing {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ── Dark text contrast ── */
+.dark {
+  --admin-text-muted: #a1a8b8;
+  --admin-text-secondary: #c5cad6;
+}
+
+.dark .admin-page-title,
+.dark .admin-module-card__title,
+.dark .product-form-section__title {
+  color: rgba(249, 250, 251, 0.97);
+}
+
+/* ── Responsive: product edit / forms ── */
+@media (max-width: 768px) {
+  .product-form-tabs__nav {
+    flex-wrap: wrap;
+  }
+
+  .product-form-tabs__tab {
+    flex: 1 1 calc(33.333% - 0.35rem);
+    font-size: 0.625rem;
+    padding: 0.5rem 0.4rem;
+  }
+
+  .product-form-section__grid-2,
+  .product-form-section__grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .product-edit-page__grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-module-table-wrap {
+    max-height: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-form-tabs__tab {
+    flex: 1 1 100%;
+  }
+
+  .admin-main {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+/* ── Motion ── */
+.admin-btn {
+  transition:
+    background var(--admin-transition),
+    border-color var(--admin-transition),
+    color var(--admin-transition),
+    opacity var(--admin-transition),
+    box-shadow var(--admin-transition),
+    transform var(--admin-press-release-duration) var(--admin-press-release-ease);
+}
+
+.admin-btn:active:not(:disabled):not(.admin-btn--loading) {
+  transform: scale(var(--admin-press-scale)) translateY(var(--admin-press-translate-y));
+  transition:
+    transform var(--admin-press-down-duration) var(--admin-press-down-ease),
+    background var(--admin-press-down-duration) ease,
+    border-color var(--admin-press-down-duration) ease,
+    color var(--admin-press-down-duration) ease,
+    opacity var(--admin-press-down-duration) ease,
+    box-shadow var(--admin-press-down-duration) ease;
+}
+
+.admin-nav-item:active {
+  transform: scale(0.99);
+  transition: transform var(--admin-press-down-duration) var(--admin-press-down-ease);
+}
+
+@keyframes admin-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-page-enter {
+  animation: admin-page-enter var(--admin-motion-slow) var(--admin-ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-page-enter,
+  .product-form-tabs__panel {
+    animation: none !important;
+  }
+
+  .admin-btn:active:not(:disabled),
+  .admin-nav-item:active,
+  .admin-quick-tile:active {
+    transform: none !important;
+  }
+
+  .admin-kpi:hover,
+  .admin-module-card:hover {
+    transform: none !important;
+  }
+}
+
+/* ── Telegram Bot panel — theme-safe rows/surfaces (no hardcoded light boxes) ── */
+.tg-bot-row {
+  border-radius: 12px;
+  border: 1px solid rgba(17, 17, 17, 0.07);
+  background: #f9f8f6;
+  color: var(--admin-text-strong);
+}
+
+.tg-bot-row--soft {
+  background: #f7f6f4;
+}
+
+.tg-bot-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.tg-bot-muted {
+  color: var(--admin-text-muted);
+}
+
+.tg-bot-icon {
+  color: #5e7cff;
+}
+
+.tg-bot-accent {
+  color: #b8872a;
+}
+
+.tg-bot-divider {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(17, 17, 17, 0.06);
+  padding-top: 1rem;
+}
+
+.tg-bot-code {
+  border-radius: 4px;
+  background: rgba(17, 17, 17, 0.05);
+  padding: 0.1rem 0.35rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.625rem;
+  color: var(--admin-text-strong);
+}
+
+.tg-bot-warn {
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(254, 243, 199, 0.65);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.tg-bot-warn-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 12px;
+  background: rgba(254, 243, 199, 0.65);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.tg-bot-error {
+  border-radius: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(254, 226, 226, 0.75);
+  padding: 1rem;
+  font-size: 0.875rem;
+  color: #991b1b;
+}
+
+.tg-bot-toggle-track {
+  background: rgba(17, 17, 17, 0.18);
+}
+
+.tg-bot-toggle-track--on {
+  background: #22c55e;
+}
+
+.tg-bot-status-ok {
+  color: #059669;
+}
+
+.tg-bot-status-fail {
+  color: #ef4444;
+}
+
+.dark .tg-bot-row {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--admin-text);
+}
+
+.dark .tg-bot-row--soft {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.dark .tg-bot-divider {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .tg-bot-code {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--admin-text);
+}
+
+.dark .tg-bot-warn {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fcd34d;
+}
+
+.dark .tg-bot-warn-inline {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+.dark .tg-bot-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fca5a5;
+}
+
+.dark .tg-bot-toggle-track {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.dark .tg-bot-status-ok {
+  color: #4ade80;
+}
+
+.dark .tg-bot-status-fail {
+  color: #f87171;
+}
+
+.dark .tg-bot-accent {
+  color: #d4a853;
+}
+
+.tg-bot-empty-hint {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.dark .tg-bot-empty-hint {
+  color: #fbbf24;
+}

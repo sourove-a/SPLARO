@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
+import { displayOrderCode } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 import { useOrders } from '@/lib/api/hooks'
@@ -12,7 +13,7 @@ import { RelativeTime } from '@/components/ui/RelativeTime'
 function mapRow(order: ApiOrder) {
   return {
     id: order.id,
-    invoiceNumber: order.invoiceNumber,
+    invoiceNumber: displayOrderCode(order.invoiceNumber, order.id),
     customer: order.shippingName,
     amount: Number(order.total),
     status: order.status,

@@ -1,11 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import toast from 'react-hot-toast'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import type { AdminSettingsData, CustomerStoryItem, StoryPillarIcon } from '@/lib/api/settings'
-import { cn } from '@/lib/utils/cn'
+import type { AdminSettingsData, StoryPillarIcon } from '@/lib/api/settings'
 
 const PILLAR_ICONS: { id: StoryPillarIcon; label: string }[] = [
   { id: 'sprout', label: 'Sprout' },
@@ -15,10 +13,6 @@ const PILLAR_ICONS: { id: StoryPillarIcon; label: string }[] = [
   { id: 'heart', label: 'Heart' },
   { id: 'sparkles', label: 'Sparkles' },
 ]
-
-function newStoryId() {
-  return `cs-${Date.now().toString(36)}`
-}
 
 function newPillarId() {
   return `pillar-${Date.now().toString(36)}`
@@ -33,7 +27,6 @@ interface OurStoryAdminPanelProps {
 
 export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStoryAdminPanelProps) {
   const story = draft.ourStory
-  const [openStoryId, setOpenStoryId] = useState<string | null>(null)
 
   const updateStory = (patch: Partial<AdminSettingsData['ourStory']>) => {
     setDraft((prev) => ({ ...prev, ourStory: { ...prev.ourStory, ...patch } }))
@@ -44,42 +37,15 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
       ...prev,
       ourStory: {
         ...prev.ourStory,
-        customerStories: { ...prev.ourStory.customerStories, ...patch },
+        customerStories: {
+          ...prev.ourStory.customerStories,
+          ...patch,
+          stories: [],
+          rating: '',
+          hint: '',
+        },
       },
     }))
-  }
-
-  const updateStoryItem = (id: string, patch: Partial<CustomerStoryItem>) => {
-    updateCustomerStories({
-      stories: story.customerStories.stories.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    })
-  }
-
-  const deleteStoryItem = (id: string) => {
-    if (story.customerStories.stories.length <= 1) {
-      toast.error('Keep at least one customer story.')
-      return
-    }
-    updateCustomerStories({
-      stories: story.customerStories.stories.filter((item) => item.id !== id),
-    })
-    if (openStoryId === id) setOpenStoryId(null)
-  }
-
-  const addStoryItem = () => {
-    const item: CustomerStoryItem = {
-      id: newStoryId(),
-      enabled: true,
-      name: 'New customer',
-      location: 'Dhaka',
-      rating: 5,
-      date: 'June 2026',
-      text: 'Write the review here…',
-      product: 'Product name',
-      avatar: 'N',
-    }
-    updateCustomerStories({ stories: [item, ...story.customerStories.stories] })
-    setOpenStoryId(item.id)
   }
 
   const updatePillar = (id: string, patch: Partial<(typeof story.pillars)[number]>) => {
@@ -105,6 +71,23 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
 
   const deletePillar = (id: string) => {
     updateStory({ pillars: story.pillars.filter((pillar) => pillar.id !== id) })
+  }
+
+  const saveVerifiedReviewsSection = () => {
+    onSave(
+      {
+        ourStory: {
+          ...draft.ourStory,
+          customerStories: {
+            ...draft.ourStory.customerStories,
+            stories: [],
+            rating: '',
+            hint: '',
+          },
+        },
+      },
+      'Verified reviews section',
+    )
   }
 
   return (
@@ -239,148 +222,42 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
       <section className="admin-module-card">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="admin-module-card__title">Customer Stories</p>
-            <p className="admin-module-card__text mt-1">Add, hide, edit, or delete reviews in the dropdown.</p>
+            <p className="admin-module-card__title">Verified reviews dropdown</p>
+            <p className="admin-module-card__text mt-1">
+              Homepage reviews come from approved product reviews only. Moderate submissions in{' '}
+              <Link href="/dashboard/product-reviews" className="font-semibold text-[#5E7CFF] hover:underline">
+                Product Reviews
+              </Link>
+              .
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <label className="admin-check-row shrink-0">
-              <span className="text-sm font-semibold">Show dropdown</span>
-              <input
-                type="checkbox"
-                checked={story.customerStories.enabled}
-                onChange={() =>
-                  updateCustomerStories({ enabled: !story.customerStories.enabled })
-                }
-                className="h-4 w-4 accent-[#5E7CFF]"
-              />
-            </label>
-            <AdminButton variant="ghost" onClick={addStoryItem}>
-              <Plus className="h-4 w-4" /> Add story
-            </AdminButton>
-          </div>
-        </div>
-
-        <div className="mb-4 grid gap-4 md:grid-cols-3">
-          <label className="admin-field">
-            <span className="admin-kpi__label">Dropdown label</span>
+          <label className="admin-check-row shrink-0">
+            <span className="text-sm font-semibold">Show dropdown</span>
             <input
-              className="admin-input"
-              value={story.customerStories.label}
-              onChange={(e) => updateCustomerStories({ label: e.target.value })}
-            />
-          </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Rating text</span>
-            <input
-              className="admin-input"
-              value={story.customerStories.rating}
-              onChange={(e) => updateCustomerStories({ rating: e.target.value })}
-            />
-          </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Hint text</span>
-            <input
-              className="admin-input"
-              value={story.customerStories.hint}
-              onChange={(e) => updateCustomerStories({ hint: e.target.value })}
+              type="checkbox"
+              checked={story.customerStories.enabled}
+              onChange={() => updateCustomerStories({ enabled: !story.customerStories.enabled })}
+              className="h-4 w-4 accent-[#5E7CFF]"
             />
           </label>
         </div>
 
-        <div className="grid gap-3">
-          {story.customerStories.stories.map((item) => {
-            const expanded = openStoryId === item.id
-            return (
-              <div
-                key={item.id}
-                className={cn(
-                  'overflow-hidden rounded-[16px] border bg-white/75',
-                  item.enabled ? 'border-black/8' : 'border-amber-200/80 opacity-80',
-                )}
-              >
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
-                  onClick={() => setOpenStoryId(expanded ? null : item.id)}
-                >
-                  <div>
-                    <p className="text-sm font-bold text-[#101114]">{item.name || 'Untitled story'}</p>
-                    <p className="text-xs font-semibold text-[#6B6B6B]">
-                      {item.location} · {item.product}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-full border border-black/8 p-1.5"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        updateStoryItem(item.id, { enabled: !item.enabled })
-                      }}
-                      aria-label={item.enabled ? 'Hide story' : 'Show story'}
-                    >
-                      {item.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-[#9a7848]" />}
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-full border border-red-200 p-1.5 text-red-600"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deleteStoryItem(item.id)
-                      }}
-                      aria-label="Delete story"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </button>
+        <label className="admin-field max-w-md">
+          <span className="admin-kpi__label">Dropdown label</span>
+          <input
+            className="admin-input"
+            value={story.customerStories.label}
+            onChange={(e) => updateCustomerStories({ label: e.target.value })}
+          />
+        </label>
 
-                {expanded ? (
-                  <div className="grid gap-3 border-t border-black/6 px-3 pb-3 pt-3 md:grid-cols-2">
-                    <label className="admin-field">
-                      <span className="admin-kpi__label">Name</span>
-                      <input className="admin-input" value={item.name} onChange={(e) => updateStoryItem(item.id, { name: e.target.value })} />
-                    </label>
-                    <label className="admin-field">
-                      <span className="admin-kpi__label">Avatar letter</span>
-                      <input className="admin-input" maxLength={2} value={item.avatar} onChange={(e) => updateStoryItem(item.id, { avatar: e.target.value.toUpperCase().slice(0, 1) })} />
-                    </label>
-                    <label className="admin-field">
-                      <span className="admin-kpi__label">Location</span>
-                      <input className="admin-input" value={item.location} onChange={(e) => updateStoryItem(item.id, { location: e.target.value })} />
-                    </label>
-                    <label className="admin-field">
-                      <span className="admin-kpi__label">Product</span>
-                      <input className="admin-input" value={item.product} onChange={(e) => updateStoryItem(item.id, { product: e.target.value })} />
-                    </label>
-                    <label className="admin-field">
-                      <span className="admin-kpi__label">Date</span>
-                      <input className="admin-input" value={item.date} onChange={(e) => updateStoryItem(item.id, { date: e.target.value })} />
-                    </label>
-                    <label className="admin-field">
-                      <span className="admin-kpi__label">Rating (1–5)</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        className="admin-input"
-                        value={item.rating}
-                        onChange={(e) => updateStoryItem(item.id, { rating: Math.min(5, Math.max(1, Number(e.target.value) || 5)) })}
-                      />
-                    </label>
-                    <label className="admin-field md:col-span-2">
-                      <span className="admin-kpi__label">Review text</span>
-                      <textarea className="admin-input min-h-[96px] resize-none" value={item.text} onChange={(e) => updateStoryItem(item.id, { text: e.target.value })} />
-                    </label>
-                  </div>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
+        <p className="admin-module-card__text mt-4">
+          Rating and review text are calculated from the database after approval. If no approved reviews exist,
+          the storefront shows an honest empty state.
+        </p>
 
-        <AdminButton variant="gold" className="mt-4" loading={saving} onClick={() => onSave({ ourStory: draft.ourStory }, 'Customer stories')}>
-          Save customer stories
+        <AdminButton variant="gold" className="mt-4" loading={saving} onClick={saveVerifiedReviewsSection}>
+          Save verified reviews section
         </AdminButton>
       </section>
     </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
@@ -14,7 +14,7 @@ interface ShopFilterDropdownProps {
   onToggle: () => void
   onClose: () => void
   onChange: (value: string) => void
-  /** ILYN-style "Sort:" prefix with muted tone */
+  /** Sort label with muted "Sort:" prefix */
   labelVariant?: 'default' | 'sort'
   sortDisplay?: string
 }
@@ -34,6 +34,7 @@ export function ShopFilterDropdown({
   sortDisplay,
 }: ShopFilterDropdownProps) {
   const rootRef = useRef<HTMLDivElement>(null)
+  const reducedMotion = useReducedMotion()
 
   useEffect(() => {
     if (!open) return
@@ -61,6 +62,15 @@ export function ShopFilterDropdown({
   const resolvedSort = sortDisplay ?? (value === 'Default' ? 'Default' : value)
   const displayLabel =
     !isSort && (value === 'All' || value === 'Default') ? label : !isSort ? value : null
+
+  const panelMotion = reducedMotion
+    ? { initial: false as const }
+    : {
+        initial: { opacity: 0, y: -10, scale: 0.96, transformOrigin: 'top center' as const },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: -8, scale: 0.97 },
+        transition: { duration: 0.28, ease: PANEL_EASE },
+      }
 
   return (
     <div ref={rootRef} className={cn('shop-filter-dropdown', open && 'shop-filter-dropdown--open')}>
@@ -92,10 +102,7 @@ export function ShopFilterDropdown({
             className="shop-filter-dropdown__panel"
             role="listbox"
             aria-label={panelTitle}
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: PANEL_EASE }}
+            {...panelMotion}
           >
             <ul className="shop-filter-dropdown__list">
               {options.map((option) => {

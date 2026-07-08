@@ -13,7 +13,7 @@ interface CartLineItemProps {
 
 export function CartLineItem({ item, onDecrease, onIncrease, onRemove }: CartLineItemProps) {
   return (
-    <li className="px-6 py-4">
+    <div className="px-6 py-4">
       <div className="flex gap-4">
         <div className="h-20 w-16 shrink-0 overflow-hidden rounded-2xl bg-white/70 shadow-[0_10px_24px_rgba(20,24,32,0.08)]">
           {item.image ? (
@@ -82,6 +82,6 @@ export function CartLineItem({ item, onDecrease, onIncrease, onRemove }: CartLin
           </div>
         </div>
       </div>
-    </li>
+    </div>
   )
 }

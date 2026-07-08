@@ -1,144 +1,26 @@
-import { randomBytes } from 'crypto'
-import { SPLARO_INVOICE_BRAND, buildInvoiceAccessToken, buildInvoiceBrandHeader } from '@splaro/config'
-import { getStockForVariant, variantId } from '@/lib/catalog'
-import { products } from '@/data/storefront'
+import { SPLARO_INVOICE_BRAND, buildInvoiceBrandHeader } from '@splaro/config'
 import { fetchOrderByIdViaApi, fetchOrdersViaApi } from '@/lib/server/api-orders'
 import {
   readOrders,
-  readStock,
   writeOrders,
-  writeStock,
-  type OrderStatus,
   type StoredOrder,
   type StoredOrderItem,
 } from '@/lib/server/store'
 
-export interface CreateOrderInput {
-  userId?: string | undefined
-  customer: StoredOrder['customer']
-  items: StoredOrderItem[]
-  subtotal: number
-  delivery: number
-  discount: number
-  couponCode?: string | undefined
-  couponDiscount?: number | undefined
-  total: number
-  paymentMethod: string
-}
+/**
+ * Orders are owned by the SPLARO API/database. The legacy file-store order
+ * creation path (createOrder/validateStock/decrementStock) has been removed —
+ * production checkout goes through createOrderViaApi only.
+ *
+ * A local JSON file cache exists ONLY for offline dev convenience and is
+ * disabled unless SPLARO_DEV_FILE_ORDER_CACHE=1 (never in production).
+ */
+const fileCacheEnabled = () =>
+  process.env.SPLARO_DEV_FILE_ORDER_CACHE === '1' && process.env.NODE_ENV !== 'production'
 
-export interface StockValidationResult {
-  ok: boolean
-  errors: string[]
-}
-
-function createOrderId(): string {
-  const year = new Date().getFullYear()
-  const suffix = randomBytes(3).toString('hex').toUpperCase()
-  return `SPL-${year}-${suffix}`
-}
-
-export async function generateInvoiceNumber(): Promise<string> {
-  const prefix = process.env.INVOICE_PREFIX ?? 'SPL'
-  const startingNumber = Number(process.env.INVOICE_STARTING_NUMBER ?? '1000')
-  const orders = await readOrders()
-  const next = startingNumber + orders.length
-  return `${prefix}-${next}`
-}
-
-function resolveItemVariant(item: StoredOrderItem): { size?: string | undefined; color?: string | undefined } {
-  const product = products.find((entry) => entry.id === item.productId)
-  return {
-    size: item.size ?? product?.sizes[0],
-    color: item.color ?? product?.colors[0],
-  }
-}
-
-export async function validateStock(items: StoredOrderItem[]): Promise<StockValidationResult> {
-  const stockOverlay = await readStock()
-  const errors: string[] = []
-
-  for (const item of items) {
-    const { size, color } = resolveItemVariant(item)
-
-    if (!size || !color) {
-      errors.push(`${item.name}: unavailable variant`)
-      continue
-    }
-
-    const available = getStockForVariant(item.productId, size, color, stockOverlay)
-
-    if (available < item.quantity) {
-      errors.push(`${item.name}: only ${available} left in stock`)
-    }
-  }
-
-  return { ok: errors.length === 0, errors }
-}
-
-export async function decrementStock(items: StoredOrderItem[]): Promise<void> {
-  const stockOverlay = await readStock()
-
-  for (const item of items) {
-    const { size, color } = resolveItemVariant(item)
-    if (!size || !color) continue
-
-    const id = item.variantId ?? variantId(item.productId, size, color)
-    const current = getStockForVariant(item.productId, size, color, stockOverlay)
-    stockOverlay[id] = Math.max(0, current - item.quantity)
-  }
-
-  await writeStock(stockOverlay)
-}
-
-export async function createOrder(input: CreateOrderInput): Promise<StoredOrder> {
-  const stockCheck = await validateStock(input.items)
-  if (!stockCheck.ok) {
-    throw new Error(stockCheck.errors.join('; '))
-  }
-
-  const now = new Date().toISOString()
-  const orderId = createOrderId()
-  const order: StoredOrder = {
-    id: orderId,
-    invoiceNumber: await generateInvoiceNumber(),
-    invoiceAccessKey: buildInvoiceAccessToken(orderId),
-    ...(input.userId ? { userId: input.userId } : {}),
-    createdAt: now,
-    updatedAt: now,
-    status: 'confirmed',
-    customer: input.customer,
-    items: input.items,
-    subtotal: input.subtotal,
-    delivery: input.delivery,
-    discount: input.discount,
-    ...(input.couponCode ? { couponCode: input.couponCode } : {}),
-    ...(input.couponDiscount ? { couponDiscount: input.couponDiscount } : {}),
-    total: input.total,
-    payment: {
-      method: input.paymentMethod,
-      status: input.paymentMethod === 'Cash on Delivery' ? 'pending' : 'pending',
-    },
-    tracking: {
-      stage: 'Confirmed',
-      updatedAt: now,
-    },
-  }
-
-  const orders = await readOrders()
-  orders.unshift(order)
-  await writeOrders(orders)
-  await decrementStock(input.items)
-
-  return order
-}
-
-export async function getOrderById(id: string): Promise<StoredOrder | null> {
-  const orders = await readOrders()
-  return orders.find((order) => order.id === id || order.invoiceNumber === id) ?? null
-}
-
-/** Keep server-side JSON cache in sync when orders are created via SPLARO API. */
+/** Dev-only mirror of API-created orders — no-op unless explicitly enabled. */
 export async function cacheOrderInFile(order: StoredOrder): Promise<void> {
+  if (!fileCacheEnabled()) return
   const orders = await readOrders()
   const index = orders.findIndex(
     (entry) => entry.id === order.id || entry.invoiceNumber === order.invoiceNumber,
@@ -156,104 +38,29 @@ export interface ResolveOrderOptions {
   phone?: string | null | undefined
 }
 
+/** API-first order lookup; dev file cache consulted only when enabled. */
 export async function resolveOrderById(
   id: string,
   options?: ResolveOrderOptions,
 ): Promise<StoredOrder | null> {
-  const local = await getOrderById(id)
-  if (local) return local
+  const remote = await fetchOrderByIdViaApi(id, options)
+  if (remote) return remote
 
-  const orders = await readOrders()
-  const byInvoice = orders.find((order) => order.invoiceNumber === id)
-  if (byInvoice) return byInvoice
-
-  return fetchOrderByIdViaApi(id, options)
+  if (fileCacheEnabled()) {
+    const orders = await readOrders()
+    return (
+      orders.find((order) => order.id === id || order.invoiceNumber === id) ?? null
+    )
+  }
+  return null
 }
 
+/** API-only phone lookup — never merges stale file-cache rows into results. */
 export async function getOrdersByPhone(phone: string): Promise<StoredOrder[]> {
-  const normalized = phone.replace(/\D/g, '')
-  const tail = normalized.slice(-10)
-  const orders = await readOrders()
-  const local = orders.filter((order) => {
-    const orderPhone = order.customer.phone.replace(/\D/g, '')
-    return orderPhone === normalized || (tail.length >= 10 && orderPhone.slice(-10) === tail)
-  })
-
-  let remote: StoredOrder[] = []
-  try {
-    remote = await fetchOrdersViaApi(phone)
-  } catch {
-    remote = []
-  }
-
-  const merged = new Map<string, StoredOrder>()
-  for (const order of [...remote, ...local]) {
-    merged.set(order.id, order)
-  }
-
-  return [...merged.values()].sort(
+  const remote = await fetchOrdersViaApi(phone)
+  return [...remote].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
-}
-
-export async function getOrdersByUserId(userId: string): Promise<StoredOrder[]> {
-  const orders = await readOrders()
-  return orders.filter((order) => order.userId === userId)
-}
-
-export async function updateOrderStatus(
-  id: string,
-  status: OrderStatus,
-  tracking?: StoredOrder['tracking'],
-): Promise<StoredOrder | null> {
-  const orders = await readOrders()
-  const index = orders.findIndex((order) => order.id === id)
-  if (index === -1) return null
-
-  const existing = orders[index]
-  if (!existing) return null
-
-  const updated: StoredOrder = {
-    ...existing,
-    status,
-    updatedAt: new Date().toISOString(),
-    tracking: tracking ?? {
-      ...existing.tracking,
-      stage: status.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
-      updatedAt: new Date().toISOString(),
-    },
-  }
-
-  orders[index] = updated
-  await writeOrders(orders)
-  return updated
-}
-
-export async function markOrderPaid(
-  id: string,
-  transactionId: string,
-): Promise<StoredOrder | null> {
-  const orders = await readOrders()
-  const index = orders.findIndex((order) => order.id === id)
-  if (index === -1) return null
-
-  const existing = orders[index]
-  if (!existing) return null
-
-  const updated: StoredOrder = {
-    ...existing,
-    updatedAt: new Date().toISOString(),
-    payment: {
-      ...existing.payment,
-      status: 'paid',
-      transactionId,
-      paidAt: new Date().toISOString(),
-    },
-  }
-
-  orders[index] = updated
-  await writeOrders(orders)
-  return updated
 }
 
 function escapeInvoiceHtml(value: string): string {

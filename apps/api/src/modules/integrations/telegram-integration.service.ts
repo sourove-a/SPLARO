@@ -1,8 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { EncryptionService } from './encryption.service'
 import { IntegrationAuditService } from './integration-audit.service'
 import { IntegrationsService } from './integrations.service'
+import { AuthService } from '../auth/auth.service'
+import { TelegramService } from '../telegram/telegram.service'
+import { maskTelegramId } from '../telegram/telegram.util'
 
 export interface TelegramIntegrationDto {
   botToken?: string
@@ -25,6 +28,9 @@ export class TelegramIntegrationService {
     private readonly integrations: IntegrationsService,
     private readonly crypto: EncryptionService,
     private readonly audit: IntegrationAuditService,
+    private readonly auth: AuthService,
+    @Inject(forwardRef(() => TelegramService))
+    private readonly telegramBot: TelegramService,
   ) {}
 
   async get(storeIdRaw: string) {
@@ -150,6 +156,8 @@ export class TelegramIntegrationService {
       },
     })
 
+    void this.telegramBot.reinitializeBot()
+
     return this.get(storeId)
   }
 
@@ -204,5 +212,80 @@ export class TelegramIntegrationService {
     await this.audit.logTest({ storeId, userId, provider: 'telegram', success: true, message: 'Telegram connected successfully' })
 
     return { ok: true, message: 'Telegram connected successfully', chatId: cfg.chatId }
+  }
+
+  async getHealth(storeIdRaw: string) {
+    const storeId = await this.integrations.resolveStore(storeIdRaw)
+    const health = await this.telegramBot.getHealth(storeId)
+    const meta = await this.integrations.getProviderMeta(storeId, 'telegram')
+    return {
+      ...health,
+      lastTestedAt: meta.lastTestedAt,
+      lastTestStatus: meta.lastTestStatus,
+      lastTestMessage: meta.lastTestMessage,
+    }
+  }
+
+  async generateLinkToken(storeIdRaw: string) {
+    const storeId = await this.integrations.resolveStore(storeIdRaw)
+    const cfg = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
+    if (!cfg?.isActive) {
+      throw new BadRequestException('Enable Telegram bot in settings before generating a link token.')
+    }
+
+    const { code, email } = await this.auth.issueTelegramLoginToken(storeId)
+    return {
+      ok: true,
+      code,
+      email,
+      expiresInSeconds: 300,
+      hint: `Open your SPLARO bot and send: /login ${code}`,
+    }
+  }
+
+  async listLinkedAdmins(storeIdRaw: string) {
+    const storeId = await this.integrations.resolveStore(storeIdRaw)
+    const config = await this.prisma.telegramConfig.findUnique({
+      where: { storeId },
+      include: { users: { where: { isActive: true }, orderBy: { createdAt: 'asc' } } },
+    })
+    if (!config) {
+      return { linked: [], configChatIdMasked: null }
+    }
+    return {
+      configChatIdMasked: config.chatId ? maskTelegramId(config.chatId) : null,
+      linked: config.users.map((u) => ({
+        id: u.id,
+        telegramIdMasked: maskTelegramId(u.telegramId),
+        username: u.username,
+        role: u.role,
+      })),
+    }
+  }
+
+  async unlinkAdmin(storeIdRaw: string, telegramUserId: string, userId?: string) {
+    const storeId = await this.integrations.resolveStore(storeIdRaw)
+    const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
+    if (!config) throw new BadRequestException('Telegram not configured')
+
+    const row = await this.prisma.telegramUser.findFirst({
+      where: { id: telegramUserId, configId: config.id },
+    })
+    if (!row) throw new BadRequestException('Linked admin not found')
+
+    await this.prisma.telegramUser.update({
+      where: { id: row.id },
+      data: { isActive: false },
+    })
+
+    await this.audit.logSave({
+      storeId,
+      userId,
+      provider: 'telegram',
+      resource: 'telegram_unlink',
+      newData: { telegramUserId: row.id, telegramIdMasked: maskTelegramId(row.telegramId) },
+    })
+
+    return { ok: true }
   }
 }

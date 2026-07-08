@@ -1,15 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { ArrowLeftRight, Building2, MapPin, Plus, RefreshCw, Download, Search, Truck, Warehouse } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminErrorState } from '@/components/ui/AdminUiPrimitives'
+import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
-import { useWmsOverview, useCreateWarehouse } from '@/lib/api/hooks'
+import { useWmsOverview, useCreateWarehouse, useRecordStockMovement, useCreateStockTransfer, useShipStockTransfer, useReceiveStockTransfer } from '@/lib/api/hooks'
 import type { WmsWarehouse } from '@/lib/api/commerce-os'
 import { formatRelativeTime } from '@/lib/api/orders'
+import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const GOLD = '#c8a97e'
@@ -89,19 +91,19 @@ function Toolbar({ query, onQuery, placeholder, createLabel, onCreate, onRefresh
             <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder={placeholder ?? 'Search…'} className="admin-catalog-input" style={{ width: '100%', paddingLeft: 36, outline: 'none' }} />
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="flex gap-2">
           {onCreate && (
-            <button type="button" onClick={onCreate} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 10, padding: '8px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <AdminButton variant="gold" size="sm" onClick={onCreate}>
               <Plus style={{ width: 13, height: 13 }} />{createLabel}
-            </button>
+            </AdminButton>
           )}
           {onRefresh && (
-            <button type="button" onClick={onRefresh} className="admin-catalog-action" style={{ padding: '8px 12px', cursor: 'pointer'  }}>
+            <button type="button" onClick={onRefresh} className="admin-catalog-action" aria-label="Refresh">
               <RefreshCw style={{ width: 12, height: 12 }} />
             </button>
           )}
           {onExport && (
-            <button type="button" onClick={onExport} className="admin-catalog-action" style={{ padding: '8px 12px', cursor: 'pointer'  }}>
+            <button type="button" onClick={onExport} className="admin-catalog-action" aria-label="Export">
               <Download style={{ width: 12, height: 12 }} />
             </button>
           )}
@@ -128,8 +130,15 @@ function GlassTable({ title, footer, icon: Icon, children }: { title: string; fo
   )
 }
 
-function ErrorBanner({ msg }: { msg: string }) {
-  return <div className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', borderLeft: '3px solid #EF4444', color: '#B91C1C', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{msg}</div>
+function ErrorBanner({ msg, onRetry }: { msg: string; onRetry?: () => void }) {
+  return (
+    <AdminErrorState
+      title="API offline"
+      message={msg}
+      className="mb-3"
+      {...(onRetry ? { onRetry } : {})}
+    />
+  )
 }
 
 // ─── WMS helpers ───────────────────────────────────────────────────────────────
@@ -172,7 +181,7 @@ function WmsOverviewPanel() {
         ['Available units', isLoading ? '…' : totalUnits, 'gold'],
         ['In transit', isLoading ? '…' : transfers.filter((t) => t.status === 'IN_TRANSIT' || t.status === 'PENDING').length, 'warning'],
       ]} />
-      <Toolbar query="" onQuery={() => {}} placeholder="" createLabel="Stock adjustment" onCreate={() => toast('Record adjustments from Catalog → Inventory.', { icon: '📦' })} onRefresh={() => void refetch()} onExport={() => toast.error('This action is not available yet — feature pending.')} />
+      <Toolbar query="" onQuery={() => {}} placeholder="" createLabel="Record movement" onCreate={() => { window.location.href = '/dashboard/wms/stock-movements' }} onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')} />
       <GlassTable icon={Warehouse} title="Warehouse summary" footer="Live data from commerce-os WMS API">
         {isLoading ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading warehouses…</p>
@@ -223,19 +232,19 @@ function WarehousesPanel() {
 
   const handleCreate = async () => {
     if (!name.trim() || !code.trim()) {
-      toast.error('Name and code are required.')
+      toastFail('Name and code are required.')
       return
     }
     try {
       await createWarehouse.mutateAsync({ name: name.trim(), code: code.trim(), ...(city.trim() ? { city: city.trim() } : {}) })
-      toast.success('Warehouse created.')
+      toastOk('Warehouse created.')
       setShowCreate(false)
       setName('')
       setCode('')
       setCity('')
       void refetch()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Create failed')
+      toastFail(e instanceof Error ? e.message : 'Create failed')
     }
   }
 
@@ -265,7 +274,7 @@ function WarehousesPanel() {
           </div>
         </div>
       ) : null}
-      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse…" createLabel="Add warehouse" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} onExport={() => toast.error('This action is not available yet — feature pending.')} />
+      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse…" createLabel="Add warehouse" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')} />
       <GlassTable icon={Building2} title={`Warehouses · ${filtered.length}`} footer="Zones · Racks · Bins from database">
         {filtered.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No warehouses match your search.</p>
@@ -300,17 +309,51 @@ function WarehousesPanel() {
 function StockMovementsPanel() {
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [showCreate, setShowCreate] = useState(false)
+  const [sku, setSku] = useState('')
+  const [delta, setDelta] = useState('')
+  const [reason, setReason] = useState('ADJUSTMENT')
+  const [note, setNote] = useState('')
   const { movements, isLoading, isError, refetch } = useWmsData()
+  const recordMovement = useRecordStockMovement()
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase()
     return movements.filter((m) => {
       const matchQ = !q || (m.sku ?? '').toLowerCase().includes(q) || (m.note ?? '').toLowerCase().includes(q)
-      const reason = m.reason.toLowerCase()
-      const matchT = typeFilter === 'all' || (typeFilter === 'inbound' && m.delta > 0) || (typeFilter === 'outbound' && m.delta < 0) || reason.includes(typeFilter)
+      const reasonKey = m.reason.toLowerCase()
+      const matchT = typeFilter === 'all' || (typeFilter === 'inbound' && m.delta > 0) || (typeFilter === 'outbound' && m.delta < 0) || reasonKey.includes(typeFilter)
       return matchQ && matchT
     })
   }, [query, typeFilter, movements])
+
+  const handleRecord = async () => {
+    const deltaNum = Number(delta)
+    if (!sku.trim()) {
+      toastFail('SKU is required.')
+      return
+    }
+    if (!Number.isInteger(deltaNum) || deltaNum === 0) {
+      toastFail('Delta must be a non-zero integer (+ inbound, − outbound).')
+      return
+    }
+    try {
+      await recordMovement.mutateAsync({
+        sku: sku.trim(),
+        delta: deltaNum,
+        reason,
+        ...(note.trim() ? { note: note.trim() } : {}),
+      })
+      toastOk('Stock movement recorded.')
+      setShowCreate(false)
+      setSku('')
+      setDelta('')
+      setNote('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not record movement')
+    }
+  }
 
   if (isError) return <ErrorBanner msg="WMS movements API offline." />
 
@@ -322,19 +365,40 @@ function StockMovementsPanel() {
         ['Outbound', movements.filter((m) => m.delta < 0).length, 'gold'],
         ['Net delta', movements.reduce((s, m) => s + m.delta, 0), 'warning'],
       ]} />
+      {showCreate ? (
+        <div className="admin-module-section" style={{ marginBottom: 14 }}>
+          <div className="admin-module-section__head">
+            <h4 className="admin-module-section__title">Record movement</h4>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <input className="admin-input admin-input--premium" placeholder="SKU" value={sku} onChange={(e) => setSku(e.target.value)} />
+            <input className="admin-input admin-input--premium" placeholder="Delta (+10 / -3)" value={delta} onChange={(e) => setDelta(e.target.value)} />
+            <select className="admin-input admin-input--premium" value={reason} onChange={(e) => setReason(e.target.value)}>
+              {['ADJUSTMENT', 'PURCHASE', 'SALE', 'TRANSFER', 'DAMAGE', 'RETURN', 'PRODUCTION', 'AUDIT'].map((r) => (
+                <option key={r} value={r}>{r.toLowerCase()}</option>
+              ))}
+            </select>
+            <input className="admin-input admin-input--premium" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <AdminButton variant="gold" loading={recordMovement.isPending} onClick={() => void handleRecord()}>Save movement</AdminButton>
+            <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</AdminButton>
+          </div>
+        </div>
+      ) : null}
       <Toolbar
         query={query} onQuery={setQuery} placeholder="Search SKU or note…"
-        createLabel="Record movement" onCreate={() => toast('Movement logging UI coming soon.', { icon: '📝' })}
-        onRefresh={() => void refetch()} onExport={() => toast.error('This action is not available yet — feature pending.')}
+        createLabel="Record movement" onCreate={() => setShowCreate(true)}
+        onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')}
         extra={
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div className="flex flex-wrap gap-1.5">
             {(['all', 'inbound', 'outbound', 'adjustment', 'transfer'] as const).map((t) => (
-              <button key={t} type="button" onClick={() => setTypeFilter(t)} style={{
-                background: typeFilter === t ? GOLD_LIGHT : 'rgba(255,255,255,0.7)',
-                border: `1px solid ${typeFilter === t ? GOLD_BORDER : 'rgba(255,255,255,0.8)'}`,
-                color: typeFilter === t ? '#8B6914' : 'var(--admin-text-secondary)',
-                borderRadius: 9, padding: '5px 12px', fontSize: 11, fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s', textTransform: 'capitalize',
-              }}>
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTypeFilter(t)}
+                className={cn('admin-filter-pill capitalize', typeFilter === t && 'admin-filter-pill--active')}
+              >
                 {t === 'all' ? 'All types' : t}
               </button>
             ))}
@@ -369,8 +433,70 @@ function StockMovementsPanel() {
 
 function StockTransfersPanel() {
   const [query, setQuery] = useState('')
-  const { transfers, isLoading, isError, refetch } = useWmsData()
+  const [showCreate, setShowCreate] = useState(false)
+  const [fromId, setFromId] = useState('')
+  const [toId, setToId] = useState('')
+  const [sku, setSku] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [notes, setNotes] = useState('')
+  const { warehouses, transfers, isLoading, isError, refetch } = useWmsData()
+  const createTransfer = useCreateStockTransfer()
+  const shipTransfer = useShipStockTransfer()
+  const receiveTransfer = useReceiveStockTransfer()
   const filtered = useMemo(() => { const q = query.toLowerCase(); return transfers.filter((t) => !q || t.fromWarehouse.name.toLowerCase().includes(q) || t.toWarehouse.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)) }, [query, transfers])
+
+  const handleCreate = async () => {
+    const qty = Number(quantity)
+    if (!fromId || !toId) {
+      toastFail('Select source and destination warehouses.')
+      return
+    }
+    if (!sku.trim()) {
+      toastFail('SKU is required.')
+      return
+    }
+    if (!Number.isInteger(qty) || qty <= 0) {
+      toastFail('Quantity must be a positive integer.')
+      return
+    }
+    try {
+      await createTransfer.mutateAsync({
+        fromWarehouseId: fromId,
+        toWarehouseId: toId,
+        sku: sku.trim(),
+        quantity: qty,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      })
+      toastOk('Transfer created.')
+      setShowCreate(false)
+      setSku('')
+      setQuantity('')
+      setNotes('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Create transfer failed')
+    }
+  }
+
+  const handleShip = async (transferId: string) => {
+    try {
+      await shipTransfer.mutateAsync(transferId)
+      toastOk('Transfer marked in transit.')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not ship transfer')
+    }
+  }
+
+  const handleReceive = async (transferId: string) => {
+    try {
+      await receiveTransfer.mutateAsync(transferId)
+      toastOk('Transfer received and completed.')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not receive transfer')
+    }
+  }
 
   if (isError) return <ErrorBanner msg="WMS transfers API offline." />
 
@@ -382,7 +508,35 @@ function StockTransfersPanel() {
         ['Completed', transfers.filter((t) => t.status === 'COMPLETED' || t.status === 'DELIVERED').length, 'success'],
         ['Items', transfers.reduce((s, t) => s + (t.items?.length ?? 0), 0), 'gold'],
       ]} />
-      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse or transfer ID…" createLabel="New transfer" onCreate={() => toast('Transfer wizard coming soon.', { icon: '🚚' })} onRefresh={() => void refetch()} onExport={() => toast.error('This action is not available yet — feature pending.')} />
+      {showCreate ? (
+        <div className="admin-module-section" style={{ marginBottom: 14 }}>
+          <div className="admin-module-section__head">
+            <h4 className="admin-module-section__title">New transfer</h4>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <select className="admin-input admin-input--premium" value={fromId} onChange={(e) => setFromId(e.target.value)}>
+              <option value="">From warehouse…</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+              ))}
+            </select>
+            <select className="admin-input admin-input--premium" value={toId} onChange={(e) => setToId(e.target.value)}>
+              <option value="">To warehouse…</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{w.name} ({w.code})</option>
+              ))}
+            </select>
+            <input className="admin-input admin-input--premium" placeholder="SKU" value={sku} onChange={(e) => setSku(e.target.value)} />
+            <input className="admin-input admin-input--premium" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            <input className="admin-input admin-input--premium sm:col-span-2" placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <AdminButton variant="gold" loading={createTransfer.isPending} onClick={() => void handleCreate()}>Create transfer</AdminButton>
+            <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</AdminButton>
+          </div>
+        </div>
+      ) : null}
+      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse or transfer ID…" createLabel="New transfer" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')} />
       <GlassTable icon={Truck} title={`Stock transfers · ${filtered.length}`} footer="Inter-warehouse transfers from database">
         {filtered.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No stock transfers yet.</p>
@@ -400,7 +554,9 @@ function StockTransfersPanel() {
                   <td style={TD}><StatusPill value={t.status.replace(/_/g, ' ').toLowerCase()} /></td>
                   <td style={TD}>
                     {t.status === 'PENDING' ? (
-                      <AdminButton variant="gold" size="sm" onClick={() => toast('Pick list coming soon.')}>Pick</AdminButton>
+                      <AdminButton variant="gold" size="sm" loading={shipTransfer.isPending} onClick={() => void handleShip(t.id)}>Ship</AdminButton>
+                    ) : t.status === 'IN_TRANSIT' ? (
+                      <AdminButton variant="gold" size="sm" loading={receiveTransfer.isPending} onClick={() => void handleReceive(t.id)}>Receive</AdminButton>
                     ) : (
                       <RowActionsMenu recordName={t.id} moduleHref="/dashboard/wms/transfers" recordId={t.id} />
                     )}

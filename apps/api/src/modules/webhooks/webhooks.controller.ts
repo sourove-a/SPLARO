@@ -43,12 +43,13 @@ export class WebhooksController {
   /* ─── Endpoints ───────────────────────────────────────────── */
 
   @Get()
-  list(@Query('storeId') storeId: string) {
-    return this.webhooks.list(storeId)
+  async list(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.webhooks.list(sid)
   }
 
   @Post()
-  add(
+  async add(
     @Query('storeId') storeId: string,
     @Body()
     body: {
@@ -58,13 +59,14 @@ export class WebhooksController {
       isActive?: boolean
     },
   ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
     const endpoint: WebhookEndpoint = {
       url: body.url,
       secret: body.secret,
       events: body.events,
       isActive: body.isActive ?? true,
     }
-    return this.webhooks.addEndpoint(storeId, endpoint)
+    return this.webhooks.addEndpoint(sid, endpoint)
   }
 
   /** Update endpoint url/secret/events/isActive */
@@ -80,7 +82,8 @@ export class WebhooksController {
       isActive?: boolean
     },
   ) {
-    const endpoints: WebhookEndpoint[] = await this.webhooks.list(storeId)
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const endpoints: WebhookEndpoint[] = await this.webhooks.list(sid)
     const idx = endpoints.findIndex((e) => e.url === url)
     if (idx === -1) return { error: 'Endpoint not found' }
 
@@ -92,14 +95,15 @@ export class WebhooksController {
       ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
     }
 
-    await this.webhooks.saveEndpoints(storeId, endpoints)
+    await this.webhooks.saveEndpoints(sid, endpoints)
 
     return { ok: true, endpoint: endpoints[idx] }
   }
 
   @Delete()
-  remove(@Query('storeId') storeId: string, @Query('url') url: string) {
-    return this.webhooks.removeEndpoint(storeId, url)
+  async remove(@Query('storeId') storeId: string, @Query('url') url: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.webhooks.removeEndpoint(sid, url)
   }
 
   /* ─── Test & dispatch ─────────────────────────────────────── */
@@ -109,7 +113,8 @@ export class WebhooksController {
     @Query('storeId') storeId: string,
     @Body() body: { event?: WebhookEventType },
   ) {
-    await this.webhooks.dispatch(storeId, body.event ?? 'order.created', {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    await this.webhooks.dispatch(sid, body.event ?? 'order.created', {
       test: true,
       message: 'SPLARO webhook test',
     })
@@ -122,7 +127,8 @@ export class WebhooksController {
     @Query('storeId') storeId: string,
     @Body() body: { event: WebhookEventType; data?: Record<string, unknown> },
   ) {
-    await this.webhooks.dispatch(storeId, body.event, body.data ?? {})
+    const sid = await resolveStoreId(this.prisma, storeId)
+    await this.webhooks.dispatch(sid, body.event, body.data ?? {})
     return { ok: true, event: body.event }
   }
 

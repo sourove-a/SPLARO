@@ -8,11 +8,15 @@ import {
   fetchInfrastructureConfig,
   fetchPaymentIntegrations,
   fetchTelegramIntegration,
+  fetchTelegramHealth,
+  fetchTelegramLinkedAdmins,
+  generateTelegramLinkToken,
   testAiIntegration,
   testInfrastructureIntegration,
   testMetaIntegration,
   testPaymentIntegration,
   testTelegramIntegration,
+  unlinkTelegramAdmin,
   updateAiIntegration,
   updateInfrastructureConfig,
   updatePaymentIntegration,
@@ -72,7 +76,49 @@ export function useTestTelegramIntegration() {
     mutationFn: (message?: string) => testTelegramIntegration(message),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['integration-telegram'] })
+      await qc.invalidateQueries({ queryKey: ['integration-telegram-health'] })
+      await qc.invalidateQueries({ queryKey: ['integration-telegram-linked'] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+    },
+  })
+}
+
+export function useTelegramHealth() {
+  return useQuery({
+    queryKey: ['integration-telegram-health'],
+    queryFn: fetchTelegramHealth,
+    staleTime: 15_000,
+    retry: 1,
+  })
+}
+
+export function useTelegramLinkedAdmins() {
+  return useQuery({
+    queryKey: ['integration-telegram-linked'],
+    queryFn: fetchTelegramLinkedAdmins,
+    staleTime: 15_000,
+    retry: 1,
+  })
+}
+
+export function useGenerateTelegramLinkToken() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: generateTelegramLinkToken,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['integration-telegram-linked'] })
+      await qc.invalidateQueries({ queryKey: ['integration-telegram-health'] })
+    },
+  })
+}
+
+export function useUnlinkTelegramAdmin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: unlinkTelegramAdmin,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['integration-telegram-linked'] })
+      await qc.invalidateQueries({ queryKey: ['integration-telegram-health'] })
     },
   })
 }

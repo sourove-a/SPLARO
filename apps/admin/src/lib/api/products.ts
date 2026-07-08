@@ -28,19 +28,29 @@ export interface ApiProduct {
     size?: string
     color?: string
     colorName?: string
+    colorHex?: string | null
+    image?: string | null
     sku?: string | null
     price?: number | string
+    compareAtPrice?: number | string | null
     isActive?: boolean
   }[]
   fabricContent?: string | null
   fitType?: string | null
   occasion?: string | null
+  careInstructions?: string | null
   season?: string | null
   metaTitle?: string | null
   metaDescription?: string | null
   isFeatured?: boolean
   isNewArrival?: boolean
   isBestSeller?: boolean
+  weight?: number | string | null
+  badge?: string | null
+  rmCode?: string | null
+  barcode?: string | null
+  qrCode?: string | null
+  publishAt?: string | null
   images?: { url: string; altText?: string | null; position?: number; isDefault?: boolean }[]
 }
 
@@ -92,6 +102,7 @@ export interface CreateProductInput {
   fabricContent?: string
   fitType?: string
   occasion?: string
+  careInstructions?: string
   season?: string
   metaTitle?: string
   metaDescription?: string
@@ -99,6 +110,14 @@ export interface CreateProductInput {
   isFeatured?: boolean
   isNewArrival?: boolean
   isBestSeller?: boolean
+  weight?: number | null
+  badge?: string | null
+  rmCode?: string | null
+  barcode?: string | null
+  qrCode?: string | null
+  publishAt?: string | null
+  /** Skip version snapshot for visibility-only toggles. */
+  skipVersionSnapshot?: boolean
 }
 
 export function createProduct(input: CreateProductInput) {
@@ -119,14 +138,54 @@ export function deleteProduct(id: string) {
   return apiFetch<{ id: string }>(`/admin/products/${id}`, { method: 'DELETE' })
 }
 
+export interface ProductVariantWriteInput {
+  stock?: number
+  price?: number
+  compareAtPrice?: number | null
+  isActive?: boolean
+  sku?: string
+  size?: string
+  color?: string
+  colorName?: string
+  colorHex?: string
+  image?: string
+  stockReason?: string
+  stockNote?: string
+}
+
 export function updateProductVariant(
   productId: string,
   variantId: string,
-  data: { stock?: number; price?: number; isActive?: boolean },
+  data: ProductVariantWriteInput,
 ) {
   return apiFetch(`/admin/products/${productId}/variants/${variantId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
+  })
+}
+
+export interface CreateProductVariantInput {
+  size?: string
+  color?: string
+  colorName?: string
+  colorHex?: string
+  image?: string
+  sku?: string
+  price: number
+  compareAtPrice?: number
+  stock?: number
+}
+
+export function createProductVariant(productId: string, data: CreateProductVariantInput) {
+  return apiFetch(`/admin/products/${productId}/variants`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export function archiveProductVariant(productId: string, variantId: string) {
+  return apiFetch(`/admin/products/${productId}/variants/${variantId}/archive`, {
+    method: 'PATCH',
   })
 }
 
@@ -157,4 +216,29 @@ export function generateProductSkus(id: string) {
 
 export function fetchProductQR(id: string, siteUrl = SPLARO_DOMAINS.site.replace(/\/+$/, '')) {
   return apiFetch<{ qr: string }>(`/admin/products/${id}/qr?siteUrl=${encodeURIComponent(siteUrl)}`)
+}
+
+export function fetchProductBarcode(id: string, format = 'CODE128') {
+  return apiFetch<{ barcode: string }>(
+    `/admin/products/${id}/barcode?format=${encodeURIComponent(format)}`,
+  )
+}
+
+export interface ProductVersionEntry {
+  id: string
+  version: number
+  changedBy: string
+  changeNote?: string | null
+  createdAt: string
+}
+
+export function fetchProductVersions(id: string) {
+  return apiFetch<ProductVersionEntry[]>(`/admin/products/${id}/versions`)
+}
+
+export function restoreProductVersion(id: string, versionId: string, restoredBy: string) {
+  return apiFetch<{ success: boolean }>(`/admin/products/${id}/versions/${versionId}/restore`, {
+    method: 'POST',
+    body: JSON.stringify({ restoredBy }),
+  })
 }

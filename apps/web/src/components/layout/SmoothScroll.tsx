@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { ReactLenis, useLenis } from 'lenis/react'
 import { useUiStore } from '@/store/uiStore'
@@ -39,29 +39,31 @@ function LenisScrollLock() {
   return null
 }
 
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 export function SmoothScroll({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false)
   const [touchProfile, setTouchProfile] = useState(false)
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const syncProfile = () => setTouchProfile(isTouchScrollProfile())
     syncProfile()
 
     const unsubEligibility = subscribeSmoothScrollEligibility(setEnabled)
 
-    const mq = window.matchMedia('(max-width: 1023px)')
+    const mqMobile = window.matchMedia('(max-width: 1023px)')
     const mqCoarse = window.matchMedia('(pointer: coarse)')
-    mq.addEventListener('change', syncProfile)
+    mqMobile.addEventListener('change', syncProfile)
     mqCoarse.addEventListener('change', syncProfile)
 
     return () => {
       unsubEligibility()
-      mq.removeEventListener('change', syncProfile)
+      mqMobile.removeEventListener('change', syncProfile)
       mqCoarse.removeEventListener('change', syncProfile)
     }
   }, [])
 
-  const lenisOptions = useMemo(() => buildLenisOptions(), [])
+  const lenisOptions = useMemo(() => buildLenisOptions(), [touchProfile])
 
   if (!enabled) return <>{children}</>
 

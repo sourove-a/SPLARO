@@ -1,18 +1,16 @@
 'use client'
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building2,
   FileText,
   Lock,
-  Mail,
   MapPin,
+  Mail,
   Phone,
   RefreshCw,
   ShieldCheck,
-  Truck,
   UserRound,
 } from 'lucide-react'
 import { type CartItem, useCartStore } from '@/store/cartStore'
@@ -44,7 +42,6 @@ import { products } from '@/data/storefront'
 import {
   DELIVERY_FEE_BDT,
   DIGITAL_PAYMENT_DISCOUNT_RATE,
-  formatBDT,
 } from '@/lib/utils/currency'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useClientMounted } from '@/hooks/useClientMounted'
@@ -57,10 +54,21 @@ import {
   CheckoutHeader,
   CheckoutMobileBar,
   CheckoutOrderSummary,
+  CheckoutPaymentCard,
   CheckoutPhoneInput,
+  CheckoutSection,
   CheckoutShell,
   CheckoutSteps,
+  CheckoutSubmitPanel,
 } from '@/components/checkout'
+import {
+  deliveryFieldProgress,
+  getCheckoutProgressLine,
+  getCheckoutStepStatuses,
+  getCheckoutSteps,
+  isDeliveryComplete,
+} from '@/lib/checkout/checkout-validation'
+import { fetchPromoAvailability } from '@/lib/checkout/promo-availability'
 
 interface CheckoutForm {
   name: string
@@ -95,18 +103,36 @@ export default function CheckoutPageClient() {
   )
 
   const [form, setForm] = useState<CheckoutForm>(getCheckoutFormDefaults)
-  const [activeStep, setActiveStep] = useState(1)
+  const [paymentEngaged, setPaymentEngaged] = useState(false)
   const [couponCode, setCouponCode] = useState('')
   const [couponDiscount, setCouponDiscount] = useState(0)
   const [couponMessage, setCouponMessage] = useState('')
   const [freeShipping, setFreeShipping] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [couponServiceOffline, setCouponServiceOffline] = useState(false)
-  const [couponsEnabled, setCouponsEnabled] = useState(false)
+  const [hasActivePromo, setHasActivePromo] = useState(false)
+  const [promoChecked, setPromoChecked] = useState(false)
   const [couponApplying, setCouponApplying] = useState(false)
+  const [couponApplied, setCouponApplied] = useState(false)
   const [phoneError, setPhoneError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof CheckoutForm, string>>>({})
   const [authGateReady, setAuthGateReady] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const deliveryComplete = useMemo(
+    () => isDeliveryComplete(form, phoneError),
+    [form, phoneError],
+  )
+  const showPromoStep = promoChecked && hasActivePromo
+  const checkoutSteps = useMemo(() => getCheckoutSteps(showPromoStep), [showPromoStep])
+  const stepStatuses = useMemo(
+    () => getCheckoutStepStatuses(deliveryComplete, paymentEngaged, submitting, showPromoStep),
+    [deliveryComplete, paymentEngaged, submitting, showPromoStep],
+  )
+  const progressPercent = useMemo(
+    () => getCheckoutProgressLine(deliveryComplete, deliveryFieldProgress(form), showPromoStep),
+    [deliveryComplete, form, showPromoStep],
+  )
 
   const thanaOptions = useMemo(() => getThanasForDistrict(form.city), [form.city])
 
@@ -126,22 +152,26 @@ export default function CheckoutPageClient() {
   }, [authHydrated, user, router])
 
   useEffect(() => {
-    fetch('/api/coupons/active')
-      .then(async (res) => {
-        const payload = (await res.json()) as { enabled?: boolean; error?: string }
-        if (res.status === 503 || payload.error) {
-          setCouponServiceOffline(true)
-          setCouponsEnabled(false)
-          return
-        }
-        setCouponServiceOffline(false)
-        setCouponsEnabled(Boolean(payload.enabled))
+    fetchPromoAvailability()
+      .then(({ hasActivePromo: active }) => {
+        setHasActivePromo(active)
       })
       .catch(() => {
-        setCouponServiceOffline(true)
-        setCouponsEnabled(false)
+        setHasActivePromo(false)
+      })
+      .finally(() => {
+        setPromoChecked(true)
       })
   }, [])
+
+  useEffect(() => {
+    if (showPromoStep) return
+    setCouponCode('')
+    setCouponDiscount(0)
+    setCouponMessage('')
+    setFreeShipping(false)
+    setCouponApplied(false)
+  }, [showPromoStep])
 
   const delivery =
     freeShipping ||
@@ -207,28 +237,25 @@ export default function CheckoutPageClient() {
       if (!response.ok || !payload.valid) {
         setCouponDiscount(0)
         setFreeShipping(false)
-        if (response.status === 503) {
-          setCouponServiceOffline(true)
-        }
+        setCouponApplied(false)
         setCouponMessage(
           payload.message ??
             (response.status === 503
-              ? 'Coupon service offline — try again later or continue without a coupon.'
-              : 'Invalid coupon code'),
+              ? 'Coupon service unavailable — continue without a code.'
+              : 'Invalid or expired coupon code'),
         )
         return
       }
 
-      setCouponServiceOffline(false)
-
       setCouponDiscount(payload.discount ?? 0)
       setFreeShipping(Boolean(payload.freeShipping))
+      setCouponApplied(true)
       setCouponMessage(payload.message ?? 'Coupon applied')
     } catch {
       setCouponDiscount(0)
       setFreeShipping(false)
-      setCouponServiceOffline(true)
-      setCouponMessage('Coupon service offline — try again later or continue without a coupon.')
+      setCouponApplied(false)
+      setCouponMessage('Coupon service unavailable — continue without a code.')
     } finally {
       setCouponApplying(false)
     }
@@ -239,16 +266,70 @@ export default function CheckoutPageClient() {
       ? Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100))
       : null
 
+  const scrollToFirstInvalidField = () => {
+    const formEl = formRef.current
+    if (!formEl) return
+
+    const phoneField = formEl.querySelector<HTMLElement>('[data-checkout-field="phone"]')
+    if (phoneError && phoneField) {
+      phoneField.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      phoneField.querySelector<HTMLElement>('input')?.focus({ preventScroll: true })
+      return
+    }
+
+    const firstInvalid = formEl.querySelector<HTMLElement>(
+      '[data-checkout-field][data-invalid="true"], input:invalid, select:invalid, textarea:invalid',
+    )
+    firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const focusable = firstInvalid?.querySelector<HTMLElement>('input, select, textarea')
+    if (focusable) {
+      focusable.focus({ preventScroll: true })
+    } else {
+      firstInvalid?.focus({ preventScroll: true })
+    }
+  }
+
+  const validateBeforeSubmit = (): boolean => {
+    const nextErrors: Partial<Record<keyof CheckoutForm, string>> = {}
+    if (!form.name.trim()) nextErrors.name = 'Full name is required'
+    if (!form.email.trim()) nextErrors.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      nextErrors.email = 'Enter a valid email address'
+    }
+    const phoneValidationError = getBdPhoneError(form.phone)
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError)
+    }
+    if (!form.address.trim()) nextErrors.address = 'Delivery address is required'
+    if (!form.city) nextErrors.city = 'Select a district'
+    if (!form.thana) nextErrors.thana = 'Select a thana'
+
+    setFieldErrors(nextErrors)
+
+    if (Object.keys(nextErrors).length > 0 || phoneValidationError) {
+      setSubmitError('Please complete all required fields.')
+      scrollToFirstInvalidField()
+      return false
+    }
+
+    setFieldErrors({})
+    return true
+  }
+
+  const clearFieldError = (key: keyof CheckoutForm) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
   const placeOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (submitting || items.length === 0) return
 
-    const phoneValidationError = getBdPhoneError(form.phone)
-    if (phoneValidationError) {
-      setPhoneError(phoneValidationError)
-      setSubmitError('Please fix your phone number before placing the order.')
-      return
-    }
+    if (!validateBeforeSubmit()) return
 
     const normalizedPhone = normalizeBdPhone(form.phone)
     const deliveryAddress = buildDeliveryAddress(form.address, form.thana, form.city)
@@ -288,7 +369,7 @@ export default function CheckoutPageClient() {
             city: form.city,
           },
           payment: form.payment,
-          couponCode: couponCode.trim() || undefined,
+          couponCode: couponApplied && couponCode.trim() ? couponCode.trim() : undefined,
           subtotal,
           delivery,
           discount,
@@ -472,11 +553,21 @@ export default function CheckoutPageClient() {
           userName={user?.name}
         />
 
-        <CheckoutSteps activeStep={activeStep} />
+        <CheckoutSteps
+          stepStatuses={stepStatuses}
+          progressPercent={progressPercent}
+          steps={checkoutSteps}
+        />
 
         <div className="checkout-layout">
-          <form id="checkout-main-form" onSubmit={placeOrder} className="checkout-form checkout-glass-panel">
-            <section className="checkout-section checkout-section-card">
+          <form
+            ref={formRef}
+            id="checkout-main-form"
+            onSubmit={placeOrder}
+            className="checkout-form checkout-glass-panel"
+            noValidate
+          >
+            <CheckoutSection className="checkout-section checkout-section-card" delay={0}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">1</span>
                 <div>
@@ -487,26 +578,51 @@ export default function CheckoutPageClient() {
                 </div>
               </div>
               <div className="checkout-fields">
-                <CheckoutField label="Full name" icon={UserRound} clientReady={clientReady}>
+                <CheckoutField
+                  label="Full name"
+                  icon={UserRound}
+                  clientReady={clientReady}
+                  filled={Boolean(form.name.trim())}
+                  fieldId="checkout-name"
+                  {...(fieldErrors.name ? { error: fieldErrors.name } : {})}
+                >
                   <input
+                    id="checkout-name"
                     required
                     value={form.name}
+                    data-checkout-field="name"
+                    data-invalid={fieldErrors.name ? 'true' : undefined}
                     onChange={(event) => {
                       setForm({ ...form, name: event.target.value })
-                      setActiveStep(Math.max(activeStep, 2))
+                      if (fieldErrors.name) clearFieldError('name')
+                      if (submitError) setSubmitError('')
                     }}
-                    className="checkout-input"
+                    className={`checkout-input ${fieldErrors.name ? 'checkout-input--invalid' : ''}`}
                     placeholder="Your full name"
                     autoComplete="name"
                   />
                 </CheckoutField>
-                <CheckoutField label="Email address" icon={Mail} clientReady={clientReady}>
+                <CheckoutField
+                  label="Email address"
+                  icon={Mail}
+                  clientReady={clientReady}
+                  filled={Boolean(form.email.trim())}
+                  fieldId="checkout-email"
+                  {...(fieldErrors.email ? { error: fieldErrors.email } : {})}
+                >
                   <input
+                    id="checkout-email"
                     required
                     type="email"
                     value={form.email}
-                    onChange={(event) => setForm({ ...form, email: event.target.value })}
-                    className="checkout-input"
+                    data-checkout-field="email"
+                    data-invalid={fieldErrors.email ? 'true' : undefined}
+                    onChange={(event) => {
+                      setForm({ ...form, email: event.target.value })
+                      if (fieldErrors.email) clearFieldError('email')
+                      if (submitError) setSubmitError('')
+                    }}
+                    className={`checkout-input ${fieldErrors.email ? 'checkout-input--invalid' : ''}`}
                     placeholder="you@example.com"
                     autoComplete="email"
                   />
@@ -515,35 +631,51 @@ export default function CheckoutPageClient() {
                   label="Phone number"
                   icon={Phone}
                   clientReady={clientReady}
+                  filled={isValidBdMobile(form.phone)}
+                  fieldId="checkout-phone"
                   {...(phoneError ? { error: phoneError } : { hint: 'Local format — starts with 01' })}
                 >
-                  <CheckoutPhoneInput
-                    value={form.phone}
-                    invalid={Boolean(phoneError)}
-                    clientReady={clientReady}
-                    onChange={(phone) => {
-                      setForm({ ...form, phone })
-                      if (phoneError && isValidBdMobile(phone)) {
-                        setPhoneError('')
-                      }
-                    }}
-                    onBlur={() => {
-                      if (!form.phone) return
-                      setPhoneError(getBdPhoneError(form.phone) ?? '')
-                    }}
-                  />
+                  <div data-checkout-field="phone" data-invalid={phoneError ? 'true' : undefined}>
+                    <CheckoutPhoneInput
+                      value={form.phone}
+                      invalid={Boolean(phoneError)}
+                      clientReady={clientReady}
+                      onChange={(phone) => {
+                        setForm({ ...form, phone })
+                        if (phoneError && isValidBdMobile(phone)) {
+                          setPhoneError('')
+                        }
+                        if (submitError) setSubmitError('')
+                      }}
+                      onBlur={() => {
+                        if (!form.phone) return
+                        setPhoneError(getBdPhoneError(form.phone) ?? '')
+                      }}
+                    />
+                  </div>
                 </CheckoutField>
                 <div className="checkout-fields checkout-fields--pair">
-                  <CheckoutField label="District" icon={Building2} clientReady={clientReady}>
+                  <CheckoutField
+                    label="District"
+                    icon={Building2}
+                    clientReady={clientReady}
+                    filled={Boolean(form.city)}
+                    fieldId="checkout-city"
+                    {...(fieldErrors.city ? { error: fieldErrors.city } : {})}
+                  >
                     <select
+                      id="checkout-city"
                       required
                       value={form.city}
+                      data-checkout-field="city"
+                      data-invalid={fieldErrors.city ? 'true' : undefined}
                       onChange={(event) => {
                         const city = event.target.value
                         const thanas = getThanasForDistrict(city)
                         setForm({ ...form, city, thana: thanas[0] ?? '' })
+                        if (fieldErrors.city) clearFieldError('city')
                       }}
-                      className="checkout-input checkout-input--select"
+                      className={`checkout-input checkout-input--select ${fieldErrors.city ? 'checkout-input--invalid' : ''}`}
                       autoComplete="address-level2"
                     >
                       {BD_DISTRICTS.map((district) => (
@@ -553,12 +685,25 @@ export default function CheckoutPageClient() {
                       ))}
                     </select>
                   </CheckoutField>
-                  <CheckoutField label="Thana / Upazila" icon={Building2} clientReady={clientReady}>
+                  <CheckoutField
+                    label="Thana / Upazila"
+                    icon={Building2}
+                    clientReady={clientReady}
+                    filled={Boolean(form.thana)}
+                    fieldId="checkout-thana"
+                    {...(fieldErrors.thana ? { error: fieldErrors.thana } : {})}
+                  >
                     <select
+                      id="checkout-thana"
                       required
                       value={form.thana}
-                      onChange={(event) => setForm({ ...form, thana: event.target.value })}
-                      className="checkout-input checkout-input--select"
+                      data-checkout-field="thana"
+                      data-invalid={fieldErrors.thana ? 'true' : undefined}
+                      onChange={(event) => {
+                        setForm({ ...form, thana: event.target.value })
+                        if (fieldErrors.thana) clearFieldError('thana')
+                      }}
+                      className={`checkout-input checkout-input--select ${fieldErrors.thana ? 'checkout-input--invalid' : ''}`}
                       autoComplete="address-level3"
                     >
                       {thanaOptions.map((thana) => (
@@ -569,38 +714,43 @@ export default function CheckoutPageClient() {
                     </select>
                   </CheckoutField>
                 </div>
-                <CheckoutField label="Delivery address" icon={MapPin} full hint="House, road, area, landmark" clientReady={clientReady}>
+                <CheckoutField
+                  label="Delivery address"
+                  icon={MapPin}
+                  full
+                  hint="House, road, area, landmark"
+                  clientReady={clientReady}
+                  filled={Boolean(form.address.trim())}
+                  fieldId="checkout-address"
+                  {...(fieldErrors.address ? { error: fieldErrors.address } : {})}
+                >
                   <textarea
+                    id="checkout-address"
                     required
                     value={form.address}
+                    data-checkout-field="address"
+                    data-invalid={fieldErrors.address ? 'true' : undefined}
                     onChange={(event) => {
                       setForm({ ...form, address: event.target.value })
-                      setActiveStep(Math.max(activeStep, 2))
+                      if (fieldErrors.address) clearFieldError('address')
+                      if (submitError) setSubmitError('')
                     }}
-                    className="checkout-input checkout-input--area"
+                    className={`checkout-input checkout-input--area ${fieldErrors.address ? 'checkout-input--invalid' : ''}`}
                     placeholder="House, road, area"
                     autoComplete="street-address"
                   />
                 </CheckoutField>
               </div>
-            </section>
+            </CheckoutSection>
 
-            {couponServiceOffline ? (
-              <section className="checkout-section checkout-section-card">
-                <p className="auth-form__error">
-                  Coupon service is offline — you can still complete checkout without a promo code.
-                </p>
-              </section>
-            ) : null}
-
-            {couponsEnabled ? (
-              <section className="checkout-section checkout-section-card">
+            {showPromoStep ? (
+              <CheckoutSection className="checkout-section checkout-section-card" delay={0.06}>
                 <div className="checkout-section__head">
                   <span className="checkout-section__badge">2</span>
                   <div>
-                    <h2>Coupon code</h2>
+                    <h2>Promo code</h2>
                     <p className="checkout-section__sub checkout-section__sub--inline">
-                      Have a promo? Apply it before payment.
+                      Optional — apply before placing your order.
                     </p>
                   </div>
                 </div>
@@ -609,9 +759,17 @@ export default function CheckoutPageClient() {
                     <FileText className="checkout-coupon__icon h-4 w-4" strokeWidth={2.1} aria-hidden />
                     <input
                       value={couponCode}
-                      onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                      onChange={(event) => {
+                        setCouponCode(event.target.value.toUpperCase())
+                        setCouponApplied(false)
+                        setCouponDiscount(0)
+                        setFreeShipping(false)
+                        if (couponMessage) setCouponMessage('')
+                      }}
                       className="checkout-input checkout-input--coupon"
-                      placeholder="SPLARO10"
+                      placeholder="Enter promo code"
+                      disabled={couponApplying}
+                      aria-label="Promo code"
                     />
                   </div>
                   <button
@@ -620,60 +778,52 @@ export default function CheckoutPageClient() {
                     onClick={applyCoupon}
                     disabled={couponApplying || !couponCode.trim()}
                   >
-                    {couponApplying ? 'Applying...' : 'Apply'}
+                    {couponApplying ? 'Applying…' : 'Apply'}
                   </button>
                 </div>
                 {couponMessage ? (
                   <p
-                    className={`checkout-coupon-message ${couponDiscount > 0 || freeShipping ? 'checkout-coupon-message--success' : 'checkout-coupon-message--error'}`}
+                    className={`checkout-coupon-message ${couponApplied ? 'checkout-coupon-message--success' : 'checkout-coupon-message--error'}`}
+                    role="status"
                   >
                     {couponMessage}
                   </p>
                 ) : null}
-              </section>
+              </CheckoutSection>
             ) : null}
 
-            <section className="checkout-section checkout-section-card">
+            <CheckoutSection className="checkout-section checkout-section-card" delay={0.08}>
               <div className="checkout-section__head">
-                <span className="checkout-section__badge">{couponsEnabled ? '3' : '2'}</span>
+                <span className="checkout-section__badge">{showPromoStep ? '3' : '2'}</span>
                 <div>
                   <h2>Payment method</h2>
                   <p className="checkout-section__sub checkout-section__sub--inline">
-                    Choose your preferred payment option.
+                    Choose how you&apos;d like to pay.
                   </p>
                 </div>
               </div>
               <div className="checkout-payments">
-                {paymentOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={`checkout-payment ${option.priority ? 'checkout-payment--featured' : ''} ${form.payment === option.id ? 'checkout-payment--active' : ''}`}
-                    onClick={() => {
-                      setForm({ ...form, payment: option.id })
-                      setActiveStep(Math.max(activeStep, 3))
-                    }}
-                  >
-                    <div className="checkout-payment__main">
-                      {option.logo ? (
-                        <div className="checkout-payment__logo">
-                          <Image src={option.logo} alt={option.label} width={72} height={28} unoptimized className="h-6 w-auto object-contain" />
-                        </div>
-                      ) : (
-                        <span className="checkout-payment__icon">
-                          <Truck className="h-5 w-5" strokeWidth={2} />
-                        </span>
-                      )}
-                      <div>
-                        <p className="checkout-payment__label">{option.label}</p>
-                        <p className="checkout-payment__hint">{option.hint}</p>
-                      </div>
-                    </div>
-                    <span className="checkout-payment__radio" aria-hidden />
-                  </button>
-                ))}
+                {paymentOptions.map((option) => {
+                  const available = isPaymentAvailable(option.id, paymentSettings)
+                  return (
+                    <CheckoutPaymentCard
+                      key={option.id}
+                      option={option}
+                      selected={form.payment}
+                      disabled={!available}
+                      {...(!available
+                        ? { disabledReason: 'Not available — contact support to enable' }
+                        : {})}
+                      onSelect={(id) => {
+                        setForm({ ...form, payment: id })
+                        setPaymentEngaged(true)
+                        if (submitError) setSubmitError('')
+                      }}
+                    />
+                  )
+                })}
               </div>
-            </section>
+            </CheckoutSection>
 
             <div className="checkout-trust">
               <span><ShieldCheck className="h-3.5 w-3.5" /> Secure checkout</span>
@@ -681,17 +831,13 @@ export default function CheckoutPageClient() {
               <span><Lock className="h-3.5 w-3.5" /> Privacy protected</span>
             </div>
 
-            {submitError ? <p className="auth-form__error">{submitError}</p> : null}
-
-            <button
-              type="submit"
-              disabled={items.length === 0 || submitting}
-              className="checkout-btn checkout-btn--primary checkout-btn--full checkout-desktop-submit"
-              onClick={() => setActiveStep(3)}
-            >
-              <Lock className="h-4 w-4" />
-              {submitting ? 'Placing order...' : `Place order · ${formatBDT(totalBdt)}`}
-            </button>
+            <CheckoutSubmitPanel
+              totalBdt={totalBdt}
+              submitting={submitting}
+              disabled={items.length === 0}
+              {...(submitError ? { error: submitError } : {})}
+              onSubmitIntent={() => setPaymentEngaged(true)}
+            />
           </form>
 
           <CheckoutOrderSummary
@@ -700,6 +846,7 @@ export default function CheckoutPageClient() {
             subtotal={subtotal}
             delivery={delivery}
             discount={discount}
+            digitalDiscount={digitalDiscount}
             totalBdt={totalBdt}
             payment={form.payment}
             deliveryProgress={deliveryProgress}
@@ -709,7 +856,12 @@ export default function CheckoutPageClient() {
       </section>
 
       {items.length > 0 ? (
-        <CheckoutMobileBar itemCount={itemCount} totalBdt={totalBdt} submitting={submitting} />
+        <CheckoutMobileBar
+          itemCount={itemCount}
+          totalBdt={totalBdt}
+          submitting={submitting}
+          disabled={items.length === 0}
+        />
       ) : null}
     </CheckoutShell>
   )

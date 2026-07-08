@@ -78,11 +78,19 @@ apt-get install -y certbot python3-certbot-nginx
 
 # ── PUPPETEER DEPENDENCIES ───────────────────────────────────
 echo "Installing Puppeteer system dependencies..."
+# Ubuntu 24.04 renamed several libs (t64 suffix); install with fallbacks.
 apt-get install -y \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
     libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
-    libgbm1 libpango-1.0-0 libcairo2 libasound2 libxshmfence1 \
-    fonts-liberation libappindicator3-1
+    libgbm1 libpango-1.0-0 libcairo2 libxshmfence1 \
+    fonts-liberation \
+    libasound2t64 libasound2 \
+    libayatana-appindicator3-1 libappindicator3-1 \
+    2>/dev/null || apt-get install -y \
+    libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+    libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+    libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libxshmfence1 \
+    fonts-liberation libayatana-appindicator3-1
 
 # ── APP USER ─────────────────────────────────────────────────
 echo "Creating app user: $SPLARO_USER..."

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UnauthorizedException } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch, Post, Query, UnauthorizedException } from '@nestjs/common'
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { Public } from '../../common/auth/public.decorator'
 import { PrismaService } from '../../common/prisma.service'
@@ -85,6 +85,184 @@ export class CommerceOsController {
   @Get('wms/movements')
   wmsMovements(@Query('storeId') storeId: string) {
     return this.commerce.wmsMovements(storeId)
+  }
+
+  @Post('wms/movements')
+  recordStockMovement(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      sku?: string
+      variantId?: string
+      delta?: number
+      reason?: string
+      note?: string
+    },
+  ) {
+    return this.commerce.recordStockMovement(storeId, body)
+  }
+
+  @Post('wms/transfers')
+  createStockTransfer(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      fromWarehouseId?: string
+      toWarehouseId?: string
+      sku?: string
+      quantity?: number
+      notes?: string
+    },
+  ) {
+    return this.commerce.createStockTransfer(storeId, body)
+  }
+
+  @Post('wms/transfers/:id/ship')
+  shipStockTransfer(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.commerce.shipStockTransfer(storeId, id)
+  }
+
+  @Post('wms/transfers/:id/receive')
+  receiveStockTransfer(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.commerce.receiveStockTransfer(storeId, id)
+  }
+
+  @Post('delivery/agents')
+  createDeliveryAgent(
+    @Query('storeId') storeId: string,
+    @Body() body: { name?: string; phone?: string; vehicleType?: string },
+  ) {
+    return this.commerce.createDeliveryAgent(storeId, body)
+  }
+
+  @Patch('delivery/agents/:id')
+  updateDeliveryAgent(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { isActive?: boolean; name?: string; vehicleType?: string },
+  ) {
+    return this.commerce.updateDeliveryAgent(storeId, id, body)
+  }
+
+  @Post('delivery/assignments')
+  assignOrderToAgent(
+    @Query('storeId') storeId: string,
+    @Body() body: { orderId?: string; agentId?: string; earnings?: number },
+  ) {
+    return this.commerce.assignOrderToAgent(storeId, body)
+  }
+
+  @Patch('delivery/assignments/:id/status')
+  updateDeliveryAssignmentStatus(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { status?: string },
+  ) {
+    return this.commerce.updateDeliveryAssignmentStatus(storeId, id, body)
+  }
+
+  @Post('company/employees')
+  createEmployee(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      firstName?: string
+      lastName?: string
+      email?: string
+      phone?: string
+      position?: string
+      salary?: number
+      departmentId?: string
+    },
+  ) {
+    return this.commerce.createEmployee(storeId, body)
+  }
+
+  @Patch('company/employees/:id')
+  updateEmployee(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      firstName?: string
+      lastName?: string
+      email?: string
+      phone?: string
+      position?: string
+      salary?: number
+      status?: string
+    },
+  ) {
+    return this.commerce.updateEmployee(storeId, id, body)
+  }
+
+  @Patch('company/employees/:id/deactivate')
+  deactivateEmployee(@Query('storeId') storeId: string, @Param('id') id: string) {
+    return this.commerce.deactivateEmployee(storeId, id)
+  }
+
+  @Post('company/tasks')
+  createTask(
+    @Query('storeId') storeId: string,
+    @Body() body: { title?: string; description?: string; priority?: string; dueDate?: string },
+  ) {
+    return this.commerce.createTask(storeId, body)
+  }
+
+  @Patch('company/tasks/:id/status')
+  updateTaskStatus(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { status?: string },
+  ) {
+    return this.commerce.updateTaskStatus(storeId, id, body)
+  }
+
+  @Get('company/payroll/runs')
+  listPayrollRuns(@Query('storeId') storeId: string) {
+    return this.commerce.listPayrollRuns(storeId)
+  }
+
+  @Post('company/payroll/runs')
+  createPayrollRun(
+    @Query('storeId') storeId: string,
+    @Body() body: { month?: number; year?: number },
+  ) {
+    return this.commerce.createPayrollRun(storeId, body)
+  }
+
+  @Post('production/fabrics')
+  createFabric(
+    @Query('storeId') storeId: string,
+    @Body() body: { name?: string; color?: string; quantity?: number; unit?: string; costPerUnit?: number },
+  ) {
+    return this.commerce.createFabricInventory(storeId, body)
+  }
+
+  @Patch('production/fabrics/:id/stock')
+  updateFabricStock(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { delta?: number; quantity?: number },
+  ) {
+    return this.commerce.updateFabricStock(storeId, id, body)
+  }
+
+  @Post('production/batches')
+  createProductionBatch(
+    @Query('storeId') storeId: string,
+    @Body() body: { productName?: string; quantity?: number; notes?: string; tailorName?: string },
+  ) {
+    return this.commerce.createProductionBatch(storeId, body)
+  }
+
+  @Patch('production/batches/:id/status')
+  updateProductionBatchStatus(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Body() body: { status?: string },
+  ) {
+    return this.commerce.updateProductionBatchStatus(storeId, id, body)
   }
 
   @Get('delivery/agents')

@@ -233,6 +233,193 @@ export function createWarehouse(input: { name: string; code: string; city?: stri
   })
 }
 
+export function recordStockMovement(input: {
+  sku?: string
+  variantId?: string
+  delta: number
+  reason?: string
+  note?: string
+}) {
+  return apiFetch<{ movement: WmsMovement }>('/commerce-os/wms/movements', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function createStockTransfer(input: {
+  fromWarehouseId: string
+  toWarehouseId: string
+  sku: string
+  quantity: number
+  notes?: string
+}) {
+  return apiFetch<WmsTransfer>('/commerce-os/wms/transfers', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function shipStockTransfer(transferId: string) {
+  return apiFetch<{ transfer: WmsTransfer }>(`/commerce-os/wms/transfers/${transferId}/ship`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+export function receiveStockTransfer(transferId: string) {
+  return apiFetch<{ transfer: WmsTransfer }>(`/commerce-os/wms/transfers/${transferId}/receive`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+export function createDeliveryAgent(input: { name: string; phone: string; vehicleType?: string }) {
+  return apiFetch<DeliveryAgentRow>('/commerce-os/delivery/agents', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateDeliveryAgent(agentId: string, input: { isActive?: boolean; name?: string; vehicleType?: string }) {
+  return apiFetch<DeliveryAgentRow>(`/commerce-os/delivery/agents/${agentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function assignOrderToAgent(input: { orderId: string; agentId: string; earnings?: number }) {
+  return apiFetch<DeliveryAssignmentRow>('/commerce-os/delivery/assignments', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateDeliveryAssignmentStatus(assignmentId: string, status: string) {
+  return apiFetch<{ assignment: DeliveryAssignmentRow }>(
+    `/commerce-os/delivery/assignments/${assignmentId}/status`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+  )
+}
+
+export function createEmployee(input: {
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  position?: string
+  salary?: number
+  departmentId?: string
+}) {
+  return apiFetch<CompanyEmployee>('/commerce-os/company/employees', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateEmployee(
+  employeeId: string,
+  input: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+    position?: string
+    salary?: number
+    status?: string
+  },
+) {
+  return apiFetch<CompanyEmployee>(`/commerce-os/company/employees/${employeeId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function deactivateEmployee(employeeId: string) {
+  return apiFetch<CompanyEmployee>(`/commerce-os/company/employees/${employeeId}/deactivate`, {
+    method: 'PATCH',
+    body: JSON.stringify({}),
+  })
+}
+
+export function createCompanyTask(input: {
+  title: string
+  description?: string
+  priority?: string
+  dueDate?: string
+}) {
+  return apiFetch<CompanyTask>('/commerce-os/company/tasks', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateCompanyTaskStatus(taskId: string, status: string) {
+  return apiFetch<CompanyTask>(`/commerce-os/company/tasks/${taskId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
+export interface PayrollRunRow {
+  id: string
+  month: number
+  year: number
+  status: string
+  total: string | number
+  createdAt: string
+  _count?: { items: number }
+}
+
+export function fetchPayrollRuns() {
+  return apiFetch<PayrollRunRow[]>('/commerce-os/company/payroll/runs')
+}
+
+export function createPayrollRun(input: { month: number; year: number }) {
+  return apiFetch<PayrollRunRow>('/commerce-os/company/payroll/runs', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function createFabricInventory(input: {
+  name: string
+  color?: string
+  quantity?: number
+  unit?: string
+  costPerUnit?: number
+}) {
+  return apiFetch<FabricRow>('/commerce-os/production/fabrics', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateFabricStock(fabricId: string, input: { delta?: number; quantity?: number }) {
+  return apiFetch<FabricRow>(`/commerce-os/production/fabrics/${fabricId}/stock`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function createProductionBatch(input: {
+  productName: string
+  quantity: number
+  notes?: string
+  tailorName?: string
+}) {
+  return apiFetch<ProductionBatch>('/commerce-os/production/batches', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateProductionBatchStatus(batchId: string, status: string) {
+  return apiFetch<ProductionBatch>(`/commerce-os/production/batches/${batchId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
 export function replyHelpdeskTicket(ticketId: string, message: string) {
   return apiFetch<{ ok: boolean; ticketId: string }>(`/commerce-os/helpdesk/tickets/${ticketId}/reply`, {
     method: 'POST',

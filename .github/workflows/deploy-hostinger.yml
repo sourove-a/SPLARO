@@ -1,13 +1,16 @@
 name: Deploy Hostinger (Git)
 
-# Hostinger hPanel pulls main on push — npm install → npm run build → npm start
-# No SSH secrets. Smoke test confirms splaro.co + admin + API after build.
+# PRIMARY deploy path (VPS expired — deploy-vps.yml kept as secondary/manual).
+# Hostinger hPanel pulls main on push — npm install → npm run build → npm start.
+# This workflow does NOT deploy by itself; it verifies the hPanel deploy went live.
+# Runs after CI passes on main, or manually via workflow_dispatch.
 
 on:
   workflow_dispatch:
-  # Push disabled — SPLARO now deploys via deploy-vps.yml on VPS 194.238.24.155
-  # push:
-  #   branches: [main]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: deploy-hostinger-git
@@ -15,17 +18,17 @@ concurrency:
 
 jobs:
   hostinger-git-deploy:
+    # Manual runs always allowed; automatic runs only when CI succeeded.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-
       - name: Deploy info
         run: |
-          echo "Push to main → Hostinger hPanel auto-deploys (no SSH)"
-          echo "Build: npm run build → post-git-deploy.sh"
-          echo "Start: npm start → passenger-stack-app (web + api + proxy)"
-          echo "Commit: ${{ github.sha }}"
+          echo "Hostinger hPanel auto-deploys main on push (no SSH secrets needed)."
+          echo "Build: npm run build → scripts/hostinger-build.sh"
+          echo "Start: npm start → passenger-stack-app (proxy → web :3001 + api :4000 + admin :3002)"
+          echo "Trigger: ${{ github.event_name }}"
 
       - name: Wait for Hostinger build (up to 25 min)
         run: |
@@ -43,11 +46,14 @@ jobs:
             check web "https://splaro.co" && WEB_OK=1 || true
             check api "https://splaro.co/api/v1/health" && API_OK=1 || true
             check admin "https://admin.splaro.co/login" && ADMIN_OK=1 || true
-            [ "$WEB_OK" = "1" ] && [ "$API_OK" = "1" ] && [ "$ADMIN_OK" = "1" ] && exit 0
+            [ "$WEB_OK" = "1" ] && [ "$API_OK" = "1" ] && [ "$ADMIN_OK" = "1" ] && {
+              echo "✅ All three endpoints healthy — deploy verified."
+              exit 0
+            }
             sleep 30
           done
-          echo "::error::Live deploy not healthy after 25 minutes"
-          echo "hPanel → splaro.co → Deployments → latest build log"
+          echo "::error::Live deploy not healthy after 25 minutes — check hPanel deployment log"
+          echo "hPanel → splaro.co → Git Deployment → latest build log"
           echo "Or hPanel SSH Terminal (one-time):"
           echo "  bash ~/domains/splaro.co/public_html/.builds/source/repository/infrastructure/hostinger/splaro-start-services.sh"
           exit 1

@@ -30,12 +30,23 @@ export interface ProductCreateFormState {
   tags: string
   fitType: string
   occasion: string
+  careInstructions: string
+  season: string
   sizes: string
   metaTitle: string
   metaDescription: string
   isPublished: boolean
   status: string
   isHidden: boolean
+  isFeatured: boolean
+  isNewArrival: boolean
+  isBestSeller: boolean
+  weight: string
+  badge: string
+  rmCode: string
+  barcode: string
+  qrCode: string
+  publishAt: string
 }
 
 type ColorRow = { id: string; name: string; hex: string; imageUrl: string }
@@ -83,6 +94,14 @@ interface ProductCreateTabbedFormProps {
   headerSlot?: React.ReactNode
   /** Edit panel: publish toggle saves instantly via API */
   onInstantPublish?: (nextPublished: boolean) => void
+  /** Edit panel: generate storefront QR via API */
+  productId?: string
+  onGenerateBarcode?: () => void
+  barcodeGenerating?: boolean
+  barcodePreviewUrl?: string
+  onGenerateQr?: () => void
+  qrGenerating?: boolean
+  qrPreviewUrl?: string
 }
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
@@ -177,12 +196,23 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
     showVariantControls = true,
     headerSlot,
     onInstantPublish,
+    productId,
+    onGenerateBarcode,
+    barcodeGenerating = false,
+    barcodePreviewUrl,
+    onGenerateQr,
+    qrGenerating = false,
+    qrPreviewUrl,
   } = props
 
-  const tabs: { id: ProductCreateTab; label: string }[] = [
-    { id: 'basic', label: 'Basic' },
-    { id: 'details', label: 'Details' },
-    { id: 'seo', label: 'SEO & Meta' },
+  const showGenerateHint = Boolean(productId && (onGenerateBarcode || onGenerateQr))
+  const generateBtnClass =
+    'rounded-lg bg-[rgba(200,169,126,0.12)] px-3 py-2 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50 dark:text-[var(--admin-text-secondary)]'
+
+  const tabs: { id: ProductCreateTab; label: string; hint: string }[] = [
+    { id: 'basic', label: 'Basic & Pricing', hint: 'Name, descriptions, price' },
+    { id: 'details', label: 'Catalog & Inventory', hint: 'Fit, codes, variants' },
+    { id: 'seo', label: 'SEO & Publishing', hint: 'Meta, visibility, schedule' },
   ]
 
   return (
@@ -197,8 +227,9 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
             aria-selected={tab === t.id}
             className={cn('product-form-tabs__tab', tab === t.id && 'product-form-tabs__tab--active')}
             onClick={() => onTabChange(t.id)}
+            title={t.hint}
           >
-            {t.label}
+            <span className="block truncate">{t.label}</span>
           </button>
         ))}
       </div>
@@ -386,6 +417,119 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
               <FieldLabel>Occasion</FieldLabel>
               <input className="admin-input admin-input--premium" value={form.occasion} onChange={(e) => set('occasion', e.target.value)} placeholder="Eid, Wedding, Party…" />
             </label>
+            <label className="admin-field">
+              <FieldLabel>Season</FieldLabel>
+              <div className="admin-premium-select mt-1">
+                <select className="admin-premium-select__input" value={form.season} onChange={(e) => set('season', e.target.value)}>
+                  <option value="">All Season</option>
+                  <option>Summer</option>
+                  <option>Winter</option>
+                  <option>Eid</option>
+                  <option>Puja</option>
+                </select>
+              </div>
+            </label>
+            </div>
+            <label className="admin-field mt-3">
+              <FieldLabel>Care instructions</FieldLabel>
+              <input className="admin-input admin-input--premium" value={form.careInstructions} onChange={(e) => set('careInstructions', e.target.value)} placeholder="Hand wash cold, dry in shade…" />
+            </label>
+          </FormSection>
+
+          <FormSection title="Identifiers & logistics" hint="SKU-adjacent codes, weight for shipping, scheduled publish">
+            <div className="product-form-section__grid-2">
+              <label className="admin-field">
+                <FieldLabel>Weight (kg)</FieldLabel>
+                <input
+                  className="admin-input admin-input--premium"
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value={form.weight}
+                  onChange={(e) => set('weight', e.target.value)}
+                  placeholder="0.450"
+                />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>RM code</FieldLabel>
+                <input className="admin-input admin-input--premium" value={form.rmCode} onChange={(e) => set('rmCode', e.target.value)} placeholder="RM-2026-001" />
+              </label>
+              <label className="admin-field">
+                <FieldLabel>Card badge</FieldLabel>
+                <input className="admin-input admin-input--premium" value={form.badge} onChange={(e) => set('badge', e.target.value)} placeholder="Limited drop, Eid special…" />
+              </label>
+              <label className="admin-field md:col-span-2">
+                <FieldLabel>Barcode</FieldLabel>
+                <div className="flex flex-wrap items-start gap-2">
+                  <input
+                    className="admin-input admin-input--premium min-w-[200px] flex-1"
+                    value={form.barcode}
+                    onChange={(e) => set('barcode', e.target.value)}
+                    placeholder={productId ? 'Generate or paste data URL' : 'Manual entry'}
+                  />
+                  {productId && onGenerateBarcode ? (
+                    <button
+                      type="button"
+                      disabled={barcodeGenerating}
+                      onClick={onGenerateBarcode}
+                      className={generateBtnClass}
+                    >
+                      {barcodeGenerating ? 'Generating…' : 'Generate'}
+                    </button>
+                  ) : null}
+                </div>
+                {barcodePreviewUrl || (form.barcode.startsWith('data:image') ? form.barcode : '') ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={barcodePreviewUrl || form.barcode}
+                    alt="Barcode preview"
+                    className="mt-2 h-12 max-w-[220px] rounded border border-black/8 dark:border-white/10"
+                  />
+                ) : null}
+              </label>
+              <label className="admin-field md:col-span-2">
+                <FieldLabel>QR data URL</FieldLabel>
+                <div className="flex flex-wrap items-start gap-2">
+                  <input
+                    className="admin-input admin-input--premium min-w-[200px] flex-1"
+                    value={form.qrCode}
+                    onChange={(e) => set('qrCode', e.target.value)}
+                    placeholder={productId ? 'Generate or paste data URL' : 'Manual entry'}
+                  />
+                  {productId && onGenerateQr ? (
+                    <button
+                      type="button"
+                      disabled={qrGenerating}
+                      onClick={onGenerateQr}
+                      className={generateBtnClass}
+                    >
+                      {qrGenerating ? 'Generating…' : 'Generate'}
+                    </button>
+                  ) : null}
+                </div>
+                {qrPreviewUrl || (form.qrCode.startsWith('data:image') ? form.qrCode : '') ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={qrPreviewUrl || form.qrCode}
+                    alt="QR preview"
+                    className="mt-2 h-20 w-20 rounded border border-black/8 dark:border-white/10"
+                  />
+                ) : null}
+              </label>
+              {showGenerateHint ? (
+                <p className="md:col-span-2 text-[10px] font-semibold text-[var(--admin-text-muted)]">
+                  Generated locally — click Save to persist.
+                </p>
+              ) : null}
+              <label className="admin-field">
+                <FieldLabel>Publish at</FieldLabel>
+                <input
+                  className="admin-input admin-input--premium"
+                  type="datetime-local"
+                  value={form.publishAt}
+                  onChange={(e) => set('publishAt', e.target.value)}
+                />
+              </label>
             </div>
           </FormSection>
 
@@ -471,7 +615,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
           )}
 
           {showVariantControls !== false ? (
-          <FormSection title="Visibility">
+          <FormSection title="Publishing & visibility" hint="Draft, live, scheduled, hidden, merchandising flags">
           <div className="product-form-section__grid-2">
             <label className="admin-field">
               <FieldLabel>Status</FieldLabel>
@@ -482,6 +626,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
                 }}>
                   <option value="DRAFT">Draft</option>
                   <option value="PUBLISHED">Published</option>
+                  <option value="SCHEDULED">Scheduled</option>
                 </select>
               </div>
             </label>
@@ -494,6 +639,21 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
                 </select>
               </div>
             </label>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {[
+              { key: 'isFeatured' as const, label: 'Featured', desc: 'Featured section' },
+              { key: 'isNewArrival' as const, label: 'New Arrival', desc: 'New arrivals' },
+              { key: 'isBestSeller' as const, label: 'Best Seller', desc: 'Best sellers' },
+            ].map(({ key, label, desc }) => (
+              <AdminSwitchRow
+                key={key}
+                label={label}
+                desc={desc}
+                checked={form[key]}
+                onChange={() => set(key, !form[key])}
+              />
+            ))}
           </div>
           </FormSection>
           ) : null}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# SPLARO — block push when type-check or web lint would fail CI
+exec node "$(dirname "$0")/../scripts/pre-push.mjs"

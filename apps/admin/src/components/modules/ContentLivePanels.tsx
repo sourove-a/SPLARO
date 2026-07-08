@@ -17,7 +17,7 @@ import {
   Pencil,
   Video,
 } from 'lucide-react'
-import { AdminNavLink } from '@/components/layout/AdminNavLink'
+import { AdminLinkButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
@@ -47,7 +47,7 @@ function buildLandingContent(title: string, body: string) {
   return JSON.stringify({
     title,
     description: trimmed.slice(0, 160),
-    sections: [{ heading: title, body: trimmed || 'Content coming soon.' }],
+    sections: [{ heading: title, body: trimmed || '(Add landing page content)' }],
   })
 }
 
@@ -116,7 +116,7 @@ export function BlogPanelLive() {
       createLabel="Write post"
       onCreate={handleCreate}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tabs={tabs.map((t) => ({
         key: t.key,
         label: t.label,
@@ -207,7 +207,7 @@ export function LookbooksPanelLive() {
       createLabel="New lookbook"
       onCreate={handleCreate}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={BookOpen}
       tableTitle={`Lookbooks · ${filtered.length}`}
       footer="Collections used as editorial lookbooks"
@@ -277,7 +277,7 @@ export function ReelsPanelLive() {
       createLabel="Upload reel"
       onCreate={() => toast('Upload video banners via Media Library.', { icon: '🎬' })}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Video}
       tableTitle={`Reels & video · ${filtered.length}`}
       footer="Banner assets from database"
@@ -368,7 +368,7 @@ export function CmsPanelLive() {
       createLabel="New page"
       onCreate={() => toast('Static pages are storefront routes — use Blog for new content.', { icon: '📄' })}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={FileEdit}
       tableTitle={`CMS pages · ${filtered.length}`}
       footer="Static storefront routes + published blog posts"
@@ -412,16 +412,17 @@ export function CmsPanelLive() {
                 <tr className="bg-[var(--admin-surface-hover)]">
                   <td colSpan={6} className="!py-3">
                     <div className="flex flex-wrap gap-2">
-                      <AdminNavLink href={`https://splaro.co${p.slug}`} className="admin-btn !text-xs">
+                      <AdminLinkButton href={`https://splaro.co${p.slug}`} external size="sm">
                         <Eye className="h-3.5 w-3.5" /> View live
-                      </AdminNavLink>
+                      </AdminLinkButton>
                       {p.id.startsWith('static-') ? (
-                        <AdminNavLink
+                        <AdminLinkButton
                           href={`/dashboard/legal-pages?slug=${encodeURIComponent(p.slug.replace(/^\//, ''))}`}
-                          className="admin-btn admin-btn--gold !text-xs"
+                          variant="gold"
+                          size="sm"
                         >
                           <Pencil className="h-3.5 w-3.5" /> Edit in Legal Pages
-                        </AdminNavLink>
+                        </AdminLinkButton>
                       ) : null}
                     </div>
                   </td>
@@ -534,7 +535,7 @@ export function LandingPagesPanelLive() {
       createLabel="Create LP"
       onCreate={handleCreate}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('Export not available yet.')}
+      exportDisabled
       tableIcon={LayoutTemplate}
       tableTitle={`Landing pages · ${filtered.length}`}
       footer="Campaign URLs at /lp/your-slug on storefront"
@@ -674,14 +675,14 @@ export function HomePagePanelLive() {
       createLabel="Add section"
       onCreate={() => toast('Homepage sections are driven by banners, collections, and settings.', { icon: '🏠' })}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Home}
       tableTitle={`Homepage sections · ${filtered.length}`}
       footer="Derived from live banners, collections, and storefront settings"
       extraFilters={
-        <AdminNavLink href="https://splaro.co" className="admin-btn !text-xs">
+        <AdminLinkButton href="https://splaro.co" external size="sm">
           <ExternalLink className="h-3.5 w-3.5" /> Preview storefront
-        </AdminNavLink>
+        </AdminLinkButton>
       }
     >
       <table className="admin-module-table">
@@ -782,7 +783,7 @@ export function ThemeBuilderPanelLive() {
         createLabel="Edit in settings"
         onCreate={() => toast('Branding edits save in Storefront Settings.', { icon: '🎨' })}
         onRefresh={() => void refetch()}
-        onExport={() => toast.error('This action is not available yet — feature pending.')}
+        exportDisabled
         tableIcon={Palette}
         tableTitle="Live brand tokens"
         footer="From storefront settings API"
@@ -808,9 +809,9 @@ export function ThemeBuilderPanelLive() {
           </tbody>
         </table>
       </ModulePanelShell>
-      <AdminNavLink href="/dashboard/settings" className="admin-btn admin-btn--gold px-4 py-2 text-xs font-black">
+      <AdminLinkButton href="/dashboard/settings" variant="gold" size="sm">
         Open storefront settings
-      </AdminNavLink>
+      </AdminLinkButton>
     </div>
   )
 }

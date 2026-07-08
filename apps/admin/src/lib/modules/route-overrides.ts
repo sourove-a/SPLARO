@@ -32,9 +32,9 @@ const R: Record<string, RouteTemplate> = {
       { label: 'COD risk', value: 6, tone: 'warning' },
     ],
     records: [
-      { name: 'SPL-2026-001243 · Fatima A.', status: 'pending', updated: '5m ago', metric: '৳6,450 COD' },
-      { name: 'SPL-2026-001242 · Karim H.', status: 'active', updated: '12m ago', metric: '৳12,800 Paid' },
-      { name: 'SPL-2026-001241 · Nadia R.', status: 'active', updated: '28m ago', metric: 'Shipped' },
+      { name: 'SPL-1003 · COD pending', status: 'pending', updated: '5m ago', metric: '৳6,450 COD' },
+      { name: 'SPL-1002 · Paid', status: 'active', updated: '12m ago', metric: '৳12,800 Paid' },
+      { name: 'SPL-1001 · Shipped', status: 'active', updated: '28m ago', metric: 'Shipped' },
     ],
   },
   '/dashboard/products': {
@@ -83,8 +83,8 @@ const R: Record<string, RouteTemplate> = {
       { label: 'At risk', value: 24, tone: 'warning' },
     ],
     records: [
-      { name: 'Fatima Ahmed · Dhaka', status: 'active', updated: '2h ago', metric: '৳84K LTV' },
-      { name: 'Karim Hassan · Chittagong', status: 'active', updated: '4h ago', metric: '12 orders' },
+      { name: 'Customer · Dhaka', status: 'active', updated: '2h ago', metric: '৳84K LTV' },
+      { name: 'Customer · Chattogram', status: 'active', updated: '4h ago', metric: '12 orders' },
     ],
   },
   '/dashboard/campaigns': {

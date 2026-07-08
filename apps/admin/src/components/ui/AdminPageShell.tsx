@@ -2,11 +2,10 @@
 
 import Link from 'next/link'
 import { ChevronRight, Sparkles } from 'lucide-react'
-import { toastWarn } from '@/lib/admin/feedback'
 import { cn } from '@/lib/utils/cn'
 import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
-import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
-import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminLinkButton } from '@/components/ui/AdminButton'
+import { AdminEmptyState } from '@/components/ui/AdminUiPrimitives'
 
 export interface BreadcrumbItem {
   label: string
@@ -25,6 +24,9 @@ export interface QuickAction {
   href?: string
   onClick?: () => void
   variant?: 'default' | 'gold'
+  /** When true, chip is non-interactive with backend-missing styling. */
+  disabled?: boolean
+  disabledReason?: string
 }
 
 interface AdminPageShellProps {
@@ -59,9 +61,31 @@ function QuickActionChip({ action }: { action: QuickAction }) {
   const chipClass = cn(
     'admin-glass-chip active:scale-[0.98]',
     action.variant === 'gold' && 'admin-glass-chip--gold',
+    (action.disabled || (!action.href && !action.onClick)) &&
+      'pointer-events-none cursor-not-allowed opacity-55',
   )
 
   const icon = action.variant === 'gold' ? <Sparkles className="h-3 w-3 text-[var(--admin-accent)]" /> : null
+  const disabledReason =
+    action.disabledReason ?? 'Action not connected to backend'
+
+  if (action.disabled || (!action.href && !action.onClick)) {
+    return (
+      <span
+        className={cn(chipClass, 'admin-glass-chip--disabled flex flex-col items-start gap-0.5 py-2')}
+        title={disabledReason}
+        aria-disabled="true"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          {icon}
+          {action.label}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+          Not connected to backend
+        </span>
+      </span>
+    )
+  }
 
   if (action.href) {
     return (
@@ -79,14 +103,7 @@ function QuickActionChip({ action }: { action: QuickAction }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={
-        action.onClick ??
-        (() => toastWarn(`${action.label} opens soon.`, 'action-pending'))
-      }
-      className={chipClass}
-    >
+    <button type="button" onClick={action.onClick} className={chipClass}>
       {icon}
       {action.label}
     </button>
@@ -147,7 +164,7 @@ export function AdminPageShell({
       {kpis && kpis.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="admin-kpi rounded-[20px]">
+            <div key={kpi.label} className="admin-kpi">
               <p className="admin-kpi__label">{kpi.label}</p>
               <p className="admin-kpi__value">{kpi.value}</p>
               {kpi.change !== undefined ? (
@@ -176,24 +193,17 @@ export function AdminPageShell({
         </div>
       ) : null}
 
-      <div className="admin-module-body">
+      <div className="admin-module-body admin-page-enter">
         {empty ? (
-          <div className="admin-empty-state">
-            <SplaroAdminLogo variant="empty" className="mx-auto mb-4 opacity-80" />
-            <h2 className="text-base font-black text-[var(--admin-text)]">{emptyTitle ?? 'No data yet'}</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm font-semibold text-[var(--admin-text-secondary)]">
-              {emptyDescription ?? 'This module is ready. Data will appear here once configured.'}
-            </p>
-            <AdminButton
-              variant="gold"
-              className="mt-5"
-              onClick={() =>
-                toastWarn('Notifications are not wired yet — check back after module goes live.', 'notify-pending')
-              }
-            >
-              Notify me
-            </AdminButton>
-          </div>
+          <AdminEmptyState
+            title={emptyTitle ?? 'No data yet'}
+            description={emptyDescription ?? 'This module is ready. Data will appear here once configured.'}
+            action={
+              <AdminLinkButton href="/dashboard" variant="ghost">
+                Back to dashboard
+              </AdminLinkButton>
+            }
+          />
         ) : (
           children
         )}

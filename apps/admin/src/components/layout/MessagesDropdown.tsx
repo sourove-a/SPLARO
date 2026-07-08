@@ -44,12 +44,12 @@ export function MessagesDropdown() {
               </p>
               <div className="border-t border-[var(--admin-glass-border)] p-2">
                 <AdminNavLink
-                  href="/dashboard/support/live-chat"
+                  href="/dashboard/support/helpdesk"
                   onNavigate={() => setOpen(false)}
                   className="flex w-full items-center justify-center gap-2 rounded-[14px] py-2 text-xs font-black text-[var(--admin-text)] hover:bg-[var(--admin-surface-hover)]"
                 >
                   <Headphones className="h-3.5 w-3.5" />
-                  Open live chat
+                  Open helpdesk
                 </AdminNavLink>
               </div>
             </motion.div>

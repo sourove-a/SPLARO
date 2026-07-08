@@ -1,18 +1,23 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { Building2, Calendar, ClipboardList, FileText, Headphones, MessageCircle, Package, RefreshCw, Truck, Users, Wifi } from 'lucide-react'
+import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { ProcurementSubNav, ProductionSubNav } from '@/components/operations/ProcurementProductionNav'
 import { ApiOfflineBanner, ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
+import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
   useCustomers, useOrders, useSettings, useProcurementOverview,
   useHelpdeskOverview, useCompanyOverview, useProductionOverview,
   useReplyHelpdeskTicket,
   useDeliveryOverview, useCreateSupplier, useCreateSupportTicket, useCreatePurchaseOrder,
+  useReceiveGoodsGrn,
+  useCreateDeliveryAgent, useUpdateDeliveryAgent, useAssignOrderToAgent, useUpdateDeliveryAssignmentStatus,
+  useCreateEmployee, useUpdateEmployee, useDeactivateEmployee, useCreateCompanyTask, useUpdateCompanyTaskStatus,
+  usePayrollRuns, useCreatePayrollRun,
+  useCreateFabricInventory, useUpdateFabricStock, useCreateProductionBatch, useUpdateProductionBatchStatus,
 } from '@/lib/api/hooks'
 import { useTelegramIntegration } from '@/lib/api/integration-hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
@@ -76,9 +81,9 @@ function EmptyState({ icon: Icon, title, hint, action }: { icon: React.ElementTy
       <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{title}</p>
       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', maxWidth: 360, lineHeight: 1.5, margin: 0 }}>{hint}</p>
       {action && (
-        <a href={action.href} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 10, padding: '7px 18px', fontSize: 12, fontWeight: 800, textDecoration: 'none', marginTop: 4 }}>
+        <AdminLinkButton href={action.href} variant="gold" size="sm" className="mt-1">
           {action.label}
-        </a>
+        </AdminLinkButton>
       )}
     </div>
   )
@@ -106,17 +111,17 @@ function GlassTable({ title, icon: Icon, footer, children }: { title: string; ic
 
 function GoldBtn({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} style={{ background: disabled ? 'rgba(156,163,175,0.10)' : GOLD_LIGHT, border: `1px solid ${disabled ? 'rgba(156,163,175,0.30)' : GOLD_BORDER}`, color: disabled ? '#9CA3AF' : '#8B6914', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+    <AdminButton variant="gold" size="sm" onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </AdminButton>
   )
 }
 
 function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
-    <button type="button" onClick={onClick} style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.8)', color: 'var(--admin-text-secondary)', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+    <AdminButton variant="ghost" size="sm" onClick={onClick}>
       {children}
-    </button>
+    </AdminButton>
   )
 }
 
@@ -209,13 +214,13 @@ function LiveChatPanel() {
                   ? `Route inquiries to WhatsApp ${whatsapp} until web chat is enabled.`
                   : 'Add WhatsApp in Storefront Settings or connect Telegram for customer messaging.'}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 }}>
-            <Link href="/dashboard/telegram-bot" className="admin-catalog-action inline-flex items-center" style={{ padding: '7px 18px', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <AdminLinkButton href="/dashboard/telegram-bot" variant="ghost" size="sm">
               Telegram bot
-            </Link>
-            <Link href="/dashboard/all-integrations" className="admin-catalog-action inline-flex items-center" style={{ padding: '7px 18px', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>
+            </AdminLinkButton>
+            <AdminLinkButton href="/dashboard/all-integrations" variant="ghost" size="sm">
               All integrations
-            </Link>
+            </AdminLinkButton>
             </div>
           </div>
         </div>
@@ -234,7 +239,7 @@ function HelpdeskPanel() {
 
   const handleReply = (ticketId: string, subject: string) => {
     if (isOffline) {
-      toast.error('Helpdesk API offline.')
+      toastFail('Helpdesk API offline.')
       return
     }
     const message = window.prompt(`Reply to: ${subject}`)
@@ -243,23 +248,23 @@ function HelpdeskPanel() {
       { ticketId, message: message.trim() },
       {
         onSuccess: () => {
-          toast.success('Reply saved.')
+          toastOk('Reply saved.')
           void refetch()
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toastFail(e.message),
       },
     )
   }
 
   const handleCreateTicket = () => {
     if (isOffline) {
-      toast.error('Helpdesk API offline — start pnpm dev:api first.')
+      toastFail('Helpdesk API offline — start pnpm dev:api first.')
       return
     }
     const subject = window.prompt('Ticket subject')
     if (!subject?.trim()) return
     const message = window.prompt('Initial message (optional)') ?? undefined
-    createTicket.mutate({ subject: subject.trim(), ...(message?.trim() ? { message: message.trim() } : {}) }, { onSuccess: () => { toast.success('Support ticket created.'); void refetch() }, onError: (e) => toast.error(e.message) })
+    createTicket.mutate({ subject: subject.trim(), ...(message?.trim() ? { message: message.trim() } : {}) }, { onSuccess: () => { toastOk('Support ticket created.'); void refetch() }, onError: (e) => toastFail(e.message) })
   }
 
   const columns = useMemo(() => ({
@@ -407,10 +412,142 @@ function CompanyDashboardPanel() {
 
 // ─── Company lists ─────────────────────────────────────────────────────────────
 function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 'documents' }) {
-  const { data, isError } = useCompanyOverview()
+  const { data, isError, refetch } = useCompanyOverview()
+  const createEmployee = useCreateEmployee()
+  const updateEmployee = useUpdateEmployee()
+  const deactivateEmployee = useDeactivateEmployee()
+  const createTask = useCreateCompanyTask()
+  const updateTaskStatus = useUpdateCompanyTaskStatus()
+  const { data: payrollRuns = [], isLoading: payrollLoading } = usePayrollRuns()
+  const createPayrollRun = useCreatePayrollRun()
+
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false)
+  const [empFirst, setEmpFirst] = useState('')
+  const [empLast, setEmpLast] = useState('')
+  const [empPhone, setEmpPhone] = useState('')
+  const [empPosition, setEmpPosition] = useState('')
+  const [empSalary, setEmpSalary] = useState('')
+
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
+  const [editFirst, setEditFirst] = useState('')
+  const [editLast, setEditLast] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editPosition, setEditPosition] = useState('')
+  const [editSalary, setEditSalary] = useState('')
+
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskPriority, setTaskPriority] = useState('MEDIUM')
+
   const employees = data?.employees ?? []
   const tasks = data?.tasks ?? []
   const documents = data?.documents ?? []
+
+  const handleCreateEmployee = async () => {
+    if (!empFirst.trim() || !empLast.trim()) {
+      toastFail('First and last name are required.')
+      return
+    }
+    try {
+      await createEmployee.mutateAsync({
+        firstName: empFirst.trim(),
+        lastName: empLast.trim(),
+        ...(empPhone.trim() ? { phone: empPhone.trim() } : {}),
+        ...(empPosition.trim() ? { position: empPosition.trim() } : {}),
+        ...(empSalary ? { salary: Number(empSalary) || 0 } : {}),
+      })
+      toastOk('Employee created.')
+      setShowEmployeeForm(false)
+      setEmpFirst('')
+      setEmpLast('')
+      setEmpPhone('')
+      setEmpPosition('')
+      setEmpSalary('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create employee')
+    }
+  }
+
+  const handleDeactivate = async (id: string, name: string) => {
+    if (!window.confirm(`Deactivate ${name}?`)) return
+    try {
+      await deactivateEmployee.mutateAsync(id)
+      toastOk('Employee deactivated.')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not deactivate employee')
+    }
+  }
+
+  const startEditEmployee = (id: string, firstName: string, lastName: string, phone: string | null, position: string | null, salary: unknown) => {
+    setEditingEmployeeId(id)
+    setEditFirst(firstName)
+    setEditLast(lastName)
+    setEditPhone(phone ?? '')
+    setEditPosition(position ?? '')
+    setEditSalary(salary != null ? String(salary) : '')
+    setShowEmployeeForm(false)
+  }
+
+  const handleUpdateEmployee = async () => {
+    if (!editingEmployeeId) return
+    if (!editFirst.trim() || !editLast.trim()) {
+      toastFail('First and last name are required.')
+      return
+    }
+    try {
+      await updateEmployee.mutateAsync({
+        id: editingEmployeeId,
+        firstName: editFirst.trim(),
+        lastName: editLast.trim(),
+        ...(editPhone.trim() ? { phone: editPhone.trim() } : {}),
+        ...(editPosition.trim() ? { position: editPosition.trim() } : {}),
+        ...(editSalary ? { salary: Number(editSalary) || 0 } : {}),
+      })
+      toastOk('Employee updated.')
+      setEditingEmployeeId(null)
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update employee')
+    }
+  }
+
+  const handleCreateTask = async () => {
+    if (!taskTitle.trim()) {
+      toastFail('Task title is required.')
+      return
+    }
+    try {
+      await createTask.mutateAsync({ title: taskTitle.trim(), priority: taskPriority })
+      toastOk('Task created.')
+      setShowTaskForm(false)
+      setTaskTitle('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create task')
+    }
+  }
+
+  const handleTaskStatus = async (id: string, status: string) => {
+    try {
+      await updateTaskStatus.mutateAsync({ id, status })
+      toastOk('Task status updated.')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update task')
+    }
+  }
+
+  const handleCreatePayroll = async () => {
+    const now = new Date()
+    try {
+      const run = await createPayrollRun.mutateAsync({ month: now.getMonth() + 1, year: now.getFullYear() })
+      toastOk(`Payroll run created for ${run.month}/${run.year}.`)
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create payroll run')
+    }
+  }
 
   if (isError) return <ErrorBanner msg="Company OS API offline." />
 
@@ -418,12 +555,44 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
     return (
       <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <KpiRow items={[['Total', String(employees.length)], ['Active', String(employees.filter((e) => e.status === 'ACTIVE').length)], ['Departments', String(data?.departments.length ?? 0)], ['This month', '—']]} />
+        {showEmployeeForm ? (
+          <div className="admin-module-section">
+            <h4 className="admin-module-section__title">New employee</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <input className="admin-input admin-input--premium" placeholder="First name" value={empFirst} onChange={(e) => setEmpFirst(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Last name" value={empLast} onChange={(e) => setEmpLast(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Phone" value={empPhone} onChange={(e) => setEmpPhone(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Position" value={empPosition} onChange={(e) => setEmpPosition(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Salary (BDT)" value={empSalary} onChange={(e) => setEmpSalary(e.target.value)} />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <AdminButton variant="gold" loading={createEmployee.isPending} onClick={() => void handleCreateEmployee()}>Save employee</AdminButton>
+              <AdminButton variant="ghost" onClick={() => setShowEmployeeForm(false)}>Cancel</AdminButton>
+            </div>
+          </div>
+        ) : null}
+        {editingEmployeeId ? (
+          <div className="admin-module-section">
+            <h4 className="admin-module-section__title">Edit employee</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <input className="admin-input admin-input--premium" placeholder="First name" value={editFirst} onChange={(e) => setEditFirst(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Last name" value={editLast} onChange={(e) => setEditLast(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Position" value={editPosition} onChange={(e) => setEditPosition(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Salary (BDT)" value={editSalary} onChange={(e) => setEditSalary(e.target.value)} />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <AdminButton variant="gold" loading={updateEmployee.isPending} onClick={() => void handleUpdateEmployee()}>Save changes</AdminButton>
+              <AdminButton variant="ghost" onClick={() => setEditingEmployeeId(null)}>Cancel</AdminButton>
+            </div>
+          </div>
+        ) : null}
         {employees.length === 0 ? (
-          <EmptyState icon={Users} title="No employees added" hint="Add team members when HR records are created in Company OS." />
+          <EmptyState icon={Users} title="No employees added" hint="Add team members with the form below — saved to the database via API." />
         ) : (
           <GlassTable icon={Users} title={`Employees · ${employees.length}`}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr>{['ID', 'Name', 'Position', 'Phone', 'Status'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <thead><tr>{['ID', 'Name', 'Position', 'Phone', 'Status', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
               <tbody>
                 {employees.map((e) => (
                   <tr key={e.id}>
@@ -432,12 +601,23 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
                     <td style={{ ...TD, fontSize: 12 }}>{e.position ?? '—'}</td>
                     <td style={{ ...TD, fontSize: 12 }}>{e.phone ?? '—'}</td>
                     <td style={TD}><StatusPill value={e.status === 'ACTIVE' ? 'active' : 'inactive'} /></td>
+                    <td style={TD}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {e.status === 'ACTIVE' ? (
+                          <>
+                            <AdminButton variant="ghost" size="sm" onClick={() => startEditEmployee(e.id, e.firstName, e.lastName, e.phone, e.position, e.salary)}>Edit</AdminButton>
+                            <AdminButton variant="ghost" size="sm" loading={deactivateEmployee.isPending} onClick={() => void handleDeactivate(e.id, `${e.firstName} ${e.lastName}`)}>Deactivate</AdminButton>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </GlassTable>
         )}
+        <GoldBtn onClick={() => setShowEmployeeForm(true)}>Add employee</GoldBtn>
       </div>
     )
   }
@@ -446,21 +626,48 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
     return (
       <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <KpiRow items={[['Open', String(tasks.length)], ['High priority', String(tasks.filter((t) => t.priority === 'HIGH').length)], ['Due soon', '—'], ['Done', '0']]} />
+        {showTaskForm ? (
+          <div className="admin-module-section">
+            <h4 className="admin-module-section__title">New task</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <input className="admin-input admin-input--premium sm:col-span-2" placeholder="Task title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
+              <select className="admin-input admin-input--premium" value={taskPriority} onChange={(e) => setTaskPriority(e.target.value)}>
+                {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map((p) => (
+                  <option key={p} value={p}>{p.toLowerCase()}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <AdminButton variant="gold" loading={createTask.isPending} onClick={() => void handleCreateTask()}>Save task</AdminButton>
+              <AdminButton variant="ghost" onClick={() => setShowTaskForm(false)}>Cancel</AdminButton>
+            </div>
+          </div>
+        ) : null}
         {tasks.length === 0 ? (
-          <EmptyState icon={ClipboardList} title="Task board is empty" hint="Internal tasks appear when created in Company OS." />
+          <EmptyState icon={ClipboardList} title="Task board is empty" hint="Create internal tasks — saved via POST /commerce-os/company/tasks." />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {tasks.map((t) => (
-              <div key={t.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div key={t.id} className="settings-card admin-panel-glass-subtle" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-primary)', margin: 0 }}>{t.title}</p>
-                  <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>{t.dueDate ? t.dueDate.slice(0, 10) : 'No due date'}</p>
+                  <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>{t.dueDate ? t.dueDate.slice(0, 10) : 'No due date'} · {t.priority.toLowerCase()}</p>
                 </div>
-                <StatusPill value={t.status === 'DONE' ? 'success' : 'processing'} />
+                <select
+                  className="admin-input admin-input--premium text-xs"
+                  value={t.status}
+                  onChange={(e) => void handleTaskStatus(t.id, e.target.value)}
+                  disabled={updateTaskStatus.isPending}
+                >
+                  {['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'CANCELLED'].map((s) => (
+                    <option key={s} value={s}>{s.replace(/_/g, ' ').toLowerCase()}</option>
+                  ))}
+                </select>
               </div>
             ))}
           </div>
         )}
+        <GoldBtn onClick={() => setShowTaskForm(true)}>Add task</GoldBtn>
       </div>
     )
   }
@@ -487,14 +694,42 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
             </table>
           </GlassTable>
         )}
+        <AdminButton variant="ghost" disabled title="Backend not connected — document upload API not available">
+          Upload document
+        </AdminButton>
       </div>
     )
   }
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <KpiRow items={[['Payroll runs', '0'], ['Employees', String(employees.length)], ['This month', '—'], ['Pending', '0']]} />
-      <EmptyState icon={Calendar} title="No payroll runs yet" hint={`${employees.length} active employees — payroll processing UI coming soon. Partner withdrawals are in Finance.`} action={{ label: 'Partner Hub', href: '/dashboard/finance/partner-accounts' }} />
+      <KpiRow items={[['Payroll runs', payrollLoading ? '…' : String(payrollRuns.length)], ['Employees', String(employees.length)], ['This month', payrollRuns.some((r) => r.month === new Date().getMonth() + 1 && r.year === new Date().getFullYear()) ? 'Created' : '—'], ['Pending', String(payrollRuns.filter((r) => r.status === 'DRAFT').length)]]} />
+      {payrollRuns.length === 0 ? (
+        <EmptyState icon={Calendar} title="No payroll runs yet" hint={`${employees.filter((e) => e.status === 'ACTIVE').length} active employees — create a draft payroll run for this month.`} />
+      ) : (
+        <GlassTable icon={Calendar} title={`Payroll runs · ${payrollRuns.length}`}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr>{['Period', 'Status', 'Total', 'Employees', 'Created'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <tbody>
+              {payrollRuns.map((r) => (
+                <tr key={r.id}>
+                  <td style={{ ...TD, fontWeight: 700 }}>{r.month}/{r.year}</td>
+                  <td style={TD}><StatusPill value={r.status === 'PAID' ? 'success' : 'processing'} /></td>
+                  <td style={TD}>{formatBDT(Number(r.total))}</td>
+                  <td style={TD}>{r._count?.items ?? '—'}</td>
+                  <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{formatRelativeTime(r.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </GlassTable>
+      )}
+      <GoldBtn onClick={() => void handleCreatePayroll()} disabled={createPayrollRun.isPending || employees.filter((e) => e.status === 'ACTIVE').length === 0}>
+        {createPayrollRun.isPending ? 'Creating…' : 'Create this month payroll run'}
+      </GoldBtn>
+      <AdminButton variant="ghost" disabled title="Backend not connected — payroll approve/pay API not available">
+        Approve / pay run
+      </AdminButton>
     </div>
   )
 }
@@ -503,6 +738,19 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
 function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
   const { data: ordersData, isError: ordersError } = useOrders({ limit: 100 })
   const { data, isError, isLoading, refetch } = useDeliveryOverview()
+  const createAgent = useCreateDeliveryAgent()
+  const updateAgent = useUpdateDeliveryAgent()
+  const assignOrder = useAssignOrderToAgent()
+  const updateAssignment = useUpdateDeliveryAssignmentStatus()
+
+  const [showAgentForm, setShowAgentForm] = useState(false)
+  const [agentName, setAgentName] = useState('')
+  const [agentPhone, setAgentPhone] = useState('')
+  const [agentVehicle, setAgentVehicle] = useState('')
+
+  const [assignOrderId, setAssignOrderId] = useState('')
+  const [assignAgentId, setAssignAgentId] = useState('')
+
   const orders = ordersData?.orders ?? []
   const agents = data?.agents ?? []
   const assignments = data?.assignments ?? []
@@ -515,16 +763,78 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
 
   if (isError || ordersError) return <ErrorBanner />
 
+  const handleCreateAgent = async () => {
+    if (!agentName.trim() || !agentPhone.trim()) {
+      toastFail('Name and phone are required.')
+      return
+    }
+    try {
+      await createAgent.mutateAsync({
+        name: agentName.trim(),
+        phone: agentPhone.trim(),
+        ...(agentVehicle.trim() ? { vehicleType: agentVehicle.trim() } : {}),
+      })
+      toastOk('Delivery agent created.')
+      setShowAgentForm(false)
+      setAgentName('')
+      setAgentPhone('')
+      setAgentVehicle('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create agent')
+    }
+  }
+
+  const handleAssign = async () => {
+    if (!assignOrderId || !assignAgentId) {
+      toastFail('Select an order and agent.')
+      return
+    }
+    try {
+      await assignOrder.mutateAsync({ orderId: assignOrderId, agentId: assignAgentId })
+      toastOk('Order assigned to agent.')
+      setAssignOrderId('')
+      setAssignAgentId('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not assign order')
+    }
+  }
+
+  const handleAssignmentStatus = async (id: string, status: string) => {
+    try {
+      await updateAssignment.mutateAsync({ id, status })
+      toastOk('Assignment status updated.')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update status')
+    }
+  }
+
   if (kind === 'agents') {
     return (
       <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <KpiRow items={[['Courier agents', String(agents.length)], ['On delivery', String(assignments.filter((a) => a.status === 'IN_TRANSIT' || a.status === 'PICKED_UP').length)], ['Awaiting pickup', String(unassigned.length)], ['COD delivered', formatBDT(codCollected)]]} />
+        {showAgentForm ? (
+          <div className="admin-module-section">
+            <h4 className="admin-module-section__title">New delivery agent</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <input className="admin-input admin-input--premium" placeholder="Name" value={agentName} onChange={(e) => setAgentName(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Phone" value={agentPhone} onChange={(e) => setAgentPhone(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Vehicle (bike/van)" value={agentVehicle} onChange={(e) => setAgentVehicle(e.target.value)} />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <AdminButton variant="gold" loading={createAgent.isPending} onClick={() => void handleCreateAgent()}>Save agent</AdminButton>
+              <AdminButton variant="ghost" onClick={() => setShowAgentForm(false)}>Cancel</AdminButton>
+            </div>
+          </div>
+        ) : null}
         {agents.length === 0 ? (
-          <EmptyState icon={Truck} title="No delivery agents in system" hint={`${inTransit.length} orders in transit — add riders in Company OS or book via courier hub.`} action={{ label: 'Courier hub', href: '/dashboard/courier-hub' }} />
+          <EmptyState icon={Truck} title="No delivery agents in system" hint="Add riders here — saved via POST /commerce-os/delivery/agents." action={{ label: 'Courier hub', href: '/dashboard/courier-hub' }} />
         ) : (
           <GlassTable icon={Truck} title={`Agents · ${agents.length}`}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr>{['Name', 'Phone', 'Vehicle', 'Assignments', 'Earned', 'Status'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <thead><tr>{['Name', 'Phone', 'Vehicle', 'Assignments', 'Earned', 'Status', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
               <tbody>
                 {agents.map((a) => (
                   <tr key={a.id}>
@@ -534,12 +844,31 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
                     <td style={TD}>{a._count?.assignments ?? 0}</td>
                     <td style={TD}>{formatBDT(Number(a.totalEarned))}</td>
                     <td style={TD}><StatusPill value={a.isActive ? 'active' : 'inactive'} /></td>
+                    <td style={TD}>
+                      <AdminButton
+                        variant="ghost"
+                        size="sm"
+                        loading={updateAgent.isPending}
+                        onClick={() =>
+                          void updateAgent.mutateAsync(
+                            { id: a.id, isActive: !a.isActive },
+                            {
+                              onSuccess: () => toastOk(a.isActive ? 'Agent deactivated.' : 'Agent activated.'),
+                              onError: (e) => toastFail(e.message),
+                            },
+                          )
+                        }
+                      >
+                        {a.isActive ? 'Deactivate' : 'Activate'}
+                      </AdminButton>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </GlassTable>
         )}
+        <GoldBtn onClick={() => setShowAgentForm(true)}>Add agent</GoldBtn>
       </div>
     )
   }
@@ -549,6 +878,28 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <KpiRow items={[['Unassigned', String(unassigned.length)], ['Out for delivery', String(inTransit.length)], ['Delivered today', String(deliveredToday.length)], ['Failed / returned', String(failed.length)]]} />
+      {agents.length > 0 && unassigned.length > 0 ? (
+        <div className="admin-module-section">
+          <h4 className="admin-module-section__title">Assign order to agent</h4>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <select className="admin-input admin-input--premium" value={assignOrderId} onChange={(e) => setAssignOrderId(e.target.value)}>
+              <option value="">Select order…</option>
+              {unassigned.map((o) => (
+                <option key={o.id} value={o.id}>{o.invoiceNumber} · {o.shippingName}</option>
+              ))}
+            </select>
+            <select className="admin-input admin-input--premium" value={assignAgentId} onChange={(e) => setAssignAgentId(e.target.value)}>
+              <option value="">Select agent…</option>
+              {agents.filter((a) => a.isActive).map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-3">
+            <AdminButton variant="gold" loading={assignOrder.isPending} onClick={() => void handleAssign()}>Assign order</AdminButton>
+          </div>
+        </div>
+      ) : null}
       <GlassTable icon={Package} title="Assignment queue · live API" footer={<GhostBtn onClick={() => void refetch()}><RefreshCw style={{ width: 12, height: 12 }} /> Refresh</GhostBtn>}>
         {isLoading ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading…</p>
@@ -556,13 +907,13 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
           <EmptyState icon={Truck} title="No shipments to assign" hint="All confirmed orders are booked or delivered." action={{ label: 'View orders', href: '/dashboard/orders' }} />
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>{['Invoice', 'Customer', 'City', 'Agent', 'Total', 'Status'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Invoice', 'Customer', 'City', 'Agent', 'Total', 'Status', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
             <tbody>
               {queue.slice(0, 15).map((a) => (
                 <tr key={a.id}>
                   <td style={TD}>
                     {a.order ? (
-                      <a href={`/dashboard/orders/${a.order.id}`} style={{ fontWeight: 800, color: GOLD, textDecoration: 'underline', fontSize: 13 }}>{a.order.invoiceNumber}</a>
+                      <a href={`/dashboard/orders/${a.order.invoiceNumber}`} style={{ fontWeight: 800, color: GOLD, textDecoration: 'underline', fontSize: 13 }}>{a.order.invoiceNumber}</a>
                     ) : '—'}
                   </td>
                   <td style={TD}>{a.order?.shippingName ?? '—'}</td>
@@ -570,6 +921,20 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
                   <td style={{ ...TD, fontSize: 12 }}>{a.agent.name}</td>
                   <td style={TD}>{a.order ? formatBDT(Number(a.order.total)) : '—'}</td>
                   <td style={TD}><StatusPill value={a.status.toLowerCase().replace(/_/g, ' ')} /></td>
+                  <td style={TD}>
+                    {'status' in a && a.status !== 'UNASSIGNED' && assignments.some((x) => x.id === a.id) ? (
+                      <select
+                        className="admin-input admin-input--premium text-xs"
+                        value={a.status}
+                        onChange={(e) => void handleAssignmentStatus(a.id, e.target.value)}
+                        disabled={updateAssignment.isPending}
+                      >
+                        {['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'FAILED', 'CANCELLED'].map((s) => (
+                          <option key={s} value={s}>{s.replace(/_/g, ' ').toLowerCase()}</option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -613,10 +978,12 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
   const { data, isError, isLoading, refetch } = useProcurementOverview()
   const createSupplier = useCreateSupplier()
   const createPurchaseOrder = useCreatePurchaseOrder()
+  const receiveGrn = useReceiveGoodsGrn()
   const suppliers = data?.suppliers ?? []
   const orders = data?.orders ?? []
   const grns = data?.grns ?? []
   const openPos = orders.filter((o) => !['COMPLETED', 'CANCELLED'].includes(o.status)).length
+  const pendingReceive = orders.filter((o) => !['RECEIVED', 'COMPLETED', 'CANCELLED'].includes(o.status))
 
   const [showCreatePo, setShowCreatePo] = useState(false)
   const [poSupplierId, setPoSupplierId] = useState('')
@@ -635,7 +1002,7 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
 
   const handleCreatePo = () => {
     if (!poSupplierId) {
-      toast.error('Select a supplier first.')
+      toastFail('Select a supplier first.')
       return
     }
     const items = poItems
@@ -651,7 +1018,7 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
       .filter((row) => row.productName && row.quantity > 0)
 
     if (!items.length) {
-      toast.error('Add at least one line item with name, quantity, and unit cost.')
+      toastFail('Add at least one line item with name, quantity, and unit cost.')
       return
     }
 
@@ -663,14 +1030,14 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
       },
       {
         onSuccess: (po) => {
-          toast.success(`Purchase order ${po.poNumber} created.`)
+          toastOk(`Purchase order ${po.poNumber} created.`)
           setShowCreatePo(false)
           setPoSupplierId('')
           setPoNotes('')
           setPoItems([{ productName: '', sku: '', quantity: '1', unitCost: '' }])
           void refetch()
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => toastFail(e.message),
       },
     )
   }
@@ -682,12 +1049,26 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
     '/dashboard/procurement/goods-received': isLoading ? 'loading' : isError ? 'down' : 'ok',
   }
 
+  const handleReceiveGrn = async (purchaseOrderId: string, poNumber: string) => {
+    if (!window.confirm(`Receive goods for ${poNumber}? Stock will update for line items with SKUs.`)) return
+    try {
+      const result = await receiveGrn.mutateAsync({ purchaseOrderId })
+      toastOk(`GRN ${result.grn.grnNumber} recorded — PO ${result.purchaseOrder.poNumber} marked received.`)
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not receive goods')
+    }
+  }
+
   const handleCreateSupplier = () => {
     const name = window.prompt('Supplier name')
     if (!name?.trim()) return
     const phone = window.prompt('Phone (optional)') ?? undefined
     const email = window.prompt('Email (optional)') ?? undefined
-    createSupplier.mutate({ name: name.trim(), ...(phone?.trim() ? { phone: phone.trim() } : {}), ...(email?.trim() ? { email: email.trim() } : {}) }, { onSuccess: () => toast.success('Supplier created.'), onError: (e) => toast.error(e.message) })
+    createSupplier.mutate(
+      { name: name.trim(), ...(phone?.trim() ? { phone: phone.trim() } : {}), ...(email?.trim() ? { email: email.trim() } : {}) },
+      { onSuccess: () => toastOk('Supplier created.'), onError: (e) => toastFail(e.message) },
+    )
   }
 
   if (isError) {
@@ -755,9 +1136,37 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
   if (moduleHref === '/dashboard/procurement/goods-received') {
     return (
       <ProcurementShell moduleHref={moduleHref} title="Goods Received" subtitle="GRN records from purchase orders." statusByHref={statusByHref}>
-        <KpiRow items={[['GRNs', String(grns.length)], ['This month', String(grns.length)], ['Pending QC', '0'], ['Suppliers', String(suppliers.length)]]} />
+        <KpiRow items={[['GRNs', String(grns.length)], ['Pending receive', String(pendingReceive.length)], ['Suppliers', String(suppliers.length)], ['Open POs', String(openPos)]]} />
+        {pendingReceive.length > 0 ? (
+          <div className="admin-module-section" style={{ marginBottom: 14 }}>
+            <h4 className="admin-module-section__title">Pending receive · {pendingReceive.length}</h4>
+            <p className="admin-module-section__hint" style={{ fontSize: 12, color: 'var(--admin-text-muted)', marginBottom: 8 }}>
+              Full PO receive only. Variant stock increases for line items with matching product SKUs — lines without SKU are not stocked.
+            </p>
+            <GlassTable icon={Package} title="Purchase orders awaiting GRN">
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr>{['PO', 'Supplier', 'Items', 'Status', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {pendingReceive.map((o) => (
+                    <tr key={o.id}>
+                      <td style={{ ...TD, fontFamily: 'monospace', fontSize: 12, fontWeight: 800, color: GOLD }}>{o.poNumber}</td>
+                      <td style={TD}>{o.supplier.name}</td>
+                      <td style={TD}>{o.items?.length ?? 0}</td>
+                      <td style={TD}><StatusPill value={o.status === 'COMPLETED' ? 'success' : o.status === 'CANCELLED' ? 'cancelled' : 'processing'} /></td>
+                      <td style={TD}>
+                        <AdminButton variant="gold" size="sm" loading={receiveGrn.isPending} onClick={() => void handleReceiveGrn(o.id, o.poNumber)}>
+                          Receive goods
+                        </AdminButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </GlassTable>
+          </div>
+        ) : null}
         {grns.length === 0 ? (
-          <EmptyState icon={Package} title="No goods received notes" hint="GRNs appear when purchase orders are received into warehouse." />
+          <EmptyState icon={Package} title="No goods received notes" hint="GRNs appear when purchase orders are received into warehouse." action={{ label: 'Purchase orders', href: '/dashboard/procurement/purchase-orders' }} />
         ) : (
           <GlassTable icon={Package} title={`GRNs · ${grns.length}`}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -790,7 +1199,7 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
       ) : (
         <GlassTable icon={Package} title={`Purchase orders · ${orders.length}`}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>{['PO', 'Supplier', 'Items', 'Total', 'Status', 'Created'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <thead><tr>{['PO', 'Supplier', 'Items', 'Total', 'Status', 'Created', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
@@ -800,6 +1209,13 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
                   <td style={TD}>{formatBDT(Number(o.total))}</td>
                   <td style={TD}><StatusPill value={o.status === 'COMPLETED' ? 'success' : o.status === 'CANCELLED' ? 'cancelled' : 'processing'} /></td>
                   <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{formatRelativeTime(o.createdAt)}</td>
+                  <td style={TD}>
+                    {!['RECEIVED', 'COMPLETED', 'CANCELLED'].includes(o.status) ? (
+                      <AdminButton variant="gold" size="sm" loading={receiveGrn.isPending} onClick={() => void handleReceiveGrn(o.id, o.poNumber)}>
+                        Receive goods
+                      </AdminButton>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -860,9 +1276,9 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
             </GoldBtn>
             <GhostBtn onClick={() => setShowCreatePo(false)}>Cancel</GhostBtn>
             {suppliers.length === 0 ? (
-              <Link href="/dashboard/procurement/suppliers" className="text-xs font-bold text-amber-700 underline dark:text-amber-300">
+              <AdminLinkButton href="/dashboard/procurement/suppliers" variant="ghost" size="sm">
                 Add a supplier first →
-              </Link>
+              </AdminLinkButton>
             ) : null}
           </div>
         </div>
@@ -908,8 +1324,96 @@ function ProductionShell({
 
 function ProductionPanel({ moduleHref }: { moduleHref: string }) {
   const { data, isError, isLoading, refetch } = useProductionOverview()
+  const createFabric = useCreateFabricInventory()
+  const updateFabricStock = useUpdateFabricStock()
+  const createBatch = useCreateProductionBatch()
+  const updateBatchStatus = useUpdateProductionBatchStatus()
   const fabrics = data?.fabrics ?? []
   const batches = data?.batches ?? []
+
+  const [showFabricForm, setShowFabricForm] = useState(false)
+  const [fabricName, setFabricName] = useState('')
+  const [fabricColor, setFabricColor] = useState('')
+  const [fabricQty, setFabricQty] = useState('')
+
+  const [adjustFabricId, setAdjustFabricId] = useState<string | null>(null)
+  const [fabricDelta, setFabricDelta] = useState('')
+
+  const [showBatchForm, setShowBatchForm] = useState(false)
+  const [batchName, setBatchName] = useState('')
+  const [batchQty, setBatchQty] = useState('')
+
+  const handleCreateFabric = async () => {
+    if (!fabricName.trim()) {
+      toastFail('Fabric name is required.')
+      return
+    }
+    try {
+      await createFabric.mutateAsync({
+        name: fabricName.trim(),
+        ...(fabricColor.trim() ? { color: fabricColor.trim() } : {}),
+        quantity: Number(fabricQty) || 0,
+      })
+      toastOk('Fabric inventory item created.')
+      setShowFabricForm(false)
+      setFabricName('')
+      setFabricColor('')
+      setFabricQty('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create fabric')
+    }
+  }
+
+  const handleFabricAdjust = async () => {
+    if (!adjustFabricId) return
+    const delta = Number(fabricDelta)
+    if (!Number.isFinite(delta) || delta === 0) {
+      toastFail('Enter a non-zero delta (+ inbound, − outbound meters).')
+      return
+    }
+    try {
+      await updateFabricStock.mutateAsync({ id: adjustFabricId, delta })
+      toastOk('Fabric stock updated.')
+      setAdjustFabricId(null)
+      setFabricDelta('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update fabric stock')
+    }
+  }
+
+  const handleCreateBatch = async () => {
+    const qty = Number(batchQty)
+    if (!batchName.trim()) {
+      toastFail('Product name is required.')
+      return
+    }
+    if (!Number.isInteger(qty) || qty <= 0) {
+      toastFail('Quantity must be a positive integer.')
+      return
+    }
+    try {
+      await createBatch.mutateAsync({ productName: batchName.trim(), quantity: qty })
+      toastOk('Production batch created.')
+      setShowBatchForm(false)
+      setBatchName('')
+      setBatchQty('')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create batch')
+    }
+  }
+
+  const handleBatchStatus = async (id: string, status: string) => {
+    try {
+      await updateBatchStatus.mutateAsync({ id, status })
+      toastOk('Batch status updated.')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update batch status')
+    }
+  }
 
   const statusByHref: Record<string, 'ok' | 'warn' | 'down' | 'loading'> = {
     '/dashboard/production/overview': isLoading ? 'loading' : isError ? 'down' : 'ok',
@@ -928,12 +1432,39 @@ function ProductionPanel({ moduleHref }: { moduleHref: string }) {
     return (
       <ProductionShell moduleHref={moduleHref} title="Fabric Inventory" subtitle="Fabric rolls & usage from API." statusByHref={statusByHref}>
         <KpiRow items={[['Fabric types', String(fabrics.length)], ['Total meters', fabrics.reduce((s, f) => s + Number(f.quantity), 0).toFixed(1)], ['Batches', String(batches.length)], ['In production', String(batches.filter((b) => !['READY', 'CANCELLED'].includes(b.status)).length)]]} />
+        {showFabricForm ? (
+          <div className="admin-module-section" style={{ marginBottom: 14 }}>
+            <h4 className="admin-module-section__title">Add fabric</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <input className="admin-input admin-input--premium" placeholder="Name" value={fabricName} onChange={(e) => setFabricName(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Color" value={fabricColor} onChange={(e) => setFabricColor(e.target.value)} />
+              <input className="admin-input admin-input--premium" placeholder="Quantity (meters)" value={fabricQty} onChange={(e) => setFabricQty(e.target.value)} />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <AdminButton variant="gold" loading={createFabric.isPending} onClick={() => void handleCreateFabric()}>Save fabric</AdminButton>
+              <AdminButton variant="ghost" onClick={() => setShowFabricForm(false)}>Cancel</AdminButton>
+            </div>
+          </div>
+        ) : null}
+        {adjustFabricId ? (
+          <div className="admin-module-section" style={{ marginBottom: 14 }}>
+            <h4 className="admin-module-section__title">Adjust stock — {fabrics.find((f) => f.id === adjustFabricId)?.name ?? 'Fabric'}</h4>
+            <p className="admin-module-section__hint" style={{ fontSize: 12, color: 'var(--admin-text-muted)', marginBottom: 8 }}>
+              Delta in meters (+ add, − remove). Saved via PATCH /commerce-os/production/fabrics/:id/stock.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <input className="admin-input admin-input--premium w-40" placeholder="Delta (e.g. 10 or -5)" value={fabricDelta} onChange={(e) => setFabricDelta(e.target.value)} />
+              <AdminButton variant="gold" loading={updateFabricStock.isPending} onClick={() => void handleFabricAdjust()}>Apply</AdminButton>
+              <AdminButton variant="ghost" onClick={() => { setAdjustFabricId(null); setFabricDelta('') }}>Cancel</AdminButton>
+            </div>
+          </div>
+        ) : null}
         {fabrics.length === 0 ? (
-          <EmptyState icon={Package} title="No fabric inventory" hint="Fabric rolls are tracked in the production module." action={{ label: 'WMS', href: '/dashboard/wms/overview' }} />
+          <EmptyState icon={Package} title="No fabric inventory" hint="Add fabric rolls — saved via POST /commerce-os/production/fabrics." action={{ label: 'WMS', href: '/dashboard/wms/overview' }} />
         ) : (
           <GlassTable icon={Package} title={`Fabric inventory · ${fabrics.length}`}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead><tr>{['Fabric', 'Color', 'Qty', 'Unit', 'Cost/unit'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <thead><tr>{['Fabric', 'Color', 'Qty', 'Unit', 'Cost/unit', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
               <tbody>
                 {fabrics.map((f) => (
                   <tr key={f.id}>
@@ -942,12 +1473,16 @@ function ProductionPanel({ moduleHref }: { moduleHref: string }) {
                     <td style={{ ...TD, fontWeight: 800 }}>{Number(f.quantity)}</td>
                     <td style={{ ...TD, fontSize: 12 }}>{f.unit}</td>
                     <td style={TD}>{formatBDT(Number(f.costPerUnit))}</td>
+                    <td style={TD}>
+                      <AdminButton variant="ghost" size="sm" onClick={() => { setAdjustFabricId(f.id); setFabricDelta('') }}>Adjust</AdminButton>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </GlassTable>
         )}
+        <GoldBtn onClick={() => setShowFabricForm(true)}>Add fabric</GoldBtn>
       </ProductionShell>
     )
   }
@@ -955,26 +1490,54 @@ function ProductionPanel({ moduleHref }: { moduleHref: string }) {
   return (
     <ProductionShell moduleHref={moduleHref} title="Production Overview" subtitle="Fashion production pipeline — live batches." statusByHref={statusByHref}>
       <KpiRow items={[['Batches', isLoading ? '…' : String(batches.length)], ['In progress', String(batches.filter((b) => !['READY', 'CANCELLED'].includes(b.status)).length)], ['Ready', String(batches.filter((b) => b.status === 'READY').length)], ['Fabric types', String(fabrics.length)]]} />
+      {showBatchForm ? (
+        <div className="admin-module-section" style={{ marginBottom: 14 }}>
+          <h4 className="admin-module-section__title">New production batch</h4>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <input className="admin-input admin-input--premium" placeholder="Product name" value={batchName} onChange={(e) => setBatchName(e.target.value)} />
+            <input className="admin-input admin-input--premium" placeholder="Quantity" value={batchQty} onChange={(e) => setBatchQty(e.target.value)} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <AdminButton variant="gold" loading={createBatch.isPending} onClick={() => void handleCreateBatch()}>Create batch</AdminButton>
+            <AdminButton variant="ghost" onClick={() => setShowBatchForm(false)}>Cancel</AdminButton>
+          </div>
+        </div>
+      ) : null}
       {batches.length === 0 ? (
-        <EmptyState icon={Package} title="No production batches" hint="Production orders appear when manufacturing runs are scheduled." action={{ label: 'Fabric inventory', href: '/dashboard/production/fabric-inventory' }} />
+        <EmptyState icon={Package} title="No production batches" hint="Create batches via POST /commerce-os/production/batches." action={{ label: 'Fabric inventory', href: '/dashboard/production/fabric-inventory' }} />
       ) : (
         <GlassTable icon={Package} title={`Batches · ${batches.length}`}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>{['Product', 'Qty', 'Status', 'Created'].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Product', 'Qty', 'Status', 'Created', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
             <tbody>
               {batches.map((b) => (
                 <tr key={b.id}>
                   <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{b.productName}</td>
                   <td style={TD}>{b.quantity}</td>
-                  <td style={TD}><StatusPill value={b.status === 'READY' ? 'success' : 'processing'} /></td>
+                  <td style={TD}>
+                    <select
+                      className="admin-input admin-input--premium text-xs"
+                      value={b.status}
+                      onChange={(e) => void handleBatchStatus(b.id, e.target.value)}
+                      disabled={updateBatchStatus.isPending}
+                    >
+                      {['PENDING', 'CUTTING', 'SEWING', 'FINISHING', 'QC', 'READY', 'CANCELLED'].map((s) => (
+                        <option key={s} value={s}>{s.toLowerCase()}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{formatRelativeTime(b.createdAt)}</td>
+                  <td style={TD} />
                 </tr>
               ))}
             </tbody>
           </table>
         </GlassTable>
       )}
-      <GhostBtn onClick={() => void refetch()}><RefreshCw style={{ width: 12, height: 12 }} /> Refresh</GhostBtn>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <GoldBtn onClick={() => setShowBatchForm(true)}>Create batch</GoldBtn>
+        <GhostBtn onClick={() => void refetch()}><RefreshCw style={{ width: 12, height: 12 }} /> Refresh</GhostBtn>
+      </div>
     </ProductionShell>
   )
 }

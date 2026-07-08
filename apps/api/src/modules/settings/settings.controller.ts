@@ -322,9 +322,9 @@ export class SettingsController {
               customerStories: {
                 ...currentConfig.ourStory!.customerStories,
                 ...body.ourStory.customerStories,
-                stories: body.ourStory.customerStories?.stories?.length
-                  ? body.ourStory.customerStories.stories
-                  : currentConfig.ourStory!.customerStories.stories,
+                stories: [],
+                rating: '',
+                hint: '',
               },
             },
           }

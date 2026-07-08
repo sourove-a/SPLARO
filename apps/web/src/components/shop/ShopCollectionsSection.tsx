@@ -3,10 +3,16 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
-import { collectionCards } from '@/data/storefront'
+import type { CollectionCard } from '@/data/storefront'
 import { collectionHref } from '@/lib/storefront/collection-paths'
 
-export function ShopCollectionsSection() {
+interface ShopCollectionsSectionProps {
+  cards: CollectionCard[]
+}
+
+export function ShopCollectionsSection({ cards }: ShopCollectionsSectionProps) {
+  if (!cards.length) return null
+
   return (
     <section className="shop-collections" aria-labelledby="shop-collections-heading">
       <div className="shop-collections__inner">
@@ -21,7 +27,7 @@ export function ShopCollectionsSection() {
         </div>
 
         <div className="shop-collections__row" data-lenis-prevent>
-          {collectionCards.map((card) => (
+          {cards.map((card) => (
             <Link
               key={card.slug}
               href={collectionHref(card.slug)}

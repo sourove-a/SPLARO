@@ -1,9 +1,23 @@
-import toast from 'react-hot-toast'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
+
+const BACKEND_MISSING_TITLE = 'Backend not connected for this action. No data was saved.'
+
+export function backendMissingRowAction(label: string): RowActionItem {
+  return {
+    label,
+    disabled: true,
+    disabledTitle: BACKEND_MISSING_TITLE,
+    tone: 'danger',
+  }
+}
 
 export type RowActionItem = {
   label: string
-  onClick: () => void
+  onClick?: () => void
   tone?: 'default' | 'danger'
+  /** Non-interactive — backend endpoint missing */
+  disabled?: boolean
+  disabledTitle?: string
 }
 
 type BuildRowActionsArgs = {
@@ -17,8 +31,8 @@ type BuildRowActionsArgs = {
 function copyText(text: string, message: string, close: () => void) {
   close()
   void navigator.clipboard.writeText(text).then(
-    () => toast.success(message, { style: { borderRadius: '14px', fontWeight: 600 } }),
-    () => toast.error('Could not copy to clipboard'),
+    () => toastOk(message, 'clipboard-copy'),
+    () => toastFail('Could not copy to clipboard'),
   )
 }
 
@@ -117,13 +131,6 @@ export function buildFallbackRowActions({
       label: 'Copy reference',
       onClick: () => copyText(recordId || recordName, 'Reference copied', close),
     },
-    {
-      label: 'Archive',
-      tone: 'danger',
-      onClick: () => {
-        close()
-        toast(`${recordName} — archive from the live module panel when available.`, { icon: 'ℹ️' })
-      },
-    },
+    backendMissingRowAction('Archive'),
   ]
 }

@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowLeft,
   Check,
+  Copy,
   MapPin,
   Package,
   Printer,
@@ -17,15 +18,23 @@ import {
   Wallet,
 } from 'lucide-react'
 import { DeliveryMotion } from '@/components/order/DeliveryMotion'
-import { formatOrderDate, fetchOrderById, loadOrders, type StoredOrder } from '@/lib/orders'
+import {
+  formatOrderDate,
+  fetchOrderById,
+  getDeliveryStage,
+  loadOrders,
+  type StoredOrder,
+} from '@/lib/orders'
+import { resolveConfirmationStage } from '@/lib/order/delivery-progress'
 import { buildInvoiceUrl } from '@/lib/invoice-url'
+import { displayOrderCode } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
+import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
 
 interface OrderConfirmationPageClientProps {
   orderId: string
 }
 
-/** "CASH_ON_DELIVERY" → "Cash on Delivery" (leaves already-readable values untouched). */
 function formatPaymentMethod(value: string): string {
   if (!value.includes('_') && value !== value.toUpperCase()) return value
   return value
@@ -35,9 +44,22 @@ function formatPaymentMethod(value: string): string {
     .join(' ')
 }
 
+const CONFIRM_EASE = [0.16, 1, 0.3, 1] as const
+
+function confirmCardMotion(index: number, reduced: boolean | null) {
+  return reduced
+    ? { initial: false as const, animate: { opacity: 1, y: 0 } }
+    : {
+        initial: { opacity: 0, y: 14 },
+        animate: { opacity: 1, y: 0 },
+        transition: { delay: 0.42 + index * 0.1, duration: 0.42, ease: CONFIRM_EASE },
+      }
+}
+
 export default function OrderConfirmationPageClient({ orderId }: OrderConfirmationPageClientProps) {
   const [order, setOrder] = useState<StoredOrder | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const reducedMotion = useReducedMotion()
 
   useEffect(() => {
@@ -52,6 +74,27 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
       setHydrated(true)
     })
   }, [orderId])
+
+  const orderCode = order ? displayOrderCode(order.invoiceNumber, order.id) : orderId
+  const deliveryStage = useMemo(() => {
+    if (!order) return 'Confirmed' as const
+    const raw = getDeliveryStage(order.createdAt, order.tracking?.stage, order.status)
+    return resolveConfirmationStage(raw, order.status)
+  }, [order])
+
+  const copyOrderCode = async () => {
+    if (!orderCode) return
+    try {
+      await navigator.clipboard.writeText(orderCode)
+      setCopyState('copied')
+      window.setTimeout(() => setCopyState('idle'), 2000)
+    } catch {
+      setCopyState('failed')
+      window.setTimeout(() => setCopyState('idle'), 2000)
+    }
+  }
+
+  const pressMotion = reducedMotion ? {} : { whileTap: checkoutTapSpring }
 
   if (!hydrated) {
     return (
@@ -88,17 +131,23 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
     )
   }
 
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0)
+
   return (
     <main className="checkout-shell">
       <section className="checkout-container">
         <div className="checkout-success">
           <div className="checkout-success__hero checkout-glass-panel">
-            <span className="checkout-success__halo" aria-hidden="true" />
+            <span className="checkout-success__halo checkout-success__halo--gold" aria-hidden="true" />
             <motion.div
               className="checkout-success__icon-wrap"
-              initial={reducedMotion ? false : { scale: 0.72, opacity: 0 }}
+              initial={reducedMotion ? false : { scale: 0.55, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              transition={
+                reducedMotion
+                  ? { duration: 0 }
+                  : { type: 'spring', stiffness: 380, damping: 22, mass: 0.85 }
+              }
             >
               <span className="checkout-success__icon-ring" aria-hidden="true" />
               <span className="checkout-success__icon-ring checkout-success__icon-ring--outer" aria-hidden="true" />
@@ -110,7 +159,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               className="checkout-eyebrow"
               initial={reducedMotion ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08, duration: 0.4 }}
+              transition={checkoutMotionTransition(reducedMotion, 0.38)}
             >
               Order confirmed
             </motion.p>
@@ -118,7 +167,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               className="checkout-title"
               initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.14, duration: 0.45 }}
+              transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.06 }}
             >
               Thank you, {order.customer.name.split(' ')[0]}!
             </motion.h1>
@@ -126,7 +175,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               className="checkout-subtitle checkout-success__subtitle"
               initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.45 }}
+              transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.12 }}
             >
               We&apos;ll send delivery updates as your products move toward you.
             </motion.p>
@@ -134,38 +183,54 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               className="checkout-success__chips"
               initial={reducedMotion ? false : { opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.26, duration: 0.45 }}
+              transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.18 }}
             >
-              {order.invoiceNumber ? (
-                <span className="checkout-success__chip checkout-success__chip--strong">
-                  {order.invoiceNumber}
-                </span>
-              ) : null}
+              <span className="checkout-success__chip checkout-success__chip--strong checkout-success__chip--shimmer">
+                {orderCode}
+              </span>
+              <button
+                type="button"
+                className={`checkout-success__copy ${copyState === 'copied' ? 'checkout-success__copy--ok' : ''} ${copyState === 'failed' ? 'checkout-success__copy--fail' : ''}`}
+                onClick={copyOrderCode}
+                aria-label="Copy order code"
+              >
+                <Copy className="h-3.5 w-3.5" strokeWidth={2.2} />
+                {copyState === 'copied' ? 'Copied' : copyState === 'failed' ? 'Failed' : 'Copy'}
+              </button>
               <span className="checkout-success__chip">{formatOrderDate(order.createdAt)}</span>
               <span className="checkout-success__chip">
-                {order.items.reduce((sum, item) => sum + item.quantity, 0)} item
-                {order.items.reduce((sum, item) => sum + item.quantity, 0) > 1 ? 's' : ''}
+                {itemCount} item{itemCount > 1 ? 's' : ''}
               </span>
             </motion.div>
-            <DeliveryMotion />
+            <motion.div
+              initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.28 }}
+            >
+              <DeliveryMotion stage={deliveryStage} />
+            </motion.div>
             <div className="checkout-success__actions">
-              <button
+              <motion.button
                 type="button"
                 className="checkout-btn checkout-btn--primary"
                 onClick={() => window.open(buildInvoiceUrl(order), '_blank')}
+                {...pressMotion}
+                transition={checkoutMotionTransition(reducedMotion, 0.18)}
               >
                 <Printer className="h-4 w-4" />
                 Print invoice
-              </button>
-              <Link href="/track-order" className="checkout-btn checkout-btn--ghost">
-                <Truck className="h-4 w-4" />
-                Track order
-              </Link>
+              </motion.button>
+              <motion.div {...pressMotion} transition={checkoutMotionTransition(reducedMotion, 0.18)}>
+                <Link href="/track-order" className="checkout-btn checkout-btn--ghost">
+                  <Truck className="h-4 w-4" />
+                  Track order
+                </Link>
+              </motion.div>
             </div>
           </div>
 
           <div className="checkout-grid">
-            <div className="checkout-glass-panel">
+            <motion.div className="checkout-glass-panel" {...confirmCardMotion(0, reducedMotion)}>
               <h2 className="checkout-panel-title">
                 <ShoppingBag className="h-4 w-4" strokeWidth={2.2} aria-hidden />
                 Items ordered
@@ -190,9 +255,9 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
-            <div className="checkout-glass-panel">
+            <motion.div className="checkout-glass-panel" {...confirmCardMotion(1, reducedMotion)}>
               <h2 className="checkout-panel-title">
                 <ReceiptText className="h-4 w-4" strokeWidth={2.2} aria-hidden />
                 Order summary
@@ -213,9 +278,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
                     <MapPin className="h-3.5 w-3.5" strokeWidth={2.2} />
                   </span>
                   <div>
-                    <p className="checkout-recipient__value">
-                      {order.customer.address}
-                    </p>
+                    <p className="checkout-recipient__value">{order.customer.address}</p>
                     <p className="checkout-recipient__hint">{order.customer.city}</p>
                   </div>
                 </div>
@@ -250,13 +313,19 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
                 <span>Total</span>
                 <span>{formatBDT(order.total)}</span>
               </div>
-            </div>
+            </motion.div>
           </div>
 
-          <Link href="/shop" className="checkout-back-link">
-            <ArrowLeft className="h-4 w-4" />
-            Continue shopping
-          </Link>
+          <motion.div
+            initial={reducedMotion ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...checkoutMotionTransition(reducedMotion, 0.38), delay: reducedMotion ? 0 : 0.58 }}
+          >
+            <Link href="/shop" className="checkout-back-link">
+              <ArrowLeft className="h-4 w-4" />
+              Continue shopping
+            </Link>
+          </motion.div>
         </div>
       </section>
     </main>

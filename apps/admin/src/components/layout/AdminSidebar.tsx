@@ -8,8 +8,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
-import { adminNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
+import { getVisibleAdminRoutes, getSidebarNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
+import { usePrefersReducedMotion } from '@/lib/hooks/use-prefers-reduced-motion'
 import { cn } from '@/lib/utils/cn'
 
 const PRIMARY_SECTIONS = [
@@ -35,23 +36,12 @@ const ADVANCED_SECTIONS: Array<{ title: string; groups: string[] }> = [
   },
   {
     title: 'Platform',
-    groups: [
-      'Company OS',
-      'Media',
-      'Marketplace',
-      'Social Commerce',
-      'Developer',
-      'Observability',
-      'Google Workspace',
-      'SaaS',
-      'Security',
-      'System',
-    ],
+    groups: ['Company OS', 'Media', 'Google Workspace', 'Security', 'System'],
   },
 ]
 
 function groupByName(name: string) {
-  return adminNavGroups.find((group) => group.group === name)
+  return getSidebarNavGroups().find((group) => group.group === name)
 }
 
 const SECTION_ICON_MAP: Record<string, string> = {
@@ -131,6 +121,7 @@ function SidebarDrawerSection({
   variant?: 'primary' | 'advanced'
   onNavigate?: () => void
 }) {
+  const reduceMotion = usePrefersReducedMotion()
   const isActive = groups.some((group) =>
     group.items.some((item) => activePath === item.href || activePath.startsWith(`${item.href}/`)),
   )
@@ -195,10 +186,14 @@ function SidebarDrawerSection({
       <AnimatePresence initial={false}>
         {open ? (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            {...(reduceMotion
+              ? { initial: false, animate: { height: 'auto', opacity: 1 } }
+              : {
+                  initial: { height: 0, opacity: 0 },
+                  animate: { height: 'auto', opacity: 1 },
+                  exit: { height: 0, opacity: 0 },
+                })}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className="admin-sidebar__drawer-panel"
           >
             {groups.map((group) => (
@@ -282,15 +277,18 @@ export function AdminSidebar() {
   const navScrollRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const reduceMotion = usePrefersReducedMotion()
+
+  const sidebarTransition = reduceMotion
+    ? { duration: 0 }
+    : { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }
 
   useEffect(() => {
-    for (const group of adminNavGroups) {
-      for (const item of group.items) {
-        try {
-          router.prefetch(item.href)
-        } catch {
-          /* prefetch best-effort */
-        }
+    for (const route of getVisibleAdminRoutes()) {
+      try {
+        router.prefetch(route.href)
+      } catch {
+        /* prefetch best-effort */
       }
     }
   }, [router])
@@ -362,7 +360,7 @@ export function AdminSidebar() {
 
       <motion.aside
         animate={{ width: collapsed ? 88 : 280 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        transition={sidebarTransition}
         className={cn(
           'admin-sidebar admin-glass-panel relative m-4 mr-0 hidden h-[calc(100vh-2rem)] min-h-0 shrink-0 flex-col overflow-hidden lg:flex',
         )}
@@ -380,17 +378,22 @@ export function AdminSidebar() {
             <motion.button
               type="button"
               aria-label="Close menu"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[90] bg-black/20 backdrop-blur-sm lg:hidden"
+              {...(reduceMotion
+                ? { initial: false, animate: { opacity: 1 } }
+                : { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } })}
+              transition={sidebarTransition}
+              className="fixed inset-0 z-[90] bg-black/25 lg:hidden"
               onClick={() => setMobileOpen(false)}
             />
             <motion.aside
-              initial={{ x: -300, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -300, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              {...(reduceMotion
+                ? { initial: false, animate: { x: 0, opacity: 1 } }
+                : {
+                    initial: { x: -280, opacity: 0 },
+                    animate: { x: 0, opacity: 1 },
+                    exit: { x: -280, opacity: 0 },
+                  })}
+              transition={sidebarTransition}
               className="admin-sidebar admin-glass-panel fixed left-0 top-0 z-[100] m-0 flex h-full w-[280px] flex-col rounded-none lg:hidden"
             >
               <span className="admin-glass-panel__surface" aria-hidden="true" />

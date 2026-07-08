@@ -73,6 +73,14 @@ export class AdminHubController {
     return this.hub.createPurchaseOrder(storeId, body)
   }
 
+  @Post('procurement/goods-received')
+  receiveGoodsGrn(
+    @Query('storeId') storeId: string,
+    @Body() body: { purchaseOrderId?: string; notes?: string },
+  ) {
+    return this.hub.receiveGoodsGrn(storeId, body)
+  }
+
   @Post('support/tickets')
   createTicket(
     @Query('storeId') storeId: string,

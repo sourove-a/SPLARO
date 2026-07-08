@@ -3,10 +3,12 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, Mail, Phone, UserRound } from 'lucide-react'
+import { Check, Mail, Phone, UserRound } from 'lucide-react'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { AuthField } from '@/components/auth/AuthField'
 import { AuthModeSwitch } from '@/components/auth/AuthModeSwitch'
+import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton'
+import { resolvePostAuthDestination } from '@/lib/auth/post-auth-destination'
 import { loadCheckoutCustomerDraft } from '@/lib/checkout/customer-draft'
 import { formatBdPhoneInput } from '@/lib/checkout/phone'
 import { useAuthStore } from '@/store/authStore'
@@ -68,9 +70,13 @@ export function AuthExperience() {
   const [signupPassword, setSignupPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
+  const [successCopy, setSuccessCopy] = useState('')
 
   useEffect(() => {
     setError('')
+    setRedirecting(false)
+    setSuccessCopy('')
   }, [mode])
 
   useEffect(() => {
@@ -100,15 +106,17 @@ export function AuthExperience() {
 
       if (!response.ok || !payload.user) {
         setError(payload.error ?? 'Unable to sign in.')
+        setLoading(false)
         return
       }
 
       signIn(payload.user)
-      const destination = nextPath.startsWith('/') ? nextPath : '/account'
-      router.replace(destination)
+      const destination = resolvePostAuthDestination(nextPath, 'login')
+      setSuccessCopy('Signed in — taking you there…')
+      setRedirecting(true)
+      window.setTimeout(() => router.replace(destination), 520)
     } catch {
       setError('Network error. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -137,6 +145,7 @@ export function AuthExperience() {
 
       if (!response.ok || !payload.user) {
         setError(payload.error ?? 'Unable to create account.')
+        setLoading(false)
         return
       }
 
@@ -149,11 +158,12 @@ export function AuthExperience() {
           phone: payload.user.phone,
         }),
       )
-      const destination = nextPath.startsWith('/') ? nextPath : '/account'
-      router.replace(destination)
+      const destination = resolvePostAuthDestination(nextPath, 'signup')
+      setSuccessCopy(`Welcome, ${payload.user.name.split(' ')[0]}!`)
+      setRedirecting(true)
+      window.setTimeout(() => router.replace(destination), 780)
     } catch {
       setError('Network error. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -178,7 +188,23 @@ export function AuthExperience() {
 
         <div className="auth-card__body">
           <AnimatePresence mode="wait" initial={false}>
-            {mode === 'login' ? (
+            {redirecting ? (
+              <motion.div
+                key="auth-success"
+                className="auth-success"
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={motionTransition}
+                aria-live="polite"
+              >
+                <span className="auth-success__icon" aria-hidden="true">
+                  <Check className="h-5 w-5" strokeWidth={2.4} />
+                </span>
+                <p className="auth-success__title">{successCopy}</p>
+                <p className="auth-success__hint">One moment…</p>
+              </motion.div>
+            ) : mode === 'login' ? (
               <motion.form
                 key="login"
                 layout
@@ -230,16 +256,9 @@ export function AuthExperience() {
                   ) : null}
                 </AnimatePresence>
 
-                <button type="submit" disabled={loading} className="auth-submit auth-submit--primary">
-                  {loading ? (
-                    <>
-                      <Loader2 className="auth-submit__spinner h-4 w-4" strokeWidth={2.2} />
-                      Signing in...
-                    </>
-                  ) : (
-                    'Sign in'
-                  )}
-                </button>
+                <AuthSubmitButton loading={loading} loadingLabel="Signing in…">
+                  Sign in
+                </AuthSubmitButton>
               </motion.form>
             ) : (
               <motion.form
@@ -315,16 +334,9 @@ export function AuthExperience() {
                   ) : null}
                 </AnimatePresence>
 
-                <button type="submit" disabled={loading} className="auth-submit auth-submit--primary">
-                  {loading ? (
-                    <>
-                      <Loader2 className="auth-submit__spinner h-4 w-4" strokeWidth={2.2} />
-                      Creating account...
-                    </>
-                  ) : (
-                    'Create account'
-                  )}
-                </button>
+                <AuthSubmitButton loading={loading} loadingLabel="Creating account…">
+                  Create account
+                </AuthSubmitButton>
 
                 <p className="auth-card__legal">
                   By creating an account, you agree to our{' '}

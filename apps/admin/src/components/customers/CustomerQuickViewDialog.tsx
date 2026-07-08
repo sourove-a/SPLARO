@@ -3,7 +3,7 @@
 import { X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CustomerProfileClient } from '@/components/customers/CustomerProfileClient'
-import { AdminNavLink } from '@/components/layout/AdminNavLink'
+import { AdminLinkButton } from '@/components/ui/AdminButton'
 
 interface CustomerQuickViewDialogProps {
   customerId: string | null
@@ -40,9 +40,9 @@ export function CustomerQuickViewDialog({ customerId, onClose }: CustomerQuickVi
                 <h2 className="text-base font-black text-[#111111]">Profile preview</h2>
               </div>
               <div className="flex items-center gap-2">
-                <AdminNavLink href={`/dashboard/customers/${customerId}`} className="admin-btn admin-btn--ghost !text-xs">
+                <AdminLinkButton href={`/dashboard/customers/${customerId}`} variant="ghost" size="sm">
                   Open full page
-                </AdminNavLink>
+                </AdminLinkButton>
                 <button
                   type="button"
                   onClick={onClose}

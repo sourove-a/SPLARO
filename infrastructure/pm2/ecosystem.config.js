@@ -9,8 +9,10 @@ module.exports = {
     {
       name: 'splaro-web',
       cwd: `${APP_ROOT}/apps/web`,
-      script: 'node',
-      args: '.next/standalone/apps/web/server.js',
+      // Must be a JS file (not the `node` binary) so PM2 cluster mode can
+      // wrap it and share port 3000 across instances — `script: 'node'`
+      // spawns independent processes that fight over the port (EADDRINUSE).
+      script: '.next/standalone/apps/web/server.js',
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
@@ -34,8 +36,7 @@ module.exports = {
     {
       name: 'splaro-admin',
       cwd: `${APP_ROOT}/apps/admin`,
-      script: 'node',
-      args: '.next/standalone/apps/admin/server.js',
+      script: '.next/standalone/apps/admin/server.js',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,

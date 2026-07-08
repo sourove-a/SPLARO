@@ -3,12 +3,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { cn } from '@/lib/utils/cn'
 import { MegaMenu } from './MegaMenu'
 import type { MegaMenuConfig } from '@/lib/storefront/settings'
+
+const CLOSE_DELAY_MS = 150
 
 function isNavActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/'
@@ -26,10 +28,17 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
 
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const navLayerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     onMegaMenuChange?.(openIndex !== null)
   }, [openIndex, onMegaMenuChange])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current)
+    }
+  }, [])
 
   const openMenu = useCallback((index: number) => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -42,20 +51,56 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   }, [])
 
   const scheduleClose = useCallback(() => {
-    closeTimer.current = setTimeout(() => setOpenIndex(null), 300)
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => setOpenIndex(null), CLOSE_DELAY_MS)
   }, [])
 
   const cancelClose = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
   }, [])
 
-  if (!navItems.length) return null
+  useEffect(() => {
+    if (openIndex === null) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [openIndex, closeMenu])
+
+  useEffect(() => {
+    const layer = navLayerRef.current
+    if (!layer || openIndex === null) return
+
+    const onFocusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget as Node | null
+      if (next && layer.contains(next)) return
+      scheduleClose()
+    }
+
+    layer.addEventListener('focusout', onFocusOut)
+    return () => layer.removeEventListener('focusout', onFocusOut)
+  }, [openIndex, scheduleClose])
 
   const activeMegaMenu: MegaMenuConfig | null =
     openIndex !== null ? (navItems[openIndex]?.megaMenu ?? null) : null
 
+  // Retain the last opened menu so its content stays rendered during the close fade.
+  const [lastMega, setLastMega] = useState<{ key: string; config: MegaMenuConfig } | null>(null)
+  useEffect(() => {
+    if (activeMegaMenu && openIndex !== null) {
+      setLastMega({
+        key: navItems[openIndex]?.label ?? `nav-${openIndex}`,
+        config: activeMegaMenu,
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openIndex, activeMegaMenu])
+
+  if (!navItems.length) return null
+
   return (
-    <div className="site-header-glass__nav-layer" onMouseLeave={scheduleClose}>
+    <div ref={navLayerRef} className="site-header-glass__nav-layer">
       <div className="site-header-glass__nav-center">
         <nav aria-label="Main navigation">
           <ul className="site-header-glass__nav-list">
@@ -65,17 +110,20 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
               const isActive = isNavActive(pathname, item.href)
 
               return (
-                <motion.li
+                <li
                   key={`${item.label}-${item.href}`}
-                  initial={false}
-                  animate={{ y: isOpen ? -1 : 0, opacity: 1 }}
-                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                   onMouseEnter={() => (hasMega ? openMenu(i) : setOpenIndex(null))}
+                  onMouseLeave={() => {
+                    if (hasMega) scheduleClose()
+                  }}
                 >
                   <Link
                     href={item.href}
                     scroll={false}
                     onClick={closeMenu}
+                    onFocus={() => {
+                      if (hasMega) openMenu(i)
+                    }}
                     aria-haspopup={hasMega ? 'true' : undefined}
                     aria-expanded={hasMega ? isOpen : undefined}
                     className={cn(
@@ -104,33 +152,32 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
                       />
                     ) : null}
                   </Link>
-                </motion.li>
+                </li>
               )
             })}
           </ul>
         </nav>
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeMegaMenu && openIndex !== null ? (
-          <motion.div
-            key={openIndex}
-            className="site-header-glass__mega"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 1 }}
-            onMouseEnter={cancelClose}
-            onMouseLeave={scheduleClose}
-          >
-            <MegaMenu
-              {...(navItems[openIndex]?.label ? { menuKey: navItems[openIndex].label } : {})}
-              config={activeMegaMenu}
-              isOpen
-              onClose={closeMenu}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {/* Always mounted — open/close is a pure CSS class flip (ILYN-style curtain).
+          lastMega keeps the final content visible through the fade-out. */}
+      {lastMega ? (
+        <div
+          className={cn(
+            'site-header-glass__mega',
+            activeMegaMenu && openIndex !== null && 'site-header-glass__mega--open',
+          )}
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+        >
+          <MegaMenu
+            menuKey={lastMega.key}
+            config={lastMega.config}
+            isOpen={activeMegaMenu !== null && openIndex !== null}
+            onClose={closeMenu}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

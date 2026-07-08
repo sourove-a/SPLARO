@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ContentPage } from '@/components/content/ContentPage'
+import { ContactExtras } from '@/components/content/ContactExtras'
 import { getLegalPage } from '@/lib/content/get-legal-page'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,5 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ContactPage() {
   const page = await getLegalPage('contact')
-  return <ContentPage title={page.title} description={page.description} sections={page.sections} />
+  return (
+    <ContentPage title={page.title} description={page.description} sections={page.sections}>
+      <ContactExtras />
+    </ContentPage>
+  )
 }

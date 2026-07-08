@@ -2,38 +2,43 @@
 
 import { motion, useReducedMotion } from 'framer-motion'
 import { Package, Truck } from 'lucide-react'
+import type { DeliveryStage } from '@/lib/orders'
+import {
+  deliveryProgressPercent,
+  deliveryStatusCaption,
+  resolveDeliveryMilestones,
+} from '@/lib/order/delivery-progress'
+const SPRING = { type: 'spring' as const, stiffness: 420, damping: 32 }
 
-const DRIVE_EASE = [0.22, 1, 0.36, 1] as const
-const DRIVE_DURATION = 2.85
+interface DeliveryMotionProps {
+  stage: DeliveryStage
+}
 
-const milestones = [
-  { label: 'Confirmed', delay: 0 },
-  { label: 'Packed', delay: 0.42 },
-  { label: 'On the way', delay: 0.88 },
-] as const
-
-export function DeliveryMotion() {
+export function DeliveryMotion({ stage }: DeliveryMotionProps) {
   const reducedMotion = useReducedMotion()
+  const milestones = resolveDeliveryMilestones(stage)
+  const progress = deliveryProgressPercent(stage) / 100
+  const caption = deliveryStatusCaption(stage)
 
   if (reducedMotion) {
     return (
-      <div className="delivery-motion delivery-motion--static" aria-hidden="true">
+      <div className="delivery-motion delivery-motion--static" aria-label="Delivery progress">
         <Truck className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-        <span>Your order is on the way</span>
+        <span>{caption}</span>
       </div>
     )
   }
 
   return (
-    <div className="delivery-motion" aria-hidden="true">
+    <div className="delivery-motion" aria-label="Delivery progress">
       <div className="delivery-motion__header">
         <span>Delivery progress</span>
         <motion.span
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: DRIVE_DURATION * 0.72, duration: 0.45 }}
+          transition={{ delay: 0.35, duration: 0.35 }}
         >
-          Dispatching soon
+          {caption}
         </motion.span>
       </div>
 
@@ -42,24 +47,30 @@ export function DeliveryMotion() {
         <motion.div
           className="delivery-motion__fill"
           initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: DRIVE_DURATION, ease: DRIVE_EASE }}
+          animate={{ scaleX: progress }}
+          transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+          style={{ transformOrigin: 'left center' }}
         />
         <motion.div
           className="delivery-motion__glow"
           initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ duration: DRIVE_DURATION, ease: DRIVE_EASE }}
+          animate={{ scaleX: progress, opacity: progress > 0 ? 1 : 0 }}
+          transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+          style={{ transformOrigin: 'left center' }}
         />
 
         <motion.div
           className="delivery-motion__vehicle"
           initial={{ left: '0.5rem', opacity: 0, scale: 0.92 }}
-          animate={{ left: 'calc(100% - 3.35rem)', opacity: 1, scale: 1 }}
+          animate={{
+            left: `calc(${Math.max(8, progress * 100)}% - 1.65rem)`,
+            opacity: 1,
+            scale: 1,
+          }}
           transition={{
-            left: { duration: DRIVE_DURATION, ease: DRIVE_EASE },
-            opacity: { duration: 0.35, ease: 'easeOut' },
-            scale: { duration: 0.5, ease: DRIVE_EASE },
+            left: { duration: 0.82, ease: [0.16, 1, 0.3, 1] },
+            opacity: { duration: 0.3, ease: 'easeOut' },
+            scale: SPRING,
           }}
         >
           <div className="delivery-motion__van">
@@ -70,18 +81,24 @@ export function DeliveryMotion() {
           </div>
           <span className="delivery-motion__wheel delivery-motion__wheel--left" />
           <span className="delivery-motion__wheel delivery-motion__wheel--right" />
-          <span className="delivery-motion__dust" />
         </motion.div>
       </div>
 
       <div className="delivery-motion__steps">
-        {milestones.map((step) => (
+        {milestones.map((step, index) => (
           <motion.div
             key={step.label}
-            className="delivery-motion__step"
-            initial={{ opacity: 0.28, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: DRIVE_DURATION * step.delay, duration: 0.42, ease: DRIVE_EASE }}
+            className={`delivery-motion__step delivery-motion__step--${step.state}`}
+            initial={{ opacity: 0.35, y: 4 }}
+            animate={{
+              opacity: step.state === 'pending' ? 0.42 : 1,
+              y: 0,
+            }}
+            transition={{
+              delay: 0.18 + index * 0.08,
+              duration: 0.38,
+              ease: [0.16, 1, 0.3, 1],
+            }}
           >
             <span className="delivery-motion__step-dot" />
             <span>{step.label}</span>

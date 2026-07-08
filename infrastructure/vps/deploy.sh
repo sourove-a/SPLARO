@@ -29,11 +29,13 @@ export SPLARO_APP_DIR="$APP_DIR"
 export SPLARO_LOG_DIR="${SPLARO_LOG_DIR:-/var/log/splaro}"
 export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=6144"
 
-# ── Git pull ─────────────────────────────────────────────────
-log "Pulling origin/$BRANCH..."
+# ── Git sync ─────────────────────────────────────────────────
+# Hard-reset to origin so stray edits on the VPS can never block a deploy.
+# The VPS working tree is a deploy target, not a dev checkout.
+log "Syncing to origin/$BRANCH..."
 git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull origin "$BRANCH"
+git checkout "$BRANCH" 2>/dev/null || git checkout -B "$BRANCH" "origin/$BRANCH"
+git reset --hard "origin/$BRANCH"
 
 # ── pnpm ─────────────────────────────────────────────────────
 export PNPM_HOME="${PNPM_HOME:-/root/.local/share/pnpm}"
@@ -42,11 +44,11 @@ export PATH="$PNPM_HOME:/root/.local/bin:$PATH"
 command -v pnpm >/dev/null || die "pnpm not found"
 
 log "pnpm install..."
-pnpm install --frozen-lockfile
+NODE_ENV=development pnpm install --frozen-lockfile --prod=false
 
 log "Prisma..."
 pnpm db:generate
-pnpm db:migrate:prod || pnpm db:push
+pnpm db:migrate:prod || pnpm db:push:prod
 
 log "Build..."
 pnpm build:all

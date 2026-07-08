@@ -61,7 +61,9 @@ export function ApiHealthPanel() {
     try {
       const results = await runAllHealthChecks()
       setChecks(results)
-    } catch {
+    } catch (err) {
+      const isProd = process.env.NODE_ENV === 'production'
+      const timedOut = err instanceof Error && err.name === 'TimeoutError'
       setChecks([
         {
           id: 'health-route',
@@ -70,8 +72,12 @@ export function ApiHealthPanel() {
           endpoint: '/api/health',
           status: 'down',
           latencyMs: null,
-          message: 'Could not reach health endpoint',
-          fixHint: 'Restart admin: pnpm dev:admin',
+          message: timedOut
+            ? 'Health check timed out — first load can take ~20s on cold start'
+            : 'Could not reach health endpoint',
+          fixHint: isProd
+            ? 'Wait and refresh — or check splaro-api on VPS (pm2 logs splaro-api)'
+            : 'Restart admin: pnpm dev:admin',
         },
       ])
     }

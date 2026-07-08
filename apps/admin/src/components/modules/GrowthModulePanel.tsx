@@ -1,13 +1,14 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { Crown, Gift, PieChart, RefreshCw, Search, Share2, Sparkles, Users } from 'lucide-react'
+import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useCustomers, useLoyaltySummary, useReferralStats, useReferrals } from '@/lib/api/hooks'
 import type { ApiCustomer } from '@/lib/api/customers'
 import { formatBDT } from '@/lib/utils/currency'
+import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const GOLD = '#c8a97e'
@@ -86,9 +87,9 @@ function PanelHeader({ icon: Icon, title, onRefresh }: { icon: React.ElementType
         <h3 style={{ fontSize: 16, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0 }}>{title}</h3>
       </div>
       {onRefresh && (
-        <button type="button" onClick={onRefresh} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: 'var(--admin-text-muted)' }}>
+        <AdminButton variant="ghost" size="sm" onClick={onRefresh} aria-label="Refresh">
           <RefreshCw style={{ width: 14, height: 14 }} />
-        </button>
+        </AdminButton>
       )}
     </div>
   )
@@ -196,13 +197,9 @@ function VipMembersView({ customers }: { customers: ApiCustomer[] }) {
           title="No VIP members yet"
           hint="Customers reach Gold, Platinum, or Diamond tiers from repeat orders. Tiers update automatically from live order data."
           action={
-            <Link href="/dashboard/customers" style={{
-              background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914',
-              borderRadius: 10, padding: '8px 20px', fontSize: 12, fontWeight: 800,
-              textDecoration: 'none', display: 'inline-block',
-            }}>
+            <AdminLinkButton href="/dashboard/customers" variant="gold" size="sm">
               View all customers
-            </Link>
+            </AdminLinkButton>
           }
         />
       ) : (
@@ -387,7 +384,7 @@ function SegmentsView({ customers }: { customers: ApiCustomer[] }) {
         <KpiStrip items={SEGMENTS.map((s) => [s.label, customers.filter(s.test).length, 'default'] as [string, number, string])} />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div className="flex flex-wrap gap-2">
         {SEGMENTS.map((s) => {
           const isActive = active === s.id
           return (
@@ -395,14 +392,7 @@ function SegmentsView({ customers }: { customers: ApiCustomer[] }) {
               key={s.id}
               type="button"
               onClick={() => setActive(s.id)}
-              style={{
-                background: isActive ? GOLD_LIGHT : 'rgba(255,255,255,0.7)',
-                border: `1px solid ${isActive ? GOLD_BORDER : 'rgba(255,255,255,0.8)'}`,
-                color: isActive ? '#8B6914' : 'var(--admin-text-secondary)',
-                borderRadius: 10, padding: '7px 16px',
-                fontSize: 12, fontWeight: 800,
-                cursor: 'pointer', transition: 'all 0.15s',
-              }}
+              className={cn('admin-filter-pill', isActive && 'admin-filter-pill--active')}
             >
               {s.label} · {customers.filter(s.test).length}
             </button>

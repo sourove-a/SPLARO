@@ -106,7 +106,7 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
         paymentMethod,
       })
       toast.success(`Order ${order.invoiceNumber} created.`)
-      navigate(`${moduleHref}/${order.id}`)
+      navigate(`${moduleHref}/${order.invoiceNumber}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not create order.')
     }

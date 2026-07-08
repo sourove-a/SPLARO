@@ -9,6 +9,7 @@ import { ModulePanelShell, STATUS_CLASS, formatBDT } from '@/components/modules/
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
 import { useMarketingOverview, useCreateAffiliate } from '@/lib/api/hooks'
+import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { formatRelativeTime } from '@/lib/api/orders'
 
 export function WhatsAppPanelLive() {
@@ -53,7 +54,7 @@ export function WhatsAppPanelLive() {
         createLabel="New broadcast"
         onCreate={() => toast('Create WhatsApp campaigns in Marketing → Campaigns.', { icon: '📢' })}
         onRefresh={() => void refetch()}
-        onExport={() => toast.error('This action is not available yet — feature pending.')}
+        exportDisabled
         tableIcon={MessageCircle}
         tableTitle={
           view === 'inbox'
@@ -117,7 +118,7 @@ export function WhatsAppPanelLive() {
                     </td>
                     <td className="muted text-xs">{formatRelativeTime(w.createdAt)}</td>
                     <td>
-                      <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>
+                      <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
                         <Send className="h-3 w-3" /> View
                       </AdminButton>
                     </td>
@@ -223,7 +224,7 @@ export function AffiliatePanelLive() {
       createLabel="Add partner"
       onCreate={handleCreate}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tableIcon={Share2}
       tableTitle={`Affiliate · ${filtered.length} partners`}
       footer="Live from affiliate_account table"
@@ -273,8 +274,9 @@ export function AffiliatePanelLive() {
                   {Number(a.pendingPayout) > 0 ? (
                     <AdminButton
                       variant="gold"
-                      className="!px-2 !py-1 !text-xs"
-                      onClick={() => toast.error('This action is not available yet — feature pending.')}
+                      size="sm"
+                      disabled
+                      title={BACKEND_NOT_CONNECTED_TITLE}
                     >
                       Pay
                     </AdminButton>
@@ -360,7 +362,7 @@ export function InfluencersPanelLive() {
       createLabel="Add influencer"
       onCreate={() => toast('Add influencers as affiliate partners with social codes.', { icon: '⭐' })}
       onRefresh={() => void refetch()}
-      onExport={() => toast.error('This action is not available yet — feature pending.')}
+      exportDisabled
       tabs={tabs.map((t) => ({
         key: t.key,
         label: t.label,

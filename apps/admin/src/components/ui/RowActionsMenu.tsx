@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MoreHorizontal } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils/cn'
 import {
   buildFallbackRowActions,
   buildRowActionPresets,
   type RowActionItem,
 } from '@/lib/admin/row-action-presets'
+import { hasBackendRecordApi } from '@/lib/modules/module-maturity'
+import { backendMissingRowAction } from '@/lib/admin/row-action-presets'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
 interface RowActionsMenuProps {
@@ -32,20 +33,6 @@ const LIVE_DETAIL: Record<string, { view: (id: string) => string; edit?: (id: st
     view: (id) => `/dashboard/products/${id}`,
     edit: (id) => `/dashboard/products/${id}/edit`,
   },
-  '/dashboard/collections': {
-    view: (id) => `/dashboard/collections/${id}`,
-    edit: (id) => `/dashboard/collections/${id}/edit`,
-  },
-  '/dashboard/categories': {
-    view: (id) => `/dashboard/categories/${id}/edit`,
-    edit: (id) => `/dashboard/categories/${id}/edit`,
-  },
-  '/dashboard/campaigns': {
-    view: (id) => `/dashboard/campaigns/${id}`,
-  },
-  '/dashboard/landing-pages': {
-    view: (_id) => `/dashboard/landing-pages`,
-  },
   '/dashboard/invoices': {
     view: (id) => `/dashboard/invoices/${id}`,
   },
@@ -60,7 +47,7 @@ export function RowActionsMenu({ recordName, moduleHref, recordId, actions }: Ro
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const { navigate } = useAdminNavigate()
-  const live = LIVE_DETAIL[moduleHref]
+  const live = hasBackendRecordApi(moduleHref) ? LIVE_DETAIL[moduleHref] : undefined
 
   useEffect(() => setMounted(true), [])
 
@@ -126,17 +113,10 @@ export function RowActionsMenu({ recordName, moduleHref, recordId, actions }: Ro
     (live
       ? [
           { label: 'View details', onClick: () => go(live.view(recordId)) },
-          ...(live.edit || !live
-            ? [{ label: 'Edit', onClick: () => go(live.edit?.(recordId) ?? `${moduleHref}/${recordId}/edit`) }]
+          ...(live.edit
+            ? [{ label: 'Edit', onClick: () => go(live.edit!(recordId)) }]
             : []),
-          {
-            label: 'Archive',
-            tone: 'danger',
-            onClick: () => {
-              close()
-              toast(`${recordName} — use the module panel for live delete/archive.`, { icon: 'ℹ️' })
-            },
-          },
+          backendMissingRowAction('Archive'),
         ]
       : buildFallbackRowActions(presetArgs))
 
@@ -153,7 +133,7 @@ export function RowActionsMenu({ recordName, moduleHref, recordId, actions }: Ro
             <div
               ref={menuRef}
               role="menu"
-              className="fixed z-[320] min-w-[168px] overflow-hidden rounded-[12px] border border-black/8 bg-white py-1 shadow-[0_18px_50px_rgba(17,17,20,0.16)] dark:border-white/10 dark:bg-[#1c1c24] dark:shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+              className="admin-dropdown-menu fixed z-[320] min-w-[168px] overflow-hidden rounded-[12px] border border-black/8 bg-white py-1 shadow-[0_12px_32px_rgba(17,17,20,0.12)] dark:border-white/10 dark:bg-[#1c1c24] dark:shadow-[0_12px_32px_rgba(0,0,0,0.35)]"
               style={{ top: pos.top, right: pos.right }}
             >
               {menuItems.map((item) => (
@@ -161,15 +141,25 @@ export function RowActionsMenu({ recordName, moduleHref, recordId, actions }: Ro
                   key={item.label}
                   type="button"
                   role="menuitem"
+                  disabled={item.disabled}
+                  aria-disabled={item.disabled}
+                  title={item.disabled ? (item.disabledTitle ?? 'Backend not connected for this action') : undefined}
                   className={cn(
-                    'block w-full px-3 py-2 text-left text-xs font-semibold transition',
-                    item.tone === 'danger'
+                    'admin-dropdown-menu__item block w-full px-3 py-2 text-left text-xs font-semibold',
+                    item.disabled && 'cursor-not-allowed opacity-45',
+                    !item.disabled && item.tone === 'danger'
                       ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10'
-                      : 'text-[var(--admin-text)] hover:bg-black/5 dark:hover:bg-white/6',
+                      : !item.disabled && 'text-[var(--admin-text)]',
+                    item.disabled && item.tone === 'danger' && 'text-red-400',
                   )}
-                  onClick={item.onClick}
+                  onClick={item.disabled ? undefined : item.onClick}
                 >
                   {item.label}
+                  {item.disabled ? (
+                    <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                      Not connected
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -183,7 +173,7 @@ export function RowActionsMenu({ recordName, moduleHref, recordId, actions }: Ro
       <button
         ref={btnRef}
         type="button"
-        className="rounded-lg p-2 text-[var(--admin-text-secondary)] transition hover:bg-black/5 hover:text-[var(--admin-text)] dark:hover:bg-white/6"
+        className="admin-row-actions-trigger p-2 text-[var(--admin-text-secondary)]"
         onClick={handleOpen}
         aria-label={`Actions for ${recordName}`}
         aria-expanded={open}

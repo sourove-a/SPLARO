@@ -14,6 +14,7 @@ import type { Response } from 'express'
 import { PrintService } from './print.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { displayOrderCode } from '@splaro/config'
 
 @Controller('admin/print')
 export class PrintController {
@@ -21,6 +22,10 @@ export class PrintController {
     private readonly print: PrintService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
+
+  private orderLabel(order: { invoiceNumber: string; id: string }) {
+    return displayOrderCode(order.invoiceNumber, order.id)
+  }
 
   /* ─── Invoice ─────────────────────────────────────────────── */
 
@@ -44,13 +49,15 @@ export class PrintController {
     @Param('orderId') orderId: string,
     @Query('autoPrint') autoPrint?: string,
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
+    const order = await this.prisma.order.findFirst({
+      where: { OR: [{ id: orderId }, { invoiceNumber: orderId }] },
       include: {
         items: { select: { productName: true, variantName: true, quantity: true, sku: true } },
       },
     })
     if (!order) return '<html><body>Order not found</body></html>'
+
+    const code = this.orderLabel(order)
 
     const rows = order.items
       .map(
@@ -62,12 +69,12 @@ export class PrintController {
       )
       .join('')
 
-    return `<!DOCTYPE html><html><head><title>Packing Slip ${order.invoiceNumber ?? orderId}</title>
+    return `<!DOCTYPE html><html><head><title>Packing Slip ${code}</title>
     <style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}</style>
     ${autoPrint === '1' ? '<script>window.onload=()=>window.print()</script>' : ''}
     </head><body>
     <h2>Packing Slip</h2>
-    <p><strong>Order:</strong> ${order.invoiceNumber ?? orderId}</p>
+    <p><strong>Order:</strong> ${code}</p>
     <p><strong>Ship to:</strong> ${order.shippingName ?? ''}, ${order.shippingAddress ?? ''}, ${order.shippingDistrict ?? ''}</p>
     <table><thead><tr><th>Item</th><th>SKU</th><th>Qty</th></tr></thead><tbody>${rows}</tbody></table>
     </body></html>`
@@ -81,18 +88,20 @@ export class PrintController {
     @Param('orderId') orderId: string,
     @Query('autoPrint') autoPrint?: string,
   ) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
+    const order = await this.prisma.order.findFirst({
+      where: { OR: [{ id: orderId }, { invoiceNumber: orderId }] },
       include: { store: { select: { name: true, address: true, phone: true } } },
     })
     if (!order) return '<html><body>Order not found</body></html>'
 
+    const code = this.orderLabel(order)
+
     const courier = await this.prisma.courierShipment.findFirst({
-      where: { orderId },
+      where: { orderId: order.id },
       select: { trackingCode: true, trackingUrl: true, provider: true },
     })
 
-    return `<!DOCTYPE html><html><head><title>Label ${order.invoiceNumber ?? orderId}</title>
+    return `<!DOCTYPE html><html><head><title>Label ${code}</title>
     <style>
       body{font-family:Arial;margin:0;padding:20px}
       .label{border:2px solid #000;padding:16px;max-width:400px;page-break-inside:avoid}
@@ -110,7 +119,7 @@ export class PrintController {
       <div>${order.shippingDistrict ?? ''}${order.shippingPostal ? ', ' + order.shippingPostal : ''}</div>
       <div>Phone: ${order.shippingPhone ?? ''}</div>
       ${courier ? `<div class="tracking">${courier.provider}: ${courier.trackingCode ?? ''}</div>` : ''}
-      <div class="invoice">#${order.invoiceNumber ?? orderId}</div>
+      <div class="invoice">#${code}</div>
     </div>
     </body></html>`
   }

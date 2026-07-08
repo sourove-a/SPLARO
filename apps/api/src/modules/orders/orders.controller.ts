@@ -1,6 +1,7 @@
 import { Controller, Delete, Get, Header, NotFoundException, Patch, Param, Query, Body, Post, Inject, StreamableFile } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
+import { backfillOrderInvoiceCodes } from '../../common/order-code.util'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
 import { StorefrontOrdersService } from '../storefront/storefront-orders.service'
@@ -35,6 +36,7 @@ export class OrdersController {
     @Query('search') search?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    await backfillOrderInvoiceCodes(this.prisma, sid, 25)
     const skip = (Number(page) - 1) * Number(limit)
     const where: Prisma.OrderWhereInput = {
       storeId: sid,

@@ -4,6 +4,7 @@ import { useLayoutEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, X } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { AuthEarthBackground } from '@/components/earth/AuthEarthBackground'
 import {
@@ -11,6 +12,7 @@ import {
   clearAuthReturnPath,
   getAuthReturnPath,
 } from '@/lib/auth/auth-return'
+import { authMotionTransition, authTapSpring } from '@/lib/auth/auth-motion'
 
 interface AuthShellProps {
   children: ReactNode
@@ -19,6 +21,10 @@ interface AuthShellProps {
 
 export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
   const router = useRouter()
+  const reduceMotion = useReducedMotion()
+  const tapTransition = authMotionTransition(reduceMotion, 0.16)
+  const pressMotion = reduceMotion ? {} : { whileTap: authTapSpring, whileHover: { opacity: 0.82 } }
+  const iconPressMotion = reduceMotion ? {} : { whileTap: authTapSpring }
   const [skipCheckoutLink, setSkipCheckoutLink] = useState(hideSkipLink)
   const [returnPath, setReturnPath] = useState('/')
 
@@ -57,23 +63,27 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
       <AuthEarthBackground />
 
       <header className="auth-topbar">
-        <button
+        <motion.button
           type="button"
           onClick={handleBack}
           className="auth-topbar__back"
           aria-label={`Back to ${returnPath === '/' ? 'home' : 'previous page'}`}
+          {...pressMotion}
+          transition={tapTransition}
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
           Back
-        </button>
-        <Link
-          href={returnPath}
-          onClick={handleExit}
-          className="auth-topbar__close lux-icon-btn lux-icon-btn--round"
-          aria-label="Close and return"
-        >
-          <X className="h-4 w-4" strokeWidth={2.2} />
-        </Link>
+        </motion.button>
+        <motion.div {...iconPressMotion} transition={tapTransition}>
+          <Link
+            href={returnPath}
+            onClick={handleExit}
+            className="auth-topbar__close lux-icon-btn lux-icon-btn--round"
+            aria-label="Close and return"
+          >
+            <X className="h-4 w-4" strokeWidth={2.2} />
+          </Link>
+        </motion.div>
       </header>
 
       <div className="auth-shell__inner">

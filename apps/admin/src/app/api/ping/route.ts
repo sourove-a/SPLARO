@@ -41,36 +41,33 @@ export async function GET() {
   const base = getServerApiBaseUrl()
   const checkedAt = new Date().toISOString()
 
-  const apiProbe = await probe(`${base}/health`, 3500)
+  const apiProbe = await probe(`${base}/health`, 5000)
   let databaseOnline = false
   let databaseLatency: number | null = null
   let databaseMessage: string | undefined
 
   if (apiProbe.ok) {
     const probeHeaders = internalProbeHeaders()
-    const dbProbe = await probe(`${base}/health/full`, 5000, probeHeaders)
-    if (dbProbe.ok) {
-      try {
-        const fullRes = await fetch(`${base}/health/full`, {
-          cache: 'no-store',
-          signal: AbortSignal.timeout(5000),
-          headers: probeHeaders,
-        })
-        if (fullRes.ok) {
-          const full = (await fullRes.json()) as {
-            checks?: { id: string; status: string; latencyMs?: number; message?: string }[]
-          }
-          const pg = full.checks?.find((c) => c.id === 'postgresql')
-          databaseOnline = pg?.status === 'healthy'
-          databaseLatency = typeof pg?.latencyMs === 'number' ? pg.latencyMs : dbProbe.latencyMs
-          if (!databaseOnline && pg?.message) databaseMessage = pg.message
+    try {
+      const fullRes = await fetch(`${base}/health/full`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(25000),
+        headers: probeHeaders,
+      })
+      if (fullRes.ok) {
+        const full = (await fullRes.json()) as {
+          checks?: { id: string; status: string; latencyMs?: number; message?: string }[]
         }
-      } catch {
-        databaseOnline = false
-        databaseMessage = 'Could not read database health'
+        const pg = full.checks?.find((c) => c.id === 'postgresql')
+        databaseOnline = pg?.status === 'healthy'
+        databaseLatency = typeof pg?.latencyMs === 'number' ? pg.latencyMs : null
+        if (!databaseOnline && pg?.message) databaseMessage = pg.message
+      } else {
+        databaseMessage = 'Health full endpoint unavailable'
       }
-    } else {
-      databaseMessage = 'Health full endpoint unavailable'
+    } catch {
+      databaseOnline = false
+      databaseMessage = 'Could not read database health'
     }
   } else {
     databaseMessage = 'API offline'

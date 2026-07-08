@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import {
@@ -568,6 +568,98 @@ export class AdminHubService {
         supplier: { select: { name: true } },
         items: true,
       },
+    })
+  }
+
+  async receiveGoodsGrn(
+    storeIdOrSlug: string,
+    body: { purchaseOrderId?: string; notes?: string },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const purchaseOrderId = body.purchaseOrderId?.trim()
+    if (!purchaseOrderId) throw new BadRequestException('purchaseOrderId is required')
+
+    const po = await this.prisma.purchaseOrder.findFirst({
+      where: { id: purchaseOrderId, storeId },
+      include: { items: true },
+    })
+    if (!po) throw new NotFoundException('Purchase order not found')
+    if (po.status === 'COMPLETED' || po.status === 'CANCELLED') {
+      throw new BadRequestException(`Cannot receive goods for PO in ${po.status} status`)
+    }
+    if (po.status === 'RECEIVED') {
+      throw new BadRequestException('Purchase order already received')
+    }
+
+    const grnCount = await this.prisma.goodsReceivedNote.count({
+      where: { purchaseOrder: { storeId } },
+    })
+    const grnNumber = `GRN-${String(grnCount + 1).padStart(4, '0')}`
+
+    return this.prisma.$transaction(async (tx) => {
+      const freshPo = await tx.purchaseOrder.findFirst({
+        where: { id: purchaseOrderId, storeId },
+        include: { items: true },
+      })
+      if (!freshPo) throw new NotFoundException('Purchase order not found')
+      if (freshPo.status === 'COMPLETED' || freshPo.status === 'CANCELLED') {
+        throw new BadRequestException(`Cannot receive goods for PO in ${freshPo.status} status`)
+      }
+      if (freshPo.status === 'RECEIVED') {
+        throw new BadRequestException('Purchase order already received')
+      }
+      const existingGrn = await tx.goodsReceivedNote.findFirst({
+        where: { purchaseOrderId: freshPo.id },
+      })
+      if (existingGrn) {
+        throw new BadRequestException('Purchase order already received')
+      }
+
+      const grn = await tx.goodsReceivedNote.create({
+        data: {
+          purchaseOrderId: freshPo.id,
+          grnNumber,
+          notes: body.notes?.trim() || null,
+        },
+      })
+
+      for (const item of freshPo.items) {
+        const sku = item.sku?.trim()
+        if (!sku) continue
+        const variant = await tx.productVariant.findFirst({
+          where: { sku, product: { storeId } },
+          select: { id: true, sku: true, stock: true },
+        })
+        if (!variant) continue
+        const quantityBefore = variant.stock
+        const quantityAfter = quantityBefore + item.quantity
+        await tx.productVariant.update({
+          where: { id: variant.id },
+          data: { stock: quantityAfter },
+        })
+        await tx.stockMovementLog.create({
+          data: {
+            storeId,
+            variantId: variant.id,
+            sku: variant.sku,
+            reason: 'PURCHASE',
+            quantityBefore,
+            quantityAfter,
+            delta: item.quantity,
+            note: `GRN ${grnNumber} · PO ${freshPo.poNumber}`,
+          },
+        })
+      }
+
+      await tx.purchaseOrder.update({
+        where: { id: freshPo.id },
+        data: { status: 'RECEIVED' },
+      })
+
+      return {
+        grn,
+        purchaseOrder: { id: freshPo.id, poNumber: freshPo.poNumber, status: 'RECEIVED' as const },
+      }
     })
   }
 

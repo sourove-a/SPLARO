@@ -1,7 +1,11 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { Public } from '../../common/auth/public.decorator'
 import type { CouponType } from '@prisma/client'
+import { countEligibleStorefrontCoupons, filterEligibleCoupons } from './coupon-availability.util'
+import { validateStorefrontCoupon } from './coupon-validate.util'
 
 @Controller('admin/coupons')
 export class CouponsController {
@@ -91,102 +95,56 @@ export class CouponsController {
   }
 }
 
+@Public()
 @Controller('storefront/coupons')
 export class StorefrontCouponsController {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async countActiveCoupons(storeId: string) {
+  private async listEligibleCodes(storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const now = new Date()
     const coupons = await this.prisma.coupon.findMany({
       where: { storeId: sid, isActive: true },
       select: { id: true, code: true, usageLimit: true, usedCount: true, startsAt: true, expiresAt: true },
     })
-    const available = coupons.filter((c) => {
-      if (c.startsAt && c.startsAt > now) return false
-      if (c.expiresAt && c.expiresAt < now) return false
-      if (c.usageLimit && c.usedCount >= c.usageLimit) return false
-      return true
-    })
+    const available = filterEligibleCoupons(coupons, now)
     return { count: available.length, codes: available.map((c) => c.code) }
   }
 
   @Get('active')
   async active(@Query('storeId') storeId: string) {
-    const { count, codes } = await this.countActiveCoupons(storeId)
-    return { enabled: count > 0, count, codes }
+    const { count, codes } = await this.listEligibleCodes(storeId)
+    return { enabled: count > 0, hasActivePromo: count > 0, count, codes }
+  }
+
+  @Get('availability')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async availability(@Query('storeId') storeId: string) {
+    const count = await countEligibleStorefrontCoupons(this.prisma, storeId)
+    return { hasActivePromo: count > 0 }
   }
 
   @Post('validate')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async validate(
     @Query('storeId') storeId: string,
     @Body() body: { code: string; subtotal: number },
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const normalized = body.code.trim().toUpperCase()
-    const coupon = await this.prisma.coupon.findFirst({
-      where: { storeId: sid, code: normalized, isActive: true },
-    })
+    return validateStorefrontCoupon(this.prisma, sid, body.code, Number(body.subtotal ?? 0))
+  }
+}
 
-    if (!coupon) {
-      return { valid: false, discount: 0, freeShipping: false, message: 'Invalid coupon code' }
-    }
+/** Alias route: GET /storefront/promos/availability */
+@Public()
+@Controller('storefront/promos')
+export class StorefrontPromosController {
+  constructor(private readonly prisma: PrismaService) {}
 
-    const now = new Date()
-    if (coupon.startsAt && coupon.startsAt > now) {
-      return { valid: false, discount: 0, freeShipping: false, message: 'Coupon not active yet' }
-    }
-    if (coupon.expiresAt && coupon.expiresAt < now) {
-      return { valid: false, discount: 0, freeShipping: false, message: 'Coupon expired' }
-    }
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      return { valid: false, discount: 0, freeShipping: false, message: 'Coupon usage limit reached' }
-    }
-
-    const subtotal = body.subtotal
-    const minOrder = coupon.minOrderAmount ? Number(coupon.minOrderAmount) : 0
-    if (minOrder && subtotal < minOrder) {
-      return {
-        valid: false,
-        discount: 0,
-        freeShipping: false,
-        message: `Minimum order BDT ${minOrder.toLocaleString('en-BD')} required`,
-      }
-    }
-
-    if (coupon.type === 'FREE_SHIPPING') {
-      return {
-        valid: true,
-        code: coupon.code,
-        type: 'free_shipping',
-        discount: 0,
-        freeShipping: true,
-        message: 'Free shipping applied',
-      }
-    }
-
-    if (coupon.type === 'PERCENTAGE') {
-      const raw = Math.round(subtotal * (Number(coupon.value) / 100))
-      const max = coupon.maxDiscountAmount ? Number(coupon.maxDiscountAmount) : raw
-      const discount = Math.min(raw, max)
-      return {
-        valid: true,
-        code: coupon.code,
-        type: 'percent',
-        discount,
-        freeShipping: false,
-        message: `${Number(coupon.value)}% off applied`,
-      }
-    }
-
-    const discount = Math.min(Number(coupon.value), subtotal)
-    return {
-      valid: true,
-      code: coupon.code,
-      type: 'fixed',
-      discount,
-      freeShipping: false,
-      message: `BDT ${discount.toLocaleString('en-BD')} off applied`,
-    }
+  @Get('availability')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async availability(@Query('storeId') storeId: string) {
+    const count = await countEligibleStorefrontCoupons(this.prisma, storeId)
+    return { hasActivePromo: count > 0 }
   }
 }

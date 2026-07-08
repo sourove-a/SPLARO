@@ -1,9 +1,10 @@
+import { displayOrderCode } from '@splaro/config'
 import type { StoredOrder } from '@/lib/orders'
 
 type InvoiceOrderRef = Pick<StoredOrder, 'id' | 'invoiceNumber' | 'invoiceAccessKey'>
 
 export function orderPublicRef(order: InvoiceOrderRef): string {
-  return order.invoiceNumber?.trim() || order.id
+  return displayOrderCode(order.invoiceNumber, order.id)
 }
 
 export function buildInvoiceUrl(order: InvoiceOrderRef): string {

@@ -17,6 +17,8 @@ const env = {
   JWT_SECRET: process.env.JWT_SECRET ?? 'ci-jwt-secret-min-32-characters-long',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET ?? 'ci-refresh-secret-min-32-characters',
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY ?? 'ci-encryption-key-min-32-characters-long',
+  INTERNAL_HEALTH_SECRET:
+    process.env.INTERNAL_HEALTH_SECRET ?? 'ci-internal-health-secret-min-16-chars',
   API_PORT: String(port),
   REDIS_HOST: process.env.REDIS_HOST ?? '127.0.0.1',
   REDIS_PORT: process.env.REDIS_PORT ?? '6379',
@@ -93,6 +95,44 @@ try {
 }
 
 console.log('✅ /api/v1/health/full')
+
+try {
+  const res = await fetch(`http://127.0.0.1:${port}/`, {
+    redirect: 'manual',
+    signal: AbortSignal.timeout(8000),
+  })
+  const location = res.headers.get('location') ?? ''
+  if (res.status !== 302 || !location.includes('/api/v1')) {
+    fail(`API root / expected 302 → /api/v1, got ${res.status} location=${location}`, stderr)
+  }
+} catch (err) {
+  fail(err instanceof Error ? err.message : 'API root redirect check failed', stderr)
+}
+
+console.log('✅ API root redirect')
+
+try {
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/health/routes?storeId=splaro`, {
+    signal: AbortSignal.timeout(120_000),
+  })
+  const body = await res.text()
+  if (!res.ok) fail(`health/routes HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
+  const data = JSON.parse(body)
+  const { total = 0, healthy = 0, down = 0 } = data.summary ?? {}
+  const auth401 = (data.checks ?? []).filter(
+    (c) => c.status !== 'healthy' && String(c.message ?? '').includes('401'),
+  ).length
+  if (auth401 > 0) {
+    fail(`${auth401} route probes returned 401 — fix INTERNAL_HEALTH_SECRET bypass`, stderr)
+  }
+  if (down > 0 || (total > 0 && healthy / total < 0.95)) {
+    fail(`health/routes regression: ${healthy}/${total} healthy, ${down} down`, stderr)
+  }
+} catch (err) {
+  fail(err instanceof Error ? err.message : 'health/routes check failed', stderr)
+}
+
+console.log('✅ /api/v1/health/routes (≥95% healthy, no 401 storm)')
 
 try {
   process.kill(-child.pid, 'SIGTERM')

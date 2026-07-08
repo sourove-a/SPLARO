@@ -40,6 +40,9 @@ export interface StorefrontProduct {
   material: string
   /** Real API variants (id + size + colorHex) so quick-add can send a valid variantId */
   variantRefs?: StorefrontVariantRef[]
+  /** Aggregate rating from API — only shown when reviewCount > 0 */
+  rating?: number
+  reviewCount?: number
 }
 
 export function isStorefrontNewArrival(product: StorefrontProduct) {
@@ -52,7 +55,7 @@ export function isStorefrontBestSeller(product: StorefrontProduct) {
 
 export interface CollectionCard {
   slug: string
-  label: Exclude<Category, 'All'>
+  label: string
   image: string
   count: number
 }
@@ -806,40 +809,10 @@ export function getShopColorOptions(catalog: StorefrontProduct[], category: Cate
 }
 
 export const collectionCards: CollectionCard[] = [
-  {
-    slug: 'summer-edition',
-    label: 'Summer Edition',
-    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800&q=88&auto=format&fit=crop',
-    count: products.filter((p) => p.category === 'Summer Edition').length,
-  },
-  {
-    slug: 'men',
-    label: 'Men',
-    image: 'https://images.unsplash.com/photo-1507680434567-5739c80be1ac?w=800&q=88&auto=format&fit=crop',
-    count: products.filter((p) => p.category === 'Men').length,
-  },
-  {
-    slug: 'women',
-    label: 'Women',
-    image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=88&auto=format&fit=crop',
-    count: products.filter((p) => p.category === 'Women').length,
-  },
-  {
-    slug: 'kids',
-    label: 'Kids',
-    image: 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&q=88&auto=format&fit=crop',
-    count: products.filter((p) => p.category === 'Kids').length,
-  },
-  {
-    slug: 'footwear',
-    label: 'Footwear',
-    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=88&auto=format&fit=crop',
-    count: products.filter((p) => p.category === 'Footwear').length,
-  },
-  {
-    slug: 'accessories',
-    label: 'Accessories',
-    image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&q=88&auto=format&fit=crop',
-    count: 3,
-  },
+  { slug: 'summer-edition', label: 'Summer Edition', image: '', count: 0 },
+  { slug: 'men', label: 'Men', image: '', count: 0 },
+  { slug: 'women', label: 'Women', image: '', count: 0 },
+  { slug: 'kids', label: 'Kids', image: '', count: 0 },
+  { slug: 'footwear', label: 'Footwear', image: '', count: 0 },
+  { slug: 'accessories', label: 'Accessories', image: '', count: 0 },
 ]

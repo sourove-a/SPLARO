@@ -1,9 +1,13 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common'
 import { verifyInvoiceAccessToken } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
+import { RedisService } from '../../common/redis.service'
 import { resolveStoreId } from '../../common/store.util'
 import { assessOrderFraud } from '../../common/fraud.util'
+import { generateOrderCode } from '../../common/order-code.util'
+import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
+import { assertCouponForOrder } from '../coupons/coupon-validate.util'
 import { MetaCapiService } from '../marketing/meta-capi.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { OrderEventsService } from '../orders/order-events.service'
@@ -52,6 +56,7 @@ export interface CreateStorefrontOrderInput {
   total: number
   paymentMethod: string
   couponCode?: string
+  idempotencyKey?: string
   attribution?: OrderAttributionInput
   clientIp?: string
   userAgent?: string
@@ -75,11 +80,17 @@ function mapPaymentMethod(method: string): PaymentMethod {
 
 @Injectable()
 export class StorefrontOrdersService {
+  private static readonly ORDER_INCLUDE = {
+    items: { include: { product: true, variant: true } },
+    customer: true,
+  } as const
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly metaCapi: MetaCapiService,
     private readonly orderNotifications: OrderNotificationsService,
     @Optional() private readonly orderEvents: OrderEventsService,
+    @Optional() private readonly redis: RedisService,
   ) {}
 
   /**
@@ -92,9 +103,9 @@ export class StorefrontOrdersService {
     sid: string,
     item: StorefrontOrderItemInput,
   ) {
-    // Only published products are sellable — knowing a draft product's id must not
-    // allow ordering it.
-    const base = { productId: item.productId, product: { storeId: sid, isPublished: true } }
+    // Only visible, published products with active variants are sellable.
+    const productWhere = storefrontVisibleProductWhere({ storeId: sid, id: item.productId })
+    const base = { productId: item.productId, isActive: true, product: productWhere }
     const include = { product: { select: { basePrice: true } } } as const
 
     if (item.variantId) {
@@ -119,52 +130,53 @@ export class StorefrontOrdersService {
     )
   }
 
-  /**
-   * Validate a coupon server-side with the same rules as the public
-   * `storefront/coupons/validate` endpoint. Throws on invalid so an order can
-   * never sneak through with a discount the coupon does not grant.
-   */
-  private async validateCouponForOrder(
-    sid: string,
-    code: string,
-    subtotal: number,
-  ): Promise<{ couponId: string; discount: number; freeShipping: boolean }> {
-    const normalized = code.trim().toUpperCase()
-    const coupon = await this.prisma.coupon.findFirst({
-      where: { storeId: sid, code: normalized, isActive: true },
+  private lineFingerprint(
+    lines: { item: StorefrontOrderItemInput; variant: { id: string } }[],
+  ): string {
+    return lines
+      .map((line) => `${line.variant.id}:${line.item.quantity}`)
+      .sort()
+      .join('|')
+  }
+
+  private async loadOrderById(orderId: string) {
+    return this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: StorefrontOrdersService.ORDER_INCLUDE,
     })
-    if (!coupon) throw new BadRequestException('Invalid coupon code')
+  }
 
-    const now = new Date()
-    if (coupon.startsAt && coupon.startsAt > now) {
-      throw new BadRequestException('Coupon not active yet')
-    }
-    if (coupon.expiresAt && coupon.expiresAt < now) {
-      throw new BadRequestException('Coupon expired')
-    }
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      throw new BadRequestException('Coupon usage limit reached')
-    }
-    const minOrder = coupon.minOrderAmount ? Number(coupon.minOrderAmount) : 0
-    if (minOrder && subtotal < minOrder) {
-      throw new BadRequestException(
-        `Coupon requires a minimum order of BDT ${minOrder.toLocaleString('en-BD')}`,
-      )
-    }
+  private async findRecentDuplicateOrder(
+    sid: string,
+    normalizedPhone: string,
+    serverTotal: number,
+    fingerprint: string,
+  ) {
+    const since = new Date(Date.now() - 120_000)
+    const recent = await this.prisma.order.findMany({
+      where: {
+        storeId: sid,
+        shippingPhone: normalizedPhone,
+        total: serverTotal,
+        createdAt: { gte: since },
+      },
+      include: {
+        items: { select: { variantId: true, quantity: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    })
 
-    if (coupon.type === 'FREE_SHIPPING') {
-      return { couponId: coupon.id, discount: 0, freeShipping: true }
+    for (const candidate of recent) {
+      const fp = candidate.items
+        .map((row) => `${row.variantId}:${row.quantity}`)
+        .sort()
+        .join('|')
+      if (fp === fingerprint) {
+        return this.loadOrderById(candidate.id)
+      }
     }
-    if (coupon.type === 'PERCENTAGE') {
-      const raw = Math.round(subtotal * (Number(coupon.value) / 100))
-      const max = coupon.maxDiscountAmount ? Number(coupon.maxDiscountAmount) : raw
-      return { couponId: coupon.id, discount: Math.min(raw, max), freeShipping: false }
-    }
-    return {
-      couponId: coupon.id,
-      discount: Math.min(Number(coupon.value), subtotal),
-      freeShipping: false,
-    }
+    return null
   }
 
   async create(input: CreateStorefrontOrderInput) {
@@ -223,7 +235,7 @@ export class StorefrontOrdersService {
     )
 
     const coupon = input.couponCode
-      ? await this.validateCouponForOrder(sid, input.couponCode, serverSubtotal)
+      ? await assertCouponForOrder(this.prisma, sid, input.couponCode, serverSubtotal)
       : null
 
     const digitalDiscount =
@@ -265,12 +277,28 @@ export class StorefrontOrdersService {
       )
     }
 
-    const invoiceNumber = await this.nextInvoiceNumber(sid)
-    const paymentStatus: PaymentStatus = 'PENDING'
-    const status: OrderStatus = 'PENDING'
-
     const normalizedPhone = normalizeBdPhone(input.customer.phone)
     const shippingEmail = input.customer.email?.trim().toLowerCase() || null
+    const lineFingerprint = this.lineFingerprint(lines)
+
+    const idemKey = input.idempotencyKey?.trim()
+    if (idemKey && this.redis) {
+      const cached = await this.redis.getJson<{ orderId: string }>(
+        `splaro:order-idem:${sid}:${idemKey}`,
+      )
+      if (cached?.orderId) {
+        const existing = await this.loadOrderById(cached.orderId)
+        if (existing) return existing
+      }
+    }
+
+    const duplicate = await this.findRecentDuplicateOrder(
+      sid,
+      normalizedPhone,
+      serverTotal,
+      lineFingerprint,
+    )
+    if (duplicate) return duplicate
 
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const recentPhoneOrders = await this.prisma.order.count({
@@ -291,7 +319,17 @@ export class StorefrontOrdersService {
 
     const attr = input.attribution
 
-    const order = await this.prisma.$transaction(async (tx) => {
+    const paymentStatus: PaymentStatus = 'PENDING'
+    const status: OrderStatus = 'PENDING'
+
+    let order:
+      | Prisma.OrderGetPayload<{ include: typeof StorefrontOrdersService.ORDER_INCLUDE }>
+      | undefined
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const invoiceNumber = await generateOrderCode(this.prisma, sid)
+      try {
+        order = await this.prisma.$transaction(async (tx) => {
       // Guarded decrement: `stock >= quantity` in the WHERE clause makes the
       // check-and-decrement atomic, so two concurrent checkouts can never
       // oversell the last unit or push stock negative.
@@ -306,6 +344,16 @@ export class StorefrontOrdersService {
       }
 
       if (coupon) {
+        const row = await tx.coupon.findUnique({
+          where: { id: coupon.couponId },
+          select: { usageLimit: true, usedCount: true },
+        })
+        if (!row) {
+          throw new BadRequestException('Coupon no longer available')
+        }
+        if (row.usageLimit != null && row.usedCount >= row.usageLimit) {
+          throw new BadRequestException('Coupon usage limit reached')
+        }
         await tx.coupon.update({
           where: { id: coupon.couponId },
           data: { usedCount: { increment: 1 } },
@@ -370,14 +418,29 @@ export class StorefrontOrdersService {
             },
           },
         },
-        include: {
-          items: { include: { product: true, variant: true } },
-          customer: true,
-        },
+        include: StorefrontOrdersService.ORDER_INCLUDE,
       })
 
       return created
-    })
+        })
+        break
+      } catch (error) {
+        const unique =
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code: string }).code === 'P2002'
+        if (!unique || attempt === 5) throw error
+      }
+    }
+
+    if (!order) {
+      throw new BadRequestException('Unable to create order — please try again')
+    }
+
+    if (idemKey && this.redis) {
+      await this.redis.setJson(`splaro:order-idem:${sid}:${idemKey}`, { orderId: order.id }, 600)
+    }
 
     void this.metaCapi.trackPurchase({
       storeId: sid,
@@ -429,22 +492,15 @@ export class StorefrontOrdersService {
     })
     if (!order) return null
 
-    if (access.key && verifyInvoiceAccessToken(order.id, access.key)) return order
+    if (access.key) {
+      if (verifyInvoiceAccessToken(order.id, access.key)) return order
+      if (verifyInvoiceAccessToken(order.invoiceNumber, access.key)) return order
+    }
 
     const phone = access.phone?.replace(/\D/g, '') ?? ''
     const orderPhone = order.shippingPhone.replace(/\D/g, '')
     if (phone.length >= 10 && phone.slice(-10) === orderPhone.slice(-10)) return order
 
     return null
-  }
-
-  private async nextInvoiceNumber(storeId: string): Promise<string> {
-    const prefix = process.env['INVOICE_PREFIX'] ?? 'SPL'
-    const count = await this.prisma.order.count({ where: { storeId } })
-    const next = 1000 + count + 1
-    const candidate = `${prefix}-${next}`
-    const clash = await this.prisma.order.findUnique({ where: { invoiceNumber: candidate } })
-    if (clash) return `${prefix}-${Date.now()}`
-    return candidate
   }
 }

@@ -25,6 +25,24 @@ interface CreateReviewBody {
   body?: string
 }
 
+export async function GET(request: Request) {
+  const limit = new URL(request.url).searchParams.get('limit') ?? '10'
+  const response = await fetch(
+    apiUrl(`/storefront/reviews?storeId=${encodeURIComponent(STORE_ID)}&limit=${encodeURIComponent(limit)}`),
+    { cache: 'no-store' },
+  )
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    return NextResponse.json(
+      { error: 'Reviews not available', reviews: [], aggregateRating: null, reviewCount: 0 },
+      { status: response.status },
+    )
+  }
+
+  return NextResponse.json(payload, { status: 200 })
+}
+
 export async function POST(request: Request) {
   const limit = await rateLimit(getClientKey(request, 'reviews-create'))
   if (!limit.ok) {

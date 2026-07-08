@@ -104,7 +104,7 @@ export function LiveCategoriesPanel() {
         createLabel="Add category"
         onCreate={() => setShowForm(true)}
         onRefresh={() => void refreshWithToast(() => refetch(), 'Categories synced from database.')}
-        onExport={() => toast.error('CSV export is not available yet — feature pending.')}
+        exportDisabled
         tableIcon={FolderTree}
         tableTitle={`Categories · ${filtered.length} live results`}
         footer={isLoading ? 'Loading categories…' : `Showing ${filtered.length} of ${categories.length} — live from API`}

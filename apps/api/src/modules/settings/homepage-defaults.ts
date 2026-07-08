@@ -29,63 +29,7 @@ export const DEFAULT_STORY_PILLARS: StoryPillarConfig[] = [
   },
 ]
 
-export const DEFAULT_CUSTOMER_STORY_ITEMS: CustomerStoryItem[] = [
-  {
-    id: 'cs-1',
-    enabled: true,
-    name: 'Fatima Begum',
-    location: 'Dhaka',
-    rating: 5,
-    date: 'June 2026',
-    text: 'The fabric quality is beyond anything I have found in Bangladesh at this price point. The packaging alone felt like a gift. True luxury from start to finish.',
-    product: 'Summer Air Overshirt',
-    avatar: 'F',
-  },
-  {
-    id: 'cs-2',
-    enabled: true,
-    name: 'Nusrat Jahan',
-    location: 'Chittagong',
-    rating: 5,
-    date: 'May 2026',
-    text: "I wore the dress to my cousin's wedding and received compliments all evening. SPLARO is not just shopping — this is an experience I will keep coming back to.",
-    product: 'Soft Structure Dress',
-    avatar: 'N',
-  },
-  {
-    id: 'cs-3',
-    enabled: true,
-    name: 'Sumaiya Akter',
-    location: 'Sylhet',
-    rating: 5,
-    date: 'May 2026',
-    text: 'Cash on delivery made it so easy. My order arrived perfectly folded with a handwritten note. The linen quality is exceptional — my tailor was amazed.',
-    product: 'Linen Day Shirt',
-    avatar: 'S',
-  },
-  {
-    id: 'cs-4',
-    enabled: true,
-    name: 'Roksana Khanam',
-    location: 'Rajshahi',
-    rating: 5,
-    date: 'April 2026',
-    text: 'Every time I wear anything from SPLARO I feel like the most elegant version of myself. Remarkably consistent quality across every order.',
-    product: 'Pleated Resort Set',
-    avatar: 'R',
-  },
-  {
-    id: 'cs-5',
-    enabled: true,
-    name: 'Maliha Islam',
-    location: 'Dhaka',
-    rating: 5,
-    date: 'April 2026',
-    text: 'Ordered three pieces in one month. Customer support is incredibly responsive and the blazer fit was absolutely perfect straight out of the box.',
-    product: 'Tailored Blazer',
-    avatar: 'M',
-  },
-]
+export const DEFAULT_CUSTOMER_STORY_ITEMS: CustomerStoryItem[] = []
 
 export const DEFAULT_OUR_STORY: OurStoryConfig = {
   enabled: true,
@@ -103,10 +47,10 @@ export const DEFAULT_OUR_STORY: OurStoryConfig = {
   pillars: DEFAULT_STORY_PILLARS,
   customerStories: {
     enabled: true,
-    label: 'Customer Stories',
-    rating: '4.9',
-    hint: 'voices from across Bangladesh',
-    stories: DEFAULT_CUSTOMER_STORY_ITEMS,
+    label: 'Verified Reviews',
+    rating: '',
+    hint: '',
+    stories: [],
   },
 }
 

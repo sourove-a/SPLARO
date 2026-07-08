@@ -49,6 +49,18 @@ async function bootstrap() {
   app.enableShutdownHooks()
   const http = app.getHttpAdapter().getInstance()
   http.set('trust proxy', Number(process.env['TRUST_PROXY_HOPS'] ?? '1'))
+
+  // api.splaro.co/ → all routes live under /api/v1 (global prefix)
+  http.get('/', (_req, res) => {
+    res.redirect(302, '/api/v1/')
+  })
+  http.get('/api', (_req, res) => {
+    res.redirect(302, '/api/v1/')
+  })
+  http.get('/api/', (_req, res) => {
+    res.redirect(302, '/api/v1/')
+  })
+
   app.use(compression())
   app.use(
     helmet({

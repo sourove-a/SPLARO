@@ -136,6 +136,69 @@ check('No lint errors in admin', () => {
   run(['pnpm', '--filter', '@splaro/admin', 'lint'], { timeout: 90000 })
 })
 
+// 8. Deploy / health regression safeguards
+console.log('\n🛡️ Deploy safeguards:')
+check('INTERNAL_HEALTH_SECRET in .env', () => {
+  const inEnv =
+    envContent.match(/^INTERNAL_HEALTH_SECRET=.+/m) ||
+    (process.env.INTERNAL_HEALTH_SECRET && process.env.INTERNAL_HEALTH_SECRET.length >= 16)
+  if (!inEnv) throw new Error('Set INTERNAL_HEALTH_SECRET (min 16 chars) in .env')
+})
+check('Route probe runner (concurrency guard)', () => {
+  const src = readFileSync(resolve(ROOT, 'apps/api/src/common/route-probe-runner.ts'), 'utf8')
+  if (!src.includes('runWithConcurrency') || !src.includes('DEFAULT_CONCURRENCY')) {
+    throw new Error('route-probe-runner.ts missing concurrency limit')
+  }
+})
+check('Admin auth internal health GET bypass', () => {
+  const guard = readFileSync(resolve(ROOT, 'apps/api/src/common/auth/admin-auth.guard.ts'), 'utf8')
+  if (!guard.includes('health_probe') || !guard.includes("method === 'GET'")) {
+    throw new Error('admin-auth.guard must allow GET + x-splaro-internal for health probes')
+  }
+})
+check('Pre-push CI gate script', () => {
+  if (!existsSync(resolve(ROOT, 'scripts/pre-push.mjs'))) throw new Error('Missing scripts/pre-push.mjs')
+  if (!existsSync(resolve(ROOT, '.githooks/pre-push'))) throw new Error('Missing .githooks/pre-push')
+})
+check('Git pre-push hook enabled', () => {
+  try {
+    const hooksPath = run(['git', 'config', '--get', 'core.hooksPath'])
+    if (hooksPath !== '.githooks') {
+      throw new Error('Run: pnpm setup:hooks')
+    }
+  } catch {
+    throw new Error('Run: pnpm setup:hooks')
+  }
+})
+check('Deploy health verify script', () => {
+  if (!existsSync(resolve(ROOT, 'scripts/verify-deploy-health.mjs'))) {
+    throw new Error('Missing scripts/verify-deploy-health.mjs')
+  }
+})
+
+// Runtime hints (warnings only — do not fail doctor)
+console.log('\n🌐 Local runtime:')
+try {
+  const { checkApiHealth, getApiPort } = await import('./api-port.mjs')
+  const port = getApiPort()
+  const apiOk = await checkApiHealth(port)
+  if (apiOk) {
+    console.log(`  ✅ API healthy on http://127.0.0.1:${port}/api/v1/health`)
+  } else {
+    console.log(`  ⚠️  API offline on :${port} — run: pnpm dev:stack`)
+  }
+
+  const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+  const redisPing = spawnSync('redis-cli', ['-u', redisUrl, 'ping'], { encoding: 'utf8', timeout: 3000 })
+  if (redisPing.stdout?.trim() === 'PONG') {
+    console.log('  ✅ Redis reachable')
+  } else {
+    console.log('  ⚠️  Redis offline — run: pnpm infra:redis')
+  }
+} catch (e) {
+  console.log(`  ⚠️  Runtime check skipped: ${e instanceof Error ? e.message : e}`)
+}
+
 // Summary
 console.log(`\n${'─'.repeat(40)}`)
 console.log(`  Passed: ${passed}   Failed: ${failed}`)

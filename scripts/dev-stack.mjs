@@ -3,10 +3,10 @@
  * Start API first, wait until healthy, then admin + web.
  * Avoids the "admin up before API" race that causes offline spam.
  */
-import { spawn } from 'child_process'
+import { spawn, spawnSync } from 'child_process'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
-import { checkApiHealth, getApiPort, reclaimPort } from './api-port.mjs'
+import { checkApiHealth, cleanupOrphanApiProcesses, getApiPort, reclaimPort } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const port = getApiPort()
@@ -60,6 +60,11 @@ process.on('SIGINT', () => shutdown(0))
 process.on('SIGTERM', () => shutdown(0))
 
 console.log('\n🚀 SPLARO dev stack — API → Admin → Web\n')
+
+cleanupOrphanApiProcesses(port)
+
+console.log('📦 Ensuring Redis (brew/docker)…')
+spawnSync('pnpm', ['infra:redis'], { cwd: ROOT, stdio: 'inherit' })
 
 run('node', ['scripts/api-preflight.mjs'])
 

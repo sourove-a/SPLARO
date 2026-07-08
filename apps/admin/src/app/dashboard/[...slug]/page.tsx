@@ -8,6 +8,7 @@ import { ModuleDetailView } from '@/components/ui/ModuleDetailView'
 import { ModuleWorkspace } from '@/components/modules/ModuleWorkspace'
 import { CustomerProfileClient } from '@/components/customers/CustomerProfileClient'
 import { resolveNavRoute, getRecordIdFromSubPath } from '@/lib/navigation/admin-nav'
+import { hasBackendCreateApi } from '@/lib/modules/module-maturity'
 
 interface DashboardModulePageProps {
   params: Promise<{ slug: string[] }>
@@ -45,17 +46,16 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
   ]
 
   if (action === 'create') {
-    const isProductCreate = moduleHref === '/dashboard/products'
-    const isOrderCreate = moduleHref === '/dashboard/orders'
+    const hasCreateApi = hasBackendCreateApi(moduleHref)
     return (
       <AdminPageShell
         title={pageTitle}
         breadcrumbs={breadcrumbTrail}
         quickActions={[{ label: `Back to ${navItem.label}`, href: moduleHref }]}
       >
-        {isProductCreate ? (
+        {hasCreateApi && moduleHref === '/dashboard/products' ? (
           <ProductCreatePanel moduleHref={moduleHref} />
-        ) : isOrderCreate ? (
+        ) : hasCreateApi && moduleHref === '/dashboard/orders' ? (
           <OrderCreatePanel moduleHref={moduleHref} />
         ) : (
           <ModuleCreateView moduleLabel={navItem.label} moduleHref={moduleHref} pageTitle={pageTitle} />

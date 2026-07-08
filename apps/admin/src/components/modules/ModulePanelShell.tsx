@@ -6,6 +6,7 @@ import type { LucideIcon } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { cn } from '@/lib/utils/cn'
 import { exportTableFromContainer } from '@/lib/admin/admin-actions'
+import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 
 export interface ModulePanelShellProps {
   kpis: [string, string | number, string][]
@@ -18,6 +19,11 @@ export interface ModulePanelShellProps {
   onRefresh: () => void
   /** Optional fallback when table CSV export is unavailable — never use for fake success. */
   onExport?: () => void
+  /** Disable create — no backend write path (shows honest tooltip, no fake toast). */
+  createDisabled?: boolean
+  /** Disable export — no backend or table export path. */
+  exportDisabled?: boolean
+  disabledActionTitle?: string
   tabs?: { key: string; label: string; count: number }[]
   activeTab?: string
   onTab?: (key: string) => void
@@ -39,6 +45,9 @@ export function ModulePanelShell({
   onCreate,
   onRefresh,
   onExport,
+  createDisabled = false,
+  exportDisabled = false,
+  disabledActionTitle = BACKEND_NOT_CONNECTED_TITLE,
   tabs,
   activeTab,
   onTab,
@@ -52,6 +61,7 @@ export function ModulePanelShell({
   const tableWrapRef = useRef<HTMLDivElement>(null)
 
   const handleExport = () => {
+    if (exportDisabled) return
     const slug =
       exportSlug ??
       (tableTitle
@@ -70,7 +80,7 @@ export function ModulePanelShell({
     <div className="min-w-0 space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map(([label, value, tone], index) => (
-          <div key={`${label}-${index}`} className="admin-kpi rounded-[20px]">
+          <div key={`${label}-${index}`} className="admin-kpi">
             <p className="admin-kpi__label">{label}</p>
             <p className={`admin-kpi__value${tone !== 'default' ? ` admin-kpi__value--${tone}` : ''}`}>{value}</p>
           </div>
@@ -101,11 +111,20 @@ export function ModulePanelShell({
             <RefreshCw className="h-4 w-4" />
             Refresh
           </AdminButton>
-          <AdminButton onClick={handleExport}>
+          <AdminButton
+            onClick={handleExport}
+            disabled={exportDisabled}
+            title={exportDisabled ? disabledActionTitle : undefined}
+          >
             <Download className="h-4 w-4" />
             Export
           </AdminButton>
-          <AdminButton variant="gold" onClick={onCreate}>
+          <AdminButton
+            variant="gold"
+            onClick={onCreate}
+            disabled={createDisabled}
+            title={createDisabled ? disabledActionTitle : undefined}
+          >
             <Plus className="h-4 w-4" />
             {createLabel}
           </AdminButton>
@@ -132,7 +151,7 @@ export function ModulePanelShell({
 
       <div className="admin-module-table-wrap">
         <div className="admin-module-table-head">
-          <TableIcon className="h-4 w-4 text-[#5E7CFF]" />
+          <TableIcon className="h-4 w-4 text-[var(--admin-text-muted)]" />
           <p className="admin-kpi__label !mb-0">{tableTitle}</p>
         </div>
         <div className="overflow-x-auto" ref={tableWrapRef}>{children}</div>

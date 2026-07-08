@@ -99,11 +99,11 @@ log "pnpm $(pnpm --version)"
 
 # ── Build & deploy ───────────────────────────────────────────
 log "Installing dependencies..."
-pnpm install --frozen-lockfile
+NODE_ENV=development pnpm install --frozen-lockfile --prod=false
 
 log "Prisma generate + migrate..."
 pnpm db:generate
-pnpm db:migrate:prod || pnpm db:push
+pnpm db:migrate:prod || pnpm db:push:prod
 
 log "Seed (idempotent)..."
 pnpm db:seed || log "Seed skipped — check if first deploy"

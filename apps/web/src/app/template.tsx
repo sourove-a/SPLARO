@@ -17,7 +17,7 @@ export default function RootTemplate({ children }: { children: ReactNode }) {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.42, ease: PAGE_EASE }}
+      transition={{ duration: 0.28, ease: PAGE_EASE }}
     >
       {children}
     </motion.div>

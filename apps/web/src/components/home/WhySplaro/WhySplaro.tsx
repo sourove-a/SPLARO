@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { Gem, Heart, Leaf, Sparkles, Sprout, Star, type LucideIcon } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import type { StoryPillarIcon } from '@/lib/storefront/homepage-defaults'
+import { resolveStoreLogo } from '@/components/brand/SplaroBrandLogo'
 import { resolveOurStory, visiblePillars } from '@/lib/storefront/homepage-defaults'
 import { CustomerStoriesDropdown } from './CustomerStoriesDropdown'
 import { SocialReelsDropdown } from './SocialReelsDropdown'
@@ -16,9 +17,12 @@ const StoryEarthGlobe = dynamic(
   { ssr: false },
 )
 
-const SPLARO_LOGO_WHITE = '/images/logo/splaro-logo-white.svg'
-const SPLARO_LOGO = '/images/logo/splaro-logo-dark.svg'
-const SPLARO_MARK = '/images/logo/splaro-brand.svg'
+/** Same PNG wordmarks as header — not the legacy Georgia serif SVG placeholders. */
+const SPLARO_LOGO = '/images/logo/splaro-brand-mark-transparent.png'
+const SPLARO_MARK = '/images/logo/splaro-brand-mark-tab-48.png'
+const MARK_SIZE = 48
+const LOGO_W = 200
+const LOGO_H = 80
 
 const PILLAR_ICONS: Record<StoryPillarIcon, LucideIcon> = {
   sprout: Sprout,
@@ -43,8 +47,10 @@ export function WhySplaro() {
   const story = resolveOurStory(settings.config.ourStory)
   const homepage = settings.config.homepage
   const pillars = visiblePillars(story)
-  const brandLogo = settings.store.logo?.trim() || SPLARO_LOGO
-  const earthLogo = settings.store.logo?.trim() || SPLARO_LOGO_WHITE
+  const storeLogo = resolveStoreLogo(settings.store.logo ?? '')
+  const brandLogo = storeLogo || SPLARO_LOGO
+  /** Globe panel inverts dark wordmark to white via CSS. */
+  const earthLogo = storeLogo || SPLARO_LOGO
 
   if (!story.enabled || homepage?.ourStory === false) return null
 
@@ -82,11 +88,11 @@ export function WhySplaro() {
                   <Image
                     src={SPLARO_MARK}
                     alt=""
-                    width={80}
-                    height={80}
+                    width={MARK_SIZE}
+                    height={MARK_SIZE}
                     aria-hidden
                     unoptimized
-                    className="h-full w-full object-contain"
+                    className="story-earth-panel__mark-img"
                   />
                 </div>
                 <p className="story-earth-panel__tagline">
@@ -110,8 +116,8 @@ export function WhySplaro() {
               <Image
                 src={brandLogo}
                 alt="SPLARO"
-                width={750}
-                height={423}
+                width={LOGO_W}
+                height={LOGO_H}
                 unoptimized
                 className="story-brand-lockup__logo"
               />
@@ -155,7 +161,10 @@ export function WhySplaro() {
               <footer>— {story.quoteAttribution}</footer>
             </blockquote>
 
-            <CustomerStoriesDropdown config={story.customerStories} />
+            <CustomerStoriesDropdown
+              enabled={story.customerStories.enabled}
+              label={story.customerStories.label}
+            />
 
             <SocialReelsDropdown />
           </motion.div>

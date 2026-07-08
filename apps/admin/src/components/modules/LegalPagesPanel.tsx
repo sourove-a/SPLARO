@@ -290,20 +290,21 @@ export function LegalPagesPanel() {
                         Section {index + 1}
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        <button type="button" className="admin-btn admin-btn--ghost !px-2 !py-1" onClick={() => moveSection(index, -1)} disabled={index === 0}>
+                        <AdminButton type="button" variant="ghost" size="sm" onClick={() => moveSection(index, -1)} disabled={index === 0}>
                           <ChevronUp className="h-4 w-4" />
-                        </button>
-                        <button
+                        </AdminButton>
+                        <AdminButton
                           type="button"
-                          className="admin-btn admin-btn--ghost !px-2 !py-1"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => moveSection(index, 1)}
                           disabled={index === draft.sections.length - 1}
                         >
                           <ChevronDown className="h-4 w-4" />
-                        </button>
-                        <button type="button" className="admin-btn admin-btn--ghost !px-2 !py-1" onClick={() => removeSection(section.id)}>
+                        </AdminButton>
+                        <AdminButton type="button" variant="ghost" size="sm" onClick={() => removeSection(section.id)}>
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </AdminButton>
                       </div>
                     </div>
 

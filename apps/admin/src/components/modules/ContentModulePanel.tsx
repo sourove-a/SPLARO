@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { ExternalLink, Image as ImageIcon, Pencil, RefreshCw, SlidersHorizontal, Upload } from 'lucide-react'
 import { HERO_DEFAULT_SLIDES, SPLARO_DOMAINS } from '@splaro/config'
+import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useBanners, useContentOverview, useFootwearConfig, useLegalPages, useSettings, useCreateBanner, useDeleteBanner, useUpdateBanner, useSitePages } from '@/lib/api/hooks'
@@ -278,15 +279,15 @@ function HeroSliderPanel() {
         <button type="button" onClick={() => void refetch()} className="admin-module-toolbar-btn">
           <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
         </button>
-        <Link href="/dashboard/media-library" className="admin-module-toolbar-btn" style={{ textDecoration: 'none' }}>
+        <Link href="/dashboard/media-library" className="admin-module-toolbar-btn no-underline">
           <ExternalLink style={{ width: 12, height: 12 }} /> Media library
         </Link>
-        <Link href={`${SPLARO_DOMAINS.site}/`} target="_blank" rel="noreferrer" className="admin-module-toolbar-btn" style={{ textDecoration: 'none' }}>
+        <Link href={`${SPLARO_DOMAINS.site}/`} target="_blank" rel="noreferrer" className="admin-module-toolbar-btn no-underline">
           <ExternalLink style={{ width: 12, height: 12 }} /> View live homepage
         </Link>
-        <button type="button" onClick={handleAddSlide} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: 'var(--admin-text-secondary)', borderRadius: 12, padding: '8px 16px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+        <AdminButton variant="gold" size="sm" onClick={handleAddSlide}>
           Add slide
-        </button>
+        </AdminButton>
       </div>
 
       {usingFallback ? (
@@ -297,15 +298,10 @@ function HeroSliderPanel() {
           <p style={{ margin: '0 0 12px', fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', lineHeight: 1.5 }}>
             Import করলে নিচের {HERO_DEFAULT_SLIDES.length}টা slide database-এ যাবে। তারপর title, image, link সব edit করতে পারবেন।
           </p>
-          <button
-            type="button"
-            disabled={importing}
-            onClick={() => void handleImportDefaults()}
-            style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: 'var(--admin-text-secondary)', borderRadius: 12, padding: '10px 18px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}
-          >
+          <AdminButton variant="gold" size="sm" disabled={importing} loading={importing} onClick={() => void handleImportDefaults()}>
             <Upload style={{ width: 14, height: 14 }} />
             {importing ? 'Importing…' : 'Import live slides to edit'}
-          </button>
+          </AdminButton>
         </div>
       ) : null}
 

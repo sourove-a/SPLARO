@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { generateOrderCode } from '../../common/order-code.util'
 import { OrderEventsService } from '../orders/order-events.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
 import type { PaymentMethod, Prisma } from '@prisma/client'
@@ -197,13 +198,27 @@ export class PosService {
     const discount = Math.min(Math.max(input.discount ?? 0, 0), subtotal)
     const total = subtotal - discount
     const paymentMethod = mapPosPayment(input.paymentMethod)
-    const invoiceNumber = await this.nextInvoiceNumber(sid)
     const customerName = input.customerName?.trim() || 'Walk-in Customer'
     const customerPhone = input.customerPhone?.trim() || '0000000000'
     const staffNote = input.staffName?.trim() ? `Staff: ${input.staffName.trim()}` : null
     const adminNotes = ['POS in-store sale', staffNote, input.notes?.trim()].filter(Boolean).join(' · ')
 
-    const order = await this.prisma.$transaction(async (tx) => {
+    let order:
+      | (Awaited<ReturnType<typeof this.prisma.order.create>> & {
+          items: Array<{
+            id: string
+            productName: string
+            variantName: string | null
+            quantity: number
+            price: unknown
+          }>
+        })
+      | undefined
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const invoiceNumber = await generateOrderCode(this.prisma, sid)
+      try {
+        order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
         data: {
           storeId: sid,
@@ -233,10 +248,13 @@ export class PosService {
           items: {
             create: await Promise.all(
               lineItems.map(async (item) => {
-                await tx.productVariant.update({
-                  where: { id: item.variantId },
+                const updated = await tx.productVariant.updateMany({
+                  where: { id: item.variantId, stock: { gte: item.quantity } },
                   data: { stock: { decrement: item.quantity } },
                 })
+                if (updated.count === 0) {
+                  throw new BadRequestException(`${item.name}: insufficient stock`)
+                }
                 return {
                   product: { connect: { id: item.productId } },
                   variant: { connect: { id: item.variantId } },
@@ -273,7 +291,21 @@ export class PosService {
       })
 
       return created
-    })
+        })
+        break
+      } catch (error) {
+        const unique =
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          (error as { code: string }).code === 'P2002'
+        if (!unique || attempt === 5) throw error
+      }
+    }
+
+    if (!order) {
+      throw new BadRequestException('Unable to complete POS sale — please try again')
+    }
 
     void this.orderEvents?.onOrderPlaced(sid, order.id)
     void this.orderEvents?.onStatusChanged(sid, order.id, 'DELIVERED', 'POS pickup')
@@ -335,15 +367,5 @@ export class PosService {
         image: v.image ?? product.images[0]?.url ?? null,
       })),
     }
-  }
-
-  private async nextInvoiceNumber(storeId: string): Promise<string> {
-    const prefix = process.env['INVOICE_PREFIX'] ?? 'SPL'
-    const count = await this.prisma.order.count({ where: { storeId } })
-    const next = 1000 + count + 1
-    const candidate = `${prefix}-${next}`
-    const clash = await this.prisma.order.findUnique({ where: { invoiceNumber: candidate } })
-    if (clash) return `${prefix}-POS-${Date.now()}`
-    return candidate
   }
 }

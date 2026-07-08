@@ -34,7 +34,6 @@ import { MetaCapiService } from './modules/marketing/meta-capi.service'
 import { BkashService } from './modules/payments/bkash.service'
 import { NagadService } from './modules/payments/nagad.service'
 import { SslCommerzService } from './modules/payments/sslcommerz.service'
-import { ProductAdvancedService } from './modules/products/product-advanced.service'
 import { NotificationsService } from './modules/notifications/notifications.service'
 import { AdminTelegramHubService } from './modules/notifications/admin-telegram-hub.service'
 import { OrderNotificationsService } from './modules/notifications/order-notifications.service'
@@ -61,6 +60,8 @@ import { DashboardService } from './modules/dashboard/dashboard.service'
 import { CommerceFinanceController } from './modules/commerce-finance/commerce-finance.controller'
 import { CommerceFinanceService } from './modules/commerce-finance/commerce-finance.service'
 import { OrdersController } from './modules/orders/orders.controller'
+import { ProductAdvancedService } from './modules/products/product-advanced.service'
+import { ProductPublishCron } from './modules/products/product-publish.cron'
 import { ProductsController } from './modules/products/products.controller'
 import { CustomersController } from './modules/customers/customers.controller'
 import { CustomersService } from './modules/customers/customers.service'
@@ -95,7 +96,7 @@ import { BannersController } from './modules/banners/banners.controller'
 import { RedirectsController } from './modules/redirects/redirects.controller'
 import { PlatformController } from './modules/platform/platform.controller'
 import { PlatformService } from './modules/platform/platform.service'
-import { CouponsController, StorefrontCouponsController } from './modules/coupons/coupons.controller'
+import { CouponsController, StorefrontCouponsController, StorefrontPromosController } from './modules/coupons/coupons.controller'
 import { CommerceOsService } from './modules/commerce-os/commerce-os.service'
 import {
   CommerceOsController,
@@ -243,6 +244,7 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     PlatformController,
     CouponsController,
     StorefrontCouponsController,
+    StorefrontPromosController,
     AdminHubController,
     AgentController,
     IntegrationsController,
@@ -281,6 +283,7 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     NagadService,
     SslCommerzService,
     ProductAdvancedService,
+    ProductPublishCron,
     NotificationsService,
     AdminTelegramHubService,
     OrderNotificationsService,

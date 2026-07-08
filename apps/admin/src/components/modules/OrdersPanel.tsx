@@ -26,10 +26,13 @@ import {
   Banknote,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminSkeletonGroup } from '@/components/ui/AdminUiPrimitives'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { downloadInvoice, exportTableFromContainer } from '@/lib/admin/admin-actions'
 import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder } from '@/lib/api/hooks'
 import { mapPaymentMethod, type ApiOrder } from '@/lib/api/orders'
+import { displayOrderCode } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 import { OrderPreviewCard, CustomerAvatar } from '@/components/orders/OrderPreviewCard'
@@ -150,7 +153,7 @@ function mapApiOrder(o: ApiOrder): OrderRow {
   const itemCount = lineItems.reduce((s, i) => s + i.quantity, 0) || 1
   const itemThumbs = lineItems.map((i) => i.image).filter((url): url is string => Boolean(url))
   return {
-    id: o.invoiceNumber,
+    id: displayOrderCode(o.invoiceNumber, o.id),
     linkId: o.id,
     customer: o.shippingName,
     phone: o.shippingPhone,
@@ -410,6 +413,12 @@ export function OrdersPanel() {
 
   return (
     <div className="admin-ops-page">
+      {isError ? (
+        <ApiOfflineBanner
+          message="Orders API offline — start pnpm dev:stack and refresh."
+          onRetry={() => void refetch()}
+        />
+      ) : null}
       <header className="admin-ops-header">
         <div>
           <h2 className="admin-ops-header__title">Orders</h2>
@@ -518,10 +527,8 @@ export function OrdersPanel() {
 
         <div className="overflow-x-auto" ref={tableRef}>
           {isLoading && sourceOrders.length === 0 ? (
-            <div className="admin-table-skeleton">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="admin-table-skeleton__row" />
-              ))}
+            <div className="p-4">
+              <AdminSkeletonGroup rows={6} />
             </div>
           ) : (
             <table className="admin-module-table">

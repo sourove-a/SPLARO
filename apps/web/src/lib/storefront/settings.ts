@@ -1,5 +1,6 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { settingsFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 import {
   DEFAULT_CATALOG_CHANNELS,
   filterFooterGroupsByCatalogChannels,
@@ -430,11 +431,10 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
   const base = getServerApiBaseUrl()
   const res = await fetchWithTimeout(
     `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
-    // 10s ISR instead of no-store: no-store flipped statically-built pages to
-    // dynamic at runtime (Next app-static-to-dynamic-error → 500s on /, /shop,
-    // /signup) and forced an API roundtrip on every request. Admin saves now
-    // reach the storefront within ~10s.
-    { next: { revalidate: 10, tags: ['storefront-settings'] } },
+    {
+      next: { revalidate: 10, tags: ['storefront-settings'] },
+      timeoutMs: settingsFetchTimeoutMs(),
+    },
   )
   if (!res?.ok) throw new Error(`Settings API ${res?.status ?? 'unavailable'}`)
   return (await res.json()) as StorefrontSettings
@@ -539,7 +539,13 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
 export async function getStorefrontSettings(): Promise<StorefrontSettings> {
   try {
     return applyStoreDefaults(await getCachedSettings())
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[splaro] Storefront settings API unavailable — using bundled defaults. Run: pnpm dev:stack',
+        err instanceof Error ? err.message : err,
+      )
+    }
     return FALLBACK_SETTINGS
   }
 }

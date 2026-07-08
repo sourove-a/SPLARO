@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { OrderStatus, PaymentStatus } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { backfillOrderInvoiceCodes } from '../../common/order-code.util'
 import type {
   DashboardInsightsResponse,
   DashboardPeriod,
@@ -120,6 +121,7 @@ export class DashboardService {
     periodRaw: string | undefined,
   ): Promise<DashboardInsightsResponse> {
     const storeId = await this.storeId(storeIdRaw)
+    await backfillOrderInvoiceCodes(this.prisma, storeId, 15)
     const period = normalizePeriod(periodRaw)
     const { since, previousSince } = buildPeriodWindow(period)
 

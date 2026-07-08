@@ -53,9 +53,17 @@ jobs:
             echo "$2 → HTTP $code ($1)"
             [ "$code" = "200" ]
           }
+          check_redirect() {
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$1" || echo 000)"
+            echo "$2 → HTTP $code ($1)"
+            [ "$code" = "302" ] || [ "$code" = "301" ] || [ "$code" = "200" ]
+          }
           sleep 8
           fail=0
           check "https://splaro.co" web || fail=1
           check "https://splaro.co/api/v1/health" api || fail=1
+          check_redirect "https://api.splaro.co/" api-root || fail=1
+          curl -sf --max-time 30 "https://admin.splaro.co/api/ping" | grep -q '"online":true' \
+            || { echo "admin ping → database/api offline"; fail=1; }
           check "https://admin.splaro.co/login" admin || echo "::warning::admin login check failed (non-blocking)"
           exit "$fail"

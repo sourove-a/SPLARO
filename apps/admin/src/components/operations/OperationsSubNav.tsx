@@ -9,8 +9,8 @@ export const OPERATIONS_ROUTES = [
   { href: '/dashboard/shipping', label: 'Shipping', icon: Truck },
   { href: '/dashboard/courier-hub', label: 'Courier Hub', icon: Truck },
   { href: '/dashboard/automation-rules', label: 'Automation', icon: Zap },
-  { href: '/dashboard/warehouse', label: 'Warehouse', icon: Warehouse },
-  { href: '/dashboard/supplier-management', label: 'Suppliers', icon: Users },
+  { href: '/dashboard/wms/overview', label: 'WMS', icon: Warehouse },
+  { href: '/dashboard/procurement/overview', label: 'Procurement', icon: Users },
 ] as const
 
 type OpsRouteStatus = 'ok' | 'warn' | 'down' | 'loading'

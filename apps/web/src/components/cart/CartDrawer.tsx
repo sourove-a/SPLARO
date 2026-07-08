@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, ShoppingBag } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
@@ -15,9 +15,12 @@ interface CartDrawerProps {
   onClose: () => void
 }
 
+const LINE_EASE = [0.16, 1, 0.3, 1] as const
+
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { items, subtotal, removeItem, updateQuantity, clearCart } = useCartStore()
   const { shipping } = useStorefrontSettings()
+  const reducedMotion = useReducedMotion()
   const freeShippingThreshold = shipping.freeDeliveryThreshold
   const showFreeShippingBar = freeShippingThreshold > 0
 
@@ -38,6 +41,15 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     }
   }, [isOpen, onClose])
 
+  const lineMotion = reducedMotion
+    ? { initial: false as const }
+    : {
+        initial: { opacity: 0, x: 18 },
+        animate: { opacity: 1, x: 0 },
+        exit: { opacity: 0, x: 12 },
+        transition: { duration: 0.32, ease: LINE_EASE },
+      }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -56,7 +68,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             initial={{ x: '100%' }}
             animate={{ x: '0%' }}
             exit={{ x: '100%' }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.35, ease: LINE_EASE }}
             className="z-drawer-panel fixed right-0 top-0 flex h-full w-96 max-w-[95vw] flex-col border-l border-white/70 bg-white/[0.85] shadow-[-18px_0_70px_rgba(20,24,32,0.16)] backdrop-blur-2xl"
             role="dialog"
             aria-modal="true"
@@ -103,21 +115,28 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               {items.length === 0 ? (
                 <CartEmptyState onClose={onClose} />
               ) : (
-                <ul className="divide-y divide-black/5">
-                  {items.map((item) => (
-                    <CartLineItem
-                      key={`${item.productId}-${item.variantId ?? ''}`}
-                      item={item}
-                      onDecrease={() =>
-                        updateQuantity(item.productId, item.variantId, item.quantity - 1)
-                      }
-                      onIncrease={() =>
-                        updateQuantity(item.productId, item.variantId, item.quantity + 1)
-                      }
-                      onRemove={() => removeItem(item.productId, item.variantId)}
-                    />
-                  ))}
-                </ul>
+                <motion.ul className="divide-y divide-black/5" layout={!reducedMotion}>
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {items.map((item) => (
+                      <motion.li
+                        key={`${item.productId}-${item.variantId ?? ''}`}
+                        layout={!reducedMotion}
+                        {...lineMotion}
+                      >
+                        <CartLineItem
+                          item={item}
+                          onDecrease={() =>
+                            updateQuantity(item.productId, item.variantId, item.quantity - 1)
+                          }
+                          onIncrease={() =>
+                            updateQuantity(item.productId, item.variantId, item.quantity + 1)
+                          }
+                          onRemove={() => removeItem(item.productId, item.variantId)}
+                        />
+                      </motion.li>
+                    ))}
+                  </AnimatePresence>
+                </motion.ul>
               )}
             </div>
 

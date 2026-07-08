@@ -130,16 +130,16 @@ function OperationsOverview({ moduleHref, statusByHref }: { moduleHref: string; 
       ok: !rules.isError,
     },
     {
-      href: '/dashboard/warehouse',
-      label: 'Warehouse',
+      href: '/dashboard/wms/overview',
+      label: 'WMS',
       icon: Warehouse,
       stat: `${wms.data?.warehouses.length ?? 0} sites`,
       meta: `${wms.data?.stockSummary.available ?? 0} units available`,
       ok: !wms.isError,
     },
     {
-      href: '/dashboard/supplier-management',
-      label: 'Suppliers',
+      href: '/dashboard/procurement/overview',
+      label: 'Procurement',
       icon: Building2,
       stat: `${procurement.data?.suppliers.length ?? 0} vendors`,
       meta: formatBDT(procurement.data?.suppliers.reduce((s, x) => s + Number(x.dueAmount), 0) ?? 0) + ' due',
@@ -374,7 +374,7 @@ function CourierHubView({
                   <td>
                     <AdminButton
                       variant="gold"
-                      className="!px-3 !py-1.5 !text-xs"
+                      size="sm"
                       loading={bookCourier.isPending}
                       onClick={() => void handleBook(o.id)}
                     >
@@ -720,8 +720,8 @@ export function OperationsHubPanel({ moduleHref }: ModuleContextProps) {
           ? 'warn'
           : statusFromQuery(false, courierStats.isLoading),
     '/dashboard/automation-rules': statusFromQuery(rules.isError, rules.isLoading),
-    '/dashboard/warehouse': statusFromQuery(wms.isError, wms.isLoading),
-    '/dashboard/supplier-management': statusFromQuery(procurement.isError, procurement.isLoading),
+    '/dashboard/wms/overview': statusFromQuery(wms.isError, wms.isLoading),
+    '/dashboard/procurement/overview': statusFromQuery(procurement.isError, procurement.isLoading),
   }
 
   if (moduleHref === '/dashboard/operations') {

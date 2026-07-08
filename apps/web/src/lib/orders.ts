@@ -88,6 +88,12 @@ function mergeOrders(primary: StoredOrder[], secondary: StoredOrder[]): StoredOr
   )
 }
 
+/**
+ * INTERNAL checkout handoff cache only — stores the order the customer JUST
+ * placed (already confirmed by the API) so the confirmation page can render
+ * instantly after redirect. NEVER an authoritative order-history source:
+ * account/tracking views must always fetch from the backend.
+ */
 export function saveOrderLocally(order: StoredOrder) {
   if (typeof window === 'undefined') return
   const existing = loadOrders()
@@ -95,6 +101,7 @@ export function saveOrderLocally(order: StoredOrder) {
   window.localStorage.setItem('splaro-orders', JSON.stringify(next))
 }
 
+/** See saveOrderLocally — checkout→confirmation handoff cache, not order history. */
 export function loadOrders(): StoredOrder[] {
   if (typeof window === 'undefined') return []
   try {
@@ -104,25 +111,21 @@ export function loadOrders(): StoredOrder[] {
   }
 }
 
+/**
+ * Order history comes from the backend ONLY. localStorage is never used as an
+ * authoritative fallback — an API failure surfaces as an honest error, not a
+ * stale cached list pretending to be live data.
+ */
 export async function fetchUserOrders(): Promise<StoredOrder[]> {
-  try {
-    const response = await fetch('/api/orders', { credentials: 'include' })
-    if (!response.ok) return loadOrders()
-    const payload = (await response.json()) as { orders?: ApiOrder[] }
-    const orders = (payload.orders ?? []).map(normalizeOrder)
-    window.localStorage.setItem('splaro-orders', JSON.stringify(orders))
-    return orders
-  } catch {
-    return loadOrders()
+  const response = await fetch('/api/orders', { credentials: 'include' })
+  if (!response.ok) {
+    throw new Error(`Could not load your orders (HTTP ${response.status}). Please try again.`)
   }
+  const payload = (await response.json()) as { orders?: ApiOrder[] }
+  return (payload.orders ?? []).map(normalizeOrder)
 }
 
 export async function fetchOrderById(orderIdOrInvoice: string): Promise<StoredOrder | null> {
-  const local = loadOrders().find(
-    (order) => order.id === orderIdOrInvoice || order.invoiceNumber === orderIdOrInvoice,
-  )
-  if (local) return local
-
   try {
     const response = await fetch(`/api/orders/${encodeURIComponent(orderIdOrInvoice)}`, {
       credentials: 'include',
@@ -130,9 +133,7 @@ export async function fetchOrderById(orderIdOrInvoice: string): Promise<StoredOr
     if (!response.ok) return null
     const payload = (await response.json()) as { order?: ApiOrder }
     if (!payload.order) return null
-    const order = normalizeOrder(payload.order)
-    saveOrderLocally(order)
-    return order
+    return normalizeOrder(payload.order)
   } catch {
     return null
   }
@@ -215,9 +216,6 @@ export async function trackOrdersByPhone(
     }
 
     const orders = (payload.orders ?? []).map(mapTrackOrderPayload)
-    if (orders.length) {
-      window.localStorage.setItem('splaro-orders', JSON.stringify(orders))
-    }
     return {
       ok: true,
       data: {
@@ -227,33 +225,8 @@ export async function trackOrdersByPhone(
       },
     }
   } catch {
-    const local = loadOrders().filter((order) => {
-      const orderPhone = order.customer.phone.replace(/\D/g, '')
-      const queryPhone = phone.replace(/\D/g, '')
-      return orderPhone === queryPhone || orderPhone.slice(-10) === queryPhone.slice(-10)
-    })
-    if (!local.length) return { ok: false, error: 'No orders found' }
-    const filtered = orderNumber?.trim()
-      ? local.filter(
-          (order) =>
-            order.id.toLowerCase() === orderNumber.toLowerCase() ||
-            order.invoiceNumber?.toLowerCase() === orderNumber.toLowerCase(),
-        )
-      : local
-    if (!filtered.length) return { ok: false, error: 'No orders found' }
-    const active =
-      filtered.find((order) => {
-        const status = order.status?.toLowerCase() ?? ''
-        return status !== 'delivered' && status !== 'cancelled'
-      }) ?? null
-    return {
-      ok: true,
-      data: {
-        orders: filtered,
-        active,
-        previous: filtered.filter((order) => order.id !== active?.id),
-      },
-    }
+    // Honest failure — never pretend a locally-cached order is live tracking data.
+    return { ok: false, error: 'Could not reach the server. Check your connection and try again.' }
   }
 }
 

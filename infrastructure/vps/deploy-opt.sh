@@ -52,6 +52,12 @@ pm2 save
 echo "[deploy] health check..."
 for i in $(seq 1 12); do
   if curl -sf http://127.0.0.1:4000/api/v1/health >/dev/null; then
+    echo "[deploy] API up — running route probe regression guard..."
+    if ! node "$APP/scripts/verify-deploy-health.mjs"; then
+      echo "[deploy] FAIL — route health regression (see above)"
+      pm2 logs splaro-api --lines 30 --nostream
+      exit 1
+    fi
     echo "[deploy] OK $(date)"
     exit 0
   fi

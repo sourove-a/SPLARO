@@ -58,14 +58,41 @@ const MATURITY_META: Record<
   },
   beta: {
     label: 'Beta',
-    hint: 'Partial API — some actions are preview or local-only.',
+    hint: 'Beta — core reads and selected writes via commerce-os; export, payroll pay, and doc upload not connected.',
     className: 'admin-module-status--beta',
   },
   prototype: {
     label: 'Preview',
-    hint: 'UI shell with sample data — full API integration coming.',
+    hint: 'UI shell only — no verified backend write path.',
     className: 'admin-module-status--prototype',
   },
+}
+
+/** Modules with dedicated API record pages (not generic local draft). */
+export const BACKEND_RECORD_API_MODULES = new Set<string>([
+  '/dashboard/products',
+  '/dashboard/orders',
+  '/dashboard/customers',
+  '/dashboard/invoices',
+  '/dashboard/finance/partner-accounts',
+  '/dashboard/finance/investments',
+  '/dashboard/finance/withdrawals',
+])
+
+export function hasBackendRecordApi(moduleHref: string): boolean {
+  const normalized = moduleHref.replace(/\/+$/, '') || '/dashboard'
+  return BACKEND_RECORD_API_MODULES.has(normalized)
+}
+
+/** Modules with verified server-side create flow in admin (not generic fallback). */
+export const BACKEND_CREATE_API_MODULES = new Set<string>([
+  '/dashboard/products',
+  '/dashboard/orders',
+])
+
+export function hasBackendCreateApi(moduleHref: string): boolean {
+  const normalized = moduleHref.replace(/\/+$/, '') || '/dashboard'
+  return BACKEND_CREATE_API_MODULES.has(normalized)
 }
 
 export function getModuleMaturity(href: string): ModuleMaturity {

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
 import { isExternalHref, markAdminLinkNavigation } from '@/lib/navigation/client-nav'
@@ -63,8 +64,10 @@ export function AdminButton({
       type="button"
       {...props}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={adminBtnClass(variant, size, className, loading)}
     >
+      {loading ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden /> : null}
       {children}
     </button>
   )

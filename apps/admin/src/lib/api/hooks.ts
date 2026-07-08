@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchDashboardStats, fetchDashboardInsights, fetchInventoryAlerts, periodFromLabel } from './dashboard'
 import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus } from './orders'
-import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant } from './products'
+import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant } from './products'
 import { fetchCategories, createCategory, updateCategory, deleteCategory } from './categories'
 import { fetchCollections, createCollection, updateCollection } from './collections'
 import { fetchBrands, createBrand, updateBrand } from './brands'
@@ -46,6 +46,25 @@ import {
   fetchDeliveryOverview,
   fetchExecutiveDashboard,
   createWarehouse,
+  recordStockMovement,
+  createStockTransfer,
+  shipStockTransfer,
+  receiveStockTransfer,
+  createDeliveryAgent,
+  updateDeliveryAgent,
+  assignOrderToAgent,
+  updateDeliveryAssignmentStatus,
+  createEmployee,
+  updateEmployee,
+  deactivateEmployee,
+  createCompanyTask,
+  updateCompanyTaskStatus,
+  fetchPayrollRuns,
+  createPayrollRun,
+  createFabricInventory,
+  updateFabricStock,
+  createProductionBatch,
+  updateProductionBatchStatus,
   replyHelpdeskTicket,
 } from './commerce-os'
 import {
@@ -57,6 +76,7 @@ import {
   createAffiliate,
   createSupplier,
   createPurchaseOrder,
+  receiveGoodsGrn,
   createSupportTicket,
   fetchNotificationsOverview,
   fetchCommerceSubscriptions,
@@ -240,6 +260,185 @@ export function useCreateWarehouse() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['wms-overview'] })
     },
+  })
+}
+
+export function useRecordStockMovement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: recordStockMovement,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useCreateStockTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createStockTransfer,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useShipStockTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: shipStockTransfer,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useReceiveStockTransfer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: receiveStockTransfer,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['wms-overview'] })
+    },
+  })
+}
+
+export function useCreateDeliveryAgent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createDeliveryAgent,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['delivery-overview'] }),
+  })
+}
+
+export function useUpdateDeliveryAgent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; isActive?: boolean; name?: string; vehicleType?: string }) =>
+      updateDeliveryAgent(id, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['delivery-overview'] }),
+  })
+}
+
+export function useAssignOrderToAgent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: assignOrderToAgent,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['delivery-overview'] })
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+    },
+  })
+}
+
+export function useUpdateDeliveryAssignmentStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      updateDeliveryAssignmentStatus(id, status),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['delivery-overview'] }),
+  })
+}
+
+export function useCreateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createEmployee,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['company-overview'] }),
+  })
+}
+
+export function useUpdateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string
+      firstName?: string
+      lastName?: string
+      email?: string
+      phone?: string
+      position?: string
+      salary?: number
+      status?: string
+    }) => updateEmployee(id, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['company-overview'] }),
+  })
+}
+
+export function useDeactivateEmployee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deactivateEmployee,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['company-overview'] }),
+  })
+}
+
+export function useCreateCompanyTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createCompanyTask,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['company-overview'] }),
+  })
+}
+
+export function useUpdateCompanyTaskStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => updateCompanyTaskStatus(id, status),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['company-overview'] }),
+  })
+}
+
+export function usePayrollRuns() {
+  return useQuery({
+    queryKey: ['payroll-runs'],
+    queryFn: fetchPayrollRuns,
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreatePayrollRun() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createPayrollRun,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['payroll-runs'] }),
+  })
+}
+
+export function useCreateFabricInventory() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createFabricInventory,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['production-overview'] }),
+  })
+}
+
+export function useUpdateFabricStock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; delta?: number; quantity?: number }) =>
+      updateFabricStock(id, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['production-overview'] }),
+  })
+}
+
+export function useCreateProductionBatch() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createProductionBatch,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['production-overview'] }),
+  })
+}
+
+export function useUpdateProductionBatchStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => updateProductionBatchStatus(id, status),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['production-overview'] }),
   })
 }
 
@@ -546,6 +745,14 @@ export function useCreatePurchaseOrder() {
   })
 }
 
+export function useReceiveGoodsGrn() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: receiveGoodsGrn,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['procurement-overview'] }),
+  })
+}
+
 export function useCreateSupportTicket() {
   const qc = useQueryClient()
   return useMutation({
@@ -841,6 +1048,29 @@ export function useProduct(id: string) {
   })
 }
 
+export function useProductVersions(id: string) {
+  return useQuery({
+    queryKey: ['product-versions', id],
+    queryFn: () => fetchProductVersions(id),
+    enabled: Boolean(id),
+    staleTime: 15_000,
+  })
+}
+
+export function useRestoreProductVersion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, versionId, restoredBy }: { productId: string; versionId: string; restoredBy: string }) =>
+      restoreProductVersion(productId, versionId, restoredBy),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
+      void qc.invalidateQueries({ queryKey: ['product-versions', vars.productId] })
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
 export function useSettings() {
   return useQuery({
     queryKey: ['admin-settings'],
@@ -902,6 +1132,7 @@ export function useUpdateProduct() {
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['products'] })
       void qc.invalidateQueries({ queryKey: ['product', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['product-versions', vars.id] })
       void revalidateWebCache(['storefront-products'])
     },
   })
@@ -914,13 +1145,40 @@ export function useUpdateProductVariant() {
       productId,
       variantId,
       ...data
-    }: { productId: string; variantId: string; stock?: number; price?: number; isActive?: boolean; sku?: string }) =>
+    }: { productId: string; variantId: string } & Parameters<typeof updateProductVariant>[2]) =>
       updateProductVariant(productId, variantId, data),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['products'] })
       void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
       void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
       void qc.invalidateQueries({ queryKey: ['products', 'published-count'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useCreateProductVariant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, ...data }: { productId: string } & Parameters<typeof createProductVariant>[1]) =>
+      createProductVariant(productId, data),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
+      void qc.invalidateQueries({ queryKey: ['inventory-alerts'] })
+      void revalidateWebCache(['storefront-products'])
+    },
+  })
+}
+
+export function useArchiveProductVariant() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ productId, variantId }: { productId: string; variantId: string }) =>
+      archiveProductVariant(productId, variantId),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['products'] })
+      void qc.invalidateQueries({ queryKey: ['product', vars.productId] })
       void revalidateWebCache(['storefront-products'])
     },
   })

@@ -1,5 +1,7 @@
 import {
   colorGroup,
+  isStorefrontBestSeller,
+  isStorefrontNewArrival,
   products,
   slugFromCategory,
   type StorefrontProduct,
@@ -12,12 +14,13 @@ import type {
   ProductVariantData,
 } from '@splaro/types'
 
-function hashSeed(input: string): number {
-  let hash = 0
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash * 31 + input.charCodeAt(i)) >>> 0
-  }
-  return hash
+/** Bundled demo catalog — dev-only; never customer-facing in production. */
+export function staticCatalogEnabled(): boolean {
+  return process.env.NODE_ENV === 'development'
+}
+
+function bundledProducts(): StorefrontProduct[] {
+  return staticCatalogEnabled() ? products : []
 }
 
 export function productSlug(product: Pick<StorefrontProduct, 'id' | 'name'>): string {
@@ -33,21 +36,6 @@ function colorOptions(product: StorefrontProduct): ColorOption[] {
     hex,
     name: colorGroup(hex),
   }))
-}
-
-function deterministicRating(productId: string): number {
-  const seed = hashSeed(productId)
-  return 4 + (seed % 10) / 10
-}
-
-function deterministicReviewCount(productId: string): number {
-  const seed = hashSeed(`${productId}-reviews`)
-  return 8 + (seed % 120)
-}
-
-function deterministicStock(productId: string, size: string, colorHex: string): number {
-  const seed = hashSeed(`${productId}:${size}:${colorHex}`)
-  return 3 + (seed % 18)
 }
 
 export function variantId(productId: string, size: string, colorHex: string): string {
@@ -83,7 +71,10 @@ export function resolveQuickAddVariant(
   )
 }
 
+/** Dev-only variant synthesis for bundled catalog fixtures. */
 export function generateVariants(product: StorefrontProduct): ProductVariantData[] {
+  if (!staticCatalogEnabled()) return []
+
   const variants: ProductVariantData[] = []
 
   for (const size of product.sizes) {
@@ -96,7 +87,7 @@ export function generateVariants(product: StorefrontProduct): ProductVariantData
         colorHex,
         colorName: colorGroup(colorHex),
         price: product.price,
-        stock: deterministicStock(product.id, size, colorHex),
+        stock: 0,
         image: product.image,
         isActive: true,
       })
@@ -108,29 +99,29 @@ export function generateVariants(product: StorefrontProduct): ProductVariantData
 
 export function isStorefrontProductInStock(product: StorefrontProduct): boolean {
   if (typeof product.inStock === 'boolean') return product.inStock
-  return generateVariants(product).some((variant) => variant.stock > 0)
+  if (product.variantRefs?.length) {
+    return product.variantRefs.some((ref) => ref.isActive && ref.stock > 0)
+  }
+  return false
 }
 
 export function getStockForVariant(
   productId: string,
-  size: string,
-  colorHex: string,
+  _size: string,
+  _colorHex: string,
   stockOverlay?: Record<string, number>,
 ): number {
-  const id = variantId(productId, size, colorHex)
-  if (stockOverlay && id in stockOverlay) {
-    return stockOverlay[id] ?? 0
+  if (stockOverlay) {
+    const id = variantId(productId, _size, _colorHex)
+    if (id in stockOverlay) return stockOverlay[id] ?? 0
   }
-
-  const product = products.find((entry) => entry.id === productId)
-  if (!product) return 0
-
-  return deterministicStock(productId, size, colorHex)
+  return 0
 }
 
 function baseCardFields(product: StorefrontProduct): ProductCardData {
   const slug = productSlug(product)
-  const seed = hashSeed(product.id)
+  const rating = Number(product.rating ?? 0)
+  const reviewCount = Number(product.reviewCount ?? 0)
 
   return {
     id: product.id,
@@ -139,11 +130,11 @@ function baseCardFields(product: StorefrontProduct): ProductCardData {
     price: product.price,
     images: [product.image, product.hoverImage],
     colorOptions: colorOptions(product),
-    isNewArrival: product.status === 'New',
-    isBestSeller: seed % 3 === 0,
-    isOnSale: product.status === 'Limited',
-    rating: deterministicRating(product.id),
-    reviewCount: deterministicReviewCount(product.id),
+    isNewArrival: isStorefrontNewArrival(product),
+    isBestSeller: isStorefrontBestSeller(product),
+    isOnSale: Boolean(product.compareAtPrice && product.compareAtPrice > product.price),
+    rating: rating > 0 && reviewCount > 0 ? rating : 0,
+    reviewCount: reviewCount > 0 ? reviewCount : 0,
     category: product.category,
     collectionSlug: slugFromCategory(product.category),
   }
@@ -172,30 +163,33 @@ export function toProductDetail(product: StorefrontProduct): ProductDetailData {
 }
 
 export function getAllProducts(): ProductCardData[] {
-  return products.map(toProductCard)
+  return bundledProducts().map(toProductCard)
 }
 
 export function getAllProductSlugs(): Array<{ slug: string }> {
-  return products.map((product) => ({ slug: productSlug(product) }))
+  return bundledProducts().map((product) => ({ slug: productSlug(product) }))
 }
 
-export const catalog: ProductDetailData[] = products.map(toProductDetail)
+export const catalog: ProductDetailData[] = bundledProducts().map(toProductDetail)
 
 export function getProductById(id: string): ProductDetailData | null {
-  const product = products.find((entry) => entry.id === id)
+  const product = bundledProducts().find((entry) => entry.id === id)
   return product ? toProductDetail(product) : null
 }
 
 export function getProductBySlug(slug: string): ProductDetailData | null {
-  const product = products.find((entry) => productSlug(entry) === slug || entry.id === slug)
+  const product = bundledProducts().find(
+    (entry) => productSlug(entry) === slug || entry.id === slug,
+  )
   return product ? toProductDetail(product) : null
 }
 
 export function searchProducts(q: string): ProductCardData[] {
   const query = q.trim().toLowerCase()
-  if (!query) return getAllProducts()
+  const source = bundledProducts()
+  if (!query) return source.map(toProductCard)
 
-  return products
+  return source
     .filter((product) => {
       const slug = productSlug(product)
       return (

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
@@ -287,7 +287,7 @@ export class StorefrontAuthService {
     ).replace(/\/$/, '')
     const resetUrl = `${siteUrl}/reset-password?token=${encodeURIComponent(token)}`
 
-    void this.email.sendForStore({
+    const sent = await this.email.sendForStore({
       storeId,
       to: user.email,
       subject: 'Reset your SPLARO password',
@@ -300,6 +300,12 @@ export class StorefrontAuthService {
       text: generatePasswordResetEmailText({ firstName: user.firstName, resetUrl }),
       transactional: true,
     })
+
+    if (!sent) {
+      throw new ServiceUnavailableException(
+        'Could not send reset email right now. Please try again shortly.',
+      )
+    }
 
     return {
       success: true,

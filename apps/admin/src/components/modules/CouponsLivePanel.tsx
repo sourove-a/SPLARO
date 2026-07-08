@@ -74,7 +74,7 @@ export function CouponsLivePanel() {
         onRefresh={load}
         createLabel="New coupon"
         onCreate={() => toast('Use the form above to create a coupon.')}
-        onExport={() => toast.error('Export is not available yet — feature pending.')}
+        exportDisabled
         tableIcon={Tag}
         tableTitle={`Coupons · ${filtered.length} results`}
         footer={loading ? 'Loading…' : `Showing ${filtered.length} live coupons`}

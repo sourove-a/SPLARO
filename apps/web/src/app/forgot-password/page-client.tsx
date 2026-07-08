@@ -3,10 +3,23 @@
 import { type FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { Mail } from 'lucide-react'
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import { AuthField } from '@/components/auth/AuthField'
 import { AuthShell } from '@/components/auth/AuthShell'
+import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton'
+import {
+  authFadeSlide,
+  authFormMotion,
+  authMotionTransition,
+} from '@/lib/auth/auth-motion'
 
 export default function ForgotPasswordPageClient() {
+  const reduceMotion = useReducedMotion()
+  const fadeSlide = authFadeSlide(reduceMotion)
+  const formMotion = authFormMotion(reduceMotion)
+  const motionTransition = authMotionTransition(reduceMotion)
+  const formTransition = authMotionTransition(reduceMotion, 0.24)
+
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -42,42 +55,84 @@ export default function ForgotPasswordPageClient() {
 
   return (
     <AuthShell>
-      <div className="auth-card">
-        <h1 className="auth-card__title">Forgot your password?</h1>
-        <p className="auth-card__subtitle">
-          Enter the email linked to your SPLARO account. We&apos;ll send a reset link if it exists.
-        </p>
+      <LayoutGroup id="auth-forgot">
+        <div className="auth-card">
+          <motion.div layout className="auth-card__heading" aria-live="polite">
+            <motion.div {...fadeSlide} transition={motionTransition}>
+              <h1 className="auth-card__title">Forgot your password?</h1>
+              <p className="auth-card__subtitle">
+                Enter the email linked to your SPLARO account. We&apos;ll send a reset link if it
+                exists.
+              </p>
+            </motion.div>
+          </motion.div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <AuthField
-            required
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="Email address"
-            autoComplete="email"
-            trailing={
-              <span className="auth-field__icon-chip">
-                <Mail className="h-4 w-4" strokeWidth={2.1} />
-              </span>
-            }
-          />
+          <div className="auth-card__body">
+            <motion.form
+              layout
+              onSubmit={handleSubmit}
+              className="auth-form"
+              {...formMotion}
+              transition={formTransition}
+            >
+              <AuthField
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Email address"
+                autoComplete="email"
+                trailing={
+                  <span className="auth-field__icon-chip">
+                    <Mail className="h-4 w-4" strokeWidth={2.1} />
+                  </span>
+                }
+              />
 
-          {error ? <p className="auth-form__error">{error}</p> : null}
-          {message ? <p className="auth-form__success">{message}</p> : null}
+              <AnimatePresence mode="wait">
+                {error ? (
+                  <motion.p
+                    key="error"
+                    className="auth-form__error"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                  >
+                    {error}
+                  </motion.p>
+                ) : null}
+              </AnimatePresence>
 
-          <button type="submit" className="auth-submit auth-submit--primary" disabled={loading}>
-            {loading ? 'Sending...' : 'Send reset link'}
-          </button>
-        </form>
+              <AnimatePresence mode="wait">
+                {message ? (
+                  <motion.p
+                    key="success"
+                    className="auth-form__success"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                  >
+                    {message}
+                  </motion.p>
+                ) : null}
+              </AnimatePresence>
 
-        <p className="auth-card__legal">
-          Remember your password?{' '}
-          <Link href="/login" className="auth-link">
-            Sign in
-          </Link>
-        </p>
-      </div>
+              <AuthSubmitButton loading={loading} loadingLabel="Sending...">
+                Send reset link
+              </AuthSubmitButton>
+            </motion.form>
+          </div>
+
+          <motion.p layout className="auth-card__legal" transition={motionTransition}>
+            Remember your password?{' '}
+            <Link href="/login" className="auth-link">
+              Sign in
+            </Link>
+          </motion.p>
+        </div>
+      </LayoutGroup>
     </AuthShell>
   )
 }

@@ -21,7 +21,8 @@ const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
 /** Avoid hammering the API during dashboard polling. */
 let healthCache: { at: number; key: string; payload: unknown } | null = null
-const HEALTH_CACHE_MS = 12_000
+const HEALTH_CACHE_MS = 60_000
+const HEALTH_FETCH_TIMEOUT_MS = 120_000
 
 async function pingApiCore(base: string): Promise<boolean> {
   try {
@@ -77,6 +78,9 @@ function fixHintForCheck(c: { id: string; group: string; message?: string }): st
   if (c.message?.includes('401')) {
     return 'Admin session expired — log out and log in again'
   }
+  if (c.message?.includes('timeout') || c.message?.includes('aborted')) {
+    return 'Route responded slowly under load — refresh health; not necessarily broken'
+  }
   if (c.id === 'health') return 'Run: pnpm dev:api (port 4000)'
   if (c.id === 'admin-invoices') {
     return 'Set INTERNAL_HEALTH_SECRET in apps/admin/.env.local (same as root .env) — then restart admin'
@@ -96,50 +100,55 @@ export async function GET(request: NextRequest) {
   const base = getServerApiBaseUrl()
   const sid = encodeURIComponent(STORE_ID)
   const routeProbeHeaders = probeAuthHeaders(authHeader)
+  const fetchOpts = {
+    cache: 'no-store' as const,
+    signal: AbortSignal.timeout(HEALTH_FETCH_TIMEOUT_MS),
+    headers: routeProbeHeaders,
+  }
+
+  const [coreOk, routesRes, fullRes, webCheck] = await Promise.all([
+    pingApiCore(base),
+    fetch(`${base}/health/routes?storeId=${sid}`, fetchOpts).catch(() => null),
+    fetch(`${base}/health/full`, fetchOpts).catch(() => null),
+    pingWebShop(),
+  ])
 
   let apiChecks: ServiceHealthCheck[] = []
-  let apiOnline = await pingApiCore(base)
+  let apiOnline = coreOk
 
-  if (apiOnline) {
+  if (apiOnline && routesRes?.ok) {
     try {
-      const routesRes = await fetch(`${base}/health/routes?storeId=${sid}`, {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(20000),
-        headers: routeProbeHeaders,
-      })
-      if (routesRes.ok) {
-        const data = (await routesRes.json()) as {
-          checks: {
-            id: string
-            name: string
-            group: string
-            endpoint: string
-            status: HealthStatus
-            latencyMs: number | null
-            message?: string
-          }[]
-        }
-        apiChecks = (data.checks ?? []).map((c) => {
-          const row: ServiceHealthCheck = {
-            id: c.id,
-            name: c.name,
-            group: c.group,
-            endpoint: c.endpoint,
-            status: c.status,
-            latencyMs: c.latencyMs,
-          }
-          if (c.message) row.message = c.message
-          if (c.status !== 'healthy') {
-            row.fixHint = fixHintForCheck(c)
-          }
-          return row
-        })
-      } else {
-        apiOnline = false
+      const data = (await routesRes.json()) as {
+        checks: {
+          id: string
+          name: string
+          group: string
+          endpoint: string
+          status: HealthStatus
+          latencyMs: number | null
+          message?: string
+        }[]
       }
+      apiChecks = (data.checks ?? []).map((c) => {
+        const row: ServiceHealthCheck = {
+          id: c.id,
+          name: c.name,
+          group: c.group,
+          endpoint: c.endpoint,
+          status: c.status,
+          latencyMs: c.latencyMs,
+        }
+        if (c.message) row.message = c.message
+        if (c.status !== 'healthy') {
+          row.fixHint = fixHintForCheck(c)
+        }
+        return row
+      })
     } catch {
       apiOnline = false
     }
+  } else if (apiOnline && !routesRes?.ok) {
+    apiOnline = false
   }
 
   if (!apiOnline) {
@@ -158,44 +167,36 @@ export async function GET(request: NextRequest) {
   }
 
   let infraChecks: ServiceHealthCheck[] = []
-  if (apiOnline) {
+  if (apiOnline && fullRes?.ok) {
     try {
-      const fullRes = await fetch(`${base}/health/full`, {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(10000),
-        headers: probeAuthHeaders(authHeader),
-      })
-      if (fullRes.ok) {
-        const full = (await fullRes.json()) as {
-          checks?: { id: string; name: string; group: string; status: HealthStatus; latencyMs: number; message?: string }[]
-        }
-        infraChecks = (full.checks ?? []).map((c) => {
-          const row: ServiceHealthCheck = {
-            id: `infra-${c.id}`,
-            name: c.name,
-            group: 'Infrastructure',
-            endpoint: `${base}/health/full`,
-            status: c.status,
-            latencyMs: c.latencyMs,
-          }
-          if (c.message) row.message = c.message
-          if (c.status !== 'healthy') {
-            row.fixHint =
-              c.id === 'postgresql'
-                ? 'Install PostgreSQL or run: pnpm infra:up. Then: pnpm db:push && pnpm db:seed'
-                : c.id === 'redis'
-                  ? 'Run: brew services start redis — or: pnpm infra:up (Docker)'
-                  : 'Run: pnpm db:push && pnpm db:seed'
-          }
-          return row
-        })
+      const full = (await fullRes.json()) as {
+        checks?: { id: string; name: string; group: string; status: HealthStatus; latencyMs: number; message?: string }[]
       }
+      infraChecks = (full.checks ?? []).map((c) => {
+        const row: ServiceHealthCheck = {
+          id: `infra-${c.id}`,
+          name: c.name,
+          group: 'Infrastructure',
+          endpoint: `${base}/health/full`,
+          status: c.status,
+          latencyMs: c.latencyMs,
+        }
+        if (c.message) row.message = c.message
+        if (c.status !== 'healthy') {
+          row.fixHint =
+            c.id === 'postgresql'
+              ? 'Install PostgreSQL or run: pnpm infra:up. Then: pnpm db:push && pnpm db:seed'
+              : c.id === 'redis'
+                ? 'Run: brew services start redis — or: pnpm infra:up (Docker)'
+                : 'Run: pnpm db:push && pnpm db:seed'
+        }
+        return row
+      })
     } catch {
       /* optional infra layer */
     }
   }
 
-  const webCheck = await pingWebShop()
   const checks = [...apiChecks, ...infraChecks, webCheck]
 
   const summary = {

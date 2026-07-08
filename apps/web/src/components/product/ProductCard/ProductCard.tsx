@@ -261,7 +261,7 @@ function ProductCardShop({
   return (
     <article className="shop-product-card group">
       <div className="shop-product-card__shell">
-        <Link href={productHref} className="shop-product-card__link" aria-label={`View ${product.name}`} prefetch={false}>
+        <Link href={productHref} className="shop-product-card__link" aria-label={`View ${product.name}`} prefetch>
           <div className="shop-product-card__media">
             <Image
               src={primaryImage}

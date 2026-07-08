@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { AlertTriangle, Bot, CheckCircle2, Globe, LineChart, Play, RefreshCw, Send, Settings, WifiOff } from 'lucide-react'
-import { AdminButton } from '@/components/ui/AdminButton'
+import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { AIProductAgentPanel } from '@/components/finance/AIProductAgentPanel'
 import { useAutomationRules, useExecutiveDashboard, useProducts, useSeoOverview, useTelegramLogs } from '@/lib/api/hooks'
 import { useTelegramIntegration, useTestTelegramIntegration } from '@/lib/api/integration-hooks'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail, BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { fetchSheetsDashboard, syncAllSheets, syncSheet, type SheetsDashboardData } from '@/lib/api/finance'
@@ -58,9 +58,9 @@ function ErrorBanner({ msg, onRetry }: { msg?: string; onRetry?: () => void }) {
       </p>
       <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {onRetry ? (
-          <button type="button" onClick={onRetry} className="settings-card admin-panel-glass-subtle" style={{ padding: '6px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+          <AdminButton variant="ghost" size="sm" onClick={onRetry}>
             Retry
-          </button>
+          </AdminButton>
         ) : null}
         <AdminNavLink href="/dashboard/api-health" className="automation-error-link">
           API Health →
@@ -222,9 +222,9 @@ export function TelegramNotificationsPanelLive() {
             <AlertTriangle style={{ width: 14, height: 14 }} /> Rules API unavailable
           </div>
         )}
-        <AdminNavLink href="/dashboard/automation-rules">
-          <button type="button" style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 12, padding: '8px 16px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>Manage rules</button>
-        </AdminNavLink>
+        <AdminLinkButton href="/dashboard/automation-rules" variant="gold" size="sm">
+          Manage rules
+        </AdminLinkButton>
       </div>
 
       <GlassTable icon={Send} title={`Automation rules · ${filtered.length}`} footer={<span style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Rules that can send Telegram actions</span>}>
@@ -366,10 +366,12 @@ export function GoogleSheetsSyncPanelLive() {
             <AlertTriangle style={{ width: 14, height: 14 }} /> Some sheet syncs failed
           </div>
         )}
-        <button type="button" disabled={busy || isOffline} onClick={() => void runSyncAll()} style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD_BORDER}`, color: '#8B6914', borderRadius: 12, padding: '8px 16px', fontSize: 12, fontWeight: 800, cursor: busy || isOffline ? 'not-allowed' : 'pointer', opacity: busy || isOffline ? 0.6 : 1 }}>Sync all</button>
-        <button type="button" onClick={load} className="settings-card admin-panel-glass-subtle" style={{ padding: '8px 14px', fontSize: 12, fontWeight: 800, color: 'var(--admin-text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <AdminButton variant="gold" size="sm" disabled={busy || isOffline} loading={busy} onClick={() => void runSyncAll()}>
+          Sync all
+        </AdminButton>
+        <AdminButton variant="ghost" size="sm" onClick={load}>
           <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
-        </button>
+        </AdminButton>
       </div>
       <GlassTable icon={RefreshCw} title={`Google Sheets · ${filtered.length}`} footer={<span style={{ fontSize: 11, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Live from finance sheets dashboard</span>}>
         {filtered.length === 0 ? (
@@ -400,7 +402,7 @@ export function GoogleSheetsSyncPanelLive() {
                     <td style={{ ...TD, fontSize: 12, color: 'var(--admin-text-muted)' }}>{s.lastSync ? formatRelativeTime(s.lastSync) : '—'}</td>
                     <td style={TD}>
                       <AdminButton
-                        className="!px-2 !py-1 !text-xs"
+                        size="sm"
                         disabled={busy || isOffline || rowBusy || !s.configured}
                         onClick={() => void runSyncOne(s.sheetType)}
                       >
@@ -433,7 +435,7 @@ export function AiSeoAgentPanelLive() {
         <KpiCard label="Ready" value={audits.filter((p) => p.score >= 80).length} />
         <KpiCard label="Avg score" value={data?.summary.avgScore ?? 0} />
       </div>
-      <GlassTable icon={Globe} title="AI SEO agent queue" footer={<button type="button" onClick={() => void refetch()} className="settings-card admin-panel-glass-subtle" style={{ padding: '6px 14px', fontSize: 12, fontWeight: 800, color: 'var(--admin-text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}><RefreshCw style={{ width: 11, height: 11 }} /> Run batch SEO</button>}>
+      <GlassTable icon={Globe} title="AI SEO agent queue" footer={<AdminButton variant="ghost" size="sm" onClick={() => void refetch()}><RefreshCw style={{ width: 11, height: 11 }} /> Run batch SEO</AdminButton>}>
         {needsWork.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>All products pass SEO threshold.</p>
         ) : (
@@ -447,7 +449,7 @@ export function AiSeoAgentPanelLive() {
                   <td style={TD}>{p.hasMetaTitle ? '✓' : '✗'}</td>
                   <td style={TD}>{p.hasMetaDescription ? '✓' : '✗'}</td>
                   <td style={TD}>
-                    <AdminButton size="sm" onClick={() => toast.error('This action is not available yet — feature pending.')}>Review</AdminButton>
+                    <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>Review</AdminButton>
                   </td>
                 </tr>
               ))}

@@ -100,31 +100,39 @@ export function SocialReelsPanel({ compact = false, dormant = false }: SocialRee
           </Link>
         </div>
 
-        <div className="reels-track-wrap">
-          <div className="reels-track" ref={trackRef} data-lenis-prevent>
-            {reels.map((reel) => (
-              <ReelCard
-                key={reel.id}
-                reel={reel}
-                isActive={!dormant && activeId === reel.id}
-                onActivate={() => setActiveId(reel.id)}
-                onExpand={() => setModalReel(reel)}
-              />
-            ))}
-          </div>
-        </div>
+        {reels.length > 0 ? (
+          <>
+            <div className="reels-track-wrap">
+              <div className="reels-track" ref={trackRef} data-lenis-prevent>
+                {reels.map((reel) => (
+                  <ReelCard
+                    key={reel.id}
+                    reel={reel}
+                    isActive={!dormant && activeId === reel.id}
+                    onActivate={() => setActiveId(reel.id)}
+                    onExpand={() => setModalReel(reel)}
+                  />
+                ))}
+              </div>
+            </div>
 
-        <div className="reels-shell__dots" aria-hidden>
-          {reels.map((reel) => (
-            <button
-              key={reel.id}
-              type="button"
-              className={`reels-shell__dot${activeId === reel.id ? ' reels-shell__dot--active' : ''}`}
-              onClick={() => scrollToReel(reel.id)}
-              aria-label={`Show ${reel.title}`}
-            />
-          ))}
-        </div>
+            <div className="reels-shell__dots" aria-hidden>
+              {reels.map((reel) => (
+                <button
+                  key={reel.id}
+                  type="button"
+                  className={`reels-shell__dot${activeId === reel.id ? ' reels-shell__dot--active' : ''}`}
+                  onClick={() => scrollToReel(reel.id)}
+                  aria-label={`Show ${reel.title}`}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="reels-shell__empty px-4 py-8 text-center text-sm text-luxury-gray">
+            No reels published yet
+          </p>
+        )}
       </div>
 
       {!compact ? (

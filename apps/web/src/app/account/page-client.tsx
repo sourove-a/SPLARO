@@ -48,6 +48,7 @@ import {
   fetchWishlistProducts,
   updateAccountProfile,
 } from '@/lib/api/account'
+import { displayOrderCode } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
 
 type AccountSection =
@@ -161,7 +162,7 @@ function OrderCard({
         <div className="account-order-card__body">
           <div className="account-order-card__top">
             <div>
-              <p className="account-order-card__id">{order.invoiceNumber}</p>
+              <p className="account-order-card__id">{displayOrderCode(order.invoiceNumber, order.id)}</p>
               <p className="account-order-card__meta">
                 {formatOrderDate(order.createdAt)} · {itemCount} item{itemCount === 1 ? '' : 's'}
               </p>
@@ -240,6 +241,7 @@ export default function AccountDashboard() {
 
   const [section, setSection] = useState<AccountSection>('orders')
   const [orders, setOrders] = useState<StoredOrder[]>([])
+  const [ordersError, setOrdersError] = useState<string | null>(null)
   const [wishlistProducts, setWishlistProducts] = useState<ProductCardData[]>([])
   const [profile, setProfile] = useState({ name: '', email: '', phone: '' })
   const [address, setAddress] = useState({ address: '', city: 'Dhaka' })
@@ -248,6 +250,8 @@ export default function AccountDashboard() {
   const [saveError, setSaveError] = useState('')
   const [profileLoading, setProfileLoading] = useState(false)
   const [connectionError, setConnectionError] = useState('')
+
+  const welcome = searchParams.get('welcome') === '1'
 
   const redirectToLogin = useCallback(() => {
     const tab = searchParams.get('tab')
@@ -301,8 +305,13 @@ export default function AccountDashboard() {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'wishlist') setSection('wishlist')
-    if (tab === 'profile' || tab === 'security') setSection('profile')
+    const welcome = searchParams.get('welcome') === '1'
+    if (tab === 'dashboard' || welcome) setSection('dashboard')
+    else if (tab === 'orders') setSection('orders')
+    else if (tab === 'history') setSection('history')
+    else if (tab === 'addresses') setSection('addresses')
+    else if (tab === 'wishlist') setSection('wishlist')
+    else if (tab === 'profile' || tab === 'security') setSection('profile')
   }, [searchParams])
 
   useEffect(() => {
@@ -319,7 +328,15 @@ export default function AccountDashboard() {
       email: user.email,
       phone: user.phone,
     })
-    fetchUserOrders().then(setOrders)
+    fetchUserOrders()
+      .then((data) => {
+        setOrders(data)
+        setOrdersError(null)
+      })
+      .catch((err: unknown) => {
+        setOrders([])
+        setOrdersError(err instanceof Error ? err.message : 'Could not load your orders.')
+      })
 
     const savedCustomer = window.localStorage.getItem('splaro-customer')
     if (savedCustomer) {
@@ -637,12 +654,28 @@ export default function AccountDashboard() {
               <div className="account-main__head">
                 <div>
                   <h1 className="account-title">Dashboard</h1>
-                  <p className="account-subtitle">Welcome back, {user.name.split(' ')[0]}.</p>
+                  <p className="account-subtitle">
+                    {welcome
+                      ? `Welcome to SPLARO, ${user.name.split(' ')[0]}! Your account is ready.`
+                      : `Welcome back, ${user.name.split(' ')[0]}.`}
+                  </p>
                 </div>
                 <Link href="/shop" className="account-btn account-btn--primary">
                   Continue Shopping
                 </Link>
               </div>
+              {welcome ? (
+                <AccountGlass className="account-welcome-banner">
+                  <p className="account-welcome-banner__eyebrow">New member</p>
+                  <h2 className="account-welcome-banner__title">Start with your first look</h2>
+                  <p className="account-welcome-banner__text">
+                    Browse the shop, save favourites, and checkout faster next time.
+                  </p>
+                  <Link href="/shop" className="account-btn account-btn--primary account-welcome-banner__cta">
+                    Explore Shop
+                  </Link>
+                </AccountGlass>
+              ) : null}
               <div className="account-stats">
                 {[
                   { label: 'Active Orders', value: stats.active },
@@ -689,7 +722,18 @@ export default function AccountDashboard() {
                   <p className="account-subtitle">Every SPLARO order in one place.</p>
                 </div>
               </div>
-              {orders.length > 0 ? (
+              {ordersError ? (
+                <AccountGlass className="account-empty">
+                  <p className="account-empty__text text-sm font-medium text-red-600">{ordersError}</p>
+                  <button
+                    type="button"
+                    className="account-btn account-btn--primary mt-5"
+                    onClick={() => window.location.reload()}
+                  >
+                    Retry
+                  </button>
+                </AccountGlass>
+              ) : orders.length > 0 ? (
                 <div className="account-order-list">
                   {orders.map((order) => (
                     <OrderCard key={order.id} order={order} />

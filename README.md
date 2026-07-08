@@ -1414,7 +1414,11 @@ GOOGLE_SHEETS_INVENTORY_ID=
 
 ## Deployment
 
-### Hostinger VPS Setup
+> **Production deploy (current): see [HOSTINGER_DEPLOY.md](HOSTINGER_DEPLOY.md)** — GitHub → hPanel Git deploy (Node 20, `npm run build` / `npm start`).
+> Before pushing `main`: `pnpm check:web && pnpm check:admin && pnpm check:api && pnpm validate:production-env`.
+> The VPS instructions below are kept as a secondary path only.
+
+### Hostinger VPS Setup (secondary)
 
 ```bash
 # 1. SSH into your VPS

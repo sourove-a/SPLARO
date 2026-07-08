@@ -1,23 +1,7 @@
 import { fetchAdminInvoice, parseInvoiceError } from '@/lib/api/invoice-access'
-import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
+import { toastOk, toastFail, notifyBackendMissing } from '@/lib/admin/feedback'
 
-const STORAGE_PREFIX = 'splaro-admin:'
-
-export function loadAdminData<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback
-  try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`)
-    if (!raw) return fallback
-    return JSON.parse(raw) as T
-  } catch {
-    return fallback
-  }
-}
-
-export function saveAdminData<T>(key: string, data: T): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data))
-}
+export { notifyBackendMissing }
 
 export function downloadBlob(filename: string, content: BlobPart, mime: string) {
   const blob = new Blob([content], { type: mime })
@@ -173,25 +157,4 @@ export async function downloadInvoicePdf(orderId: string, invoiceNumber?: string
   }
   const blob = await res.blob()
   downloadBlob(`${invoiceNumber ?? orderId}.pdf`, blob, 'application/pdf')
-}
-
-/** Verified API persistence — green only after server confirms. */
-export function toastApiSaved(label: string) {
-  toastOk(`${label} saved to server.`, `api-saved:${label}`)
-}
-
-/** @deprecated Local-only — never use for settings or live data. Prefer toastApiSaved after API OK. */
-export function notifySaved(label: string) {
-  toastWarn(`${label} saved locally only — NOT synced to API.`, `local-saved:${label}`)
-}
-
-export function saveDraftRecord(moduleHref: string, record: Record<string, unknown>) {
-  const key = `draft:${moduleHref}`
-  const existing = loadAdminData<Record<string, unknown>[]>(key, [])
-  existing.unshift({ ...record, savedAt: new Date().toISOString() })
-  saveAdminData(key, existing.slice(0, 50))
-}
-
-export function saveRecordEdit(moduleHref: string, recordId: string, record: Record<string, unknown>) {
-  saveAdminData(`record:${moduleHref}:${recordId}`, { ...record, updatedAt: new Date().toISOString() })
 }

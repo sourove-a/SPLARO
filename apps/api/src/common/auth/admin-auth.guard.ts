@@ -34,13 +34,20 @@ export class AdminAuthGuard implements CanActivate {
     if (isPublicApiPath(rawPath, request.method ?? 'GET')) return true
 
     const internalSecret = process.env['INTERNAL_HEALTH_SECRET']
-    const normalizedPath = rawPath.replace(/^\/api\/v1\//, '').replace(/^\//, '')
+    const method = (request.method ?? 'GET').toUpperCase()
     if (
       internalSecret &&
       request.headers['x-splaro-internal'] === internalSecret &&
-      (request.method ?? 'GET').toUpperCase() === 'GET' &&
-      (normalizedPath === 'health' || normalizedPath.startsWith('health/'))
+      method === 'GET'
     ) {
+      // Server-side health probes (admin /api/health → /health/routes loopback GETs)
+      request.adminUser = {
+        userId: 'health_probe',
+        email: 'health@internal',
+        name: 'Health Probe',
+        role: 'SUPER_ADMIN',
+        exp: Date.now() + 120_000,
+      }
       return true
     }
 
@@ -74,7 +81,6 @@ export class AdminAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired admin session')
     }
 
-    const method = (request.method ?? 'GET').toUpperCase()
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !canWriteAdmin(session.role)) {
       throw new ForbiddenException('Insufficient permissions for this action')
     }

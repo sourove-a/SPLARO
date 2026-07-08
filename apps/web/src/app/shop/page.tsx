@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
+import { mergeCatalogChannels } from '@splaro/types'
 import { ShopExperience } from '@/components/shop/ShopExperience'
+import { getVisibleCollectionCards } from '@/lib/catalog/collection-cards'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
+import { getStorefrontSettings } from '@/lib/storefront/settings'
 
 export const metadata: Metadata = {
   title: 'Shop — SPLARO',
@@ -11,6 +14,18 @@ export const metadata: Metadata = {
 export const revalidate = 60
 
 export default async function ShopPage() {
-  const catalog = await getStorefrontCatalog()
-  return <ShopExperience initialCatalog={catalog} listingMode="full" />
+  const [catalog, settings] = await Promise.all([
+    getStorefrontCatalog(),
+    getStorefrontSettings(),
+  ])
+  const channels = mergeCatalogChannels(settings.config.catalogChannels ?? [])
+  const collectionCards = await getVisibleCollectionCards(channels, catalog)
+
+  return (
+    <ShopExperience
+      initialCatalog={catalog}
+      collectionCards={collectionCards}
+      listingMode="full"
+    />
+  )
 }

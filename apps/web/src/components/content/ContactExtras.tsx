@@ -2,21 +2,43 @@
 
 import { type FormEvent, useState } from 'react'
 import Link from 'next/link'
-import { Mail, MapPin, MessageCircle, Phone, Send } from 'lucide-react'
+import { Loader2, Mail, MapPin, MessageCircle, Phone, Send } from 'lucide-react'
 
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { submitContactForm } from '@/lib/api/contact'
 import { resolveWhatsAppNumber, resolveSupportPhone, whatsAppHref } from '@/lib/storefront/contact'
+
+type SubmitStatus = 'idle' | 'loading' | 'success' | 'error'
 
 export function ContactExtras() {
   const settings = useStorefrontSettings()
   const phone = resolveSupportPhone(settings)
   const email = settings.store.email?.trim() || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@splaro.co'
-  const whatsappHref = whatsAppHref(resolveWhatsAppNumber(settings))
-  const [submitted, setSubmitted] = useState(false)
+  const whatsappLink = whatsAppHref(resolveWhatsAppNumber(settings))
+  const [status, setStatus] = useState<SubmitStatus>('idle')
+  const [error, setError] = useState('')
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSubmitted(true)
+    const form = event.currentTarget
+    const data = new FormData(form)
+
+    setStatus('loading')
+    setError('')
+
+    try {
+      await submitContactForm({
+        name: String(data.get('name') ?? '').trim(),
+        contact: String(data.get('contact') ?? '').trim(),
+        subject: String(data.get('subject') ?? '').trim(),
+        message: String(data.get('message') ?? '').trim(),
+      })
+      setStatus('success')
+      form.reset()
+    } catch (err) {
+      setStatus('error')
+      setError(err instanceof Error ? err.message : 'Could not send your message right now.')
+    }
   }
 
   return (
@@ -37,7 +59,7 @@ export function ContactExtras() {
           </div>
         </a>
         <a
-          href={whatsappHref}
+          href={whatsappLink}
           target="_blank"
           rel="noopener noreferrer"
           className="content-page__contact-card"
@@ -62,15 +84,33 @@ export function ContactExtras() {
         <div className="content-page__form-grid">
           <label className="content-page__field">
             <span>Full name</span>
-            <input required name="name" className="content-page__input" placeholder="Your name" />
+            <input
+              required
+              name="name"
+              className="content-page__input"
+              placeholder="Your name"
+              disabled={status === 'loading'}
+            />
           </label>
           <label className="content-page__field">
             <span>Email or phone</span>
-            <input required name="contact" className="content-page__input" placeholder="you@example.com" />
+            <input
+              required
+              name="contact"
+              className="content-page__input"
+              placeholder="you@example.com"
+              disabled={status === 'loading'}
+            />
           </label>
           <label className="content-page__field content-page__field--full">
             <span>Subject</span>
-            <input required name="subject" className="content-page__input" placeholder="Order, sizing, returns..." />
+            <input
+              required
+              name="subject"
+              className="content-page__input"
+              placeholder="Order, sizing, returns..."
+              disabled={status === 'loading'}
+            />
           </label>
           <label className="content-page__field content-page__field--full">
             <span>Message</span>
@@ -80,20 +120,35 @@ export function ContactExtras() {
               rows={4}
               className="content-page__input content-page__input--area"
               placeholder="How can we help?"
+              disabled={status === 'loading'}
             />
           </label>
         </div>
-        {submitted ? (
-          <p className="content-page__form-success">
+        {status === 'success' ? (
+          <p className="content-page__form-success" role="status">
             Thank you — our team will reply within 4 business hours. For urgent orders,{' '}
-            <Link href={whatsappHref}>WhatsApp us</Link>.
+            <Link href={whatsappLink}>WhatsApp us</Link>.
           </p>
         ) : (
-          <button type="submit" className="content-page__submit">
-            <Send className="h-4 w-4" strokeWidth={2.1} />
-            Send message
+          <button type="submit" className="content-page__submit" disabled={status === 'loading'}>
+            {status === 'loading' ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" strokeWidth={2.1} />
+                Send message
+              </>
+            )}
           </button>
         )}
+        {status === 'error' && error ? (
+          <p className="auth-form__error mt-3" role="alert">
+            {error}
+          </p>
+        ) : null}
       </form>
     </>
   )

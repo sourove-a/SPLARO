@@ -19,6 +19,10 @@ export function storefrontToCardData(
     name: color.name,
   }))
 
+  const apiRating = Number(product.rating ?? 0)
+  const apiReviewCount = Number(product.reviewCount ?? 0)
+  const hasReviews = apiReviewCount > 0 && apiRating > 0
+
   return {
     id: product.id,
     slug,
@@ -30,8 +34,8 @@ export function storefrontToCardData(
     isNewArrival: isStorefrontNewArrival(product),
     isBestSeller: isStorefrontBestSeller(product),
     isOnSale: Boolean(product.compareAtPrice && product.compareAtPrice > product.price),
-    rating: 4.5,
-    reviewCount: 12,
+    rating: hasReviews ? apiRating : 0,
+    reviewCount: hasReviews ? apiReviewCount : 0,
     category: product.category,
   }
 }

@@ -39,6 +39,22 @@ export class AdminLoginTokenService {
     return this.formatCode(code)
   }
 
+  async peekByCode(rawCode: string): Promise<AdminLoginTokenRecord | null> {
+    await this.purgeExpired()
+    const code = this.normalizeCode(rawCode)
+    const row = await this.prisma.adminLoginToken.findUnique({ where: { code } })
+    if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) return null
+    return {
+      email: row.email,
+      userId: row.userId,
+      name: row.name,
+      role: row.role,
+      storeId: row.storeId,
+      exp: row.expiresAt.getTime(),
+      used: false,
+    }
+  }
+
   async consume(email: string, rawCode: string): Promise<AdminLoginTokenRecord | null> {
     await this.purgeExpired()
     const code = this.normalizeCode(rawCode)

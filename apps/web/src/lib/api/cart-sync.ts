@@ -1,6 +1,17 @@
 import type { CartItem } from '@/store/cartStore'
+import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+const CART_SYNC_TIMEOUT_MS =
+  Number(process.env.SPLARO_CART_SYNC_TIMEOUT_MS) > 0
+    ? Number(process.env.SPLARO_CART_SYNC_TIMEOUT_MS)
+    : process.env.NODE_ENV === 'development'
+      ? 4000
+      : 8000
+
+function cartFetchInit(init: RequestInit = {}): RequestInit {
+  return { ...init, signal: AbortSignal.timeout(CART_SYNC_TIMEOUT_MS) }
+}
 
 export type CartSyncResult = { ok: true } | { ok: false; error: string }
 
@@ -38,7 +49,7 @@ function mapApiCartItem(raw: Record<string, unknown>): CartItem | null {
   if (!productId) return null
 
   const images = (product?.images as { url?: string }[] | undefined) ?? []
-  const image = images[0]?.url ?? ''
+  const image = sanitizeRemoteImageUrl(images[0]?.url)
 
   const item: CartItem = {
     productId,
@@ -62,7 +73,7 @@ export async function pullServerCart(
   if (!sessionId) return { ok: true }
 
   try {
-    const res = await fetch(cartApiPath(sessionId), { cache: 'no-store', credentials: 'include' })
+    const res = await fetch(cartApiPath(sessionId), cartFetchInit({ cache: 'no-store', credentials: 'include' }))
     if (!res.ok) {
       return {
         ok: false,
@@ -92,10 +103,10 @@ export async function clearServerCart(): Promise<CartSyncResult> {
   if (!sessionId) return { ok: true }
 
   try {
-    const res = await fetch(cartApiPath(sessionId, '/clear'), {
+    const res = await fetch(cartApiPath(sessionId, '/clear'), cartFetchInit({
       method: 'POST',
       credentials: 'include',
-    })
+    }))
     if (!res.ok) {
       return { ok: false, error: cartSyncError(res, 'Could not clear server cart.') }
     }
@@ -113,7 +124,7 @@ export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResul
   // old clear-then-add flow could wipe the server cart and then fail
   // half-way, losing items.
   try {
-    const res = await fetch(cartApiPath(sessionId), {
+    const res = await fetch(cartApiPath(sessionId), cartFetchInit({
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -124,7 +135,7 @@ export async function pushCartToServer(items: CartItem[]): Promise<CartSyncResul
           quantity: item.quantity,
         })),
       }),
-    })
+    }))
     if (!res.ok) {
       return {
         ok: false,

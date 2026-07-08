@@ -180,6 +180,7 @@ Use the buttons below or the keyboard at the bottom.
 <b>Orders</b> — today, pending, courier, tracking
 <b>Finance</b> — profit, expenses, sheets
 <b>Admin</b> — secure login token for panel
+<b>Commands</b> — /status · /orders · /order SPL-1001 · /confirm · /cancel · /courier
 <b>AI</b> — type any message (authorized users)
 `.trim()
 }
@@ -187,7 +188,13 @@ Use the buttons below or the keyboard at the bottom.
 export const BOT_COMMANDS: TelegramBot.BotCommand[] = [
   { command: 'start', description: 'Welcome & open menu' },
   { command: 'menu', description: 'Control panel' },
-  { command: 'login', description: 'Admin panel login token' },
+  { command: 'login', description: 'Link admin or get login token' },
+  { command: 'status', description: 'API & order summary' },
+  { command: 'orders', description: 'Latest orders' },
+  { command: 'order', description: 'Order details by invoice' },
+  { command: 'confirm', description: 'Confirm order' },
+  { command: 'cancel', description: 'Cancel order' },
+  { command: 'courier', description: 'Book courier' },
   { command: 'link_group', description: 'Link group for notifications' },
   { command: 'group_info', description: 'Show chat ID' },
   { command: 'help', description: 'All commands' },

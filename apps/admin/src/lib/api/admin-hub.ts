@@ -139,6 +139,16 @@ export function createPurchaseOrder(data: {
   })
 }
 
+export function receiveGoodsGrn(data: { purchaseOrderId: string; notes?: string }) {
+  return apiFetch<{
+    grn: GoodsReceivedNoteRow
+    purchaseOrder: { id: string; poNumber: string; status: string }
+  }>('/admin/hub/procurement/goods-received', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 export function createSupportTicket(data: { subject: string; message?: string; channel?: string; priority?: string }) {
   return apiFetch('/admin/hub/support/tickets', { method: 'POST', body: JSON.stringify(data) })
 }
@@ -166,6 +176,13 @@ export interface CommerceSubscriptionRow {
   status: string
   orders: number
   updatedAt: string
+}
+
+export interface GoodsReceivedNoteRow {
+  id: string
+  grnNumber: string
+  receivedAt: string
+  notes: string | null
 }
 
 export function fetchNotificationsOverview() {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { toProductCard } from '@/lib/catalog/index'
+import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import { fetchProductsByIds } from '@/lib/catalog/live'
 
 export async function GET(request: Request) {
@@ -14,6 +14,6 @@ export async function GET(request: Request) {
   }
 
   const raw = await fetchProductsByIds(ids)
-  const products = raw.map(toProductCard)
+  const products = raw.map(storefrontToCardData)
   return NextResponse.json({ products })
 }

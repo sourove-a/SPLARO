@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, Put, Query, Req } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, Req } from '@nestjs/common'
 import type { Request } from 'express'
 import { ConfigService } from '@nestjs/config'
 import { canWriteAdmin } from '../../common/auth/admin-session.util'
@@ -334,6 +334,32 @@ export class IntegrationsController {
   ) {
     this.assertWrite(req)
     return this.telegram.test(storeId, req.adminUser?.userId, body.message)
+  }
+
+  @Get('telegram/health')
+  getTelegramHealth(@Query('storeId') storeId: string) {
+    return this.telegram.getHealth(storeId)
+  }
+
+  @Post('telegram/link-token')
+  generateTelegramLinkToken(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    this.assertWrite(req)
+    return this.telegram.generateLinkToken(storeId)
+  }
+
+  @Get('telegram/linked-admins')
+  listTelegramLinkedAdmins(@Query('storeId') storeId: string) {
+    return this.telegram.listLinkedAdmins(storeId)
+  }
+
+  @Delete('telegram/linked-admins/:id')
+  unlinkTelegramAdmin(
+    @Query('storeId') storeId: string,
+    @Param('id') id: string,
+    @Req() req: AdminRequest,
+  ) {
+    this.assertWrite(req)
+    return this.telegram.unlinkAdmin(storeId, id, req.adminUser?.userId)
   }
 
   @Get('ai')

@@ -326,8 +326,122 @@ export const adminNavGroups: AdminNavGroup[] = [
   },
 ]
 
-/** Sidebar group order — reused by API Health panel grouping. */
-export const ADMIN_NAV_GROUP_ORDER = adminNavGroups.map((g) => g.group)
+/**
+ * Registered routes omitted from sidebar & command palette.
+ * Direct URLs still resolve — see getNavHiddenReason() for on-page notice.
+ */
+export const NAV_HIDDEN_HREFS = new Set<string>([
+  // Duplicate ops aliases — canonical: WMS / Procurement
+  '/dashboard/warehouse',
+  '/dashboard/supplier-management',
+  // Overview duplicate (same ExecutiveDashboard panel as Revenue Center)
+  '/dashboard/business-intelligence',
+  // Google Workspace placeholders — keep OAuth, Sheets, Gmail connected paths
+  '/dashboard/google-workspace/docs',
+  '/dashboard/google-workspace/calendar',
+  '/dashboard/google-workspace/contacts',
+  '/dashboard/google-workspace/analytics',
+  '/dashboard/google-workspace/search-console',
+  '/dashboard/google-workspace/merchant-center',
+  // Platform / multi-tenant shells — not daily SPLARO ops
+  '/dashboard/stores',
+  '/dashboard/saas-subscriptions',
+  '/dashboard/domains',
+  '/dashboard/tenants',
+  '/dashboard/billing',
+  '/dashboard/marketplace/overview',
+  '/dashboard/developer/api-center',
+  '/dashboard/observability/center',
+  '/dashboard/observability/disaster-recovery',
+  '/dashboard/social-commerce/hub',
+  // Support placeholder
+  '/dashboard/support/live-chat',
+  // Media shells
+  '/dashboard/video-library',
+  '/dashboard/ugc-gallery',
+  // AI sub-pages (AI Command Brain is the entry point)
+  '/dashboard/ai-content',
+  '/dashboard/ai-seo',
+  '/dashboard/ai-analytics',
+  '/dashboard/ai-sales',
+  '/dashboard/ai-customer-insights',
+  '/dashboard/ai-product-generator',
+  '/dashboard/automation/ai-product-agent',
+  '/dashboard/automation/ai-seo-agent',
+  '/dashboard/automation/ai-sales-insights',
+  // Marketing analytics shells — campaigns/coupons/whatsapp stay visible
+  '/dashboard/influencers',
+  '/dashboard/affiliate',
+  '/dashboard/referrals',
+  '/dashboard/segments',
+  '/dashboard/customer-intelligence',
+  // Catalog utility duplicates — products/inventory cover daily use
+  '/dashboard/sku-manager',
+  '/dashboard/qr-manager',
+  '/dashboard/barcode-manager',
+  '/dashboard/brands',
+  '/dashboard/attributes',
+  // Growth placeholders
+  '/dashboard/vip-members',
+  '/dashboard/loyalty-program',
+  '/dashboard/subscriptions',
+  // Content shells — home/hero/blog/legal stay visible
+  '/dashboard/lookbooks',
+  '/dashboard/reels',
+  '/dashboard/cms',
+  '/dashboard/landing-pages',
+  '/dashboard/theme-builder',
+  '/dashboard/footwear-page',
+  // Company doc upload not connected
+  '/dashboard/company/documents',
+  // SEO sub-tools — SEO Health is the hub
+  '/dashboard/index-monitor',
+])
+
+/** Shown when a hidden route is opened via bookmark or legacy link. */
+export const NAV_HIDDEN_REASONS: Record<string, string> = {
+  '/dashboard/warehouse': 'Legacy alias — use WMS Overview for warehouse operations.',
+  '/dashboard/supplier-management': 'Legacy alias — use Procurement Hub for suppliers and POs.',
+  '/dashboard/business-intelligence': 'Same data as Revenue Center — use Revenue Center or CEO Dashboard.',
+  '/dashboard/support/live-chat': 'Live chat is not connected — use Helpdesk for tickets.',
+  '/dashboard/company/documents': 'Document upload API is not connected yet.',
+}
+
+export function normalizeAdminHref(href: string): string {
+  return href.replace(/\/+$/, '') || '/dashboard'
+}
+
+export function isNavHiddenFromPrimary(href: string): boolean {
+  return NAV_HIDDEN_HREFS.has(normalizeAdminHref(href))
+}
+
+export function getNavHiddenReason(href: string): string {
+  const normalized = normalizeAdminHref(href)
+  return (
+    NAV_HIDDEN_REASONS[normalized] ??
+    'Hidden from sidebar — module not needed for daily SPLARO operations. Bookmark still works.'
+  )
+}
+
+/** Sidebar + palette: visible nav groups only (empty groups removed). */
+export function getSidebarNavGroups(): AdminNavGroup[] {
+  return adminNavGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !isNavHiddenFromPrimary(item.href)),
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
+/** Flat routes for sidebar & command palette — excludes NAV_HIDDEN_HREFS. */
+export function getVisibleAdminRoutes(): FlatAdminRoute[] {
+  return getSidebarNavGroups().flatMap(({ group, items }) =>
+    items.map((navItem) => ({ ...navItem, group })),
+  )
+}
+
+/** Sidebar sidebar group order — reused by API Health panel grouping. */
+export const ADMIN_NAV_GROUP_ORDER = getSidebarNavGroups().map((g) => g.group)
 
 export const flatAdminRoutes: FlatAdminRoute[] = adminNavGroups.flatMap(({ group, items }) =>
   items.map((navItem) => ({ ...navItem, group })),
@@ -413,14 +527,14 @@ export function hrefFromSlug(slug: string[] | undefined): string {
 }
 
 export function getCommandItems(): CommandNavItem[] {
-  return flatAdminRoutes.map(({ group, label, href, icon, description, badge }) => ({
-    group,
-    label,
-    href,
-    icon,
-    ...(description ? { description } : {}),
-    ...(badge !== undefined ? { badge } : {}),
-  }))
+  return getVisibleAdminRoutes().map(({ group, label, href, icon, description, badge }) => ({
+      group,
+      label,
+      href,
+      icon,
+      ...(description ? { description } : {}),
+      ...(badge !== undefined ? { badge } : {}),
+    }))
 }
 
 export function getModuleFeatures(navItem: FlatAdminRoute): string[] {
@@ -455,13 +569,4 @@ export function getModuleFeatures(navItem: FlatAdminRoute): string[] {
   }
 
   return featuresByGroup[navItem.group] ?? ['Data management', 'Search & filters', 'Export', 'Settings']
-}
-
-export function getComingSoonActions(navItem: FlatAdminRoute): { label: string; description: string }[] {
-  return [
-    { label: `Create ${navItem.label}`, description: 'Add a new record to this module' },
-    { label: 'Import data', description: 'Bulk import from CSV or spreadsheet' },
-    { label: 'Configure settings', description: `Customize ${navItem.label} preferences` },
-    { label: 'View documentation', description: 'Learn how to use this module' },
-  ]
 }

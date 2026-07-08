@@ -609,7 +609,7 @@ async function main() {
     console.log(`Seeded product: ${p.name}`)
   }
 
-  const sampleInvoice = 'INV-SEED-0001'
+  const sampleInvoice = 'SPL-1001'
   const orderExists = await prisma.order.findFirst({ where: { storeId: store.id, invoiceNumber: sampleInvoice } })
   if (!orderExists) {
     const product = await prisma.product.findFirst({

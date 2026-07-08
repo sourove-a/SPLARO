@@ -20,9 +20,10 @@ import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useUpdateProductVariant } from '@/lib/api/hooks'
+import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession } from '@/lib/api/hooks'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
 import { ProductMediaPanel } from '@/components/modules/product-form/ProductMediaPanel'
+import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
 import { parseProductMedia } from '@/lib/admin/product-media-utils'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
 import {
@@ -35,6 +36,7 @@ import {
   splitFitAndProductType,
 } from '@/lib/admin/product-form-utils'
 import { generateAIProduct } from '@/lib/api/finance'
+import { fetchProductQR, fetchProductBarcode } from '@/lib/api/products'
 import { ProductAIAssist } from '@/components/agent/ProductAIAssist'
 import { ModuleReadinessBar } from '@/components/ui/connection/ModuleReadinessBar'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
@@ -53,13 +55,12 @@ function slugify(str: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-[#6B6B6B]">
-      {children}
-      {required && <span className="ml-1 text-[var(--admin-brand-gold)]">*</span>}
-    </span>
-  )
+function toDatetimeLocalValue(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function SectionNumber({ n }: { n: number }) {
@@ -111,9 +112,9 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const collections = collectionsData?.collections ?? []
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
-  const updateVariant = useUpdateProductVariant()
-  const [stockEdits, setStockEdits] = useState<Record<string, string>>({})
-  const [skuEdits, setSkuEdits] = useState<Record<string, string>>({})
+  const { data: adminSession } = useAdminSession()
+  const { data: versions = [] } = useProductVersions(productId)
+  const restoreVersion = useRestoreProductVersion()
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
@@ -122,6 +123,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const [slugEdited, setSlugEdited] = useState(false)
   const [departmentId, setDepartmentId] = useState('')
   const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
+  const [qrGenerating, setQrGenerating] = useState(false)
+  const [qrPreviewUrl, setQrPreviewUrl] = useState('')
+  const [barcodeGenerating, setBarcodeGenerating] = useState(false)
+  const [barcodePreviewUrl, setBarcodePreviewUrl] = useState('')
 
   const [form, setForm] = useState({
     name: '',
@@ -155,8 +160,15 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     fitType: '',
     season: '',
     occasion: '',
+    careInstructions: '',
     metaTitle: '',
     metaDescription: '',
+    weight: '',
+    badge: '',
+    rmCode: '',
+    barcode: '',
+    qrCode: '',
+    publishAt: '',
   })
 
   const categoryPicker = useMemo(() => buildCategoryPicker(categories), [categories])
@@ -213,19 +225,16 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
       fitType: fitSplit.fitType,
       season: String(p.season ?? ''),
       occasion: String(p.occasion ?? ''),
+      careInstructions: String(extra.careInstructions ?? ''),
       metaTitle: String(p.metaTitle ?? ''),
       metaDescription: String(p.metaDescription ?? ''),
+      weight: p.weight != null ? String(p.weight) : '',
+      badge: String(p.badge ?? ''),
+      rmCode: String(p.rmCode ?? ''),
+      barcode: String(p.barcode ?? ''),
+      qrCode: String(p.qrCode ?? ''),
+      publishAt: toDatetimeLocalValue(p.publishAt),
     })
-    const stocks: Record<string, string> = {}
-    const skus: Record<string, string> = {}
-    product.variants?.forEach((v) => {
-      if (v.id) {
-        stocks[v.id] = String(v.stock ?? v.stockQuantity ?? 0)
-        skus[v.id] = String(v.sku ?? '')
-      }
-    })
-    setStockEdits(stocks)
-    setSkuEdits(skus)
     setSlugEdited(false)
     setDirty(false)
     if (categoryId && categories.length) {
@@ -277,7 +286,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
       try {
         await updateProduct.mutateAsync({
           id: productId,
-          ...nextForm,
+          skipVersionSnapshot: true,
+          ...updates,
           ...(updates.isPublished === true ? { isHidden: false } : {}),
         })
         if (updates.isPublished !== undefined) {
@@ -434,6 +444,36 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     }
   }, [form.name, form.fabricContent, form.categoryId, form.basePrice, form.occasion, categories])
 
+  const handleGenerateQr = useCallback(async () => {
+    setQrGenerating(true)
+    try {
+      const res = await fetchProductQR(productId)
+      setQrPreviewUrl(res.qr)
+      setForm((prev) => ({ ...prev, qrCode: res.qr }))
+      setDirty(true)
+      toastOk('QR generated — click Save to persist.', 'qr-gen-ok')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'QR generation failed.', 'qr-gen-fail')
+    } finally {
+      setQrGenerating(false)
+    }
+  }, [productId])
+
+  const handleGenerateBarcode = useCallback(async () => {
+    setBarcodeGenerating(true)
+    try {
+      const res = await fetchProductBarcode(productId)
+      setBarcodePreviewUrl(res.barcode)
+      setForm((prev) => ({ ...prev, barcode: res.barcode }))
+      setDirty(true)
+      toastOk('Barcode generated — click Save to persist.', 'barcode-gen-ok')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Barcode generation failed.', 'barcode-gen-fail')
+    } finally {
+      setBarcodeGenerating(false)
+    }
+  }, [productId])
+
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Product name required.'); return }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
@@ -461,15 +501,22 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         fabricContent: form.fabricContent,
         fitType: mergeFitAndProductType(form.productType, form.fitType),
         occasion: form.occasion,
+        careInstructions: form.careInstructions,
         season: form.season,
         metaTitle: form.metaTitle,
         metaDescription: form.metaDescription,
         isPublished: form.isPublished,
         isHidden: form.isHidden,
-        status: form.isPublished ? 'PUBLISHED' : 'DRAFT',
+        status: form.status,
         isFeatured: form.isFeatured,
         isNewArrival: form.isNewArrival,
         isBestSeller: form.isBestSeller,
+        weight: form.weight.trim() ? Number(form.weight) : null,
+        badge: form.badge.trim() || null,
+        rmCode: form.rmCode.trim() || null,
+        barcode: form.barcode.trim() || null,
+        qrCode: form.qrCode.trim() || null,
+        publishAt: form.publishAt ? new Date(form.publishAt).toISOString() : null,
         imageUrls: form.imageUrls,
         videoUrl: form.videoUrl.trim(),
       })
@@ -491,19 +538,6 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     } catch {
       toast.error('Could not archive product.')
     }
-  }
-
-  const saveVariantRow = (variantId: string) => {
-    const stock = Number(stockEdits[variantId])
-    if (Number.isNaN(stock) || stock < 0) { toast.error('Invalid stock number.'); return }
-    const sku = skuEdits[variantId]?.trim() ?? ''
-    updateVariant.mutate(
-      { productId, variantId, stock, ...(sku ? { sku } : {}) },
-      {
-        onSuccess: () => toastOk('Variant saved to server.'),
-        onError: () => toastFail('Could not update variant.'),
-      },
-    )
   }
 
   if (isLoading) {
@@ -704,6 +738,17 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 descriptionPlaceholderBn="বাংলায় সুন্দর বিবরণ…"
                 showVariantControls={false}
                 onInstantPublish={(next) => void saveVisibility({ isPublished: next })}
+                productId={productId}
+                onGenerateBarcode={() => void handleGenerateBarcode()}
+                barcodeGenerating={barcodeGenerating}
+                {...(barcodePreviewUrl || form.barcode.startsWith('data:image')
+                  ? { barcodePreviewUrl: barcodePreviewUrl || form.barcode }
+                  : {})}
+                onGenerateQr={() => void handleGenerateQr()}
+                qrGenerating={qrGenerating}
+                {...(qrPreviewUrl || form.qrCode.startsWith('data:image')
+                  ? { qrPreviewUrl: qrPreviewUrl || form.qrCode }
+                  : {})}
                 headerSlot={
                   form.slug ? (
                     <div className="product-form-slug-row">
@@ -733,87 +778,55 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                   fillLoading={fillAllLoading}
                 />
               </div>
-              <label className="admin-field mt-4">
-                <FieldLabel>Season</FieldLabel>
-                <select className="admin-input admin-input--premium" value={form.season} onChange={(e) => set('season', e.target.value)}>
-                  <option value="">All Season</option>
-                  <option>Summer</option>
-                  <option>Winter</option>
-                  <option>Eid</option>
-                  <option>Puja</option>
-                </select>
-              </label>
             </div>
           </FormSection>
 
           {/* 2 — Variants */}
-          {product.variants && product.variants.length > 0 && (
-            <FormSection title={`Variants & Stock${lowStock ? ' — ⚠ Low' : ''}`} icon={Layers} number={3}>
-              <div className="overflow-hidden rounded-xl border border-[rgba(17,17,17,0.06)]">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[rgba(17,17,17,0.05)] bg-[rgba(17,17,17,0.02)]">
-                      {['SKU', 'Size', 'Color', 'Stock', ''].map((h) => (
-                        <th key={h} className="px-3 py-2.5 text-left text-[10px] font-black uppercase tracking-[0.1em] text-[#6B6B6B]">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {product.variants.map((v, i) => {
-                      const stock = Number(v.id ? stockEdits[v.id] ?? '0' : '0')
-                      return (
-                        <tr key={v.id ?? i} className="border-b border-[rgba(17,17,17,0.04)] last:border-0 transition-colors hover:bg-[rgba(200,169,126,0.04)]">
-                          <td className="px-3 py-2.5">
-                            <input
-                              className="admin-input w-full min-w-[100px] font-mono text-[11px]"
-                              placeholder="Your SKU"
-                              value={v.id ? skuEdits[v.id] ?? '' : ''}
-                              onChange={(e) => v.id && setSkuEdits((prev) => ({ ...prev, [v.id!]: e.target.value }))}
-                            />
-                          </td>
-                          <td className="px-3 py-2.5 text-sm font-semibold">{v.size ?? '—'}</td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-1.5">
-                              {v.color && <span className="h-3 w-3 rounded-full border border-[rgba(17,17,17,0.1)]" style={{ background: v.color }} />}
-                              <span className="text-sm font-semibold">{v.colorName ?? v.color ?? '—'}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <input
-                                className={cn('admin-input w-20 text-center font-black',
-                                  stock < 5 && '!border-red-200 !bg-red-50 !text-red-700',
-                                  stock >= 5 && stock < 15 && '!border-amber-200 !bg-amber-50/60 !text-amber-700',
-                                )}
-                                type="number" min={0}
-                                value={v.id ? stockEdits[v.id] ?? '0' : '0'}
-                                onChange={(e) => v.id && setStockEdits((prev) => ({ ...prev, [v.id!]: e.target.value }))}
-                              />
-                              {stock < 5 && <span className="text-[10px] font-black text-red-600">LOW</span>}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5">
-                            {v.id && (
-                              <button
-                                onClick={() => saveVariantRow(v.id!)}
-                                disabled={updateVariant.isPending}
-                                className="rounded-lg bg-[rgba(200,169,126,0.12)] px-2.5 py-1 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50"
-                              >
-                                Save
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+          <FormSection title={`Variants & Stock${lowStock ? ' — ⚠ Low' : ''}`} icon={Layers} number={3}>
+            <p className="mb-3 text-[11px] font-semibold text-[#6B6B6B]">
+              Total stock: <span className={cn('font-black', lowStock ? 'text-amber-600' : 'text-[#111111]')}>{totalStock} units</span>
+            </p>
+            <ProductVariantManager productId={productId} variants={product.variants ?? []} productImages={form.imageUrls} />
+          </FormSection>
+
+          <FormSection title="Version history" icon={Layers}>
+            <p className="mb-2 text-[10px] font-semibold text-[#6B6B6B]">
+              A snapshot is saved automatically before each product save (max 20 versions).
+            </p>
+            {versions.length === 0 ? (
+              <p className="text-[11px] font-semibold text-[#6B6B6B]">No saved versions yet — save the product once to create the first snapshot.</p>
+            ) : (
+              <div className="space-y-2">
+                {versions.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between rounded-lg border border-[rgba(17,17,17,0.06)] px-3 py-2">
+                    <div>
+                      <p className="text-[11px] font-black text-[#111111]">v{v.version} · {v.changedBy}</p>
+                      <p className="text-[10px] font-semibold text-[#6B6B6B]">
+                        {new Date(v.createdAt).toLocaleString()}{v.changeNote ? ` · ${v.changeNote}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={restoreVersion.isPending}
+                      onClick={() => {
+                        if (!window.confirm(`Restore product to v${v.version}? Reverts catalog fields, pricing, SEO, codes, and visibility from that snapshot (variants/images unchanged).`)) return
+                        restoreVersion.mutate(
+                          { productId, versionId: v.id, restoredBy: adminSession?.email ?? adminSession?.name ?? 'admin' },
+                          {
+                            onSuccess: () => toastOk('Product restored from version history.'),
+                            onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not restore version.'),
+                          },
+                        )
+                      }}
+                      className="rounded-lg bg-[rgba(200,169,126,0.12)] px-2.5 py-1 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
               </div>
-              <p className="mt-2 text-[11px] font-semibold text-[#6B6B6B]">
-                Total stock: <span className={cn('font-black', lowStock ? 'text-amber-600' : 'text-[#111111]')}>{totalStock} units</span>
-              </p>
-            </FormSection>
-          )}
+            )}
+          </FormSection>
 
         </div>
 

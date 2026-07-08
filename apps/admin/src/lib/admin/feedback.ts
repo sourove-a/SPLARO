@@ -48,14 +48,18 @@ export function toastApiSaved(label: string) {
   toastOk(`${label} saved to server.`, `api-saved:${label}`)
 }
 
-/** Local-only draft save — never implies server persistence. */
-export function notifyDraftSaved(label: string) {
-  toastInfo(`${label} saved locally only — not synced to server.`)
+/** Backend write/read missing — amber only, never success. */
+export function notifyBackendMissing(action: string) {
+  toastWarn(`Backend not connected for ${action}. No data was saved.`, `backend-missing:${action}`)
 }
 
-/** Unimplemented admin action — honest, not fake success. */
+/** Tooltip/title for disabled admin actions with no API. */
+export const BACKEND_NOT_CONNECTED_TITLE =
+  'Backend not connected — this action is not available yet.'
+
+/** @deprecated Prefer notifyBackendMissing — kept for call-site compatibility. */
 export function toastNotImplemented(action: string) {
-  toastInfo(`${action} — not connected to API yet.`)
+  notifyBackendMissing(action)
 }
 
 export interface CourierBookingResponse {

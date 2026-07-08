@@ -1,4 +1,5 @@
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
+import { resolveStorefrontAssetUrl } from '@/lib/assets/resolve-asset-url'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 
 /** Known dead Unsplash IDs in legacy seed/content data. */
@@ -22,11 +23,13 @@ export function sanitizeRemoteImageUrl(
   const trimmed = url?.trim() ?? ''
   if (!trimmed) return fallback
 
+  const resolved = resolveStorefrontAssetUrl(trimmed)
+
   for (const { match, replacement } of BROKEN_IMAGE_REWRITES) {
-    if (trimmed.includes(match)) return replacement
+    if (resolved.includes(match)) return replacement
   }
 
-  return trimmed
+  return resolved
 }
 
 export function sanitizeStorefrontProduct<T extends { image: string; hoverImage?: string }>(

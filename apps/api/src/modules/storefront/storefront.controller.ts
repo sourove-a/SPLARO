@@ -14,6 +14,7 @@ import {
   Query,
   Req,
   Patch,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
@@ -23,6 +24,8 @@ import { Public } from '../../common/auth/public.decorator'
 import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { resolveStoreId } from '../../common/store.util'
+import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
+import { serializePublicOrder, serializePublicOrders } from '../../common/public-order.util'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateStorefrontOrderInput, StorefrontOrdersService } from './storefront-orders.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
@@ -174,7 +177,7 @@ export class StorefrontController {
       .filter(Boolean)
     if (ids?.length) {
       const products = await this.prisma.product.findMany({
-        where: { storeId: sid, isPublished: true, id: { in: ids } },
+        where: storefrontVisibleProductWhere({ storeId: sid, id: { in: ids } }),
         include: {
           images: { orderBy: { position: 'asc' as const } },
           variants: { where: { isActive: true } },
@@ -195,9 +198,8 @@ export class StorefrontController {
     const limit = Math.min(Math.max(Number(limitParam) || 40, 1), 100)
     const page = Math.max(Number(pageParam) || 1, 1)
 
-    const where = {
+    const where = storefrontVisibleProductWhere({
       storeId: sid,
-      isPublished: true,
       ...(category
         ? {
             category: {
@@ -224,7 +226,7 @@ export class StorefrontController {
             },
           }
         : {}),
-    }
+    })
 
     const productInclude = {
       images: { orderBy: { position: 'asc' as const } },
@@ -273,7 +275,7 @@ export class StorefrontController {
   async getProduct(@Query('storeId') storeId: string, @Param('slug') slug: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const product = await this.prisma.product.findFirst({
-      where: { storeId: sid, slug, isPublished: true },
+      where: storefrontVisibleProductWhere({ storeId: sid, slug }),
       include: {
         images: { orderBy: { position: 'asc' } },
         variants: { where: { isActive: true } },
@@ -506,14 +508,16 @@ export class StorefrontController {
     @Query('storeId') storeId: string,
     @Body() body: CreateStorefrontOrderInput,
     @Req() req: Request,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     const order = await this.storefrontOrders.create({
       ...body,
       storeId: body.storeId ?? storeId,
+      idempotencyKey: body.idempotencyKey ?? idempotencyKey,
       clientIp: clientIp(req),
       userAgent: req.headers['user-agent'],
     })
-    return { order }
+    return { order: serializePublicOrder(order) }
   }
 
   @Post('orders/payment-event')
@@ -556,7 +560,7 @@ export class StorefrontController {
     await this.storefrontOtp.assertPhoneAccess(sid, phone, phoneAccess, sessionPhone)
 
     const orders = await this.storefrontOrders.listForUser(storeId, phone)
-    return { orders }
+    return { orders: serializePublicOrders(orders) }
   }
 
   @Get('orders/:id/invoice')
@@ -597,7 +601,7 @@ export class StorefrontController {
       ...(phone ? { phone } : {}),
     })
     if (!order) throw new NotFoundException('Order not found')
-    return { order }
+    return { order: serializePublicOrder(order) }
   }
 
   @Post('newsletter/subscribe')
@@ -633,6 +637,71 @@ export class StorefrontController {
     })
 
     return { ok: true, subscriber }
+  }
+
+  @Post('contact')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async submitContact(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      name?: string
+      email?: string
+      phone?: string
+      contact?: string
+      subject?: string
+      message?: string
+    },
+  ) {
+    const name = body.name?.trim() ?? ''
+    const message = body.message?.trim() ?? ''
+    const subject = body.subject?.trim() ?? ''
+
+    if (name.length < 2) {
+      throw new BadRequestException('Enter your full name.')
+    }
+    if (message.length < 10) {
+      throw new BadRequestException('Message must be at least 10 characters.')
+    }
+
+    let email = body.email?.trim().toLowerCase() ?? ''
+    let phone = body.phone?.replace(/\D/g, '') ?? ''
+    const contact = body.contact?.trim() ?? ''
+
+    if (!email && !phone && contact) {
+      if (contact.includes('@')) {
+        email = contact.toLowerCase()
+      } else {
+        phone = contact.replace(/\D/g, '')
+      }
+    }
+
+    if (!email && !phone) {
+      throw new BadRequestException('Enter a valid email or phone number.')
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException('Enter a valid email address.')
+    }
+    if (phone && phone.length < 10) {
+      throw new BadRequestException('Enter a valid phone number.')
+    }
+
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sent = await this.telegramHub.notifyContactFormSubmission(sid, {
+      name,
+      ...(email ? { email } : {}),
+      ...(phone ? { phone } : {}),
+      ...(subject ? { subject } : {}),
+      message,
+    })
+
+    if (!sent) {
+      throw new ServiceUnavailableException(
+        'Support messaging is temporarily unavailable. Please use WhatsApp or call us directly.',
+      )
+    }
+
+    return { ok: true, message: 'Message sent — our team will reply shortly.' }
   }
 
   @Get('banners')
@@ -754,7 +823,7 @@ export class StorefrontController {
     const sid = await resolveStoreId(this.prisma, storeId)
 
     const product = await this.prisma.product.findFirst({
-      where: { id: body.productId, storeId: sid, isPublished: true },
+      where: storefrontVisibleProductWhere({ id: body.productId, storeId: sid }),
       select: { id: true },
     })
     if (!product) throw new NotFoundException('Product not found or no longer available')
@@ -824,7 +893,7 @@ export class StorefrontController {
     for (const item of requested) {
       if (!item?.productId) continue
       const product = await this.prisma.product.findFirst({
-        where: { id: item.productId, storeId: sid, isPublished: true },
+        where: storefrontVisibleProductWhere({ id: item.productId, storeId: sid }),
         select: { id: true },
       })
       if (!product) continue
@@ -878,6 +947,76 @@ export class StorefrontController {
 
   // ── Reviews ────────────────────────────────────────────────
 
+  @Get('reviews')
+  async listApprovedReviews(
+    @Query('storeId') storeId: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const limit = Math.min(20, Math.max(1, Number(limitStr) || 10))
+    const productWhere = storefrontVisibleProductWhere({ storeId: sid })
+    const reviewWhere = { status: 'APPROVED' as const, product: productWhere }
+
+    const [reviews, aggregate] = await Promise.all([
+      this.prisma.review.findMany({
+        where: reviewWhere,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: {
+          id: true,
+          rating: true,
+          title: true,
+          body: true,
+          verifiedPurchase: true,
+          helpfulCount: true,
+          createdAt: true,
+          customer: { select: { firstName: true, lastName: true } },
+          product: { select: { name: true, slug: true } },
+        },
+      }),
+      this.prisma.review.aggregate({
+        where: reviewWhere,
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ])
+
+    const reviewCount = aggregate._count._all
+    const aggregateRating =
+      reviewCount > 0 && aggregate._avg.rating != null
+        ? Math.round(aggregate._avg.rating * 10) / 10
+        : null
+
+    return {
+      reviews: reviews
+        .map((review) => {
+          const text = review.body?.trim() || review.title?.trim() || ''
+          if (!text) return null
+          const firstName = review.customer?.firstName?.trim() || ''
+          const lastName = review.customer?.lastName?.trim() || ''
+          const customerName = firstName
+            ? `${firstName}${lastName ? ` ${lastName.charAt(0)}.` : ''}`.trim()
+            : 'Verified buyer'
+          const avatar = (firstName.charAt(0) || 'V').toUpperCase()
+          return {
+            id: review.id,
+            rating: review.rating,
+            title: review.title,
+            body: text,
+            verifiedPurchase: review.verifiedPurchase,
+            helpfulCount: review.helpfulCount,
+            createdAt: review.createdAt.toISOString(),
+            customerName,
+            avatar,
+            product: review.product,
+          }
+        })
+        .filter((review): review is NonNullable<typeof review> => review !== null),
+      aggregateRating,
+      reviewCount,
+    }
+  }
+
   @Post('reviews')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async submitReview(
@@ -902,7 +1041,7 @@ export class StorefrontController {
     }
 
     const product = await this.prisma.product.findFirst({
-      where: { id: body.productId, storeId: sid, isPublished: true },
+      where: storefrontVisibleProductWhere({ id: body.productId, storeId: sid }),
       select: { id: true, name: true, slug: true },
     })
     if (!product) throw new NotFoundException('Product not found')
@@ -984,16 +1123,15 @@ export class StorefrontController {
     const term = q.trim()
 
     const products = await this.prisma.product.findMany({
-      where: {
+      where: storefrontVisibleProductWhere({
         storeId: sid,
-        isPublished: true,
         OR: [
           { name: { contains: term, mode: 'insensitive' } },
           { description: { contains: term, mode: 'insensitive' } },
           { tags: { has: term } },
           { category: { name: { contains: term, mode: 'insensitive' } } },
         ],
-      },
+      }),
       include: { images: { take: 1 }, variants: { take: 1, where: { isActive: true } } },
       take: Number(limit),
       orderBy: { soldCount: 'desc' },

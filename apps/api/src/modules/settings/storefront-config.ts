@@ -332,9 +332,9 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
       customerStories: {
         ...base.ourStory!.customerStories,
         ...input.ourStory?.customerStories,
-        stories: input.ourStory?.customerStories?.stories?.length
-          ? input.ourStory.customerStories.stories
-          : base.ourStory!.customerStories.stories,
+        stories: [],
+        rating: '',
+        hint: '',
       },
     },
     homepage: { ...base.homepage!, ...input.homepage },

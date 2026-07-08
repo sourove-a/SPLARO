@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { TelegramService } from '../telegram/telegram.service'
 import { formatBDT } from '../../common/utils/currency'
@@ -23,6 +23,7 @@ export class AdminTelegramHubService {
 
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => TelegramService))
     private readonly telegram: TelegramService,
   ) {}
 
@@ -163,6 +164,37 @@ Failed: ${summary.failed}${failLines}
 
   async notifyApiConnectionIssue(storeId: string, area: string, detail: string): Promise<void> {
     await this.notifyAdminError(storeId, 'API Connection Problem', detail, { area })
+  }
+
+  async notifyContactFormSubmission(
+    storeId: string,
+    input: {
+      name: string
+      email?: string
+      phone?: string
+      subject?: string
+      message: string
+    },
+  ): Promise<boolean> {
+    const contactLines = [
+      input.email ? `Email: <code>${input.email}</code>` : null,
+      input.phone ? `Phone: <code>${input.phone}</code>` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    const msg = `
+📩 <b>Contact Form Message</b>
+
+Name: ${input.name}
+${contactLines}${input.subject ? `\nSubject: ${input.subject}` : ''}
+
+"${input.message.slice(0, 1500)}${input.message.length > 1500 ? '…' : ''}"
+
+<i>From splaro.co/contact</i>
+`.trim()
+
+    return this.telegram.sendToStoreWithResult(storeId, msg)
   }
 
   private async flag(

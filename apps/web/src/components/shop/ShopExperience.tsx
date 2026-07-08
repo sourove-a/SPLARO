@@ -3,6 +3,7 @@
 import { ShopCatalog, type ShopCatalogPreset } from '@/components/shop/ShopCatalog'
 import { ShopCollectionsSection } from '@/components/shop/ShopCollectionsSection'
 import type { Category } from '@/data/storefront'
+import type { CollectionCard } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import type { CatalogSortOption } from '@/lib/shop/mobile-filter'
 
@@ -10,6 +11,7 @@ interface ShopExperienceProps {
   initialCategory?: Category
   showCollections?: boolean
   initialCatalog?: CachedCatalog
+  collectionCards?: CollectionCard[]
   catalogPreset?: ShopCatalogPreset
   initialSort?: CatalogSortOption
   pageEyebrow?: string
@@ -24,6 +26,7 @@ export function ShopExperience({
   initialCategory = 'All',
   showCollections = true,
   initialCatalog,
+  collectionCards = [],
   catalogPreset,
   initialSort,
   pageEyebrow,
@@ -44,7 +47,7 @@ export function ShopExperience({
           ) : null}
         </section>
       ) : null}
-      {showCollections ? <ShopCollectionsSection /> : null}
+      {showCollections ? <ShopCollectionsSection cards={collectionCards} /> : null}
 
       <ShopCatalog
         initialCategory={initialCategory}

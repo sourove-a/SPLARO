@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @import '../styles/admin-tokens.css';
+@import '../styles/admin-ui-polish.css';
 
 :root {
   --admin-input-text: #10131a;
@@ -64,10 +65,10 @@
   --admin-blur: 28px;
   --admin-blur-strong: 36px;
 
-  --admin-radius: 22px;
-  --admin-radius-md: 18px;
-  --admin-radius-sm: 14px;
-  --admin-radius-xs: 10px;
+  --admin-radius: 8px;
+  --admin-radius-md: 8px;
+  --admin-radius-sm: 6px;
+  --admin-radius-xs: 4px;
 
   --admin-shadow: 0 22px 70px rgba(16, 17, 20, 0.08);
   --admin-shadow-soft: 0 12px 34px rgba(16, 17, 20, 0.06);
@@ -79,6 +80,13 @@
   --admin-shadow-elevated: 0 30px 82px rgba(16, 17, 20, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.98);
 
   --admin-transition: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --admin-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --admin-press-release-duration: 240ms;
+  --admin-press-release-ease: var(--admin-ease-spring);
+  --admin-press-down-duration: 80ms;
+  --admin-press-down-ease: var(--admin-transition);
+  --admin-press-scale: 0.97;
+  --admin-press-translate-y: 1px;
 
   --admin-table-wrap-border: rgba(255, 255, 255, 0.72);
   --admin-table-divider: rgba(17, 17, 17, 0.06);
@@ -1149,7 +1157,8 @@ body.admin-dashboard-active {
     background var(--admin-transition),
     box-shadow var(--admin-transition),
     border-color var(--admin-transition),
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    color var(--admin-transition),
+    transform var(--admin-press-release-duration, 240ms) var(--admin-press-release-ease, cubic-bezier(0.34, 1.56, 0.64, 1));
   white-space: nowrap;
 }
 
@@ -1166,8 +1175,14 @@ body.admin-dashboard-active {
 }
 
 .admin-btn:active:not(:disabled) {
-  transform: translateY(1px) scale(0.985);
+  transform: scale(var(--admin-press-scale, 0.97)) translateY(var(--admin-press-translate-y, 1px));
   background: #f4f4f6;
+  transition:
+    transform var(--admin-press-down-duration, 80ms) var(--admin-press-down-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background var(--admin-press-down-duration, 80ms) ease,
+    box-shadow var(--admin-press-down-duration, 80ms) ease,
+    border-color var(--admin-press-down-duration, 80ms) ease,
+    color var(--admin-press-down-duration, 80ms) ease;
 }
 
 .admin-btn:disabled,
@@ -2991,20 +3006,33 @@ html:not(.dark) .product-form-ai-banner {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
+.admin-premium-select::after {
+  content: '';
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23111827' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 .admin-premium-select__input {
   width: 100%;
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   border: none;
   background: transparent;
+  background-image: none;
   padding: 0.65rem 2.25rem 0.65rem 0.85rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--admin-text);
   outline: none;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23111111' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
 }
 
 .product-upload-zone {
@@ -5870,7 +5898,12 @@ select.admin-input {
 
 .dark .admin-premium-select__input {
   color: var(--admin-input-text);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: none;
+}
+
+.dark .admin-premium-select::after {
+  opacity: 0.75;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f3f4f6' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 .dark .admin-search kbd {
@@ -6721,7 +6754,7 @@ select.admin-input {
     background var(--admin-transition),
     border-color var(--admin-transition),
     color var(--admin-transition),
-    transform 100ms ease;
+    transform var(--admin-press-release-duration) var(--admin-press-release-ease);
 }
 
 .admin-header-icon-btn--wide {
@@ -6739,7 +6772,12 @@ select.admin-input {
 }
 
 .admin-header-icon-btn:active {
-  transform: scale(0.96);
+  transform: scale(var(--admin-press-scale));
+  transition:
+    transform var(--admin-press-down-duration) var(--admin-press-down-ease),
+    background var(--admin-press-down-duration) ease,
+    border-color var(--admin-press-down-duration) ease,
+    color var(--admin-press-down-duration) ease;
 }
 
 .admin-command-palette {
@@ -12528,3 +12566,22 @@ html:not(.dark) .product-upload-zone:hover {
 .dark .analytics-badge--delivered { color: #86efac; }
 .dark .analytics-badge--cancelled { color: #fca5a5; }
 .dark .analytics-badge--returned { color: #d1d5db; }
+
+/* ── Liquid glass polish overrides (wins over earlier globals) ── */
+.admin-premium-select__input {
+  background-image: none !important;
+}
+
+.product-form-tabs__nav {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.product-form-tabs__tab {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.admin-dashboard-canvas .grid {
+  align-items: stretch;
+}

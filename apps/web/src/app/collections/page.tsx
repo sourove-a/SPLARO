@@ -1,24 +1,11 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, ArrowRight, ArrowUpRight } from 'lucide-react'
-import { filterCollectionCards, mergeCatalogChannels } from '@splaro/types'
-import { collectionCards } from '@/data/storefront'
+import { mergeCatalogChannels } from '@splaro/types'
+import { getVisibleCollectionCards } from '@/lib/catalog/collection-cards'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { collectionHref } from '@/lib/storefront/collection-paths'
-
-function countForSlug(
-  slug: string,
-  shopCategory: string | undefined,
-  products: Array<{ category: string }>,
-) {
-  if (shopCategory) {
-    return products.filter((product) => product.category === shopCategory).length
-  }
-  return products.filter(
-    (product) => product.category.toLowerCase().replace(/\s+/g, '-') === slug,
-  ).length
-}
 
 export default async function CollectionsPage() {
   const [settings, catalog] = await Promise.all([
@@ -26,14 +13,7 @@ export default async function CollectionsPage() {
     getStorefrontCatalog(),
   ])
   const channels = mergeCatalogChannels(settings.config.catalogChannels ?? [])
-  const visibleCards = filterCollectionCards(collectionCards, channels).map((card) => {
-    const channel = channels.find((entry) => entry.slug === card.slug)
-    const liveCount = countForSlug(card.slug, channel?.shopCategory, catalog.products)
-    return {
-      ...card,
-      count: catalog.source === 'api' && liveCount > 0 ? liveCount : card.count,
-    }
-  })
+  const visibleCards = await getVisibleCollectionCards(channels, catalog)
 
   return (
     <main className="shop-page-shell collections-page px-3 sm:px-5 lg:px-8">

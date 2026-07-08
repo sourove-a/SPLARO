@@ -20,7 +20,7 @@ export async function runAllHealthChecks(): Promise<ServiceHealthCheck[]> {
 
   const res = await fetch('/api/health', {
     cache: 'no-store',
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(120_000),
     headers,
   })
   if (!res.ok) {

@@ -5,6 +5,7 @@ import { Public } from './common/auth/public.decorator'
 import { PrismaService } from './common/prisma.service'
 import { RedisService } from './common/redis.service'
 import { buildApiRouteProbes } from './common/api-routes.manifest'
+import { runApiRouteProbes } from './common/route-probe-runner'
 
 @Controller()
 export class AppController {
@@ -33,8 +34,27 @@ export class AppController {
   @SkipThrottle()
   @Public()
   @Get('health')
-  health() {
-    return { status: 'ok', timestamp: new Date().toISOString(), service: 'splaro-api' }
+  async health() {
+    const started = Date.now()
+    try {
+      await this.prisma.$queryRaw`SELECT 1`
+      return {
+        status: 'ok',
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        service: 'splaro-api',
+        latencyMs: Date.now() - started,
+      }
+    } catch (err) {
+      return {
+        status: 'down',
+        database: 'disconnected',
+        timestamp: new Date().toISOString(),
+        service: 'splaro-api',
+        latencyMs: Date.now() - started,
+        message: err instanceof Error ? err.message : 'Database connection failed',
+      }
+    }
   }
 
   private buildRouteProbeHeaders(authHeader?: string | null): Record<string, string> {
@@ -58,35 +78,11 @@ export class AppController {
       typeof req?.headers?.authorization === 'string' ? req.headers.authorization : null
     const probeHeaders = this.buildRouteProbeHeaders(authHeader)
 
-    const results = await Promise.all(
-      probes.map(async (probe) => {
-        const url = `${base}${probe.path}`
-        const t0 = Date.now()
-        try {
-          const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: probeHeaders })
-          const ok = res.ok || (probe.allowNotFound && res.status === 404)
-          return {
-            id: probe.id,
-            name: probe.name,
-            group: probe.group,
-            endpoint: url.replace(/\?.*$/, ''),
-            status: ok ? ('healthy' as const) : res.status >= 500 ? ('down' as const) : ('degraded' as const),
-            latencyMs: Date.now() - t0,
-            message: `HTTP ${res.status}`,
-          }
-        } catch (err) {
-          return {
-            id: probe.id,
-            name: probe.name,
-            group: probe.group,
-            endpoint: url.replace(/\?.*$/, ''),
-            status: 'down' as const,
-            latencyMs: null,
-            message: err instanceof Error ? err.message : 'Unreachable',
-          }
-        }
-      }),
-    )
+    const results = await runApiRouteProbes({
+      base,
+      probes,
+      headers: probeHeaders,
+    })
 
     const healthy = results.filter((r) => r.status === 'healthy').length
     const down = results.filter((r) => r.status === 'down').length
@@ -134,22 +130,34 @@ export class AppController {
     }
 
     const dbStart = Date.now()
-    try {
-      await this.prisma.$queryRaw`SELECT 1`
+    const redisStart = Date.now()
+    const storeStart = Date.now()
+    const productStart = Date.now()
+    const orderStart = Date.now()
+
+    const [dbResult, redisOk, store, productCount, orderCount] = await Promise.all([
+      this.prisma.$queryRaw`SELECT 1`.then(() => true as const).catch((err: unknown) => err),
+      this.redis.ping(),
+      this.prisma.store
+        .findFirst({ select: { id: true, slug: true } })
+        .catch(() => null),
+      this.prisma.product.count().catch(() => null),
+      this.prisma.order.count().catch(() => null),
+    ])
+
+    if (dbResult === true) {
       add('postgresql', 'PostgreSQL Database', 'Infrastructure', true, Date.now() - dbStart)
-    } catch (err) {
+    } else {
       add(
         'postgresql',
         'PostgreSQL Database',
         'Infrastructure',
         false,
         Date.now() - dbStart,
-        err instanceof Error ? err.message : 'Connection failed',
+        dbResult instanceof Error ? dbResult.message : 'Connection failed',
       )
     }
 
-    const redisStart = Date.now()
-    const redisOk = await this.redis.ping()
     add(
       'redis',
       'Redis Cache',
@@ -159,34 +167,24 @@ export class AppController {
       redisOk ? 'Connected' : 'Unavailable — run: brew services start redis',
     )
 
-    const storeStart = Date.now()
-    try {
-      const store = await this.prisma.store.findFirst({ select: { id: true, slug: true } })
-      add(
-        'store',
-        'Store Config',
-        'Commerce',
-        !!store,
-        Date.now() - storeStart,
-        store ? `Store: ${store.slug}` : 'No store found — run db:seed',
-      )
-    } catch (err) {
-      add('store', 'Store Config', 'Commerce', false, Date.now() - storeStart, 'Query failed')
-    }
+    add(
+      'store',
+      'Store Config',
+      'Commerce',
+      !!store,
+      Date.now() - storeStart,
+      store ? `Store: ${store.slug}` : 'No store found — run db:seed',
+    )
 
-    const productStart = Date.now()
-    try {
-      const count = await this.prisma.product.count()
-      add('products-db', 'Products Table', 'Catalog', true, Date.now() - productStart, `${count} products`)
-    } catch {
+    if (productCount !== null) {
+      add('products-db', 'Products Table', 'Catalog', true, Date.now() - productStart, `${productCount} products`)
+    } else {
       add('products-db', 'Products Table', 'Catalog', false, Date.now() - productStart)
     }
 
-    const orderStart = Date.now()
-    try {
-      const count = await this.prisma.order.count()
-      add('orders-db', 'Orders Table', 'Commerce', true, Date.now() - orderStart, `${count} orders`)
-    } catch {
+    if (orderCount !== null) {
+      add('orders-db', 'Orders Table', 'Commerce', true, Date.now() - orderStart, `${orderCount} orders`)
+    } else {
       add('orders-db', 'Orders Table', 'Commerce', false, Date.now() - orderStart)
     }
 
