@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type SVGProps } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
@@ -35,6 +35,7 @@ import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
+import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 
 interface ProductPageClientProps {
   product: ProductDetailData
@@ -84,6 +85,7 @@ export default function ProductPageClient({
   relatedProducts = [],
 }: ProductPageClientProps) {
   const router = useRouter()
+  const reducedMotion = useReducedMotion()
   const user = useAuthStore((state) => state.user)
   const authHydrated = useAuthStore((state) => state._hydrated)
   const { addItem, replaceItems } = useCartStore()
@@ -424,6 +426,11 @@ export default function ProductPageClient({
     openLightbox()
   }
 
+  const heroMediaTransition =
+    activeImage === 0 && media[0]?.type !== 'video'
+      ? productMediaTransitionStyle(product.id, reducedMotion)
+      : undefined
+
   useEffect(() => {
     if (!isLightboxOpen) return
 
@@ -472,7 +479,7 @@ export default function ProductPageClient({
                     'pp-gallery__stage',
                     media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
                   )}
-                  initial={{ opacity: 0 }}
+                  initial={false}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
@@ -503,15 +510,17 @@ export default function ProductPageClient({
                       controls
                     />
                   ) : (
-                    <StorefrontImage
-                      src={media[activeImage]!.url}
-                      alt={product.name}
-                      profile="gallery"
-                      fill
-                      fit="cover"
-                      className="pp-gallery__img"
-                      priority
-                    />
+                    <div className="product-shared-media" style={heroMediaTransition}>
+                      <StorefrontImage
+                        src={media[activeImage]!.url}
+                        alt={product.name}
+                        profile="gallery"
+                        fill
+                        fit="cover"
+                        className="pp-gallery__img"
+                        priority
+                      />
+                    </div>
                   )}
                 </motion.div>
               </AnimatePresence>

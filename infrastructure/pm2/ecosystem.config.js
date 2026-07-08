@@ -67,6 +67,8 @@ module.exports = {
         ADMIN_URL: process.env.ADMIN_URL || 'https://admin.splaro.co',
         API_URL: process.env.API_URL || 'https://api.splaro.co',
         CORS_ORIGINS: process.env.CORS_ORIGINS || 'https://splaro.co,https://admin.splaro.co',
+        MEILISEARCH_HOST: process.env.MEILISEARCH_HOST || '',
+        MEILISEARCH_MASTER_KEY: process.env.MEILISEARCH_MASTER_KEY || '',
       },
       instances: 2,
       exec_mode: 'cluster',

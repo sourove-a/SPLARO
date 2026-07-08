@@ -77,11 +77,13 @@ export function buildLenisOptions(): LenisOptions {
   return isTouchScrollProfile() ? LENIS_TOUCH_OPTIONS : LENIS_DESKTOP_OPTIONS
 }
 
-/** All viewports except reduced-motion — mobile uses touch-tuned Lenis. */
+/** Desktop wheel only — touch/mobile uses native scroll (60fps path). */
 export function isSmoothScrollEligible() {
   const mq = getScrollMedia()
   if (!mq) return false
-  return !mq.reduced.matches
+  if (mq.reduced.matches) return false
+  if (mq.coarse.matches || mq.mobileLayout.matches) return false
+  return true
 }
 
 /** @deprecated use isSmoothScrollEligible */

@@ -477,7 +477,7 @@ export function ShopCatalog({
                 <motion.div
                   key={`${gridAnimationKey}:${product.id}`}
                   className="shop-product-grid__cell min-w-0"
-                  layout={!reducedMotion}
+                  layout={false}
                   {...motionProps}
                 >
                   <SplaroProductCard

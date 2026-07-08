@@ -2,10 +2,9 @@
 
 import { motion, useReducedMotion } from 'framer-motion'
 import type { ReactNode } from 'react'
+import { pageEnter } from '@/lib/motion/config'
 
-const PAGE_EASE = [0.22, 1, 0.36, 1] as const
-
-/** Soft cross-fade on client navigations — no vertical jump. */
+/** Premium cross-route enter — opacity + slide + micro scale (GPU compositor only). */
 export default function RootTemplate({ children }: { children: ReactNode }) {
   const reduced = useReducedMotion()
 
@@ -15,9 +14,10 @@ export default function RootTemplate({ children }: { children: ReactNode }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.28, ease: PAGE_EASE }}
+      className="scroll-reveal-gpu"
+      variants={pageEnter}
+      initial="initial"
+      animate="animate"
     >
       {children}
     </motion.div>

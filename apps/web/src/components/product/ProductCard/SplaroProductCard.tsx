@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import Link from 'next/link'
+import { useReducedMotion } from 'framer-motion'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
+import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
+import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 import { Heart, ChevronUp, ChevronDown, ShoppingBag, Loader2 } from 'lucide-react'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
@@ -53,6 +55,7 @@ export function SplaroProductCard({
   onAddToBag,
   variant = 'default',
 }: SplaroProductCardProps) {
+  const reducedMotion = useReducedMotion()
   const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
   const saved = wishlistHydrated && isInWishlist(id)
@@ -71,6 +74,7 @@ export function SplaroProductCard({
   const isHomepage = variant === 'homepage'
   const imageFit = isHomepage ? 'cover' : fit
   const showCollectionTag = Boolean(tag) && !isHomepage
+  const mediaTransition = productMediaTransitionStyle(id, reducedMotion)
 
   const handleCardAction = useCallback(
     (e: React.MouseEvent) => {
@@ -99,7 +103,7 @@ export function SplaroProductCard({
       )}
     >
       <div className="splaro-card__media ilyn-card__media">
-        <Link
+        <ProductTransitionLink
           href={link}
           className="splaro-card__link ilyn-card__link"
           aria-label={name}
@@ -110,20 +114,22 @@ export function SplaroProductCard({
           onTouchStart={() => setLinkPressed(true)}
           onTouchEnd={() => setLinkPressed(false)}
         >
-          <StorefrontImage
-            src={image}
-            alt={name}
-            profile="card"
-            fill
-            fit={imageFit}
-            priority={priority}
-            className={cn(
-              'splaro-card__img splaro-card__img--primary ilyn-card__img ilyn-card__img--primary',
-              imageFit === 'cover'
-                ? 'splaro-card__img--cover ilyn-card__img--cover'
-                : 'splaro-card__img--contain ilyn-card__img--contain',
-            )}
-          />
+          <div className="product-shared-media" style={mediaTransition}>
+            <StorefrontImage
+              src={image}
+              alt={name}
+              profile="card"
+              fill
+              fit={imageFit}
+              priority={priority}
+              className={cn(
+                'splaro-card__img splaro-card__img--primary ilyn-card__img ilyn-card__img--primary',
+                imageFit === 'cover'
+                  ? 'splaro-card__img--cover ilyn-card__img--cover'
+                  : 'splaro-card__img--contain ilyn-card__img--contain',
+              )}
+            />
+          </div>
           <StorefrontImage
             src={secondImage}
             alt=""
@@ -138,7 +144,7 @@ export function SplaroProductCard({
                 : 'splaro-card__img--contain ilyn-card__img--contain',
             )}
           />
-        </Link>
+        </ProductTransitionLink>
 
         {showStatus ? (
           <span
@@ -196,7 +202,7 @@ export function SplaroProductCard({
         ) : null}
       </div>
 
-      <Link
+      <ProductTransitionLink
         href={link}
         className="splaro-card__info ilyn-card__info"
         tabIndex={-1}
@@ -232,7 +238,7 @@ export function SplaroProductCard({
           ) : null}
           {meta ? <span className="splaro-card__meta ilyn-card__meta">{meta}</span> : null}
         </div>
-      </Link>
+      </ProductTransitionLink>
     </article>
   )
 }

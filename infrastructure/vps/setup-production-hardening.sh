@@ -73,6 +73,14 @@ elif command -v certbot >/dev/null; then
   log "Certbot installed (renew via: certbot renew)"
 fi
 
+# ── Nginx performance + Meilisearch (idempotent) ─────────────
+if [ -f "$APP_DIR/infrastructure/vps/setup-nginx-performance.sh" ]; then
+  bash "$APP_DIR/infrastructure/vps/setup-nginx-performance.sh" || log "WARN: nginx performance skipped"
+fi
+if [ -f "$APP_DIR/infrastructure/vps/setup-meilisearch.sh" ]; then
+  bash "$APP_DIR/infrastructure/vps/setup-meilisearch.sh" || log "WARN: Meilisearch setup skipped"
+fi
+
 echo ""
 log "Production hardening complete."
 echo "  ✓ Swap ${SWAP_GB}G"

@@ -7,6 +7,7 @@ import type { HeroBanner } from '@/lib/api/banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
 import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO, HERO_DEFAULT_VIDEO_MOBILE } from '@splaro/config'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 
 const SLIDE_DURATION_MS = 7500
 // Must match --hero-swipe in globals.css — this is the lock window that blocks
@@ -52,7 +53,7 @@ function heroImageSrc(url: string): string {
   if (trimmed.startsWith('/')) return trimmed
   if (!trimmed.includes('images.unsplash.com')) return trimmed
   const base = trimmed.split('?')[0]!
-  return `${base}?w=1200&h=675&fit=crop&crop=center&q=85&auto=format`
+  return `${base}?w=1920&h=1080&fit=crop&crop=center&q=90&auto=format`
 }
 
 function videoMimeType(url: string): string {
@@ -177,12 +178,14 @@ function useAllowHeroVideo(): boolean {
 
 /** ≤768px → serve the lighter mobile rendition. */
 function useIsMobileViewport(): boolean {
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 768px)').matches
+  })
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)')
     const update = () => setIsMobile(mq.matches)
-    update()
     mq.addEventListener('change', update)
     return () => mq.removeEventListener('change', update)
   }, [])
@@ -190,12 +193,36 @@ function useIsMobileViewport(): boolean {
   return isMobile
 }
 
+function warmHeroSlideMedia(slides: HeroSlide[]) {
+  if (typeof window === 'undefined') return
+
+  for (const slide of slides) {
+    if (slide.image.trim() && !isBrandLogoPoster(slide.image)) {
+      const img = new window.Image()
+      img.decoding = 'async'
+      img.src = optimizeImageSrc(slide.image, 'hero')
+    }
+  }
+}
+
+function warmHeroVideo(url: string) {
+  if (typeof window === 'undefined' || !url) return
+  const video = document.createElement('video')
+  video.preload = 'auto'
+  video.muted = true
+  video.playsInline = true
+  video.src = url
+  video.load()
+}
+
 function HeroStaticBackdrop({
   src,
   priority,
+  eager,
 }: {
   src: string
   priority: boolean
+  eager?: boolean
 }) {
   if (!src.trim() || isBrandLogoPoster(src)) {
     return <div className="hero-bg-fallback" aria-hidden />
@@ -208,7 +235,8 @@ function HeroStaticBackdrop({
       profile="hero"
       fill
       priority={priority}
-      loading={priority ? 'eager' : 'lazy'}
+      loading={priority || eager ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
       className="hero-bg-image"
       withBlur={false}
       style={HERO_MEDIA_STYLE}
@@ -222,61 +250,68 @@ function HeroBackground({
   isActive,
   priority,
   allowVideo,
+  preloadVideo,
 }: {
   slide: HeroSlide
   isActive: boolean
   priority: boolean
   allowVideo: boolean
+  preloadVideo: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoFailed, setVideoFailed] = useState(false)
+  const [videoReady, setVideoReady] = useState(false)
   const isMobile = useIsMobileViewport()
   const videoSrc = isMobile && slide.videoMobile ? slide.videoMobile : slide.video
   const poster =
     slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
+  const mountVideo = Boolean(videoSrc && !videoFailed && allowVideo && (isActive || preloadVideo))
 
   useEffect(() => {
     setVideoFailed(false)
+    setVideoReady(false)
   }, [videoSrc])
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !videoSrc || videoFailed) return
-
-    video.load()
+    if (!video || !videoSrc || videoFailed || !mountVideo) return
 
     if (isActive) {
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        video.load()
+      }
       void video.play().catch(() => setVideoFailed(true))
       return
     }
 
     video.pause()
-  }, [isActive, videoSrc, videoFailed])
+  }, [isActive, videoSrc, videoFailed, mountVideo])
 
   return (
     <>
-      <HeroStaticBackdrop src={slide.image} priority={priority} />
-      {videoSrc && !videoFailed && allowVideo && isActive ? (
+      <HeroStaticBackdrop src={slide.image} priority={priority} eager />
+      {mountVideo ? (
         <video
           ref={videoRef}
-          className="hero-bg-video"
+          className={cn('hero-bg-video', videoReady && isActive && 'hero-bg-video--ready')}
           style={HERO_MEDIA_STYLE}
-          autoPlay
           muted
           loop
           playsInline
-          preload={priority ? 'auto' : 'metadata'}
+          preload={isActive || priority ? 'auto' : 'metadata'}
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}
           aria-hidden={!isActive}
+          onPlaying={() => setVideoReady(true)}
           onCanPlay={(event) => {
             if (!isActive) return
+            setVideoReady(true)
             void event.currentTarget.play().catch(() => setVideoFailed(true))
           }}
           onError={() => setVideoFailed(true)}
         >
-          <source src={videoSrc} type={videoMimeType(videoSrc)} />
+          <source src={videoSrc} type={videoMimeType(videoSrc!)} />
         </video>
       ) : null}
     </>
@@ -379,6 +414,27 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [])
 
   useEffect(() => {
+    warmHeroSlideMedia(slides)
+    const first = slides[0]
+    if (!first) return
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+    const firstVideo =
+      (isMobile && first.videoMobile ? first.videoMobile : first.video) ?? ''
+    if (firstVideo) warmHeroVideo(firstVideo)
+  }, [slidesSignature, slides])
+
+  useEffect(() => {
+    if (!slides.length) return
+    const nextIndex = (index + 1) % slides.length
+    const nextSlide = slides[nextIndex]
+    if (!nextSlide) return
+    const isMobile = window.matchMedia('(max-width: 768px)').matches
+    const nextVideo =
+      (isMobile && nextSlide.videoMobile ? nextSlide.videoMobile : nextSlide.video) ?? ''
+    if (nextVideo) warmHeroVideo(nextVideo)
+  }, [index, slides])
+
+  useEffect(() => {
     setIndex(0)
     setExitIndex(null)
     setDirection('forward')
@@ -465,9 +521,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
           const isActive = slideIndex === index
           const isExiting = slideIndex === exitIndex
           const slideCount = slides.length
-          const preloadMedia =
+          const preloadVideo =
             isActive ||
-            isExiting ||
             slideIndex === (index + 1) % slideCount ||
             slideIndex === (index - 1 + slideCount) % slideCount
 
@@ -482,14 +537,13 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
             >
               <div className="hero-slide__media">
                 <div className="hero-slide__media-shell">
-                  {preloadMedia ? (
-                    <HeroBackground
-                      slide={item}
-                      isActive={isActive}
-                      priority={slideIndex === 0}
-                      allowVideo={allowVideo && isActive && !isTransitioning}
-                    />
-                  ) : null}
+                  <HeroBackground
+                    slide={item}
+                    isActive={isActive}
+                    priority={slideIndex === 0}
+                    allowVideo={allowVideo}
+                    preloadVideo={preloadVideo}
+                  />
                 </div>
               </div>
               <div className="hero-overlay" aria-hidden />

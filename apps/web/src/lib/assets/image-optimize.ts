@@ -8,7 +8,7 @@ export const IMAGE_BLUR_PLACEHOLDER =
 export const IMAGE_QUALITY = {
   card: 86,
   gallery: 90,
-  hero: 88,
+  hero: 92,
   thumb: 82,
   lightbox: 92,
 } as const
@@ -27,7 +27,7 @@ export type ImageProfile = keyof typeof IMAGE_QUALITY
 const REMOTE_WIDTH: Record<ImageProfile, number> = {
   card: 900,
   gallery: 1200,
-  hero: 1200,
+  hero: 1920,
   thumb: 160,
   lightbox: 1600,
 }

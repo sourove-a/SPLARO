@@ -4,6 +4,8 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, useReducedMotion } from 'framer-motion'
+import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
+import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 import { Heart, ShoppingBag, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
@@ -137,6 +139,8 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         variants: fadeUp,
       }
 
+  const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
+
   return (
     <motion.article
       className="pc-shell group"
@@ -145,16 +149,23 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
       {...revealMotion}
     >
       <div className="pc-media">
-        <Link href={`/products/${product.slug}`} className="pc-media__link" aria-label={product.name}>
-          <Image
-            src={currentImage}
-            alt={product.name}
-            fill
-            priority={priority}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="pc-media__img"
-          />
-        </Link>
+        <ProductTransitionLink
+          href={`/products/${product.slug}`}
+          className="pc-media__link"
+          aria-label={product.name}
+          prefetch
+        >
+          <div className="product-shared-media" style={mediaTransition}>
+            <Image
+              src={currentImage}
+              alt={product.name}
+              fill
+              priority={priority}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="pc-media__img"
+            />
+          </div>
+        </ProductTransitionLink>
 
         {hasDiscount && <span className="pc-badge pc-badge--sale">-{discountPercent}%</span>}
         {product.isNewArrival && !hasDiscount && <span className="pc-badge pc-badge--new">New</span>}
@@ -203,7 +214,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         </motion.button>
       </div>
 
-      <Link href={`/products/${product.slug}`} className="pc-info" tabIndex={-1}>
+      <Link href={`/products/${product.slug}`} className="pc-info" tabIndex={-1} prefetch>
         <div className="pc-info__row">
           <span className="pc-info__name">{product.name}</span>
           {product.category && <span className="pc-info__sku">{product.category}</span>}
@@ -253,6 +264,8 @@ function ProductCardShop({
   const primaryImage = images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
   const hoverImage = images[1] ?? primaryImage
   const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
+  const reducedMotion = useReducedMotion()
+  const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
 
   const handleBag = (size?: string, color?: string) => {
     onShopAddToBag?.(size, color)
@@ -261,16 +274,18 @@ function ProductCardShop({
   return (
     <article className="shop-product-card group">
       <div className="shop-product-card__shell">
-        <Link href={productHref} className="shop-product-card__link" aria-label={`View ${product.name}`} prefetch>
+        <ProductTransitionLink href={productHref} className="shop-product-card__link" aria-label={`View ${product.name}`} prefetch>
           <div className="shop-product-card__media">
-            <Image
-              src={primaryImage}
-              alt={product.name}
-              fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              className="shop-product-card__img shop-product-card__img--primary"
-              priority={priority}
-            />
+            <div className="product-shared-media" style={mediaTransition}>
+              <Image
+                src={primaryImage}
+                alt={product.name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                className="shop-product-card__img shop-product-card__img--primary"
+                priority={priority}
+              />
+            </div>
             <Image
               src={hoverImage}
               alt=""
@@ -322,7 +337,7 @@ function ProductCardShop({
               ) : null}
             </div>
           </div>
-        </Link>
+        </ProductTransitionLink>
 
         <div className="shop-product-card__media-actions" aria-hidden={false}>
           <button

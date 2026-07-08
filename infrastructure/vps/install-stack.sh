@@ -105,6 +105,19 @@ ufw --force enable
 systemctl enable fail2ban nginx
 systemctl start fail2ban nginx
 
+# ── Meilisearch (local search — localhost only) ──────────────
+if [ "${INSTALL_MEILISEARCH:-true}" = "true" ] && [ -f "$APP_DIR/infrastructure/vps/setup-meilisearch.sh" ]; then
+  log "Meilisearch..."
+  bash "$APP_DIR/infrastructure/vps/setup-meilisearch.sh" || log "WARN: Meilisearch setup skipped — run manually"
+elif [ "${INSTALL_MEILISEARCH:-true}" = "true" ]; then
+  log "Clone repo first, then: bash infrastructure/vps/setup-meilisearch.sh"
+fi
+
+# ── Nginx performance (gzip + http2 site configs) ─────────────
+if [ -f "$APP_DIR/infrastructure/vps/setup-nginx-performance.sh" ]; then
+  bash "$APP_DIR/infrastructure/vps/setup-nginx-performance.sh" || log "WARN: nginx performance skipped"
+fi
+
 echo ""
 log "Stack install complete."
 echo ""
@@ -116,6 +129,7 @@ if [ "$USE_DOCKER_DB" = "true" ]; then
 else
   echo "  ✓ PostgreSQL + Redis (native)"
 fi
+echo "  ✓ Meilisearch (optional): bash infrastructure/vps/setup-meilisearch.sh"
 echo ""
 echo "Next:"
 echo "  1. bash infrastructure/vps/go-live.sh"

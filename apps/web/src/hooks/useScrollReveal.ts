@@ -8,7 +8,8 @@ export function useScrollReveal(options?: { once?: boolean; margin?: string }) {
   const reducedMotion = useReducedMotion()
   const isInView = useInView(ref, {
     once: options?.once ?? true,
-    margin: (options?.margin ?? '0px 0px -80px 0px') as `${number}px ${number}px ${number}px ${number}px`,
+    margin: (options?.margin ?? '0px 0px -72px 0px') as `${number}px ${number}px ${number}px ${number}px`,
+    amount: 0.12,
   })
 
   return {

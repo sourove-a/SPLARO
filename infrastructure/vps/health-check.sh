@@ -40,6 +40,24 @@ echo "🗄️  Data"
 redis-cli ping >/dev/null 2>&1 && pass "Redis PONG" || fail "Redis down"
 PRODUCT_COUNT="$(sudo -u postgres psql -d splaro_db -t -A -c 'SELECT count(*) FROM "Product"' 2>/dev/null || echo 0)"
 pass "Products in DB: $PRODUCT_COUNT"
+if curl -sf http://127.0.0.1:7700/health >/dev/null 2>&1; then
+  pass "Meilisearch :7700 healthy"
+else
+  warn "Meilisearch not running — search falls back to DB (run setup-meilisearch.sh)"
+fi
+
+echo ""
+echo "⚡ Nginx"
+if grep -rq 'gzip on' /etc/nginx/conf.d/splaro-performance.conf 2>/dev/null; then
+  pass "Gzip snippet installed"
+else
+  warn "Gzip snippet missing — run setup-nginx-performance.sh"
+fi
+if nginx -T 2>/dev/null | grep -q 'ssl http2'; then
+  pass "HTTP/2 enabled on SSL listeners"
+else
+  warn "HTTP/2 not detected — run setup-nginx-performance.sh"
+fi
 
 echo ""
 echo "🔑 Integrations (.env)"
@@ -60,6 +78,7 @@ if [ -f "$ENV_FILE" ]; then
   check_key OPENAI_API_KEY
   check_key TELEGRAM_BOT_TOKEN
   check_key META_PIXEL_ID
+  check_key MEILISEARCH_HOST
 else
   fail "Missing $ENV_FILE"
 fi

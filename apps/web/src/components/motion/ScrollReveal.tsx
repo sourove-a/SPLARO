@@ -4,6 +4,7 @@ import { motion, type HTMLMotionProps } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { useScrollReveal } from '@/hooks/useScrollReveal'
 import { revealVariants, type RevealVariant } from '@/lib/motion/variants'
+import { cn } from '@/lib/utils/cn'
 
 interface ScrollRevealProps extends Omit<HTMLMotionProps<'div'>, 'initial' | 'animate' | 'variants'> {
   children: ReactNode
@@ -32,7 +33,7 @@ export function ScrollReveal({
   return (
     <motion.div
       ref={ref}
-      className={className}
+      className={cn('scroll-reveal-gpu', className)}
       initial={reducedMotion ? false : 'hidden'}
       animate={isInView ? 'visible' : 'hidden'}
       variants={variants}
@@ -55,7 +56,7 @@ export function ScrollRevealItem({
   ...props
 }: ScrollRevealItemProps) {
   return (
-    <motion.div className={className} variants={revealVariants[variant]} {...props}>
+    <motion.div className={cn('scroll-reveal-gpu', className)} variants={revealVariants[variant]} {...props}>
       {children}
     </motion.div>
   )

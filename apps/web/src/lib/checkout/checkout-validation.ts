@@ -9,8 +9,7 @@ export interface CheckoutDeliveryFields {
   thana: string
 }
 
-export function isDeliveryComplete(fields: CheckoutDeliveryFields, phoneError?: string): boolean {
-  if (phoneError) return false
+export function isDeliveryComplete(fields: CheckoutDeliveryFields): boolean {
   return (
     fields.name.trim().length > 0 &&
     fields.email.trim().length > 0 &&

@@ -18,14 +18,14 @@ const STORY_CONFIG = {
   groupScale: 1,
   rotationSpeed: 0.09,
   wobble: 0.035,
-  segments: 72,
-  wireSegments: 42,
+  segments: 128,
+  wireSegments: 64,
   earthOpacity: 0.96,
   wireOpacity: 0.055,
   atmosphereStrength: 0.22,
   sparkleCount: 900,
   sparkleKeep: 0.58,
-  pixelRatioCap: 2,
+  pixelRatioCap: 3,
   orbitMultiplier: 1,
 } as const
 
@@ -43,8 +43,8 @@ const FOOTER_CONFIG = {
   rotationSpeedX: 0.014,
   roll: 0.012,
   wobble: 0.008,
-  segments: 72,
-  pixelRatioCap: 2,
+  segments: 128,
+  pixelRatioCap: 3,
   maxWideBoost: 1.28,
   /** Portrait / mobile — bigger earth, richer colors */
   compactScaleBoost: 1.2,
@@ -98,7 +98,7 @@ function createPremiumFooterAtmosphere(
   radius: number,
 ): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 64, 64),
+    new THREE.SphereGeometry(radius, 96, 96),
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -138,7 +138,7 @@ function createPremiumFooterAtmosphere(
 
 function createMuranoGlassShell(radius: number): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 72, 72),
+    new THREE.SphereGeometry(radius, 96, 96),
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -183,7 +183,7 @@ function createMuranoGlassShell(radius: number): THREE.Mesh {
 
 function createAtmosphere(color: number, strength: number, radius: number): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 48, 48),
+    new THREE.SphereGeometry(radius, 72, 72),
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -391,7 +391,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
 
     if (isFooter) {
       const compact = isCompactFooterViewport()
-      const segments = compact ? 48 : FOOTER_CONFIG.segments
+      const segments = FOOTER_CONFIG.segments
       const stars = buildFooterStarfield(compact ? 1000 : 1600)
       starMaterial = stars.material as THREE.ShaderMaterial
       scene.add(stars)
@@ -662,6 +662,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       if (width < 1 || height < 1) return
       camera.aspect = width / height
       camera.updateProjectionMatrix()
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.pixelRatioCap))
       renderer.setSize(width, height, false)
 
       if (isFooter) {

@@ -63,6 +63,14 @@ log "PM2 reload..."
 pm2 startOrReload "$PM2_CONFIG" --update-env
 pm2 save
 
+# ── Meilisearch + Nginx performance (idempotent, safe reload) ─
+if [ -f infrastructure/vps/setup-meilisearch.sh ]; then
+  bash infrastructure/vps/setup-meilisearch.sh || log "WARN: Meilisearch setup skipped"
+fi
+if [ -f infrastructure/vps/setup-nginx-performance.sh ]; then
+  bash infrastructure/vps/setup-nginx-performance.sh || log "WARN: nginx performance skipped"
+fi
+
 # ── Nginx ────────────────────────────────────────────────────
 if nginx -t 2>/dev/null; then
   systemctl reload nginx

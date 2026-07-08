@@ -6,7 +6,6 @@ import { ReactLenis, useLenis } from 'lenis/react'
 import { useUiStore } from '@/store/uiStore'
 import {
   buildLenisOptions,
-  isTouchScrollProfile,
   SCROLL_ROUTE_TOP,
   subscribeSmoothScrollEligibility,
 } from '@/lib/motion/scroll'
@@ -43,32 +42,18 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 export function SmoothScroll({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false)
-  const [touchProfile, setTouchProfile] = useState(false)
 
   useIsomorphicLayoutEffect(() => {
-    const syncProfile = () => setTouchProfile(isTouchScrollProfile())
-    syncProfile()
-
     const unsubEligibility = subscribeSmoothScrollEligibility(setEnabled)
-
-    const mqMobile = window.matchMedia('(max-width: 1023px)')
-    const mqCoarse = window.matchMedia('(pointer: coarse)')
-    mqMobile.addEventListener('change', syncProfile)
-    mqCoarse.addEventListener('change', syncProfile)
-
-    return () => {
-      unsubEligibility()
-      mqMobile.removeEventListener('change', syncProfile)
-      mqCoarse.removeEventListener('change', syncProfile)
-    }
+    return unsubEligibility
   }, [])
 
-  const lenisOptions = useMemo(() => buildLenisOptions(), [touchProfile])
+  const lenisOptions = useMemo(() => buildLenisOptions(), [])
 
   if (!enabled) return <>{children}</>
 
   return (
-    <ReactLenis root options={lenisOptions} key={touchProfile ? 'touch' : 'wheel'}>
+    <ReactLenis root options={lenisOptions}>
       <LenisRouteSync />
       <LenisScrollLock />
       {children}
