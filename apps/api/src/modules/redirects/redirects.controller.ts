@@ -68,8 +68,9 @@ export class RedirectsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const redirect = await this.prisma.urlRedirect.findUnique({ where: { id } })
+  async findOne(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const redirect = await this.prisma.urlRedirect.findFirst({ where: { id, storeId: sid } })
     if (!redirect) throw new NotFoundException('Redirect not found')
     return redirect
   }
@@ -117,9 +118,11 @@ export class RedirectsController {
       type?: string
       isActive?: boolean
       note?: string | null
+      storeId?: string
     },
   ) {
-    const existing = await this.prisma.urlRedirect.findUnique({ where: { id } })
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const existing = await this.prisma.urlRedirect.findFirst({ where: { id, storeId: sid } })
     if (!existing) throw new NotFoundException('Redirect not found')
 
     const fromPath = body.fromPath !== undefined ? normalizeFromPath(body.fromPath) : existing.fromPath
@@ -143,8 +146,9 @@ export class RedirectsController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    const existing = await this.prisma.urlRedirect.findUnique({ where: { id } })
+  async remove(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.urlRedirect.findFirst({ where: { id, storeId: sid } })
     if (!existing) throw new NotFoundException('Redirect not found')
     await this.prisma.urlRedirect.delete({ where: { id } })
     await this.bustRedirectCache(existing.storeId)

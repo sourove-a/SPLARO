@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common'
 import type { RMAStatus, RMAType } from '@prisma/client'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
@@ -57,9 +57,10 @@ export class RmaController {
   }
 
   @Get(':id')
-  async get(@Param('id') id: string) {
-    return this.prisma.rMA.findUnique({
-      where: { id },
+  async get(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.prisma.rMA.findFirst({
+      where: { id, storeId: sid },
       include: {
         order: {
           select: {
@@ -110,7 +111,12 @@ export class RmaController {
   async updateNotes(
     @Param('id') id: string,
     @Body('adminNotes') adminNotes: string,
+    @Query('storeId') storeId?: string,
   ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.rMA.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('RMA not found')
+
     return this.prisma.rMA.update({
       where: { id },
       data: { adminNotes },
@@ -118,7 +124,11 @@ export class RmaController {
   }
 
   @Delete(':id')
-  async delete(@Param('id') id: string) {
+  async delete(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.rMA.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('RMA not found')
+
     await this.prisma.rMA.delete({ where: { id } })
     return { deleted: id }
   }

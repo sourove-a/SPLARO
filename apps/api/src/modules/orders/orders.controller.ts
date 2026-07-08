@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Header, NotFoundException, Patch, Param, Query, Body, Post, Inject, Req, StreamableFile } from '@nestjs/common'
+import { Controller, Delete, Get, Header, Logger, NotFoundException, Patch, Param, Query, Body, Post, Inject, Req, StreamableFile } from '@nestjs/common'
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
@@ -20,6 +20,8 @@ type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
 @Controller('admin/orders')
 export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly profitLoss: ProfitLossService,
@@ -227,7 +229,9 @@ export class OrdersController {
       await this.sheets.queueSync(order.storeId, 'PROFIT_LOSS', id, 'ORDER')
     }
 
-    void this.orderEvents.onStatusChanged(order.storeId, id, order.status, body.note)
+    void this.orderEvents
+      .onStatusChanged(order.storeId, id, order.status, body.note)
+      .catch((err: unknown) => this.logger.error(`onStatusChanged failed for order ${id}: ${err instanceof Error ? err.message : err}`))
 
     return order
   }
@@ -273,12 +277,19 @@ export class OrdersController {
   }
 
   @Post('bulk/status')
-  async bulkUpdateStatus(@Body() body: { orderIds: string[]; status: string; note?: string }) {
+  async bulkUpdateStatus(
+    @Body() body: { orderIds: string[]; status: string; note?: string },
+    @Req() req: AdminRequest,
+  ) {
     const results = await Promise.all(
       body.orderIds.map(async (orderId) => {
         try {
-          const order = await this.applyStatusChange(orderId, body.status, body.note)
-          void this.orderEvents.onStatusChanged(order.storeId, orderId, order.status, body.note)
+          const order = await this.applyStatusChange(orderId, body.status, body.note, req.adminUser?.storeId)
+          void this.orderEvents
+            .onStatusChanged(order.storeId, orderId, order.status, body.note)
+            .catch((err: unknown) =>
+              this.logger.error(`onStatusChanged failed for order ${orderId}: ${err instanceof Error ? err.message : err}`),
+            )
           return { orderId, success: true, invoiceNumber: order.invoiceNumber }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Update failed'
@@ -297,12 +308,14 @@ export class OrdersController {
           select: { storeId: true },
         })
         if (row) {
-          void this.telegramHub.notifyBulkOperation(
-            row.storeId,
-            `Bulk status → ${body.status}`,
-            { total: results.length, success: updated, failed: failed.length },
-            failed.map((f) => ({ id: f.orderId, error: f.error ?? 'Unknown' })),
-          )
+          void this.telegramHub
+            .notifyBulkOperation(
+              row.storeId,
+              `Bulk status → ${body.status}`,
+              { total: results.length, success: updated, failed: failed.length },
+              failed.map((f) => ({ id: f.orderId, error: f.error ?? 'Unknown' })),
+            )
+            .catch((err: unknown) => this.logger.error(`notifyBulkOperation failed: ${err instanceof Error ? err.message : err}`))
         }
       }
     }
@@ -359,7 +372,9 @@ export class OrdersController {
       paymentMethod: body.paymentMethod,
     })
 
-    void this.orderEvents.onOrderPlaced(order.storeId, order.id)
+    void this.orderEvents
+      .onOrderPlaced(order.storeId, order.id)
+      .catch((err: unknown) => this.logger.error(`onOrderPlaced failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
 
     return order
   }
@@ -425,7 +440,9 @@ export class OrdersController {
       })
       if (!deleted) throw new NotFoundException('Order not found')
 
-      void this.telegramHub.notifyOrderDeleted(existing.storeId, existing)
+      void this.telegramHub
+        .notifyOrderDeleted(existing.storeId, existing)
+        .catch((err: unknown) => this.logger.error(`notifyOrderDeleted failed for order ${id}: ${err instanceof Error ? err.message : err}`))
       return { success: true }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Delete failed'

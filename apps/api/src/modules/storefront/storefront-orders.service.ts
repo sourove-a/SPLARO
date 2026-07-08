@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Optional } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common'
 import { verifyInvoiceAccessToken } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { RedisService } from '../../common/redis.service'
@@ -80,6 +80,8 @@ function mapPaymentMethod(method: string): PaymentMethod {
 
 @Injectable()
 export class StorefrontOrdersService {
+  private readonly logger = new Logger(StorefrontOrdersService.name)
+
   private static readonly ORDER_INCLUDE = {
     items: { include: { product: true, variant: true } },
     customer: true,
@@ -442,20 +444,26 @@ export class StorefrontOrdersService {
       await this.redis.setJson(`splaro:order-idem:${sid}:${idemKey}`, { orderId: order.id }, 600)
     }
 
-    void this.metaCapi.trackPurchase({
-      storeId: sid,
-      orderId: order.id,
-      total: Number(order.total),
-      email: input.customer.email,
-      phone: input.customer.phone,
-      fbclid: attr?.fbclid ?? null,
-      clientIp: input.clientIp ?? null,
-      userAgent: input.userAgent ?? null,
-      eventSourceUrl: attr?.landingPage ?? null,
-    })
+    void this.metaCapi
+      .trackPurchase({
+        storeId: sid,
+        orderId: order.id,
+        total: Number(order.total),
+        email: input.customer.email,
+        phone: input.customer.phone,
+        fbclid: attr?.fbclid ?? null,
+        clientIp: input.clientIp ?? null,
+        userAgent: input.userAgent ?? null,
+        eventSourceUrl: attr?.landingPage ?? null,
+      })
+      .catch((err: unknown) => this.logger.error(`trackPurchase failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
 
-    void this.orderNotifications.onOrderPlaced(sid, order.id, input.customer.email)
-    void this.orderEvents?.onOrderPlaced(sid, order.id)
+    void this.orderNotifications
+      .onOrderPlaced(sid, order.id, input.customer.email)
+      .catch((err: unknown) => this.logger.error(`Order confirmation notification failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
+    void this.orderEvents
+      ?.onOrderPlaced(sid, order.id)
+      .catch((err: unknown) => this.logger.error(`onOrderPlaced automation hook failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
 
     return order
   }

@@ -1,7 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, Req } from '@nestjs/common'
+import type { Request } from 'express'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { LoyaltyService } from './loyalty.service'
+
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
 @Controller('admin/loyalty')
 export class LoyaltyController {
@@ -38,7 +42,18 @@ export class LoyaltyController {
   async award(
     @Param('customerId') customerId: string,
     @Body() body: { points: number; reason: string; orderId?: string },
+    @Req() req: AdminRequest,
   ) {
+    if (req.adminUser?.storeId) {
+      const customer = await this.prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { storeId: true },
+      })
+      if (!customer || customer.storeId !== req.adminUser.storeId) {
+        throw new NotFoundException('Customer not found')
+      }
+    }
+
     const newTotal = await this.prisma.$transaction(async (tx) => {
       await tx.loyaltyHistory.create({
         data: {
@@ -300,7 +315,16 @@ export class LoyaltyController {
   }
 
   @Delete('referrals/:id')
-  async deleteReferral(@Param('id') id: string) {
+  async deleteReferral(@Param('id') id: string, @Req() req: AdminRequest) {
+    const referral = await this.prisma.referral.findUnique({
+      where: { id },
+      select: { referrer: { select: { storeId: true } } },
+    })
+    if (!referral) throw new NotFoundException('Referral not found')
+    if (req.adminUser?.storeId && referral.referrer.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Referral not found')
+    }
+
     await this.prisma.referral.delete({ where: { id } })
     return { deleted: id }
   }

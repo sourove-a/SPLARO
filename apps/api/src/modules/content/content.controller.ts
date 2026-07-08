@@ -67,9 +67,10 @@ export class ContentController {
   }
 
   @Get('blog/:id')
-  async getBlog(@Param('id') id: string) {
-    const post = await this.prisma.blogPost.findUnique({
-      where: { id },
+  async getBlog(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const post = await this.prisma.blogPost.findFirst({
+      where: { id, storeId: sid },
       include: { category: true },
     })
     if (!post) throw new NotFoundException('Blog post not found')
@@ -87,9 +88,14 @@ export class ContentController {
   @Patch('blog/:id')
   async updateBlog(
     @Param('id') id: string,
-    @Body() body: { title?: string; content?: string; excerpt?: string; status?: string; featuredImage?: string; tags?: string[]; metaTitle?: string; metaDesc?: string },
+    @Body() body: { title?: string; content?: string; excerpt?: string; status?: string; featuredImage?: string; tags?: string[]; metaTitle?: string; metaDesc?: string; storeId?: string },
   ) {
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const existing = await this.prisma.blogPost.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Blog post not found')
+
     const data: Record<string, unknown> = { ...body }
+    delete data['storeId']
     if (body.status === 'PUBLISHED') {
       data['publishedAt'] = new Date()
     }
@@ -97,7 +103,11 @@ export class ContentController {
   }
 
   @Delete('blog/:id')
-  async deleteBlog(@Param('id') id: string) {
+  async deleteBlog(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.blogPost.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Blog post not found')
+
     await this.prisma.blogPost.delete({ where: { id } })
     return { deleted: true }
   }
@@ -124,7 +134,11 @@ export class ContentController {
   }
 
   @Delete('blog-categories/:id')
-  async deleteBlogCategory(@Param('id') id: string) {
+  async deleteBlogCategory(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.blogCategory.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Blog category not found')
+
     await this.prisma.blogCategory.delete({ where: { id } })
     return { deleted: true }
   }
@@ -147,9 +161,10 @@ export class ContentController {
   }
 
   @Get('pages/:id')
-  async getPage(@Param('id') id: string) {
-    const page = await this.prisma.sitePage.findUnique({
-      where: { id },
+  async getPage(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const page = await this.prisma.sitePage.findFirst({
+      where: { id, storeId: sid },
       include: { contentBlocks: { orderBy: { createdAt: 'asc' } } },
     })
     if (!page) throw new NotFoundException('Page not found')
@@ -192,15 +207,24 @@ export class ContentController {
   @Patch('pages/:id')
   async updatePage(
     @Param('id') id: string,
-    @Body() body: { title?: string; slug?: string; content?: string; isPublished?: boolean; customCss?: string; customJs?: string; metaTitle?: string; metaDesc?: string },
+    @Body() body: { title?: string; slug?: string; content?: string; isPublished?: boolean; customCss?: string; customJs?: string; metaTitle?: string; metaDesc?: string; storeId?: string },
   ) {
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const existing = await this.prisma.sitePage.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Page not found')
+
     const data: Record<string, unknown> = { ...body }
+    delete data['storeId']
     if (body.slug) data.slug = slugify(body.slug)
     return this.prisma.sitePage.update({ where: { id }, data: data as never })
   }
 
   @Delete('pages/:id')
-  async deletePage(@Param('id') id: string) {
+  async deletePage(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.sitePage.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Page not found')
+
     await this.prisma.sitePage.delete({ where: { id } })
     return { deleted: true }
   }
@@ -272,13 +296,29 @@ export class ContentController {
   @Patch('menu-items/:id')
   async updateMenuItem(
     @Param('id') id: string,
-    @Body() body: { label?: string; url?: string; isActive?: boolean; sortOrder?: number },
+    @Body() body: { label?: string; url?: string; isActive?: boolean; sortOrder?: number; storeId?: string },
   ) {
-    return this.prisma.menuItem.update({ where: { id }, data: body as never })
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const existing = await this.prisma.menuItem.findFirst({
+      where: { id, menu: { storeId: sid } },
+      select: { id: true },
+    })
+    if (!existing) throw new NotFoundException('Menu item not found')
+
+    const data = { ...body }
+    delete data.storeId
+    return this.prisma.menuItem.update({ where: { id }, data: data as never })
   }
 
   @Delete('menu-items/:id')
-  async deleteMenuItem(@Param('id') id: string) {
+  async deleteMenuItem(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.menuItem.findFirst({
+      where: { id, menu: { storeId: sid } },
+      select: { id: true },
+    })
+    if (!existing) throw new NotFoundException('Menu item not found')
+
     await this.prisma.menuItem.delete({ where: { id } })
     return { deleted: true }
   }

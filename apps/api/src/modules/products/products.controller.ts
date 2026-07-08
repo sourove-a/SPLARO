@@ -164,6 +164,15 @@ export class ProductsController {
     void revalidateStorefrontWeb(['storefront-products'])
   }
 
+  /** Confirms a product exists and belongs to the caller's store — prevents cross-store IDOR via :id. */
+  private async assertOwnedProduct(id: string, req: AdminRequest): Promise<void> {
+    const product = await this.prisma.product.findUnique({ where: { id }, select: { storeId: true } })
+    if (!product) throw new NotFoundException('Product not found')
+    if (req.adminUser?.storeId && product.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Product not found')
+    }
+  }
+
   @Get()
   async list(
     @Query('storeId') storeId: string,
@@ -839,7 +848,8 @@ export class ProductsController {
   }
 
   @Get(':id/qr')
-  async generateQR(@Param('id') id: string, @Query('siteUrl') siteUrl: string) {
+  async generateQR(@Param('id') id: string, @Query('siteUrl') siteUrl: string, @Req() req: AdminRequest) {
+    await this.assertOwnedProduct(id, req)
     const qr = await this.productAdvanced.generateProductQR(id, siteUrl)
     return { qr }
   }
@@ -847,13 +857,17 @@ export class ProductsController {
   @Get(':id/barcode')
   async generateBarcode(
     @Param('id') id: string,
-    @Query('format') format?: string,
+    @Query('format') format: string | undefined,
+    @Req() req: AdminRequest,
   ) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      select: { sku: true },
+      select: { sku: true, storeId: true },
     })
     if (!product) throw new NotFoundException('Product not found')
+    if (req.adminUser?.storeId && product.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Product not found')
+    }
 
     const sku = product.sku?.trim()
     if (!sku) {
@@ -875,7 +889,8 @@ export class ProductsController {
   }
 
   @Get(':id/versions')
-  async getVersions(@Param('id') id: string) {
+  async getVersions(@Param('id') id: string, @Req() req: AdminRequest) {
+    await this.assertOwnedProduct(id, req)
     return this.productAdvanced.getProductVersionHistory(id)
   }
 
@@ -884,7 +899,9 @@ export class ProductsController {
     @Param('id') id: string,
     @Param('versionId') versionId: string,
     @Body('restoredBy') restoredBy: string,
+    @Req() req: AdminRequest,
   ) {
+    await this.assertOwnedProduct(id, req)
     const { storeId } = await this.productAdvanced.restoreProductVersion(
       id,
       versionId,
@@ -898,7 +915,8 @@ export class ProductsController {
   // ── Tags ────────────────────────────────────────────────────
 
   @Patch(':id/tags')
-  async updateTags(@Param('id') id: string, @Body('tags') tags: string[]) {
+  async updateTags(@Param('id') id: string, @Body('tags') tags: string[], @Req() req: AdminRequest) {
+    await this.assertOwnedProduct(id, req)
     const product = await this.prisma.product.update({
       where: { id },
       data: { tags: tags ?? [] },

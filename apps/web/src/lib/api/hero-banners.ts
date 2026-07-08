@@ -1,8 +1,25 @@
 import type { HeroBanner } from '@/lib/api/banners'
 import { productSlug } from '@/lib/catalog/index'
 import type { StorefrontProduct } from '@/data/storefront'
+import { HERO_DEFAULT_SLIDES } from '@splaro/config'
 
-/** Build hero slides from live catalog when no Banner rows exist in admin. */
+/**
+ * Curated landscape hero slides — the fallback when admin hasn't configured any
+ * Banner rows. Proper 16:9 editorial images (not portrait product shots) and no
+ * heavy autoplay video, so the hero stays fast and visually coherent.
+ */
+export function heroBannersFromDefaults(): HeroBanner[] {
+  return HERO_DEFAULT_SLIDES.map((slide, index) => ({
+    id: `default-${slide.key}`,
+    title: slide.title,
+    subtitle: slide.subtitle,
+    image: slide.image,
+    linkUrl: slide.linkUrl,
+    sortOrder: index,
+  }))
+}
+
+/** Build hero slides from live catalog — last resort when defaults are unavailable. */
 export function heroBannersFromCatalog(
   products: (StorefrontProduct & { slug?: string })[],
 ): HeroBanner[] {
@@ -37,5 +54,9 @@ export function resolveHeroBanners(
 ): HeroBanner[] {
   const fromApi = apiBanners.filter((banner) => banner.image?.trim())
   if (fromApi.length) return fromApi
+  // Prefer the curated landscape defaults over cropping portrait product shots
+  // into the wide hero — only fall to catalog if defaults somehow yield nothing.
+  const defaults = heroBannersFromDefaults()
+  if (defaults.length) return defaults
   return heroBannersFromCatalog(products)
 }

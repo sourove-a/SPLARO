@@ -24627,7 +24627,7 @@ body {
 }
 
 .home-hero-slider {
-  --hero-swipe: 2s;
+  --hero-swipe: 0.85s;
   --hero-slide-duration: 7.5s;
   --hero-ease-luxury: cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;

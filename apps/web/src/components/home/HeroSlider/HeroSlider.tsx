@@ -9,7 +9,9 @@ import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO, HERO_DEFAULT_VIDEO_MOBILE } from '@splaro/config'
 
 const SLIDE_DURATION_MS = 7500
-const SWIPE_MS = 2000
+// Must match --hero-swipe in globals.css — this is the lock window that blocks
+// re-triggering a transition mid-animation. Kept snappy (was 2000ms, felt janky).
+const SWIPE_MS = 850
 
 type SlideDirection = 'forward' | 'backward'
 
@@ -80,10 +82,14 @@ function normalizeHeroVideoUrl(url: string): { video: string; videoMobile?: stri
 }
 
 function resolveSlideVideo(media: string, index: number) {
-  if (index === 0 && HERO_VIDEO) {
+  // Only autoplay a background video when THIS slide's own media is a video URL,
+  // or when an explicit NEXT_PUBLIC_HERO_VIDEO override is set. Previously the
+  // heavy default Pexels clip was force-played on slide 0 regardless of the
+  // slide's real image — an ocean video behind a sneaker, plus ~12MB of lag.
+  if (isVideoUrl(media)) return normalizeHeroVideoUrl(media)
+  if (index === 0 && process.env.NEXT_PUBLIC_HERO_VIDEO?.trim()) {
     return { video: HERO_VIDEO, videoMobile: HERO_VIDEO_MOBILE }
   }
-  if (isVideoUrl(media)) return normalizeHeroVideoUrl(media)
   return {}
 }
 
