@@ -8,12 +8,13 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { Request } from 'express'
 import { IS_PUBLIC_KEY } from './public.decorator'
+import { resolveRoutePermission } from './admin-route-permissions.util'
 import {
-  canWriteAdmin,
   isPublicApiPath,
   verifyAdminSessionToken,
   type AdminSessionPayload,
 } from './admin-session.util'
+import { staffHasPermission } from '../../modules/security/security-permissions.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
@@ -81,7 +82,16 @@ export class AdminAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired admin session')
     }
 
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !canWriteAdmin(session.role)) {
+    const routePermission = resolveRoutePermission(rawPath, method)
+    if (
+      routePermission &&
+      !staffHasPermission(
+        session.role,
+        session.permissions,
+        routePermission.moduleSlug,
+        routePermission.action,
+      )
+    ) {
       throw new ForbiddenException('Insufficient permissions for this action')
     }
 

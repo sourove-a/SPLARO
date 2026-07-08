@@ -10,6 +10,7 @@ export interface AdminSessionPayload {
   name: string
   role: string
   storeId?: string
+  permissions?: string[]
   exp: number
 }
 

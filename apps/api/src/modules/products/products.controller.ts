@@ -469,6 +469,23 @@ export class ProductsController {
 
     void this.search?.indexProducts(sid)
     await this.bustProductCache(sid)
+
+    if (!productSku) {
+      const settings = await this.prisma.siteSettings.findUnique({
+        where: { storeId: sid },
+        select: { storefrontConfig: true },
+      })
+      const config = mergeStorefrontConfig(settings?.storefrontConfig)
+      if (config.catalog?.autoGenerateSku === true) {
+        await this.productAdvanced.ensureVariantSKUs(product.id)
+        const refreshed = await this.prisma.product.findUnique({
+          where: { id: product.id },
+          include: { images: true, variants: true, category: true },
+        })
+        return refreshed ?? product
+      }
+    }
+
     return product
   }
 

@@ -61,6 +61,7 @@ export class AuthController {
           name: user.name,
           role: user.role,
           storeId: user.storeId,
+          permissions: user.permissions,
         },
       }
     }
@@ -85,6 +86,7 @@ export class AuthController {
         name: user.name,
         role: user.role,
         storeId: user.storeId,
+        permissions: user.permissions,
       },
     }
   }
@@ -104,6 +106,7 @@ export class AuthController {
         name: user.name,
         role: user.role,
         storeId: user.storeId,
+        permissions: user.permissions,
       },
     }
   }

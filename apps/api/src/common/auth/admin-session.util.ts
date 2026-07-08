@@ -6,6 +6,8 @@ export interface AdminSessionPayload {
   name: string
   role: string
   storeId?: string
+  /** Encoded matrix tokens, e.g. orders:view — omitted on legacy sessions (role defaults apply). */
+  permissions?: string[]
   exp: number
 }
 

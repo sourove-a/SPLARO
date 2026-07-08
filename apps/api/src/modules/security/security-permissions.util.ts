@@ -111,3 +111,32 @@ export function decodePermissionTokens(tokens: string[]): PermissionRow[] {
 export function normalizeRoleKey(role: string): string {
   return ROLE_UI_TO_API[role] ?? role.toUpperCase().replace(/ /g, '_')
 }
+
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete'
+
+export function staffHasPermission(
+  role: string,
+  permissionTokens: string[] | undefined,
+  moduleSlug: string,
+  action: PermissionAction,
+): boolean {
+  const roleKey = normalizeRoleKey(role)
+  if (roleKey === 'SUPER_ADMIN') return true
+
+  const tokens =
+    permissionTokens?.length
+      ? permissionTokens
+      : encodePermissionTokens(
+          DEFAULT_ROLE_PERMISSIONS[roleKey] ?? DEFAULT_ROLE_PERMISSIONS.STAFF ?? [],
+        )
+
+  if (tokens.includes('*')) return true
+
+  const moduleLabel = SLUG_MODULE[moduleSlug]
+  if (!moduleLabel) return false
+
+  const rows = decodePermissionTokens(tokens)
+  const row = rows.find((r) => r.module === moduleLabel)
+  if (!row) return false
+  return Boolean(row[action])
+}

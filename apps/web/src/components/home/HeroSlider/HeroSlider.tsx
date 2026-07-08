@@ -243,10 +243,10 @@ function HeroBackground({
     const video = videoRef.current
     if (!video || !videoSrc || videoFailed) return
 
+    video.load()
+
     if (isActive) {
-      if (video.paused) {
-        void video.play().catch(() => setVideoFailed(true))
-      }
+      void video.play().catch(() => setVideoFailed(true))
       return
     }
 
@@ -258,7 +258,6 @@ function HeroBackground({
       <HeroStaticBackdrop src={slide.image} priority={priority} />
       {videoSrc && !videoFailed && allowVideo && isActive ? (
         <video
-          key={videoSrc}
           ref={videoRef}
           className="hero-bg-video"
           style={HERO_MEDIA_STYLE}
@@ -297,34 +296,67 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const allowVideo = useAllowHeroVideo()
   const indexRef = useRef(index)
   const exitTimerRef = useRef<number | undefined>(undefined)
+  const autoplayIntervalRef = useRef<number | undefined>(undefined)
   const transitioningRef = useRef(false)
+  const pendingIndexRef = useRef<number | null>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const prefersHoverPauseRef = useRef(true)
   const slide = slides[Math.min(index, Math.max(slides.length - 1, 0))]
   const isTransitioning = exitIndex !== null
 
   indexRef.current = index
 
+  const clearAutoplayTimer = useCallback(() => {
+    window.clearInterval(autoplayIntervalRef.current)
+    autoplayIntervalRef.current = undefined
+  }, [])
+
+  const transitionToRef = useRef<(next: number) => void>(() => {})
+
+  const resetAutoplayTimer = useCallback(() => {
+    clearAutoplayTimer()
+    if (paused || slides.length <= 1) return
+    autoplayIntervalRef.current = window.setInterval(() => {
+      transitionToRef.current((indexRef.current + 1) % slides.length)
+    }, SLIDE_DURATION_MS)
+  }, [clearAutoplayTimer, paused, slides.length])
+
   const transitionTo = useCallback(
     (next: number) => {
-      if (!slides.length || transitioningRef.current) return
+      if (!slides.length) return
       const normalized = ((next % slides.length) + slides.length) % slides.length
       const current = indexRef.current
+
+      if (transitioningRef.current) {
+        pendingIndexRef.current = normalized
+        return
+      }
       if (normalized === current) return
 
       transitioningRef.current = true
+      pendingIndexRef.current = null
       setInteracted(true)
       setDirection(slideDirection(current, normalized, slides.length))
       setExitIndex(current)
       setIndex(normalized)
+      resetAutoplayTimer()
 
       window.clearTimeout(exitTimerRef.current)
       exitTimerRef.current = window.setTimeout(() => {
         setExitIndex(null)
         transitioningRef.current = false
+
+        const pending = pendingIndexRef.current
+        pendingIndexRef.current = null
+        if (pending !== null && pending !== indexRef.current) {
+          window.requestAnimationFrame(() => transitionToRef.current(pending))
+        }
       }, SWIPE_MS)
     },
-    [slides.length],
+    [resetAutoplayTimer, slides.length],
   )
+
+  transitionToRef.current = transitionTo
 
   const goTo = useCallback(
     (next: number) => {
@@ -343,6 +375,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   useEffect(() => {
     setReady(true)
+    prefersHoverPauseRef.current = window.matchMedia('(hover: hover) and (pointer: fine)').matches
   }, [])
 
   useEffect(() => {
@@ -350,19 +383,20 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     setExitIndex(null)
     setDirection('forward')
     transitioningRef.current = false
+    pendingIndexRef.current = null
   }, [slidesSignature])
 
   useEffect(() => {
-    return () => window.clearTimeout(exitTimerRef.current)
-  }, [])
+    return () => {
+      window.clearTimeout(exitTimerRef.current)
+      clearAutoplayTimer()
+    }
+  }, [clearAutoplayTimer])
 
   useEffect(() => {
-    if (paused || slides.length <= 1) return undefined
-    const timer = window.setInterval(() => {
-      transitionTo((indexRef.current + 1) % slides.length)
-    }, SLIDE_DURATION_MS)
-    return () => window.clearInterval(timer)
-  }, [paused, slides.length, transitionTo])
+    resetAutoplayTimer()
+    return clearAutoplayTimer
+  }, [resetAutoplayTimer, clearAutoplayTimer])
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
     const touch = event.touches[0]
@@ -419,13 +453,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
       aria-roledescription="carousel"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setPaused(false)
-        }
+      onMouseEnter={() => {
+        if (prefersHoverPauseRef.current) setPaused(true)
+      }}
+      onMouseLeave={() => {
+        if (prefersHoverPauseRef.current) setPaused(false)
       }}
     >
       <div className="home-hero-slider__stage">

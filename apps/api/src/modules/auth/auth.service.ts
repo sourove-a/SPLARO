@@ -4,6 +4,7 @@ import { verifyAdminSessionToken, type AdminSessionPayload } from '../../common/
 import { verifyPassword } from '../../common/password.util'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
+import { resolveStaffPermissionTokens } from '../security/staff-permissions.resolver'
 import { AdminLoginTokenService } from './admin-login-token.service'
 
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000
@@ -62,6 +63,7 @@ export class AuthService {
     name: string
     role: string
     storeId: string
+    permissions: string[]
   }> {
     const normalized = email.trim().toLowerCase()
     const ipAddress = meta?.ipAddress ?? 'unknown'
@@ -135,12 +137,20 @@ export class AuthService {
       }),
     ])
 
+    const permissions = await resolveStaffPermissionTokens(
+      this.prisma,
+      user.id,
+      staff.storeId,
+      staff.role,
+    )
+
     return {
       userId: user.id,
       email: user.email ?? normalized,
       name: `${user.firstName} ${user.lastName}`.trim() || user.email || normalized,
       role: staff.role,
       storeId: staff.storeId,
+      permissions,
     }
   }
 
@@ -163,6 +173,7 @@ export class AuthService {
     name: string
     role: string
     storeId: string
+    permissions: string[]
   }> {
     const normalized = email.trim().toLowerCase()
     const ipAddress = meta?.ipAddress ?? 'unknown'
@@ -188,12 +199,20 @@ export class AuthService {
       }),
     ])
 
+    const permissions = await resolveStaffPermissionTokens(
+      this.prisma,
+      record.userId,
+      record.storeId,
+      record.role,
+    )
+
     return {
       userId: record.userId,
       email: record.email,
       name: record.name,
       role: record.role,
       storeId: record.storeId,
+      permissions,
     }
   }
 

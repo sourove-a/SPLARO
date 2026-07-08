@@ -25,7 +25,14 @@ export async function POST(request: Request) {
     const data = (await res.json()) as {
       error?: string
       message?: string
-      user?: { id: string; email: string; name: string; role: string; storeId?: string }
+      user?: {
+        id: string
+        email: string
+        name: string
+        role: string
+        storeId?: string
+        permissions?: string[]
+      }
     }
 
     if (!res.ok || !data.user?.id) {
@@ -41,6 +48,7 @@ export async function POST(request: Request) {
       name: data.user.name,
       role: data.user.role,
       ...(data.user.storeId ? { storeId: data.user.storeId } : {}),
+      ...(data.user.permissions?.length ? { permissions: data.user.permissions } : {}),
     })
 
     const response = NextResponse.json({
