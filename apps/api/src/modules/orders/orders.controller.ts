@@ -1,4 +1,6 @@
-import { Controller, Delete, Get, Header, NotFoundException, Patch, Param, Query, Body, Post, Inject, StreamableFile } from '@nestjs/common'
+import { Controller, Delete, Get, Header, NotFoundException, Patch, Param, Query, Body, Post, Inject, Req, StreamableFile } from '@nestjs/common'
+import type { Request } from 'express'
+import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { backfillOrderInvoiceCodes } from '../../common/order-code.util'
@@ -14,6 +16,8 @@ import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.ser
 import { resolveStoreId } from '../../common/store.util'
 import type { CourierProvider, OrderStatus, PaymentStatus, Prisma } from '@prisma/client'
 
+type AdminRequest = Request & { adminUser?: AdminSessionPayload }
+
 @Controller('admin/orders')
 export class OrdersController {
   constructor(
@@ -26,6 +30,19 @@ export class OrdersController {
     private readonly orderEvents: OrderEventsService,
     private readonly telegramHub: AdminTelegramHubService,
   ) {}
+
+  /** Resolve an order by id/invoiceNumber, scoped to the caller's store — prevents cross-store IDOR. */
+  private async ownedOrderId(idOrInvoice: string, req: AdminRequest): Promise<string> {
+    const order = await this.prisma.order.findFirst({
+      where: { OR: [{ id: idOrInvoice }, { invoiceNumber: idOrInvoice }] },
+      select: { id: true, storeId: true },
+    })
+    if (!order) throw new NotFoundException('Order not found')
+    if (req.adminUser?.storeId && order.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Order not found')
+    }
+    return order.id
+  }
 
   @Get()
   async list(
@@ -78,9 +95,10 @@ export class OrdersController {
   }
 
   @Get(':id/invoice/pdf')
-  async invoicePdf(@Param('id') id: string): Promise<StreamableFile> {
-    const order = await this.invoices.loadOrder(id)
-    const buffer = await this.invoices.buildPdfBuffer(id)
+  async invoicePdf(@Param('id') id: string, @Req() req: AdminRequest): Promise<StreamableFile> {
+    const orderId = await this.ownedOrderId(id, req)
+    const order = await this.invoices.loadOrder(orderId)
+    const buffer = await this.invoices.buildPdfBuffer(orderId)
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="${order.invoiceNumber}.pdf"`,
@@ -89,18 +107,21 @@ export class OrdersController {
 
   @Get(':id/invoice/print')
   @Header('Content-Type', 'text/html; charset=utf-8')
-  async invoicePrint(@Param('id') id: string) {
-    return this.invoices.buildHtml(id, { showToolbar: true, autoPrint: true })
+  async invoicePrint(@Param('id') id: string, @Req() req: AdminRequest) {
+    const orderId = await this.ownedOrderId(id, req)
+    return this.invoices.buildHtml(orderId, { showToolbar: true, autoPrint: true })
   }
 
   @Post(':id/invoice/email')
-  async invoiceEmail(@Param('id') id: string, @Body() body: { email?: string }) {
-    return this.invoices.sendInvoiceEmail(id, body.email)
+  async invoiceEmail(@Param('id') id: string, @Body() body: { email?: string }, @Req() req: AdminRequest) {
+    const orderId = await this.ownedOrderId(id, req)
+    return this.invoices.sendInvoiceEmail(orderId, body.email)
   }
 
   @Get(':id/invoice/whatsapp')
-  async invoiceWhatsApp(@Param('id') id: string) {
-    const order = await this.invoices.loadOrder(id)
+  async invoiceWhatsApp(@Param('id') id: string, @Req() req: AdminRequest) {
+    const orderId = await this.ownedOrderId(id, req)
+    const order = await this.invoices.loadOrder(orderId)
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co'
     return {
@@ -111,14 +132,18 @@ export class OrdersController {
 
   @Get(':id/invoice')
   @Header('Content-Type', 'text/html; charset=utf-8')
-  async invoice(@Param('id') id: string) {
-    return this.invoices.buildHtml(id, { showToolbar: true, autoPrint: false })
+  async invoice(@Param('id') id: string, @Req() req: AdminRequest) {
+    const orderId = await this.ownedOrderId(id, req)
+    return this.invoices.buildHtml(orderId, { showToolbar: true, autoPrint: false })
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string, @Req() req: AdminRequest) {
     const order = await this.prisma.order.findFirst({
-      where: { OR: [{ id }, { invoiceNumber: id }] },
+      where: {
+        OR: [{ id }, { invoiceNumber: id }],
+        ...(req.adminUser?.storeId ? { storeId: req.adminUser.storeId } : {}),
+      },
       include: {
         items: {
           include: {
@@ -137,12 +162,20 @@ export class OrdersController {
     return order
   }
 
-  private async applyStatusChange(id: string, statusRaw: string, note?: string) {
+  private async applyStatusChange(
+    id: string,
+    statusRaw: string,
+    note: string | undefined,
+    callerStoreId?: string,
+  ) {
     const existing = await this.prisma.order.findUnique({
       where: { id },
       select: { id: true, storeId: true, status: true },
     })
     if (!existing) throw new NotFoundException('Order not found')
+    if (callerStoreId && existing.storeId !== callerStoreId) {
+      throw new NotFoundException('Order not found')
+    }
 
     const status = assertOrderStatusTransition(existing.status, statusRaw)
     const shouldRestoreStock =
@@ -181,8 +214,12 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
-  async updateStatus(@Param('id') id: string, @Body() body: { status: string; note?: string }) {
-    const order = await this.applyStatusChange(id, body.status, body.note)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: string; note?: string },
+    @Req() req: AdminRequest,
+  ) {
+    const order = await this.applyStatusChange(id, body.status, body.note, req.adminUser?.storeId)
 
     if (order.status === 'DELIVERED') {
       await this.profitLoss.calculateOrderProfit(order.storeId, id)
@@ -196,9 +233,14 @@ export class OrdersController {
   }
 
   @Patch(':id/cod-risk')
-  async setCodRisk(@Param('id') id: string, @Body() body: { isCodRisk: boolean; requireAdvancePayment?: boolean }) {
+  async setCodRisk(
+    @Param('id') id: string,
+    @Body() body: { isCodRisk: boolean; requireAdvancePayment?: boolean },
+    @Req() req: AdminRequest,
+  ) {
+    const orderId = await this.ownedOrderId(id, req)
     return this.prisma.order.update({
-      where: { id },
+      where: { id: orderId },
       data: { isCodRisk: body.isCodRisk, requireAdvancePayment: body.requireAdvancePayment },
     })
   }
@@ -207,9 +249,13 @@ export class OrdersController {
   async updatePayment(
     @Param('id') id: string,
     @Body() body: { paymentStatus: PaymentStatus },
+    @Req() req: AdminRequest,
   ) {
     const order = await this.prisma.order.findFirst({
-      where: { OR: [{ id }, { invoiceNumber: id }] },
+      where: {
+        OR: [{ id }, { invoiceNumber: id }],
+        ...(req.adminUser?.storeId ? { storeId: req.adminUser.storeId } : {}),
+      },
       select: { id: true },
     })
     if (!order) throw new NotFoundException('Order not found')
@@ -353,7 +399,7 @@ export class OrdersController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Req() req: AdminRequest) {
     const existing = await this.prisma.order.findUnique({
       where: { id },
       select: {
@@ -366,6 +412,9 @@ export class OrdersController {
       },
     })
     if (!existing) throw new NotFoundException('Order not found')
+    if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Order not found')
+    }
 
     try {
       const deleted = await this.prisma.$transaction(async (tx) => {

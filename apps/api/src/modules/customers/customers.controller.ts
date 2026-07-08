@@ -16,6 +16,17 @@ export class CustomersController {
     return resolveStoreId(this.prisma, raw)
   }
 
+  /** Load a customer scoped to the caller's store — prevents cross-store IDOR via :id. */
+  private async ownedCustomer(id: string, storeId?: string, select?: Prisma.CustomerSelect) {
+    const sid = await this.sid(storeId)
+    const customer = await this.prisma.customer.findFirst({
+      where: { id, storeId: sid },
+      ...(select ? { select } : {}),
+    })
+    if (!customer) throw new NotFoundException('Customer not found')
+    return customer
+  }
+
   @Get()
   async list(
     @Query('storeId') storeId: string,
@@ -98,9 +109,10 @@ export class CustomersController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
+  async findOne(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await this.sid(storeId)
+    const customer = await this.prisma.customer.findFirst({
+      where: { id, storeId: sid },
       include: {
         addresses: true,
         orders: {
@@ -125,24 +137,37 @@ export class CustomersController {
   }
 
   @Post(':id/notes')
-  async addNote(@Param('id') id: string, @Body() body: { content: string; createdBy: string }) {
+  async addNote(
+    @Param('id') id: string,
+    @Body() body: { content: string; createdBy: string; storeId?: string },
+  ) {
+    await this.ownedCustomer(id, body.storeId, { id: true })
     return this.prisma.customerNote.create({
       data: { customerId: id, body: body.content, isPrivate: true, authorId: body.createdBy },
     })
   }
 
   @Patch(':id/tags')
-  async updateTags(@Param('id') id: string, @Body() body: { tags: string[] }) {
+  async updateTags(
+    @Param('id') id: string,
+    @Body() body: { tags: string[]; storeId?: string },
+  ) {
+    await this.ownedCustomer(id, body.storeId, { id: true })
     return this.prisma.customer.update({ where: { id }, data: { tags: body.tags } })
   }
 
   @Get(':id/loyalty')
-  async getLoyaltySummary(@Param('id') id: string) {
+  async getLoyaltySummary(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    await this.ownedCustomer(id, storeId, { id: true })
     return this.loyalty.getLoyaltySummary(id)
   }
 
   @Post(':id/loyalty/points')
-  async awardPoints(@Param('id') id: string, @Body() body: { points: number; reason: string }) {
+  async awardPoints(
+    @Param('id') id: string,
+    @Body() body: { points: number; reason: string; storeId?: string },
+  ) {
+    await this.ownedCustomer(id, body.storeId, { id: true })
     await this.prisma.$transaction([
       this.prisma.customer.update({ where: { id }, data: { loyaltyPoints: { increment: body.points } } }),
       this.prisma.loyaltyHistory.create({ data: { customerId: id, points: body.points, type: 'BONUS', reason: body.reason } }),
@@ -151,12 +176,11 @@ export class CustomersController {
   }
 
   @Patch(':id/block')
-  async blockCustomer(@Param('id') id: string, @Body() body: { blocked: boolean }) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
-      select: { userId: true },
-    })
-    if (!customer) throw new NotFoundException('Customer not found')
+  async blockCustomer(
+    @Param('id') id: string,
+    @Body() body: { blocked: boolean; storeId?: string },
+  ) {
+    const customer = await this.ownedCustomer(id, body.storeId, { userId: true })
 
     await this.prisma.user.update({
       where: { id: customer.userId },
@@ -202,7 +226,8 @@ export class CustomersController {
 
   /** Get wishlist for a customer */
   @Get(':id/wishlist')
-  async getWishlist(@Param('id') id: string) {
+  async getWishlist(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    await this.ownedCustomer(id, storeId, { id: true })
     return this.prisma.wishlist.findFirst({
       where: { customerId: id },
       include: {
@@ -217,17 +242,18 @@ export class CustomersController {
 
   /** Get addresses for a customer */
   @Get(':id/addresses')
-  async getAddresses(@Param('id') id: string) {
+  async getAddresses(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    await this.ownedCustomer(id, storeId, { id: true })
     return this.prisma.address.findMany({ where: { customerId: id } })
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string, @Query('force') force?: string) {
-    const customer = await this.prisma.customer.findUnique({
-      where: { id },
-      select: { userId: true, totalOrders: true },
-    })
-    if (!customer) throw new NotFoundException('Customer not found')
+  async remove(
+    @Param('id') id: string,
+    @Query('force') force?: string,
+    @Query('storeId') storeId?: string,
+  ) {
+    const customer = await this.ownedCustomer(id, storeId, { userId: true, totalOrders: true })
     if (customer.totalOrders > 0 && force !== 'true') {
       throw new BadRequestException('Delete orders first, or use force delete from admin.')
     }

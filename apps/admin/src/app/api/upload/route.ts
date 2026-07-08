@@ -6,6 +6,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/sessio
 
 const MAX_BYTES = 8 * 1024 * 1024
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const ALLOWED_FOLDERS = new Set(['general', 'products', 'partners'])
 
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -48,7 +49,8 @@ export async function POST(request: Request) {
   }
 
   const file = form.get('file')
-  const folder = String(form.get('folder') ?? 'general').replace(/[^a-z0-9-_]/gi, '')
+  const requestedFolder = String(form.get('folder') ?? 'general').replace(/[^a-z0-9-_]/gi, '')
+  const folder = ALLOWED_FOLDERS.has(requestedFolder) ? requestedFolder : 'general'
   const optimize = form.get('optimize') === '1'
 
   if (!(file instanceof File)) {

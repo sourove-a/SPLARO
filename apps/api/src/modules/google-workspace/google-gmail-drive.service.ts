@@ -1,4 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common'
+
+const ALLOWED_DRIVE_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/csv',
+  'text/plain',
+])
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { GoogleClientService } from './google-client.service'
@@ -214,6 +226,10 @@ export class GoogleDriveService {
     userId?: string,
   ) {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+
+    if (!ALLOWED_DRIVE_MIME_TYPES.has(body.mimeType)) {
+      throw new BadRequestException(`File type "${body.mimeType}" is not allowed for Drive upload`)
+    }
 
     try {
       const conn = await this.prisma.googleWorkspaceConnection.findUnique({ where: { storeId } })

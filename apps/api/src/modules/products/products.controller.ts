@@ -464,11 +464,14 @@ export class ProductsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.prisma.product.findUnique({
-      where: { id },
+  async findOne(@Param('id') id: string, @Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const product = await this.prisma.product.findFirst({
+      where: { id, storeId: sid },
       include: { images: true, variants: true, category: true, collections: true },
     })
+    if (!product) throw new NotFoundException('Product not found')
+    return product
   }
 
   @Patch(':id')
@@ -478,6 +481,9 @@ export class ProductsController {
       select: { storeId: true, schemaMarkup: true },
     })
     if (!existing) throw new NotFoundException('Product not found')
+    if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Product not found')
+    }
 
     const changedBy = req.adminUser?.email ?? req.adminUser?.name ?? 'admin'
     if (!shouldSkipVersionSnapshot(body)) {
@@ -793,7 +799,13 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  async archive(@Param('id') id: string) {
+  async archive(@Param('id') id: string, @Req() req: AdminRequest) {
+    const existing = await this.prisma.product.findUnique({ where: { id }, select: { storeId: true } })
+    if (!existing) throw new NotFoundException('Product not found')
+    if (req.adminUser?.storeId && existing.storeId !== req.adminUser.storeId) {
+      throw new NotFoundException('Product not found')
+    }
+
     const product = await this.prisma.product.update({
       where: { id },
       data: { isPublished: false, status: 'ARCHIVED' },

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
@@ -69,8 +69,13 @@ export class CouponsController {
       isActive?: boolean
       startsAt?: string | null
       expiresAt?: string | null
+      storeId?: string
     },
   ) {
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const existing = await this.prisma.coupon.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Coupon not found')
+
     const coupon = await this.prisma.coupon.update({
       where: { id },
       data: {
@@ -89,7 +94,11 @@ export class CouponsController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const existing = await this.prisma.coupon.findFirst({ where: { id, storeId: sid }, select: { id: true } })
+    if (!existing) throw new NotFoundException('Coupon not found')
+
     await this.prisma.coupon.delete({ where: { id } })
     return { success: true }
   }

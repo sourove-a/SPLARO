@@ -93,7 +93,11 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
+              // No app code or dependency (incl. three.js) calls eval()/new Function() in
+              // production, so 'unsafe-eval' is dropped. 'unsafe-inline' stays — GTM/FB
+              // pixel and Next.js hydration inline scripts need a nonce-based CSP to
+              // remove safely, which needs its own dedicated rollout/testing pass.
+              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://cdn.splaro.co https://splaro.co https://cdn.splaro.com.bd https://splaro.com.bd https://*.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
               "media-src 'self' blob: https://cdn.splaro.co https://splaro.co https://cdn.splaro.com.bd https://splaro.com.bd https://*.r2.cloudflarestorage.com https:",

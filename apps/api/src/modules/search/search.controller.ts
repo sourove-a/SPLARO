@@ -9,6 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import { Public } from '../../common/auth/public.decorator'
 import { SearchService } from './search.service'
 import { PrismaService } from '../../common/prisma.service'
@@ -24,6 +25,7 @@ export class SearchController {
   /* ─── Storefront search ───────────────────────────────────── */
 
   @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @Get()
   async search(
     @Query('q') query: string,
@@ -49,6 +51,7 @@ export class SearchController {
 
   /** Autocomplete suggestions */
   @Public()
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
   @Get('suggest')
   async suggest(
     @Query('q') query: string,

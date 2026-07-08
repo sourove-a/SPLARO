@@ -1,5 +1,8 @@
 export const ADMIN_SESSION_COOKIE = 'splaro_admin_session'
-const SESSION_TTL_MS = 1000 * 60 * 60 * 12 // 12 hours
+// Shorter admin session window bounds exposure from a stolen token — there is
+// no server-side revocation list (stateless HMAC token), so expiry is the
+// only backstop between logout and the token becoming unusable.
+const SESSION_TTL_MS = 1000 * 60 * 60 * 6 // 6 hours
 
 export interface AdminSessionPayload {
   userId: string
@@ -90,14 +93,11 @@ export function sessionCookieOptions(maxAgeSec = SESSION_TTL_MS / 1000) {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    // Strict is safe here: login is a same-origin form POST, never a
+    // cross-site redirect/link landing, so there's no legitimate flow that
+    // needs Lax's top-level-navigation cookie allowance.
+    sameSite: 'strict' as const,
     path: '/',
     maxAge: maxAgeSec,
   }
-}
-
-export function createCsrfToken(): string {
-  const bytes = new Uint8Array(24)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }

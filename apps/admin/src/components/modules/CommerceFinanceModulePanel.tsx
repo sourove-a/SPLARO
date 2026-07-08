@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
   RotateCcw, FileText, CreditCard, ChevronDown, Printer, CheckCircle2,
@@ -48,10 +48,16 @@ function KpiStrip({ items }: { items: { label: string; value: string | number; i
   )
 }
 
-function CommerceToolbar({ summary, onRefresh }: { summary: string; onRefresh?: () => void }) {
+function CommerceToolbar({
+  summary,
+  onRefresh,
+}: {
+  summary: ReactNode
+  onRefresh?: () => void
+}) {
   return (
     <div className="admin-commerce-toolbar">
-      <p className="admin-commerce-toolbar__meta" dangerouslySetInnerHTML={{ __html: summary }} />
+      <p className="admin-commerce-toolbar__meta">{summary}</p>
       {onRefresh ? (
         <AdminButton size="sm" onClick={onRefresh}>
           <RefreshCw size={14} />
@@ -209,7 +215,7 @@ function ReturnsRmaPanel() {
   return (
     <div className="admin-commerce-panel settings-section-enter">
       <CommerceToolbar
-        summary={`<strong>${rows.length}</strong> requests · <strong>${openCount}</strong> open`}
+        summary={<><strong>{rows.length}</strong> requests · <strong>{openCount}</strong> open</>}
         onRefresh={() => void refetch()}
       />
 
@@ -370,7 +376,7 @@ function SubscriptionsPanel() {
   return (
     <div className="admin-commerce-panel settings-section-enter">
       <CommerceToolbar
-        summary={`<strong>${mapped.length}</strong> customers · subscription commerce`}
+        summary={<><strong>{mapped.length}</strong> customers · subscription commerce</>}
         onRefresh={() => void refetch()}
       />
 
@@ -515,7 +521,7 @@ function InvoicesPanel() {
       />
 
       <CommerceToolbar
-        summary={`<strong>${rows.length}</strong> total · <strong>${formatBDT(outstanding)}</strong> outstanding`}
+        summary={<><strong>{rows.length}</strong> total · <strong>{formatBDT(outstanding)}</strong> outstanding</>}
         onRefresh={() => void refetch()}
       />
 
@@ -788,7 +794,7 @@ function TransactionsPanel() {
       />
 
       <CommerceToolbar
-        summary={`<strong>${rows.length}</strong> transactions · live payments`}
+        summary={<><strong>{rows.length}</strong> transactions · live payments</>}
         onRefresh={() => void refetch()}
       />
 

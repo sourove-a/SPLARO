@@ -3,6 +3,7 @@ const isProd = process.env.NODE_ENV === 'production'
 const onHostinger = process.env.SPLARO_HOSTINGER === '1'
 const webOrigin = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://splaro.co'
 const web = webOrigin.replace(/\/$/, '')
+const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.splaro.co').replace(/\/api\/v1\/?$/, '')
 
 const nextConfig = {
   output: 'standalone',
@@ -63,6 +64,20 @@ const nextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=31536000; includeSubDomains; preload',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com https://images.unsplash.com https://placehold.co",
+              "media-src 'self' blob: https://cdn.splaro.co https://splaro.co https://*.r2.cloudflarestorage.com",
+              "font-src 'self' data:",
+              `connect-src 'self' ${web} ${apiOrigin}`,
+              "frame-src 'none'",
+              "object-src 'none'",
+            ].join('; '),
           },
         ],
       },

@@ -10,11 +10,12 @@ export interface AdminSessionPayload {
 }
 
 function getSecret(): string {
-  return (
-    process.env['ADMIN_SESSION_SECRET'] ??
-    process.env['JWT_SECRET'] ??
-    'splaro-dev-admin-session-change-me'
-  )
+  const secret = process.env['ADMIN_SESSION_SECRET'] ?? process.env['JWT_SECRET']
+  if (secret) return secret
+  if (process.env['NODE_ENV'] === 'production') {
+    throw new Error('ADMIN_SESSION_SECRET (or JWT_SECRET) must be set in production')
+  }
+  return 'splaro-dev-admin-session-change-me'
 }
 
 function decodeStringBase64Url(value: string): string {
