@@ -1,10 +1,13 @@
+// Self-hosted (same assets as the storefront's footer/auth globe) — avoids
+// depending on external CDNs that admin's CSP doesn't (and shouldn't) allowlist.
+const LOCAL_EARTH_BASE = '/images/earth'
+
 export const EARTH_TEXTURE_URLS = {
-  day: 'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg',
-  night: 'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg',
-  bump: 'https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png',
-  clouds:
-    'https://raw.githubusercontent.com/vasturiano/three-globe/master/example/clouds/clouds.png',
-  moon: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r149/examples/textures/planets/moon_1024.jpg',
+  day: `${LOCAL_EARTH_BASE}/earth-day.webp`,
+  night: `${LOCAL_EARTH_BASE}/earth-night.webp`,
+  bump: `${LOCAL_EARTH_BASE}/earth-bump.webp`,
+  clouds: `${LOCAL_EARTH_BASE}/earth-clouds.webp`,
+  moon: `${LOCAL_EARTH_BASE}/moon.webp`,
 } as const
 
 let preloadPromise: Promise<void> | null = null
