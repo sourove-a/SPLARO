@@ -39,9 +39,9 @@ chmod +x "$BACKUP_SCRIPT" 2>/dev/null || true
 
 CRON_LINE="0 3 * * * bash $BACKUP_SCRIPT >> /var/log/splaro/backup.log 2>&1"
 {
-  crontab -l 2>/dev/null || true
+  crontab -l 2>/dev/null | grep -Fv 'backup-local-only.sh' || true
   echo "$CRON_LINE"
-} | grep -Fv 'backup-local-only.sh' | sort -u | crontab -
+} | crontab -
 log "Daily DB backup cron installed (03:00 UTC)"
 
 # ── splaro.com.bd → splaro.co (when DNS points here) ─────────
