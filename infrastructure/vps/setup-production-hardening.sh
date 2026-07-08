@@ -54,13 +54,18 @@ server {
 }
 NGINX
   ln -sf "$BD_CONF" /etc/nginx/sites-enabled/splaro.com.bd.conf
-  nginx -t && systemctl reload nginx
-  log "splaro.com.bd HTTP redirect configured (add DNS A record → this VPS, then certbot)"
+  if nginx -t 2>/dev/null; then
+    systemctl reload nginx
+    log "splaro.com.bd HTTP redirect configured (add DNS A record → this VPS, then certbot)"
+  else
+    log "WARN: nginx test failed — splaro.com.bd config skipped"
+    rm -f /etc/nginx/sites-enabled/splaro.com.bd.conf
+  fi
 fi
 
 # ── Certbot auto-renew sanity ────────────────────────────────
 if command -v certbot >/dev/null; then
-  certbot renew --dry-run >/dev/null 2>&1 && log "Certbot renew dry-run OK" || log "WARN: certbot renew dry-run failed"
+  certbot renew --dry-run >/dev/null 2>&1 && log "Certbot renew dry-run OK" || log "WARN: certbot renew dry-run failed (non-fatal)"
 fi
 
 echo ""

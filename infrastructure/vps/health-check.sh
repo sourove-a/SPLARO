@@ -38,7 +38,8 @@ API=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4000/api/v1/health
 echo ""
 echo "🗄️  Data"
 redis-cli ping >/dev/null 2>&1 && pass "Redis PONG" || fail "Redis down"
-sudo -u postgres psql -d splaro_db -t -c 'SELECT count(*) FROM "Product"' 2>/dev/null | xargs -I{} pass "Products: {}" || warn "DB query failed"
+PRODUCT_COUNT="$(sudo -u postgres psql -d splaro_db -t -A -c 'SELECT count(*) FROM "Product"' 2>/dev/null || echo 0)"
+pass "Products in DB: $PRODUCT_COUNT"
 
 echo ""
 echo "🔑 Integrations (.env)"
