@@ -3,12 +3,13 @@ import { getServerApiBaseUrl } from '@splaro/config'
 import { ADMIN_SESSION_COOKIE, createAdminSessionToken, sessionCookieOptions } from '@/lib/auth/session'
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { email?: string; token?: string }
+  const body = (await request.json()) as { email?: string; token?: string; password?: string }
   const email = body.email?.trim()
   const token = body.token?.trim()
+  const password = body.password ?? ''
 
-  if (!email || !token) {
-    return NextResponse.json({ error: 'Email and Telegram token required' }, { status: 400 })
+  if (!email || (!token && !password)) {
+    return NextResponse.json({ error: 'Email and a Telegram token or password required' }, { status: 400 })
   }
 
   const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     const res = await fetch(`${base}/admin/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, token, storeId }),
+      body: JSON.stringify(token ? { email, token, storeId } : { email, password, storeId }),
       cache: 'no-store',
     })
 
