@@ -66,9 +66,11 @@ NGINX
   fi
 fi
 
-# ── Certbot auto-renew sanity ────────────────────────────────
-if command -v certbot >/dev/null; then
-  certbot renew --dry-run >/dev/null 2>&1 && log "Certbot renew dry-run OK" || log "WARN: certbot renew dry-run failed (non-fatal)"
+# ── Certbot auto-renew sanity (quick check only — dry-run can take minutes) ─
+if command -v certbot >/dev/null && systemctl is-active certbot.timer >/dev/null 2>&1; then
+  log "Certbot timer active"
+elif command -v certbot >/dev/null; then
+  log "Certbot installed (renew via: certbot renew)"
 fi
 
 echo ""
