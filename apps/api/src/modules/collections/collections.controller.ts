@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Patch, Post, Param, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 
 @Controller('admin/collections')
 export class CollectionsController {
@@ -29,7 +30,7 @@ export class CollectionsController {
     })
     if (existing) slug = `${slug}-${Date.now().toString(36)}`
 
-    return this.prisma.collection.create({
+    const collection = await this.prisma.collection.create({
       data: {
         storeId: sid,
         name: body.name,
@@ -40,6 +41,8 @@ export class CollectionsController {
       },
       include: { _count: { select: { products: true } } },
     })
+    void revalidateStorefrontWeb(['storefront-collections'])
+    return collection
   }
 
   @Patch(':id')
@@ -49,17 +52,20 @@ export class CollectionsController {
     @Body() body: { name?: string; description?: string; image?: string; isActive?: boolean; sortOrder?: number },
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    return this.prisma.collection.update({
+    const collection = await this.prisma.collection.update({
       where: { id, storeId: sid },
       data: body,
       include: { _count: { select: { products: true } } },
     })
+    void revalidateStorefrontWeb(['storefront-collections'])
+    return collection
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     await this.prisma.collection.delete({ where: { id, storeId: sid } })
+    void revalidateStorefrontWeb(['storefront-collections'])
     return { deleted: true }
   }
 }

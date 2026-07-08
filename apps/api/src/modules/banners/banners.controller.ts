@@ -11,6 +11,7 @@ import {
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { CacheService } from '../../common/cache.service'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 
 @Controller('admin/banners')
 export class BannersController {
@@ -21,6 +22,7 @@ export class BannersController {
 
   private async bustBannerCache(storeId: string) {
     await this.cache.invalidateStoreResource(storeId, 'banners')
+    void revalidateStorefrontWeb(['storefront-banners'])
   }
 
   @Get()
@@ -104,6 +106,7 @@ export class BannersController {
         this.prisma.banner.update({ where: { id: item.id }, data: { sortOrder: item.sortOrder } }),
       ),
     )
+    void revalidateStorefrontWeb(['storefront-banners'])
     return { ok: true, updated: body.items.length }
   }
 
@@ -117,6 +120,7 @@ export class BannersController {
       where: { storeId: sid, ...(body.position ? { position: body.position } : {}) },
       data: { isActive: body.isActive },
     })
+    await this.bustBannerCache(sid)
     return { ok: true, updated: result.count }
   }
 
@@ -127,6 +131,7 @@ export class BannersController {
       where: { storeId: sid, expiresAt: { lt: new Date() }, isActive: true },
       data: { isActive: false },
     })
+    if (result.count > 0) await this.bustBannerCache(sid)
     return { expired: result.count }
   }
 

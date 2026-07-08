@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 
 @Controller('admin/categories')
 export class CategoriesController {
@@ -38,18 +39,26 @@ export class CategoriesController {
         parentId: body.parentId,
       },
     })
+    void revalidateStorefrontWeb(['storefront-categories'])
     return category
   }
 
   @Patch(':id')
   async update(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string; isActive?: boolean; image?: string | null },
+    @Body() body: {
+      name?: string
+      description?: string
+      isActive?: boolean
+      image?: string | null
+      storeId?: string
+    },
   ) {
-    const category = await this.prisma.category.findUnique({ where: { id } })
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const category = await this.prisma.category.findFirst({ where: { id, storeId: sid } })
     if (!category) throw new NotFoundException('Category not found')
 
-    return this.prisma.category.update({
+    const updated = await this.prisma.category.update({
       where: { id },
       data: {
         ...(body.name !== undefined ? { name: body.name } : {}),
@@ -58,12 +67,15 @@ export class CategoriesController {
         ...(body.image !== undefined ? { image: body.image } : {}),
       },
     })
+    void revalidateStorefrontWeb(['storefront-categories'])
+    return updated
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    const category = await this.prisma.category.findUnique({
-      where: { id },
+  async remove(@Param('id') id: string, @Query('storeId') storeId?: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const category = await this.prisma.category.findFirst({
+      where: { id, storeId: sid },
       include: { _count: { select: { products: true } } },
     })
     if (!category) throw new NotFoundException('Category not found')
@@ -71,6 +83,7 @@ export class CategoriesController {
       throw new BadRequestException('Move or delete products in this category first.')
     }
     await this.prisma.category.delete({ where: { id } })
+    void revalidateStorefrontWeb(['storefront-categories'])
     return { success: true }
   }
 
@@ -85,6 +98,7 @@ export class CategoriesController {
         this.prisma.category.update({ where: { id, storeId: sid }, data: { sortOrder } }),
       ),
     )
+    void revalidateStorefrontWeb(['storefront-categories'])
     return { updated: order.length }
   }
 }
