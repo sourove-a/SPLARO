@@ -29,10 +29,14 @@ function redirectToTarget(request: NextRequest, target: string, status = 307) {
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.split(':')[0]?.toLowerCase()
   if (host === 'www.splaro.co') {
-    const url = request.nextUrl.clone()
-    url.host = 'splaro.co'
-    url.protocol = 'https:'
-    return NextResponse.redirect(url, 301)
+    // Build a fresh URL rather than mutating request.nextUrl.clone() — behind
+    // a reverse proxy, NextURL's internal port (e.g. :3000) leaks through the
+    // `.host`/`.protocol` setters and produces a broken https://splaro.co:3000 redirect.
+    const target = new URL(
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+      'https://splaro.co',
+    )
+    return NextResponse.redirect(target, 301)
   }
 
   const { pathname } = request.nextUrl
