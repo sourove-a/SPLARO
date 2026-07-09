@@ -23,8 +23,8 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
     <>
       {GA_ID ? (
         <>
-          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-          <Script id="splaro-ga4" strategy="afterInteractive">
+          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
+          <Script id="splaro-ga4" strategy="lazyOnload">
             {`
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
@@ -37,7 +37,7 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
 
       {FB_PIXEL_ID ? (
         <>
-          <Script id="splaro-meta-pixel" strategy="afterInteractive">
+          <Script id="splaro-meta-pixel" strategy="lazyOnload">
             {`
               !function(f,b,e,v,n,t,s)
               {if(f.fbq)return;n=f.fbq=function(){n.callMethod?

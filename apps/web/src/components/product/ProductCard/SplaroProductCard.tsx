@@ -7,6 +7,7 @@ import { ProductTransitionLink } from '@/components/product/ProductTransitionLin
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 import { Heart, ChevronUp, ChevronDown, ShoppingBag, Loader2 } from 'lucide-react'
 import { useWishlistStore } from '@/store/wishlistStore'
+import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 
@@ -56,6 +57,7 @@ export function SplaroProductCard({
   variant = 'default',
 }: SplaroProductCardProps) {
   const reducedMotion = useReducedMotion()
+  const isMobile = useMobileViewport()
   const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
   const saved = wishlistHydrated && isInWishlist(id)
@@ -107,7 +109,7 @@ export function SplaroProductCard({
           href={link}
           className="splaro-card__link ilyn-card__link"
           aria-label={name}
-          prefetch
+          prefetch={!isHomepage}
           onMouseDown={() => setLinkPressed(true)}
           onMouseUp={() => setLinkPressed(false)}
           onMouseLeave={() => setLinkPressed(false)}
@@ -130,6 +132,7 @@ export function SplaroProductCard({
               )}
             />
           </div>
+          {!isMobile ? (
           <StorefrontImage
             src={secondImage}
             alt=""
@@ -144,6 +147,7 @@ export function SplaroProductCard({
                 : 'splaro-card__img--contain ilyn-card__img--contain',
             )}
           />
+          ) : null}
         </ProductTransitionLink>
 
         {showStatus ? (

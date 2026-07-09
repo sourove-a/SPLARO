@@ -20,9 +20,9 @@ export function GoogleAnalyticsHead() {
     <>
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_ENV_ID}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
-      <Script id="splaro-ga4-head" strategy="afterInteractive">
+      <Script id="splaro-ga4-head" strategy="lazyOnload">
         {`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}

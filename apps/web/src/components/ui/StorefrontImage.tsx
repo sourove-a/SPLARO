@@ -7,9 +7,11 @@ import {
   IMAGE_BLUR_PLACEHOLDER,
   IMAGE_QUALITY,
   IMAGE_SIZES,
+  mobileImageProfile,
   optimizeImageSrc,
   type ImageProfile,
 } from '@/lib/assets/image-optimize'
+import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
 type StorefrontImageProps = Omit<ImageProps, 'src' | 'placeholder' | 'blurDataURL'> & {
@@ -30,7 +32,9 @@ export function StorefrontImage({
   alt,
   ...rest
 }: StorefrontImageProps) {
-  const optimizedSrc = optimizeImageSrc(src, profile)
+  const isMobile = useMobileViewport()
+  const effectiveProfile = isMobile ? mobileImageProfile(profile) : profile
+  const optimizedSrc = optimizeImageSrc(src, effectiveProfile)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
@@ -41,8 +45,11 @@ export function StorefrontImage({
 
   const sizeMap: Record<ImageProfile, string> = {
     card: IMAGE_SIZES.card,
+    cardMobile: IMAGE_SIZES.cardMobile,
     gallery: IMAGE_SIZES.gallery,
+    galleryMobile: IMAGE_SIZES.galleryMobile,
     hero: IMAGE_SIZES.hero,
+    heroMobile: IMAGE_SIZES.heroMobile,
     thumb: IMAGE_SIZES.thumb,
     lightbox: IMAGE_SIZES.lightbox,
   }
@@ -52,8 +59,8 @@ export function StorefrontImage({
       src={failed ? PRODUCT_IMAGE_PLACEHOLDER : optimizedSrc}
       alt={alt}
       onError={() => setFailed(true)}
-      sizes={sizes ?? sizeMap[profile]}
-      quality={quality ?? IMAGE_QUALITY[profile]}
+      sizes={sizes ?? sizeMap[effectiveProfile]}
+      quality={quality ?? IMAGE_QUALITY[effectiveProfile]}
       className={cn(
         'sf-image',
         fit === 'cover' && 'sf-image--cover',

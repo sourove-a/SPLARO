@@ -33,6 +33,7 @@ import { isStorefrontProductInStock, resolveQuickAddVariant } from '@/lib/catalo
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
 import type { CachedCatalog, CatalogSource } from '@/lib/catalog/server'
 import { usePublishedShopCategories } from '@/lib/storefront/catalog-channels'
+import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
 const PAGE_SIZE = LISTING_PAGE_SIZE
@@ -77,6 +78,8 @@ export function ShopCatalog({
   layout = 'default',
 }: ShopCatalogProps) {
   const isHomepage = layout === 'homepage'
+  const isMobile = useMobileViewport()
+  const homepageProductLimit = isMobile ? 6 : HOMEPAGE_PRODUCT_LIMIT
   const reducedMotion = useReducedMotion()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
@@ -231,8 +234,8 @@ export function ShopCatalog({
 
   const visibleProducts = useMemo(() => {
     const slice = filteredProducts.slice(0, visibleCount)
-    return isHomepage ? slice.slice(0, HOMEPAGE_PRODUCT_LIMIT) : slice
-  }, [filteredProducts, isHomepage, visibleCount])
+    return isHomepage ? slice.slice(0, homepageProductLimit) : slice
+  }, [filteredProducts, homepageProductLimit, isHomepage, visibleCount])
 
   const gridAnimationKey = useMemo(
     () =>
@@ -496,7 +499,7 @@ export function ShopCatalog({
                     inStock={product.inStock ?? isStorefrontProductInStock(product)}
                     sizes={product.sizes}
                     href={getProductHref(product)}
-                    priority={index < 4}
+                    priority={index < (isMobile ? 2 : 4)}
                     onAddToBag={() =>
                       addProductToBag(product, product.sizes[0], product.colors[0], true)
                     }

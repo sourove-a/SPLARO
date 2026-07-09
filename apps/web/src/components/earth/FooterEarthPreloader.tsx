@@ -2,10 +2,14 @@
 
 import { useEffect } from 'react'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
+import { isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { isSmoothScrollEligible } from '@/lib/motion/scroll'
 
 /** Warm earth assets as early as possible so footer globe is ready before scroll reaches it. */
 export function FooterEarthPreloader() {
   useEffect(() => {
+    if (isMobileViewport() || !isSmoothScrollEligible()) return
+
     const win = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
       cancelIdleCallback?: (id: number) => void

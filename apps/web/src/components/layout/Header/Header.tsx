@@ -8,21 +8,23 @@ import { SplaroBrandLogo, logoUrlProp } from '@/components/brand/SplaroBrandLogo
 import { AnimatePresence, motion } from 'framer-motion'
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
-import { Navigation } from './Navigation'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useUiStore } from '@/store/uiStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useHeaderScroll } from '@/hooks/useScrollY'
+import { useMinWidth } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
+const DesktopNavigation = dynamic(() => import('./Navigation').then((m) => m.Navigation))
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
 const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
 
 export function Header() {
   const pathname = usePathname()
+  const isDesktopNav = useMinWidth(1024)
   const isHome = pathname === '/'
   const settings = useStorefrontSettings()
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false)
@@ -118,7 +120,7 @@ export function Header() {
               />
             </div>
 
-            <Navigation onMegaMenuChange={setIsMegaMenuOpen} />
+            {isDesktopNav ? <DesktopNavigation onMegaMenuChange={setIsMegaMenuOpen} /> : null}
 
             <div className="site-header-glass__actions">
               <button

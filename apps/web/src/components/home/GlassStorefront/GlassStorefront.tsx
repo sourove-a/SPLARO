@@ -6,15 +6,23 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { HeroSlider } from '@/components/home/HeroSlider'
 import { MarqueeStrip } from '@/components/home/MarqueeStrip'
-import { SpecialOffer } from '@/components/home/SpecialOffer'
-import { ShopCatalog } from '@/components/shop/ShopCatalog'
 import { TrustBar } from '@/components/home/TrustBar'
-import { ScrollReveal } from '@/components/motion/ScrollReveal'
+import { DeferUntilVisible } from '@/components/ui/DeferUntilVisible'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { type Category } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import type { HeroBanner } from '@/lib/api/banners'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
+
+const SpecialOffer = dynamic(
+  () => import('@/components/home/SpecialOffer').then((m) => m.SpecialOffer),
+  { ssr: false },
+)
+const ShopCatalog = dynamic(
+  () => import('@/components/shop/ShopCatalog').then((m) => m.ShopCatalog),
+  { ssr: false },
+)
 
 const WhySplaro = dynamic(
   () => import('@/components/home/WhySplaro').then((m) => m.WhySplaro),
@@ -35,6 +43,7 @@ interface GlassStorefrontProps {
 
 export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStorefrontProps) {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
+  const isMobile = useMobileViewport()
   const settings = useStorefrontSettings()
   const homepage = resolveHomepageSections(settings.config.homepage)
   const showNewsletter = homepage.newsletter && (settings.config.newsletter?.enabled ?? true)
@@ -52,13 +61,13 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
 
       <div className="ed-root">
       {homepage.specialOffer ? (
-        <ScrollReveal variant="fadeUp">
+        <DeferUntilVisible minHeight={320} eager={!isMobile}>
           <SpecialOffer />
-        </ScrollReveal>
+        </DeferUntilVisible>
       ) : null}
 
       {homepage.catalog ? (
-        <ScrollReveal variant="fadeUp">
+        <DeferUntilVisible minHeight={560} eager={!isMobile}>
           <section className="ed-catalog-intro ed-defer-section" aria-label="Shop catalog">
             <div className="ed-catalog-intro__ambient" aria-hidden />
             <div className="ed-catalog">
@@ -84,19 +93,19 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
                 />
             </div>
           </section>
-        </ScrollReveal>
+        </DeferUntilVisible>
       ) : null}
 
       {homepage.ourStory ? (
-        <ScrollReveal variant="fadeUp">
+        <DeferUntilVisible minHeight={420} eager={!isMobile}>
           <WhySplaro />
-        </ScrollReveal>
+        </DeferUntilVisible>
       ) : null}
 
       {showNewsletter ? (
-        <ScrollReveal variant="fadeIn">
+        <DeferUntilVisible minHeight={280} eager={!isMobile}>
           <NewsletterSection />
-        </ScrollReveal>
+        </DeferUntilVisible>
       ) : null}
       </div>
     </>

@@ -7,16 +7,22 @@ export const IMAGE_BLUR_PLACEHOLDER =
 
 export const IMAGE_QUALITY = {
   card: 86,
+  cardMobile: 82,
   gallery: 90,
+  galleryMobile: 86,
   hero: 92,
+  heroMobile: 85,
   thumb: 82,
   lightbox: 92,
 } as const
 
 export const IMAGE_SIZES = {
   card: '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw',
+  cardMobile: '(max-width: 640px) 50vw, 33vw',
   gallery: '(max-width: 1024px) 100vw, 55vw',
+  galleryMobile: '100vw',
   hero: '100vw',
+  heroMobile: '100vw',
   thumb: '72px',
   collection: '(max-width: 768px) 50vw, 25vw',
   lightbox: 'min(100vw, 1400px)',
@@ -26,10 +32,20 @@ export type ImageProfile = keyof typeof IMAGE_QUALITY
 
 const REMOTE_WIDTH: Record<ImageProfile, number> = {
   card: 900,
+  cardMobile: 480,
   gallery: 1200,
+  galleryMobile: 828,
   hero: 1920,
+  heroMobile: 828,
   thumb: 160,
   lightbox: 1600,
+}
+
+export function mobileImageProfile(profile: ImageProfile): ImageProfile {
+  if (profile === 'hero') return 'heroMobile'
+  if (profile === 'card') return 'cardMobile'
+  if (profile === 'gallery') return 'galleryMobile'
+  return profile
 }
 
 function isOptimizableRemote(url: string): boolean {
