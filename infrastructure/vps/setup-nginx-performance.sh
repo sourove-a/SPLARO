@@ -32,6 +32,17 @@ install_perf_snippet() {
 }
 
 sync_site_configs() {
+  # VPS uses unified splaro.co.conf (web + admin + api server blocks).
+  # Copying hostinger per-host configs alongside it duplicates http-level
+  # directives and server_name blocks → nginx -t fails → 502 for everyone.
+  if [ -f /etc/nginx/sites-enabled/splaro.co.conf ] || [ -f /etc/nginx/sites-available/splaro.co.conf ]; then
+    log "splaro.co.conf present — skip hostinger per-host site sync"
+    rm -f /etc/nginx/sites-enabled/splaro-web.conf \
+      /etc/nginx/sites-enabled/splaro-admin.conf \
+      /etc/nginx/sites-enabled/splaro-api.conf 2>/dev/null || true
+    return 0
+  fi
+
   local web="$APP_DIR/infrastructure/hostinger/splaro-co-web.conf"
   local admin="$APP_DIR/infrastructure/hostinger/splaro-co-admin.conf"
   local api="$APP_DIR/infrastructure/hostinger/splaro-co-api.conf"
