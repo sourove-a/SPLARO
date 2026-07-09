@@ -37,6 +37,7 @@ import { StorefrontWishlistService } from './storefront-wishlist.service'
 import { StorefrontOtpService } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
+import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
 
 function bearerToken(authorization?: string): string | undefined {
   return authorization?.replace(/^Bearer\s+/i, '').trim() || undefined
@@ -71,6 +72,7 @@ export class StorefrontController {
     private readonly storefrontOtp: StorefrontOtpService,
     private readonly invoices: InvoiceService,
     private readonly legalPages: LegalPagesService,
+    private readonly purgeDemoCatalog: PurgeDemoCatalogService,
   ) {}
 
   @Get('settings')
@@ -1281,5 +1283,22 @@ export class StorefrontController {
       body.detail ?? 'API unreachable',
     )
     return { ok: true }
+  }
+
+  /** Deploy hook — remove Unsplash/seed demo catalog (requires INTERNAL_HEALTH_SECRET). */
+  @Post('deploy/purge-demo')
+  async deployPurgeDemo(@Query('storeId') storeId: string, @Req() req: Request) {
+    const secret = process.env['INTERNAL_HEALTH_SECRET']
+    const header = req.headers['x-splaro-internal']
+    if (!secret || header !== secret) {
+      throw new UnauthorizedException('Invalid internal token')
+    }
+    const sid = await resolveStoreId(
+      this.prisma,
+      (storeId?.trim() || process.env['NEXT_PUBLIC_STORE_ID'] || 'splaro').trim(),
+    )
+    const result = await this.purgeDemoCatalog.purge(sid)
+    await this.cache.invalidateStoreResource(sid, 'products')
+    return { ok: true, ...result }
   }
 }

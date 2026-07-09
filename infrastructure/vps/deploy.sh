@@ -82,6 +82,22 @@ if nginx -t 2>/dev/null; then
   systemctl reload nginx
 fi
 
+maybe_purge_demo() {
+  if [ -z "${INTERNAL_HEALTH_SECRET:-}" ]; then
+    return 0
+  fi
+  local store="${NEXT_PUBLIC_STORE_ID:-splaro}"
+  local res
+  res="$(curl -sf -m 120 -X POST \
+    "http://127.0.0.1:4000/api/v1/storefront/deploy/purge-demo?storeId=${store}" \
+    -H "x-splaro-internal: ${INTERNAL_HEALTH_SECRET}" \
+    -H "Content-Type: application/json" 2>&1)" || {
+    log "WARN: demo purge API hook skipped ($res)"
+    return 0
+  }
+  log "Demo purge: $res"
+}
+
 maybe_reindex_search() {
   if [ -z "${INTERNAL_HEALTH_SECRET:-}" ] || [ -z "${MEILISEARCH_HOST:-}" ]; then
     return 0
@@ -124,7 +140,6 @@ wait_for_local_health() {
 }
 
 sleep 6
-maybe_reindex_search
 
 if pnpm db:enable-telegram 2>/dev/null; then
   log "Telegram — all notification flags enabled"
@@ -136,6 +151,9 @@ fi
 # API restarts after telegram enable — cluster mode needs time to bind :4000
 wait_for_local_health "http://127.0.0.1:3000/" "web" 20 2 || true
 wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "Health check failed — pm2 logs splaro-api"
+
+maybe_purge_demo
+maybe_reindex_search
 
 WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"

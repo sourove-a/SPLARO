@@ -107,6 +107,7 @@ import { AdminHubService } from './modules/admin-hub/admin-hub.service'
 import { AnalyticsController, AnalyticsService } from './modules/analytics'
 import { AiExecutiveController, AiProductAgentController, AiService } from './modules/ai'
 import { AuthController, AuthService, AdminLoginTokenService } from './modules/auth'
+import { PurgeDemoCatalogService } from './modules/catalog/purge-demo-catalog.service'
 import { ContentController, ContentService, LegalPagesService } from './modules/content'
 import { GoogleSheetsController, GoogleSheetsService } from './modules/google-sheets'
 import { ReportsController, ReportsService } from './modules/reports'
@@ -309,6 +310,7 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     AdminLoginTokenService,
     ContentService,
     LegalPagesService,
+    PurgeDemoCatalogService,
     GoogleSheetsService,
     ReportsService,
     RmaService,
