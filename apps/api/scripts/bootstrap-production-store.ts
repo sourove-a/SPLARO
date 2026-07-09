@@ -1,6 +1,6 @@
 /**
  * Fix production storefront contact — public email/phone/WhatsApp (not admin login).
- * Replaces personal Gmail on the live site and fills missing phone/WhatsApp.
+ * Also seeds marketing pixel IDs from env when SiteSettings fields are empty.
  *
  * Run on VPS: pnpm db:bootstrap-store
  */
@@ -70,11 +70,31 @@ async function main() {
   }
 
   const settings = await prisma.siteSettings.findUnique({ where: { storeId: store.id } })
-  const settingsPatch: { whatsappNumber?: string } = {}
+  const settingsPatch: {
+    whatsappNumber?: string
+    facebookPixelId?: string
+    googleAnalyticsId?: string
+  } = {}
 
   if (!settings?.whatsappNumber?.trim()) {
     settingsPatch.whatsappNumber = whatsapp
     console.log(`WhatsApp: (empty) → ${whatsapp}`)
+  }
+
+  const facebookPixelId = envFirst('FB_PIXEL_ID', 'NEXT_PUBLIC_FB_PIXEL_ID')
+  const googleAnalyticsId = envFirst(
+    'GA4_MEASUREMENT_ID',
+    'NEXT_PUBLIC_GA_MEASUREMENT_ID',
+    'NEXT_PUBLIC_GA_ID',
+  )
+
+  if (!settings?.facebookPixelId?.trim() && facebookPixelId) {
+    settingsPatch.facebookPixelId = facebookPixelId
+    console.log('Facebook Pixel ID: (empty) → set from env')
+  }
+  if (!settings?.googleAnalyticsId?.trim() && googleAnalyticsId) {
+    settingsPatch.googleAnalyticsId = googleAnalyticsId
+    console.log('Google Analytics ID: (empty) → set from env')
   }
 
   if (Object.keys(settingsPatch).length > 0) {
@@ -87,7 +107,7 @@ async function main() {
     }
     console.log('Site settings saved.')
   } else {
-    console.log('WhatsApp OK — no settings changes.')
+    console.log('Site settings OK — no changes.')
   }
 
   console.log('')
