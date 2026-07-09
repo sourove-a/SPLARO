@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils/cn'
 const logoAssets = {
   /** Header/footer — SPLARO wordmark on light backgrounds */
   light: {
-    src: '/images/logo/splaro-brand-mark-transparent.png',
+    src: '/images/logo/splaro-brand-mark-400.webp',
     width: 200,
     height: 80,
   },
@@ -16,7 +16,7 @@ const logoAssets = {
   },
   /** Auth / login pages */
   brand: {
-    src: '/images/logo/splaro-brand-mark-transparent.png',
+    src: '/images/logo/splaro-brand-mark-400.webp',
     width: 200,
     height: 80,
   },

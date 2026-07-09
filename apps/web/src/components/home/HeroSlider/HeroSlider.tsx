@@ -288,8 +288,12 @@ function HeroBackground({
   const videoSrc = mobileActive && slide.videoMobile ? slide.videoMobile : slide.video
   const poster =
     slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
+  // `mounted` gate is load-bearing: during hydration `isMobile` is still false,
+  // so without it the <video> mounts for one render with preload=auto and phones
+  // start downloading the full desktop MP4 before the viewport check kicks in.
   const mountVideo = Boolean(
-    !mobileActive &&
+    mounted &&
+      !isMobile &&
       videoSrc &&
       !videoFailed &&
       allowVideo &&

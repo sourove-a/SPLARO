@@ -18,7 +18,7 @@ const StoryEarthGlobe = dynamic(
 )
 
 /** Same PNG wordmarks as header — not the legacy Georgia serif SVG placeholders. */
-const SPLARO_LOGO = '/images/logo/splaro-brand-mark-transparent.png'
+const SPLARO_LOGO = '/images/logo/splaro-brand-mark-400.webp'
 const SPLARO_MARK = '/images/logo/splaro-brand-mark-tab-48.png'
 const MARK_SIZE = 48
 const LOGO_W = 200

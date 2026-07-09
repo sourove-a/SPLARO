@@ -133,7 +133,7 @@ export function ContentPremiumLegal({
 
       <div className="legal-premium__watermark" aria-hidden="true">
         <Image
-          src="/images/logo/splaro-brand-mark-transparent.png"
+          src="/images/logo/splaro-brand-mark-400.webp"
           alt=""
           width={280}
           height={112}
@@ -162,7 +162,7 @@ export function ContentPremiumLegal({
               <span className="legal-premium__crest-ring" />
               <span className="legal-premium__crest-glass">
                 <Image
-                  src="/images/logo/splaro-brand-mark-transparent.png"
+                  src="/images/logo/splaro-brand-mark-400.webp"
                   alt=""
                   width={168}
                   height={68}
