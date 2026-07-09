@@ -84,18 +84,25 @@ fi
 
 maybe_purge_demo() {
   if [ -z "${INTERNAL_HEALTH_SECRET:-}" ]; then
+    log "WARN: INTERNAL_HEALTH_SECRET unset — skipping demo purge API hook"
     return 0
   fi
   local store="${NEXT_PUBLIC_STORE_ID:-splaro}"
-  local res
-  res="$(curl -sf -m 120 -X POST \
+  local body_file
+  body_file="$(mktemp)"
+  local code
+  code="$(curl -s -m 120 -o "$body_file" -w '%{http_code}' -X POST \
     "http://127.0.0.1:4000/api/v1/storefront/deploy/purge-demo?storeId=${store}" \
     -H "x-splaro-internal: ${INTERNAL_HEALTH_SECRET}" \
-    -H "Content-Type: application/json" 2>&1)" || {
-    log "WARN: demo purge API hook skipped ($res)"
+    -H "Content-Type: application/json" || echo 000)"
+  local body
+  body="$(tr -d '\n' < "$body_file" | head -c 400)"
+  rm -f "$body_file"
+  if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+    log "Demo purge API: HTTP $code — $body"
     return 0
-  }
-  log "Demo purge: $res"
+  fi
+  log "WARN: demo purge API hook failed (HTTP $code) — $body"
 }
 
 maybe_reindex_search() {
@@ -154,6 +161,9 @@ wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "H
 
 maybe_purge_demo
 maybe_reindex_search
+
+log "Purging demo catalog post-deploy (idempotent)…"
+pnpm db:purge-demo 2>&1 | tail -12 || log "WARN: post-deploy demo purge skipped"
 
 WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"
