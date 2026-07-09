@@ -12,5 +12,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function EditorialPage() {
   const page = await getLegalPage('editorial')
-  return <ContentPage title={page.title} description={page.description} sections={page.sections} />
+  return (
+    <ContentPage
+      title={page.title}
+      description={page.description}
+      sections={page.sections}
+      variant="boxed"
+    />
+  )
 }

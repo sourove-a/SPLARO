@@ -1,22 +1,89 @@
 'use client'
 
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Loader2, Mail, MapPin, MessageCircle, Phone, Send } from 'lucide-react'
 
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
 import { submitContactForm } from '@/lib/api/contact'
 import { resolveWhatsAppNumber, resolveSupportPhone, whatsAppHref } from '@/lib/storefront/contact'
+import { DEFAULT_STORE_ADDRESS } from '@/lib/storefront/defaults'
 
 type SubmitStatus = 'idle' | 'loading' | 'success' | 'error'
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '')
+}
 
 export function ContactExtras() {
   const settings = useStorefrontSettings()
   const phone = resolveSupportPhone(settings)
-  const email = settings.store.email?.trim() || process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@splaro.co'
-  const whatsappLink = whatsAppHref(resolveWhatsAppNumber(settings))
+  const email =
+    settings.store.email?.trim() ||
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ||
+    'support@splaro.co'
+  const address = settings.store.address?.trim() || DEFAULT_STORE_ADDRESS
+  const whatsappNumber = resolveWhatsAppNumber(settings)
+  const whatsappLink = whatsAppHref(whatsappNumber)
+
+  const hasPhone = digitsOnly(phone).length >= 10
+  const hasWhatsApp = digitsOnly(whatsappNumber).length >= 10
+
   const [status, setStatus] = useState<SubmitStatus>('idle')
   const [error, setError] = useState('')
+
+  const contactCards = useMemo(
+    () =>
+      [
+        hasPhone
+          ? {
+              key: 'phone',
+              href: `tel:${digitsOnly(phone)}`,
+              external: false,
+              icon: Phone,
+              label: 'Phone',
+              value: phone,
+            }
+          : null,
+        {
+          key: 'email',
+          href: `mailto:${email}`,
+          external: false,
+          icon: Mail,
+          label: 'Email',
+          value: email,
+        },
+        hasWhatsApp
+          ? {
+              key: 'whatsapp',
+              href: whatsappLink,
+              external: true,
+              icon: MessageCircle,
+              label: 'WhatsApp',
+              value: 'Chat with us',
+            }
+          : null,
+        {
+          key: 'studio',
+          href: undefined,
+          external: false,
+          icon: MapPin,
+          label: 'Studio',
+          value: address,
+          static: true,
+        },
+      ].filter(Boolean) as Array<{
+        key: string
+        href?: string
+        external?: boolean
+        icon: typeof Phone
+        label: string
+        value: string
+        static?: boolean
+      }>,
+    [address, email, hasPhone, hasWhatsApp, phone, whatsappLink],
+  )
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -44,52 +111,91 @@ export function ContactExtras() {
   return (
     <>
       <div className="content-page__contact-grid">
-        <a href={`tel:${phone.replace(/\s/g, '')}`} className="content-page__contact-card">
-          <Phone className="h-4 w-4" strokeWidth={2.1} />
-          <div>
-            <strong>Phone</strong>
-            <span>{phone}</span>
-          </div>
-        </a>
-        <a href={`mailto:${email}`} className="content-page__contact-card">
-          <Mail className="h-4 w-4" strokeWidth={2.1} />
-          <div>
-            <strong>Email</strong>
-            <span>{email}</span>
-          </div>
-        </a>
-        <a
-          href={whatsappLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="content-page__contact-card"
-        >
-          <MessageCircle className="h-4 w-4" strokeWidth={2.1} />
-          <div>
-            <strong>WhatsApp</strong>
-            <span>Chat with us</span>
-          </div>
-        </a>
-        <div className="content-page__contact-card content-page__contact-card--static">
-          <MapPin className="h-4 w-4" strokeWidth={2.1} />
-          <div>
-            <strong>Studio</strong>
-            <span>Sector 13, Road 12, Uttara, Dhaka 1230</span>
-          </div>
-        </div>
+        {contactCards.map((card) => {
+          const Icon = card.icon
+          const inner = (
+            <>
+              <span className="content-page__contact-icon" aria-hidden>
+                <Icon className="h-4 w-4" strokeWidth={2.1} />
+              </span>
+              <div className="content-page__contact-copy">
+                <strong>{card.label}</strong>
+                <span>{card.value}</span>
+              </div>
+            </>
+          )
+
+          if (card.static || !card.href) {
+            return (
+              <div
+                key={card.key}
+                className="content-page__contact-card content-page__contact-card--static"
+              >
+                {inner}
+              </div>
+            )
+          }
+
+          if (card.external) {
+            return (
+              <MotionAnchor
+                key={card.key}
+                href={card.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="content-page__contact-card"
+                variant="subtle"
+              >
+                {inner}
+              </MotionAnchor>
+            )
+          }
+
+          return (
+            <MotionAnchor
+              key={card.key}
+              href={card.href!}
+              className="content-page__contact-card"
+              variant="subtle"
+            >
+              {inner}
+            </MotionAnchor>
+          )
+        })}
       </div>
 
-      <form className="content-page__form" onSubmit={handleSubmit}>
+      <p className="content-page__contact-hint">
+        Urgent order help?{' '}
+        <Link href="/track-order">Track your order</Link>
+        {hasWhatsApp ? (
+          <>
+            {' '}
+            or{' '}
+            <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+              WhatsApp us
+            </a>
+          </>
+        ) : null}
+        .
+      </p>
+
+      <form className="content-page__form" onSubmit={handleSubmit} noValidate>
         <h2 className="content-page__section-title">Send us a message</h2>
+        <p className="content-page__form-lead">
+          We reply within 4 business hours. Your message goes directly to the SPLARO support team.
+        </p>
+
         <div className="content-page__form-grid">
           <label className="content-page__field">
             <span>Full name</span>
             <input
               required
               name="name"
+              minLength={2}
               className="content-page__input"
               placeholder="Your name"
               disabled={status === 'loading'}
+              autoComplete="name"
             />
           </label>
           <label className="content-page__field">
@@ -98,8 +204,9 @@ export function ContactExtras() {
               required
               name="contact"
               className="content-page__input"
-              placeholder="you@example.com"
+              placeholder="you@example.com or 01XXXXXXXXX"
               disabled={status === 'loading'}
+              autoComplete="email"
             />
           </label>
           <label className="content-page__field content-page__field--full">
@@ -117,20 +224,36 @@ export function ContactExtras() {
             <textarea
               required
               name="message"
-              rows={4}
+              minLength={10}
+              rows={5}
               className="content-page__input content-page__input--area"
               placeholder="How can we help?"
               disabled={status === 'loading'}
             />
           </label>
         </div>
+
         {status === 'success' ? (
           <p className="content-page__form-success" role="status">
-            Thank you — our team will reply within 4 business hours. For urgent orders,{' '}
-            <Link href={whatsappLink}>WhatsApp us</Link>.
+            Thank you — our team received your message and will reply soon.
+            {hasWhatsApp ? (
+              <>
+                {' '}
+                For urgent orders,{' '}
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                  WhatsApp us
+                </a>
+                .
+              </>
+            ) : null}
           </p>
         ) : (
-          <button type="submit" className="content-page__submit" disabled={status === 'loading'}>
+          <MotionPressable
+            type="submit"
+            className="content-page__submit"
+            disabled={status === 'loading'}
+            variant="cta"
+          >
             {status === 'loading' ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -142,10 +265,11 @@ export function ContactExtras() {
                 Send message
               </>
             )}
-          </button>
+          </MotionPressable>
         )}
+
         {status === 'error' && error ? (
-          <p className="auth-form__error mt-3" role="alert">
+          <p className="content-page__form-error" role="alert">
             {error}
           </p>
         ) : null}

@@ -12,5 +12,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ReturnsPage() {
   const page = await getLegalPage('returns')
-  return <ContentPage title={page.title} description={page.description} sections={page.sections} />
+  return (
+    <ContentPage
+      title={page.title}
+      description={page.description}
+      sections={page.sections}
+      variant="premium"
+      premiumBadge="Returns & Exchange · 2026"
+    />
+  )
 }

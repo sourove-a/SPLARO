@@ -47,6 +47,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { getStoredAttribution } from '@/lib/analytics/attribution'
 import { notifyOrderPaymentEvent } from '@/lib/api/order-events'
+import { fetchAccountProfile } from '@/lib/api/account'
 import { startBkashCheckout, startNagadCheckout, startSslCommerzCheckout } from '@/lib/api/payments'
 import { trackInitiateCheckout, trackPurchase } from '@/lib/analytics/meta-pixel'
 import {
@@ -223,12 +224,62 @@ export default function CheckoutPageClient() {
   useEffect(() => {
     if (!authHydrated || !user) return
 
-    reset((current) => ({
-      ...current,
-      name: user.name || current.name,
-      email: user.email || current.email,
-      phone: user.phone ? formatBdPhoneInput(user.phone) : current.phone,
-    }))
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const data = await fetchAccountProfile()
+        if (cancelled) return
+
+        const draft = loadCheckoutCustomerDraft()
+        const apiAddress = data.address
+
+        reset((current) => ({
+          ...current,
+          name: user.name || current.name,
+          email: user.email || current.email,
+          phone: user.phone ? formatBdPhoneInput(user.phone) : current.phone,
+          ...(apiAddress
+            ? {
+                address: apiAddress.address,
+                city: apiAddress.district,
+                thana: apiAddress.thana,
+              }
+            : {
+                address: draft.address || current.address,
+                city: draft.city || current.city,
+                thana: draft.thana || current.thana,
+              }),
+        }))
+
+        if (apiAddress) {
+          window.localStorage.setItem(
+            'splaro-customer',
+            JSON.stringify({
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              address: apiAddress.address,
+              city: apiAddress.district,
+              district: apiAddress.district,
+              thana: apiAddress.thana,
+            }),
+          )
+        }
+      } catch {
+        if (cancelled) return
+        reset((current) => ({
+          ...current,
+          name: user.name || current.name,
+          email: user.email || current.email,
+          phone: user.phone ? formatBdPhoneInput(user.phone) : current.phone,
+        }))
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [authHydrated, user, reset])
 
   useEffect(() => {

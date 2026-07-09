@@ -30,6 +30,7 @@ import { mergeStorefrontConfig } from '../settings/storefront-config'
 import { CreateStorefrontOrderInput, StorefrontOrdersService } from './storefront-orders.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
+import { EmailService } from '../email/email.service'
 import { CustomersService } from '../customers/customers.service'
 import { StorefrontAuthService } from './storefront-auth.service'
 import { StorefrontWishlistService } from './storefront-wishlist.service'
@@ -63,6 +64,7 @@ export class StorefrontController {
     private readonly cache: CacheService,
     private readonly orderNotifications: OrderNotificationsService,
     private readonly telegramHub: AdminTelegramHubService,
+    private readonly email: EmailService,
     private readonly customers: CustomersService,
     private readonly storefrontAuth: StorefrontAuthService,
     private readonly storefrontWishlist: StorefrontWishlistService,
@@ -419,6 +421,59 @@ export class StorefrontController {
     return { user }
   }
 
+  @Get('customer/address')
+  async getCustomerAddress(
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user) throw new UnauthorizedException('Session expired')
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+    const saved = await this.storefrontAuth.getDefaultAddress(customerId)
+    if (!saved) return { address: null }
+
+    return {
+      address: {
+        address: saved.addressLine1,
+        district: saved.district,
+        thana: saved.city,
+      },
+    }
+  }
+
+  @Patch('customer/address')
+  async updateCustomerAddress(
+    @Query('storeId') storeId: string,
+    @Body() body: { address?: string; district?: string; thana?: string },
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user) throw new UnauthorizedException('Session expired')
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+
+    const saved = await this.storefrontAuth.saveDefaultAddress(customerId, user, {
+      address: body.address ?? '',
+      district: body.district ?? '',
+      thana: body.thana ?? '',
+    })
+
+    return {
+      address: {
+        address: saved.addressLine1,
+        district: saved.district,
+        thana: saved.city,
+      },
+    }
+  }
+
   @Get('customer/wishlist')
   async getWishlist(
     @Query('storeId') storeId: string,
@@ -696,9 +751,38 @@ export class StorefrontController {
     })
 
     if (!sent) {
-      throw new ServiceUnavailableException(
-        'Support messaging is temporarily unavailable. Please use WhatsApp or call us directly.',
-      )
+      const store = await this.prisma.store.findUnique({ where: { id: sid } })
+      const supportEmail = store?.email?.trim() || 'support@splaro.co'
+      const subjectLine = subject
+        ? `[Contact] ${subject} — ${name}`
+        : `[Contact] Website message — ${name}`
+      const textBody = [
+        `Name: ${name}`,
+        email ? `Email: ${email}` : null,
+        phone ? `Phone: ${phone}` : null,
+        subject ? `Subject: ${subject}` : null,
+        '',
+        message,
+        '',
+        '— splaro.co/contact',
+      ]
+        .filter(Boolean)
+        .join('\n')
+
+      const emailed = await this.email.sendForStore({
+        storeId: sid,
+        to: supportEmail,
+        subject: subjectLine,
+        html: textBody.replace(/\n/g, '<br>'),
+        text: textBody,
+        transactional: true,
+      })
+
+      if (!emailed) {
+        throw new ServiceUnavailableException(
+          'Support messaging is temporarily unavailable. Please use WhatsApp or call us directly.',
+        )
+      }
     }
 
     return { ok: true, message: 'Message sent — our team will reply shortly.' }

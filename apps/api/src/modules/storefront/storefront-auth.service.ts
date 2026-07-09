@@ -246,6 +246,62 @@ export class StorefrontAuthService {
     return refreshed
   }
 
+  async getDefaultAddress(customerId: string) {
+    return this.prisma.address.findFirst({
+      where: { customerId, isDefault: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+  }
+
+  async saveDefaultAddress(
+    customerId: string,
+    user: StorefrontAuthUser,
+    input: { address: string; district: string; thana: string },
+  ) {
+    const street = input.address.trim()
+    const district = input.district.trim()
+    const thana = input.thana.trim()
+    if (!street || !district || !thana) {
+      throw new BadRequestException('Complete delivery address, district, and thana are required')
+    }
+
+    const parts = user.name.trim().split(/\s+/).filter(Boolean)
+    const firstName = parts[0] ?? 'Customer'
+    const lastName = parts.slice(1).join(' ') || firstName
+    const isInsideDhaka = district.toLowerCase() === 'dhaka'
+
+    const data = {
+      label: 'Default',
+      firstName,
+      lastName,
+      phone: user.phone,
+      addressLine1: street,
+      city: thana,
+      district,
+      division: district,
+      isDefault: true,
+      isInsideDhaka,
+    }
+
+    const existing = await this.getDefaultAddress(customerId)
+
+    await this.prisma.address.updateMany({
+      where: { customerId, ...(existing ? { id: { not: existing.id } } : {}) },
+      data: { isDefault: false },
+    })
+
+    if (existing) {
+      return this.prisma.address.update({
+        where: { id: existing.id },
+        data,
+      })
+    }
+
+    return this.prisma.address.create({
+      data: { ...data, customerId },
+    })
+  }
+
   async logout(sessionToken: string): Promise<void> {
     if (!sessionToken?.trim()) return
     await this.prisma.deviceSession.updateMany({

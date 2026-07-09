@@ -18,15 +18,26 @@ export type AccountProfile = {
 export type AccountProfileResponse = {
   profile: AccountProfile
   user: AuthUser
+  address?: AccountAddress | null
+}
+
+export type AccountAddress = {
+  address: string
+  district: string
+  thana: string
 }
 
 export type UpdateProfilePayload = {
   name?: string
   avatar?: string | null
+  address?: string
+  district?: string
+  thana?: string
 }
 
 export type UpdateProfileResponse = {
   user?: AuthUser
+  address?: AccountAddress
   error?: string
 }
 

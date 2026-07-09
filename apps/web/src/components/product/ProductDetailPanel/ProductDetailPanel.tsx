@@ -3,11 +3,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight,
-  Heart, Maximize2, Minus, Plus, Ruler, Share2, ShoppingBag, X,
+  Heart, Maximize2, Minus, Plus, Ruler, Share2, X,
 } from 'lucide-react'
+import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
+import { MotionPressable } from '@/components/ui/MotionPressable'
+import {
+  ProductFadeSwap,
+  ProductReveal,
+  ProductStagger,
+  PRODUCT_GALLERY_MS,
+  productGalleryEase,
+  productGalleryMotion,
+} from '@/components/product/ProductMotion'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils/cn'
@@ -194,9 +204,9 @@ export function ProductDetailPanel({
           {/* ── LEFT: Gallery ─────────────────────────────── */}
           <div className="pdp-gallery">
             {/* Close — mobile */}
-            <button className="pdp-close-img lg:hidden" onClick={onClose} aria-label="Close">
+            <MotionPressable className="pdp-close-img lg:hidden" onClick={onClose} aria-label="Close" variant="icon">
               <X className="h-4 w-4" strokeWidth={2} />
-            </button>
+            </MotionPressable>
 
             {/* Badges */}
             <div className="pdp-badges">
@@ -210,10 +220,10 @@ export function ProductDetailPanel({
                   <motion.div
                     key={`${media[activeImage]?.type}-${media[activeImage]?.url}-${activeImage}`}
                     className="absolute inset-0"
-                    initial={{ opacity: 0, scale: 1.01 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.99 }}
-                    transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                    initial={productGalleryMotion.initial}
+                    animate={productGalleryMotion.animate}
+                    exit={productGalleryMotion.exit}
+                    transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
                   >
                     {media[activeImage]?.type === 'video' ? (
                       <video
@@ -239,34 +249,37 @@ export function ProductDetailPanel({
                 </AnimatePresence>
 
                 {media[activeImage]?.type !== 'video' && (
-                  <button
+                  <MotionPressable
                     type="button"
                     onClick={() => setLightboxOpen(true)}
                     className="splaro-nav-btn splaro-nav-btn--sm pdp-zoom-btn"
                     aria-label="Expand image"
+                    variant="icon"
                   >
                     <Maximize2 size={14} strokeWidth={2} />
-                  </button>
+                  </MotionPressable>
                 )}
 
                 {media.length > 1 && (
                   <>
-                    <button
+                    <MotionPressable
                       type="button"
                       onClick={prevImage}
                       className="splaro-nav-btn splaro-nav-btn--sm splaro-nav-btn--overlay splaro-nav-btn--prev"
                       aria-label="Previous image"
+                      variant="nav"
                     >
                       <ChevronLeft size={16} strokeWidth={2} />
-                    </button>
-                    <button
+                    </MotionPressable>
+                    <MotionPressable
                       type="button"
                       onClick={nextImage}
                       className="splaro-nav-btn splaro-nav-btn--sm splaro-nav-btn--overlay splaro-nav-btn--next"
                       aria-label="Next image"
+                      variant="nav"
                     >
                       <ChevronRight size={16} strokeWidth={2} />
-                    </button>
+                    </MotionPressable>
 
                     <div className="pdp-progress pdp-progress--inline">
                       <span className="pdp-progress__label">{activeImage + 1} / {media.length}</span>
@@ -285,12 +298,13 @@ export function ProductDetailPanel({
               {media.length > 1 && (
                 <div className="pdp-gallery__thumbstrip">
                   {media.map((item, i) => (
-                    <button
+                    <MotionPressable
                       key={`${item.type}-${item.url}-${i}`}
                       type="button"
                       onClick={() => setActiveImage(i)}
                       aria-label={`${item.type} ${i + 1}`}
                       className={cn('pdp-gallery__thumb', i === activeImage && 'pdp-gallery__thumb--active')}
+                      variant="chip"
                     >
                       {item.type === 'video' ? (
                         <>
@@ -300,7 +314,7 @@ export function ProductDetailPanel({
                       ) : (
                         <Image src={item.url} alt="" fill sizes="64px" className="object-contain object-center" />
                       )}
-                    </button>
+                    </MotionPressable>
                   ))}
                 </div>
               )}
@@ -312,20 +326,21 @@ export function ProductDetailPanel({
 
             {/* Scrollable content */}
             <div className="pdp-info__scroll" data-lenis-prevent>
-
-              {/* Header row */}
+              <ProductStagger>
+              <ProductReveal>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="pdp-eyebrow">SPLARO</p>
                   <h2 className="pdp-name">{product.name}</h2>
                   <p className="pdp-code">Product Code · {product.code}</p>
                 </div>
-                <button className="pdp-close-info" onClick={onClose} aria-label="Close">
+                <MotionPressable className="pdp-close-info" onClick={onClose} aria-label="Close" variant="icon">
                   <X className="h-[0.9rem] w-[0.9rem]" strokeWidth={2.2} />
-                </button>
+                </MotionPressable>
               </div>
+              </ProductReveal>
 
-              {/* Price */}
+              <ProductReveal>
               <div className="pdp-price-row">
                 <span className="pdp-price">{formatBDT(product.price)}</span>
                 {hasDiscount && (
@@ -335,26 +350,38 @@ export function ProductDetailPanel({
                   </>
                 )}
               </div>
+              </ProductReveal>
 
+              <ProductReveal>
               <p className="pdp-desc">{productDescription}</p>
-
               <div className="pdp-divider" />
+              </ProductReveal>
 
-              {/* Colors — ilyn thumbnail style */}
+              <ProductReveal>
               {colorOptions.length > 0 && (
                 <div className="pdp-section">
                   <p className="pdp-label">
-                    Color: <span className="font-normal opacity-55">{activeColorName}</span>
+                    Color:{' '}
+                    <AnimatePresence mode="wait" initial={false}>
+                      <ProductFadeSwap
+                        key={activeColorName}
+                        motionKey={activeColorName}
+                        className="font-normal opacity-55"
+                      >
+                        {activeColorName}
+                      </ProductFadeSwap>
+                    </AnimatePresence>
                   </p>
                   <div className="pdp-color-row">
                     {colorOptions.map((opt) => (
-                      <button
+                      <MotionPressable
                         key={opt.id}
                         type="button"
                         onClick={() => onColorChange(opt.hex)}
                         aria-label={opt.name}
                         aria-pressed={activeColorHex === opt.hex}
                         className={cn('pdp-color-thumb', activeColorHex === opt.hex && 'pdp-color-thumb--active')}
+                        variant="chip"
                       >
                         <Image
                           src={opt.image}
@@ -363,75 +390,95 @@ export function ProductDetailPanel({
                           sizes="72px"
                           className="object-contain object-center"
                         />
-                      </button>
+                      </MotionPressable>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Sizes — ilyn style */}
               {product.sizes.length > 0 && (
                 <div className="pdp-section">
                   <div className="flex items-center justify-between">
                     <p className="pdp-label">Select Size</p>
-                    <button type="button" className="pdp-size-guide">
+                    <MotionPressable type="button" className="pdp-size-guide" variant="subtle">
                       <Ruler className="h-3 w-3" strokeWidth={2} />
                       Size Guide
-                    </button>
+                    </MotionPressable>
                   </div>
+                  <LayoutGroup id="pdp-size-select">
                   <div className="pdp-size-row">
                     {product.sizes.map((size) => {
                       const unavailable = product.unavailableSizes?.includes(size) ?? false
+                      const active = modalSize === size && !unavailable
                       return (
-                        <button
+                        <MotionPressable
                           key={size}
                           type="button"
                           onClick={() => !unavailable && onSizeChange(size)}
-                          aria-pressed={modalSize === size}
+                          aria-pressed={active}
                           aria-disabled={unavailable}
+                          disabled={unavailable}
                           className={cn(
                             'pdp-size-btn',
-                            modalSize === size && !unavailable && 'pdp-size-btn--active',
+                            active && 'pdp-size-btn--active',
                             unavailable && 'pdp-size-btn--unavailable',
                           )}
+                          variant="chip"
                         >
-                          {size}
-                        </button>
+                          {active && (
+                            <motion.span
+                              layoutId="pdp-size-pill"
+                              className="pdp-size-btn__pill"
+                              transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                              aria-hidden
+                            />
+                          )}
+                          <span className="pdp-size-btn__label">{size}</span>
+                        </MotionPressable>
                       )
                     })}
                   </div>
+                  </LayoutGroup>
                 </div>
               )}
 
+              </ProductReveal>
+
+              <ProductReveal>
               <div className="pdp-section">
                 <p className="pdp-label">Quantity</p>
                 <div className="pp-qty">
-                  <button
+                  <MotionPressable
                     type="button"
                     className="pp-qty__btn"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     aria-label="Decrease quantity"
                     disabled={quantity <= 1}
+                    variant="icon"
                   >
                     <Minus className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </button>
+                  </MotionPressable>
                   <span className="pp-qty__value" aria-live="polite">{quantity}</span>
-                  <button
+                  <MotionPressable
                     type="button"
                     className="pp-qty__btn"
                     onClick={() => setQuantity((q) => q + 1)}
                     aria-label="Increase quantity"
+                    variant="icon"
                   >
                     <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  </button>
+                  </MotionPressable>
                 </div>
               </div>
+              </ProductReveal>
 
-              {/* Recently viewed + You may also like — desktop only */}
+              <ProductReveal>
               <div className="hidden lg:block">
                 <ProductMiniRow title="You may also like" products={youMayAlsoLike} onSelect={(p) => onSelectProduct?.(p)} />
                 <ProductMiniRow title="Recently viewed" products={recentlyViewed} onSelect={(p) => onSelectProduct?.(p)} />
               </div>
+              </ProductReveal>
+              </ProductStagger>
 
             </div>{/* end scroll */}
 
@@ -444,38 +491,53 @@ export function ProductDetailPanel({
               </div>
 
               {/* Add to bag */}
-              <button
+              <MotionPressable
                 type="button"
                 className={cn('pdp-cta-add', addedPulse && 'pdp-cta-add--added')}
                 onClick={handleAddToBag}
+                variant="cta"
               >
-                <ShoppingBag className="h-4 w-4" strokeWidth={2} />
-                {addedPulse ? 'Added to Bag!' : 'Add to Bag'}
-              </button>
+                <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
+                <motion.span
+                  key={addedPulse ? 'added' : 'default'}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {addedPulse ? 'Added to Bag!' : 'Add to Bag'}
+                </motion.span>
+              </MotionPressable>
 
               <div className="flex gap-2.5">
-                <button type="button" className="pdp-cta-secondary flex-1" onClick={handleCheckout}>
+                <MotionPressable type="button" className="pdp-cta-secondary flex-1" onClick={handleCheckout} variant="cta">
                   Buy Now
-                </button>
-                <button
+                </MotionPressable>
+                <MotionPressable
                   type="button"
                   onClick={onToggleSaved}
                   aria-label={saved ? 'Remove from wishlist' : 'Save'}
                   className={cn('pdp-cta-icon', saved && 'pdp-cta-icon--saved')}
+                  variant="icon"
                 >
-                  <Heart
-                    className={cn('h-[1rem] w-[1rem]', saved && 'fill-[#C8A97E] text-[#C8A97E]')}
-                    strokeWidth={2}
-                  />
-                </button>
-                <button
+                  <motion.span
+                    animate={saved ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+                    transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    <Heart
+                      className={cn('h-[1rem] w-[1rem]', saved && 'fill-[#C8A97E] text-[#C8A97E]')}
+                      strokeWidth={2}
+                    />
+                  </motion.span>
+                </MotionPressable>
+                <MotionPressable
                   type="button"
                   onClick={handleShare}
                   aria-label="Share"
                   className="pdp-cta-icon"
+                  variant="icon"
                 >
                   <Share2 className="h-[1rem] w-[1rem]" strokeWidth={2} />
-                </button>
+                </MotionPressable>
               </div>
             </div>
 
@@ -521,33 +583,36 @@ export function ProductDetailPanel({
                 </motion.div>
               </AnimatePresence>
 
-              <button
+              <MotionPressable
                 type="button"
                 onClick={() => setLightboxOpen(false)}
                 className="splaro-nav-btn splaro-nav-btn--sm splaro-nav-btn--glass-dark pdp-lightbox-close"
                 aria-label="Close zoom"
+                variant="icon"
               >
                 <X size={16} strokeWidth={2.2} />
-              </button>
+              </MotionPressable>
 
               {media.length > 1 && (
                 <>
-                  <button
+                  <MotionPressable
                     type="button"
                     onClick={prevImage}
                     className="splaro-nav-btn splaro-nav-btn--glass-dark splaro-nav-btn--overlay splaro-nav-btn--prev"
                     aria-label="Previous image"
+                    variant="nav"
                   >
                     <ChevronLeft size={18} strokeWidth={2} />
-                  </button>
-                  <button
+                  </MotionPressable>
+                  <MotionPressable
                     type="button"
                     onClick={nextImage}
                     className="splaro-nav-btn splaro-nav-btn--glass-dark splaro-nav-btn--overlay splaro-nav-btn--next"
                     aria-label="Next image"
+                    variant="nav"
                   >
                     <ChevronRight size={18} strokeWidth={2} />
-                  </button>
+                  </MotionPressable>
                   <div className="pdp-lightbox-progress">{activeImage + 1} / {media.length}</div>
                 </>
               )}

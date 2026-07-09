@@ -16,11 +16,11 @@ const TRENDING = [
 ]
 
 const QUICK_CATEGORIES = [
-  { label: 'Summer Edition', href: '/c/summer-edition', image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=120&h=160&q=80&fit=crop' },
-  { label: 'Men', href: '/c/men', image: 'https://images.unsplash.com/photo-1516257984-b1b4d707412e?w=120&h=160&q=80&fit=crop' },
-  { label: 'Women', href: '/c/women', image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=120&h=160&q=80&fit=crop' },
-  { label: 'Kids', href: '/c/kids', image: 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=120&h=160&q=80&fit=crop' },
-  { label: 'Footwear', href: '/c/footwear', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=120&h=160&q=80&fit=crop' },
+  { label: 'Summer Edition', href: '/c/summer-edition', image: '/images/placeholder-product.jpg' },
+  { label: 'Men', href: '/c/men', image: '/images/placeholder-product.jpg' },
+  { label: 'Women', href: '/c/women', image: '/images/placeholder-product.jpg' },
+  { label: 'Kids', href: '/c/kids', image: '/images/placeholder-product.jpg' },
+  { label: 'Footwear', href: '/c/footwear', image: '/images/placeholder-product.jpg' },
 ]
 
 const QUICK_LINKS = [

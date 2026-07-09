@@ -194,19 +194,19 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
               label: 'New Arrivals',
               href: '/c/men-new',
               image:
-                'https://images.unsplash.com/photo-1516257984-b1b4d707412e?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Best Sellers',
               href: '/c/men-bestsellers',
               image:
-                'https://images.unsplash.com/photo-1507680434567-5739c80be1ac?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Summer Edit',
               href: '/c/men-summer',
               image:
-                'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
           ],
         },
@@ -233,19 +233,19 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
               label: 'New Arrivals',
               href: '/c/women-new',
               image:
-                'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Bestsellers',
               href: '/c/women-bestsellers',
               image:
-                'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Premium',
               href: '/c/women-premium',
               image:
-                'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
           ],
         },
@@ -281,19 +281,19 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
               label: 'Panjabi',
               href: '/c/kids-boys-panjabi',
               image:
-                'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Dresses',
               href: '/c/kids-girls-dresses',
               image:
-                'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'School Edit',
               href: '/c/kids-school',
               image:
-                'https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
           ],
         },
@@ -335,19 +335,19 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
               label: 'Sneakers',
               href: '/c/footwear-sneakers',
               image:
-                'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Loafers',
               href: '/c/footwear-loafers',
               image:
-                'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
             {
               label: 'Sandals',
               href: '/c/footwear-sandals',
               image:
-                'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=88&auto=format&fit=crop',
+                '/images/placeholder-product.jpg',
             },
           ],
         },

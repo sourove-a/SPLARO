@@ -12,5 +12,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function GiftCardPolicyPage() {
   const page = await getLegalPage('gift-card-policy')
-  return <ContentPage title={page.title} description={page.description} sections={page.sections} />
+  return (
+    <ContentPage
+      title={page.title}
+      description={page.description}
+      sections={page.sections}
+      variant="premium"
+      premiumBadge="Gift Card Policy · 2026"
+    />
+  )
 }

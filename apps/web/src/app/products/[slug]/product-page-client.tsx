@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type SVGProps } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,10 +12,20 @@ import {
   Plus,
   Ruler,
   Heart,
-  ShoppingBag,
   Star,
   X as CloseIcon,
 } from 'lucide-react'
+import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
+import { MotionAnchor, MotionLink, MotionPressable } from '@/components/ui/MotionPressable'
+import {
+  ProductFadeSwap,
+  ProductReveal,
+  ProductStagger,
+  PRODUCT_GALLERY_MS,
+  productGalleryEase,
+  productGalleryMotion,
+  productShake,
+} from '@/components/product/ProductMotion'
 import { ProductCard } from '@/components/product/ProductCard/ProductCard'
 import { trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { collectionHref } from '@/lib/storefront/collection-paths'
@@ -256,6 +266,7 @@ export default function ProductPageClient({
     : 0
 
   const [shareUrl, setShareUrl] = useState('')
+  const [ctaShake, setCtaShake] = useState(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -382,14 +393,16 @@ export default function ProductPageClient({
     setAddingToCart(true)
     if (!addSelectedItemToCart()) {
       setAddingToCart(false)
+      setCtaShake(true)
+      window.setTimeout(() => setCtaShake(false), 480)
       return
     }
-    setCartOpen(true)
     setAddedPulse(true)
+    window.setTimeout(() => setCartOpen(true), 420)
     window.setTimeout(() => {
       setAddingToCart(false)
       setAddedPulse(false)
-    }, 1200)
+    }, 1400)
   }
 
   const handleBuyNow = () => {
@@ -479,10 +492,14 @@ export default function ProductPageClient({
                     'pp-gallery__stage',
                     media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
                   )}
-                  initial={false}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: PANEL_MS, ease: PANEL_EASE }}
+                  {...(reducedMotion
+                    ? {}
+                    : {
+                        initial: productGalleryMotion.initial,
+                        exit: productGalleryMotion.exit,
+                      })}
+                  animate={productGalleryMotion.animate}
+                  transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
                   onClick={openGalleryZoom}
                   onDoubleClick={(event) => {
                     event.stopPropagation()
@@ -525,7 +542,7 @@ export default function ProductPageClient({
                 </motion.div>
               </AnimatePresence>
 
-              <button
+              <MotionPressable
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()
@@ -533,13 +550,14 @@ export default function ProductPageClient({
                 }}
                 className="pp-gallery__zoom pp-pressable"
                 aria-label="Open product image fullscreen"
+                variant="icon"
               >
                 <Maximize2 size={17} strokeWidth={1.8} />
-              </button>
+              </MotionPressable>
 
               {media.length > 1 && (
                 <>
-                  <button
+                  <MotionPressable
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation()
@@ -547,10 +565,11 @@ export default function ProductPageClient({
                     }}
                     className="pp-gallery__nav pp-gallery__nav--prev pp-pressable"
                     aria-label="Previous image"
+                    variant="nav"
                   >
                     <ChevronLeft size={18} strokeWidth={1.75} />
-                  </button>
-                  <button
+                  </MotionPressable>
+                  <MotionPressable
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation()
@@ -558,9 +577,10 @@ export default function ProductPageClient({
                     }}
                     className="pp-gallery__nav pp-gallery__nav--next pp-pressable"
                     aria-label="Next image"
+                    variant="nav"
                   >
                     <ChevronRight size={18} strokeWidth={1.75} />
-                  </button>
+                  </MotionPressable>
                 </>
               )}
             </div>
@@ -571,9 +591,10 @@ export default function ProductPageClient({
                   {activeImage + 1} / {media.length}
                 </span>
                 <div className="pp-gallery__progress-track">
-                  <div
+                  <motion.div
                     className="pp-gallery__progress-fill"
-                    style={{ width: `${((activeImage + 1) / media.length) * 100}%` }}
+                    animate={{ width: `${((activeImage + 1) / media.length) * 100}%` }}
+                    transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
                   />
                 </div>
               </div>
@@ -582,7 +603,8 @@ export default function ProductPageClient({
 
           {/* ─── Product info ─────────────────────────────── */}
           <aside className="pp-info">
-            <div className="pp-info__header">
+            <ProductStagger>
+            <ProductReveal className="pp-info__header">
               <h1 className="pp-info__name">{product.name}</h1>
               {product.nameBn ? (
                 <p className="pp-info__name-bn" lang="bn">{product.nameBn}</p>
@@ -624,9 +646,9 @@ export default function ProductPageClient({
                   </a>
                 )
               })()}
-            </div>
+            </ProductReveal>
 
-            <div className="pp-info__lead">
+            <ProductReveal className="pp-info__lead">
               <div className="pp-info__price-row">
                 <span className="pp-info__price">{formatBDT(product.price)}</span>
                 {hasDiscount && (
@@ -636,22 +658,53 @@ export default function ProductPageClient({
                   </>
                 )}
               </div>
-            </div>
+            </ProductReveal>
 
-            {lowStock && (
-              <p className="pp-info__lowstock">Only {stock} left — order soon</p>
-            )}
-            {!inStock && <p className="pp-info__outstock">Out of stock</p>}
+            <AnimatePresence mode="wait">
+              {lowStock && (
+                <motion.p
+                  key="low-stock"
+                  className="pp-info__lowstock"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.24, ease: productGalleryEase }}
+                >
+                  Only {stock} left — order soon
+                </motion.p>
+              )}
+              {!inStock && (
+                <motion.p
+                  key="out-stock"
+                  className="pp-info__outstock"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.24, ease: productGalleryEase }}
+                >
+                  Out of stock
+                </motion.p>
+              )}
+            </AnimatePresence>
 
-            <div className="pp-info__options">
+            <ProductReveal className="pp-info__options">
               {showColorPicker && (
                 <div className="pp-info__option">
                   <p className="pp-info__option-label">
-                    Color: <span className="pp-info__option-value">{selectedColorName}</span>
+                    Color:{' '}
+                    <AnimatePresence mode="wait" initial={false}>
+                      <ProductFadeSwap
+                        key={selectedColorName}
+                        motionKey={selectedColorName}
+                        className="pp-info__option-value"
+                      >
+                        {selectedColorName}
+                      </ProductFadeSwap>
+                    </AnimatePresence>
                   </p>
                   <div className="pp-color-row">
                     {colorOptions.map((opt) => (
-                      <button
+                      <MotionPressable
                         key={opt.hex}
                         type="button"
                         onClick={() => setSelectedColor(opt.hex)}
@@ -661,6 +714,7 @@ export default function ProductPageClient({
                           'pp-color-thumb pp-pressable',
                           selectedColor === opt.hex && 'pp-color-thumb--active',
                         )}
+                        variant="chip"
                       >
                         <StorefrontImage
                           src={opt.image}
@@ -670,7 +724,7 @@ export default function ProductPageClient({
                           height={56}
                           className="pp-color-thumb__img"
                         />
-                      </button>
+                      </MotionPressable>
                     ))}
                   </div>
                 </div>
@@ -680,39 +734,56 @@ export default function ProductPageClient({
                 <div className="pp-info__option">
                   <div className="pp-info__option-head">
                     <p className="pp-info__option-label pp-info__option-label--inline">Select Size</p>
-                    <Link href="/size-guide" className="pp-size-guide">
+                    <MotionLink href="/size-guide" className="pp-size-guide" variant="subtle">
                       <Ruler className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Size Guide
-                    </Link>
+                    </MotionLink>
                   </div>
+                  <LayoutGroup id="pp-size-select">
                   <div className="pp-size-row">
                     {sizes.map((size) => {
                       const qty = sizeStock.get(size) ?? stock
                       const disabled = qty === 0
+                      const active = selectedSize === size && !disabled
                       return (
-                        <button
+                        <MotionPressable
                           key={size}
                           type="button"
                           onClick={() => !disabled && setSelectedSize(size)}
-                          aria-pressed={selectedSize === size}
+                          aria-pressed={active}
                           disabled={disabled}
                           className={cn(
                             'pp-size-btn pp-pressable',
-                            selectedSize === size && 'pp-size-btn--active',
+                            active && 'pp-size-btn--active pp-size-btn--sliding',
                             disabled && 'pp-size-btn--unavailable',
                           )}
+                          variant="chip"
                         >
-                          {size}
-                        </button>
+                          {active && (
+                            <motion.span
+                              layoutId="pp-size-pill"
+                              className="pp-size-btn__pill"
+                              transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+                              aria-hidden
+                            />
+                          )}
+                          <span className="pp-size-btn__label">{size}</span>
+                        </MotionPressable>
                       )
                     })}
                   </div>
+                  </LayoutGroup>
                 </div>
               )}
-            </div>
+            </ProductReveal>
 
-            <div className="pp-info__ctas">
-              <button
+            <ProductReveal>
+            <motion.div
+              className="pp-info__ctas"
+              variants={productShake}
+              animate={ctaShake ? 'shake' : 'idle'}
+            >
+              <MotionPressable
                 type="button"
                 className={cn(
                   'pp-btn-add pp-pressable',
@@ -721,66 +792,86 @@ export default function ProductPageClient({
                 )}
                 onClick={handleAddToCart}
                 disabled={!inStock || addingToCart}
+                variant="cta"
               >
-                <ShoppingBag className="h-4 w-4" strokeWidth={1.75} />
-                {addingToCart && !addedPulse
-                  ? 'Adding…'
-                  : addedPulse
-                    ? 'Added to Bag!'
-                    : 'Add to bag'}
-              </button>
+                <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
+                <motion.span
+                  key={addedPulse ? 'added' : addingToCart ? 'pending' : 'default'}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {addingToCart && !addedPulse
+                    ? 'Adding…'
+                    : addedPulse
+                      ? 'Added to Bag!'
+                      : 'Add to bag'}
+                </motion.span>
+              </MotionPressable>
 
-              <button
+              <MotionPressable
                 type="button"
                 className="pp-btn-store pp-pressable"
                 onClick={handleBuyNow}
                 disabled={!inStock}
+                variant="cta"
               >
                 Buy Now
-              </button>
+              </MotionPressable>
 
-              <button
+              <MotionPressable
                 type="button"
                 className={cn('pp-btn-wish pp-pressable', saved && 'pp-btn-wish--saved')}
                 onClick={() => toggleWishlist(product.id)}
                 aria-pressed={saved}
                 aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
+                variant="icon"
               >
-                <Heart className={cn('h-4 w-4', saved && 'fill-current')} strokeWidth={1.75} />
-              </button>
+                <motion.span
+                  animate={saved ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Heart className={cn('h-4 w-4', saved && 'fill-current')} strokeWidth={1.75} />
+                </motion.span>
+              </MotionPressable>
 
               {shareUrl ? (
                 <div className="pp-share" aria-label="Share product">
-                  <a
+                  <MotionAnchor
                     href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="pp-share__btn"
                     aria-label="Share on Facebook"
+                    variant="icon"
                   >
                     <FacebookIcon className="pp-share__icon" />
-                  </a>
-                  <a
+                  </MotionAnchor>
+                  <MotionAnchor
                     href={`https://wa.me/?text=${encodeURIComponent(`${product.name} ${shareUrl}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="pp-share__btn"
                     aria-label="Share on WhatsApp"
+                    variant="icon"
                   >
                     <WhatsAppIcon className="pp-share__icon" />
-                  </a>
-                  <a
+                  </MotionAnchor>
+                  <MotionAnchor
                     href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.name)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="pp-share__btn"
                     aria-label="Share on X"
+                    variant="icon"
                   >
                     <XSocialIcon className="pp-share__icon" />
-                  </a>
+                  </MotionAnchor>
                 </div>
               ) : null}
-            </div>
+            </motion.div>
+            </ProductReveal>
+            </ProductStagger>
 
             {(shortDesc || detailSections.length > 0) && (
               <section className="pp-info__details" aria-label="Product details">
@@ -795,13 +886,14 @@ export default function ProductPageClient({
                       {descExpanded || !showReadMore ? fullDescription || shortDesc : shortDesc}
                     </p>
                     {showReadMore && (
-                      <button
+                      <MotionPressable
                         type="button"
                         className="pp-info__read-more"
                         onClick={() => setDescExpanded((v) => !v)}
+                        variant="subtle"
                       >
                         {descExpanded ? 'Read less' : 'Read more'}
-                      </button>
+                      </MotionPressable>
                     )}
                   </div>
                 )}
@@ -815,11 +907,12 @@ export default function ProductPageClient({
                           key={section.id}
                           className={cn('pp-accordion', open && 'pp-accordion--open')}
                         >
-                          <button
+                          <MotionPressable
                             type="button"
                             className="pp-accordion__trigger pp-pressable"
                             onClick={() => setOpenSection(open ? null : section.id)}
                             aria-expanded={open}
+                            variant="subtle"
                           >
                             <span>{section.id}</span>
                             <motion.span
@@ -829,7 +922,7 @@ export default function ProductPageClient({
                             >
                               <Plus className="h-3 w-3" strokeWidth={2} />
                             </motion.span>
-                          </button>
+                          </MotionPressable>
                           <AnimatePresence initial={false}>
                             {open && (
                               <motion.div
@@ -864,6 +957,7 @@ export default function ProductPageClient({
         />
 
         {relatedProducts.length > 0 && (
+          <ProductReveal>
           <section className="pp-related">
             <h2 className="pp-related__title">You may also like</h2>
             <div className="pp-related__grid">
@@ -872,6 +966,7 @@ export default function ProductPageClient({
               ))}
             </div>
           </section>
+          </ProductReveal>
         )}
       </div>
 
@@ -883,7 +978,7 @@ export default function ProductPageClient({
           aria-label={`${product.name} fullscreen preview`}
           onClick={closeLightbox}
         >
-          <button
+          <MotionPressable
             type="button"
             className="pp-lightbox__close pp-pressable"
             onClick={(event) => {
@@ -891,12 +986,13 @@ export default function ProductPageClient({
               closeLightbox()
             }}
             aria-label="Close fullscreen preview"
+            variant="icon"
           >
             <CloseIcon size={22} strokeWidth={1.8} />
-          </button>
+          </MotionPressable>
 
           {media.length > 1 && (
-            <button
+            <MotionPressable
               type="button"
               className="pp-lightbox__nav pp-lightbox__nav--prev pp-pressable"
               onClick={(event) => {
@@ -904,9 +1000,10 @@ export default function ProductPageClient({
                 prevImage()
               }}
               aria-label="Previous image"
+              variant="nav"
             >
               <ChevronLeft size={30} strokeWidth={1.55} />
-            </button>
+            </MotionPressable>
           )}
 
           <div
@@ -954,7 +1051,7 @@ export default function ProductPageClient({
           )}
 
           {media.length > 1 && (
-            <button
+            <MotionPressable
               type="button"
               className="pp-lightbox__nav pp-lightbox__nav--next pp-pressable"
               onClick={(event) => {
@@ -962,9 +1059,10 @@ export default function ProductPageClient({
                 nextImage()
               }}
               aria-label="Next image"
+              variant="nav"
             >
               <ChevronRight size={30} strokeWidth={1.55} />
-            </button>
+            </MotionPressable>
           )}
 
           <div className="pp-lightbox__counter">

@@ -106,19 +106,20 @@ export function generateInvoiceHTML(
 
   const styles = `
     :root {
-      --ink: #111111;
-      --muted: #6b6b6b;
-      --gold: #c8a97e;
-      --gold-soft: rgba(200, 169, 126, 0.18);
-      --ivory: #faf8f5;
-      --line: rgba(17, 17, 17, 0.08);
+      --ink: #101114;
+      --ink-soft: #1a1b1f;
       --paper: #ffffff;
+      --surface: #f7f8fa;
+      --surface-2: #eef0f4;
+      --line: rgba(16, 17, 20, 0.09);
+      --muted: #6b7280;
+      --muted-soft: #9ca3af;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      background: var(--ivory);
+      background: #eceef2;
       color: var(--ink);
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 11px;
@@ -127,7 +128,7 @@ export function generateInvoiceHTML(
       print-color-adjust: exact;
     }
 
-    @page { size: A4 portrait; margin: 12mm 14mm; }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
 
     .toolbar {
       position: sticky;
@@ -137,7 +138,7 @@ export function generateInvoiceHTML(
       justify-content: center;
       gap: 10px;
       padding: 12px 16px;
-      background: rgba(255,255,255,0.88);
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--line);
     }
@@ -164,42 +165,66 @@ export function generateInvoiceHTML(
       position: relative;
       background: var(--paper);
       border: 1px solid var(--line);
-      border-radius: ${fragment ? '12px' : '4px'};
+      border-radius: ${fragment ? '12px' : '6px'};
       overflow: hidden;
-      box-shadow: ${fragment ? 'none' : '0 24px 64px rgba(17,17,17,0.07)'};
+      box-shadow: ${fragment ? 'none' : '0 28px 72px rgba(16, 17, 20, 0.1)'};
     }
 
-    .sheet__accent {
-      height: 4px;
-      background: linear-gradient(90deg, #a88758 0%, var(--gold) 50%, #dcc9a8 100%);
+    .sheet__hero {
+      position: relative;
+      padding: 30px 32px 28px;
+      background:
+        radial-gradient(circle at 88% 0%, rgba(255, 255, 255, 0.06), transparent 34%),
+        linear-gradient(135deg, #0a0a0c 0%, #101114 48%, #1a1b1f 100%);
+      color: #ffffff;
+      overflow: hidden;
     }
 
-    .sheet__body { padding: 28px 30px 26px; }
+    .sheet__hero-grid {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      opacity: 0.35;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
+    }
 
-    .head {
+    .sheet__hero-inner {
+      position: relative;
+      z-index: 1;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 24px;
-      padding-bottom: 22px;
-      margin-bottom: 22px;
-      border-bottom: 1px solid var(--line);
+      gap: 28px;
     }
 
-    .brand img {
+    .brand {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .brand__logo {
       display: block;
-      height: 58px;
+      height: 52px;
       width: auto;
-      max-width: 200px;
+      max-width: 148px;
       object-fit: contain;
-      margin-bottom: 12px;
+      filter: brightness(0) invert(1);
+      opacity: 0.96;
+      flex-shrink: 0;
     }
 
     .brand__name {
       font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 500;
-      letter-spacing: 0.28em;
+      letter-spacing: 0.26em;
       text-transform: uppercase;
       line-height: 1;
     }
@@ -210,50 +235,58 @@ export function generateInvoiceHTML(
       font-weight: 600;
       letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--gold);
+      color: rgba(255, 255, 255, 0.58);
     }
 
     .brand__office {
       margin-top: 8px;
       font-size: 10px;
-      color: var(--muted);
+      color: rgba(255, 255, 255, 0.46);
       line-height: 1.6;
+      max-width: 22rem;
     }
 
     .doc {
       text-align: right;
       min-width: 200px;
+      flex-shrink: 0;
     }
 
-    .doc__label {
+    .doc__eyebrow {
       font-size: 9px;
       font-weight: 700;
       letter-spacing: 0.28em;
       text-transform: uppercase;
-      color: var(--gold);
+      color: rgba(255, 255, 255, 0.48);
     }
 
     .doc__title {
-      margin-top: 6px;
+      margin-top: 8px;
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 34px;
+      font-size: 38px;
       font-weight: 400;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       line-height: 1;
+      color: #ffffff;
     }
 
     .doc__number {
-      margin-top: 10px;
+      margin-top: 12px;
       font-size: 14px;
       font-weight: 700;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.92);
     }
 
     .doc__date {
-      margin-top: 4px;
+      margin-top: 5px;
       font-size: 11px;
-      color: var(--muted);
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .sheet__body {
+      padding: 26px 30px 28px;
     }
 
     .badges {
@@ -272,25 +305,27 @@ export function generateInvoiceHTML(
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      border: 1px solid transparent;
     }
 
-    .badge--paid { background: #e8f5e9; color: #2e7d32; }
-    .badge--pending { background: #fff8e1; color: #e65100; }
-    .badge--processing { background: #e8f0fe; color: #1a56db; }
-    .badge--cancelled { background: #fce8e8; color: #b42318; }
+    .badge--paid { background: #ecfdf3; color: #166534; border-color: #bbf7d0; }
+    .badge--pending { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+    .badge--processing { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
+    .badge--cancelled { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .badge--method { background: var(--ink); color: #fff; border-color: var(--ink); }
 
     .grid {
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
+      grid-template-columns: 1.15fr 0.85fr;
       gap: 14px;
       margin-bottom: 24px;
     }
 
     .panel {
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 14px 16px;
-      background: linear-gradient(180deg, #fff 0%, #fcfaf7 100%);
+      border-radius: 14px;
+      padding: 15px 16px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--surface) 100%);
     }
 
     .panel__label {
@@ -298,15 +333,16 @@ export function generateInvoiceHTML(
       font-weight: 700;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--gold);
+      color: var(--muted);
       margin-bottom: 8px;
     }
 
     .panel__name {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 18px;
+      font-size: 19px;
       font-weight: 500;
       margin-bottom: 6px;
+      color: var(--ink);
     }
 
     .panel__text {
@@ -323,8 +359,8 @@ export function generateInvoiceHTML(
 
     .chip {
       padding: 10px 12px;
-      border-radius: 10px;
-      background: var(--ivory);
+      border-radius: 12px;
+      background: var(--surface);
       border: 1px solid var(--line);
     }
 
@@ -334,7 +370,7 @@ export function generateInvoiceHTML(
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--muted-soft);
       margin-bottom: 4px;
     }
 
@@ -343,6 +379,7 @@ export function generateInvoiceHTML(
       font-size: 11px;
       font-weight: 600;
       line-height: 1.35;
+      color: var(--ink);
     }
 
     .chip__sub {
@@ -360,7 +397,7 @@ export function generateInvoiceHTML(
     }
 
     table.items thead th {
-      padding: 10px 8px;
+      padding: 11px 8px;
       border-top: 2px solid var(--ink);
       border-bottom: 1px solid var(--line);
       font-size: 8px;
@@ -369,13 +406,17 @@ export function generateInvoiceHTML(
       text-transform: uppercase;
       color: var(--muted);
       text-align: left;
-      background: #fcfaf7;
+      background: var(--surface);
     }
 
     table.items tbody td {
       padding: 12px 8px;
       border-bottom: 1px solid var(--line);
       vertical-align: middle;
+    }
+
+    table.items tbody tr:nth-child(even) td {
+      background: rgba(247, 248, 250, 0.72);
     }
 
     table.items tbody tr:last-child td {
@@ -394,7 +435,7 @@ export function generateInvoiceHTML(
       border-radius: 8px;
       overflow: hidden;
       border: 1px solid var(--line);
-      background: var(--ivory);
+      background: var(--surface);
     }
 
     .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -405,13 +446,15 @@ export function generateInvoiceHTML(
       justify-content: center;
       font-family: "Cormorant Garamond", Georgia, serif;
       font-size: 20px;
-      color: var(--gold);
+      color: var(--muted);
+      background: var(--surface-2);
     }
 
     .product-name {
       font-size: 12px;
       font-weight: 600;
       line-height: 1.35;
+      color: var(--ink);
     }
 
     .product-meta {
@@ -428,23 +471,24 @@ export function generateInvoiceHTML(
       min-width: 28px;
       height: 28px;
       border-radius: 999px;
-      background: var(--gold-soft);
+      background: var(--ink);
+      color: #fff;
       font-size: 11px;
       font-weight: 700;
     }
 
     .foot {
       display: grid;
-      grid-template-columns: 1fr 280px;
+      grid-template-columns: 1fr 300px;
       gap: 20px;
       align-items: start;
     }
 
     .terms {
       padding: 14px 16px;
-      border-radius: 12px;
-      border: 1px dashed rgba(200, 169, 126, 0.55);
-      background: rgba(200, 169, 126, 0.08);
+      border-radius: 14px;
+      border: 1px dashed rgba(16, 17, 20, 0.14);
+      background: var(--surface);
     }
 
     .terms__label {
@@ -452,20 +496,20 @@ export function generateInvoiceHTML(
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--gold);
+      color: var(--muted);
       margin-bottom: 6px;
     }
 
     .terms p {
       font-size: 11px;
-      line-height: 1.6;
+      line-height: 1.62;
       color: var(--ink);
     }
 
     .totals {
       padding: 16px 18px;
-      border-radius: 12px;
-      background: var(--ivory);
+      border-radius: 14px;
+      background: var(--surface);
       border: 1px solid var(--line);
     }
 
@@ -479,29 +523,34 @@ export function generateInvoiceHTML(
     }
 
     .totals-row strong { color: var(--ink); font-weight: 600; }
-    .totals-row--accent strong { color: #b45309; }
+    .totals-row--accent strong { color: var(--ink); }
 
     .grand {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 2px solid var(--ink);
+      gap: 16px;
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: var(--ink);
+      color: #ffffff;
     }
 
     .grand span {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.58);
     }
 
     .grand strong {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 600;
       letter-spacing: 0.02em;
+      color: #ffffff;
     }
 
     .notes {
@@ -521,7 +570,7 @@ export function generateInvoiceHTML(
       font-weight: 700;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--gold);
+      color: var(--muted-soft);
       margin-bottom: 2px;
     }
 
@@ -530,6 +579,14 @@ export function generateInvoiceHTML(
       padding-top: 18px;
       border-top: 1px solid var(--line);
       text-align: center;
+    }
+
+    .footer__rule {
+      width: 56px;
+      height: 1px;
+      margin: 0 auto 14px;
+      background: linear-gradient(90deg, transparent, var(--ink), transparent);
+      opacity: 0.22;
     }
 
     .footer__thanks {
@@ -548,53 +605,53 @@ export function generateInvoiceHTML(
       letter-spacing: 0.04em;
     }
 
-    .footer__gold {
-      width: 48px;
-      height: 2px;
-      margin: 0 auto 12px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    }
-
     @media print {
       .toolbar { display: none !important; }
       html, body { background: #fff; }
       .shell { padding: 0; max-width: none; }
       .sheet { border: none; box-shadow: none; border-radius: 0; }
+      .sheet__hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       tr { break-inside: avoid; page-break-inside: avoid; }
     }
 
     @media (max-width: 680px) {
-      .sheet__body { padding: 20px 16px; }
-      .head { flex-direction: column; }
+      .sheet__hero { padding: 22px 18px 20px; }
+      .sheet__hero-inner { flex-direction: column; }
       .doc { text-align: left; }
+      .sheet__body { padding: 20px 16px; }
       .grid, .foot { grid-template-columns: 1fr; }
       .meta-grid { grid-template-columns: 1fr; }
+      .brand { flex-direction: column; }
     }
   `
 
   const article = `
   <article class="sheet">
-    <div class="sheet__accent" aria-hidden="true"></div>
-    <div class="sheet__body">
-      <header class="head">
+    <header class="sheet__hero">
+      <div class="sheet__hero-grid" aria-hidden="true"></div>
+      <div class="sheet__hero-inner">
         <div class="brand">
-          <img src="${escapeHtml(model.logoUrl)}" alt="${escapeHtml(model.brand.name)}" />
-          <div class="brand__name">${escapeHtml(model.brand.name)}</div>
-          <div class="brand__tagline">${escapeHtml(model.brand.tagline)}</div>
-          <div class="brand__office">${escapeHtml(model.brand.office)}</div>
+          <img class="brand__logo" src="${escapeHtml(model.logoUrl)}" alt="${escapeHtml(model.brand.name)}" />
+          <div class="brand__copy">
+            <div class="brand__name">${escapeHtml(model.brand.name)}</div>
+            <div class="brand__tagline">${escapeHtml(model.brand.tagline)}</div>
+            <div class="brand__office">${escapeHtml(model.brand.office)}</div>
+          </div>
         </div>
         <div class="doc">
-          <div class="doc__label">Tax Invoice</div>
+          <div class="doc__eyebrow">Tax Invoice</div>
           <div class="doc__title">Invoice</div>
           <div class="doc__number">${escapeHtml(model.invoiceNumber)}</div>
           <div class="doc__date">${escapeHtml(model.issueDate)}</div>
         </div>
-      </header>
+      </div>
+    </header>
 
+    <div class="sheet__body">
       <div class="badges">
         <span class="${orderBadge}">${escapeHtml(model.orderStatus)}</span>
         <span class="${payBadge}">${escapeHtml(payLabel)}</span>
-        <span class="badge badge--processing">${escapeHtml(model.paymentMethod)}</span>
+        <span class="badge badge--method">${escapeHtml(model.paymentMethod)}</span>
       </div>
 
       <div class="grid">
@@ -658,7 +715,7 @@ export function generateInvoiceHTML(
       ${noteBlock}
 
       <footer class="footer">
-        <div class="footer__gold" aria-hidden="true"></div>
+        <div class="footer__rule" aria-hidden="true"></div>
         <div class="footer__thanks">${escapeHtml(model.brand.thankYouNote)}</div>
         <div class="footer__meta">
           ${escapeHtml(model.brand.supportLine)}<br />

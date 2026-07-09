@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   BadgeCheck,
+  Building2,
   ChevronRight,
   Download,
   Gem,
@@ -15,9 +16,14 @@ import {
   Heart,
   History,
   LayoutDashboard,
+  Loader2,
+  Lock,
   LogOut,
+  Mail,
   MapPin,
+  MapPinned,
   Package,
+  Phone,
   RotateCcw,
   Shield,
   ShoppingBag,
@@ -50,6 +56,9 @@ import {
 } from '@/lib/api/account'
 import { displayOrderCode } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
+import { BD_DISTRICTS } from '@/lib/checkout/bd-districts'
+import { getThanasForDistrict } from '@/lib/checkout/bd-thanas'
+import { formatBdPhoneInput } from '@/lib/checkout/phone'
 
 type AccountSection =
   | 'dashboard'
@@ -131,6 +140,12 @@ function DeliveryTimeline({ stage }: { stage: DeliveryStage }) {
   )
 }
 
+function buildTrackOrderHref(order: StoredOrder): string {
+  const phone = encodeURIComponent(order.customer.phone)
+  const orderRef = encodeURIComponent(order.invoiceNumber || order.id)
+  return `/track-order?phone=${phone}&order=${orderRef}`
+}
+
 function OrderCard({
   order,
   featured = false,
@@ -196,18 +211,43 @@ function OrderCard({
         </div>
 
         <div className="account-order-card__actions">
-          {!featured ? (
-            <button type="button" className="account-btn account-btn--ghost" onClick={() => openOrderInvoice(order)}>
-              <Download className="h-4 w-4" strokeWidth={2} />
-              Download Invoice
-            </button>
-          ) : null}
-          <Link href="/track-order" className="account-icon-btn" aria-label="Track order">
+          <button type="button" className="account-btn account-btn--ghost" onClick={() => openOrderInvoice(order)}>
+            <Download className="h-4 w-4" strokeWidth={2} />
+            Download Invoice
+          </button>
+          <Link href={buildTrackOrderHref(order)} className="account-icon-btn" aria-label="Track order">
             <ArrowUpRight className="h-4 w-4" strokeWidth={2.1} />
           </Link>
         </div>
       </div>
     </article>
+  )
+}
+
+function AccountIconField({
+  label,
+  icon: Icon,
+  children,
+  className,
+  hint,
+}: {
+  label: string
+  icon: typeof UserRound
+  children: ReactNode
+  className?: string
+  hint?: string
+}) {
+  return (
+    <label className={cn('account-field account-field--icon', className)}>
+      <span className="account-field__label">{label}</span>
+      <div className="account-input-wrap">
+        <span className="account-input-wrap__icon" aria-hidden="true">
+          <Icon className="h-4 w-4" strokeWidth={2} />
+        </span>
+        {children}
+      </div>
+      {hint ? <span className="account-field__hint">{hint}</span> : null}
+    </label>
   )
 }
 
@@ -244,11 +284,16 @@ export default function AccountDashboard() {
   const [ordersError, setOrdersError] = useState<string | null>(null)
   const [wishlistProducts, setWishlistProducts] = useState<ProductCardData[]>([])
   const [profile, setProfile] = useState({ name: '', email: '', phone: '' })
-  const [address, setAddress] = useState({ address: '', city: 'Dhaka' })
+  const [address, setAddress] = useState({
+    address: '',
+    district: 'Dhaka',
+    thana: getThanasForDistrict('Dhaka')[0] ?? '',
+  })
   const [loyalty, setLoyalty] = useState({ points: 0, tier: 'BRONZE', memberSince: '' })
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [profileLoading, setProfileLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [connectionError, setConnectionError] = useState('')
 
   const welcome = searchParams.get('welcome') === '1'
@@ -284,6 +329,35 @@ export default function AccountDashboard() {
           ...(data.user.phoneVerified ? { phoneVerified: true } : {}),
           ...(data.user.loyaltyTier ? { loyaltyTier: data.user.loyaltyTier } : {}),
         })
+      }
+
+      if (data.address) {
+        setAddress({
+          address: data.address.address,
+          district: data.address.district,
+          thana: data.address.thana,
+        })
+      } else {
+        try {
+          const savedCustomer = window.localStorage.getItem('splaro-customer')
+          if (savedCustomer) {
+            const parsed = JSON.parse(savedCustomer) as {
+              address?: string
+              city?: string
+              district?: string
+              thana?: string
+            }
+            const district = parsed.district ?? parsed.city ?? 'Dhaka'
+            setAddress({
+              address: parsed.address ?? '',
+              district,
+              thana:
+                parsed.thana || getThanasForDistrict(district)[0] || '',
+            })
+          }
+        } catch {
+          /* ignore corrupt local draft */
+        }
       }
     } catch (error: unknown) {
       if (error instanceof ApiError && error.isAuthError) {
@@ -337,19 +411,6 @@ export default function AccountDashboard() {
         setOrders([])
         setOrdersError(err instanceof Error ? err.message : 'Could not load your orders.')
       })
-
-    const savedCustomer = window.localStorage.getItem('splaro-customer')
-    if (savedCustomer) {
-      try {
-        const parsed = JSON.parse(savedCustomer) as { address?: string; city?: string }
-        setAddress({
-          address: parsed.address ?? '',
-          city: parsed.city ?? 'Dhaka',
-        })
-      } catch {
-        /* ignore corrupt local draft */
-      }
-    }
   }, [user])
 
   useEffect(() => {
@@ -381,13 +442,37 @@ export default function AccountDashboard() {
     [orders, activeOrder],
   )
 
+  const thanaOptions = useMemo(() => getThanasForDistrict(address.district), [address.district])
+
   const handleProfileSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaveError('')
     setSaved(false)
+    setIsSaving(true)
+
+    const trimmedName = profile.name.trim()
+    const trimmedAddress = address.address.trim()
+    const trimmedDistrict = address.district.trim()
+    const trimmedThana = address.thana.trim()
+
+    if (!trimmedName) {
+      setSaveError('Full name is required.')
+      setIsSaving(false)
+      return
+    }
+    if (!trimmedAddress || !trimmedDistrict || !trimmedThana) {
+      setSaveError('Delivery address, district, and thana are required.')
+      setIsSaving(false)
+      return
+    }
 
     try {
-      const payload = await updateAccountProfile({ name: profile.name })
+      const payload = await updateAccountProfile({
+        name: trimmedName,
+        address: trimmedAddress,
+        district: trimmedDistrict,
+        thana: trimmedThana,
+      })
 
       if (!payload.user) {
         setSaveError(payload.error ?? 'Could not save profile')
@@ -401,9 +486,25 @@ export default function AccountDashboard() {
         ...(user?.phoneVerified ? { phoneVerified: user.phoneVerified } : {}),
         ...(user?.loyaltyTier ? { loyaltyTier: user.loyaltyTier } : {}),
       })
+
+      const nextAddress = payload.address ?? {
+        address: trimmedAddress,
+        district: trimmedDistrict,
+        thana: trimmedThana,
+      }
+      setAddress(nextAddress)
+
       window.localStorage.setItem(
         'splaro-customer',
-        JSON.stringify({ ...profile, ...address }),
+        JSON.stringify({
+          name: trimmedName,
+          email: profile.email,
+          phone: profile.phone,
+          address: nextAddress.address,
+          city: nextAddress.district,
+          district: nextAddress.district,
+          thana: nextAddress.thana,
+        }),
       )
       setSaved(true)
     } catch (error) {
@@ -414,6 +515,8 @@ export default function AccountDashboard() {
       setSaveError(
         error instanceof ApiError ? error.message : 'Network error. Please try again.',
       )
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -759,25 +862,38 @@ export default function AccountDashboard() {
                 </div>
               </div>
               <AccountGlass className="account-panel">
-                <div className="account-address-card">
-                  <div className="account-address-card__icon">
-                    <MapPin className="h-4 w-4" strokeWidth={2} />
+                {address.address ? (
+                  <div className="account-address-card">
+                    <div className="account-address-card__icon">
+                      <MapPin className="h-4 w-4" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="account-address-card__label">Default Address</p>
+                      <p className="account-address-card__name">{user.name}</p>
+                      <p className="account-address-card__text">
+                        {address.address}
+                        <br />
+                        {[address.thana, address.district].filter(Boolean).join(', ')}
+                      </p>
+                      <p className="account-address-card__phone">{formatBdPhoneInput(user.phone)}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="account-address-card__label">Default Address</p>
-                    <p className="account-address-card__name">{user.name}</p>
-                    <p className="account-address-card__text">
-                      {address.address || 'Add your delivery address at checkout.'}
-                      {address.address ? (
-                        <>
-                          <br />
-                          {address.city}
-                        </>
-                      ) : null}
+                ) : (
+                  <div className="account-empty account-empty--compact">
+                    <MapPin className="account-icon-muted mx-auto h-7 w-7" strokeWidth={1.75} />
+                    <p className="account-empty__title mt-3 text-base font-bold">No saved address yet</p>
+                    <p className="account-empty__text mt-2 text-sm font-medium">
+                      Add your delivery address in Profile for faster checkout.
                     </p>
-                    <p className="account-address-card__phone">{user.phone}</p>
                   </div>
-                </div>
+                )}
+                <button
+                  type="button"
+                  className="account-btn account-btn--primary account-address-card__edit"
+                  onClick={() => setSection('profile')}
+                >
+                  {address.address ? 'Edit in Profile' : 'Add Address in Profile'}
+                </button>
               </AccountGlass>
             </>
           ) : null}
@@ -816,66 +932,156 @@ export default function AccountDashboard() {
                   <p className="account-subtitle">Update your profile and account details.</p>
                 </div>
               </div>
-              <AccountGlass className="account-panel">
-                <form onSubmit={handleProfileSave}>
-                <div className="account-form-grid">
-                  <label className="account-field">
-                    <span>Full name</span>
-                    <input
-                      required
-                      value={profile.name}
-                      onChange={(event) => setProfile({ ...profile, name: event.target.value })}
-                      className="account-input"
-                    />
-                  </label>
-                  <label className="account-field">
-                    <span>Email</span>
-                    <input
-                      required
-                      type="email"
-                      value={profile.email}
-                      onChange={(event) => setProfile({ ...profile, email: event.target.value })}
-                      className="account-input"
-                    />
-                  </label>
-                  <label className="account-field">
-                    <span>Phone</span>
-                    <input
-                      required
-                      value={profile.phone}
-                      onChange={(event) => setProfile({ ...profile, phone: event.target.value })}
-                      className="account-input"
-                    />
-                  </label>
-                  <label className="account-field account-field--full">
-                    <span>Delivery address</span>
-                    <input
-                      value={address.address}
-                      onChange={(event) => setAddress({ ...address, address: event.target.value })}
-                      className="account-input"
-                      placeholder="House, road, area"
-                    />
-                  </label>
-                  <label className="account-field">
-                    <span>City</span>
-                    <input
-                      value={address.city}
-                      onChange={(event) => setAddress({ ...address, city: event.target.value })}
-                      className="account-input"
-                    />
-                  </label>
-                </div>
-                {saved ? (
-                  <p className="account-save-note">Profile updated successfully.</p>
-                ) : null}
-                {saveError ? (
-                  <p className="account-save-note account-save-note--error" role="alert">
-                    {saveError}
-                  </p>
-                ) : null}
-                <button type="submit" className="account-btn account-btn--primary" disabled={profileLoading}>
-                  Save Changes
-                </button>
+              <AccountGlass className="account-panel account-panel--profile">
+                <form onSubmit={handleProfileSave} className="account-profile-form">
+                  <div className="account-form-section">
+                    <div className="account-form-section__head">
+                      <UserRound className="h-4 w-4" strokeWidth={2} />
+                      <div>
+                        <h2 className="account-form-section__title">Personal details</h2>
+                        <p className="account-form-section__text">Name and verified contact info.</p>
+                      </div>
+                    </div>
+                    <div className="account-form-grid">
+                      <AccountIconField label="Full name" icon={UserRound}>
+                        <input
+                          required
+                          value={profile.name}
+                          onChange={(event) => {
+                            setSaved(false)
+                            setProfile({ ...profile, name: event.target.value })
+                          }}
+                          className="account-input account-input--with-icon"
+                          autoComplete="name"
+                        />
+                      </AccountIconField>
+                      <AccountIconField
+                        label="Email"
+                        icon={Mail}
+                        hint="Verified account email"
+                      >
+                        <input
+                          readOnly
+                          type="email"
+                          value={profile.email}
+                          className="account-input account-input--with-icon account-input--readonly"
+                        />
+                        <span className="account-input-wrap__lock" aria-hidden="true">
+                          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+                        </span>
+                      </AccountIconField>
+                      <AccountIconField
+                        label="Phone"
+                        icon={Phone}
+                        hint="Verified account phone"
+                      >
+                        <input
+                          readOnly
+                          value={formatBdPhoneInput(profile.phone)}
+                          className="account-input account-input--with-icon account-input--readonly"
+                        />
+                        <span className="account-input-wrap__lock" aria-hidden="true">
+                          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+                        </span>
+                      </AccountIconField>
+                    </div>
+                  </div>
+
+                  <div className="account-form-section">
+                    <div className="account-form-section__head">
+                      <MapPin className="h-4 w-4" strokeWidth={2} />
+                      <div>
+                        <h2 className="account-form-section__title">Delivery address</h2>
+                        <p className="account-form-section__text">
+                          Saved for checkout and faster repeat orders.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="account-form-grid">
+                      <AccountIconField
+                        label="House, road, area"
+                        icon={MapPin}
+                        className="account-field--full"
+                      >
+                        <input
+                          required
+                          value={address.address}
+                          onChange={(event) => {
+                            setSaved(false)
+                            setAddress({ ...address, address: event.target.value })
+                          }}
+                          className="account-input account-input--with-icon"
+                          placeholder="House, road, area"
+                          autoComplete="street-address"
+                        />
+                      </AccountIconField>
+                      <AccountIconField label="District" icon={Building2}>
+                        <select
+                          required
+                          value={address.district}
+                          onChange={(event) => {
+                            setSaved(false)
+                            const nextDistrict = event.target.value
+                            const thanas = getThanasForDistrict(nextDistrict)
+                            setAddress({
+                              ...address,
+                              district: nextDistrict,
+                              thana: thanas[0] ?? '',
+                            })
+                          }}
+                          className="account-input account-input--with-icon account-input--select"
+                        >
+                          {BD_DISTRICTS.map((district) => (
+                            <option key={district} value={district}>
+                              {district}
+                            </option>
+                          ))}
+                        </select>
+                      </AccountIconField>
+                      <AccountIconField label="Thana / Upazila" icon={MapPinned}>
+                        <select
+                          required
+                          value={address.thana}
+                          onChange={(event) => {
+                            setSaved(false)
+                            setAddress({ ...address, thana: event.target.value })
+                          }}
+                          className="account-input account-input--with-icon account-input--select"
+                        >
+                          {thanaOptions.map((thana) => (
+                            <option key={thana} value={thana}>
+                              {thana}
+                            </option>
+                          ))}
+                        </select>
+                      </AccountIconField>
+                    </div>
+                  </div>
+
+                  {saved ? (
+                    <p className="account-save-note account-save-note--success" role="status">
+                      Profile saved successfully.
+                    </p>
+                  ) : null}
+                  {saveError ? (
+                    <p className="account-save-note account-save-note--error" role="alert">
+                      {saveError}
+                    </p>
+                  ) : null}
+                  <button
+                    type="submit"
+                    className="account-btn account-btn--primary account-btn--save"
+                    disabled={profileLoading || isSaving}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </button>
                 </form>
               </AccountGlass>
             </>

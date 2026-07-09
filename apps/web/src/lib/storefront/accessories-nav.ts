@@ -65,16 +65,16 @@ export const ACCESSORIES_MEGA_HEROES = [
   {
     label: 'Eyewear Edit',
     href: '/accessories?cat=glasses',
-    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800&q=88&auto=format&fit=crop',
+    image: '/images/placeholder-product.jpg',
   },
   {
     label: 'New Arrivals',
     href: '/accessories?filter=new',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=88&auto=format&fit=crop',
+    image: '/images/placeholder-product.jpg',
   },
   {
     label: 'Bestsellers',
     href: '/accessories?filter=bestsellers',
-    image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=88&auto=format&fit=crop',
+    image: '/images/placeholder-product.jpg',
   },
 ] as const

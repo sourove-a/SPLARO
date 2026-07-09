@@ -1,4 +1,5 @@
 -- Minimal SPLARO seed for production when Prisma seed panics on shared hosting.
+-- Admin, store, and staff only — no demo products.
 INSERT INTO "User" (
   "id", "email", "emailVerified", "passwordHash", "firstName", "lastName", "role", "isActive", "twoFAEnabled", "updatedAt"
 ) VALUES (
@@ -34,63 +35,4 @@ INSERT INTO "StaffRole" (
   'seed-store-splaro',
   'SUPER_ADMIN',
   ARRAY['*']::TEXT[]
-) ON CONFLICT ("id") DO NOTHING;
-
-INSERT INTO "Category" (
-  "id", "storeId", "name", "slug", "sortOrder", "updatedAt"
-) VALUES (
-  'seed-cat-sarees',
-  'seed-store-splaro',
-  'Sarees',
-  'sarees',
-  1,
-  NOW()
-) ON CONFLICT ("id") DO NOTHING;
-
-INSERT INTO "Product" (
-  "id", "storeId", "categoryId", "slug", "name", "description", "basePrice", "compareAtPrice",
-  "isPublished", "isFeatured", "isBestSeller", "fabricContent", "fitType", "occasion", "season", "origin", "updatedAt"
-) VALUES (
-  'seed-product-001',
-  'seed-store-splaro',
-  'seed-cat-sarees',
-  'heritage-jamdani-saree',
-  'Heritage Jamdani Saree',
-  'Handwoven jamdani saree with traditional motifs.',
-  12500.00,
-  14900.00,
-  true,
-  true,
-  true,
-  'Cotton silk blend',
-  'Regular',
-  'Festive',
-  'All Season',
-  'Bangladesh',
-  NOW()
-) ON CONFLICT ("id") DO NOTHING;
-
-INSERT INTO "ProductImage" (
-  "id", "productId", "url", "isDefault", "position"
-) VALUES (
-  'seed-img-001',
-  'seed-product-001',
-  'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=900&h=1200&q=88&fit=crop',
-  true,
-  0
-) ON CONFLICT ("id") DO NOTHING;
-
-INSERT INTO "ProductVariant" (
-  "id", "productId", "size", "color", "colorName", "colorHex", "price", "stock", "image", "updatedAt"
-) VALUES (
-  'seed-variant-001',
-  'seed-product-001',
-  'Free',
-  'Ivory',
-  'Ivory',
-  '#FFFFF0',
-  12500.00,
-  25,
-  'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=900&h=1200&q=88&fit=crop',
-  NOW()
 ) ON CONFLICT ("id") DO NOTHING;

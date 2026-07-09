@@ -8743,11 +8743,18 @@ select.admin-input {
    ═══════════════════════════════════════════════════════════ */
 
 .admin-kpi {
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 12px;
+  border: 1px solid rgba(17, 17, 17, 0.07);
+  border-radius: 16px;
   background: #ffffff;
-  padding: 1rem 1.15rem;
-  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
+  padding: 1.2rem 1.3rem;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03), 0 10px 26px rgba(17, 17, 17, 0.05);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.admin-kpi:hover {
+  transform: translateY(-2px);
+  border-color: rgba(17, 17, 17, 0.12);
+  box-shadow: 0 2px 4px rgba(17, 17, 17, 0.04), 0 16px 34px rgba(17, 17, 17, 0.08);
 }
 
 .admin-module-table-wrap {
@@ -9553,21 +9560,22 @@ select.admin-input {
 
 .admin-kpi__icon {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: 1.1rem;
+  right: 1.1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 8px;
-  background: #f4f4f5;
-  color: #71717a;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 10px;
+  background: linear-gradient(155deg, rgba(17, 17, 17, 0.06), rgba(17, 17, 17, 0.03));
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  color: #3a3a42;
 }
 
 .admin-kpi__value {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.65rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -9579,24 +9587,28 @@ select.admin-input {
 
 .admin-pipeline-bar__stage {
   position: relative;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 10px;
+  border: 1px solid rgba(17, 17, 17, 0.07);
+  border-radius: 12px;
   background: #ffffff;
-  padding: 0.75rem 0.5rem;
+  padding: 0.85rem 0.5rem;
   text-align: center;
   cursor: pointer;
-  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03), 0 6px 16px rgba(17, 17, 17, 0.04);
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .admin-pipeline-bar__stage:hover {
   background: #fafafa;
   border-color: rgba(17, 17, 17, 0.14);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(17, 17, 17, 0.04), 0 10px 22px rgba(17, 17, 17, 0.07);
 }
 
 .admin-pipeline-bar__stage--active {
   background: #111111;
   border-color: #111111;
   color: #ffffff;
+  box-shadow: 0 8px 20px rgba(17, 17, 17, 0.22);
 }
 
 .admin-pipeline-bar__stage--active .admin-pipeline-bar__count,
@@ -9659,10 +9671,10 @@ select.admin-input {
 }
 
 .admin-ops-card {
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 14px;
+  border: 1px solid rgba(17, 17, 17, 0.07);
+  border-radius: 16px;
   background: #ffffff;
-  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03), 0 12px 30px rgba(17, 17, 17, 0.05);
   overflow: hidden;
 }
 
@@ -9700,9 +9712,10 @@ select.admin-input {
 }
 
 .admin-ops-tab--active {
-  background: #f4f4f5;
-  color: #111111;
-  font-weight: 600;
+  background: #111111;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(17, 17, 17, 0.18);
 }
 
 .admin-ops-tab__count {
@@ -9713,7 +9726,7 @@ select.admin-input {
 }
 
 .admin-ops-tab--active .admin-ops-tab__count {
-  color: #52525b;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .admin-ops-card__filters {

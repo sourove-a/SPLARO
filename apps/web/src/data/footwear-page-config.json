@@ -15,48 +15,5 @@
       { "id": "kids",  "label": "Kids",  "image": "/images/footwear/cat-kids.jpg",  "href": "/footwear/kids",  "visible": true }
     ]
   },
-  "productRows": [
-    {
-      "id": "mens-footwear",
-      "title": "Mens Footwear",
-      "subtitle": "Premium leather craftsmanship",
-      "visible": true,
-      "exploreHref": "/footwear/men",
-      "products": [
-        { "id": "mf1", "name": "Luxury Loafers",         "code": "255205", "colors": 2, "price": 8500,  "image": null },
-        { "id": "mf2", "name": "Arabian Sandals",        "code": "265168", "colors": 2, "price": 6200,  "image": null },
-        { "id": "mf3", "name": "Classic Oxford",         "code": "255210", "colors": 3, "price": 12800, "image": null },
-        { "id": "mf4", "name": "Derby Shoes",            "code": "265171", "colors": 2, "price": 9500,  "image": null },
-        { "id": "mf5", "name": "Mule Slippers",          "code": "255222", "colors": 2, "price": 5500,  "image": null }
-      ]
-    },
-    {
-      "id": "womens-footwear",
-      "title": "Womens Footwear",
-      "subtitle": "Elegant designs for every occasion",
-      "visible": true,
-      "exploreHref": "/footwear/women",
-      "products": [
-        { "id": "wf1", "name": "Strappy Heels",          "code": "355101", "colors": 3, "price": 7800,  "image": null },
-        { "id": "wf2", "name": "Block Mules",            "code": "355112", "colors": 2, "price": 5900,  "image": null },
-        { "id": "wf3", "name": "Slip-On Flats",          "code": "355120", "colors": 4, "price": 4500,  "image": null },
-        { "id": "wf4", "name": "Ankle Strap Sandals",    "code": "355133", "colors": 2, "price": 6800,  "image": null },
-        { "id": "wf5", "name": "Platform Loafers",       "code": "355145", "colors": 3, "price": 8200,  "image": null }
-      ]
-    },
-    {
-      "id": "kids-footwear",
-      "title": "Kids Footwear",
-      "subtitle": "Comfortable and durable for little feet",
-      "visible": true,
-      "exploreHref": "/footwear/kids",
-      "products": [
-        { "id": "kf1", "name": "Velcro Sneakers",        "code": "455201", "colors": 3, "price": 3200,  "image": null },
-        { "id": "kf2", "name": "School Shoes",           "code": "455212", "colors": 2, "price": 2800,  "image": null },
-        { "id": "kf3", "name": "Jelly Sandals",          "code": "455220", "colors": 4, "price": 1900,  "image": null },
-        { "id": "kf4", "name": "Casual Slippers",        "code": "455231", "colors": 3, "price": 1500,  "image": null },
-        { "id": "kf5", "name": "Sports Shoes",           "code": "455245", "colors": 2, "price": 3800,  "image": null }
-      ]
-    }
-  ]
+  "productRows": []
 }
