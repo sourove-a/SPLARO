@@ -81,7 +81,17 @@ function mobileVideoFallback(url: string): string | undefined {
 }
 
 function isBrandLogoPoster(url: string) {
-  return /splaro-logo-(white|dark)\.svg/i.test(url.trim())
+  const trimmed = url.trim()
+  // The generic product placeholder (grey bag icon) reads as broken imagery in
+  // a full-bleed hero — treat it like "no poster" so the premium gradient shows.
+  return /splaro-logo-(white|dark)\.svg/i.test(trimmed) || trimmed.includes('placeholder-product')
+}
+
+/** Pexels hosts a real cinematic still for every video — use it as the poster. */
+function pexelsVideoPoster(url: string): string | undefined {
+  const m = url.match(/videos\.pexels\.com\/video-files\/(\d+)\//)
+  if (!m) return undefined
+  return `https://images.pexels.com/videos/${m[1]}/free-video-${m[1]}.jpg?auto=compress&cs=tinysrgb&w=1600`
 }
 
 /** Prefer HD/1080p renditions — admin may store the 31MB UHD Pexels URL. */
@@ -110,6 +120,9 @@ function resolveSlidePoster(media: string, index: number, banner: HeroBanner) {
 
   const mobilePoster = banner.mobileImage?.trim()
   if (mobilePoster && !isVideoUrl(mobilePoster)) return heroImageSrc(mobilePoster)
+
+  const pexelsPoster = pexelsVideoPoster(media)
+  if (pexelsPoster) return pexelsPoster
 
   const defaultPoster = HERO_DEFAULT_SLIDES[index]?.image ?? HERO_DEFAULT_SLIDES[0]?.image
   return defaultPoster ? heroImageSrc(defaultPoster) : ''
@@ -262,6 +275,7 @@ function HeroStaticBackdrop({
       withBlur={false}
       style={HERO_MEDIA_STYLE}
       draggable={false}
+      allowStockMedia
     />
   )
 }

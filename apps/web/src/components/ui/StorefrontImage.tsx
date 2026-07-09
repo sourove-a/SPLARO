@@ -19,6 +19,8 @@ type StorefrontImageProps = Omit<ImageProps, 'src' | 'placeholder' | 'blurDataUR
   profile?: ImageProfile
   withBlur?: boolean
   fit?: 'contain' | 'cover'
+  /** Allow Pexels/Unsplash sources (hero/editorial backdrops) — blocked by default for product imagery. */
+  allowStockMedia?: boolean
 }
 
 export function StorefrontImage({
@@ -30,13 +32,19 @@ export function StorefrontImage({
   fit,
   className,
   alt,
+  allowStockMedia,
   ...rest
 }: StorefrontImageProps) {
   const isMobile = useMobileViewport()
   const mounted = useMounted()
   const effectiveProfile =
     mounted && isMobile ? mobileImageProfile(profile) : profile
-  const optimizedSrc = optimizeImageSrc(src, effectiveProfile)
+  const optimizedSrc = optimizeImageSrc(
+    src,
+    effectiveProfile,
+    undefined,
+    allowStockMedia ? { allowStockMedia: true } : undefined,
+  )
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {

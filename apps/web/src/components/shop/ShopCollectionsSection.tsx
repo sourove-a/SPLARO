@@ -11,7 +11,10 @@ interface ShopCollectionsSectionProps {
 }
 
 export function ShopCollectionsSection({ cards }: ShopCollectionsSectionProps) {
-  if (!cards.length) return null
+  // Empty collections render as a placeholder-bag card with "0 pieces" — reads
+  // as a broken storefront, so only show collections that actually have stock.
+  const stocked = cards.filter((card) => card.count > 0)
+  if (!stocked.length) return null
 
   return (
     <section className="shop-collections" aria-labelledby="shop-collections-heading">
@@ -27,7 +30,7 @@ export function ShopCollectionsSection({ cards }: ShopCollectionsSectionProps) {
         </div>
 
         <div className="shop-collections__row" data-lenis-prevent>
-          {cards.map((card) => (
+          {stocked.map((card) => (
             <Link
               key={card.slug}
               href={collectionHref(card.slug)}
@@ -46,7 +49,9 @@ export function ShopCollectionsSection({ cards }: ShopCollectionsSectionProps) {
                 <div className="shop-collection-card__footer">
                   <div className="shop-collection-card__text">
                     <p className="shop-collection-card__label">{card.label}</p>
-                    <p className="shop-collection-card__count">{card.count} pieces</p>
+                    <p className="shop-collection-card__count">
+                      {card.count} {card.count === 1 ? 'piece' : 'pieces'}
+                    </p>
                   </div>
                   <span className="shop-collection-card__arrow" aria-hidden>
                     <ArrowUpRight strokeWidth={1.5} />

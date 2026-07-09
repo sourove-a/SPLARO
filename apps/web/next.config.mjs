@@ -27,6 +27,7 @@ const cspImgSrc = [
   'https://splaro.com.bd',
   'https://*.r2.cloudflarestorage.com',
   'https://images.unsplash.com',
+  'https://images.pexels.com',
   'https://media.aarong.com',
   'https://placehold.co',
   'https://cdn.jsdelivr.net',
@@ -70,6 +71,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.r2.cloudflarestorage.com' },
       { protocol: 'https', hostname: 'placehold.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'images.pexels.com' },
       {
         protocol: 'https',
         hostname: 'media.aarong.com',

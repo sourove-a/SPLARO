@@ -61,8 +61,9 @@ export function optimizeImageSrc(
   url: string | null | undefined,
   profile: ImageProfile = 'card',
   fallback: string = PRODUCT_IMAGE_PLACEHOLDER,
+  opts?: { allowStockMedia?: boolean },
 ): string {
-  const sanitized = sanitizeRemoteImageUrl(url, fallback)
+  const sanitized = sanitizeRemoteImageUrl(url, fallback, opts)
   if (!sanitized || sanitized.startsWith('/') || sanitized.startsWith('data:')) {
     return sanitized
   }

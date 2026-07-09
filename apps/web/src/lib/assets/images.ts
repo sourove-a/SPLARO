@@ -7,12 +7,15 @@ const REMOTE_STOCK_MEDIA = /images\.unsplash\.com|images\.pexels\.com|videos\.pe
 export function sanitizeRemoteImageUrl(
   url: string | null | undefined,
   fallback: string = PRODUCT_IMAGE_PLACEHOLDER,
+  opts?: { allowStockMedia?: boolean },
 ): string {
   const trimmed = url?.trim() ?? ''
   if (!trimmed) return fallback
 
   const resolved = resolveStorefrontAssetUrl(trimmed)
-  if (REMOTE_STOCK_MEDIA.test(resolved)) return fallback
+  // Stock-media hosts are blocked for product imagery, but hero/editorial
+  // backdrops legitimately use Pexels stills (derived from the slide's video).
+  if (!opts?.allowStockMedia && REMOTE_STOCK_MEDIA.test(resolved)) return fallback
 
   return resolved
 }

@@ -59,7 +59,9 @@ export default async function CollectionsPage() {
                   <div className="shop-collection-card__footer">
                     <div className="shop-collection-card__text">
                       <p className="shop-collection-card__label">{card.label}</p>
-                      <p className="shop-collection-card__count">{card.count} pieces</p>
+                      <p className="shop-collection-card__count">
+                        {card.count} {card.count === 1 ? 'piece' : 'pieces'}
+                      </p>
                     </div>
                     <span className="shop-collection-card__arrow" aria-hidden>
                       <ArrowUpRight strokeWidth={1.5} />
