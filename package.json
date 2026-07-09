@@ -54,6 +54,7 @@
     "deploy:vps": "bash infrastructure/vps/prep-from-mac.sh --deploy",
     "deploy:vps:remote": "pnpm push:safe",
     "setup:vps:github": "bash infrastructure/vps/setup-github-deploy.sh",
+    "setup:github-deploy:sync": "bash infrastructure/vps/sync-github-from-mac.sh",
     "setup:server": "bash infrastructure/scripts/setup-server.sh",
     "install:vps": "bash infrastructure/vps/install-stack.sh",
     "clean": "turbo run clean && rm -rf node_modules .turbo",

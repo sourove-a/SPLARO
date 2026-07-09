@@ -29,11 +29,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify deploy secrets exist
+        run: |
+          missing=0
+          if [ -z "${{ secrets.VPS_SSH_KEY }}" ] && [ -z "${{ secrets.VPS_SSH_PRIVATE_KEY }}" ]; then
+            echo "::error::Missing VPS_SSH_KEY (or VPS_SSH_PRIVATE_KEY). Run on VPS:"
+            echo "  curl -fsSL https://raw.githubusercontent.com/sourove-a/SPLARO/main/infrastructure/vps/hpanel-bootstrap-github.sh | bash"
+            echo "Then on Mac: pnpm setup:github-deploy:sync"
+            missing=1
+          fi
+          if [ -z "${{ secrets.VPS_HOST }}" ] && [ -z "${{ secrets.VPS_SSH_HOST }}" ]; then
+            echo "::error::Missing VPS_HOST (current IP: dig +short splaro.co A)"
+            missing=1
+          fi
+          if [ -z "${{ secrets.VPS_USER }}" ] && [ -z "${{ secrets.VPS_SSH_USER }}" ]; then
+            echo "::warning::VPS_USER not set — defaulting to root in SSH step"
+          fi
+          exit "$missing"
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
           VPS_HOST: ${{ secrets.VPS_HOST || secrets.VPS_SSH_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER || secrets.VPS_SSH_USER }}
+          VPS_USER: ${{ secrets.VPS_USER || secrets.VPS_SSH_USER || 'root' }}
           VPS_PORT: ${{ secrets.VPS_PORT || secrets.VPS_SSH_PORT || 22 }}
         with:
           host: ${{ env.VPS_HOST }}
@@ -44,6 +62,10 @@ jobs:
           script: |
             set -euo pipefail
             echo "Deploy commit: ${{ github.sha }}"
+            if [ ! -x /opt/splaro/deploy.sh ]; then
+              echo "Missing /opt/splaro/deploy.sh — run hpanel-bootstrap-github.sh on VPS once"
+              exit 1
+            fi
             bash /opt/splaro/deploy.sh
 
       - name: Smoke test
