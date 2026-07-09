@@ -37,7 +37,7 @@ export function NewsletterAdminPreview({ config }: { config: NewsletterConfig })
                   key={perk}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-white/72"
                 >
-                  <Sparkles className="h-3 w-3 text-[#5e7cff]" />
+                  <Sparkles className="h-3 w-3 text-zinc-500 dark:text-zinc-300" />
                   {perk}
                 </li>
               ))}

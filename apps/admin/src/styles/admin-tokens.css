@@ -1,12 +1,24 @@
-/* SPLARO admin — brand gold + module page tokens (imported from globals.css) */
+/* SPLARO admin — monochrome accent + module page tokens (imported from globals.css).
+   "brand-gold" name kept for compatibility; values are graphite (light) / white (dark). */
 
 :root {
-  --admin-brand-gold: #c8a97e;
-  --admin-brand-gold-strong: #b8956a;
-  --admin-brand-gold-muted: rgba(200, 169, 126, 0.12);
-  --admin-brand-gold-border: rgba(200, 169, 126, 0.34);
-  --admin-brand-gold-glow: rgba(200, 169, 126, 0.22);
-  --admin-brand-gold-ink: #2a2418;
+  --admin-brand-gold: #16181d;
+  --admin-brand-gold-strong: #040507;
+  --admin-brand-gold-muted: rgba(16, 17, 20, 0.06);
+  --admin-brand-gold-border: rgba(16, 17, 20, 0.22);
+  --admin-brand-gold-glow: rgba(16, 17, 20, 0.16);
+  --admin-brand-gold-ink: #101114;
+  --admin-brand-gold-contrast: #ffffff;
+}
+
+.dark {
+  --admin-brand-gold: #ffffff;
+  --admin-brand-gold-strong: #d9dce2;
+  --admin-brand-gold-muted: rgba(255, 255, 255, 0.08);
+  --admin-brand-gold-border: rgba(255, 255, 255, 0.24);
+  --admin-brand-gold-glow: rgba(0, 0, 0, 0.45);
+  --admin-brand-gold-ink: #f2f3f5;
+  --admin-brand-gold-contrast: #101114;
 }
 
 .admin-module-page {
@@ -102,7 +114,7 @@
 .admin-module-page .product-form-tabs__tab--active,
 .admin-module-page .product-size-chip--active {
   background: linear-gradient(135deg, var(--admin-brand-gold), var(--admin-brand-gold-strong));
-  color: #fff9ef;
+  color: var(--admin-brand-gold-contrast);
   border-color: var(--admin-brand-gold-border);
 }
 

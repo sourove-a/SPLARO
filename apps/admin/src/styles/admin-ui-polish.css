@@ -433,11 +433,11 @@ span.admin-glass-chip.pointer-events-none {
 }
 
 .tg-bot-icon {
-  color: #5e7cff;
+  color: var(--admin-brand-gold, #16181d);
 }
 
 .tg-bot-accent {
-  color: #b8872a;
+  color: var(--admin-brand-gold, #16181d);
 }
 
 .tg-bot-divider {
@@ -551,7 +551,7 @@ span.admin-glass-chip.pointer-events-none {
 }
 
 .dark .tg-bot-accent {
-  color: #d4a853;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .tg-bot-empty-hint {

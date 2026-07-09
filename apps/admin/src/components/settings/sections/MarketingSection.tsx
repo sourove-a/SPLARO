@@ -42,7 +42,7 @@ export function MarketingSection({ draft, setDraft, save, saving, apiOnline }: S
             lineHeight: 1.6,
           }}
         >
-          Scripts are injected via <code style={{ color: '#5e7cff', fontFamily: 'monospace' }}>layout.tsx</code> only when IDs are non-empty. Changes apply on next full page load.
+          Scripts are injected via <code style={{ color: 'var(--admin-text)', fontFamily: 'monospace' }}>layout.tsx</code> only when IDs are non-empty. Changes apply on next full page load.
         </div>
         <SaveBar label="Save marketing" saving={saving} disabled={!apiOnline} onClick={() => save({ marketing: draft.marketing }, 'Marketing')} />
       </SectionCard>

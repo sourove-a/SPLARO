@@ -44,7 +44,7 @@ export function InvoiceActionsBar({ orderId, invoiceNumber, customerPhone }: Inv
   }
 
   return (
-    <div className="rounded-[16px] border border-[#5e7cff33] bg-white/80 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c24]/95">
+    <div className="rounded-[16px] border border-[#10111422] bg-white/80 p-3 backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c24]/95">
       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#9a7848] dark:text-[#d4b896]">
         Premium invoice
       </p>

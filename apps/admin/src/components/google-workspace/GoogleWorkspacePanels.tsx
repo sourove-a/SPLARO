@@ -828,7 +828,7 @@ function OAuthSettingsPanel() {
       </section>
 
       {status?.oauth.secretSource === 'env' ? (
-        <p className="rounded-xl border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200">
+        <p className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-zinc-200">
           Client secret loaded from <code className="rounded bg-black/20 px-1">.env</code> (takes priority over any saved DB value).
           Save here only to store encrypted in the database when <code className="rounded bg-black/20 px-1">GOOGLE_CLIENT_SECRET</code> is not in env.
         </p>

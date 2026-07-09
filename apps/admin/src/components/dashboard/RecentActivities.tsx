@@ -19,8 +19,8 @@ const ICON_MAP = {
 }
 
 const COLOR_MAP = {
-  order: 'bg-[#5E7CFF]/15 text-[#5E7CFF]',
-  customer: 'bg-blue-500/10 text-blue-600',
+  order: 'bg-zinc-900/10 text-zinc-800 dark:bg-white/10 dark:text-zinc-100',
+  customer: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300',
   payment: 'bg-emerald-500/10 text-emerald-600',
   shipping: 'bg-cyan-500/10 text-cyan-600',
 }

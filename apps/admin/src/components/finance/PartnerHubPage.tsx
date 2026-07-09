@@ -356,7 +356,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <KpiTile label="Combined balance" value={formatBDT(totals.combinedBalance)} icon={Wallet} />
           <KpiTile label="Total invested" value={formatBDT(totals.totalInvested)} icon={TrendingUp} tone="text-emerald-700" />
-          <KpiTile label="Stock value (cost)" value={formatBDT(inv?.totalCostValue ?? 0)} sub={`${inv?.totalUnits ?? 0} units`} icon={Package} tone="text-blue-700" />
+          <KpiTile label="Stock value (cost)" value={formatBDT(inv?.totalCostValue ?? 0)} sub={`${inv?.totalUnits ?? 0} units`} icon={Package} tone="text-zinc-700" />
           <KpiTile label="Stock value (retail)" value={formatBDT(inv?.totalRetailValue ?? 0)} sub={`${inv?.productCount ?? 0} products`} icon={Package} />
           <KpiTile label="Monthly net profit" value={formatBDT(totals.monthlyNetProfit)} sub={`Revenue ${formatBDT(totals.monthlyRevenue)}`} icon={BarChart3} tone={totals.monthlyNetProfit >= 0 ? 'text-emerald-700' : 'text-red-600'} />
           <KpiTile label="Weekly net profit" value={formatBDT(totals.weeklyNetProfit)} icon={Clock} />
