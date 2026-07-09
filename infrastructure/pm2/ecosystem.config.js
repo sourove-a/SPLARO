@@ -43,6 +43,7 @@ module.exports = {
         HOSTNAME: '127.0.0.1',
         NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://splaro.co',
         NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.splaro.co',
+        ADMIN_URL: process.env.ADMIN_URL || 'https://admin.splaro.co',
         NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://api.splaro.co/api/v1',
       },
       instances: 1,
