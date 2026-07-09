@@ -96,6 +96,27 @@ maybe_reindex_search() {
   log "Search reindex: $res"
 }
 
+wait_for_local_health() {
+  local url="$1"
+  local label="$2"
+  local attempts="${3:-30}"
+  local delay="${4:-3}"
+  local code="000"
+  local i=1
+  while [ "$i" -le "$attempts" ]; do
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null || echo 000)"
+    if [ "$code" = "200" ]; then
+      log "$label healthy (HTTP $code) after ${i} attempt(s)"
+      return 0
+    fi
+    log "Waiting for $label… HTTP $code (attempt $i/$attempts)"
+    sleep "$delay"
+    i=$((i + 1))
+  done
+  log "$label not ready after $attempts attempts (last HTTP $code)"
+  return 1
+}
+
 sleep 6
 maybe_reindex_search
 
@@ -106,8 +127,12 @@ else
   log "WARN: telegram enable skipped (no config yet)"
 fi
 
-WEB="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/ || echo 000)"
-API="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4000/api/v1/health || echo 000)"
+# API restarts after telegram enable — cluster mode needs time to bind :4000
+wait_for_local_health "http://127.0.0.1:3000/" "web" 20 2 || true
+wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "Health check failed — pm2 logs splaro-api"
+
+WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
+API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"
 
 log "Health — web:$WEB api:$API"
 log "========== VPS DEPLOY COMPLETE =========="
