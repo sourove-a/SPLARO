@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 import { importWithChunkRetry } from '@/lib/loadable-retry'
+import { isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const FooterEarthGlobe = dynamic(
   importWithChunkRetry(() =>
@@ -26,7 +27,7 @@ export function LazyFooterEarthGlobe() {
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || showGlobe) return
+    if (!host || showGlobe || isMobileViewport()) return
 
     const activate = () => {
       void preloadFooterEarthAssets()

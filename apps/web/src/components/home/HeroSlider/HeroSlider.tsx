@@ -8,6 +8,7 @@ import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNav
 import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO, HERO_DEFAULT_VIDEO_MOBILE } from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
+import { useMobileViewport, isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
 // Must match --hero-swipe in globals.css — this is the lock window that blocks
@@ -62,11 +63,21 @@ function videoMimeType(url: string): string {
   return 'video/mp4'
 }
 
-/** For Pexels-hosted videos, derive the lightweight 540p rendition for mobile. */
+/** For Pexels-hosted videos, derive a lightweight ~360p rendition for mobile. */
 function mobileVideoFallback(url: string): string | undefined {
   if (!url.includes('videos.pexels.com')) return undefined
-  const swapped = url.replace(/(uhd|hd)_\d+_\d+_(\d+fps)/, 'sd_960_540_$2')
-  return swapped !== url ? swapped : undefined
+
+  const legacy = url.replace(/(uhd|hd)_\d+_\d+_(\d+fps)/, 'sd_960_540_$2')
+  if (legacy !== url) return legacy
+
+  const numeric = url.match(/video-files\/(\d+)\/(\d+)_1920_1080_(\d+fps\.mp4)/)
+  if (numeric) {
+    const [, folderId, assetId, rest] = numeric
+    const mobileId = String(Number(assetId) - 3)
+    return `https://videos.pexels.com/video-files/${folderId}/${mobileId}_640_360_${rest}`
+  }
+
+  return undefined
 }
 
 function isBrandLogoPoster(url: string) {
@@ -164,7 +175,9 @@ function useAllowHeroVideo(): boolean {
       .connection
     const saveData = conn?.saveData === true
     const slowLink =
-      conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g' || conn?.effectiveType === '3g'
+      conn?.effectiveType === '2g' ||
+      conn?.effectiveType === 'slow-2g' ||
+      conn?.effectiveType === '3g'
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
     const update = () => {
@@ -176,23 +189,6 @@ function useAllowHeroVideo(): boolean {
   }, [])
 
   return allow
-}
-
-/** ≤768px → serve the lighter mobile rendition. */
-function useIsMobileViewport(): boolean {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(max-width: 768px)').matches
-  })
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)')
-    const update = () => setIsMobile(mq.matches)
-    mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
-  }, [])
-
-  return isMobile
 }
 
 function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
@@ -231,6 +227,7 @@ function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
 
 function warmHeroVideo(url: string) {
   if (typeof window === 'undefined' || !url) return
+  if (isMobileViewport()) return
   const video = document.createElement('video')
   video.preload = 'auto'
   video.muted = true
@@ -285,11 +282,17 @@ function HeroBackground({
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoFailed, setVideoFailed] = useState(false)
   const [videoReady, setVideoReady] = useState(false)
-  const isMobile = useIsMobileViewport()
+  const isMobile = useMobileViewport()
   const videoSrc = isMobile && slide.videoMobile ? slide.videoMobile : slide.video
   const poster =
     slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
-  const mountVideo = Boolean(videoSrc && !videoFailed && allowVideo && (isActive || preloadVideo))
+  const mountVideo = Boolean(
+    !isMobile &&
+      videoSrc &&
+      !videoFailed &&
+      allowVideo &&
+      (isActive || preloadVideo),
+  )
 
   useEffect(() => {
     setVideoFailed(false)
@@ -322,7 +325,7 @@ function HeroBackground({
           muted
           loop
           playsInline
-          preload={isActive || priority ? 'auto' : 'metadata'}
+          preload={isMobile ? 'none' : isActive || priority ? 'auto' : 'metadata'}
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}
@@ -439,24 +442,25 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   useEffect(() => {
     if (!slides.length) return
-    const eager = new Set([0, slides.length > 1 ? 1 : 0])
+    const isMobile = isMobileViewport()
+    const eager = isMobile
+      ? new Set([0])
+      : new Set([0, slides.length > 1 ? 1 : 0])
     warmHeroSlideMedia(slides, eager)
+    if (isMobileViewport()) return
     const first = slides[0]
     if (!first) return
-    const isMobile = window.matchMedia('(max-width: 768px)').matches
-    const firstVideo =
-      (isMobile && first.videoMobile ? first.videoMobile : first.video) ?? ''
+    const firstVideo = first.video ?? ''
     if (firstVideo && allowVideo) warmHeroVideo(firstVideo)
   }, [slidesSignature, slides, allowVideo])
 
   useEffect(() => {
     if (!slides.length) return
+    if (isMobileViewport()) return
     const nextIndex = (index + 1) % slides.length
     const nextSlide = slides[nextIndex]
     if (!nextSlide) return
-    const isMobile = window.matchMedia('(max-width: 768px)').matches
-    const nextVideo =
-      (isMobile && nextSlide.videoMobile ? nextSlide.videoMobile : nextSlide.video) ?? ''
+    const nextVideo = nextSlide.video ?? ''
     if (nextVideo && allowVideo) warmHeroVideo(nextVideo)
   }, [index, slides, allowVideo])
 
