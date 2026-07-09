@@ -7,7 +7,7 @@ import { ProductTransitionLink } from '@/components/product/ProductTransitionLin
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 import { Heart, ChevronUp, ChevronDown, ShoppingBag, Loader2 } from 'lucide-react'
 import { useWishlistStore } from '@/store/wishlistStore'
-import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 
@@ -58,6 +58,8 @@ export function SplaroProductCard({
 }: SplaroProductCardProps) {
   const reducedMotion = useReducedMotion()
   const isMobile = useMobileViewport()
+  const mounted = useMounted()
+  const showHoverImage = !mounted || !isMobile
   const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
   const saved = wishlistHydrated && isInWishlist(id)
@@ -109,7 +111,7 @@ export function SplaroProductCard({
           href={link}
           className="splaro-card__link ilyn-card__link"
           aria-label={name}
-          prefetch={!isHomepage}
+          prefetch={!(isHomepage && mounted && isMobile)}
           onMouseDown={() => setLinkPressed(true)}
           onMouseUp={() => setLinkPressed(false)}
           onMouseLeave={() => setLinkPressed(false)}
@@ -132,21 +134,21 @@ export function SplaroProductCard({
               )}
             />
           </div>
-          {!isMobile ? (
-          <StorefrontImage
-            src={secondImage}
-            alt=""
-            profile="card"
-            aria-hidden
-            fill
-            fit={imageFit}
-            className={cn(
-              'splaro-card__img splaro-card__img--hover ilyn-card__img ilyn-card__img--hover',
-              imageFit === 'cover'
-                ? 'splaro-card__img--cover ilyn-card__img--cover'
-                : 'splaro-card__img--contain ilyn-card__img--contain',
-            )}
-          />
+          {showHoverImage ? (
+            <StorefrontImage
+              src={secondImage}
+              alt=""
+              profile="card"
+              aria-hidden
+              fill
+              fit={imageFit}
+              className={cn(
+                'splaro-card__img splaro-card__img--hover ilyn-card__img ilyn-card__img--hover',
+                imageFit === 'cover'
+                  ? 'splaro-card__img--cover ilyn-card__img--cover'
+                  : 'splaro-card__img--contain ilyn-card__img--contain',
+              )}
+            />
           ) : null}
         </ProductTransitionLink>
 

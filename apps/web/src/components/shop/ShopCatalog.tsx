@@ -33,7 +33,7 @@ import { isStorefrontProductInStock, resolveQuickAddVariant } from '@/lib/catalo
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
 import type { CachedCatalog, CatalogSource } from '@/lib/catalog/server'
 import { usePublishedShopCategories } from '@/lib/storefront/catalog-channels'
-import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
 const PAGE_SIZE = LISTING_PAGE_SIZE
@@ -79,7 +79,9 @@ export function ShopCatalog({
 }: ShopCatalogProps) {
   const isHomepage = layout === 'homepage'
   const isMobile = useMobileViewport()
-  const homepageProductLimit = isMobile ? 6 : HOMEPAGE_PRODUCT_LIMIT
+  const mounted = useMounted()
+  const homepageProductLimit = mounted && isMobile ? 6 : HOMEPAGE_PRODUCT_LIMIT
+  const priorityCount = mounted && isMobile ? 2 : 4
   const reducedMotion = useReducedMotion()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
@@ -499,7 +501,7 @@ export function ShopCatalog({
                     inStock={product.inStock ?? isStorefrontProductInStock(product)}
                     sizes={product.sizes}
                     href={getProductHref(product)}
-                    priority={index < (isMobile ? 2 : 4)}
+                    priority={index < priorityCount}
                     onAddToBag={() =>
                       addProductToBag(product, product.sizes[0], product.colors[0], true)
                     }

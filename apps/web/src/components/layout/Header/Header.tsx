@@ -17,7 +17,9 @@ import { useHeaderScroll } from '@/hooks/useScrollY'
 import { useMinWidth } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
-const DesktopNavigation = dynamic(() => import('./Navigation').then((m) => m.Navigation))
+const DesktopNavigation = dynamic(() => import('./Navigation').then((m) => m.Navigation), {
+  ssr: false,
+})
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
 const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
@@ -25,6 +27,7 @@ const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartD
 export function Header() {
   const pathname = usePathname()
   const isDesktopNav = useMinWidth(1024)
+  const [desktopNavReady, setDesktopNavReady] = useState(false)
   const isHome = pathname === '/'
   const settings = useStorefrontSettings()
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false)
@@ -49,6 +52,10 @@ export function Header() {
 
   const { isScrolled } = useHeaderScroll(isHome ? 60 : 24, headerPinned)
   const isOverHero = isHome && !isScrolled
+
+  useEffect(() => {
+    if (isDesktopNav) setDesktopNavReady(true)
+  }, [isDesktopNav])
 
   useEffect(() => {
     const root = document.documentElement
@@ -120,7 +127,9 @@ export function Header() {
               />
             </div>
 
-            {isDesktopNav ? <DesktopNavigation onMegaMenuChange={setIsMegaMenuOpen} /> : null}
+            {desktopNavReady ? (
+              <DesktopNavigation onMegaMenuChange={setIsMegaMenuOpen} />
+            ) : null}
 
             <div className="site-header-glass__actions">
               <button

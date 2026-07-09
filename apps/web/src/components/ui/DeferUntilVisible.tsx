@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
 interface DeferUntilVisibleProps {
@@ -9,28 +9,33 @@ interface DeferUntilVisibleProps {
   /** Reserved height before content mounts — avoids layout shift. */
   minHeight?: number
   className?: string
-  /** When true, mount immediately (e.g. desktop). */
-  eager?: boolean
+  /** When true, below-fold blocks wait for scroll on mobile only. */
+  deferOnMobile?: boolean
 }
 
 /**
- * Mount children only when near the viewport — keeps below-fold JS/images off the critical path on mobile.
+ * Mount children only when near the viewport on mobile — keeps below-fold JS/images off the critical path.
+ * SSR/hydration always render the placeholder shell (visible=false) to avoid markup mismatches.
  */
 export function DeferUntilVisible({
   children,
   minHeight = 480,
   className,
-  eager = false,
+  deferOnMobile = true,
 }: DeferUntilVisibleProps) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(eager)
+  const [visible, setVisible] = useState(false)
+  const isMobile = useMobileViewport()
 
   useEffect(() => {
-    if (eager || visible) return
+    if (!deferOnMobile || !isMobile) {
+      setVisible(true)
+      return
+    }
+
     const host = hostRef.current
     if (!host) return
 
-    const margin = isMobileViewport() ? '64px 0px' : '280px 0px'
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) {
@@ -38,11 +43,11 @@ export function DeferUntilVisible({
           observer.disconnect()
         }
       },
-      { rootMargin: margin, threshold: 0 },
+      { rootMargin: '64px 0px', threshold: 0 },
     )
     observer.observe(host)
     return () => observer.disconnect()
-  }, [eager, visible])
+  }, [deferOnMobile, isMobile])
 
   return (
     <div

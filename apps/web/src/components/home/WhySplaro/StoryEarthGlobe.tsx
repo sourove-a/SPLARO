@@ -1,11 +1,12 @@
 'use client'
 
 import { EarthGlobe } from '@/components/earth/EarthGlobe'
-import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 export function StoryEarthGlobe() {
   const isMobile = useMobileViewport()
-  if (isMobile) return null
+  const mounted = useMounted()
+  if (mounted && isMobile) return null
 
   return (
     <EarthGlobe

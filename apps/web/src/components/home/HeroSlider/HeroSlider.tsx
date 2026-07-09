@@ -8,7 +8,7 @@ import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNav
 import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO, HERO_DEFAULT_VIDEO_MOBILE } from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
-import { useMobileViewport, isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
 // Must match --hero-swipe in globals.css — this is the lock window that blocks
@@ -283,11 +283,13 @@ function HeroBackground({
   const [videoFailed, setVideoFailed] = useState(false)
   const [videoReady, setVideoReady] = useState(false)
   const isMobile = useMobileViewport()
-  const videoSrc = isMobile && slide.videoMobile ? slide.videoMobile : slide.video
+  const mounted = useMounted()
+  const mobileActive = mounted && isMobile
+  const videoSrc = mobileActive && slide.videoMobile ? slide.videoMobile : slide.video
   const poster =
     slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
   const mountVideo = Boolean(
-    !isMobile &&
+    !mobileActive &&
       videoSrc &&
       !videoFailed &&
       allowVideo &&
@@ -325,7 +327,7 @@ function HeroBackground({
           muted
           loop
           playsInline
-          preload={isMobile ? 'none' : isActive || priority ? 'auto' : 'metadata'}
+          preload={mobileActive ? 'none' : isActive || priority ? 'auto' : 'metadata'}
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}

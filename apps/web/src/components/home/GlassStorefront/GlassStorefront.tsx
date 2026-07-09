@@ -9,7 +9,6 @@ import { MarqueeStrip } from '@/components/home/MarqueeStrip'
 import { TrustBar } from '@/components/home/TrustBar'
 import { DeferUntilVisible } from '@/components/ui/DeferUntilVisible'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
-import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 import { type Category } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import type { HeroBanner } from '@/lib/api/banners'
@@ -43,7 +42,6 @@ interface GlassStorefrontProps {
 
 export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStorefrontProps) {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
-  const isMobile = useMobileViewport()
   const settings = useStorefrontSettings()
   const homepage = resolveHomepageSections(settings.config.homepage)
   const showNewsletter = homepage.newsletter && (settings.config.newsletter?.enabled ?? true)
@@ -61,13 +59,13 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
 
       <div className="ed-root">
       {homepage.specialOffer ? (
-        <DeferUntilVisible minHeight={320} eager={!isMobile}>
+        <DeferUntilVisible minHeight={320}>
           <SpecialOffer />
         </DeferUntilVisible>
       ) : null}
 
       {homepage.catalog ? (
-        <DeferUntilVisible minHeight={560} eager={!isMobile}>
+        <DeferUntilVisible minHeight={560}>
           <section className="ed-catalog-intro ed-defer-section" aria-label="Shop catalog">
             <div className="ed-catalog-intro__ambient" aria-hidden />
             <div className="ed-catalog">
@@ -97,13 +95,13 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
       ) : null}
 
       {homepage.ourStory ? (
-        <DeferUntilVisible minHeight={420} eager={!isMobile}>
+        <DeferUntilVisible minHeight={420}>
           <WhySplaro />
         </DeferUntilVisible>
       ) : null}
 
       {showNewsletter ? (
-        <DeferUntilVisible minHeight={280} eager={!isMobile}>
+        <DeferUntilVisible minHeight={280}>
           <NewsletterSection />
         </DeferUntilVisible>
       ) : null}

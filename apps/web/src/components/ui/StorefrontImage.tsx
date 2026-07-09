@@ -11,7 +11,7 @@ import {
   optimizeImageSrc,
   type ImageProfile,
 } from '@/lib/assets/image-optimize'
-import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
 type StorefrontImageProps = Omit<ImageProps, 'src' | 'placeholder' | 'blurDataURL'> & {
@@ -33,7 +33,9 @@ export function StorefrontImage({
   ...rest
 }: StorefrontImageProps) {
   const isMobile = useMobileViewport()
-  const effectiveProfile = isMobile ? mobileImageProfile(profile) : profile
+  const mounted = useMounted()
+  const effectiveProfile =
+    mounted && isMobile ? mobileImageProfile(profile) : profile
   const optimizedSrc = optimizeImageSrc(src, effectiveProfile)
   const [failed, setFailed] = useState(false)
 
