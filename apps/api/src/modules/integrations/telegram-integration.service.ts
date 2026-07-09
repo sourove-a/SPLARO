@@ -43,7 +43,7 @@ export class TelegramIntegrationService {
       botToken: tokenSaved ? '••••••••' : null,
       tokenConfigured: tokenSaved || Boolean(tg?.botToken && tg.botToken !== 'pending'),
       chatId: tg?.chatId ?? '',
-      isEnabled: tg?.isActive ?? false,
+      isEnabled: tg?.isActive ?? true,
       notifyOrders: tg?.notifyOrders ?? true,
       notifyCustomers: tg?.notifyCustomers ?? true,
       notifyPayments: tg?.notifyPayments ?? true,

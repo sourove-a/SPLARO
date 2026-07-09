@@ -161,9 +161,11 @@ pnpm build:web        # Build web only
 | 12 | Dashboard / Analytics | ✅ Live | `/admin/dashboard/stats` |
 | 13 | Coupons | ✅ Live | Create, toggle, delete |
 | 14 | Settings | ✅ Live | Verified save + catalog SKU policy (manual default) |
-| 15 | Security (roles) | 🟡 Partial | Staff CRUD + permission matrix save to API (`siteSettings.adminRolePermissions` + `StaffRole.permissions`); API routes still enforce coarse role only (not per-module matrix) |
+| 15 | Security (roles) | ✅ Complete | Staff CRUD + permission matrix; API enforces per-module permissions (`admin-route-permissions` + `staffHasPermission`) |
 | 16 | Telegram Integration | ✅ Complete | |
-| 17 | SEO / WMS / SaaS shells | ⬜ Preview | UI only — not daily-use ready |
+| 17 | SEO | ✅ Partial live | Product audit API, redirects, live sitemap XML; GSC indexing UI disabled until OAuth |
+| 18 | WMS | 🟡 Beta | SKU-level stock + movements live; bin-level + export coming later |
+| 19 | SaaS multi-tenant | ⬜ N/A | Single-store SPLARO — not in launch scope |
 
 **Module wiring queue complete.** SKU policy: manual by default (`catalog.autoGenerateSku: false`).
 

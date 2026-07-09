@@ -1,0 +1,259 @@
+/**
+ * SPLARO Admin — premium sidebar navigation
+ * Reference-inspired: dark pill active, flat icons, subtle right counts.
+ */
+
+.admin-sidebar__nav {
+  padding: 0.35rem 0.55rem 0.85rem;
+}
+
+/* ── Flat primary sections (no drawer chrome) ── */
+.admin-sidebar__flat-section {
+  margin-bottom: 0.15rem;
+}
+
+.admin-sidebar__flat-label {
+  padding: 0.7rem 0.8rem 0.3rem;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.admin-sidebar__flat-items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* ── Nav row ── */
+.admin-sidebar .admin-nav-item {
+  position: relative;
+  min-height: 2.7rem;
+  padding: 0.52rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-size: 0.8125rem;
+  font-weight: 560;
+  letter-spacing: -0.012em;
+  color: #3a3a42;
+  gap: 0.72rem;
+  box-shadow: none;
+}
+
+.admin-sidebar .admin-nav-item:hover {
+  background: rgba(17, 17, 20, 0.045);
+  border-color: transparent;
+  color: #111111;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-sidebar .admin-nav-item--active {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+  font-weight: 640;
+  box-shadow: 0 6px 18px rgba(17, 17, 20, 0.16);
+}
+
+.admin-sidebar .admin-nav-item--active:hover {
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(17, 17, 20, 0.2);
+}
+
+/* Icon — outline only, no boxed chip */
+.admin-sidebar .admin-nav-item__icon {
+  display: flex;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.78;
+}
+
+.admin-sidebar .admin-nav-item:hover .admin-nav-item__icon,
+.admin-sidebar .admin-nav-item--active .admin-nav-item__icon {
+  background: transparent;
+  border-color: transparent;
+  color: inherit;
+  opacity: 1;
+}
+
+/* Live counts — reference-style numerals */
+.admin-nav-count {
+  margin-left: auto;
+  padding-left: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: #9a9aa3;
+  line-height: 1;
+}
+
+.admin-sidebar .admin-nav-item--active .admin-nav-count {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-sidebar .admin-nav-maturity {
+  margin-left: auto;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  opacity: 0.9;
+}
+
+/* ── Advanced drawers — minimal chrome ── */
+.admin-sidebar__drawer {
+  margin: 0 0 0.35rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.admin-sidebar__drawer-sheen,
+.admin-sidebar__drawer::before {
+  display: none;
+}
+
+.admin-sidebar__drawer--active,
+.admin-sidebar__drawer--open,
+.admin-sidebar__drawer--primary {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.admin-sidebar__drawer-trigger {
+  min-height: 2.45rem;
+  margin-bottom: 0.15rem;
+  padding: 0.42rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background 160ms ease;
+}
+
+.admin-sidebar__drawer-trigger:hover {
+  background: rgba(17, 17, 20, 0.04);
+}
+
+.admin-sidebar__drawer-icon {
+  width: 1.55rem;
+  height: 1.55rem;
+  border: none;
+  border-radius: 10px;
+  background: rgba(17, 17, 20, 0.04);
+  color: var(--admin-text-secondary);
+  box-shadow: none;
+}
+
+.admin-sidebar__drawer--active .admin-sidebar__drawer-icon {
+  background: rgba(17, 17, 20, 0.08);
+  color: #111111;
+}
+
+.admin-sidebar__drawer-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-secondary);
+}
+
+.admin-sidebar__drawer-chip {
+  display: none;
+}
+
+.admin-sidebar__drawer-meta {
+  display: none;
+}
+
+.admin-sidebar__drawer-chevron {
+  width: 1.35rem;
+  height: 1.35rem;
+  border: none;
+  background: transparent;
+  color: var(--admin-text-muted);
+  box-shadow: none;
+}
+
+.admin-sidebar__drawer-panel {
+  padding: 0 0 0.25rem;
+}
+
+.admin-sidebar__drawer .admin-nav-item {
+  min-height: 2.55rem;
+  padding: 0.48rem 0.75rem 0.48rem 0.85rem;
+  font-size: 0.78rem;
+}
+
+.admin-sidebar__drawer-group-label {
+  padding: 0.35rem 0.8rem 0.2rem;
+  font-size: 0.54rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.admin-sidebar__group--advanced {
+  margin-top: 0.85rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+}
+
+/* ── Dark mode ── */
+.dark .admin-sidebar .admin-nav-item {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.dark .admin-sidebar .admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.dark .admin-sidebar .admin-nav-item--active,
+.dark .admin-sidebar .admin-nav-item--active:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111111;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.dark .admin-nav-count {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.dark .admin-sidebar .admin-nav-item--active .admin-nav-count {
+  color: rgba(17, 17, 17, 0.5);
+}
+
+.dark .admin-sidebar__drawer-trigger:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .admin-sidebar__drawer-icon {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.dark .admin-sidebar__drawer--active .admin-sidebar__drawer-icon {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar .admin-nav-item,
+  .admin-sidebar__drawer-trigger {
+    transition: none;
+  }
+}

@@ -41,16 +41,29 @@ function Field({
 function ConfigStatus({
   configured,
   source,
+  adminManaged,
   lastTestStatus,
 }: {
   configured: boolean | undefined
   source: string | undefined
+  adminManaged?: boolean | undefined
   lastTestStatus?: string | null | undefined
 }) {
+  const activeFromAdmin = adminManaged || source === 'database'
   return (
-    <p className="mb-3 text-[11px] font-semibold text-[var(--admin-text-muted)]">
+    <p className="mb-3 text-[11px] font-semibold leading-relaxed text-[var(--admin-text-muted)]">
       {configured ? 'Configured' : 'Not configured'}
-      {source === 'database' ? ' · saved in admin' : source === 'env' ? ' · from .env' : ''}
+      {activeFromAdmin ? (
+        <span className="text-emerald-700 dark:text-emerald-400">
+          {' '}
+          · Live from admin (encrypted DB) — .env ignored for this provider
+        </span>
+      ) : source === 'env' ? (
+        <span className="text-amber-700 dark:text-amber-400">
+          {' '}
+          · Using .env fallback — save here once to manage from admin only
+        </span>
+      ) : null}
       {lastTestStatus === 'success' ? ' · last test OK' : lastTestStatus === 'failed' ? ' · last test failed' : ''}
     </p>
   )
@@ -103,7 +116,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
     }
   }
 
-  const runTest = async (provider: 'pathao' | 'redx') => {
+  const runTest = async (provider: 'steadfast' | 'pathao' | 'redx') => {
     setBusy(`test-${provider}`)
     try {
       const res = await testInfra.mutateAsync(provider)
@@ -129,7 +142,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
       <SectionPageHeader
         icon={<Cloud size={22} />}
         title="Infrastructure"
-        subtitle="Storage and courier API keys — saved encrypted to the server (.env used as fallback)."
+        subtitle="Storage and courier API keys — save here once; backend reads encrypted DB (not mixed with .env)."
         badge="Integrations"
       />
 
@@ -147,7 +160,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         subtitle="Product images and media CDN."
         accent={Boolean(r2.data?.configured)}
       >
-        <ConfigStatus configured={r2.data?.configured} source={r2.data?.source} />
+        <ConfigStatus configured={r2.data?.configured} source={r2.data?.source} adminManaged={r2.data?.adminManaged} />
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Access Key" value={r2Draft.accessKey ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, accessKey: v }))} secret />
           <Field label="Secret Key" value={r2Draft.secretKey ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, secretKey: v }))} secret />
@@ -166,28 +179,43 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         </AdminButton>
       </SectionCard>
 
-      <SectionCard title="Steadfast Courier" subtitle="Live parcel booking API." accent={Boolean(steadfast.data?.configured)}>
-        <ConfigStatus configured={steadfast.data?.configured} source={steadfast.data?.source} />
+      <SectionCard title="Steadfast Courier" subtitle="Keys from steadfast.com.bd → Merchant → API. Save here (encrypted) or set STEADFAST_* in .env." accent={Boolean(steadfast.data?.configured)}>
+        <ConfigStatus
+          configured={steadfast.data?.configured}
+          source={steadfast.data?.source}
+          adminManaged={steadfast.data?.adminManaged}
+          lastTestStatus={steadfast.data?.lastTestStatus}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="API Key" value={sfDraft.apiKey ?? ''} onChange={(v) => setSfDraft((p) => ({ ...p, apiKey: v }))} secret />
           <Field label="Secret Key" value={sfDraft.secretKey ?? ''} onChange={(v) => setSfDraft((p) => ({ ...p, secretKey: v }))} secret />
           <Field label="Base URL" value={sfDraft.baseUrl ?? ''} onChange={(v) => setSfDraft((p) => ({ ...p, baseUrl: v }))} />
         </div>
-        <AdminButton
-          className="mt-4"
-          variant="gold"
-          disabled={!apiOnline}
-          loading={busy === 'save-steadfast'}
-          onClick={() => void save('steadfast', sfDraft)}
-        >
-          Save Steadfast
-        </AdminButton>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <AdminButton
+            variant="gold"
+            disabled={!apiOnline}
+            loading={busy === 'save-steadfast'}
+            onClick={() => void save('steadfast', sfDraft)}
+          >
+            Save Steadfast
+          </AdminButton>
+          <AdminButton
+            variant="ghost"
+            disabled={!apiOnline || !steadfast.data?.configured}
+            loading={busy === 'test-steadfast'}
+            onClick={() => void runTest('steadfast')}
+          >
+            Test connection
+          </AdminButton>
+        </div>
       </SectionCard>
 
       <SectionCard title="Pathao Courier" subtitle="Alternative courier — token + store booking." accent={Boolean(pathao.data?.configured)}>
         <ConfigStatus
           configured={pathao.data?.configured}
           source={pathao.data?.source}
+          adminManaged={pathao.data?.adminManaged}
           lastTestStatus={pathao.data?.lastTestStatus}
         />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -221,6 +249,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         <ConfigStatus
           configured={redx.data?.configured}
           source={redx.data?.source}
+          adminManaged={redx.data?.adminManaged}
           lastTestStatus={redx.data?.lastTestStatus}
         />
         <div className="grid gap-3 sm:grid-cols-2">

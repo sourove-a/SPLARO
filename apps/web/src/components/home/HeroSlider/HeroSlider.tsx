@@ -160,13 +160,15 @@ function useAllowHeroVideo(): boolean {
   const [allow, setAllow] = useState(true)
 
   useEffect(() => {
-    const saveData =
-      (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData ===
-      true
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
+      .connection
+    const saveData = conn?.saveData === true
+    const slowLink =
+      conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g' || conn?.effectiveType === '3g'
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
     const update = () => {
-      setAllow(!saveData && !reducedMotion.matches)
+      setAllow(!saveData && !slowLink && !reducedMotion.matches)
     }
     update()
     reducedMotion.addEventListener('change', update)
@@ -193,16 +195,38 @@ function useIsMobileViewport(): boolean {
   return isMobile
 }
 
-function warmHeroSlideMedia(slides: HeroSlide[]) {
+function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
   if (typeof window === 'undefined') return
 
-  for (const slide of slides) {
+  const warmImage = (slide: HeroSlide) => {
     if (slide.image.trim() && !isBrandLogoPoster(slide.image)) {
       const img = new window.Image()
       img.decoding = 'async'
       img.src = optimizeImageSrc(slide.image, 'hero')
     }
   }
+
+  const warmDeferred = () => {
+    slides.forEach((slide, i) => {
+      if (eagerOnly?.has(i)) return
+      warmImage(slide)
+    })
+  }
+
+  if (eagerOnly && eagerOnly.size > 0) {
+    for (const i of eagerOnly) {
+      const slide = slides[i]
+      if (slide) warmImage(slide)
+    }
+    const schedule =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback
+        : (cb: () => void) => window.setTimeout(cb, 2000)
+    schedule(warmDeferred)
+    return
+  }
+
+  slides.forEach(warmImage)
 }
 
 function warmHeroVideo(url: string) {
@@ -414,14 +438,16 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [])
 
   useEffect(() => {
-    warmHeroSlideMedia(slides)
+    if (!slides.length) return
+    const eager = new Set([0, slides.length > 1 ? 1 : 0])
+    warmHeroSlideMedia(slides, eager)
     const first = slides[0]
     if (!first) return
     const isMobile = window.matchMedia('(max-width: 768px)').matches
     const firstVideo =
       (isMobile && first.videoMobile ? first.videoMobile : first.video) ?? ''
-    if (firstVideo) warmHeroVideo(firstVideo)
-  }, [slidesSignature, slides])
+    if (firstVideo && allowVideo) warmHeroVideo(firstVideo)
+  }, [slidesSignature, slides, allowVideo])
 
   useEffect(() => {
     if (!slides.length) return
@@ -431,8 +457,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     const isMobile = window.matchMedia('(max-width: 768px)').matches
     const nextVideo =
       (isMobile && nextSlide.videoMobile ? nextSlide.videoMobile : nextSlide.video) ?? ''
-    if (nextVideo) warmHeroVideo(nextVideo)
-  }, [index, slides])
+    if (nextVideo && allowVideo) warmHeroVideo(nextVideo)
+  }, [index, slides, allowVideo])
 
   useEffect(() => {
     setIndex(0)

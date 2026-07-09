@@ -28,7 +28,7 @@ export function TelegramPanel() {
         </div>
         <p className="text-sm font-semibold text-[#6B6B6B]">
           Configure bot in{' '}
-          <AdminNavLink href="/dashboard/telegram-bot" className="font-black text-[#5E7CFF] hover:underline">
+          <AdminNavLink href="/dashboard/settings?section=notifications#telegram" className="font-black text-[#5E7CFF] hover:underline">
             Integrations → Telegram Bot
           </AdminNavLink>
           . Live logs below from database.

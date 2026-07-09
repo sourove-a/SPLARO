@@ -75,6 +75,7 @@ function PaymentProviderBlock({
   fields,
   fieldDefs,
   source,
+  adminManaged,
   configured,
   saving,
   testing,
@@ -88,6 +89,7 @@ function PaymentProviderBlock({
   fields: Record<string, string | boolean>
   fieldDefs: { key: string; label: string; placeholder?: string }[]
   source: string
+  adminManaged?: boolean
   configured: boolean
   saving: boolean
   testing: boolean
@@ -152,7 +154,11 @@ function PaymentProviderBlock({
         <div className="mb-4 space-y-3 rounded-xl border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-accent-muted)]/40 p-4">
           <p className="text-[11px] font-semibold text-[var(--admin-text-muted)]">
             Step 1 — API credentials
-            {source === 'database' ? ' · encrypted on server' : source === 'env' ? ' · from .env' : ''}
+            {source === 'database' || adminManaged
+              ? ' · encrypted on server — .env ignored'
+              : source === 'env'
+                ? ' · from .env — save to manage in admin'
+                : ''}
             {configured ? (
               <span className="ml-1 text-emerald-600 dark:text-emerald-400">Ready</span>
             ) : (
@@ -285,6 +291,7 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
         onToggle={(force) => toggle('bkash', byProvider.get('bkash')?.configured, force)}
         fields={byProvider.get('bkash')?.fields ?? {}}
         source={byProvider.get('bkash')?.source ?? 'none'}
+        {...(byProvider.get('bkash')?.adminManaged ? { adminManaged: true } : {})}
         configured={Boolean(byProvider.get('bkash')?.configured)}
         saving={busy === 'bkash' && updatePay.isPending}
         testing={busy === 'bkash' && testPay.isPending}
@@ -305,6 +312,7 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
         onToggle={(force) => toggle('nagad', byProvider.get('nagad')?.configured, force)}
         fields={byProvider.get('nagad')?.fields ?? {}}
         source={byProvider.get('nagad')?.source ?? 'none'}
+        {...(byProvider.get('nagad')?.adminManaged ? { adminManaged: true } : {})}
         configured={Boolean(byProvider.get('nagad')?.configured)}
         saving={busy === 'nagad' && updatePay.isPending}
         testing={busy === 'nagad' && testPay.isPending}
@@ -325,6 +333,7 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
         onToggle={(force) => toggle('sslcommerz', byProvider.get('sslcommerz')?.configured, force)}
         fields={byProvider.get('sslcommerz')?.fields ?? {}}
         source={byProvider.get('sslcommerz')?.source ?? 'none'}
+        {...(byProvider.get('sslcommerz')?.adminManaged ? { adminManaged: true } : {})}
         configured={Boolean(byProvider.get('sslcommerz')?.configured)}
         saving={busy === 'sslcommerz' && updatePay.isPending}
         testing={busy === 'sslcommerz' && testPay.isPending}

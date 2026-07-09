@@ -45,31 +45,45 @@ export class PaymentIntegrationService {
 
   async getConfig(storeIdRaw: string, provider: PaymentProvider) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
-    const saved = await this.integrations.getProviderMap(storeId, provider)
+    const adminManaged = await this.integrations.hasProviderSettings(storeId, provider)
     const fallback = this.envFallback(provider)
-    const merged: Record<string, string | boolean> = { ...fallback }
 
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === null || value === undefined) continue
-      if (typeof value === 'boolean') merged[key] = value
-      else if (SECRET_KEYS.has(key)) {
-        const has = await this.integrations.hasSecret(storeId, provider, key)
-        merged[key] = has ? '••••••••' : ''
-      } else {
-        merged[key] = String(value)
+    let merged: Record<string, string | boolean>
+    if (adminManaged) {
+      merged = { ...fallback }
+      for (const key of Object.keys(fallback)) {
+        if (key === 'sandbox') {
+          const raw = await this.integrations.getPlain(storeId, provider, key)
+          if (raw !== null) merged.sandbox = raw === 'true'
+          continue
+        }
+        if (SECRET_KEYS.has(key)) {
+          const has = await this.integrations.hasSecret(storeId, provider, key)
+          merged[key] = has ? '••••••••' : ''
+        } else {
+          const plain = await this.integrations.getPlain(storeId, provider, key)
+          if (plain !== null) merged[key] = plain
+          else merged[key] = ''
+        }
       }
+    } else {
+      merged = { ...fallback }
     }
 
-    const source = Object.keys(saved).length ? 'database' : this.hasEnvCredentials(provider) ? 'env' : 'none'
-    const configured = this.isConfigComplete(provider, merged)
+    const runtime = await this.resolveRuntimeCredentials(storeId, provider)
+    const configured = this.isConfigComplete(provider, runtime as unknown as Record<string, string | boolean>)
+
+    const source = adminManaged ? 'database' : this.hasEnvCredentials(provider) ? 'env' : 'none'
+    const meta = await this.integrations.getProviderMeta(storeId, provider)
 
     return {
       provider,
       configured,
       source,
+      adminManaged,
       fields: merged,
-      lastTestedAt: (await this.integrations.getProviderMeta(storeId, provider)).lastTestedAt,
-      lastTestStatus: (await this.integrations.getProviderMeta(storeId, provider)).lastTestStatus,
+      lastTestedAt: meta.lastTestedAt,
+      lastTestStatus: meta.lastTestStatus,
     }
   }
 
@@ -244,6 +258,7 @@ export class PaymentIntegrationService {
   }
 
   async resolveRuntimeCredentials(storeId: string, provider: PaymentProvider) {
+    const adminManaged = await this.integrations.hasProviderSettings(storeId, provider)
     const saved = await this.integrations.getProviderMap(storeId, provider)
     const fallback = this.envFallback(provider)
     const pick = async (key: string) => {
@@ -251,8 +266,19 @@ export class PaymentIntegrationService {
       if (typeof fromDb === 'string' && fromDb) return fromDb
       const secret = await this.integrations.getPlain(storeId, provider, key)
       if (secret) return secret
-      const fromEnv = fallback[key]
-      return typeof fromEnv === 'string' ? fromEnv : ''
+      if (!adminManaged) {
+        const fromEnv = fallback[key]
+        return typeof fromEnv === 'string' ? fromEnv : ''
+      }
+      return ''
+    }
+
+    const sandboxFlag = async () => {
+      if (saved.sandbox === true || saved.sandbox === 'true') return true
+      const raw = await this.integrations.getPlain(storeId, provider, 'sandbox')
+      if (raw === 'true') return true
+      if (raw === 'false') return false
+      return !adminManaged && fallback.sandbox === true
     }
 
     if (provider === 'bkash') {
@@ -261,7 +287,7 @@ export class PaymentIntegrationService {
         appSecret: await pick('appSecret'),
         username: await pick('username'),
         password: await pick('password'),
-        sandbox: saved.sandbox === true || saved.sandbox === 'true' || fallback.sandbox === true,
+        sandbox: await sandboxFlag(),
       }
     }
     if (provider === 'nagad') {
@@ -270,13 +296,13 @@ export class PaymentIntegrationService {
         merchantNumber: await pick('merchantNumber'),
         publicKey: await pick('publicKey'),
         privateKey: await pick('privateKey'),
-        sandbox: saved.sandbox === true || saved.sandbox === 'true' || fallback.sandbox === true,
+        sandbox: await sandboxFlag(),
       }
     }
     return {
       storeId: await pick('storeId'),
       storePassword: await pick('storePassword'),
-      sandbox: saved.sandbox === true || saved.sandbox === 'true' || fallback.sandbox === true,
+      sandbox: await sandboxFlag(),
     }
   }
 }

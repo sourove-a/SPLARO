@@ -460,7 +460,7 @@ export function AiCommandCenterPanel() {
               <Send className="h-4 w-4" />
               Test bridge
             </AdminButton>
-            <Link href="/dashboard/telegram-bot" className="admin-btn px-4 py-2 text-xs font-black">
+            <Link href="/dashboard/settings?section=notifications#telegram" className="admin-btn px-4 py-2 text-xs font-black">
               Telegram Bot <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </div>

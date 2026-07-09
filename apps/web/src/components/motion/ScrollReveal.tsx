@@ -27,8 +27,16 @@ export function ScrollReveal({
     ...(once !== undefined ? { once } : {}),
     ...(margin !== undefined ? { margin } : {}),
   }
-  const { ref, isInView, reducedMotion } = useScrollReveal(revealOptions)
+  const { ref, isInView, reducedMotion, coarsePointer } = useScrollReveal(revealOptions)
   const variants = stagger ? revealVariants.staggerContainer : revealVariants[variant]
+
+  if (reducedMotion || coarsePointer) {
+    return (
+      <div ref={ref} className={cn('scroll-reveal-static', className)}>
+        {children}
+      </div>
+    )
+  }
 
   return (
     <motion.div

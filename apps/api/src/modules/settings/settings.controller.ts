@@ -385,41 +385,7 @@ export class SettingsController {
     const socialPatch = body.social
     const contactPatch = body.contact
 
-    if (body.telegram) {
-      const existing = await this.prisma.telegramConfig.findUnique({ where: { storeId: store.id } })
-      const botToken = body.telegram.botToken?.trim()
-      await this.prisma.telegramConfig.upsert({
-        where: { storeId: store.id },
-        create: {
-          storeId: store.id,
-          botToken: botToken || process.env.TELEGRAM_BOT_TOKEN || 'pending',
-          chatId: body.telegram.chatId || '',
-          isActive: body.telegram.isActive ?? false,
-          notifyOrders: body.telegram.notifyOrders ?? true,
-          notifyPayments: body.telegram.notifyPayments ?? true,
-          notifyCourier: body.telegram.notifyCourier ?? true,
-          notifyStock: body.telegram.notifyStock ?? true,
-          reportDaily: body.telegram.reportDaily ?? true,
-        },
-        update: {
-          ...(botToken ? { botToken } : {}),
-          ...(body.telegram.chatId !== undefined ? { chatId: body.telegram.chatId } : {}),
-          ...(body.telegram.isActive !== undefined ? { isActive: body.telegram.isActive } : {}),
-          ...(body.telegram.notifyOrders !== undefined ? { notifyOrders: body.telegram.notifyOrders } : {}),
-          ...(body.telegram.notifyPayments !== undefined ? { notifyPayments: body.telegram.notifyPayments } : {}),
-          ...(body.telegram.notifyCourier !== undefined ? { notifyCourier: body.telegram.notifyCourier } : {}),
-          ...(body.telegram.notifyStock !== undefined ? { notifyStock: body.telegram.notifyStock } : {}),
-          ...(body.telegram.reportDaily !== undefined ? { reportDaily: body.telegram.reportDaily } : {}),
-        },
-      })
-      await this.prisma.siteSettings.upsert({
-        where: { storeId: store.id },
-        create: { storeId: store.id, telegramEnabled: body.telegram.isActive ?? true },
-        update: { telegramEnabled: body.telegram.isActive ?? existing?.isActive ?? true },
-      })
-    }
-
-    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.catalog || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing || body.telegram) {
+    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.catalog || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing) {
       await this.prisma.siteSettings.upsert({
         where: { storeId: store.id },
         create: {

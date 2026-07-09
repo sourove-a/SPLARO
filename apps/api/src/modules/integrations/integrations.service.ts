@@ -129,6 +129,14 @@ export class IntegrationsService {
     return Boolean(row?.encryptedValue || row?.value)
   }
 
+  /** True once any key for this provider was saved via admin (encrypted DB). */
+  async hasProviderSettings(storeId: string, provider: string): Promise<boolean> {
+    const count = await this.prisma.integrationSetting.count({
+      where: { storeId, provider },
+    })
+    return count > 0
+  }
+
   async getProviderMap(storeId: string, provider: string) {
     const rows = await this.prisma.integrationSetting.findMany({
       where: { storeId, provider },

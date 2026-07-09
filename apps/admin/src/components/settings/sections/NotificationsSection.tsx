@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { Mail } from 'lucide-react'
-import type { AdminSettingsData } from '@/lib/api/settings'
+import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
 import { sendSmtpTestEmail, verifySmtpConnection } from '@/lib/api/settings'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
 import { SectionCard, SectionPageHeader, FieldGrid, Field, Toggle, SaveBar, type SectionProps } from './shared'
@@ -26,29 +25,6 @@ const EMAIL_ALIASES = [
   { label: 'info', email: 'info@splaro.co', role: 'From — general info' },
 ] as const
 
-function defaultTelegram(): NonNullable<AdminSettingsData['telegram']> {
-  return {
-    botToken: '',
-    chatId: '',
-    isActive: false,
-    notifyOrders: true,
-    notifyPayments: true,
-    notifyCourier: true,
-    notifyStock: false,
-    reportDaily: false,
-  }
-}
-
-function patchTelegram(
-  prev: AdminSettingsData,
-  patch: Partial<NonNullable<AdminSettingsData['telegram']>>,
-): AdminSettingsData {
-  return {
-    ...prev,
-    telegram: { ...(prev.telegram ?? defaultTelegram()), ...patch },
-  }
-}
-
 interface Props extends SectionProps {
   subscriberData: { subscribers?: { id: string; email: string; createdAt: string }[]; total?: number } | undefined
   onRefreshSubscribers: () => void
@@ -58,7 +34,6 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
   const [showPass, setShowPass] = useState(false)
   const [testing, setTesting] = useState<'verify' | 'send' | null>(null)
   const [testEmailTo, setTestEmailTo] = useState('')
-  const telegram = draft.telegram ?? defaultTelegram()
 
   const applyHostingerPreset = () => {
     setDraft((p) => ({
@@ -119,7 +94,7 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
       <SectionPageHeader
         icon={<Mail size={22} />}
         title="Notifications"
-        subtitle="SMTP email, Telegram order alerts, and newsletter subscribers."
+        subtitle="SMTP email, Telegram bot (token + chat ID + alerts), and newsletter subscribers."
         badge="Comms"
       />
 
@@ -278,57 +253,11 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
         </div>
       </SectionCard>
 
-      <SectionCard title="Telegram notifications" subtitle="Alert toggles — bot token & chat ID live in Telegram Bot dashboard.">
-        <p className="settings-inline-hint" style={{ marginBottom: '1rem' }}>
-          Configure bot token, chat ID, and webhook:{' '}
-          <Link href="/dashboard/telegram-bot">Telegram Bot dashboard →</Link>
-        </p>
-        <div style={{ marginBottom: '1rem' }}>
-          <Toggle
-            label="Enable Telegram alerts"
-            desc="Turn on bot notifications for this store."
-            checked={telegram.isActive}
-            onChange={() => setDraft((p) => patchTelegram(p, { isActive: !telegram.isActive }))}
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem', marginBottom: '0.5rem' }}>
-          <Toggle
-            label="New orders"
-            desc="Alert when a customer places an order."
-            checked={telegram.notifyOrders}
-            onChange={() => setDraft((p) => patchTelegram(p, { notifyOrders: !telegram.notifyOrders }))}
-          />
-          <Toggle
-            label="Payments"
-            desc="Alert on successful payment events."
-            checked={telegram.notifyPayments}
-            onChange={() => setDraft((p) => patchTelegram(p, { notifyPayments: !telegram.notifyPayments }))}
-          />
-          <Toggle
-            label="Courier updates"
-            desc="Steadfast dispatch and delivery status."
-            checked={telegram.notifyCourier}
-            onChange={() => setDraft((p) => patchTelegram(p, { notifyCourier: !telegram.notifyCourier }))}
-          />
-          <Toggle
-            label="Low stock"
-            desc="Warn when inventory drops below threshold."
-            checked={telegram.notifyStock}
-            onChange={() => setDraft((p) => patchTelegram(p, { notifyStock: !telegram.notifyStock }))}
-          />
-          <Toggle
-            label="Daily report"
-            desc="Morning summary of orders and revenue."
-            checked={telegram.reportDaily}
-            onChange={() => setDraft((p) => patchTelegram(p, { reportDaily: !telegram.reportDaily }))}
-          />
-        </div>
-        <SaveBar
-          label="Save Telegram"
-          saving={saving}
-          disabled={!apiOnline}
-          onClick={() => save({ telegram: draft.telegram ?? null }, 'Telegram')}
-        />
+      <SectionCard
+        title="Telegram Bot"
+        subtitle="Bot token, chat ID, and alert toggles — one save to encrypted database (.env ignored after first save)."
+      >
+        <TelegramBotConfigPanel embedded />
       </SectionCard>
 
       <SectionCard title="Newsletter subscribers" subtitle="Emails collected from the storefront newsletter signup.">

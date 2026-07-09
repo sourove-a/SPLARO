@@ -11,7 +11,6 @@ import { SecurityModulePanel } from '@/components/security'
 import { SeoModulePanel } from '@/components/seo'
 import { AiCenterModulePanel } from '@/components/ai'
 import { AutomationModulePanel } from '@/components/automation'
-import { TelegramBotConfigPanel } from '@/components/telegram'
 import { OperationsHubPanel } from '@/components/courier'
 import { CommerceModulePanel } from '@/components/modules/CommerceModulePanel'
 import { PosPanel } from '@/components/pos/PosPanel'
@@ -106,7 +105,6 @@ const SPECIFIC_MODULES: Record<string, ModuleComponent> = {
   '/dashboard/media-library': wrapGeneric(MediaModulePanel),
   '/dashboard/video-library': wrapGeneric(MediaModulePanel),
   '/dashboard/ugc-gallery': wrapGeneric(MediaModulePanel),
-  '/dashboard/telegram-bot': wrapStatic(TelegramBotConfigPanel),
   '/dashboard/seo-health': wrapGeneric(SeoModulePanel),
   '/dashboard/keywords': wrapGeneric(SeoModulePanel),
   '/dashboard/index-monitor': wrapGeneric(SeoModulePanel),

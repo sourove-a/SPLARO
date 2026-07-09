@@ -60,6 +60,34 @@ else
 fi
 
 echo ""
+echo "🔍 Search"
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1091
+  source "$ENV_FILE"
+  if [ "${REDIS_ENABLED:-false}" = "true" ]; then
+    pass "REDIS_ENABLED=true"
+  else
+    warn "REDIS_ENABLED=false — BullMQ/cache disabled on VPS"
+  fi
+  if [ -n "${NEXT_PUBLIC_CDN_URL:-}" ]; then
+    pass "NEXT_PUBLIC_CDN_URL=${NEXT_PUBLIC_CDN_URL}"
+  else
+    warn "NEXT_PUBLIC_CDN_URL — not set (images may use apex domain)"
+  fi
+  if curl -sf -m 8 "http://127.0.0.1:4000/api/v1/search?q=test&storeId=${NEXT_PUBLIC_STORE_ID:-splaro}&limit=1" >/dev/null 2>&1; then
+    pass "Search API reachable"
+  else
+    warn "Search API probe failed — check API + Meilisearch index"
+  fi
+fi
+WH_COUNT="$(sudo -u postgres psql -d splaro_db -t -A -c 'SELECT count(*) FROM "Warehouse"' 2>/dev/null || echo 0)"
+if [ "${WH_COUNT:-0}" -gt 0 ]; then
+  pass "Warehouses in DB: $WH_COUNT"
+else
+  warn "No warehouses — run pnpm db:seed for WMS bootstrap"
+fi
+
+echo ""
 echo "🔑 Integrations (.env)"
 if [ -f "$ENV_FILE" ]; then
   # shellcheck disable=SC1091

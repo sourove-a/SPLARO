@@ -76,11 +76,41 @@ if nginx -t 2>/dev/null; then
   systemctl reload nginx
 fi
 
+maybe_reindex_search() {
+  if [ -z "${INTERNAL_HEALTH_SECRET:-}" ] || [ -z "${MEILISEARCH_HOST:-}" ]; then
+    return 0
+  fi
+  if ! curl -sf -m 5 "${MEILISEARCH_HOST}/health" >/dev/null 2>&1; then
+    log "Meilisearch not healthy — skipping search reindex"
+    return 0
+  fi
+  local store="${NEXT_PUBLIC_STORE_ID:-splaro}"
+  local res
+  res="$(curl -sf -m 120 -X POST \
+    "http://127.0.0.1:4000/api/v1/search/deploy/reindex?storeId=${store}" \
+    -H "x-splaro-internal: ${INTERNAL_HEALTH_SECRET}" \
+    -H "Content-Type: application/json" 2>&1)" || {
+    log "WARN: search reindex skipped ($res)"
+    return 0
+  }
+  log "Search reindex: $res"
+}
+
 sleep 6
+maybe_reindex_search
+
+if pnpm db:enable-telegram 2>/dev/null; then
+  log "Telegram — all notification flags enabled"
+  pm2 restart splaro-api --update-env 2>/dev/null || true
+else
+  log "WARN: telegram enable skipped (no config yet)"
+fi
+
 WEB="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/ || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4000/api/v1/health || echo 000)"
 
 log "Health — web:$WEB api:$API"
 log "========== VPS DEPLOY COMPLETE =========="
+log "Tip: install watchdog cron — see infrastructure/vps/splaro-watchdog.sh"
 
 [ "$WEB" = "200" ] && [ "$API" = "200" ] || die "Health check failed — pm2 logs"

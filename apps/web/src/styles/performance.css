@@ -53,8 +53,16 @@
   }
 }
 
+/* Coarse pointer — CSS-only reveal (no framer below-fold) */
+@media (pointer: coarse) {
+  .scroll-reveal-static {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Mobile + coarse pointer — native scroll path; solid glass instead of blur */
-@media (max-width: 768px), (pointer: coarse) {
+@media (max-width: 1023px), (pointer: coarse) {
   :root {
     --glass-blur: none;
     --header-glass-blur: none;

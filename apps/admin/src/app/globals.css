@@ -4,6 +4,7 @@
 
 @import '../styles/admin-tokens.css';
 @import '../styles/admin-ui-polish.css';
+@import '../styles/admin-sidebar-nav.css';
 
 :root {
   --admin-input-text: #10131a;

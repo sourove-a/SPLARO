@@ -17,9 +17,13 @@ function buildRootMargin() {
   return `${topLead}px 0px 400px`
 }
 
+function isCoarsePointer() {
+  return window.matchMedia('(pointer: coarse)').matches
+}
+
 /**
  * Footer earth — preloads textures early; mounts WebGL when footer approaches viewport.
- * On reload-at-bottom: checks immediately if already in range and mounts without delay.
+ * Coarse pointer: IntersectionObserver only (no timer auto-mount). Fine pointer: same IO path.
  */
 export function LazyFooterEarthGlobe() {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -27,9 +31,6 @@ export function LazyFooterEarthGlobe() {
 
   useEffect(() => {
     void preloadFooterEarthAssets()
-    // Mount WebGL quickly — external CDN textures were slow/unreliable on mobile BD networks.
-    const t = window.setTimeout(() => setShowGlobe(true), 120)
-    return () => window.clearTimeout(t)
   }, [])
 
   useEffect(() => {
@@ -46,6 +47,13 @@ export function LazyFooterEarthGlobe() {
       { rootMargin: margin, threshold: 0 },
     )
     observer.observe(host)
+
+    // Desktop fine pointer: if footer is already in view on load, mount immediately.
+    if (!isCoarsePointer()) {
+      const rect = host.getBoundingClientRect()
+      const inRange = rect.top < window.innerHeight + 400
+      if (inRange) activate()
+    }
 
     return () => observer.disconnect()
   }, [showGlobe])

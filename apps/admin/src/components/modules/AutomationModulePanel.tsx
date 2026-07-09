@@ -65,7 +65,7 @@ function ErrorBanner({ msg, onRetry }: { msg?: string; onRetry?: () => void }) {
         <AdminNavLink href="/dashboard/api-health" className="automation-error-link">
           API Health →
         </AdminNavLink>
-        <AdminNavLink href="/dashboard/telegram-bot" className="automation-error-link">
+        <AdminNavLink href="/dashboard/settings?section=notifications#telegram" className="automation-error-link">
           Telegram Bot setup →
         </AdminNavLink>
       </div>
@@ -142,7 +142,7 @@ export function TelegramNotificationsPanelLive() {
             </p>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <AdminNavLink href="/dashboard/telegram-bot">
+            <AdminNavLink href="/dashboard/settings?section=notifications#telegram">
               <AdminButton variant="ghost"><Settings style={{ width: 14, height: 14 }} /> Configure bot</AdminButton>
             </AdminNavLink>
             <AdminButton

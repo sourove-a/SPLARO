@@ -195,13 +195,12 @@ export class IntegrationsController {
     }
     if (provider === 'steadfast') {
       const stub = process.env.COURIER_DEV_STUB === 'true'
-      const connected = steadfastConfigured || stub
       return {
-        connected,
+        connected: steadfastConfigured,
         detail: steadfastConfigured
-          ? 'API keys saved'
+          ? 'API keys saved — run Test connection'
           : stub
-            ? 'Dev stub (COURIER_DEV_STUB)'
+            ? 'Dev stub only (COURIER_DEV_STUB) — not live courier'
             : 'Add keys in Infrastructure settings',
       }
     }
@@ -435,7 +434,7 @@ export class IntegrationsController {
 
   @Post('infrastructure/:provider/test')
   testInfrastructure(
-    @Param('provider') provider: 'pathao' | 'redx',
+    @Param('provider') provider: 'steadfast' | 'pathao' | 'redx',
     @Query('storeId') storeId: string,
     @Req() req: AdminRequest,
   ) {

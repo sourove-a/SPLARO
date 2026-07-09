@@ -166,7 +166,7 @@ function LiveChatPanel() {
             label: 'Telegram bot',
             value: tgError ? 'Unknown' : tgLive ? 'Connected' : 'Not connected',
             ok: tgLive && !tgError,
-            hint: '/dashboard/telegram-bot',
+            hint: '/dashboard/settings?section=notifications#telegram',
           },
           {
             label: 'Web chat',
@@ -215,7 +215,7 @@ function LiveChatPanel() {
                   : 'Add WhatsApp in Storefront Settings or connect Telegram for customer messaging.'}
             </p>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
-            <AdminLinkButton href="/dashboard/telegram-bot" variant="ghost" size="sm">
+            <AdminLinkButton href="/dashboard/settings?section=notifications#telegram" variant="ghost" size="sm">
               Telegram bot
             </AdminLinkButton>
             <AdminLinkButton href="/dashboard/all-integrations" variant="ghost" size="sm">

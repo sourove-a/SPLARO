@@ -1,21 +1,37 @@
 'use client'
 
 import { useState } from 'react'
-import { refreshWithToast } from '@/lib/admin/feedback'
+import { refreshWithToast, toastFail, toastOk } from '@/lib/admin/feedback'
 import { AlertCircle, CheckCircle, Search, XCircle } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
-import { useSeoOverview } from '@/lib/api/hooks'
+import { useAuditProductSeo, useSeoOverview } from '@/lib/api/hooks'
 
 export function SeoHealthPanel() {
   const { data, isOffline, isLoading, refetch } = useSeoOverview()
+  const auditProduct = useAuditProductSeo()
   const [tab, setTab] = useState<'products' | 'technical' | 'analytics'>('products')
+  const [auditingId, setAuditingId] = useState<string | null>(null)
 
   const audits = data?.productAudits ?? []
   const summary = data?.summary
   const avgScore = summary?.avgScore ?? 0
   const keywords = data?.keywords ?? []
+
+  const runProductAudit = async (productId: string, name: string) => {
+    if (isOffline) return
+    setAuditingId(productId)
+    try {
+      const result = await auditProduct.mutateAsync(productId)
+      toastOk(`${name}: SEO score ${result.score}/100`)
+      void refetch()
+    } catch (error) {
+      toastFail(error instanceof Error ? error.message : 'Product audit failed')
+    } finally {
+      setAuditingId(null)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -60,16 +76,25 @@ export function SeoHealthPanel() {
           ) : (
             audits.slice(0, 20).map((audit) => (
               <div key={audit.id} className="rounded-[20px] border border-black/5 bg-white/55 p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-black text-[#111111]">{audit.name}</p>
-                  <span
-                    className={cn(
-                      'text-sm font-black',
-                      audit.score >= 80 ? 'text-emerald-600' : audit.score >= 60 ? 'text-amber-600' : 'text-red-500',
-                    )}
-                  >
-                    {audit.score}/100
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        'text-sm font-black',
+                        audit.score >= 80 ? 'text-emerald-600' : audit.score >= 60 ? 'text-amber-600' : 'text-red-500',
+                      )}
+                    >
+                      {audit.score}/100
+                    </span>
+                    <AdminButton
+                      size="sm"
+                      disabled={isOffline || auditingId === audit.id}
+                      onClick={() => void runProductAudit(audit.id, audit.name)}
+                    >
+                      {auditingId === audit.id ? 'Auditing…' : 'Audit'}
+                    </AdminButton>
+                  </div>
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-black/5">
                   <div

@@ -141,6 +141,24 @@ try {
 console.log('✅ /api/v1/health/routes (no hard-down routes, no 401 storm)')
 
 try {
+  const searchRes = await fetch(
+    `http://127.0.0.1:${port}/api/v1/search?q=test&storeId=splaro&limit=1`,
+    { signal: AbortSignal.timeout(15_000) },
+  )
+  if (!searchRes.ok) {
+    fail(`search HTTP ${searchRes.status}`, stderr)
+  }
+  const searchBody = await searchRes.json()
+  if (!searchBody || typeof searchBody !== 'object') {
+    fail('search returned invalid JSON', stderr)
+  }
+} catch (err) {
+  fail(err instanceof Error ? err.message : 'search endpoint check failed', stderr)
+}
+
+console.log('✅ /api/v1/search')
+
+try {
   process.kill(-child.pid, 'SIGTERM')
 } catch {
   try {

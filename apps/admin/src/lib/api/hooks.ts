@@ -9,6 +9,7 @@ import { fetchCollections, createCollection, updateCollection } from './collecti
 import { fetchBrands, createBrand, updateBrand } from './brands'
 import { createBanner, fetchBanners, updateBanner, deleteBanner } from './banners'
 import { createRedirect, deleteRedirect, fetchRedirects, updateRedirect } from './redirects'
+import { auditProduct } from './seo'
 import { EMPTY_HELPDESK_OVERVIEW, EMPTY_SEO_OVERVIEW, isNetworkOrServerError } from './offline-defaults'
 import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer } from './customers'
 import { fetchLoyaltySummary, fetchReferralStats, fetchReferrals } from './loyalty'
@@ -637,6 +638,16 @@ export function useSeoOverview() {
     refetch: query.refetch,
     isFetching: query.isFetching,
   }
+}
+
+export function useAuditProductSeo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (productId: string) => auditProduct(productId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+    },
+  })
 }
 
 export function useRedirects() {

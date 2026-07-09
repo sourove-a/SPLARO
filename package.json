@@ -32,6 +32,7 @@
     "db:push": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx prisma db push'",
     "db:push:prod": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx prisma db push --accept-data-loss'",
     "db:seed": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx prisma db seed'",
+    "db:enable-telegram": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx tsx prisma/enable-telegram-all.ts'",
     "db:seed:categories": "bash -lc 'set -a && source .env && set +a && cd apps/api && npx ts-node --transpile-only scripts/seed-category-tree.ts'",
     "telegram:configure": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx tsx prisma/configure-telegram.ts'",
     "db:studio": "cd packages/database && npx prisma studio",

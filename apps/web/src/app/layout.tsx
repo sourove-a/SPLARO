@@ -28,6 +28,15 @@ const cormorant = Cormorant_Garamond({
 export const revalidate = 60
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
+const cdnOrigin = (() => {
+  const raw = process.env.NEXT_PUBLIC_CDN_URL?.trim()
+  if (!raw) return 'https://cdn.splaro.co'
+  try {
+    return new URL(raw).origin
+  } catch {
+    return 'https://cdn.splaro.co'
+  }
+})()
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -123,8 +132,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cormorant.variable}`}>
       <head>
         <GoogleAnalyticsHead />
-        <link rel="preconnect" href="https://cdn.splaro.co" />
-        <link rel="dns-prefetch" href="https://cdn.splaro.co" />
+        <link rel="preconnect" href={cdnOrigin} />
+        <link rel="dns-prefetch" href={cdnOrigin} />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
         <link rel="icon" href={SPLARO_TAB_ICONS.icon32} sizes="32x32" type="image/png" />

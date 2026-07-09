@@ -92,12 +92,17 @@ function CollapsibleSection({
   )
 }
 
-export function TelegramBotConfigPanel() {
+type TelegramBotConfigPanelProps = {
+  /** Compact layout for Settings → Notifications (single source of truth). */
+  embedded?: boolean
+}
+
+export function TelegramBotConfigPanel({ embedded = false }: TelegramBotConfigPanelProps) {
   const [showToken, setShowToken] = useState(false)
   const [botTokenInput, setBotTokenInput] = useState('')
   const [config, setConfig] = useState({
     chatId: '',
-    isEnabled: false,
+    isEnabled: true,
     notifyOrders: true,
     notifyCustomers: true,
     notifyPayments: true,
@@ -124,7 +129,7 @@ export function TelegramBotConfigPanel() {
     if (!data) return
     setConfig({
       chatId: data.chatId ?? '',
-      isEnabled: data.isEnabled ?? false,
+      isEnabled: data.isEnabled ?? true,
       notifyOrders: data.notifyOrders ?? true,
       notifyCustomers: data.notifyCustomers ?? true,
       notifyPayments: data.notifyPayments ?? true,
@@ -247,29 +252,46 @@ export function TelegramBotConfigPanel() {
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-8">
-      <section className="ai-command-hero">
-        <p className="ai-command-eyebrow">Integrations</p>
-        <h2 className="ai-command-title">Telegram Bot</h2>
-        <p className="ai-command-sub">Saved in PostgreSQL (encrypted token). Reload-safe.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className={cn('ai-command-pill', connected ? 'ai-command-pill--ok' : 'ai-command-pill--warn')}>
-            {connected ? 'Connected' : tokenConfigured ? 'Configured — enable bot' : 'Not configured'}
+    <div
+      id={embedded ? 'telegram' : undefined}
+      className={cn('space-y-4', embedded ? 'pb-2' : 'mx-auto max-w-3xl pb-8')}
+    >
+      {!embedded ? (
+        <section className="ai-command-hero">
+          <p className="ai-command-eyebrow">Integrations</p>
+          <h2 className="ai-command-title">Telegram Bot</h2>
+          <p className="ai-command-sub">Saved in PostgreSQL (encrypted token). Reload-safe.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className={cn('ai-command-pill', connected ? 'ai-command-pill--ok' : 'ai-command-pill--warn')}>
+              {connected ? 'Connected' : tokenConfigured ? 'Configured — enable bot' : 'Not configured'}
+            </span>
+            {data?.lastTestedAt ? (
+              <span className="ai-command-pill">Last test: {formatRelativeTime(data.lastTestedAt)}</span>
+            ) : null}
+            <Link href="/dashboard/ai-agent" className="ai-command-pill ai-command-pill--ok hover:opacity-90">
+              AI keys → Command Brain
+            </Link>
+          </div>
+          {data?.lastTestStatus === 'failed' && data.lastTestMessage ? (
+            <p className="tg-bot-status-fail mt-2 text-xs font-semibold">Last test error: {data.lastTestMessage}</p>
+          ) : null}
+          {health?.lastDeliveryStatus === 'failed' && health.lastDeliveryError ? (
+            <p className="tg-bot-status-fail mt-2 text-xs font-semibold">Last delivery error: {health.lastDeliveryError}</p>
+          ) : null}
+        </section>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 pb-1">
+          <span className={cn('ai-command-pill text-[11px]', connected ? 'ai-command-pill--ok' : 'ai-command-pill--warn')}>
+            {connected ? 'Connected' : tokenConfigured ? 'Token saved — add chat ID & enable' : 'Not configured'}
           </span>
           {data?.lastTestedAt ? (
-            <span className="ai-command-pill">Last test: {formatRelativeTime(data.lastTestedAt)}</span>
+            <span className="ai-command-pill text-[11px]">Last test: {formatRelativeTime(data.lastTestedAt)}</span>
           ) : null}
-          <Link href="/dashboard/ai-agent" className="ai-command-pill ai-command-pill--ok hover:opacity-90">
-            AI keys → Command Brain
-          </Link>
+          {data?.lastTestStatus === 'failed' && data.lastTestMessage ? (
+            <span className="tg-bot-status-fail text-[11px] font-semibold">{data.lastTestMessage}</span>
+          ) : null}
         </div>
-        {data?.lastTestStatus === 'failed' && data.lastTestMessage ? (
-          <p className="tg-bot-status-fail mt-2 text-xs font-semibold">Last test error: {data.lastTestMessage}</p>
-        ) : null}
-        {health?.lastDeliveryStatus === 'failed' && health.lastDeliveryError ? (
-          <p className="tg-bot-status-fail mt-2 text-xs font-semibold">Last delivery error: {health.lastDeliveryError}</p>
-        ) : null}
-      </section>
+      )}
 
       <CollapsibleSection
         title="Connection Health"

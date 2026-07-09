@@ -63,6 +63,14 @@ export function SettingsShell() {
   }, [changeSection])
 
   useEffect(() => {
+    if (section !== 'notifications' || window.location.hash !== '#telegram') return
+    const timer = window.setTimeout(() => {
+      document.getElementById('telegram')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+    return () => window.clearTimeout(timer)
+  }, [section, animKey])
+
+  useEffect(() => {
     if (apiData) {
       setDraft({
         ...EMPTY_SETTINGS,

@@ -8,7 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common'
+import type { Request } from 'express'
 import { Throttle } from '@nestjs/throttler'
 import { Public } from '../../common/auth/public.decorator'
 import { SearchService } from './search.service'
@@ -101,6 +104,22 @@ export class SearchController {
   @Post('index/:storeId')
   async indexProducts(@Param('storeId') storeId: string) {
     return this.searchService.indexProducts(storeId)
+  }
+
+  /** Deploy hook — reindex when Meilisearch is healthy (requires INTERNAL_HEALTH_SECRET). */
+  @Public()
+  @Post('deploy/reindex')
+  async deployReindex(@Query('storeId') storeId: string, @Req() req: Request) {
+    const secret = process.env['INTERNAL_HEALTH_SECRET']
+    const header = req.headers['x-splaro-internal']
+    if (!secret || header !== secret) {
+      throw new UnauthorizedException('Invalid internal token')
+    }
+    if (!process.env['MEILISEARCH_HOST']) {
+      return { skipped: true, reason: 'MEILISEARCH_HOST not set' }
+    }
+    const sid = (storeId?.trim() || process.env['NEXT_PUBLIC_STORE_ID'] || 'splaro').trim()
+    return this.searchService.indexProducts(sid)
   }
 
   /** Re-index a single product */

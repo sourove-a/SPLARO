@@ -11,6 +11,7 @@ import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { getVisibleAdminRoutes, getSidebarNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
 import { usePrefersReducedMotion } from '@/lib/hooks/use-prefers-reduced-motion'
+import { useSidebarNavCounts } from '@/lib/hooks/use-sidebar-nav-counts'
 import { cn } from '@/lib/utils/cn'
 
 const PRIMARY_SECTIONS = [
@@ -61,7 +62,7 @@ const SECTION_ICON_MAP: Record<string, string> = {
 
 function NavIcon({ name }: { name: string }) {
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[name] ?? Icons.Circle
-  return <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.85} />
+  return <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
 }
 
 function SidebarItem({
@@ -69,11 +70,13 @@ function SidebarItem({
   collapsed,
   onNavigate,
   groupLabel,
+  count,
 }: {
   item: AdminNavItem
   collapsed: boolean
   onNavigate?: () => void
   groupLabel?: string
+  count?: number
 }) {
   const maturity = getModuleMaturity(item.href)
   const tooltip = collapsed
@@ -81,6 +84,7 @@ function SidebarItem({
       ? `${groupLabel} · ${item.label}`
       : item.label
     : undefined
+  const displayCount = count ?? (typeof item.badge === 'number' ? item.badge : undefined)
 
   return (
     <AdminNavLink
@@ -91,16 +95,70 @@ function SidebarItem({
       <span className="admin-nav-item__icon" aria-hidden="true">
         <NavIcon name={item.icon} />
       </span>
-      {!collapsed ? <span className="truncate">{item.label}</span> : null}
-      {!collapsed && item.badge ? (
+      {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
+      {!collapsed && displayCount !== undefined ? (
+        <span className="admin-nav-count" aria-label={`${displayCount} pending`}>
+          {displayCount}
+        </span>
+      ) : null}
+      {!collapsed && displayCount === undefined && typeof item.badge === 'string' ? (
         <span className="admin-nav-badge">{item.badge}</span>
       ) : null}
-      {!collapsed && !item.badge && maturity !== 'live' ? (
+      {!collapsed && displayCount === undefined && !item.badge && maturity !== 'live' ? (
         <span className={cn('admin-nav-maturity', `admin-nav-maturity--${maturity}`)}>
           {maturity === 'beta' ? 'Beta' : 'Soon'}
         </span>
       ) : null}
     </AdminNavLink>
+  )
+}
+
+function SidebarFlatSection({
+  group,
+  collapsed,
+  onNavigate,
+  getCount,
+}: {
+  group: AdminNavGroup
+  collapsed: boolean
+  onNavigate?: () => void
+  getCount: (href: string) => number | undefined
+}) {
+  if (collapsed) {
+    return (
+      <div className="admin-sidebar__flat-section">
+        <SidebarItem
+          item={group.items[0]!}
+          collapsed
+          groupLabel={group.group}
+          {...(onNavigate ? { onNavigate } : {})}
+          {...(() => {
+            const c = getCount(group.items[0]!.href)
+            return c !== undefined ? { count: c } : {}
+          })()}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <section className="admin-sidebar__flat-section" aria-label={group.group}>
+      <p className="admin-sidebar__flat-label">{group.group}</p>
+      <div className="admin-sidebar__flat-items">
+        {group.items.map((item) => {
+          const c = getCount(item.href)
+          return (
+          <SidebarItem
+            key={`${group.group}-${item.label}-${item.href}`}
+            item={item}
+            collapsed={false}
+            {...(onNavigate ? { onNavigate } : {})}
+            {...(c !== undefined ? { count: c } : {})}
+          />
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -112,6 +170,7 @@ function SidebarDrawerSection({
   defaultOpen = false,
   variant = 'advanced',
   onNavigate,
+  getCount,
 }: {
   title: string
   groups: AdminNavGroup[]
@@ -120,6 +179,7 @@ function SidebarDrawerSection({
   defaultOpen?: boolean
   variant?: 'primary' | 'advanced'
   onNavigate?: () => void
+  getCount: (href: string) => number | undefined
 }) {
   const reduceMotion = usePrefersReducedMotion()
   const isActive = groups.some((group) =>
@@ -138,15 +198,19 @@ function SidebarDrawerSection({
   if (collapsed) {
     return (
       <div className="mb-3 space-y-0.5">
-        {groups.map((group) => (
+        {groups.map((group) => {
+          const c = getCount(group.items[0]!.href)
+          return (
           <SidebarItem
             key={group.group}
             item={group.items[0]!}
             collapsed
             groupLabel={group.group}
             {...(onNavigate ? { onNavigate } : {})}
+            {...(c !== undefined ? { count: c } : {})}
           />
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -200,14 +264,18 @@ function SidebarDrawerSection({
               <div key={group.group} className="admin-sidebar__drawer-group">
                 {groups.length > 1 ? <p className="admin-sidebar__drawer-group-label">{group.group}</p> : null}
                 <div className="space-y-0.5">
-                  {group.items.map((item) => (
+                  {group.items.map((item) => {
+                    const c = getCount(item.href)
+                    return (
                     <SidebarItem
                       key={`${group.group}-${item.label}-${item.href}`}
                       item={item}
                       collapsed={false}
                       {...(onNavigate ? { onNavigate } : {})}
+                      {...(c !== undefined ? { count: c } : {})}
                     />
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}
@@ -221,9 +289,11 @@ function SidebarDrawerSection({
 function SidebarNav({
   collapsed,
   onNavigate,
+  getCount,
 }: {
   collapsed: boolean
   onNavigate?: () => void
+  getCount: (href: string) => number | undefined
 }) {
   const pathname = usePathname()
   const primaryGroups = PRIMARY_SECTIONS.map(groupByName).filter(Boolean) as AdminNavGroup[]
@@ -235,14 +305,11 @@ function SidebarNav({
   return (
     <>
       {primaryGroups.map((group) => (
-        <SidebarDrawerSection
+        <SidebarFlatSection
           key={group.group}
-          title={group.group}
-          groups={[group]}
+          group={group}
           collapsed={collapsed}
-          activePath={pathname}
-          defaultOpen={group.group === 'Overview' || group.group === 'Commerce'}
-          variant="primary"
+          getCount={getCount}
           {...(onNavigate ? { onNavigate } : {})}
         />
       ))}
@@ -262,6 +329,7 @@ function SidebarNav({
           groups={section.groups}
           collapsed={collapsed}
           activePath={pathname}
+          getCount={getCount}
           {...(onNavigate ? { onNavigate } : {})}
         />
       ))}
@@ -278,6 +346,7 @@ export function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const reduceMotion = usePrefersReducedMotion()
+  const { getCount } = useSidebarNavCounts()
 
   const sidebarTransition = reduceMotion
     ? { duration: 0 }
@@ -330,7 +399,7 @@ export function AdminSidebar() {
         ref={navScrollRef}
         className="admin-sidebar__nav min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3"
       >
-        <SidebarNav collapsed={collapsed} onNavigate={() => setMobileOpen(false)} />
+        <SidebarNav collapsed={collapsed} getCount={getCount} onNavigate={() => setMobileOpen(false)} />
       </div>
 
       <div className="mx-2 mb-2 flex shrink-0 items-center gap-1.5">

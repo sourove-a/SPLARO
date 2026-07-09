@@ -219,6 +219,8 @@ export function useUpdateInfrastructureConfig() {
     onSuccess: async (_, vars) => {
       await qc.invalidateQueries({ queryKey: ['infrastructure-config', vars.provider] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })
+      await qc.invalidateQueries({ queryKey: ['payment-integrations'] })
+      await qc.invalidateQueries({ queryKey: ['sidebar-nav-counts'] })
     },
   })
 }
@@ -226,7 +228,7 @@ export function useUpdateInfrastructureConfig() {
 export function useTestInfrastructureIntegration() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (provider: 'pathao' | 'redx') => testInfrastructureIntegration(provider),
+    mutationFn: (provider: 'steadfast' | 'pathao' | 'redx') => testInfrastructureIntegration(provider),
     onSuccess: async (_, provider) => {
       await qc.invalidateQueries({ queryKey: ['infrastructure-config', provider] })
       await qc.invalidateQueries({ queryKey: ['integrations-catalog'] })

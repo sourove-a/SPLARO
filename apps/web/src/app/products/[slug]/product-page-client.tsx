@@ -518,7 +518,7 @@ export default function ProductPageClient({
                         fill
                         fit="cover"
                         className="pp-gallery__img"
-                        priority
+                        priority={activeImage === 0}
                       />
                     </div>
                   )}

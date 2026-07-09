@@ -94,7 +94,7 @@ export function buildRowActionPresets({
       ]
     case '/dashboard/automation/telegram-notifications':
       return [
-        { label: 'Telegram settings', onClick: () => go('/dashboard/telegram-bot') },
+        { label: 'Telegram settings', onClick: () => go('/dashboard/settings?section=notifications#telegram') },
         { label: 'Copy rule ID', onClick: () => copyText(recordId, 'Rule ID copied', close) },
       ]
     case '/dashboard/email-sms':

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function LegacyTelegramConfigPage() {
-  redirect('/dashboard/telegram-bot')
+  redirect('/dashboard/settings?section=notifications#telegram')
 }

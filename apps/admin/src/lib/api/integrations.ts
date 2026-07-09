@@ -166,6 +166,7 @@ export interface PaymentIntegrationConfig {
   provider: string
   configured: boolean
   source: 'database' | 'env' | 'none'
+  adminManaged?: boolean
   fields: Record<string, string | boolean>
   lastTestedAt?: string | null
   lastTestStatus?: string | null
@@ -192,6 +193,7 @@ export interface InfrastructureConfig {
   provider: string
   configured: boolean
   source: string
+  adminManaged?: boolean
   fields: Record<string, string>
   lastTestedAt?: string | null
   lastTestStatus?: string | null
@@ -210,7 +212,7 @@ export function updateInfrastructureConfig(provider: InfraProvider, body: Record
   })
 }
 
-export function testInfrastructureIntegration(provider: 'pathao' | 'redx') {
+export function testInfrastructureIntegration(provider: 'steadfast' | 'pathao' | 'redx') {
   return apiFetch<{ ok: boolean; message: string }>(`/admin/integrations/infrastructure/${provider}/test`, {
     method: 'POST',
   })

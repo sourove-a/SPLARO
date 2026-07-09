@@ -10,7 +10,8 @@ import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
 import { useSeoOverview, useRedirects, useCreateRedirect, useUpdateRedirect, useDeleteRedirect } from '@/lib/api/hooks'
 import { formatRelativeTime } from '@/lib/api/orders'
-import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
+import { GSC_REQUIRED_TITLE } from '@/lib/admin/feedback'
+import { getLiveSitemapUrl } from '@/lib/api/seo'
 
 type SeoStatus = 'good' | 'warning' | 'error' | 'pending'
 
@@ -134,7 +135,7 @@ export function IndexMonitorPanelLive() {
       query={query}
       onQuery={setQuery}
       searchPlaceholder="Search URL..."
-      createLabel="Request indexing"
+      createLabel="Request indexing (GSC)"
       createDisabled
       onCreate={() => {}}
       onRefresh={() => void refetch()}
@@ -181,7 +182,7 @@ export function IndexMonitorPanelLive() {
                   <span className={SEO_STATUS[asSeoStatus(p.status)]}>{p.status}</span>
                 </td>
                 <td>
-                  <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
+                  <AdminButton size="sm" disabled title={GSC_REQUIRED_TITLE}>
                     Re-crawl
                   </AdminButton>
                 </td>
@@ -285,6 +286,7 @@ export function SchemaManagerPanelLive() {
 export function SitemapManagerPanelLive() {
   const { data, isOffline, refetch } = useSeoOverview()
   const sitemaps = data?.sitemaps ?? []
+  const liveSitemapUrl = getLiveSitemapUrl()
 
   return (
     <>
@@ -300,9 +302,8 @@ export function SitemapManagerPanelLive() {
       query=""
       onQuery={() => {}}
       searchPlaceholder=""
-      createLabel="Regenerate all"
-      createDisabled
-      onCreate={() => {}}
+      createLabel="Open live XML"
+      onCreate={() => window.open(liveSitemapUrl, '_blank', 'noopener,noreferrer')}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={Map}
@@ -323,7 +324,16 @@ export function SitemapManagerPanelLive() {
         <tbody>
           {sitemaps.map((s) => (
             <tr key={s.id}>
-              <td className="font-mono text-xs font-black">{s.name}</td>
+              <td className="font-mono text-xs font-black">
+                <a
+                  href={liveSitemapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#5E7CFF] hover:underline"
+                >
+                  {s.name}
+                </a>
+              </td>
               <td className="font-bold">{s.urls}</td>
               <td className="text-xs">{formatRelativeTime(s.lastGen)}</td>
               <td className="text-xs">{s.submitted}</td>
@@ -331,8 +341,8 @@ export function SitemapManagerPanelLive() {
                 <span className={SEO_STATUS[asSeoStatus(s.status)]}>{s.status}</span>
               </td>
               <td>
-                <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
-                  Ping
+                <AdminButton size="sm" disabled title={GSC_REQUIRED_TITLE}>
+                  Ping GSC
                 </AdminButton>
               </td>
             </tr>

@@ -46,18 +46,6 @@ const LENIS_DESKTOP_OPTIONS = {
   touchMultiplier: 1,
 } satisfies LenisOptions
 
-/**
- * Mobile / touch — premium Lenis inertia without fighting native momentum.
- */
-const LENIS_TOUCH_OPTIONS = {
-  ...LENIS_SHARED,
-  lerp: 0.13,
-  smoothWheel: false,
-  wheelMultiplier: 1,
-  syncTouch: true,
-  touchMultiplier: 1.15,
-} satisfies LenisOptions
-
 function getScrollMedia() {
   if (typeof window === 'undefined') return null
   return {
@@ -74,7 +62,7 @@ export function isTouchScrollProfile() {
 }
 
 export function buildLenisOptions(): LenisOptions {
-  return isTouchScrollProfile() ? LENIS_TOUCH_OPTIONS : LENIS_DESKTOP_OPTIONS
+  return LENIS_DESKTOP_OPTIONS
 }
 
 /** Desktop wheel only — touch/mobile uses native scroll (60fps path). */

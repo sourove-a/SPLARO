@@ -76,10 +76,10 @@ function PanelHeader({ icon: Icon, title, kpis }: { icon: React.ElementType; tit
   )
 }
 
-function Toolbar({ query, onQuery, placeholder, createLabel, onCreate, onRefresh, onExport, extra }: {
+function Toolbar({ query, onQuery, placeholder, createLabel, onCreate, onRefresh, onExport, exportDisabled, extra }: {
   query: string; onQuery: (v: string) => void; placeholder?: string
   createLabel?: string; onCreate?: () => void
-  onRefresh?: () => void; onExport?: () => void
+  onRefresh?: () => void; onExport?: () => void; exportDisabled?: boolean
   extra?: React.ReactNode
 }) {
   return (
@@ -102,11 +102,21 @@ function Toolbar({ query, onQuery, placeholder, createLabel, onCreate, onRefresh
               <RefreshCw style={{ width: 12, height: 12 }} />
             </button>
           )}
-          {onExport && (
+          {exportDisabled ? (
+            <button
+              type="button"
+              disabled
+              className="admin-catalog-action opacity-50"
+              title="Export coming soon — SKU-level WMS only"
+              aria-label="Export coming soon"
+            >
+              <Download style={{ width: 12, height: 12 }} />
+            </button>
+          ) : onExport ? (
             <button type="button" onClick={onExport} className="admin-catalog-action" aria-label="Export">
               <Download style={{ width: 12, height: 12 }} />
             </button>
-          )}
+          ) : null}
         </div>
         {extra}
       </div>
@@ -181,7 +191,7 @@ function WmsOverviewPanel() {
         ['Available units', isLoading ? '…' : totalUnits, 'gold'],
         ['In transit', isLoading ? '…' : transfers.filter((t) => t.status === 'IN_TRANSIT' || t.status === 'PENDING').length, 'warning'],
       ]} />
-      <Toolbar query="" onQuery={() => {}} placeholder="" createLabel="Record movement" onCreate={() => { window.location.href = '/dashboard/wms/stock-movements' }} onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')} />
+      <Toolbar query="" onQuery={() => {}} placeholder="" createLabel="Record movement" onCreate={() => { window.location.href = '/dashboard/wms/stock-movements' }} onRefresh={() => void refetch()} exportDisabled />
       <GlassTable icon={Warehouse} title="Warehouse summary" footer="Live data from commerce-os WMS API">
         {isLoading ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading warehouses…</p>
@@ -274,7 +284,7 @@ function WarehousesPanel() {
           </div>
         </div>
       ) : null}
-      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse…" createLabel="Add warehouse" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')} />
+      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse…" createLabel="Add warehouse" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} exportDisabled />
       <GlassTable icon={Building2} title={`Warehouses · ${filtered.length}`} footer="Zones · Racks · Bins from database">
         {filtered.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No warehouses match your search.</p>
@@ -389,7 +399,7 @@ function StockMovementsPanel() {
       <Toolbar
         query={query} onQuery={setQuery} placeholder="Search SKU or note…"
         createLabel="Record movement" onCreate={() => setShowCreate(true)}
-        onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')}
+        onRefresh={() => void refetch()} exportDisabled
         extra={
           <div className="flex flex-wrap gap-1.5">
             {(['all', 'inbound', 'outbound', 'adjustment', 'transfer'] as const).map((t) => (
@@ -536,7 +546,7 @@ function StockTransfersPanel() {
           </div>
         </div>
       ) : null}
-      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse or transfer ID…" createLabel="New transfer" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} onExport={() => toastFail('Export not connected to backend.')} />
+      <Toolbar query={query} onQuery={setQuery} placeholder="Search warehouse or transfer ID…" createLabel="New transfer" onCreate={() => setShowCreate(true)} onRefresh={() => void refetch()} exportDisabled />
       <GlassTable icon={Truck} title={`Stock transfers · ${filtered.length}`} footer="Inter-warehouse transfers from database">
         {filtered.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No stock transfers yet.</p>

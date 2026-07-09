@@ -55,7 +55,9 @@ export class InfrastructureIntegrationService {
       'your-r2-access-key',
       'your-r2-secret-key',
       'local-dev-steadfast-key',
+      'local-dev-steadfast-secret',
       'your-steadfast-api-key',
+      'your-steadfast-secret-key',
     ])
 
     if (provider === 'cloudflare_r2') {
@@ -91,30 +93,39 @@ export class InfrastructureIntegrationService {
 
   async getConfig(storeIdRaw: string, provider: InfraProvider) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
-    const saved = await this.integrations.getProviderMap(storeId, provider)
+    const adminManaged = await this.integrations.hasProviderSettings(storeId, provider)
     const fallback = this.envFallback(provider)
-    const fields: Record<string, string> = { ...fallback }
+    const fieldKeys = Object.keys(fallback)
 
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === null || value === undefined) continue
-      if (SECRET_KEYS.has(key)) {
-        const has = await this.integrations.hasSecret(storeId, provider, key)
-        fields[key] = has ? '••••••••' : ''
-      } else {
-        fields[key] = String(value)
+    let fields: Record<string, string>
+    if (adminManaged) {
+      fields = {}
+      for (const key of fieldKeys) {
+        if (SECRET_KEYS.has(key)) {
+          const has = await this.integrations.hasSecret(storeId, provider, key)
+          fields[key] = has ? '••••••••' : ''
+        } else {
+          fields[key] = (await this.integrations.getPlain(storeId, provider, key)) ?? ''
+        }
       }
+    } else {
+      fields = { ...fallback }
     }
 
-    const configured = this.isConfigured(provider, fields)
-    const source = Object.keys(saved).length ? 'database' : configured ? 'env' : 'none'
+    const runtime = await this.resolveRuntimeCredentials(storeIdRaw, provider)
+    const configured = this.isConfigured(provider, runtime as unknown as Record<string, string>)
+    const source = adminManaged ? 'database' : configured ? 'env' : 'none'
+
+    const meta = await this.integrations.getProviderMeta(storeId, provider)
 
     return {
       provider,
       configured,
       source,
+      adminManaged,
       fields,
-      lastTestedAt: (await this.integrations.getProviderMeta(storeId, provider)).lastTestedAt,
-      lastTestStatus: (await this.integrations.getProviderMeta(storeId, provider)).lastTestStatus,
+      lastTestedAt: meta.lastTestedAt,
+      lastTestStatus: meta.lastTestStatus,
     }
   }
 
@@ -150,6 +161,34 @@ export class InfrastructureIntegrationService {
     const creds = await this.resolveRuntimeCredentials(storeIdRaw, provider)
 
     try {
+      if (provider === 'steadfast') {
+        const response = await axios.get(`${creds.baseUrl}/get_balance`, {
+          headers: {
+            'Api-Key': creds.apiKey,
+            'Secret-Key': creds.secretKey,
+            'Content-Type': 'application/json',
+          },
+          timeout: 15000,
+        })
+        const data = response.data as { status?: number; current_balance?: number; message?: string }
+        if (data.status !== undefined && data.status !== 200) {
+          throw new BadRequestException(data.message ?? 'Steadfast balance check failed')
+        }
+        const balance =
+          typeof data.current_balance === 'number' ? data.current_balance : undefined
+        await this.integrations.recordTest({
+          storeId,
+          provider,
+          success: true,
+          message: balance !== undefined ? `Steadfast OK · balance ${balance} BDT` : 'Steadfast credentials verified',
+          userId,
+        })
+        return {
+          ok: true,
+          message:
+            balance !== undefined ? `Steadfast connected · balance ${balance} BDT` : 'Steadfast connection OK',
+        }
+      }
       if (provider === 'pathao') {
         await axios.post(
           'https://courier.pathao.com/aladdin/api/v1/issue-token',
@@ -191,14 +230,17 @@ export class InfrastructureIntegrationService {
 
   async resolveRuntimeCredentials(storeIdRaw: string, provider: InfraProvider) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
+    const adminManaged = await this.integrations.hasProviderSettings(storeId, provider)
     const saved = await this.integrations.getProviderMap(storeId, provider)
     const fallback = this.envFallback(provider)
+
     const pick = async (key: string) => {
-      const fromDb = saved[key]
-      if (typeof fromDb === 'string' && fromDb) return fromDb
-      const secret = await this.integrations.getPlain(storeId, provider, key)
-      if (secret) return secret
-      return fallback[key] ?? ''
+      const fromSaved = saved[key]
+      if (typeof fromSaved === 'string' && fromSaved) return fromSaved
+      const fromDb = await this.integrations.getPlain(storeId, provider, key)
+      if (fromDb) return fromDb
+      if (!adminManaged) return fallback[key] ?? ''
+      return ''
     }
 
     if (provider === 'cloudflare_r2') {

@@ -141,7 +141,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Integrations',
     items: [
       item('All Integrations', 'all-integrations', 'Plug', 'Connected apps and services'),
-      item('Telegram Bot', 'telegram-bot', 'Send', 'Telegram bot configuration'),
+      item('Telegram Bot', 'settings?section=notifications#telegram', 'Send', 'Bot token, chat ID & alerts — Settings → Notifications'),
       item('API Health', 'api-health', 'Activity', 'API uptime and response monitoring'),
       item('Webhooks', 'webhooks', 'Webhook', 'Webhook endpoints and event logs'),
       item('Meta Business', 'meta-business', 'Facebook', 'Meta catalog and ads integration'),
@@ -453,7 +453,8 @@ const routeByHref = new Map(flatAdminRoutes.map((route) => [route.href, route]))
 const legacyHrefAliases: Record<string, string> = {
   '/dashboard/seo/health': '/dashboard/seo-health',
   '/dashboard/automation/rules': '/dashboard/automation-rules',
-  '/dashboard/telegram/config': '/dashboard/telegram-bot',
+  '/dashboard/telegram/config': '/dashboard/settings?section=notifications#telegram',
+  '/dashboard/telegram-bot': '/dashboard/settings?section=notifications#telegram',
   '/dashboard/banners': '/dashboard/hero-slider',
   '/dashboard/products/create': '/dashboard/products/new',
   '/dashboard/business-intelligence': '/dashboard/revenue-center',

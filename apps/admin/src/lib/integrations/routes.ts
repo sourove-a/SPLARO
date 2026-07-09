@@ -1,6 +1,6 @@
 /** Canonical admin routes for each integration setup screen. */
 export const INTEGRATION_SETUP_PATHS: Record<string, string> = {
-  telegram: '/dashboard/telegram-bot',
+  telegram: '/dashboard/settings?section=notifications#telegram',
   openai: '/dashboard/ai-agent',
   google_sheets: '/dashboard/google-workspace/sheets-sync',
   gmail: '/dashboard/google-workspace/gmail',

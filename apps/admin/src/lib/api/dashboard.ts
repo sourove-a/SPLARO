@@ -60,3 +60,15 @@ export interface InventoryAlertsResponse {
 export function fetchInventoryAlerts() {
   return apiFetch<InventoryAlertsResponse>('/admin/dashboard/inventory-alerts')
 }
+
+export interface ActionRequiredResponse {
+  pendingOrders: number
+  pendingRMAs: number
+  pendingReviews: number
+  failedShipments: number
+  total: number
+}
+
+export function fetchActionRequired() {
+  return apiFetch<ActionRequiredResponse>('/admin/dashboard/action-required')
+}

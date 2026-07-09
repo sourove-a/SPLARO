@@ -36,6 +36,7 @@ export class SteadfastService {
       'local-dev-steadfast-key',
       'local-dev-steadfast-secret',
       'your-steadfast-api-key',
+      'your-steadfast-secret-key',
     ])
     return placeholderKeys.has(creds.apiKey ?? '') || placeholderKeys.has(creds.secretKey ?? '')
   }

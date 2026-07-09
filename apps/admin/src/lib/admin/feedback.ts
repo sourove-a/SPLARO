@@ -57,6 +57,10 @@ export function notifyBackendMissing(action: string) {
 export const BACKEND_NOT_CONNECTED_TITLE =
   'Backend not connected — this action is not available yet.'
 
+/** Google Search Console — external OAuth not wired in single-store launch. */
+export const GSC_REQUIRED_TITLE =
+  'Requires Google Search Console — connect in Google Workspace first.'
+
 /** @deprecated Prefer notifyBackendMissing — kept for call-site compatibility. */
 export function toastNotImplemented(action: string) {
   notifyBackendMissing(action)
