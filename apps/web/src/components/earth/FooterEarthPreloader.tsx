@@ -16,10 +16,11 @@ export function FooterEarthPreloader() {
 
     const run = () => void preloadFooterEarthAssets()
 
+    // Defer heavy Three.js preload — avoids blue earth flash during initial page paint.
     if (win.requestIdleCallback) {
-      idleId = win.requestIdleCallback(run, { timeout: 800 })
+      idleId = win.requestIdleCallback(run, { timeout: 4000 })
     } else {
-      timer = setTimeout(run, 200)
+      timer = setTimeout(run, 1200)
     }
 
     return () => {

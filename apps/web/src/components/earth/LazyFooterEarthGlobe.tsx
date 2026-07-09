@@ -13,31 +13,25 @@ const FooterEarthGlobe = dynamic(
 )
 
 function buildRootMargin() {
-  const topLead = Math.max(800, Math.round(window.innerHeight * 1.5))
-  return `${topLead}px 0px 400px`
-}
-
-function isCoarsePointer() {
-  return window.matchMedia('(pointer: coarse)').matches
+  const topLead = Math.max(320, Math.round(window.innerHeight * 0.45))
+  return `${topLead}px 0px 120px`
 }
 
 /**
- * Footer earth — preloads textures early; mounts WebGL when footer approaches viewport.
- * Coarse pointer: IntersectionObserver only (no timer auto-mount). Fine pointer: same IO path.
+ * Footer earth — mounts WebGL only when footer nears viewport (avoids ocean flash on refresh).
  */
 export function LazyFooterEarthGlobe() {
   const hostRef = useRef<HTMLDivElement>(null)
   const [showGlobe, setShowGlobe] = useState(false)
 
   useEffect(() => {
-    void preloadFooterEarthAssets()
-  }, [])
-
-  useEffect(() => {
     const host = hostRef.current
     if (!host || showGlobe) return
 
-    const activate = () => setShowGlobe(true)
+    const activate = () => {
+      void preloadFooterEarthAssets()
+      setShowGlobe(true)
+    }
     const margin = buildRootMargin()
 
     const observer = new IntersectionObserver(
@@ -47,13 +41,6 @@ export function LazyFooterEarthGlobe() {
       { rootMargin: margin, threshold: 0 },
     )
     observer.observe(host)
-
-    // Desktop fine pointer: if footer is already in view on load, mount immediately.
-    if (!isCoarsePointer()) {
-      const rect = host.getBoundingClientRect()
-      const inRange = rect.top < window.innerHeight + 400
-      if (inRange) activate()
-    }
 
     return () => observer.disconnect()
   }, [showGlobe])

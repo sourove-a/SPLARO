@@ -18,6 +18,7 @@ export function FloatingSystem() {
   const settings = useStorefrontSettings()
 
   const whatsappUrl = whatsAppHref(resolveWhatsAppNumber(settings))
+  const hasWhatsApp = whatsappUrl !== '#'
 
   if (isMobileMenuOpen) return null
 
@@ -43,6 +44,7 @@ export function FloatingSystem() {
         ) : null}
       </AnimatePresence>
 
+      {hasWhatsApp ? (
       <motion.a
         href={whatsappUrl}
         target="_blank"
@@ -57,6 +59,7 @@ export function FloatingSystem() {
           <SupportBubbleIcon />
         </span>
       </motion.a>
+      ) : null}
     </div>
   )
 }

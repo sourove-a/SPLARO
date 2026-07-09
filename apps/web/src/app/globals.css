@@ -2521,6 +2521,21 @@ body.auth-page #main-content {
   background: #020308;
 }
 
+/* Before WebGL is ready: keep footer calm — no shimmer/wave flash on refresh */
+.site-footer__earth:not(:has([data-earth-ready='true'])) .site-footer__earth-glass {
+  animation: none;
+  opacity: 0.42;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.site-footer__earth:not(:has([data-earth-ready='true'])) .site-footer__earth-stars--twinkle,
+.site-footer__earth:not(:has([data-earth-ready='true'])) .site-footer__earth-stars--twinkle::before,
+.site-footer__earth:not(:has([data-earth-ready='true'])) .site-footer__earth-stars--twinkle::after {
+  animation: none;
+  opacity: 0.28;
+}
+
 .site-footer__earth-glass {
   pointer-events: none;
   position: absolute;

@@ -35,6 +35,7 @@
     "db:enable-telegram": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx tsx prisma/enable-telegram-all.ts'",
     "db:seed:categories": "bash -lc 'set -a && source .env && set +a && cd apps/api && npx ts-node --transpile-only scripts/seed-category-tree.ts'",
     "db:purge-demo": "bash -lc 'set -a && source .env && set +a && cd apps/api && npx ts-node --transpile-only scripts/purge-demo-catalog.ts'",
+    "db:bootstrap-store": "bash -lc 'set -a && source .env && set +a && cd apps/api && npx ts-node --transpile-only scripts/bootstrap-production-store.ts'",
     "telegram:configure": "bash -lc 'set -a && source .env && set +a && cd packages/database && npx tsx prisma/configure-telegram.ts'",
     "db:studio": "cd packages/database && npx prisma studio",
     "db:reset": "cd packages/database && npx prisma migrate reset",

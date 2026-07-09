@@ -119,6 +119,8 @@ if [ "$ON_HOSTINGER" = "1" ]; then
     fi
     log "Purging demo catalog (idempotent)…"
     pnpm db:purge-demo 2>&1 | tail -10 || log "WARN: demo purge skipped"
+    log "Bootstrap store contact from .env (idempotent)…"
+    pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
   fi
   set -a && [ -f .env ] && source .env && set +a
 elif [ -n "${DATABASE_URL:-}" ]; then

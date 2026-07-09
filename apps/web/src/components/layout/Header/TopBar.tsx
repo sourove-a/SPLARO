@@ -14,8 +14,8 @@ export function TopBar() {
     'support@splaro.co'
   const phone =
     settings.store.phone?.trim() ||
-    process.env.NEXT_PUBLIC_SUPPORT_PHONE ||
-    '+880 1700-000000'
+    process.env.NEXT_PUBLIC_SUPPORT_PHONE?.trim() ||
+    ''
 
   return (
     <div
@@ -32,10 +32,17 @@ export function TopBar() {
             <span className="max-w-[14rem] truncate normal-case tracking-[0.04em]">{email}</span>
           </Link>
           <span className="site-topbar__divider" aria-hidden="true" />
-          <Link href={`tel:${phone.replace(/\s/g, '')}`} className={linkClass}>
-            <Phone className="h-4 w-4 shrink-0" strokeWidth={1.85} />
-            Contact
-          </Link>
+          {phone ? (
+            <Link href={`tel:${phone.replace(/\s/g, '')}`} className={linkClass}>
+              <Phone className="h-4 w-4 shrink-0" strokeWidth={1.85} />
+              Contact
+            </Link>
+          ) : (
+            <Link href="/contact" className={linkClass}>
+              <Phone className="h-4 w-4 shrink-0" strokeWidth={1.85} />
+              Contact
+            </Link>
+          )}
         </div>
 
         <div className="site-topbar__group">

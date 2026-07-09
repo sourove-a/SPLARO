@@ -11,6 +11,15 @@ const PARTNERS = [
 
 const ADMIN_EMAIL = process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'splaro.bd@gmail.com'
 const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD'] ?? 'Splaro@2026!'
+/** Public storefront contact — never use personal admin Gmail on the live site. */
+const STORE_CONTACT_EMAIL =
+  process.env['STORE_CONTACT_EMAIL'] ??
+  process.env['NEXT_PUBLIC_SUPPORT_EMAIL'] ??
+  'info@splaro.co'
+const STORE_CONTACT_PHONE =
+  process.env['NEXT_PUBLIC_SUPPORT_PHONE'] ??
+  process.env['COMPANY_PHONE'] ??
+  '+8801905010205'
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex')
@@ -47,7 +56,7 @@ async function main() {
         name: 'SPLARO',
         slug: 'splaro',
         domain: 'splaro.co',
-        email: 'splaro.bd@gmail.com',
+        email: STORE_CONTACT_EMAIL,
         logo: '/images/logo/splaro-brand-mark-transparent.png',
         ownerId: admin.id,
       },
@@ -56,7 +65,7 @@ async function main() {
   } else if (store.domain !== 'splaro.co') {
     store = await prisma.store.update({
       where: { id: store.id },
-      data: { domain: 'splaro.co', email: 'splaro.bd@gmail.com' },
+      data: { domain: 'splaro.co', email: STORE_CONTACT_EMAIL },
     })
     console.log('Updated store domain → splaro.co')
   }
