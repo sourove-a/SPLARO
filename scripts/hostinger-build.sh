@@ -117,8 +117,12 @@ if [ "$ON_HOSTINGER" = "1" ]; then
     else
       log "Seed skipped (set SPLARO_RUN_SEED=1 for one-time bootstrap)"
     fi
-    log "Purging demo catalog (idempotent)…"
-    pnpm db:purge-demo 2>&1 | tail -10 || log "WARN: demo purge skipped"
+    if [ "${SPLARO_PURGE_DEMO_ON_DEPLOY:-0}" = "1" ]; then
+      log "Purging demo catalog (SPLARO_PURGE_DEMO_ON_DEPLOY=1)…"
+      pnpm db:purge-demo 2>&1 | tail -10 || log "WARN: demo purge skipped"
+    else
+      log "Demo purge skipped (SPLARO_PURGE_DEMO_ON_DEPLOY≠1)"
+    fi
     log "Bootstrap store contact from .env (idempotent)…"
     pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
   fi

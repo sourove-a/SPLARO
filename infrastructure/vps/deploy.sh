@@ -50,9 +50,6 @@ log "Prisma..."
 pnpm db:generate
 pnpm db:migrate:prod || pnpm db:push:prod
 
-log "Purging demo catalog (idempotent)…"
-pnpm db:purge-demo 2>&1 | tail -10 || log "WARN: demo purge skipped"
-
 log "Bootstrap store contact from .env (idempotent)…"
 pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
 
@@ -82,27 +79,35 @@ if nginx -t 2>/dev/null; then
   systemctl reload nginx
 fi
 
-maybe_purge_demo() {
-  if [ -z "${INTERNAL_HEALTH_SECRET:-}" ]; then
-    log "WARN: INTERNAL_HEALTH_SECRET unset — skipping demo purge API hook"
+maybe_purge_demo_catalog() {
+  if [ "${SPLARO_PURGE_DEMO_ON_DEPLOY:-0}" != "1" ]; then
+    log "Demo purge skipped (SPLARO_PURGE_DEMO_ON_DEPLOY≠1 — real catalog safe on deploy)"
     return 0
   fi
+
   local store="${NEXT_PUBLIC_STORE_ID:-splaro}"
-  local body_file
-  body_file="$(mktemp)"
-  local code
-  code="$(curl -s -m 120 -o "$body_file" -w '%{http_code}' -X POST \
-    "http://127.0.0.1:4000/api/v1/storefront/deploy/purge-demo?storeId=${store}" \
-    -H "x-splaro-internal: ${INTERNAL_HEALTH_SECRET}" \
-    -H "Content-Type: application/json" || echo 000)"
-  local body
-  body="$(tr -d '\n' < "$body_file" | head -c 400)"
-  rm -f "$body_file"
-  if [ "$code" = "200" ] || [ "$code" = "201" ]; then
-    log "Demo purge API: HTTP $code — $body"
-    return 0
+
+  if [ -n "${INTERNAL_HEALTH_SECRET:-}" ]; then
+    local body_file
+    body_file="$(mktemp)"
+    local code
+    code="$(curl -s -m 120 -o "$body_file" -w '%{http_code}' -X POST \
+      "http://127.0.0.1:4000/api/v1/storefront/deploy/purge-demo?storeId=${store}" \
+      -H "x-splaro-internal: ${INTERNAL_HEALTH_SECRET}" \
+      -H "Content-Type: application/json" || echo 000)"
+    local body
+    body="$(tr -d '\n' < "$body_file" | head -c 400)"
+    rm -f "$body_file"
+    if [ "$code" = "200" ] || [ "$code" = "201" ]; then
+      log "Demo purge (API): HTTP $code — $body"
+      return 0
+    fi
+    log "WARN: demo purge API failed (HTTP $code) — $body — falling back to script"
+  else
+    log "WARN: INTERNAL_HEALTH_SECRET unset — demo purge via script only (no cache bust)"
   fi
-  log "WARN: demo purge API hook failed (HTTP $code) — $body"
+
+  pnpm db:purge-demo 2>&1 | tail -12 || log "WARN: demo purge script failed"
 }
 
 maybe_reindex_search() {
@@ -159,11 +164,8 @@ fi
 wait_for_local_health "http://127.0.0.1:3000/" "web" 20 2 || true
 wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "Health check failed — pm2 logs splaro-api"
 
-maybe_purge_demo
+maybe_purge_demo_catalog
 maybe_reindex_search
-
-log "Purging demo catalog post-deploy (idempotent)…"
-pnpm db:purge-demo 2>&1 | tail -12 || log "WARN: post-deploy demo purge skipped"
 
 WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"
