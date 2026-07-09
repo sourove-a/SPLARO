@@ -117,6 +117,8 @@ if [ "$ON_HOSTINGER" = "1" ]; then
     else
       log "Seed skipped (set SPLARO_RUN_SEED=1 for one-time bootstrap)"
     fi
+    log "Purging demo catalog (idempotent)…"
+    pnpm db:purge-demo 2>&1 | tail -10 || log "WARN: demo purge skipped"
   fi
   set -a && [ -f .env ] && source .env && set +a
 elif [ -n "${DATABASE_URL:-}" ]; then
