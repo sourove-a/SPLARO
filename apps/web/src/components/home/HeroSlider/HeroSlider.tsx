@@ -87,11 +87,11 @@ function isBrandLogoPoster(url: string) {
   return /splaro-logo-(white|dark)\.svg/i.test(trimmed) || trimmed.includes('placeholder-product')
 }
 
-/** Pexels hosts a real cinematic still for every video — use it as the poster. */
+/** Pexels hosts a cinematic still for every video — use preview-0 (free-video-* 404s on newer IDs). */
 function pexelsVideoPoster(url: string): string | undefined {
   const m = url.match(/videos\.pexels\.com\/video-files\/(\d+)\//)
   if (!m) return undefined
-  return `https://images.pexels.com/videos/${m[1]}/free-video-${m[1]}.jpg?auto=compress&cs=tinysrgb&w=1600`
+  return `https://images.pexels.com/videos/${m[1]}/pictures/preview-0.jpg?auto=compress&cs=tinysrgb&w=1600`
 }
 
 /** Prefer HD/1080p renditions — admin may store the 31MB UHD Pexels URL. */
