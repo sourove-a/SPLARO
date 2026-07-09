@@ -50,6 +50,12 @@ log "Prisma..."
 pnpm db:generate
 pnpm db:migrate:prod || pnpm db:push:prod
 
+log "Purging demo catalog (idempotent)…"
+pnpm db:purge-demo 2>&1 | tail -10 || log "WARN: demo purge skipped"
+
+log "Bootstrap store contact from .env (idempotent)…"
+pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
+
 log "Build..."
 pnpm build:all
 node scripts/prepare-next-standalone.mjs apps/web
