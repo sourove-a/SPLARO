@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { ChevronDown, ImagePlus, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
@@ -52,7 +53,6 @@ export interface ProductCreateFormState {
 type ColorRow = { id: string; name: string; hex: string; imageUrl: string }
 
 const WEAVING_TYPES = ['Jamdani', 'Handloom', 'Power Loom', 'Embroidery', 'Block Print', 'Zari Work', 'Other']
-const PRODUCT_TYPES = ['Saree', 'Kurti', 'Panjabi', 'Ghagra-Choli', 'Western', 'Footwear', 'Accessory', 'Other']
 
 interface ProductCreateTabbedFormProps {
   tab: ProductCreateTab
@@ -63,6 +63,8 @@ interface ProductCreateTabbedFormProps {
   catsLoading: boolean
   departments: CategoryPickerRow[]
   subcategories: CategoryPickerRow[]
+  subDepartmentId?: string
+  subDepartments?: CategoryPickerRow[]
   selectedCategoryName?: string | undefined
   sizeList: string[]
   allSizeChips: string[]
@@ -75,6 +77,7 @@ interface ProductCreateTabbedFormProps {
   imageUrls: string[]
   onDepartmentChange: (id: string) => void
   onSubcategoryChange: (id: string) => void
+  onSubTypeChange?: (id: string) => void
   onNameBlur: () => void
   onNameChange?: (name: string) => void
   onApplyDescriptionDraft: () => void
@@ -166,6 +169,8 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
     catsLoading,
     departments,
     subcategories,
+    subDepartmentId,
+    subDepartments = [],
     selectedCategoryName,
     sizeList,
     allSizeChips,
@@ -178,6 +183,7 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
     imageUrls,
     onDepartmentChange,
     onSubcategoryChange,
+    onSubTypeChange,
     onNameBlur,
     onNameChange,
     onApplyDescriptionDraft,
@@ -323,13 +329,33 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
                   </select>
                 </div>
                 <div className="admin-premium-select">
-                  <select className="admin-premium-select__input" value={form.categoryId} onChange={(e) => onSubcategoryChange(e.target.value)} disabled={catsLoading || !departmentId}>
+                  <select
+                    className="admin-premium-select__input"
+                    value={subDepartmentId || form.categoryId}
+                    onChange={(e) => onSubcategoryChange(e.target.value)}
+                    disabled={catsLoading || !departmentId}
+                  >
                     <option value="">Type</option>
                     {subcategories.map((c) => (
                       <option key={c.id} value={c.id}>{c.id === departmentId ? `All ${c.name}` : c.name}</option>
                     ))}
                   </select>
                 </div>
+                {subDepartments.length > 0 ? (
+                  <div className="admin-premium-select">
+                    <select
+                      className="admin-premium-select__input"
+                      value={form.categoryId}
+                      onChange={(e) => onSubTypeChange?.(e.target.value)}
+                      disabled={catsLoading}
+                    >
+                      <option value="">Choose one</option>
+                      {subDepartments.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
               </div>
               {selectedCategoryName ? <p className="product-category-cascade__picked">✓ {selectedCategoryName}</p> : null}
             </div>
@@ -397,15 +423,6 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
                 <select className="admin-premium-select__input" value={form.collectionId} onChange={(e) => set('collectionId', e.target.value)}>
                   <option value="">No collection</option>
                   {collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            </label>
-            <label className="admin-field">
-              <FieldLabel>Product Type</FieldLabel>
-              <div className="admin-premium-select mt-1">
-                <select className="admin-premium-select__input" value={form.productType} onChange={(e) => set('productType', e.target.value)}>
-                  <option value="">Select…</option>
-                  {PRODUCT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
             </label>
@@ -581,9 +598,9 @@ export function ProductCreateTabbedForm(props: ProductCreateTabbedFormProps) {
                         className={cn('product-color-row', row.id === activeColorId && 'product-color-row--active')}
                         onClick={() => onActiveColor(row.id)}
                       >
-                        <div className="product-color-row__preview">
+                        <div className="product-color-row__preview relative">
                           {row.imageUrl ? (
-                            <img src={row.imageUrl} alt="" className="h-full w-full object-cover" />
+                            <Image src={row.imageUrl} alt="" fill unoptimized sizes="48px" className="object-cover" />
                           ) : (
                             <ImagePlus className="h-4 w-4 text-[var(--admin-text-muted)]" />
                           )}

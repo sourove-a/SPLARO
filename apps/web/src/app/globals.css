@@ -4525,6 +4525,72 @@ body.auth-page #main-content {
   transition: width 420ms var(--glass-pill-ease, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
+/* Zoom / expand trigger — top-right of gallery frame */
+.pdp-zoom-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 5;
+  opacity: 0.9;
+}
+@media (min-width: 1024px) {
+  .pdp-zoom-btn {
+    opacity: 0;
+    transform: translateY(-2px);
+    transition:
+      opacity var(--duration-fast, 180ms) var(--ease-smooth, ease),
+      transform var(--duration-fast, 180ms) var(--ease-smooth, ease);
+  }
+  .pdp-gallery__frame:hover .pdp-zoom-btn,
+  .pdp-zoom-btn:focus-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Lightbox — fullscreen image viewer */
+.pdp-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(6, 6, 8, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.pdp-lightbox-frame {
+  position: relative;
+  width: 100%;
+  max-width: 62rem;
+  height: min(84vh, 62rem);
+}
+
+.pdp-lightbox-close {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  z-index: 3;
+}
+@media (min-width: 640px) {
+  .pdp-lightbox-close { top: 0.5rem; right: 0.5rem; }
+}
+
+.pdp-lightbox-progress {
+  position: absolute;
+  left: 50%;
+  bottom: -2.5rem;
+  transform: translateX(-50%);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Thin inline pipe — bottom-left on image */
 .pdp-progress--inline {
   position: absolute;

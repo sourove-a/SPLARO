@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft, ChevronRight,
-  Heart, Minus, Plus, Ruler, Share2, ShoppingBag, X,
+  Heart, Maximize2, Minus, Plus, Ruler, Share2, ShoppingBag, X,
 } from 'lucide-react'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
 import { useAuthStore } from '@/store/authStore'
@@ -83,6 +83,7 @@ export function ProductDetailPanel({
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [addedPulse, setAddedPulse] = useState(false)
   const [quantity, setQuantity] = useState(1)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   const colorOptions = useMemo(() => resolveColorOptions(product), [product])
   const activeColorHex = modalColor ?? colorOptions[0]?.hex ?? product.colors[0] ?? ''
@@ -116,6 +117,7 @@ export function ProductDetailPanel({
   useEffect(() => {
     setActiveImage(0)
     setQuantity(1)
+    setLightboxOpen(false)
     trackRecentlyViewed(product.id)
     setRecentIds(getRecentlyViewed(product.id))
     document.body.classList.add('product-sheet-open')
@@ -123,6 +125,17 @@ export function ProductDetailPanel({
   }, [product.id])
 
   useEffect(() => { setActiveImage(0) }, [activeColorHex])
+
+  useEffect(() => {
+    if (!lightboxOpen) return
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false)
+      if (e.key === 'ArrowLeft') setActiveImage((i) => (i - 1 + media.length) % media.length)
+      if (e.key === 'ArrowRight') setActiveImage((i) => (i + 1) % media.length)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [lightboxOpen, media.length])
 
   const recentlyViewed = useMemo(
     () => recentIds.map((id) => products.find((p) => p.id === id)).filter(Boolean).slice(0, 6) as ProductDetailItem[],
@@ -224,6 +237,17 @@ export function ProductDetailPanel({
                     )}
                   </motion.div>
                 </AnimatePresence>
+
+                {media[activeImage]?.type !== 'video' && (
+                  <button
+                    type="button"
+                    onClick={() => setLightboxOpen(true)}
+                    className="splaro-nav-btn splaro-nav-btn--sm pdp-zoom-btn"
+                    aria-label="Expand image"
+                  >
+                    <Maximize2 size={14} strokeWidth={2} />
+                  </button>
+                )}
 
                 {media.length > 1 && (
                   <>
@@ -458,6 +482,79 @@ export function ProductDetailPanel({
           </div>{/* end info */}
         </div>
       </motion.div>
+
+      {/* ── Lightbox — fullscreen zoom viewer ─────────────── */}
+      <AnimatePresence>
+        {lightboxOpen && media[activeImage]?.type !== 'video' && (
+          <motion.div
+            className="pdp-lightbox-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => { e.stopPropagation(); setLightboxOpen(false) }}
+          >
+            <motion.div
+              className="pdp-lightbox-frame"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`lightbox-${media[activeImage]?.url}-${activeImage}`}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.24 }}
+                >
+                  <Image
+                    src={media[activeImage]!.url}
+                    alt={product.name}
+                    fill
+                    sizes="90vw"
+                    className="object-contain object-center"
+                  />
+                </motion.div>
+              </AnimatePresence>
+
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                className="splaro-nav-btn splaro-nav-btn--sm splaro-nav-btn--glass-dark pdp-lightbox-close"
+                aria-label="Close zoom"
+              >
+                <X size={16} strokeWidth={2.2} />
+              </button>
+
+              {media.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={prevImage}
+                    className="splaro-nav-btn splaro-nav-btn--glass-dark splaro-nav-btn--overlay splaro-nav-btn--prev"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft size={18} strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextImage}
+                    className="splaro-nav-btn splaro-nav-btn--glass-dark splaro-nav-btn--overlay splaro-nav-btn--next"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight size={18} strokeWidth={2} />
+                  </button>
+                  <div className="pdp-lightbox-progress">{activeImage + 1} / {media.length}</div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

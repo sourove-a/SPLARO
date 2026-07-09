@@ -20,7 +20,7 @@ import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession } from '@/lib/api/hooks'
+import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
 import { ProductMediaPanel } from '@/components/modules/product-form/ProductMediaPanel'
 import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
@@ -113,6 +113,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const updateProduct = useUpdateProduct()
   const deleteProduct = useDeleteProduct()
   const { data: adminSession } = useAdminSession()
+  const canEditProducts = usePermission('products', 'edit')
+  const canDeleteProducts = usePermission('products', 'delete')
   const { data: versions = [] } = useProductVersions(productId)
   const restoreVersion = useRestoreProductVersion()
   const [saving, setSaving] = useState(false)
@@ -122,6 +124,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const [visibilityBusy, setVisibilityBusy] = useState<string | null>(null)
   const [slugEdited, setSlugEdited] = useState(false)
   const [departmentId, setDepartmentId] = useState('')
+  const [subDepartmentId, setSubDepartmentId] = useState('')
   const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
   const [qrGenerating, setQrGenerating] = useState(false)
   const [qrPreviewUrl, setQrPreviewUrl] = useState('')
@@ -176,6 +179,11 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const subcategories = useMemo(
     () => (departmentId ? categoryPicker.subcategoriesForDepartment(departmentId) : []),
     [departmentId, categoryPicker],
+  )
+
+  const subDepartments = useMemo(
+    () => (subDepartmentId ? categoryPicker.childrenOf(subDepartmentId) : []),
+    [subDepartmentId, categoryPicker],
   )
 
   const fullDescription = useMemo(
@@ -238,9 +246,16 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     setSlugEdited(false)
     setDirty(false)
     if (categoryId && categories.length) {
-      setDepartmentId(categoryPicker.departmentForCategory(categoryId))
+      const dept = categoryPicker.departmentForCategory(categoryId)
+      setDepartmentId(dept)
+      const selected = categories.find((c) => c.id === categoryId)
+      if (selected?.parentId && selected.parentId !== dept) {
+        setSubDepartmentId(selected.parentId)
+      } else {
+        setSubDepartmentId('')
+      }
     }
-  }, [product, categories.length, categoryPicker])
+  }, [product, categories.length, categoryPicker, categories])
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -321,10 +336,31 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleDepartmentChange = (deptId: string) => {
     setDepartmentId(deptId)
+    setSubDepartmentId('')
     set('categoryId', '')
   }
 
   const handleSubcategoryChange = (categoryId: string) => {
+    if (!categoryId) {
+      setSubDepartmentId('')
+      set('categoryId', '')
+      return
+    }
+    const children = categoryPicker.childrenOf(categoryId)
+    if (children.length > 0) {
+      setSubDepartmentId(categoryId)
+      set('categoryId', '')
+      return
+    }
+    setSubDepartmentId('')
+    set('categoryId', categoryId)
+  }
+
+  const handleSubTypeChange = (categoryId: string) => {
+    if (!categoryId) {
+      set('categoryId', '')
+      return
+    }
     set('categoryId', categoryId)
   }
 
@@ -475,6 +511,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   }, [productId])
 
   const handleSave = async () => {
+    if (!canEditProducts) {
+      toast.error('Your role cannot edit products.')
+      return
+    }
     if (!form.name.trim()) { toast.error('Product name required.'); return }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
     if (!sellingPrice || sellingPrice <= 0) { toast.error('Enter a valid price.'); return }
@@ -635,11 +675,17 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
               </motion.span>
             )}
           </AnimatePresence>
-          <AdminButton variant="gold" loading={saving} onClick={handleSave}>
+          <AdminButton variant="gold" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
             <Save className="h-3.5 w-3.5" /> Save changes
           </AdminButton>
         </div>
       </div>
+
+      {!canEditProducts ? (
+        <div className="mb-4 rounded-[16px] border border-amber-200/60 bg-amber-50/80 px-4 py-3 text-xs font-semibold text-amber-900">
+          View-only — your role can browse this product but cannot save changes.
+        </div>
+      ) : null}
 
       <ModuleReadinessBar
         items={[
@@ -712,6 +758,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 catsLoading={false}
                 departments={categoryPicker.departments}
                 subcategories={subcategories}
+                subDepartmentId={subDepartmentId}
+                subDepartments={subDepartments}
                 selectedCategoryName={categories.find((c) => c.id === form.categoryId)?.name}
                 sizeList={[]}
                 allSizeChips={[]}
@@ -724,6 +772,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                 imageUrls={form.imageUrls}
                 onDepartmentChange={handleDepartmentChange}
                 onSubcategoryChange={handleSubcategoryChange}
+                onSubTypeChange={handleSubTypeChange}
                 onNameBlur={() => undefined}
                 onApplyDescriptionDraft={applyDescriptionDraft}
                 onApplyBanglaPolish={applyBanglaPolish}
@@ -922,21 +971,23 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
           </div>
 
           {/* Danger zone */}
-          <div className="product-edit-page__danger">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
-              <p className="text-[11px] font-black uppercase tracking-[0.1em] text-red-600">Danger Zone</p>
+          {canDeleteProducts && (
+            <div className="product-edit-page__danger">
+              <div className="mb-3 flex items-center gap-2">
+                <ShieldAlert className="h-3.5 w-3.5 text-red-500" />
+                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-red-600">Danger Zone</p>
+              </div>
+              <p className="mb-3 text-xs font-semibold text-red-400/90">Hides product from storefront. Cannot be undone.</p>
+              <AdminButton
+                variant="danger"
+                className="w-full justify-center border border-red-500/25"
+                loading={deleteProduct.isPending}
+                onClick={handleArchive}
+              >
+                Archive product
+              </AdminButton>
             </div>
-            <p className="mb-3 text-xs font-semibold text-red-400/90">Hides product from storefront. Cannot be undone.</p>
-            <AdminButton
-              variant="danger"
-              className="w-full justify-center border border-red-500/25"
-              loading={deleteProduct.isPending}
-              onClick={handleArchive}
-            >
-              Archive product
-            </AdminButton>
-          </div>
+          )}
         </aside>
       </div>
 
@@ -951,7 +1002,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
           >
             <Pencil className="h-3.5 w-3.5 text-[var(--admin-brand-gold)]" />
             <span className="text-sm font-bold text-[var(--admin-text)]">Unsaved changes</span>
-            <AdminButton variant="gold" loading={saving} onClick={handleSave}>
+            <AdminButton variant="gold" loading={saving} disabled={!canEditProducts} onClick={handleSave}>
               <Save className="h-3.5 w-3.5" /> Save
             </AdminButton>
           </motion.div>

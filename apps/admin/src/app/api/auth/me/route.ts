@@ -21,6 +21,7 @@ export async function GET() {
       name: session.name,
       role: session.role,
       storeId: session.storeId,
+      permissions: session.permissions ?? [],
     },
     apiToken: token,
   })

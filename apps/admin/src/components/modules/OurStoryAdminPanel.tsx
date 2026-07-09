@@ -15,7 +15,10 @@ const PILLAR_ICONS: { id: StoryPillarIcon; label: string }[] = [
 ]
 
 function newPillarId() {
-  return `pillar-${Date.now().toString(36)}`
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `pillar-${crypto.randomUUID()}`
+  }
+  return `pillar-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 }
 
 interface OurStoryAdminPanelProps {

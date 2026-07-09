@@ -25,7 +25,10 @@ import { cn } from '@/lib/utils/cn'
 const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
 
 function newSectionId() {
-  return `sec-${Date.now().toString(36)}`
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `sec-${crypto.randomUUID()}`
+  }
+  return `sec-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 }
 
 type DraftSection = { id: string; heading: string; body: string }

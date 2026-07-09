@@ -8,7 +8,8 @@ import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { ModulePanelShell } from '@/components/modules/ModulePanelShell'
 import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
-import { useSeoOverview, useRedirects, useCreateRedirect, useUpdateRedirect, useDeleteRedirect } from '@/lib/api/hooks'
+import { useSeoOverview, useRedirects, useCreateRedirect, useUpdateRedirect, useDeleteRedirect, usePermission } from '@/lib/api/hooks'
+import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { formatRelativeTime } from '@/lib/api/orders'
 import { GSC_REQUIRED_TITLE } from '@/lib/admin/feedback'
 import { getLiveSitemapUrl } from '@/lib/api/seo'
@@ -360,6 +361,9 @@ export function RedirectManagerPanelLive() {
   const createRedirect = useCreateRedirect()
   const updateRedirect = useUpdateRedirect()
   const deleteRedirect = useDeleteRedirect()
+  const canDeleteRedirects = usePermission('products', 'delete')
+  const canCreateRedirects = usePermission('products', 'create')
+  const canEditRedirects = usePermission('products', 'edit')
   const [query, setQuery] = useState('')
 
   const canonicalRedirects = useMemo(
@@ -465,12 +469,18 @@ export function RedirectManagerPanelLive() {
       ]
     }
     return [
-      { label: 'Edit redirect', onClick: () => handleEdit(row) },
-      {
-        label: row.status === 'good' ? 'Disable redirect' : 'Enable redirect',
-        onClick: () => handleToggle(row),
-      },
-      { label: 'Delete redirect', tone: 'danger' as const, onClick: () => handleDelete(row) },
+      ...(canEditRedirects
+        ? [
+            { label: 'Edit redirect', onClick: () => handleEdit(row) },
+            {
+              label: row.status === 'good' ? 'Disable redirect' : 'Enable redirect',
+              onClick: () => handleToggle(row),
+            },
+          ]
+        : []),
+      ...(canDeleteRedirects
+        ? [{ label: 'Delete redirect', tone: 'danger' as const, onClick: () => handleDelete(row) }]
+        : []),
     ]
   }
 
@@ -496,6 +506,8 @@ export function RedirectManagerPanelLive() {
       searchPlaceholder="Search from/to URL..."
       createLabel="Add redirect"
       onCreate={handleCreate}
+      createDisabled={!canCreateRedirects}
+      disabledActionTitle={PERMISSION_DENIED_TITLE}
       onRefresh={refetchAll}
       onExport={() => {
         if (filtered.length === 0) {

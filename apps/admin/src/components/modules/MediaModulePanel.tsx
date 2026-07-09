@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ExternalLink, Film, Image as ImageIcon, Search, Trash2, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { useCreateBanner, useDeleteBanner, useMedia, useUpdateCategory } from '@/lib/api/hooks'
+import { useCreateBanner, useDeleteBanner, useMedia, useUpdateCategory, usePermission } from '@/lib/api/hooks'
 import { deleteProductImage } from '@/lib/api/products'
 import { MediaUploadZone } from '@/components/media/MediaUploadZone'
 import { resolveMediaUrl } from '@/lib/media-url'
@@ -44,6 +44,16 @@ export function MediaModulePanel({ moduleHref }: ModuleContextProps) {
   const updateCategory = useUpdateCategory()
   const [query, setQuery] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const canDeleteSettings = usePermission('settings', 'delete')
+  const canDeleteProducts = usePermission('products', 'delete')
+  const canEditProducts = usePermission('products', 'edit')
+
+  const canDeleteAsset = (asset: MediaAsset) => {
+    if (asset.type === 'banner') return canDeleteSettings
+    if (asset.type === 'product') return canDeleteProducts
+    if (asset.type === 'category') return canEditProducts
+    return false
+  }
 
   const assets = useMemo(() => {
     const list = data?.assets ?? []
@@ -150,15 +160,17 @@ export function MediaModulePanel({ moduleHref }: ModuleContextProps) {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={resolveMediaUrl(asset.url)} alt={asset.altText || asset.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 )}
-                <button
-                  type="button"
-                  disabled={deletingId === asset.id}
-                  onClick={() => void handleDelete(asset)}
-                  title="Delete image"
-                  className="admin-media-delete-btn"
-                >
-                  <Trash2 style={{ width: 14, height: 14 }} />
-                </button>
+                {canDeleteAsset(asset) && (
+                  <button
+                    type="button"
+                    disabled={deletingId === asset.id}
+                    onClick={() => void handleDelete(asset)}
+                    title="Delete image"
+                    className="admin-media-delete-btn"
+                  >
+                    <Trash2 style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
               </div>
               <div style={{ padding: '10px 14px' }}>
                 <p style={{ fontSize: 13, fontWeight: 900, color: 'var(--admin-text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</p>

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       name: data.user.name,
       role: data.user.role,
       ...(data.user.storeId ? { storeId: data.user.storeId } : {}),
-      ...(data.user.permissions?.length ? { permissions: data.user.permissions } : {}),
+      permissions: data.user.permissions ?? [],
     })
 
     const response = NextResponse.json({

@@ -190,5 +190,10 @@ export function buildCategoryPicker(categories: CategoryPickerRow[]) {
     return ''
   }
 
-  return { departments, subcategoriesForDepartment, departmentForCategory, deptIds, deptById }
+  /** Plain direct children of any category (used for a 3rd cascade level, e.g. Kids → Girls Wear → Frocks). */
+  function childrenOf(parentId: string): CategoryPickerRow[] {
+    return active.filter((c) => c.parentId === parentId).sort(sortCats)
+  }
+
+  return { departments, subcategoriesForDepartment, departmentForCategory, childrenOf, deptIds, deptById }
 }

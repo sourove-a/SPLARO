@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { RefreshCw, Sheet } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
@@ -24,7 +24,7 @@ export function GoogleSheetsPanel() {
   const [busy, setBusy] = useState(false)
   const [apiOnline, setApiOnline] = useState(true)
 
-  const load = () => {
+  const load = useCallback(() => {
     fetchSheetsDashboard()
       .then((res) => {
         setData(res as NonNullable<typeof data>)
@@ -34,11 +34,11 @@ export function GoogleSheetsPanel() {
         setData(null)
         setApiOnline(false)
       })
-  }
+  }, [])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   const handleSyncAll = async () => {
     setBusy(true)

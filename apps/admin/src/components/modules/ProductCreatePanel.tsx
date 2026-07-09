@@ -20,7 +20,8 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useCollections, useCreateProduct } from '@/lib/api/hooks'
+import { useCategories, useCollections, useCreateProduct, usePermission } from '@/lib/api/hooks'
+import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
 import { ProductFormStatusBar } from '@/components/modules/product-form/ProductFormStatusBar'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
@@ -34,7 +35,7 @@ interface ProductCreatePanelProps {
 }
 
 const SIZE_PRESETS: Record<string, string> = {
-  kids: '2M, 3M, 6M, 9M, 12M, 18M, 2Y, 3Y, 4Y, 5Y, 6Y, 7Y, 8Y, 9Y, 10Y',
+  kids: '0-3M, 3-6M, 6-9M, 9-12M, 12-18M, 18-24M, 2/3, 4/5, 6/7, 8/9, 10/11, 12/13',
   women: 'XS, S, M, L, XL, XXL',
   men: 'S, M, L, XL, XXL, 3XL',
   footwear: '36, 37, 38, 39, 40, 41, 42',
@@ -71,6 +72,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const { api } = useAdminConnection(30_000)
   const apiOffline = api.pulse === 'offline'
   const createProduct = useCreateProduct()
+  const canCreateProducts = usePermission('products', 'create')
   const { data: categories = [], isLoading: catsLoading } = useCategories()
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
@@ -81,6 +83,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const [activeColorId, setActiveColorId] = useState('')
   const [colorsOpen, setColorsOpen] = useState(true)
   const [departmentId, setDepartmentId] = useState('')
+  const [subDepartmentId, setSubDepartmentId] = useState('')
   const [activeTab, setActiveTab] = useState<ProductCreateTab>('basic')
 
   const [form, setForm] = useState({
@@ -177,11 +180,20 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     [departmentId, categoryPicker],
   )
 
+  const subDepartments = useMemo(
+    () => (subDepartmentId ? categoryPicker.childrenOf(subDepartmentId) : []),
+    [subDepartmentId, categoryPicker],
+  )
+
   useEffect(() => {
     if (!form.categoryId || !categories.length || departmentId) return
     const dept = categoryPicker.departmentForCategory(form.categoryId)
     if (dept) setDepartmentId(dept)
-  }, [form.categoryId, categories.length, categoryPicker, departmentId])
+    const selected = categories.find((c) => c.id === form.categoryId)
+    if (selected?.parentId && selected.parentId !== dept) {
+      setSubDepartmentId(selected.parentId)
+    }
+  }, [form.categoryId, categories.length, categoryPicker, departmentId, categories])
 
   const fullDescription = useMemo(
     () => formatBilingualDescription(form.descriptionEn, form.descriptionBn),
@@ -264,11 +276,29 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const handleDepartmentChange = (deptId: string) => {
     setDepartmentId(deptId)
+    setSubDepartmentId('')
     set('categoryId', '')
     if (deptId) applyDepartmentSizes(deptId)
   }
 
   const handleSubcategoryChange = (categoryId: string) => {
+    if (!categoryId) {
+      setSubDepartmentId('')
+      set('categoryId', '')
+      return
+    }
+    const children = categoryPicker.childrenOf(categoryId)
+    if (children.length > 0) {
+      // Has its own children (e.g. Kids → Girls Wear) — drill one more level, don't finalize yet.
+      setSubDepartmentId(categoryId)
+      set('categoryId', '')
+      return
+    }
+    setSubDepartmentId('')
+    selectCategory(categoryId)
+  }
+
+  const handleSubTypeChange = (categoryId: string) => {
     if (!categoryId) {
       set('categoryId', '')
       return
@@ -452,6 +482,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   }
 
   const canSubmit =
+    canCreateProducts &&
     Boolean(
       form.name.trim() &&
         form.categoryId &&
@@ -486,6 +517,12 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         <ApiOfflineBanner message="API offline — save will fail until pnpm dev:stack (or pnpm dev:api) is running." />
       ) : null}
 
+      {!canCreateProducts ? (
+        <div className="rounded-[16px] border border-amber-200/60 bg-amber-50/80 px-4 py-3 text-xs font-semibold text-amber-900">
+          Your role cannot create products — contact an admin if you need catalog access.
+        </div>
+      ) : null}
+
       <ProductFormStatusBar
         categoriesLoading={catsLoading}
         categoriesCount={categories.length}
@@ -505,6 +542,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             catsLoading={catsLoading}
             departments={categoryPicker.departments}
             subcategories={subcategories}
+            subDepartmentId={subDepartmentId}
+            subDepartments={subDepartments}
             selectedCategoryName={selectedCategory?.name}
             sizeList={sizeList}
             allSizeChips={ALL_SIZE_CHIPS}
@@ -517,6 +556,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
             imageUrls={form.imageUrls}
             onDepartmentChange={handleDepartmentChange}
             onSubcategoryChange={handleSubcategoryChange}
+            onSubTypeChange={handleSubTypeChange}
             onNameBlur={() => {
               if (!form.descriptionEn.trim() && !form.descriptionBn.trim() && form.name.trim()) {
                 applyDescriptionDraft(true)
@@ -549,7 +589,13 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
                 set('status', next ? 'PUBLISHED' : 'DRAFT')
               }}
             />
-            <AdminButton variant="gold" loading={createProduct.isPending} disabled={!canSubmit} onClick={handleSubmit}>
+            <AdminButton
+              variant="gold"
+              loading={createProduct.isPending}
+              disabled={!canSubmit}
+              title={!canCreateProducts ? PERMISSION_DENIED_TITLE : undefined}
+              onClick={handleSubmit}
+            >
               <Save className="h-4 w-4" />
               Create product
             </AdminButton>

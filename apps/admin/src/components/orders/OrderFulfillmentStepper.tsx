@@ -45,6 +45,7 @@ function stepIndex(status: string): number {
 interface OrderFulfillmentStepperProps {
   status: string
   loading?: boolean
+  disabled?: boolean
   onAdvance: (nextStatus: string, note: string) => void
   compact?: boolean
 }
@@ -52,6 +53,7 @@ interface OrderFulfillmentStepperProps {
 export function OrderFulfillmentStepper({
   status,
   loading,
+  disabled,
   onAdvance,
   compact,
 }: OrderFulfillmentStepperProps) {
@@ -94,7 +96,7 @@ export function OrderFulfillmentStepper({
         })}
       </ol>
 
-      {next && !isTerminal ? (
+      {next && !isTerminal && !disabled ? (
         <AdminButton
           variant="gold"
           loading={Boolean(loading)}

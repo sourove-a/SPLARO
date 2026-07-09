@@ -964,16 +964,20 @@ SPLARO-BRAND/
 - Staff management + role permissions
 - Store settings + payment settings + SEO settings
 
-### SaaS Architecture
+### SaaS Architecture (roadmap)
 
-- Multi-store support with tenant isolation
-- Store owner sub-dashboard
-- Subscription plan management
-- Custom domain support per store
-- Vendor dashboard
-- Vendor product management
-- Commission calculation
-- Vendor payout reports
+SPLARO production today is a **single store** (`splaro.co`). The schema can hold multiple stores, and the admin has a SaaS module shell for future expansion — not a full multi-tenant vendor platform.
+
+**Implemented (API / admin shell):**
+- Subscription and plan overview (`apps/api/src/modules/saas/`)
+- Store list and loyalty-tier scaffolding
+
+**Not implemented (README must not imply these exist):**
+- Vendor dashboard, vendor product management, commission calculation, vendor payout reports
+- Store-owner sub-dashboard
+- Custom domain per store
+
+Keep `FEATURE_SAAS_ENABLED=false` and `FEATURE_VENDOR_ENABLED=false` until vendor features ship.
 
 ---
 

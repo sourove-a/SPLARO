@@ -27,6 +27,7 @@ import { fetchCourierShipments, fetchCourierStats } from './courier'
 import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, type RmaApiStatus } from './commerce-finance'
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
+import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
 import {
   fetchSaaS,
   fetchSecurity,
@@ -1269,13 +1270,25 @@ export function useAdminSession() {
       const res = await fetch('/api/auth/me', { credentials: 'include' })
       if (!res.ok) return null
       const data = (await res.json()) as {
-        user?: { id: string; email: string; name: string; role: string; storeId?: string }
+        user?: {
+          id: string
+          email: string
+          name: string
+          role: string
+          storeId?: string
+          permissions?: string[]
+        }
       }
       return data.user ?? null
     },
     staleTime: 60_000,
     retry: false,
   })
+}
+
+export function usePermission(moduleSlug: PermissionModule, action: PermissionAction) {
+  const { data: session } = useAdminSession()
+  return hasPermission(session?.role, session?.permissions, moduleSlug, action)
 }
 
 export function useSecuritySessions() {

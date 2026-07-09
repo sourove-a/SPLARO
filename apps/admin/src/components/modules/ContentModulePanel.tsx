@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { ExternalLink, Image as ImageIcon, Pencil, RefreshCw, SlidersHorizontal, Upload } from 'lucide-react'
@@ -351,7 +352,14 @@ function HeroSliderPanel() {
                   <tr key={s.id}>
                     <td style={{ ...TD, fontWeight: 900 }}>{s.order}</td>
                     <td style={TD}>
-                      <img src={resolveMediaUrl(s.image)} alt="" style={{ width: 64, height: 40, borderRadius: 8, border: '1px solid var(--admin-table-row-border)', objectFit: 'cover' }} />
+                      <Image
+                        src={resolveMediaUrl(s.image)}
+                        alt=""
+                        width={64}
+                        height={40}
+                        unoptimized
+                        style={{ borderRadius: 8, border: '1px solid var(--admin-table-row-border)', objectFit: 'cover' }}
+                      />
                     </td>
                     <td style={{ ...TD, fontWeight: 700, color: 'var(--admin-text-primary)' }}>{s.title}</td>
                     <td style={{ ...TD, fontSize: 12, fontWeight: 800, color: GOLD }}>{s.cta}</td>

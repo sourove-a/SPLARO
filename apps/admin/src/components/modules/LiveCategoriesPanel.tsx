@@ -6,13 +6,17 @@ import { refreshWithToast } from '@/lib/admin/feedback'
 import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ModulePanelShell } from '@/components/modules/ModulePanelShell'
-import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/lib/api/hooks'
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, usePermission } from '@/lib/api/hooks'
+import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 
 export function LiveCategoriesPanel() {
   const { data: categories = [], isLoading, isError, refetch } = useCategories()
   const createCategory = useCreateCategory()
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()
+  const canDelete = usePermission('products', 'delete')
+  const canCreate = usePermission('products', 'create')
+  const canEdit = usePermission('products', 'edit')
   const [query, setQuery] = useState('')
   const [newName, setNewName] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -103,6 +107,8 @@ export function LiveCategoriesPanel() {
         searchPlaceholder="Search category or slug..."
         createLabel="Add category"
         onCreate={() => setShowForm(true)}
+        createDisabled={!canCreate}
+        disabledActionTitle={PERMISSION_DENIED_TITLE}
         onRefresh={() => void refreshWithToast(() => refetch(), 'Categories synced from database.')}
         exportDisabled
         tableIcon={FolderTree}
@@ -128,12 +134,16 @@ export function LiveCategoriesPanel() {
                 <td className="text-xs">{c.isActive === false ? 'inactive' : 'active'}</td>
                 <td>
                   <div className="flex gap-1">
-                    <AdminButton size="sm" onClick={() => handleRename(c.id, c.name)}>
-                      <Pencil className="h-3 w-3" />
-                    </AdminButton>
-                    <AdminButton variant="danger" size="sm" onClick={() => handleDelete(c.id, c.name, c._count?.products ?? 0)}>
-                      <Trash2 className="h-3 w-3" />
-                    </AdminButton>
+                    {canEdit && (
+                      <AdminButton size="sm" onClick={() => handleRename(c.id, c.name)}>
+                        <Pencil className="h-3 w-3" />
+                      </AdminButton>
+                    )}
+                    {canDelete && (
+                      <AdminButton variant="danger" size="sm" onClick={() => handleDelete(c.id, c.name, c._count?.products ?? 0)}>
+                        <Trash2 className="h-3 w-3" />
+                      </AdminButton>
+                    )}
                   </div>
                 </td>
               </tr>

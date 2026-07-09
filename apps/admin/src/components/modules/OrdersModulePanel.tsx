@@ -15,7 +15,7 @@ import { OrdersPanel } from '@/components/modules/OrdersPanel'
 import { OrderFulfillmentStepper } from '@/components/orders/OrderFulfillmentStepper'
 import { OrderCreatePanel } from '@/components/modules/OrderCreatePanel'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
-import { useOrder, useUpdateOrderStatus, useDeleteOrder, useBookCourier } from '@/lib/api/hooks'
+import { useOrder, useUpdateOrderStatus, useDeleteOrder, useBookCourier, usePermission } from '@/lib/api/hooks'
 import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
 import { mapPaymentMethod, mapOrderStatus } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
@@ -63,6 +63,8 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
   const { data: steadfast } = useInfrastructureConfig('steadfast')
   const updateStatus = useUpdateOrderStatus()
   const deleteOrderMutation = useDeleteOrder()
+  const canDeleteOrders = usePermission('orders', 'delete')
+  const canEditOrders = usePermission('orders', 'edit')
   const bookCourier = useBookCourier()
   const courierReady = Boolean(steadfast?.configured)
 
@@ -113,20 +115,23 @@ export function OrderDetailPanel({ recordId, moduleHref }: { recordId: string; m
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <AdminButton onClick={() => { void refreshWithToast(() => refetch(), 'Order refreshed.') }}><RefreshCw style={{ width: 16, height: 16 }} /> Refresh</AdminButton>
-              {order.status !== 'CANCELLED' && order.status !== 'DELIVERED' ? (
+              {canEditOrders && order.status !== 'CANCELLED' && order.status !== 'DELIVERED' ? (
                 <AdminButton variant="warning" loading={updateStatus.isPending} onClick={() => { if (!window.confirm(`Cancel order ${order.invoiceNumber}?`)) return; updateStatus.mutate({ id: order.id, status: 'CANCELLED', note: 'Cancelled from admin panel' }, { onSuccess: () => { toastOk('Order cancelled.'); void refetch() }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not cancel order.') }) }}>
                   <XCircle style={{ width: 16, height: 16 }} /> Cancel
                 </AdminButton>
               ) : null}
-              <AdminButton variant="danger" loading={deleteOrderMutation.isPending} onClick={() => { if (!window.confirm(`Delete order ${order.invoiceNumber}? This cannot be undone.`)) return; deleteOrderMutation.mutate(order.id, { onSuccess: () => { toastOk('Order deleted.'); window.location.href = moduleHref }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete order.') }) }}>
-                <Trash2 style={{ width: 16, height: 16 }} /> Delete
-              </AdminButton>
+              {canDeleteOrders && (
+                <AdminButton variant="danger" loading={deleteOrderMutation.isPending} onClick={() => { if (!window.confirm(`Delete order ${order.invoiceNumber}? This cannot be undone.`)) return; deleteOrderMutation.mutate(order.id, { onSuccess: () => { toastOk('Order deleted.'); window.location.href = moduleHref }, onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete order.') }) }}>
+                  <Trash2 style={{ width: 16, height: 16 }} /> Delete
+                </AdminButton>
+              )}
             </div>
           </div>
 
           <OrderFulfillmentStepper
             status={order.status}
             loading={updateStatus.isPending}
+            disabled={!canEditOrders}
             onAdvance={(nextStatus, note) =>
               updateStatus.mutate(
                 { id: order.id, status: nextStatus, note },

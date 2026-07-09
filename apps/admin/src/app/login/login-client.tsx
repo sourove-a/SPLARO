@@ -16,11 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { AdminLoginShell } from '@/components/login/AdminLoginShell'
-import { DEFAULT_ADMIN_EMAIL } from '@/lib/auth/admin-auth'
 import { setAdminApiToken } from '@/lib/auth/api-token'
-
-const LOGIN_EMAIL =
-  process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() || DEFAULT_ADMIN_EMAIL
 
 const motionEase = [0.16, 1, 0.3, 1] as const
 
@@ -43,7 +39,7 @@ export default function AdminLoginPage() {
   const reduceMotion = useReducedMotion()
 
   const [step, setStep] = useState<Step>('email')
-  const [email, setEmail] = useState(LOGIN_EMAIL)
+  const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -194,8 +190,8 @@ export default function AdminLoginPage() {
                 <input
                   required
                   type="email"
-                  autoComplete="email"
-                  placeholder="splaro.bd@gmail.com"
+                  autoComplete="off"
+                  placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="admin-auth-input"

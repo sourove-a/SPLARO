@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
+import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { toastInfo } from '@/lib/admin/feedback'
 import {
@@ -299,7 +300,9 @@ export function ReelsPanelLive() {
             {filtered.map((r) => (
               <tr key={r.id}>
                 <td>
-                  <img src={resolveMediaUrl(r.image)} alt="" className="h-10 w-16 rounded-lg object-cover" />
+                  <div className="relative h-10 w-16 overflow-hidden rounded-lg">
+                    <Image src={resolveMediaUrl(r.image)} alt="" fill unoptimized sizes="64px" className="object-cover" />
+                  </div>
                 </td>
                 <td className="font-semibold">{r.title ?? 'Untitled'}</td>
                 <td className="text-xs">{r.position}</td>

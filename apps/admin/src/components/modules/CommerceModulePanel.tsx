@@ -10,7 +10,7 @@ import {
 import { CustomerQuickViewDialog } from '@/components/customers/CustomerQuickViewDialog'
 import { AdminButton } from '@/components/ui/AdminButton'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { useCustomers, useDeleteCustomer, useBlockCustomer } from '@/lib/api/hooks'
+import { useCustomers, useDeleteCustomer, useBlockCustomer, usePermission } from '@/lib/api/hooks'
 
 function TierBadge({ tier }: { tier: string }) {
   return <span className="admin-customers-tier">{tier}</span>
@@ -31,7 +31,7 @@ function KpiCard({
 }
 
 function CustomerRow({
-  customer, onView, onBlock, onDelete,
+  customer, onView, onBlock, onDelete, canBlock, canDelete,
 }: {
   customer: {
     id: string; firstName: string; lastName: string; phone: string; email?: string | null
@@ -41,6 +41,8 @@ function CustomerRow({
   onView: () => void
   onBlock: () => void
   onDelete: () => void
+  canBlock: boolean
+  canDelete: boolean
 }) {
   const name = `${customer.firstName} ${customer.lastName}`.trim()
   const initials = `${customer.firstName[0] ?? ''}${customer.lastName?.[0] ?? ''}`.toUpperCase()
@@ -99,12 +101,16 @@ function CustomerRow({
         >
           Profile
         </a>
-        <button type="button" onClick={onBlock} className="admin-customers-icon-btn" title={customer.isBlocked ? 'Unblock' : 'Block'}>
-          {customer.isBlocked ? <Shield size={14} /> : <ShieldOff size={14} />}
-        </button>
-        <button type="button" onClick={onDelete} className="admin-customers-icon-btn admin-customers-icon-btn--danger" title="Delete">
-          <Trash2 size={14} />
-        </button>
+        {canBlock && (
+          <button type="button" onClick={onBlock} className="admin-customers-icon-btn" title={customer.isBlocked ? 'Unblock' : 'Block'}>
+            {customer.isBlocked ? <Shield size={14} /> : <ShieldOff size={14} />}
+          </button>
+        )}
+        {canDelete && (
+          <button type="button" onClick={onDelete} className="admin-customers-icon-btn admin-customers-icon-btn--danger" title="Delete">
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -117,6 +123,8 @@ function CustomersView() {
   const { data, isLoading, refetch } = useCustomers({ limit: 100 })
   const deleteCustomer = useDeleteCustomer()
   const blockCustomerMutation = useBlockCustomer()
+  const canBlockCustomers = usePermission('settings', 'edit')
+  const canDeleteCustomers = usePermission('settings', 'delete')
   const rows = useMemo(() => data?.customers ?? [], [data])
 
   const filtered = useMemo(() => {
@@ -220,6 +228,8 @@ function CustomersView() {
               onView={() => setPreviewId(r.id)}
               onBlock={() => void handleBlock(r.id, r.isBlocked ?? false)}
               onDelete={() => void handleDelete(r.id, `${r.firstName} ${r.lastName}`, r.totalOrders)}
+              canBlock={canBlockCustomers}
+              canDelete={canDeleteCustomers}
             />
           ))}
         </div>

@@ -8,7 +8,8 @@ import { downloadCsv, printProductLabel } from '@/lib/admin/admin-actions'
 import { AlertTriangle, Archive, Award, ChevronDown, Download, Layers, Package, Plus, Printer, RefreshCw, Search, Tags } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
-import { useBrands, useCollections, useCreateBrand, useCreateCollection, useProducts, useDeleteProduct, useUpdateCollection, useUpdateBrand, usePublishedProductCount, useInventoryAlerts, useUpdateProductVariant } from '@/lib/api/hooks'
+import { useBrands, useCollections, useCreateBrand, useCreateCollection, useProducts, useDeleteProduct, useUpdateCollection, useUpdateBrand, usePublishedProductCount, useInventoryAlerts, useUpdateProductVariant, usePermission } from '@/lib/api/hooks'
+import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { productStatus, productStock, type ApiProduct } from '@/lib/api/products'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
@@ -85,13 +86,13 @@ function PanelHeader({ icon: Icon, title, kpis, children }: { icon: React.Elemen
 
 function Toolbar({
   query, onQuery, placeholder,
-  createLabel, onCreate, createDisabled,
+  createLabel, onCreate, createDisabled, createDisabledTitle,
   onRefresh, onExport,
   tabs, activeTab, onTab,
   extra,
 }: {
   query: string; onQuery: (v: string) => void; placeholder?: string
-  createLabel?: string; onCreate?: () => void; createDisabled?: boolean
+  createLabel?: string; onCreate?: () => void; createDisabled?: boolean; createDisabledTitle?: string
   onRefresh?: () => void; onExport?: () => void
   tabs?: { key: string; label: string; count: number }[]
   activeTab?: string; onTab?: (k: string) => void
@@ -116,7 +117,7 @@ function Toolbar({
               type="button"
               onClick={createDisabled ? undefined : onCreate}
               disabled={createDisabled}
-              title={createDisabled ? 'Backend not connected — custom attribute API is not wired yet. Sizes/colors come from product variants.' : undefined}
+              title={createDisabled ? (createDisabledTitle ?? 'Action unavailable') : undefined}
               className={cn('admin-catalog-action admin-catalog-action--primary', createDisabled && 'cursor-not-allowed opacity-50')}
             >
               <Plus style={{ width: 13, height: 13 }} />
@@ -208,6 +209,8 @@ function ProductsPanel() {
   const { data: apiData, isError, isLoading, refetch } = useProducts({ limit: 50 })
   const { data: liveCount, isError: liveCountError, isLoading: liveCountLoading } = usePublishedProductCount()
   const deleteProduct = useDeleteProduct()
+  const canDeleteProducts = usePermission('products', 'delete')
+  const canCreateProducts = usePermission('products', 'create')
   const catalog = useMemo(() => (apiData?.products ? apiData.products.map(mapApiProduct) : []), [apiData])
 
   const filtered = useMemo(() => {
@@ -305,6 +308,8 @@ function ProductsPanel() {
       <Toolbar
         query={query} onQuery={setQuery} placeholder="Search SKU, name, category…"
         createLabel="Add product" onCreate={() => navigate('/dashboard/products/new')}
+        createDisabled={!canCreateProducts}
+        createDisabledTitle={PERMISSION_DENIED_TITLE}
         onRefresh={() => void refreshWithToast(refetch, 'Catalog synced')}
         onExport={exportProducts}
         tabs={[
@@ -394,9 +399,11 @@ function ProductsPanel() {
                         <AdminButton size="sm" onClick={() => handlePrintLabel(p)}>
                           <Printer className="h-3.5 w-3.5" /> Print label
                         </AdminButton>
-                        <AdminButton variant="danger" size="sm" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
-                          Archive
-                        </AdminButton>
+                        {canDeleteProducts && (
+                          <AdminButton variant="danger" size="sm" loading={deleteProduct.isPending} onClick={() => handleArchive(p.linkId, p.name)}>
+                            Archive
+                          </AdminButton>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -530,6 +537,7 @@ function InventoryVariantAdjust({
 
 function InventoryPanel() {
   const { navigate } = useAdminNavigate()
+  const canCreateProducts = usePermission('products', 'create')
   const [query, setQuery] = useState('')
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -625,6 +633,8 @@ function InventoryPanel() {
         placeholder="Search SKU or product…"
         createLabel="Add product"
         onCreate={() => navigate('/dashboard/products/new')}
+        createDisabled={!canCreateProducts}
+        createDisabledTitle={PERMISSION_DENIED_TITLE}
         onRefresh={() => void refreshWithToast(refetch, 'Inventory refreshed')}
       />
 

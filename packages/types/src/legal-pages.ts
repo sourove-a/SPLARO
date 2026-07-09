@@ -23,6 +23,7 @@ export const LEGAL_PAGE_SLUGS = [
   'editorial',
   'loyalty',
   'payment-policy',
+  'faq',
 ] as const
 
 export type LegalPageSlug = (typeof LEGAL_PAGE_SLUGS)[number]
@@ -39,6 +40,7 @@ export const LEGAL_PAGE_CATALOG: { slug: LegalPageSlug; label: string; path: str
   { slug: 'about', label: 'About SPLARO', path: '/about' },
   { slug: 'editorial', label: 'Journal / Editorial', path: '/editorial' },
   { slug: 'loyalty', label: 'Loyalty Program', path: '/loyalty' },
+  { slug: 'faq', label: 'FAQ', path: '/faq' },
 ]
 
 export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
@@ -342,6 +344,44 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       {
         heading: 'Invoices',
         body: 'A VAT invoice is included with every delivery and available for download from your account. Business purchases requiring additional documentation may request a formal invoice via email.',
+      },
+    ],
+  },
+  faq: {
+    title: 'Frequently Asked Questions',
+    description: 'Quick answers about SPLARO orders, delivery, payments, returns, and account features in Bangladesh.',
+    sections: [
+      {
+        heading: 'How do I place an order?',
+        body: 'Browse the shop, select your size and colour, add items to bag, and proceed to checkout. Guest checkout is available, or sign in to save addresses and track orders from your account.',
+      },
+      {
+        heading: 'Which payment methods do you accept?',
+        body: 'We accept Cash on Delivery (COD), bKash, Nagad, and major cards where available. Payment options appear at checkout based on your delivery area.',
+      },
+      {
+        heading: 'How long does delivery take?',
+        body: 'Dhaka metro orders usually arrive in 1–2 business days. Outside Dhaka typically takes 2–4 business days. You will receive SMS or WhatsApp updates once your parcel ships.',
+      },
+      {
+        heading: 'How can I track my order?',
+        body: 'Use the Track Order page with your phone number or order ID, or open My Orders in your SPLARO account after signing in.',
+      },
+      {
+        heading: 'What is your return policy?',
+        body: 'Unworn items with tags may be returned or exchanged within 7 days of delivery. See our Returns & Exchange page for full eligibility and how to start a return.',
+      },
+      {
+        heading: 'How does the wishlist work?',
+        body: 'Tap the heart icon on any product to save it. Signed-in customers sync wishlists across devices from Account → Wishlist. Guests can save items on the current device until they sign in.',
+      },
+      {
+        heading: 'Do you offer size help?',
+        body: 'Yes — see our Size Guide or message Customer Care on WhatsApp with your measurements and the product name. Our team recommends the best fit for Bangladesh sizing.',
+      },
+      {
+        heading: 'How do I contact support?',
+        body: 'Email support@splaro.co, call 09666-774577, or message us on WhatsApp. Hours: Saturday–Thursday 10:00 AM – 8:00 PM (BST).',
       },
     ],
   },

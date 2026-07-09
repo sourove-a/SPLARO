@@ -7,8 +7,7 @@ const onHostinger = process.env.SPLARO_HOSTINGER === '1'
 const connectSrc = [
   "'self'",
   apiOrigin,
-  'http://localhost:4000',
-  'http://127.0.0.1:4000',
+  ...(isProd ? [] : ['http://localhost:4000', 'http://127.0.0.1:4000']),
   'https://splaro.co',
   'https://api.splaro.co',
   'https://www.google-analytics.com',
@@ -17,6 +16,32 @@ const connectSrc = [
 ]
   .filter(Boolean)
   .join(' ')
+
+// cdn.splaro.co and cdn.splaro.com.bd are planned CDN hosts but not in DNS yet —
+// do not allowlist dead origins in production CSP (assets use splaro.co + R2).
+const cspImgSrc = [
+  "'self'",
+  'data:',
+  'blob:',
+  'https://splaro.co',
+  'https://splaro.com.bd',
+  'https://*.r2.cloudflarestorage.com',
+  'https://images.unsplash.com',
+  'https://media.aarong.com',
+  'https://placehold.co',
+  'https://cdn.jsdelivr.net',
+  'https://raw.githubusercontent.com',
+  'https://www.solarsystemscope.com',
+].join(' ')
+
+const cspMediaSrc = [
+  "'self'",
+  'blob:',
+  'https://splaro.co',
+  'https://splaro.com.bd',
+  'https://*.r2.cloudflarestorage.com',
+  'https:',
+].join(' ')
 
 const nextConfig = {
   poweredByHeader: false,
@@ -99,8 +124,8 @@ const nextConfig = {
               // remove safely, which needs its own dedicated rollout/testing pass.
               "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://cdn.splaro.co https://splaro.co https://cdn.splaro.com.bd https://splaro.com.bd https://*.r2.cloudflarestorage.com https://images.unsplash.com https://media.aarong.com https://placehold.co https://cdn.jsdelivr.net https://raw.githubusercontent.com https://www.solarsystemscope.com",
-              "media-src 'self' blob: https://cdn.splaro.co https://splaro.co https://cdn.splaro.com.bd https://splaro.com.bd https://*.r2.cloudflarestorage.com https:",
+              `img-src ${cspImgSrc}`,
+              `media-src ${cspMediaSrc}`,
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src ${connectSrc}`,
               "frame-src 'none'",
@@ -164,7 +189,10 @@ const nextConfig = {
   },
 
   async redirects() {
-    return []
+    return [
+      { source: '/wishlist', destination: '/account?tab=wishlist', permanent: false },
+      { source: '/account/wishlist', destination: '/account?tab=wishlist', permanent: false },
+    ]
   },
 }
 

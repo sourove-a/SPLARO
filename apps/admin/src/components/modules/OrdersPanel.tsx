@@ -30,7 +30,7 @@ import { AdminSkeletonGroup } from '@/components/ui/AdminUiPrimitives'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { downloadInvoice, exportTableFromContainer } from '@/lib/admin/admin-actions'
-import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder } from '@/lib/api/hooks'
+import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder, usePermission } from '@/lib/api/hooks'
 import { mapPaymentMethod, type ApiOrder } from '@/lib/api/orders'
 import { displayOrderCode } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
@@ -201,6 +201,8 @@ export function OrdersPanel() {
   const bookCourierBulk = useBookCourierBulk()
   const bulkStatus = useBulkUpdateOrderStatus()
   const deleteOrderMutation = useDeleteOrder()
+  const canDeleteOrders = usePermission('orders', 'delete')
+  const canEditOrders = usePermission('orders', 'edit')
   const handleDeleteOrder = (order: OrderRow) => {
     const id = order.linkId ?? order.id
     if (!window.confirm(`Permanently delete order ${order.id}? Database record and items will be removed.`)) return
@@ -219,11 +221,15 @@ export function OrdersPanel() {
       label: 'View details',
       onClick: () => navigate(`/dashboard/orders/${order.linkId ?? order.id}`),
     },
-    {
-      label: 'Delete permanently',
-      tone: 'danger' as const,
-      onClick: () => handleDeleteOrder(order),
-    },
+    ...(canDeleteOrders
+      ? [
+          {
+            label: 'Delete permanently',
+            tone: 'danger' as const,
+            onClick: () => handleDeleteOrder(order),
+          },
+        ]
+      : []),
   ]
 
   const sourceOrders = useMemo(
@@ -234,11 +240,13 @@ export function OrdersPanel() {
   const [previewOrder, setPreviewOrder] = useState<OrderRow | null>(null)
   const [sortBy, setSortBy] = useState<'updated' | 'total'>('updated')
 
+  const previewOrderId = previewOrder?.id
+
   useEffect(() => {
-    if (!previewOrder) return
-    const fresh = sourceOrders.find((o) => o.id === previewOrder.id)
+    if (!previewOrderId) return
+    const fresh = sourceOrders.find((o) => o.id === previewOrderId)
     if (fresh) setPreviewOrder(fresh)
-  }, [sourceOrders, previewOrder?.id])
+  }, [sourceOrders, previewOrderId])
 
   const handleStatusChange = (order: OrderRow, apiStatus: string, label: string) => {
     const id = order.linkId ?? order.id
@@ -611,6 +619,7 @@ export function OrdersPanel() {
                       <OrderStatusDropdown
                         status={order.status}
                         loading={updateStatus.isPending}
+                        disabled={!canEditOrders}
                         onSelect={(apiStatus, label) => handleStatusChange(order, apiStatus, label)}
                       />
                     </td>
@@ -669,35 +678,39 @@ export function OrdersPanel() {
             key={previewOrder.id}
             order={previewOrder}
             onClose={() => setPreviewOrder(null)}
-            onAdvance={(nextStatus) => {
-              const id = previewOrder.linkId ?? previewOrder.id
-              updateStatus.mutate(
-                { id, status: nextStatus, note: 'Updated from order preview' },
-                {
-                  onSuccess: () => {
-                    toastOk(`${previewOrder.id} updated.`)
-                    setPreviewOrder((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            apiStatus: nextStatus,
-                            status: API_STATUS_UI[nextStatus] ?? prev.status,
-                          }
-                        : null,
-                    )
-                    void refetch()
-                  },
-                  onError: () => toastFail('Could not update order.'),
-                },
-              )
-            }}
             advancing={updateStatus.isPending}
-            onCancel={() => {
-              handleCancel(previewOrder)
-              setPreviewOrder(null)
-            }}
-            onBookCourier={() => handleBookCourier(previewOrder)}
             bookingCourier={bookCourier.isPending}
+            {...(canEditOrders
+              ? {
+                  onAdvance: (nextStatus: string) => {
+                    const id = previewOrder.linkId ?? previewOrder.id
+                    updateStatus.mutate(
+                      { id, status: nextStatus, note: 'Updated from order preview' },
+                      {
+                        onSuccess: () => {
+                          toastOk(`${previewOrder.id} updated.`)
+                          setPreviewOrder((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  apiStatus: nextStatus,
+                                  status: API_STATUS_UI[nextStatus] ?? prev.status,
+                                }
+                              : null,
+                          )
+                          void refetch()
+                        },
+                        onError: () => toastFail('Could not update order.'),
+                      },
+                    )
+                  },
+                  onCancel: () => {
+                    handleCancel(previewOrder)
+                    setPreviewOrder(null)
+                  },
+                  onBookCourier: () => handleBookCourier(previewOrder),
+                }
+              : {})}
           />
         ) : null}
       </AnimatePresence>
@@ -719,20 +732,24 @@ export function OrdersPanel() {
             <Printer className="h-4 w-4" />
             Print
           </button>
-          <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkProcessing}>
-            <Package className="h-4 w-4" />
-            Processing
-          </button>
-          <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkPacked}>
-            Mark packed
-          </button>
-          <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkCourier}>
-            <Truck className="h-4 w-4" />
-            Courier
-          </button>
-          <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkCancel}>
-            Cancel
-          </button>
+          {canEditOrders ? (
+            <>
+              <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkProcessing}>
+                <Package className="h-4 w-4" />
+                Processing
+              </button>
+              <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkPacked}>
+                Mark packed
+              </button>
+              <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkCourier}>
+                <Truck className="h-4 w-4" />
+                Courier
+              </button>
+              <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkCancel}>
+                Cancel
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>
