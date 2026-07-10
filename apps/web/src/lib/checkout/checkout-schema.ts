@@ -5,11 +5,10 @@ const paymentMethodSchema = z.enum(['Cash on Delivery', 'bKash', 'Nagad', 'SSLCo
 
 export const checkoutFormSchema = z.object({
   name: z.string().trim().min(1, 'Full name is required'),
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Email is required')
-    .email('Enter a valid email address'),
+  email: z.union([
+    z.literal(''),
+    z.string().trim().email('Enter a valid email address'),
+  ]),
   phone: z.string().superRefine((value, ctx) => {
     const message = getBdPhoneError(value)
     if (message) {

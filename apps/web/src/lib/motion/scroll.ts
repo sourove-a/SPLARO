@@ -1,5 +1,4 @@
 import type { LenisOptions, ScrollToOptions } from 'lenis'
-import { shouldUseWebGLEarth } from '@/lib/earth/globe-performance'
 
 /** Expo-out — matches SPLARO --transition-expo feel */
 export const scrollEaseOutExpo = (t: number) =>
@@ -56,6 +55,20 @@ function getScrollMedia() {
   }
 }
 
+/** True when opened via LAN IP (192.168.x etc.) — native scroll only for reliable cross-device dev. */
+export function isPrivateNetworkHost(): boolean {
+  if (typeof window === 'undefined') return false
+  const host = window.location.hostname
+  if (host === 'localhost' || host === '127.0.0.1') return false
+  return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
+}
+
+/** Windows desktop browsers (Chrome/Brave/Edge) — Lenis wheel capture often kills scroll + clicks. */
+export function isWindowsClient(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Windows/i.test(navigator.userAgent)
+}
+
 export function isTouchScrollProfile() {
   const mq = getScrollMedia()
   if (!mq) return false
@@ -66,14 +79,39 @@ export function buildLenisOptions(): LenisOptions {
   return LENIS_DESKTOP_OPTIONS
 }
 
-/** Desktop wheel only — touch/mobile uses native scroll (60fps path). Lenis gate only. */
+/** Desktop wheel only — touch/mobile and LAN dev use native scroll. */
 export function isSmoothScrollEligible() {
   const mq = getScrollMedia()
   if (!mq) return false
   if (mq.reduced.matches) return false
   if (mq.coarse.matches || mq.mobileLayout.matches) return false
-  // RDP / software GL — Lenis wheel hijack often feels broken; native scroll is safer.
-  if (!shouldUseWebGLEarth()) return false
+  // LAN IP dev testing (Windows PC → Mac dev server) — Lenis wheel hijack breaks scroll/clicks.
+  if (isPrivateNetworkHost()) return false
+  if (process.env.NODE_ENV === 'development') return false
+  // splaro.co on Windows — native scroll; Lenis is the #1 "dead site" report on Win/Brave.
+  if (isWindowsClient()) return false
+  // RDP / software GL — native scroll is safer than Lenis wheel capture.
+  try {
+    const canvas = document.createElement('canvas')
+    const gl =
+      canvas.getContext('webgl') ??
+      (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null)
+    if (gl) {
+      const debug = gl.getExtension('WEBGL_debug_renderer_info')
+      if (debug) {
+        const renderer = String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)).toLowerCase()
+        if (
+          /swiftshader|llvmpipe|microsoft basic render|software rasterizer|mesa offscreen|angle \(microsoft basic render driver\)/.test(
+            renderer,
+          )
+        ) {
+          return false
+        }
+      }
+    }
+  } catch {
+    return false
+  }
   return true
 }
 

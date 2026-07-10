@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { ShopFilterDropdown } from '@/components/shop/ShopFilterDropdown'
@@ -95,6 +95,9 @@ export function ShopFilterBar({
     sortBy,
   ])
 
+  const closeOpenFilter = useCallback(() => onOpenFilterChange(null), [onOpenFilterChange])
+  const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+
   return (
     <div className="shop-filter-bar">
       <div className="shop-filter-bar__sticky">
@@ -173,7 +176,7 @@ export function ShopFilterBar({
               options={colorOptions}
               open={openFilter === 'color'}
               onToggle={() => onOpenFilterChange(openFilter === 'color' ? null : 'color')}
-              onClose={() => onOpenFilterChange(null)}
+              onClose={closeOpenFilter}
               onChange={onColorChange}
             />
             <ShopFilterDropdown
@@ -183,7 +186,7 @@ export function ShopFilterBar({
               options={sizeOptions}
               open={openFilter === 'size'}
               onToggle={() => onOpenFilterChange(openFilter === 'size' ? null : 'size')}
-              onClose={() => onOpenFilterChange(null)}
+              onClose={closeOpenFilter}
               onChange={onSizeChange}
             />
             <ShopFilterDropdown
@@ -193,7 +196,7 @@ export function ShopFilterBar({
               options={priceFilters}
               open={openFilter === 'price'}
               onToggle={() => onOpenFilterChange(openFilter === 'price' ? null : 'price')}
-              onClose={() => onOpenFilterChange(null)}
+              onClose={closeOpenFilter}
               onChange={onPriceChange}
             />
             <ShopFilterDropdown
@@ -205,7 +208,7 @@ export function ShopFilterBar({
               options={sortOptions}
               open={openFilter === 'sort'}
               onToggle={() => onOpenFilterChange(openFilter === 'sort' ? null : 'sort')}
-              onClose={() => onOpenFilterChange(null)}
+              onClose={closeOpenFilter}
               onChange={(value) => onSortChange(value as CatalogSortOption)}
             />
           </div>
@@ -214,7 +217,7 @@ export function ShopFilterBar({
 
       <MobileFilterDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={closeDrawer}
         resultCount={resultCount}
         categories={categories}
         activeCategory={activeCategory}

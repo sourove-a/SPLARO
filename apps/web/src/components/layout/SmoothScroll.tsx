@@ -6,6 +6,7 @@ import { ReactLenis, useLenis } from 'lenis/react'
 import { useUiStore } from '@/store/uiStore'
 import {
   buildLenisOptions,
+  isWindowsClient,
   SCROLL_ROUTE_TOP,
   subscribeSmoothScrollEligibility,
 } from '@/lib/motion/scroll'
@@ -44,6 +45,10 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false)
 
   useIsomorphicLayoutEffect(() => {
+    if (isWindowsClient() || (window as Window & { __splaroNativeScroll?: boolean }).__splaroNativeScroll) {
+      setEnabled(false)
+      return
+    }
     const unsubEligibility = subscribeSmoothScrollEligibility(setEnabled)
     return unsubEligibility
   }, [])

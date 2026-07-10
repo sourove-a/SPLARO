@@ -12,7 +12,6 @@ export interface CheckoutDeliveryFields {
 export function isDeliveryComplete(fields: CheckoutDeliveryFields): boolean {
   return (
     fields.name.trim().length > 0 &&
-    fields.email.trim().length > 0 &&
     isValidBdMobile(fields.phone) &&
     fields.address.trim().length > 0 &&
     Boolean(fields.city) &&
@@ -23,11 +22,10 @@ export function isDeliveryComplete(fields: CheckoutDeliveryFields): boolean {
 export function deliveryFieldProgress(fields: CheckoutDeliveryFields): number {
   let filled = 0
   if (fields.name.trim()) filled += 1
-  if (fields.email.trim()) filled += 1
   if (isValidBdMobile(fields.phone)) filled += 1
   if (fields.address.trim()) filled += 1
   if (fields.city && fields.thana) filled += 1
-  return filled / 5
+  return filled / 4
 }
 
 export type CheckoutStepStatus = 'pending' | 'active' | 'complete'

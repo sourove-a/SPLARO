@@ -29,7 +29,6 @@ import {
 } from '@/lib/checkout/customer-draft'
 import { BD_DISTRICTS } from '@/lib/checkout/bd-districts'
 import { getThanasForDistrict } from '@/lib/checkout/bd-thanas'
-import { CHECKOUT_SIGNUP_PATH } from '@/lib/checkout/checkout-auth'
 import {
   checkoutFormSchema,
   type CheckoutFormValues,
@@ -130,7 +129,6 @@ export default function CheckoutPageClient() {
   const [promoChecked, setPromoChecked] = useState(false)
   const [couponApplying, setCouponApplying] = useState(false)
   const [couponApplied, setCouponApplied] = useState(false)
-  const [authGateReady, setAuthGateReady] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
 
   const deliveryFields = useMemo(
@@ -164,15 +162,6 @@ export default function CheckoutPageClient() {
     const staged = consumeStagedCheckoutItems()
     if (staged?.length) replaceItems(staged)
   }, [cartHydrated, items.length, replaceItems])
-
-  useEffect(() => {
-    if (!authHydrated) return
-    if (!user) {
-      router.replace(CHECKOUT_SIGNUP_PATH)
-      return
-    }
-    setAuthGateReady(true)
-  }, [authHydrated, user, router])
 
   useEffect(() => {
     fetchPromoAvailability()
@@ -397,7 +386,7 @@ export default function CheckoutPageClient() {
           items: orderItems,
           customer: {
             name: form.name,
-            email: form.email,
+            email: form.email.trim(),
             phone: normalizedPhone,
             address: deliveryAddress,
             city: form.city,
@@ -565,20 +554,6 @@ export default function CheckoutPageClient() {
     }
   }
 
-  if (!authGateReady) {
-    return (
-      <CheckoutShell withAmbient={false}>
-        <section className="checkout-container">
-          <div className="checkout-glass-panel checkout-auth-gate">
-            <p className="checkout-eyebrow">Secure checkout</p>
-            <h1 className="checkout-title">Preparing your checkout</h1>
-            <p className="checkout-subtitle">Please sign in or create an account to continue.</p>
-          </div>
-        </section>
-      </CheckoutShell>
-    )
-  }
-
   return (
     <CheckoutShell>
       <section className="checkout-container">
@@ -631,7 +606,7 @@ export default function CheckoutPageClient() {
                   />
                 </CheckoutField>
                 <CheckoutField
-                  label="Email address"
+                  label="Email address (optional)"
                   icon={Mail}
                   clientReady={clientReady}
                   filled={Boolean(email.trim())}
@@ -645,7 +620,7 @@ export default function CheckoutPageClient() {
                     data-checkout-field="email"
                     data-invalid={errors.email ? 'true' : undefined}
                     className={`checkout-input ${errors.email ? 'checkout-input--invalid' : ''}`}
-                    placeholder="you@example.com"
+                    placeholder="you@example.com (optional)"
                     autoComplete="email"
                   />
                 </CheckoutField>

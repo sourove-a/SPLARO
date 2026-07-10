@@ -447,22 +447,11 @@ export class SettingsController {
     }
 
     const refreshed = await this.resolveStore(storeId)
-    const shouldRefreshStorefront =
-      Boolean(body.catalogChannels) ||
-      Boolean(body.navigation) ||
-      Boolean(body.branding) ||
-      Boolean(body.homepage) ||
-      Boolean(body.contact) ||
-      Boolean(body.social) ||
-      Boolean(body.store) ||
-      Boolean(body.marketing) ||
-      Boolean(body.shipping) ||
-      Boolean(body.payments)
 
-    if (shouldRefreshStorefront) {
-      void this.purgeStorefrontCache(refreshed.id)
-      void this.revalidateStorefrontWeb()
-    }
+    // Always bust Redis settings cache after any admin write — TTL alone is not
+    // enough after deploy or direct DB fixes.
+    void this.purgeStorefrontCache(refreshed.id)
+    void this.revalidateStorefrontWeb()
 
     return await this.mapResponse(refreshed)
   }

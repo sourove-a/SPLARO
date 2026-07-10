@@ -322,6 +322,8 @@ interface EarthGlobeProps {
 
 export function EarthGlobe({ variant = 'story', className, onUnavailable }: EarthGlobeProps) {
   const hostRef = useRef<HTMLDivElement>(null)
+  const onUnavailableRef = useRef(onUnavailable)
+  onUnavailableRef.current = onUnavailable
 
   useEffect(() => {
     const host = hostRef.current
@@ -354,7 +356,7 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
           powerPreference: 'high-performance',
         })
       } catch {
-        onUnavailable?.()
+        onUnavailableRef.current?.()
         return null
       }
     })()
@@ -825,7 +827,7 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
         host.removeChild(renderer.domElement)
       }
     }
-  }, [variant, onUnavailable])
+  }, [variant])
 
   return (
     <div

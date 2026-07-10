@@ -362,6 +362,16 @@ export function ShopCatalog({
       ? filteredProducts.length > visibleCount || apiPage < apiTotalPages
       : filteredProducts.length > visibleCount
 
+  const hasActiveFilters =
+    currentCategory !== 'All' ||
+    selectedColor !== 'All' ||
+    selectedSize !== 'All' ||
+    selectedPrice !== 'All' ||
+    mobilePriceRangeActive ||
+    sortBy !== 'Default'
+
+  const catalogIsEmpty = catalogProducts.length === 0 && catalogSource === 'empty'
+
   return (
     <>
       <section
@@ -527,16 +537,32 @@ export function ShopCatalog({
 
         {filteredProducts.length === 0 && catalogSource !== 'api-unavailable' ? (
           <div className="shop-empty glass-tile">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-black/40">
-              No products found
-            </p>
-            <h2 className="mt-3 text-2xl font-black tracking-normal text-black">
-              Try a different filter or category.
-            </h2>
-            <button type="button" className="glass-action glass-action-dark mt-5" onClick={clearFilters}>
-              Clear filters
-              <X className="h-4 w-4" />
-            </button>
+            {catalogIsEmpty && !hasActiveFilters ? (
+              <>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-black/40">
+                  Catalog coming soon
+                </p>
+                <h2 className="mt-3 text-2xl font-black tracking-normal text-black">
+                  New pieces are on the way.
+                </h2>
+                <p className="mt-2 max-w-md text-sm text-black/55">
+                  Our collection is being prepared. Check back soon or contact us for help.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-black/40">
+                  No products found
+                </p>
+                <h2 className="mt-3 text-2xl font-black tracking-normal text-black">
+                  Try a different filter or category.
+                </h2>
+                <button type="button" className="glass-action glass-action-dark mt-5" onClick={clearFilters}>
+                  Clear filters
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            )}
           </div>
         ) : null}
       </section>

@@ -1,6 +1,8 @@
-/** Path to account signup when checkout requires an authenticated customer. */
-export const CHECKOUT_SIGNUP_PATH = '/signup?next=/checkout'
+/** Checkout is open to guests — login is optional for order tracking. */
+export const CHECKOUT_PATH = '/checkout'
 
-export function getCheckoutEntryPath(isSignedIn: boolean): string {
-  return isSignedIn ? '/checkout' : CHECKOUT_SIGNUP_PATH
+export const CHECKOUT_LOGIN_PATH = '/login?next=/checkout'
+
+export function getCheckoutEntryPath(_isSignedIn?: boolean): string {
+  return CHECKOUT_PATH
 }

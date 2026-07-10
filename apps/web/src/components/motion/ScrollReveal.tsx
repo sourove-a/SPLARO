@@ -2,6 +2,7 @@
 
 import { motion, type HTMLMotionProps } from 'framer-motion'
 import type { ReactNode } from 'react'
+import { useMemo } from 'react'
 import { useScrollReveal } from '@/hooks/useScrollReveal'
 import { revealVariants, type RevealVariant } from '@/lib/motion/variants'
 import { cn } from '@/lib/utils/cn'
@@ -23,10 +24,13 @@ export function ScrollReveal({
   className,
   ...props
 }: ScrollRevealProps) {
-  const revealOptions = {
-    ...(once !== undefined ? { once } : {}),
-    ...(margin !== undefined ? { margin } : {}),
-  }
+  const revealOptions = useMemo(
+    () => ({
+      ...(once !== undefined ? { once } : {}),
+      ...(margin !== undefined ? { margin } : {}),
+    }),
+    [once, margin],
+  )
   const { ref, isInView, reducedMotion } = useScrollReveal(revealOptions)
   const variants = stagger ? revealVariants.staggerContainer : revealVariants[variant]
 

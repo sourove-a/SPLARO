@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -56,6 +56,10 @@ export function Header() {
   useEffect(() => {
     if (isDesktopNav) setDesktopNavReady(true)
   }, [isDesktopNav])
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
+  const closeSearch = useCallback(() => setSearchOpen(false), [setSearchOpen])
+  const closeCart = useCallback(() => setCartOpen(false), [setCartOpen])
 
   useEffect(() => {
     const root = document.documentElement
@@ -179,10 +183,10 @@ export function Header() {
       </header>
 
       {isMobileMenuOpen ? (
-        <MobileMenu isOpen={isMobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+        <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       ) : null}
-      {isSearchOpen ? <SearchModal isOpen={isSearchOpen} onClose={() => setSearchOpen(false)} /> : null}
-      {isCartOpen ? <CartDrawer isOpen={isCartOpen} onClose={() => setCartOpen(false)} /> : null}
+      {isSearchOpen ? <SearchModal isOpen={isSearchOpen} onClose={closeSearch} /> : null}
+      {isCartOpen ? <CartDrawer isOpen={isCartOpen} onClose={closeCart} /> : null}
     </>
   )
 }

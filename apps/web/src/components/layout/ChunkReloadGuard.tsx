@@ -9,7 +9,7 @@ declare global {
 }
 
 const RELOAD_KEY = 'splaro_chunk_reload'
-const MAX_RELOADS = 3
+const MAX_RELOADS = 5
 
 /** After deploy, stale HTML can 404 old webpack chunks — auto-reload fixes it. */
 export function ChunkReloadGuard() {
@@ -18,6 +18,7 @@ export function ChunkReloadGuard() {
     document.documentElement.setAttribute('data-splaro-booted', '1')
 
     const reloadOnce = () => {
+      if (process.env.NODE_ENV === 'development') return
       try {
         const count = parseInt(sessionStorage.getItem(RELOAD_KEY) ?? '0', 10) || 0
         if (count >= MAX_RELOADS) return

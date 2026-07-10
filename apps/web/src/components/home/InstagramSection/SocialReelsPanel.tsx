@@ -68,6 +68,8 @@ export function SocialReelsPanel({ compact = false, dormant = false }: SocialRee
     setActiveId(id)
   }, [])
 
+  const closeReelModal = useCallback(() => setModalReel(null), [])
+
   return (
     <div className={compact ? 'social-reels-panel social-reels-panel--compact' : 'social-reels-panel'}>
       {!compact ? (
@@ -153,7 +155,7 @@ export function SocialReelsPanel({ compact = false, dormant = false }: SocialRee
         <ReelModal
           reel={modalReel}
           profile={profiles[modalReel.platform]}
-          onClose={() => setModalReel(null)}
+          onClose={closeReelModal}
         />
       ) : null}
     </div>

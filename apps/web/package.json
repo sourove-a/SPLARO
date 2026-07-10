@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
-    "dev:fresh": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && next dev --port 3000",
+    "dev": "next dev --port 3000 --hostname 0.0.0.0",
+    "dev:fresh": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && next dev --port 3000 --hostname 0.0.0.0",
     "predev": "node ../../scripts/ensure-next-cache.mjs apps/web && node ../../scripts/verify-css.mjs",
     "prebuild": "node ../../scripts/verify-css.mjs && node ../../scripts/stop-next-dev-for-build.mjs 3000",
     "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Web CSS cache cleared — run pnpm dev:web'",

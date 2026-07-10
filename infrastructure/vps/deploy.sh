@@ -82,6 +82,9 @@ log "Bootstrap store contact from .env (idempotent)…"
 pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
 
 log "Build..."
+# Stale .next/cache has caused dead interactivity after deploy (Windows/RDP).
+# Safe to drop — Next rebuilds fetch/cache entries during `next build`.
+rm -rf apps/web/.next/cache apps/admin/.next/cache 2>/dev/null || true
 pnpm build:all
 node scripts/prepare-next-standalone.mjs apps/web
 node scripts/prepare-next-standalone.mjs apps/admin
@@ -167,6 +170,25 @@ maybe_reindex_search() {
   log "Search reindex: $res"
 }
 
+maybe_revalidate_storefront() {
+  if [ -z "${REVALIDATE_SECRET:-}" ]; then
+    log "Storefront revalidate skipped (REVALIDATE_SECRET unset)"
+    return 0
+  fi
+  local body='{"tags":["storefront-settings","storefront-products","storefront-banners"]}'
+  local code
+  code="$(curl -s -m 30 -o /dev/null -w '%{http_code}' -X POST \
+    "http://127.0.0.1:3000/api/revalidate" \
+    -H "x-revalidate-secret: ${REVALIDATE_SECRET}" \
+    -H "Content-Type: application/json" \
+    -d "$body" 2>/dev/null || echo 000)"
+  if [ "$code" = "200" ]; then
+    log "Storefront Next.js cache revalidated (tags: settings, products, banners)"
+  else
+    log "WARN: storefront revalidate failed (HTTP $code)"
+  fi
+}
+
 wait_for_local_health() {
   local url="$1"
   local label="$2"
@@ -203,6 +225,7 @@ wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "H
 
 maybe_purge_demo_catalog
 maybe_reindex_search
+maybe_revalidate_storefront
 
 WEB="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:3000/ 2>/dev/null || echo 000)"
 API="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:4000/api/v1/health 2>/dev/null || echo 000)"

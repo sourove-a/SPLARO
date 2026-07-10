@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdminUiStore } from '@/store/uiStore'
 import { fetchAgentStatus } from '@/lib/api/agent'
 
@@ -23,6 +23,9 @@ export function AgentShell() {
   const setSeed = useAdminUiStore((s) => s.setAgentChatSeed)
   const [online, setOnline] = useState(false)
 
+  const handleClose = useCallback(() => setOpen(false), [setOpen])
+  const handleSeedConsumed = useCallback(() => setSeed(null), [setSeed])
+
   useEffect(() => {
     fetchAgentStatus()
       .then((s) => setOnline(s.activeModelReady))
@@ -40,10 +43,10 @@ export function AgentShell() {
       {!open ? <AgentChatFab onClick={() => setOpen(true)} online={online} /> : null}
       <AgentChatPanel
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         seedMessage={seed}
         {...(context ? { context } : {})}
-        onSeedConsumed={() => setSeed(null)}
+        onSeedConsumed={handleSeedConsumed}
       />
     </>
   )

@@ -123,7 +123,6 @@ export async function POST(request: Request) {
 
   if (
     !customer?.name ||
-    !customer.email ||
     !customer.phone ||
     !customer.address ||
     !customer.city
@@ -142,7 +141,7 @@ export async function POST(request: Request) {
 
   const normalizedCustomer = {
     name: customer.name.trim(),
-    email: customer.email.trim(),
+    email: customer.email?.trim() ?? '',
     phone: normalizeBdPhone(customer.phone),
     address: customer.address.trim(),
     city: customer.city.trim(),

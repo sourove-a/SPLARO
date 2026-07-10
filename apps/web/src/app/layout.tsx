@@ -10,6 +10,7 @@ import { AnalyticsScripts } from '@/components/analytics/AnalyticsScripts'
 import { GoogleAnalyticsHead, GA_ENV_ID } from '@/components/analytics/GoogleAnalyticsHead'
 import { AttributionCapture } from '@/components/analytics/AttributionCapture'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
+import { WINDOWS_NATIVE_SCROLL_SCRIPT } from '@/lib/hydration/windows-native-scroll-script'
 import { CHUNK_RECOVERY_SCRIPT } from '@/lib/hydration/chunk-recovery-script'
 import { CRITICAL_HOME_CSS } from '@/lib/hydration/critical-home-css'
 import { getBuildId } from '@/lib/build-id'
@@ -219,6 +220,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: WINDOWS_NATIVE_SCROLL_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: CHUNK_RECOVERY_SCRIPT }} />
         <div
           id="splaro-boot-fallback"

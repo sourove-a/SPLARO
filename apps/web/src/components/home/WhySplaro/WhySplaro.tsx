@@ -1,11 +1,13 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { resolveStoreLogo } from '@/components/brand/SplaroBrandLogo'
 import { resolveOurStory } from '@/lib/storefront/homepage-defaults'
+import { useScrollReveal } from '@/hooks/useScrollReveal'
 import { CustomerStoriesDropdown } from './CustomerStoriesDropdown'
 import { SocialReelsDropdown } from './SocialReelsDropdown'
 import { StoryPillarsDropdown } from './StoryPillarsDropdown'
@@ -23,13 +25,34 @@ const MARK_SIZE = 48
 const LOGO_W = 200
 const LOGO_H = 80
 
-const fade = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (delay = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.75, delay, ease: [0.16, 1, 0.3, 1] },
-  }),
+const REVEAL_EASE = [0.16, 1, 0.3, 1] as const
+
+function StoryRevealColumn({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode
+  delay?: number
+  className?: string
+}) {
+  const reducedMotion = useReducedMotion()
+  const { ref, isInView } = useScrollReveal({ once: true, margin: '-60px 0px -60px 0px' })
+
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+      animate={
+        reducedMotion || isInView
+          ? { opacity: 1, y: 0, transition: { duration: 0.75, delay, ease: REVEAL_EASE } }
+          : { opacity: 0, y: 20 }
+      }
+    >
+      {children}
+    </motion.div>
+  )
 }
 
 export function WhySplaro() {
@@ -47,14 +70,7 @@ export function WhySplaro() {
     <section className="story-section" aria-labelledby="brand-story-heading">
       <div className="container-luxury">
         <div className="story-grid">
-          <motion.div
-            className="story-earth-wrap"
-            variants={fade}
-            custom={0}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-60px' }}
-          >
+          <StoryRevealColumn className="story-earth-wrap">
             <div className="story-earth-panel">
               <div className="story-earth-panel__glow" aria-hidden />
               <StoryEarthGlobe />
@@ -91,16 +107,9 @@ export function WhySplaro() {
                 </p>
               </div>
             </div>
-          </motion.div>
+          </StoryRevealColumn>
 
-          <motion.div
-            className="story-content"
-            variants={fade}
-            custom={0.08}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-60px' }}
-          >
+          <StoryRevealColumn className="story-content" delay={0.08}>
             <div className="story-brand-lockup">
               <Image
                 src={brandLogo}
@@ -129,7 +138,7 @@ export function WhySplaro() {
             />
 
             <SocialReelsDropdown />
-          </motion.div>
+          </StoryRevealColumn>
         </div>
       </div>
     </section>
