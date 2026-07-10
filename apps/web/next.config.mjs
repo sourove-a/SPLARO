@@ -130,7 +130,10 @@ const nextConfig = {
               `media-src ${cspMediaSrc}`,
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src ${connectSrc}`,
-              "frame-src 'none'",
+              // youtube-nocookie: Instagram/social reels embed on the homepage story
+              // section (SocialReelsDropdown → ReelCard iframe) — 'none' silently
+              // blocked every reel video with no visible error, just a dead player.
+              "frame-src 'self' https://www.youtube-nocookie.com",
             ].join('; '),
           },
         ],
