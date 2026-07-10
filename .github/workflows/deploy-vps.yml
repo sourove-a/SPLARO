@@ -70,22 +70,32 @@ jobs:
 
       - name: Smoke test
         run: |
-          check() {
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$1" || echo 000)"
-            echo "$2 → HTTP $code ($1)"
-            [ "$code" = "200" ]
-          }
-          check_redirect() {
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$1" || echo 000)"
-            echo "$2 → HTTP $code ($1)"
-            [ "$code" = "302" ] || [ "$code" = "301" ] || [ "$code" = "200" ]
+          # Retries absorb transient runner→VPS network blips (curl 000) so a
+          # genuinely successful deploy doesn't get marked "failed" on a fluke —
+          # this bit us: deploy completed and the site was verifiably live, but
+          # a single 000 on one check red-flagged the whole run.
+          retry_check() {
+            local url="$1" label="$2" want="$3" attempts="${4:-3}"
+            local i=1 code=000
+            while [ "$i" -le "$attempts" ]; do
+              code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$url" || echo 000)"
+              if echo "$want" | grep -qw "$code"; then
+                echo "$label → HTTP $code ($url) [attempt $i/$attempts]"
+                return 0
+              fi
+              echo "$label → HTTP $code ($url) [attempt $i/$attempts, retrying]"
+              i=$((i + 1))
+              sleep 5
+            done
+            echo "$label → FAILED after $attempts attempts (last HTTP $code)"
+            return 1
           }
           sleep 8
           fail=0
-          check "https://splaro.co" web || fail=1
-          check "https://splaro.co/api/v1/health" api || fail=1
-          check_redirect "https://api.splaro.co/" api-root || fail=1
+          retry_check "https://splaro.co" web "200" || fail=1
+          retry_check "https://splaro.co/api/v1/health" api "200" || fail=1
+          retry_check "https://api.splaro.co/" api-root "200 301 302" || fail=1
           curl -sf --max-time 30 "https://admin.splaro.co/api/ping" | grep -q '"online":true' \
             || { echo "admin ping → database/api offline"; fail=1; }
-          check "https://admin.splaro.co/login" admin || echo "::warning::admin login check failed (non-blocking)"
+          retry_check "https://admin.splaro.co/login" admin "200" 3 || echo "::warning::admin login check failed (non-blocking)"
           exit "$fail"
