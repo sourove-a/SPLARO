@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import {
   earthIntersectionRootMargin,
@@ -107,6 +107,15 @@ export function StoryEarthGlobe() {
 
   const showCss = mode === 'css' || !webglReady
 
+  // Stable across renders: EarthGlobe's setup effect depends on this
+  // reference, so an inline arrow here would tear down and recreate the
+  // whole WebGL context (visible flicker) on every unrelated re-render of
+  // this component's subtree.
+  const handleUnavailable = useCallback(() => {
+    setWebglReady(false)
+    setMode('css')
+  }, [])
+
   return (
     <div ref={hostRef} className="absolute inset-0">
       {showCss ? <StoryEarthPlaceholder flow={animateCss} hidden={webglReady} /> : null}
@@ -114,10 +123,7 @@ export function StoryEarthGlobe() {
         <EarthGlobe
           variant="story"
           className="absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
-          onUnavailable={() => {
-            setWebglReady(false)
-            setMode('css')
-          }}
+          onUnavailable={handleUnavailable}
         />
       ) : null}
     </div>
