@@ -7403,7 +7403,7 @@ html[data-home-hero='top'] #main-content {
    ═══════════════════════════════════════════════════════════ */
 
 .story-section {
-  overflow: hidden;
+  overflow-x: clip;
   background: #ffffff;
   padding: 2.5rem 0 2.75rem;
 }
@@ -7417,7 +7417,7 @@ html[data-home-hero='top'] #main-content {
   gap: 1.5rem;
   max-width: 72rem;
   margin: 0 auto;
-  align-items: center;
+  align-items: start;
 }
 
 @media (min-width: 1024px) {
@@ -7486,7 +7486,7 @@ html[data-home-hero='top'] #main-content {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(74%, 17.5rem);
+  width: min(88%, 20rem);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   border-radius: 50%;
@@ -26381,16 +26381,6 @@ body {
   }
 }
 
-@keyframes hero-ken-burns {
-  from {
-    transform: scale(1.12);
-  }
-
-  to {
-    transform: scale(1.1);
-  }
-}
-
 .home-hero-slider {
   --hero-swipe: 0.85s;
   --hero-slide-duration: 7.5s;
@@ -26548,11 +26538,19 @@ body {
   object-position: center center;
   transform: scale(1.12);
   transform-origin: center center;
+  /* Ken Burns via transition-on-attribute-change, not a `forwards`-fill
+     @keyframes animation — Chromium (Windows/ANGLE-D3D11 in particular) has
+     a compositor bug where a large transform-animated image layer can paint
+     solid black and stay stuck that way. Reproduced live: disabling the
+     keyframe animation made the (perfectly valid, already-downloaded) photo
+     render immediately. Transitions don't retrigger a fresh animated layer
+     on every slide-active toggle the way this keyframe did, which avoids it. */
+  transition: transform var(--hero-slide-duration) var(--hero-ease-luxury);
 }
 
 .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-video,
 .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-image {
-  animation: hero-ken-burns var(--hero-slide-duration) var(--hero-ease-luxury) forwards;
+  transform: scale(1.1);
 }
 
 .home-hero-slider .hero-bg-fallback {
