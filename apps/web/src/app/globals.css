@@ -7481,25 +7481,61 @@ html[data-home-hero='top'] #main-content {
     radial-gradient(circle at 52% 48%, rgba(70, 110, 150, 0.35), rgba(5, 8, 12, 0.92) 68%);
 }
 
-.story-earth-panel__placeholder-orbit-wrap {
+/* CSS globe — equirectangular map scrolls inside a shaded sphere (RDP / no WebGL). */
+.story-earth-panel__globe {
   position: absolute;
-  inset: -8%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  left: 50%;
+  top: 50%;
+  width: min(74%, 17.5rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    inset -1.4rem -1rem 2.8rem rgba(0, 0, 0, 0.58),
+    inset 0.65rem 0.45rem 1.4rem rgba(150, 190, 230, 0.12),
+    0 0 2.5rem rgba(80, 130, 180, 0.28);
 }
 
-.story-earth-panel__placeholder--flow .story-earth-panel__placeholder-orbit-wrap {
-  animation: story-earth-orbit 18s linear infinite;
+.story-earth-panel__globe-map {
+  position: absolute;
+  inset: -2%;
+  background-image: url('/images/earth/earth-day.webp');
+  background-size: 200% 100%;
+  background-repeat: repeat-x;
+  background-position: 22% center;
+  filter: saturate(1.08) brightness(1.03);
 }
 
-.story-earth-panel__placeholder-orbit {
-  width: 88%;
-  height: auto;
-  max-width: none;
-  border-radius: 999px;
-  opacity: 0.92;
-  filter: saturate(1.05) brightness(1.02);
+.story-earth-panel__placeholder--flow .story-earth-panel__globe-map {
+  animation: story-earth-map-scroll 24s linear infinite;
+}
+
+.story-earth-panel__globe-shade {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, transparent 22%, rgba(0, 0, 0, 0.12) 58%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+.story-earth-panel__globe-highlight {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 26% 20%, rgba(190, 220, 250, 0.42) 0%, transparent 42%);
+}
+
+.story-earth-panel__globe-atmo {
+  pointer-events: none;
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  border: 1px solid rgba(140, 185, 225, 0.22);
+  box-shadow: 0 0 1.2rem rgba(100, 160, 210, 0.18);
 }
 
 .story-earth-panel__placeholder-glow {
@@ -7511,9 +7547,9 @@ html[data-home-hero='top'] #main-content {
   animation: story-earth-glow-pulse 6s ease-in-out infinite;
 }
 
-@keyframes story-earth-orbit {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes story-earth-map-scroll {
+  from { background-position: 0% center; }
+  to { background-position: 100% center; }
 }
 
 @keyframes story-earth-glow-pulse {
@@ -7522,7 +7558,7 @@ html[data-home-hero='top'] #main-content {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .story-earth-panel__placeholder--flow .story-earth-panel__placeholder-orbit-wrap,
+  .story-earth-panel__placeholder--flow .story-earth-panel__globe-map,
   .story-earth-panel__placeholder-glow {
     animation: none;
   }

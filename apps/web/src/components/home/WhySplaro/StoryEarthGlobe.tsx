@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import Image from 'next/image'
 import {
   canUseWebGL,
   earthIntersectionRootMargin,
@@ -26,15 +25,11 @@ function StoryEarthPlaceholder({ flow = false }: { flow?: boolean }) {
     return (
       <div className="story-earth-panel__placeholder story-earth-panel__placeholder--flow" aria-hidden>
         <div className="story-earth-panel__placeholder-bg" />
-        <div className="story-earth-panel__placeholder-orbit-wrap">
-          <Image
-            src="/images/earth/earth-day.webp"
-            alt=""
-            width={640}
-            height={640}
-            unoptimized
-            className="story-earth-panel__placeholder-orbit"
-          />
+        <div className="story-earth-panel__globe">
+          <div className="story-earth-panel__globe-map" />
+          <div className="story-earth-panel__globe-shade" />
+          <div className="story-earth-panel__globe-highlight" />
+          <div className="story-earth-panel__globe-atmo" />
         </div>
         <div className="story-earth-panel__placeholder-glow" />
       </div>
