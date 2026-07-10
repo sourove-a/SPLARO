@@ -149,38 +149,11 @@ const nextConfig = {
         ],
       },
       {
-        source: '/',
+        source: '/((?!_next/static|_next/image|fonts|images|favicon).*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'private, no-cache, max-age=0, must-revalidate',
-          },
-        ],
-      },
-      {
-        source: '/shop',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-cache, max-age=0, must-revalidate',
-          },
-        ],
-      },
-      {
-        source: '/c/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-cache, max-age=0, must-revalidate',
-          },
-        ],
-      },
-      {
-        source: '/collections/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-cache, max-age=0, must-revalidate',
+            value: 'no-store, no-cache, must-revalidate, max-age=0',
           },
         ],
       },
