@@ -103,6 +103,18 @@ function normalizeHeroVideoUrl(url: string): { video: string; videoMobile?: stri
   return mobile ? { video, videoMobile: mobile } : { video }
 }
 
+/** Ordered renditions to try on mobile before falling back to poster. */
+function heroVideoSources(slide: HeroSlide, mobile: boolean): string[] {
+  const urls: string[] = []
+  if (mobile && slide.videoMobile?.trim()) urls.push(slide.videoMobile.trim())
+  if (slide.video?.trim()) {
+    const normalized = normalizeHeroVideoUrl(slide.video.trim())
+    if (mobile && normalized.videoMobile) urls.push(normalized.videoMobile)
+    urls.push(normalized.video)
+  }
+  return [...new Set(urls.filter(Boolean))]
+}
+
 function resolveSlideVideo(media: string, index: number) {
   // Only autoplay a background video when THIS slide's own media is a video URL,
   // or when an explicit NEXT_PUBLIC_HERO_VIDEO override is set. Previously the
@@ -295,17 +307,17 @@ function HeroBackground({
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoFailed, setVideoFailed] = useState(false)
   const [videoReady, setVideoReady] = useState(false)
+  const [sourceIndex, setSourceIndex] = useState(0)
   const isMobile = useMobileViewport()
   const mounted = useMounted()
   const mobileActive = mounted && isMobile
-  const videoSrc = mobileActive && slide.videoMobile ? slide.videoMobile : slide.video
+  const sourceChain = useMemo(
+    () => heroVideoSources(slide, mobileActive),
+    [slide, mobileActive],
+  )
+  const videoSrc = sourceChain[sourceIndex]
   const poster =
     slide.image.trim() && !isBrandLogoPoster(slide.image) ? slide.image : undefined
-  // `mounted` gate is load-bearing: during hydration `isMobile` is still false,
-  // so without it the <video> mounts for one render with preload=auto and phones
-  // start downloading the full desktop MP4 before the viewport check kicks in.
-  // Once mounted, phones DO play video — but only the active slide, streaming
-  // the light 640×360/540p rendition over the instantly-painted poster.
   const mountVideo = Boolean(
     mounted &&
       videoSrc &&
@@ -317,17 +329,20 @@ function HeroBackground({
   useEffect(() => {
     setVideoFailed(false)
     setVideoReady(false)
-  }, [videoSrc])
+    setSourceIndex(0)
+  }, [slide.id, mobileActive])
 
-  // AbortError = play() interrupted by a load()/pause() race, NotAllowedError =
-  // autoplay blocked (iOS Low Power, hidden tab) — both transient: the poster
-  // stays visible and onCanPlay / visibility retries recover. Only a broken
-  // source (onError) should tear the <video> down for good.
   const failUnlessAborted = (err: unknown) => {
     if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'NotAllowedError'))
       return
     setVideoFailed(true)
   }
+
+  const tryPlay = useCallback(() => {
+    const video = videoRef.current
+    if (!video || !isActive || !mountVideo) return
+    void video.play().catch(failUnlessAborted)
+  }, [isActive, mountVideo])
 
   useEffect(() => {
     const video = videoRef.current
@@ -337,19 +352,51 @@ function HeroBackground({
       if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         video.load()
       }
-      void video.play().catch(failUnlessAborted)
+      tryPlay()
       return
     }
 
     video.pause()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, videoSrc, videoFailed, mountVideo])
+  }, [isActive, videoSrc, videoFailed, mountVideo, tryPlay])
+
+  useEffect(() => {
+    if (!mountVideo || !isActive) return
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') tryPlay()
+    }
+
+    const onUserGesture = () => tryPlay()
+
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('touchstart', onUserGesture, { capture: true, passive: true })
+    window.addEventListener('scroll', onUserGesture, { capture: true, passive: true })
+    window.addEventListener('pointerdown', onUserGesture, { capture: true, passive: true })
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('touchstart', onUserGesture, { capture: true })
+      window.removeEventListener('scroll', onUserGesture, { capture: true })
+      window.removeEventListener('pointerdown', onUserGesture, { capture: true })
+    }
+  }, [mountVideo, isActive, tryPlay])
+
+  const onVideoError = () => {
+    const next = sourceIndex + 1
+    if (next < sourceChain.length) {
+      setSourceIndex(next)
+      setVideoReady(false)
+      return
+    }
+    setVideoFailed(true)
+  }
 
   return (
     <>
       <HeroStaticBackdrop src={slide.image} priority={priority} eager />
       {mountVideo ? (
         <video
+          key={videoSrc}
           ref={videoRef}
           className={cn('hero-bg-video', videoReady && isActive && 'hero-bg-video--ready')}
           style={HERO_MEDIA_STYLE}
@@ -367,7 +414,7 @@ function HeroBackground({
             setVideoReady(true)
             void event.currentTarget.play().catch(failUnlessAborted)
           }}
-          onError={() => setVideoFailed(true)}
+          onError={onVideoError}
         >
           <source src={videoSrc} type={videoMimeType(videoSrc!)} />
         </video>
@@ -384,6 +431,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const [exitIndex, setExitIndex] = useState<number | null>(null)
   const [direction, setDirection] = useState<SlideDirection>('forward')
   const [paused, setPaused] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState(false)
   const [ready, setReady] = useState(false)
   const [interacted, setInteracted] = useState(false)
   const allowVideo = useAllowHeroVideo()
@@ -408,11 +456,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   const resetAutoplayTimer = useCallback(() => {
     clearAutoplayTimer()
-    if (paused || slides.length <= 1) return
+    if (paused || reducedMotion || slides.length <= 1) return
     autoplayIntervalRef.current = window.setInterval(() => {
       transitionToRef.current((indexRef.current + 1) % slides.length)
     }, SLIDE_DURATION_MS)
-  }, [clearAutoplayTimer, paused, slides.length])
+  }, [clearAutoplayTimer, paused, reducedMotion, slides.length])
 
   const transitionTo = useCallback(
     (next: number) => {
@@ -469,6 +517,12 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   useEffect(() => {
     setReady(true)
     prefersHoverPauseRef.current = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const syncMotion = () => setReducedMotion(mq.matches)
+    syncMotion()
+    mq.addEventListener('change', syncMotion)
+    return () => mq.removeEventListener('change', syncMotion)
   }, [])
 
   useEffect(() => {
@@ -516,6 +570,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [resetAutoplayTimer, clearAutoplayTimer])
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
+    setPaused(true)
+    setInteracted(true)
     const touch = event.touches[0]
     if (!touch) return
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
@@ -663,7 +719,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         <div className="hero-progress" aria-hidden>
           <div
             key={`progress-${index}`}
-            className={cn('hero-progress-fill', paused && 'hero-progress-fill--paused')}
+            className={cn('hero-progress-fill', (paused || reducedMotion) && 'hero-progress-fill--paused')}
           />
         </div>
       </div>

@@ -329,6 +329,55 @@ export class SecurityService {
     return { updated: true }
   }
 
+  async resetStaffTelegram(
+    storeIdRaw: string,
+    userId: string,
+    actor?: AdminSessionPayload,
+    req?: AdminRequest,
+  ) {
+    if (this.actorRole(actor) !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only Super Admin can reset Telegram bindings')
+    }
+
+    const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+    const target = await this.prisma.staffRole.findUnique({
+      where: { userId_storeId: { userId, storeId } },
+      include: { user: { select: { email: true, telegramId: true } } },
+    })
+    if (!target) throw new NotFoundException('Staff member not found')
+
+    await this.assertTargetEditable(storeId, userId, target.user.email)
+
+    const telegramId = target.user.telegramId?.trim()
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { telegramId: null, telegramUsername: null },
+    })
+
+    if (telegramId) {
+      await this.prisma.telegramUser.updateMany({
+        where: { telegramId },
+        data: { isActive: false },
+      })
+    }
+
+    await this.writeAudit(storeId, actor, 'staff.telegram_reset', userId, { telegramId: telegramId ?? null }, undefined, req)
+
+    return { ok: true, reset: true }
+  }
+
+  async getStaffTelegramStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { telegramId: true, telegramUsername: true },
+    })
+    if (!user) throw new NotFoundException('User not found')
+    return {
+      telegramLinked: Boolean(user.telegramId?.trim()),
+      telegramUsername: user.telegramUsername ?? null,
+    }
+  }
+
   private assertCanManageSecurity(actor?: AdminSessionPayload) {
     const role = this.actorRole(actor)
     if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) {

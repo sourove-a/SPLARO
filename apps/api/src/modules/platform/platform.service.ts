@@ -107,6 +107,8 @@ export class PlatformService {
               isActive: true,
               lastLoginAt: true,
               twoFAEnabled: true,
+              telegramId: true,
+              telegramUsername: true,
             },
           },
         },
@@ -151,6 +153,8 @@ export class PlatformService {
       status: s.user.isActive ? 'active' : 'inactive',
       lastLogin: relTime(s.user.lastLoginAt),
       twoFA: s.user.twoFAEnabled,
+      telegramLinked: Boolean(s.user.telegramId?.trim()),
+      telegramUsername: s.user.telegramUsername ?? null,
     }))
 
     const roles = [...roleMap.entries()].map(([id, r]) => ({

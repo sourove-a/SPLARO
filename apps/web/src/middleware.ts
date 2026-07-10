@@ -6,6 +6,7 @@ import {
   matchRedirect,
   redirectStatusCode,
 } from '@/lib/server/url-redirects'
+import { isAllowedExternalRedirect } from '@/lib/server/redirect-allowlist'
 
 const MAINTENANCE_ENABLED = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
 
@@ -17,7 +18,10 @@ function redirectToShortCollection(request: NextRequest, slug: string) {
 
 function redirectToTarget(request: NextRequest, target: string, status = 307) {
   if (/^https?:\/\//i.test(target)) {
-    return NextResponse.redirect(target, status)
+    if (isAllowedExternalRedirect(target)) {
+      return NextResponse.redirect(target, status)
+    }
+    return NextResponse.next()
   }
   const url = request.nextUrl.clone()
   const [path, query] = target.split('?')

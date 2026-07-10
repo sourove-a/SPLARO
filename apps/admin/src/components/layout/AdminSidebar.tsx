@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import { ChevronDown, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
@@ -8,7 +8,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
+import { useAdminSession } from '@/lib/api/hooks'
 import { getVisibleAdminRoutes, getSidebarNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
+import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
 import { usePrefersReducedMotion } from '@/lib/hooks/use-prefers-reduced-motion'
 import { useSidebarNavCounts } from '@/lib/hooks/use-sidebar-nav-counts'
@@ -41,8 +43,8 @@ const ADVANCED_SECTIONS: Array<{ title: string; groups: string[] }> = [
   },
 ]
 
-function groupByName(name: string) {
-  return getSidebarNavGroups().find((group) => group.group === name)
+function groupByName(name: string, session?: AdminNavSession | null) {
+  return getSidebarNavGroups(session).find((group) => group.group === name)
 }
 
 const SECTION_ICON_MAP: Record<string, string> = {
@@ -290,16 +292,18 @@ function SidebarNav({
   collapsed,
   onNavigate,
   getCount,
+  session,
 }: {
   collapsed: boolean
   onNavigate?: () => void
   getCount: (href: string) => number | undefined
+  session?: AdminNavSession | null
 }) {
   const pathname = usePathname()
-  const primaryGroups = PRIMARY_SECTIONS.map(groupByName).filter(Boolean) as AdminNavGroup[]
+  const primaryGroups = PRIMARY_SECTIONS.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[]
   const advancedGroups = ADVANCED_SECTIONS.map((section) => ({
     ...section,
-    groups: section.groups.map(groupByName).filter(Boolean) as AdminNavGroup[],
+    groups: section.groups.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[],
   })).filter((section) => section.groups.length > 0)
 
   return (
@@ -340,6 +344,14 @@ function SidebarNav({
 export function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: sessionUser } = useAdminSession()
+  const navSession = useMemo<AdminNavSession | null>(
+    () =>
+      sessionUser
+        ? { role: sessionUser.role, permissions: sessionUser.permissions ?? [] }
+        : null,
+    [sessionUser],
+  )
   const { api } = useAdminConnection(30_000)
   const connectionLive = api.pulse === 'online' || api.pulse === 'degraded'
   const navScrollRef = useRef<HTMLDivElement>(null)
@@ -353,14 +365,14 @@ export function AdminSidebar() {
     : { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }
 
   useEffect(() => {
-    for (const route of getVisibleAdminRoutes()) {
+    for (const route of getVisibleAdminRoutes(navSession)) {
       try {
         router.prefetch(route.href)
       } catch {
         /* prefetch best-effort */
       }
     }
-  }, [router])
+  }, [router, navSession])
 
   useEffect(() => {
     setMobileOpen(false)
@@ -399,7 +411,12 @@ export function AdminSidebar() {
         ref={navScrollRef}
         className="admin-sidebar__nav min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3"
       >
-        <SidebarNav collapsed={collapsed} getCount={getCount} onNavigate={() => setMobileOpen(false)} />
+        <SidebarNav
+          collapsed={collapsed}
+          getCount={getCount}
+          session={navSession}
+          onNavigate={() => setMobileOpen(false)}
+        />
       </div>
 
       <div className="mx-2 mb-2 flex shrink-0 items-center gap-1.5">

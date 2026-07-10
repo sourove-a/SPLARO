@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import { ArrowRight, Search } from 'lucide-react'
 import { getCommandItems } from '@/lib/navigation/admin-nav'
+import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
+import { useAdminSession } from '@/lib/api/hooks'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
@@ -21,7 +23,11 @@ function NavIcon({ name }: { name: string }) {
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const { navigate } = useAdminNavigate()
-  const commands = getCommandItems()
+  const { data: sessionUser } = useAdminSession()
+  const navSession: AdminNavSession | null = sessionUser
+    ? { role: sessionUser.role, permissions: sessionUser.permissions ?? [] }
+    : null
+  const commands = getCommandItems(navSession)
   const groups = [...new Set(commands.map((item) => item.group))]
 
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { canAccessNavRoute, type AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
+
 export interface AdminNavItem {
   href: string
   label: string
@@ -423,19 +425,23 @@ export function getNavHiddenReason(href: string): string {
   )
 }
 
-/** Sidebar + palette: visible nav groups only (empty groups removed). */
-export function getSidebarNavGroups(): AdminNavGroup[] {
+/** Sidebar + palette: visible nav groups only (empty groups removed). RBAC-filtered when session provided. */
+export function getSidebarNavGroups(session?: AdminNavSession | null): AdminNavGroup[] {
   return adminNavGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !isNavHiddenFromPrimary(item.href)),
+      items: group.items.filter(
+        (item) =>
+          !isNavHiddenFromPrimary(item.href) &&
+          (!session || canAccessNavRoute(item.href, session, 'view')),
+      ),
     }))
     .filter((group) => group.items.length > 0)
 }
 
-/** Flat routes for sidebar & command palette — excludes NAV_HIDDEN_HREFS. */
-export function getVisibleAdminRoutes(): FlatAdminRoute[] {
-  return getSidebarNavGroups().flatMap(({ group, items }) =>
+/** Flat routes for sidebar & command palette — excludes NAV_HIDDEN_HREFS and RBAC-denied routes. */
+export function getVisibleAdminRoutes(session?: AdminNavSession | null): FlatAdminRoute[] {
+  return getSidebarNavGroups(session).flatMap(({ group, items }) =>
     items.map((navItem) => ({ ...navItem, group })),
   )
 }
@@ -527,8 +533,8 @@ export function hrefFromSlug(slug: string[] | undefined): string {
   return `/dashboard/${slug.join('/')}`
 }
 
-export function getCommandItems(): CommandNavItem[] {
-  return getVisibleAdminRoutes().map(({ group, label, href, icon, description, badge }) => ({
+export function getCommandItems(session?: AdminNavSession | null): CommandNavItem[] {
+  return getVisibleAdminRoutes(session).map(({ group, label, href, icon, description, badge }) => ({
       group,
       label,
       href,

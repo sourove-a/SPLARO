@@ -4,6 +4,14 @@ function normalizePath(path: string): string {
   return path.replace(/^\/api\/v1\//, '').replace(/^\//, '').split('?')[0] ?? ''
 }
 
+/** Any authenticated admin may link their own Telegram — not gated by admin-users matrix. */
+function isStaffSelfTelegramPath(path: string): boolean {
+  return (
+    path === 'admin/security/staff/me/telegram' ||
+    path === 'admin/security/staff/me/telegram-link-token'
+  )
+}
+
 function methodToAction(method: string): PermissionAction {
   switch (method.toUpperCase()) {
     case 'POST':
@@ -70,6 +78,9 @@ export function resolveRoutePermission(
   method: string,
 ): { moduleSlug: string; action: PermissionAction } | null {
   const normalized = normalizePath(path)
+  if (isStaffSelfTelegramPath(normalized)) {
+    return null
+  }
   if (
     !normalized.startsWith('admin/') &&
     !normalized.startsWith('commerce-os/') &&

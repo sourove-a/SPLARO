@@ -69,6 +69,28 @@ export function removeStaff(userId: string) {
   })
 }
 
+export function fetchStaffTelegramLinkToken() {
+  return apiFetch<{
+    ok: boolean
+    code: string
+    email: string
+    expiresInSeconds: number
+    hint: string
+  }>('/admin/security/staff/me/telegram-link-token', { method: 'POST' })
+}
+
+export function fetchMyTelegramStatus() {
+  return apiFetch<{ telegramLinked: boolean; telegramUsername: string | null }>(
+    '/admin/security/staff/me/telegram',
+  )
+}
+
+export function resetStaffTelegram(userId: string) {
+  return apiFetch<{ ok: boolean; reset: boolean }>(`/admin/security/staff/${userId}/telegram`, {
+    method: 'DELETE',
+  })
+}
+
 export interface SecuritySessionRow {
   id: string
   browser: string | null

@@ -21,8 +21,14 @@ export class AuthController {
     }
 
     await this.auth.validateAdminEmail(email, body.storeId)
-    const { code, email: adminEmail } = await this.auth.issueLoginTokenForEmail(email, body.storeId)
     const storeId = body.storeId ?? 'splaro'
+
+    const delivery = await this.telegram.resolveAdminLoginDelivery(storeId, email)
+    if (!delivery.ok) {
+      throw new ServiceUnavailableException(delivery.message)
+    }
+
+    const { code, email: adminEmail } = await this.auth.issueLoginTokenForEmail(email, body.storeId)
     const tokenSent = await this.telegram.sendLoginTokenForAdmin(storeId, adminEmail, code)
 
     if (!tokenSent) {

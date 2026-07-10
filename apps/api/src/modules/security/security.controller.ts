@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Req, UnauthorizedException } from '@nestjs/common'
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
+import { AuthService } from '../auth/auth.service'
 import { DatabaseConnectionService, type DatabaseCredentialsInput } from './database-connection.service'
 import { SecurityService } from './security.service'
 
@@ -11,6 +12,7 @@ export class SecurityController {
   constructor(
     private readonly security: SecurityService,
     private readonly databaseConnection: DatabaseConnectionService,
+    private readonly auth: AuthService,
   ) {}
 
   @Get('database')
@@ -137,6 +139,39 @@ export class SecurityController {
     @Req() req: AdminRequest,
   ) {
     return this.security.removeStaff(storeId, userId, req.adminUser, req)
+  }
+
+  @Delete('staff/:userId/telegram')
+  resetStaffTelegram(
+    @Query('storeId') storeId: string,
+    @Param('userId') userId: string,
+    @Req() req: AdminRequest,
+  ) {
+    return this.security.resetStaffTelegram(storeId, userId, req.adminUser, req)
+  }
+
+  @Post('staff/me/telegram-link-token')
+  staffTelegramLinkToken(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
+    const actor = req.adminUser
+    if (!actor?.email) {
+      throw new UnauthorizedException('Not authenticated')
+    }
+    return this.auth.issueLoginTokenForEmail(actor.email, storeId || actor.storeId).then(({ code, email }) => ({
+      ok: true,
+      code,
+      email,
+      expiresInSeconds: 300,
+      hint: `Open your SPLARO bot and send: /login ${code}`,
+    }))
+  }
+
+  @Get('staff/me/telegram')
+  staffTelegramStatus(@Req() req: AdminRequest) {
+    const actor = req.adminUser
+    if (!actor?.userId) {
+      throw new UnauthorizedException('Not authenticated')
+    }
+    return this.security.getStaffTelegramStatus(actor.userId)
   }
 
   @Get('login-history')

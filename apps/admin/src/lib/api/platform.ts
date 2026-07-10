@@ -62,7 +62,17 @@ export interface SecurityData {
     failedLogins24h: number
     threatLevel: string
   }
-  adminUsers: { id: string; name: string; email: string; role: string; status: string; lastLogin: string; twoFA: boolean }[]
+  adminUsers: {
+    id: string
+    name: string
+    email: string
+    role: string
+    status: string
+    lastLogin: string
+    twoFA: boolean
+    telegramLinked?: boolean
+    telegramUsername?: string | null
+  }[]
   roles: { id: string; name: string; users: number; permissions: string; status: string }[]
   auditLogs: { id: string; actor: string; action: string; target: string; resource: string; time: string; severity: string }[]
   threats: { id: string; action: string; time: string }[]

@@ -1,6 +1,7 @@
 import type { NextResponse } from 'next/server'
 import { getServerApiBaseUrl } from '@splaro/config'
 import { cookies } from 'next/headers'
+import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -48,7 +49,7 @@ export async function apiAuthSignup(input: {
   phone: string
   password: string
 }): Promise<{ sessionToken: string; user: ApiAuthUser } | null> {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/signup?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
@@ -57,7 +58,7 @@ export async function apiAuthSignup(input: {
       cache: 'no-store',
     },
   )
-  if (!res.ok) return null
+  if (!res || !res.ok) return null
   const payload = (await res.json()) as {
     sessionToken?: string
     user?: ApiAuthUser
@@ -70,7 +71,7 @@ export async function apiAuthLogin(input: {
   email: string
   password: string
 }): Promise<{ sessionToken: string; user: ApiAuthUser } | { error: string }> {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/login?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
@@ -79,6 +80,9 @@ export async function apiAuthLogin(input: {
       cache: 'no-store',
     },
   )
+  if (!res) {
+    return { error: 'Login service timed out — try again.' }
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     return { error: body.message ?? 'Invalid email or password' }
@@ -96,17 +100,17 @@ export async function apiAuthLogin(input: {
 export async function apiAuthMe(
   sessionToken: string,
 ): Promise<ApiAuthUser | null> {
-  const res = await fetch(apiUrl('/storefront/auth/me'), {
+  const res = await fetchWithTimeout(apiUrl('/storefront/auth/me'), {
     headers: sessionHeaders(sessionToken),
     cache: 'no-store',
   })
-  if (!res.ok) return null
+  if (!res || !res.ok) return null
   const payload = (await res.json()) as { user?: ApiAuthUser }
   return payload.user ?? null
 }
 
 export async function apiAuthLogout(sessionToken: string): Promise<void> {
-  await fetch(apiUrl('/storefront/auth/logout'), {
+  await fetchWithTimeout(apiUrl('/storefront/auth/logout'), {
     method: 'POST',
     headers: sessionHeaders(sessionToken),
     cache: 'no-store',
@@ -116,7 +120,7 @@ export async function apiAuthLogout(sessionToken: string): Promise<void> {
 export async function apiForgotPassword(
   email: string,
 ): Promise<{ success: true; message: string; devToken?: string } | { error: string }> {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/forgot-password?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
@@ -125,6 +129,9 @@ export async function apiForgotPassword(
       cache: 'no-store',
     },
   )
+  if (!res) {
+    return { error: 'Password reset service timed out — try again.' }
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     const message = body.message ?? 'Could not process password reset'
@@ -137,12 +144,15 @@ export async function apiResetPassword(
   token: string,
   password: string,
 ): Promise<{ success: true; message: string } | { error: string }> {
-  const res = await fetch(apiUrl('/storefront/auth/reset-password'), {
+  const res = await fetchWithTimeout(apiUrl('/storefront/auth/reset-password'), {
     method: 'POST',
     headers: sessionHeaders(),
     body: JSON.stringify({ token, password }),
     cache: 'no-store',
   })
+  if (!res) {
+    return { error: 'Password reset service timed out — try again.' }
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     return { error: body.message ?? 'Invalid or expired reset token' }
@@ -155,7 +165,7 @@ export async function apiSendOtp(phone: string): Promise<{
   devCode?: string
   error?: string
 }> {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/otp/send?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
@@ -164,6 +174,9 @@ export async function apiSendOtp(phone: string): Promise<{
       cache: 'no-store',
     },
   )
+  if (!res) {
+    return { sent: false, error: 'OTP service timed out — try again.' }
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     return { sent: false, error: body.message ?? 'Could not send code' }
@@ -175,7 +188,7 @@ export async function apiVerifyOtp(
   phone: string,
   code: string,
 ): Promise<{ phoneAccessToken: string; expiresAt: string } | { error: string }> {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/otp/verify?storeId=${encodeURIComponent(STORE_ID)}`),
     {
       method: 'POST',
@@ -184,6 +197,9 @@ export async function apiVerifyOtp(
       cache: 'no-store',
     },
   )
+  if (!res) {
+    return { error: 'Verification service timed out — try again.' }
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     return { error: body.message ?? 'Invalid code' }
@@ -210,13 +226,13 @@ export async function apiTrackOrders(
     headers['x-splaro-phone-access'] = opts.phoneAccessToken
   }
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(
       `/storefront/orders/track?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`,
     ),
     { headers, cache: 'no-store' },
   )
-  if (!res.ok) return null
+  if (!res || !res.ok) return null
   const payload = (await res.json()) as { orders?: Record<string, unknown>[] }
   return payload.orders ?? []
 }
@@ -225,12 +241,15 @@ export async function apiSearchProducts(
   q: string,
   limit = 24,
 ): Promise<Record<string, unknown>[]> {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     apiUrl(
       `/storefront/search?storeId=${encodeURIComponent(STORE_ID)}&q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
     { headers: { Accept: 'application/json' }, cache: 'no-store' },
   )
+  if (!res) {
+    throw new Error('Search API timed out')
+  }
   if (!res.ok) {
     throw new Error(`Search API ${res.status}`)
   }

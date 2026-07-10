@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { buildInvoiceAccessToken, getServerApiBaseUrl } from '@splaro/config'
 import type { StoredOrder, StoredOrderItem } from '@/lib/server/store'
+import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -153,7 +154,7 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
   const idempotencyKey = checkoutIdempotencyKey(input)
   headers['Idempotency-Key'] = idempotencyKey
 
-  const res = await fetch(`${base}/storefront/orders?storeId=${encodeURIComponent(STORE_ID)}`, {
+  const res = await fetchWithTimeout(`${base}/storefront/orders?storeId=${encodeURIComponent(STORE_ID)}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -176,6 +177,10 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
     cache: 'no-store',
   })
 
+  if (!res) {
+    throw new Error('Order service timed out — please try again.')
+  }
+
   if (!res.ok) {
     const payload = (await res.json().catch(() => null)) as { message?: string | string[] } | null
     const message = Array.isArray(payload?.message)
@@ -190,11 +195,11 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
 
 export async function fetchOrdersViaApi(phone: string): Promise<StoredOrder[]> {
   const base = getServerApiBaseUrl()
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `${base}/storefront/orders/track?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`,
     { cache: 'no-store' },
   )
-  if (!res.ok) return []
+  if (!res || !res.ok) return []
   const payload = (await res.json()) as { orders: Parameters<typeof mapApiOrderToStored>[0][] }
   return (payload.orders ?? []).map(mapApiOrderToStored)
 }
@@ -207,11 +212,11 @@ export async function fetchOrderByIdViaApi(
 
   const fetchOne = async (id: string): Promise<StoredOrder | null> => {
     try {
-      const res = await fetch(`${base}/admin/orders/${encodeURIComponent(id)}`, {
+      const res = await fetchWithTimeout(`${base}/admin/orders/${encodeURIComponent(id)}`, {
         headers: internalApiHeaders(),
         cache: 'no-store',
       })
-      if (!res.ok) return null
+      if (!res || !res.ok) return null
       const order = (await res.json()) as Parameters<typeof mapApiOrderToStored>[0]
       return mapApiOrderToStored(order)
     } catch {
@@ -224,11 +229,11 @@ export async function fetchOrderByIdViaApi(
 
   if (orderId.includes('-')) {
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `${base}/admin/orders?storeId=${encodeURIComponent(STORE_ID)}&search=${encodeURIComponent(orderId)}&limit=1`,
         { headers: internalApiHeaders(), cache: 'no-store' },
       )
-      if (res.ok) {
+      if (res?.ok) {
         const payload = (await res.json()) as {
           orders?: Parameters<typeof mapApiOrderToStored>[0][]
         }
@@ -249,11 +254,11 @@ export async function fetchOrderByIdViaApi(
   if (options.phone) params.set('phone', options.phone)
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${base}/storefront/orders/${encodeURIComponent(orderId)}?${params.toString()}`,
       { cache: 'no-store' },
     )
-    if (!res.ok) return null
+    if (!res || !res.ok) return null
     const payload = (await res.json()) as { order: Parameters<typeof mapApiOrderToStored>[0] }
     return mapApiOrderToStored(payload.order)
   } catch {
@@ -271,11 +276,11 @@ export async function fetchInvoiceHtmlViaApi(
     : `/admin/orders/${encodeURIComponent(orderId)}/invoice`
 
   try {
-    const res = await fetch(`${base}${path}`, {
+    const res = await fetchWithTimeout(`${base}${path}`, {
       headers: internalApiHeaders('text/html'),
       cache: 'no-store',
     })
-    if (!res.ok) return null
+    if (!res || !res.ok) return null
     return await res.text()
   } catch {
     return null

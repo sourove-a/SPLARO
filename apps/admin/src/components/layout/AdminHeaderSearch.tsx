@@ -5,6 +5,8 @@ import { Command } from 'cmdk'
 import * as Icons from 'lucide-react'
 import { ArrowRight, Search } from 'lucide-react'
 import { getCommandItems } from '@/lib/navigation/admin-nav'
+import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
+import { useAdminSession } from '@/lib/api/hooks'
 import { filterCommandItems } from '@/lib/navigation/admin-search'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
@@ -15,11 +17,19 @@ function NavIcon({ name }: { name: string }) {
 
 export function AdminHeaderSearch() {
   const { navigate } = useAdminNavigate()
+  const { data: sessionUser } = useAdminSession()
+  const navSession = useMemo<AdminNavSession | null>(
+    () =>
+      sessionUser
+        ? { role: sessionUser.role, permissions: sessionUser.permissions ?? [] }
+        : null,
+    [sessionUser],
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const commands = useMemo(() => getCommandItems(), [])
+  const commands = useMemo(() => getCommandItems(navSession), [navSession])
   const filtered = useMemo(() => filterCommandItems(commands, query), [commands, query])
   const groups = useMemo(() => [...new Set(filtered.map((item) => item.group))], [filtered])
 

@@ -1,4 +1,5 @@
 import { getServerApiBaseUrl } from '@splaro/config'
+import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 function paymentsBase(): string {
   return `${getServerApiBaseUrl()}/payments`
@@ -17,7 +18,7 @@ export async function createBkashViaApi(input: {
   invoiceNumber: string
   amount: number
 }): Promise<{ paymentID: string; bkashURL: string }> {
-  const res = await fetch(`${paymentsBase()}/bkash/create`, {
+  const res = await fetchWithTimeout(`${paymentsBase()}/bkash/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -27,6 +28,7 @@ export async function createBkashViaApi(input: {
     }),
     cache: 'no-store',
   })
+  if (!res) throw new Error('bKash payment service timed out')
   if (!res.ok) throw new Error(await readApiError(res))
   return (await res.json()) as { paymentID: string; bkashURL: string }
 }
@@ -36,7 +38,7 @@ export async function initNagadViaApi(input: {
   amount: number
 }): Promise<{ url: string; paymentRefId: string }> {
   const callbackUrl = `${paymentsBase()}/nagad/verify?orderId=${encodeURIComponent(input.orderId)}`
-  const res = await fetch(`${paymentsBase()}/nagad/init`, {
+  const res = await fetchWithTimeout(`${paymentsBase()}/nagad/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -46,6 +48,7 @@ export async function initNagadViaApi(input: {
     }),
     cache: 'no-store',
   })
+  if (!res) throw new Error('Nagad payment service timed out')
   if (!res.ok) throw new Error(await readApiError(res))
   return (await res.json()) as { url: string; paymentRefId: string }
 }
@@ -62,7 +65,7 @@ export async function initSslCommerzViaApi(input: {
   }
 }): Promise<{ gatewayUrl: string; sessionKey: string }> {
   const base = paymentsBase()
-  const res = await fetch(`${base}/ssl/init`, {
+  const res = await fetchWithTimeout(`${base}/ssl/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -79,6 +82,7 @@ export async function initSslCommerzViaApi(input: {
     }),
     cache: 'no-store',
   })
+  if (!res) throw new Error('SSLCommerz payment service timed out')
   if (!res.ok) throw new Error(await readApiError(res))
   return (await res.json()) as { gatewayUrl: string; sessionKey: string }
 }

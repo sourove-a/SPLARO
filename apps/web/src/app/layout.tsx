@@ -11,6 +11,7 @@ import { AttributionCapture } from '@/components/analytics/AttributionCapture'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
 import { SPLARO_TAB_ICONS, splaroMetadataIcons } from '@splaro/config'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
+import { serializeJsonLd } from '@/lib/seo/json-ld'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -145,7 +146,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: serializeJsonLd({
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: 'SPLARO',
@@ -171,7 +172,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: serializeJsonLd({
               '@context': 'https://schema.org',
               '@graph': [
                 {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
 interface DeferUntilVisibleProps {
@@ -15,7 +15,7 @@ interface DeferUntilVisibleProps {
 
 /**
  * Mount children only when near the viewport on mobile — keeps below-fold JS/images off the critical path.
- * SSR/hydration always render the placeholder shell (visible=false) to avoid markup mismatches.
+ * Uses `mounted && isMobile` so hydration never mounts everything early on phones.
  */
 export function DeferUntilVisible({
   children,
@@ -24,10 +24,13 @@ export function DeferUntilVisible({
   deferOnMobile = true,
 }: DeferUntilVisibleProps) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
+  const mounted = useMounted()
   const isMobile = useMobileViewport()
+  const [visible, setVisible] = useState(!deferOnMobile)
 
   useEffect(() => {
+    if (!mounted) return
+
     if (!deferOnMobile || !isMobile) {
       setVisible(true)
       return
@@ -36,18 +39,24 @@ export function DeferUntilVisible({
     const host = hostRef.current
     if (!host) return
 
+    const reveal = () => {
+      setVisible(true)
+      observer.disconnect()
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) {
-          setVisible(true)
-          observer.disconnect()
-        }
+        if (entry?.isIntersecting) reveal()
       },
-      { rootMargin: '64px 0px', threshold: 0 },
+      { rootMargin: '96px 0px', threshold: 0.01 },
     )
     observer.observe(host)
+
+    const rect = host.getBoundingClientRect()
+    if (rect.top <= window.innerHeight + 96) reveal()
+
     return () => observer.disconnect()
-  }, [deferOnMobile, isMobile])
+  }, [deferOnMobile, isMobile, mounted])
 
   return (
     <div

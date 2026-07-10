@@ -1,4 +1,5 @@
 import { getServerApiBaseUrl } from '@splaro/config'
+import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -20,7 +21,7 @@ export interface CouponResult {
 export async function validateCoupon(code: string, subtotal: number): Promise<CouponResult> {
   try {
     const base = getServerApiBaseUrl()
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${base}/storefront/coupons/validate?storeId=${encodeURIComponent(STORE_ID)}`,
       {
         method: 'POST',
@@ -29,6 +30,14 @@ export async function validateCoupon(code: string, subtotal: number): Promise<Co
         cache: 'no-store',
       },
     )
+    if (!res) {
+      return {
+        valid: false,
+        discount: 0,
+        freeShipping: false,
+        message: 'Coupon service timed out — try again.',
+      }
+    }
     if (!res.ok) {
       return {
         valid: false,

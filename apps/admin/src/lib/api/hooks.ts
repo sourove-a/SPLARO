@@ -90,7 +90,7 @@ import {
   updateSitePage,
 } from './content-pages'
 import type { PermissionRow } from './security'
-import { fetchRolePermissions, fetchSecuritySessions, inviteAdmin, removeStaff, revokeSecuritySession, saveRolePermissions, updateStaffRole } from './security'
+import { fetchRolePermissions, fetchSecuritySessions, fetchStaffTelegramLinkToken, inviteAdmin, removeStaff, resetStaffTelegram, revokeSecuritySession, saveRolePermissions, updateStaffRole } from './security'
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
 
@@ -1467,6 +1467,22 @@ export function useRemoveStaff() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (userId: string) => removeStaff(userId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform-security'] })
+    },
+  })
+}
+
+export function useStaffTelegramLinkToken() {
+  return useMutation({
+    mutationFn: () => fetchStaffTelegramLinkToken(),
+  })
+}
+
+export function useResetStaffTelegram() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) => resetStaffTelegram(userId),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform-security'] })
     },

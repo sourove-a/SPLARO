@@ -1,4 +1,5 @@
 import { getServerApiBaseUrl } from '@splaro/config'
+import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 const CACHE_MS = 60_000
@@ -28,11 +29,11 @@ export async function getStorefrontRedirects(): Promise<StorefrontRedirect[]> {
   if (cache && cache.expiresAt > now) return cache.rules
 
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${getServerApiBaseUrl()}/storefront/redirects?storeId=${encodeURIComponent(STORE_ID)}`,
       { next: { revalidate: 60 } },
     )
-    if (!res.ok) return cache?.rules ?? []
+    if (!res || !res.ok) return cache?.rules ?? []
     const data = (await res.json()) as { redirects?: StorefrontRedirect[] }
     const rules = data.redirects ?? []
     cache = { rules, expiresAt: now + CACHE_MS }

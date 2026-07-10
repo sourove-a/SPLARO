@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { earthIntersectionRootMargin, isNearViewport } from '@/lib/earth/globe-performance'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 import { importWithChunkRetry } from '@/lib/loadable-retry'
 
@@ -11,11 +12,6 @@ const FooterEarthGlobe = dynamic(
   ),
   { ssr: false },
 )
-
-function buildRootMargin() {
-  const topLead = Math.max(320, Math.round(window.innerHeight * 0.45))
-  return `${topLead}px 0px 120px`
-}
 
 /**
  * Footer earth — mounts WebGL only when footer nears viewport (avoids ocean flash on refresh).
@@ -32,17 +28,30 @@ export function LazyFooterEarthGlobe() {
       void preloadFooterEarthAssets()
       setShowGlobe(true)
     }
-    const margin = buildRootMargin()
 
+    if (isNearViewport(host, 320)) {
+      activate()
+      return
+    }
+
+    const margin = earthIntersectionRootMargin()
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting) activate()
       },
-      { rootMargin: margin, threshold: 0 },
+      { rootMargin: margin, threshold: 0.01 },
     )
     observer.observe(host)
 
-    return () => observer.disconnect()
+    const onScroll = () => {
+      if (isNearViewport(host, 320)) activate()
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('scroll', onScroll)
+    }
   }, [showGlobe])
 
   return (

@@ -65,7 +65,7 @@ export function buildLenisOptions(): LenisOptions {
   return LENIS_DESKTOP_OPTIONS
 }
 
-/** Desktop wheel only — touch/mobile uses native scroll (60fps path). */
+/** Desktop wheel only — touch/mobile uses native scroll (60fps path). Lenis gate only. */
 export function isSmoothScrollEligible() {
   const mq = getScrollMedia()
   if (!mq) return false

@@ -4,6 +4,7 @@ import { productSlug } from '@/lib/catalog/index'
 import { getProductDetailBySlug, getRelatedProducts, getStorefrontCatalog } from '@/lib/catalog/server'
 import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import { pageTitleSegment } from '@/lib/seo/page-title'
+import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
 
 interface ProductPageProps {
@@ -129,7 +130,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <ProductPageClient product={product} reviews={reviews} relatedProducts={related} />
     </>

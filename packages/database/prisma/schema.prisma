@@ -570,6 +570,9 @@ model User {
   twoFASecret    String?
   twoFAEnabled   Boolean     @default(false)
   twoFABackupCodes String[]  @default([])
+  // Personal Telegram chat ID for admin login OTP delivery (not shared group).
+  telegramId       String?   @unique
+  telegramUsername String?
   ownedStores    Store[]     @relation("StoreOwner")
   staffRoles     StaffRole[]
   vendor         Vendor?

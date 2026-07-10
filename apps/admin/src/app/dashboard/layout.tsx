@@ -3,6 +3,7 @@ import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { AdminHeader } from '@/components/layout/AdminHeader'
 import { AdminTokenHydrator } from '@/components/layout/AdminTokenHydrator'
 import { DashboardMain } from '@/components/layout/DashboardMain'
+import { TelegramLinkBanner } from '@/components/layout/TelegramLinkBanner'
 import { IntelligencePanel } from '@/components/layout/IntelligencePanelClient'
 import { AgentShell } from '@/components/agent/AgentShell'
 import { ADMIN_SESSION_COOKIE } from '@/lib/auth/session'
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="pt-4">
           <AdminHeader />
         </div>
+        <TelegramLinkBanner />
         <DashboardMain>{children}</DashboardMain>
       </div>
       <IntelligencePanel />

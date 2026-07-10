@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { KeyRound, Plus, RefreshCw, ScrollText, Search, Shield, ShieldCheck, Trash2, UserX, X } from 'lucide-react'
+import { KeyRound, Plus, RefreshCw, ScrollText, Search, Send, Shield, ShieldCheck, Trash2, UserX, X } from 'lucide-react'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import {
   useAdminSession,
   useInviteAdmin,
   useRemoveStaff,
+  useResetStaffTelegram,
   useRevokeSecuritySession,
   useRolePermissions,
   useSaveRolePermissions,
   useSecurity,
   useSecuritySessions,
+  useStaffTelegramLinkToken,
   useUpdateStaffRole,
 } from '@/lib/api/hooks'
 import type { PermissionRow } from '@/lib/api/security'
@@ -239,6 +241,9 @@ function AdminUsersView({
   const [inviteOpen, setInviteOpen] = useState(false)
   const updateRole = useUpdateStaffRole()
   const removeStaff = useRemoveStaff()
+  const linkTelegram = useStaffTelegramLinkToken()
+  const resetTelegram = useResetStaffTelegram()
+  const { data: currentUser } = useAdminSession()
   const rows = (data?.adminUsers ?? []).filter((r) =>
     r.name.toLowerCase().includes(query.toLowerCase()) || r.email.includes(query),
   )
@@ -283,6 +288,31 @@ function AdminUsersView({
     })
   }
 
+  const handleLinkMyTelegram = () => {
+    linkTelegram.mutate(undefined, {
+      onSuccess: (res) => {
+        toast.success(
+          `${res.hint}\n\nCode: ${res.code} (expires in ${Math.round(res.expiresInSeconds / 60)} min)`,
+          { duration: 20_000 },
+        )
+      },
+      onError: (e) => toastFail(e instanceof Error ? e.message : 'Could not create link code.'),
+    })
+  }
+
+  const handleResetTelegram = (userId: string, name: string) => {
+    if (!window.confirm(`Reset Telegram for ${name}? They must link again before login codes work.`)) return
+    resetTelegram.mutate(userId, {
+      onSuccess: () => toastApiSaved(`Telegram reset for ${name}`),
+      onError: (e) => toastFail(e instanceof Error ? e.message : 'Could not reset Telegram.'),
+    })
+  }
+
+  const currentRow = currentUser
+    ? rows.find((r) => r.id === currentUser.id || r.email.toLowerCase() === currentUser.email.toLowerCase())
+    : null
+  const showLinkBanner = currentRow && !currentRow.telegramLinked
+
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
@@ -307,6 +337,34 @@ function AdminUsersView({
 
       <InviteAdminModal open={inviteOpen} onClose={() => setInviteOpen(false)} actorRole={actorRole} />
 
+      {showLinkBanner ? (
+        <div
+          className="settings-card admin-panel-glass-subtle"
+          style={{
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            border: '1px solid rgba(245,158,11,0.35)',
+            background: 'rgba(245,158,11,0.08)',
+          }}
+        >
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: 'var(--admin-text-primary)' }}>
+              Link your Telegram to receive login codes
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+              Without a linked Telegram, login codes cannot be delivered to you.
+            </p>
+          </div>
+          <GoldBtn onClick={handleLinkMyTelegram} disabled={linkTelegram.isPending}>
+            <Send style={{ width: 14, height: 14 }} />
+            Link my Telegram
+          </GoldBtn>
+        </div>
+      ) : null}
+
       <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
         {rows.length === 0 && !isLoading ? (
           <div style={{ padding: 32, textAlign: 'center' }}>
@@ -317,7 +375,7 @@ function AdminUsersView({
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-table-row-border)' }}>
-                {['Name', 'Email', 'Role', 'Status', '2FA', 'Last login', 'Actions'].map((h) => (
+                {['Name', 'Email', 'Role', 'Status', '2FA', 'Telegram', 'Last login', 'Actions'].map((h) => (
                   <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
               </tr>
@@ -349,32 +407,65 @@ function AdminUsersView({
                     </td>
                     <td style={{ padding: '12px 20px' }}><StatusBadge value={row.status} ok={row.status === 'active'} /></td>
                     <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 800, color: row.twoFA ? '#15803D' : 'var(--admin-text-muted)' }}>{row.twoFA ? 'Yes' : 'No'}</td>
+                    <td style={{ padding: '12px 20px' }}>
+                      {row.telegramLinked ? (
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+                          {row.telegramUsername ? `@${row.telegramUsername}` : 'Linked'}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>Not linked</span>
+                      )}
+                    </td>
                     <td style={{ padding: '12px 20px', fontSize: 12, color: 'var(--admin-text-muted)' }}>{row.lastLogin}</td>
                     <td style={{ padding: '12px 20px' }}>
-                      {!isCeo && canManageStaff(actorRole) && (
-                        <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {currentUser?.id === row.id && !row.telegramLinked ? (
                           <button
                             type="button"
-                            title={row.status === 'active' ? 'Deactivate' : 'Reactivate'}
-                            disabled={updateRole.isPending || removeStaff.isPending}
-                            onClick={() => handleToggleActive(row.id, row.email, row.status !== 'active')}
+                            title="Link my Telegram"
+                            disabled={linkTelegram.isPending}
+                            onClick={handleLinkMyTelegram}
                             className="admin-commerce-icon-btn"
                           >
-                            <UserX size={13} />
+                            <Send size={13} />
                           </button>
-                          {isSuperAdmin(actorRole) && (
+                        ) : null}
+                        {!isCeo && canManageStaff(actorRole) ? (
+                          <>
+                            {isSuperAdmin(actorRole) && row.telegramLinked ? (
+                              <button
+                                type="button"
+                                title="Reset Telegram binding"
+                                disabled={resetTelegram.isPending}
+                                onClick={() => handleResetTelegram(row.id, row.name)}
+                                className="admin-commerce-icon-btn"
+                              >
+                                <RefreshCw size={13} />
+                              </button>
+                            ) : null}
                             <button
                               type="button"
-                              title="Remove admin access"
+                              title={row.status === 'active' ? 'Deactivate' : 'Reactivate'}
                               disabled={updateRole.isPending || removeStaff.isPending}
-                              onClick={() => handleRemove(row.id, row.email, row.name)}
+                              onClick={() => handleToggleActive(row.id, row.email, row.status !== 'active')}
                               className="admin-commerce-icon-btn"
                             >
-                              <Trash2 size={13} />
+                              <UserX size={13} />
                             </button>
-                          )}
-                        </div>
-                      )}
+                            {isSuperAdmin(actorRole) ? (
+                              <button
+                                type="button"
+                                title="Remove admin access"
+                                disabled={updateRole.isPending || removeStaff.isPending}
+                                onClick={() => handleRemove(row.id, row.email, row.name)}
+                                className="admin-commerce-icon-btn"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 )

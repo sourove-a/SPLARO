@@ -1034,6 +1034,14 @@ ${items}
       },
     })
 
+    await this.prisma.user.update({
+      where: { id: record.userId },
+      data: {
+        telegramId: ctx.userId,
+        telegramUsername: username ?? null,
+      },
+    })
+
     await this.bot?.sendMessage(
       ctx.chatId,
       `✅ <b>Telegram linked</b>\n\nAccount: <code>${record.email}</code>\nRole: ${telegramRole.replace(/_/g, ' ')}\n\nYou can now receive admin login tokens here.\nUse /login for a fresh panel token.`,
@@ -1043,6 +1051,43 @@ ${items}
   }
 
   /** Push admin login token to linked Telegram chat(s) — used by /login and admin request-login. */
+  /** Resolve where to deliver a login OTP — per-user binding only (no shared group broadcast). */
+  async resolveAdminLoginDelivery(
+    storeIdRaw: string,
+    email: string,
+  ): Promise<{ ok: true; chatIds: string[] } | { ok: false; message: string }> {
+    const normalizedEmail = email.trim().toLowerCase()
+    const envAdminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim().toLowerCase()
+    const envTelegramId = this.config.get<string>('TELEGRAM_ADMIN_USER_ID')?.trim()
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, isActive: true },
+      select: { telegramId: true },
+    })
+
+    if (user?.telegramId?.trim()) {
+      return { ok: true, chatIds: [user.telegramId.trim()] }
+    }
+
+    if (envTelegramId && envAdminEmail === normalizedEmail) {
+      return { ok: true, chatIds: [envTelegramId] }
+    }
+
+    if (envAdminEmail === normalizedEmail) {
+      return {
+        ok: false,
+        message:
+          'Owner Telegram is not configured. Set TELEGRAM_ADMIN_USER_ID in server .env or link your Telegram via Admin → Telegram Bot.',
+      }
+    }
+
+    return {
+      ok: false,
+      message:
+        'Your Telegram is not linked for login. Ask an owner to link your Telegram in Security → Admin Users, or generate a link token from your profile.',
+    }
+  }
+
   async sendLoginTokenForAdmin(storeIdRaw: string, email: string, code: string): Promise<boolean> {
     if (!this.bot) {
       this.recordDeliveryFailure('Bot not running — configure TELEGRAM_BOT_TOKEN or save token in Admin → Telegram Bot')
@@ -1051,8 +1096,13 @@ ${items}
     }
 
     try {
-      const storeId = await resolveStoreId(this.prisma, storeIdRaw)
-      const chatIds = await this.resolveAdminLoginChatIds(storeId, email)
+      const delivery = await this.resolveAdminLoginDelivery(storeIdRaw, email)
+      if (!delivery.ok) {
+        this.recordDeliveryFailure(delivery.message)
+        this.logger.warn(`Admin login OTP blocked (${email}): ${delivery.message}`)
+        return false
+      }
+      const chatIds = delivery.chatIds
       if (!chatIds.length) {
         this.recordDeliveryFailure('No linked admin Telegram chat — open bot and send /login TOKEN from Admin panel link token')
         this.logger.warn(`No Telegram chat linked for admin login (${email})`)
@@ -1096,12 +1146,12 @@ ${items}
       }
     }
 
-    const chatIds = await this.resolveAdminLoginChatIds(storeId, email)
-    if (!chatIds.length) {
+    const delivery = await this.resolveAdminLoginDelivery(storeIdRaw, email)
+    if (!delivery.ok) {
       return {
         ok: false,
-        reason: 'No linked admin Telegram chat',
-        hint: 'Open your SPLARO bot and send /login TOKEN using a link token from Admin → Telegram Bot.',
+        reason: delivery.message,
+        hint: 'Link your personal Telegram in Security → Admin Users, then retry login.',
       }
     }
 
@@ -1320,37 +1370,6 @@ ${items}
     return adminBase.replace(/\/+$/, '').endsWith('/login')
       ? adminBase.replace(/\/+$/, '')
       : `${adminBase.replace(/\/+$/, '')}/login`
-  }
-
-  private async resolveAdminLoginChatIds(storeId: string, email: string): Promise<string[]> {
-    const normalizedEmail = email.trim().toLowerCase()
-    const envAdminEmail = this.config.get<string>('ADMIN_EMAIL')?.trim().toLowerCase()
-    const envTelegramId = this.config.get<string>('TELEGRAM_ADMIN_USER_ID')?.trim()
-    const ids = new Set<string>()
-
-    // Env-configured admin works even without a TelegramConfig row in the DB.
-    if (envTelegramId && envAdminEmail === normalizedEmail) {
-      ids.add(envTelegramId)
-    }
-
-    const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
-    if (!config?.isActive) return [...ids]
-
-    if (config.chatId?.trim()) {
-      ids.add(config.chatId.trim())
-    }
-
-    const teleUsers = await this.prisma.telegramUser.findMany({
-      where: {
-        configId: config.id,
-        isActive: true,
-        role: { in: ['SUPER_ADMIN', 'MANAGER'] },
-      },
-      select: { telegramId: true },
-    })
-    for (const user of teleUsers) ids.add(user.telegramId)
-
-    return [...ids]
   }
 
   private async executeLinkGroup(ctx: TelegramCtx): Promise<void> {
