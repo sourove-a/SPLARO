@@ -41,11 +41,9 @@ export function CssHealthGuard() {
   const [broken, setBroken] = useState(false)
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production') return
-
     let cancelled = false
     let attempts = 0
-    const maxAttempts = 4
+    const maxAttempts = process.env.NODE_ENV === 'production' ? 3 : 4
 
     const check = () => {
       if (cancelled) return
@@ -58,15 +56,24 @@ export function CssHealthGuard() {
       }
 
       if (attempts < maxAttempts) {
-        window.setTimeout(check, 900)
+        window.setTimeout(check, process.env.NODE_ENV === 'production' ? 600 : 900)
         return
+      }
+
+      if (process.env.NODE_ENV === 'production') {
+        const key = 'splaro_css_reload'
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, '1')
+          window.location.reload()
+          return
+        }
       }
 
       setBroken(true)
       document.body.classList.add('css-health-broken')
     }
 
-    const timer = window.setTimeout(check, 1200)
+    const timer = window.setTimeout(check, process.env.NODE_ENV === 'production' ? 800 : 1200)
 
     return () => {
       cancelled = true
@@ -77,21 +84,39 @@ export function CssHealthGuard() {
 
   if (!broken) return null
 
+  const isProd = process.env.NODE_ENV === 'production'
+
   return (
     <div
       role="alert"
       className="fixed inset-x-0 bottom-0 z-[99999] border-t border-amber-300/60 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
     >
-      Styles did not load (stale dev cache). Run{' '}
-      <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">pnpm css:fix</code> then{' '}
-      <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">pnpm dev:web</code>
-      <button
-        type="button"
-        className="ml-3 rounded-lg border border-amber-400/50 bg-white px-3 py-1 text-xs font-bold"
-        onClick={() => window.location.reload()}
-      >
-        Reload
-      </button>
+      {isProd ? (
+        <>
+          Styles did not load — please{' '}
+          <button
+            type="button"
+            className="ml-1 rounded-lg border border-amber-400/50 bg-white px-3 py-1 text-xs font-bold"
+            onClick={() => window.location.reload()}
+          >
+            refresh the page
+          </button>{' '}
+          (Ctrl+Shift+R)
+        </>
+      ) : (
+        <>
+          Styles did not load (stale dev cache). Run{' '}
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">pnpm css:fix</code> then{' '}
+          <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">pnpm dev:web</code>
+          <button
+            type="button"
+            className="ml-3 rounded-lg border border-amber-400/50 bg-white px-3 py-1 text-xs font-bold"
+            onClick={() => window.location.reload()}
+          >
+            Reload
+          </button>
+        </>
+      )}
     </div>
   )
 }

@@ -28,6 +28,10 @@ export function ChunkReloadGuard() {
         reloadOnce()
         return
       }
+      if (target instanceof HTMLLinkElement && /\/_next\/static\//.test(target.href)) {
+        reloadOnce()
+        return
+      }
       const msg = event.message ?? ''
       if (/loading chunk|chunkloaderror|failed to fetch dynamically imported module/i.test(msg)) {
         reloadOnce()

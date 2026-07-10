@@ -10,6 +10,7 @@ import { GoogleAnalyticsHead, GA_ENV_ID } from '@/components/analytics/GoogleAna
 import { AttributionCapture } from '@/components/analytics/AttributionCapture'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
 import { CHUNK_RECOVERY_SCRIPT } from '@/lib/hydration/chunk-recovery-script'
+import { CRITICAL_HOME_CSS } from '@/lib/hydration/critical-home-css'
 import { SPLARO_TAB_ICONS, splaroMetadataIcons } from '@splaro/config'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
@@ -208,6 +209,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }),
           }}
         />
+        <style id="splaro-critical-home" dangerouslySetInnerHTML={{ __html: CRITICAL_HOME_CSS }} />
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS_SCRIPT }} />
