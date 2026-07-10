@@ -135,6 +135,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cormorant.variable}`}>
       <head>
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
         <GoogleAnalyticsHead />
         <link rel="preconnect" href={cdnOrigin} />
         <link rel="dns-prefetch" href={cdnOrigin} />
