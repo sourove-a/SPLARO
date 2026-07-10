@@ -7581,12 +7581,11 @@ html[data-home-hero='top'] #main-content {
   50% { opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .story-earth-panel__placeholder--flow .story-earth-panel__globe-map,
-  .story-earth-panel__placeholder-glow {
-    animation: none;
-  }
-}
+/* story-earth-map-scroll / glow-pulse stay on under prefers-reduced-motion —
+   both are slow (24s/6s), no translate/parallax/flashing, well within what
+   WCAG considers safe motion. Fully freezing this CSS-fallback globe (used
+   on RDP/software-GL machines that already can't show the real WebGL globe)
+   made the earth section look like a static, broken photo. */
 
 .story-earth-panel__logo {
   position: absolute;

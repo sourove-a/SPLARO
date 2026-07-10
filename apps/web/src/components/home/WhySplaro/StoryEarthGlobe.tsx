@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import {
   earthIntersectionRootMargin,
   isNearViewport,
-  prefersReducedMotion,
   shouldUseWebGLEarth,
 } from '@/lib/earth/globe-performance'
 import { preloadEarthTextures } from '@/lib/earth/textures'
@@ -44,11 +43,6 @@ export function StoryEarthGlobe() {
   const hostRef = useRef<HTMLDivElement>(null)
   const [mode, setMode] = useState<EarthMode>('css')
   const [webglReady, setWebglReady] = useState(false)
-  const [animateCss, setAnimateCss] = useState(false)
-
-  useEffect(() => {
-    setAnimateCss(!prefersReducedMotion())
-  }, [])
 
   useEffect(() => {
     const host = hostRef.current
@@ -118,7 +112,7 @@ export function StoryEarthGlobe() {
 
   return (
     <div ref={hostRef} className="absolute inset-0">
-      {showCss ? <StoryEarthPlaceholder flow={animateCss} hidden={webglReady} /> : null}
+      {showCss ? <StoryEarthPlaceholder flow hidden={webglReady} /> : null}
       {mode === 'webgl' ? (
         <EarthGlobe
           variant="story"

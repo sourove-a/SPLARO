@@ -32,21 +32,21 @@ export function ScrollReveal({
     [once, margin],
   )
   const { ref, isInView, reducedMotion } = useScrollReveal(revealOptions)
-  const variants = stagger ? revealVariants.staggerContainer : revealVariants[variant]
-
-  if (reducedMotion) {
-    return (
-      <div ref={ref} className={cn('scroll-reveal-static', className)}>
-        {children}
-      </div>
-    )
-  }
+  // Under prefers-reduced-motion, drop translate/scale (the kind of movement
+  // the setting exists to prevent) but keep a soft opacity fade — WCAG only
+  // requires killing large/parallax-style motion, and a fully static swap
+  // reads as "nothing is happening" on a page that's meant to feel alive.
+  const variants = stagger
+    ? revealVariants.staggerContainer
+    : reducedMotion
+      ? revealVariants.fadeIn
+      : revealVariants[variant]
 
   return (
     <motion.div
       ref={ref}
       className={cn('scroll-reveal-gpu', className)}
-      initial={reducedMotion ? false : 'hidden'}
+      initial="hidden"
       animate={isInView ? 'visible' : 'hidden'}
       variants={variants}
       {...props}
