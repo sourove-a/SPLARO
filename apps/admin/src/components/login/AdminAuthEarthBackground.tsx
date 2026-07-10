@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 
@@ -19,6 +19,8 @@ export function AdminAuthEarthBackground() {
     return () => window.clearTimeout(timer)
   }, [])
 
+  const handleUnavailable = useCallback(() => setShow(false), [])
+
   return (
     <div className="admin-auth-shell__earth" aria-hidden>
       <div className="admin-auth-shell__earth-frame">
@@ -26,7 +28,9 @@ export function AdminAuthEarthBackground() {
         {show ? (
           <EarthGlobe
             variant="footer"
-            className="admin-auth-shell__earth-canvas [&>canvas]:!h-full [&>canvas]:!w-full"
+            ignoreReducedMotion
+            onUnavailable={handleUnavailable}
+            className="admin-auth-shell__earth-canvas admin-auth-shell__earth-canvas--hero [&>canvas]:!h-full [&>canvas]:!w-full"
           />
         ) : null}
         <div className="admin-auth-shell__earth-glass" aria-hidden />

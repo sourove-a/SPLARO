@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { cn } from '@/lib/utils/cn'
 
 import { EARTH_TEXTURE_URLS } from '@/lib/earth/textures'
+import { globePixelRatioCap, isLowPowerDevice, isPhoneViewport, acquireEarthWebGLSlot, releaseEarthWebGLSlot } from '@/lib/earth/globe-performance'
 
 const TEXTURES = EARTH_TEXTURE_URLS
 
@@ -18,14 +19,14 @@ const STORY_CONFIG = {
   groupScale: 1,
   rotationSpeed: 0.09,
   wobble: 0.035,
-  segments: 72,
-  wireSegments: 42,
+  segments: 128,
+  wireSegments: 64,
   earthOpacity: 0.96,
   wireOpacity: 0.055,
   atmosphereStrength: 0.22,
   sparkleCount: 900,
   sparkleKeep: 0.58,
-  pixelRatioCap: 2,
+  pixelRatioCap: 3,
   orbitMultiplier: 1,
 } as const
 
@@ -43,8 +44,8 @@ const FOOTER_CONFIG = {
   rotationSpeedX: 0.014,
   roll: 0.012,
   wobble: 0.008,
-  segments: 72,
-  pixelRatioCap: 2,
+  segments: 128,
+  pixelRatioCap: 3,
   maxWideBoost: 1.28,
   /** Portrait / mobile — bigger earth, richer colors */
   compactScaleBoost: 1.2,
@@ -98,7 +99,7 @@ function createPremiumFooterAtmosphere(
   radius: number,
 ): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 64, 64),
+    new THREE.SphereGeometry(radius, 96, 96),
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -138,7 +139,7 @@ function createPremiumFooterAtmosphere(
 
 function createMuranoGlassShell(radius: number): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 72, 72),
+    new THREE.SphereGeometry(radius, 96, 96),
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -183,7 +184,7 @@ function createMuranoGlassShell(radius: number): THREE.Mesh {
 
 function createAtmosphere(color: number, strength: number, radius: number): THREE.Mesh {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 48, 48),
+    new THREE.SphereGeometry(radius, 72, 72),
     new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -315,18 +316,39 @@ function buildFooterStarfield(count: number): THREE.Points {
 interface EarthGlobeProps {
   variant?: EarthGlobeVariant
   className?: string
+  /** Called when WebGL cannot init (common on RDP / blocked GPU). */
+  onUnavailable?: () => void
+  /** Decorative globes — rotate even when OS prefers reduced motion. */
+  ignoreReducedMotion?: boolean
 }
 
-export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
+export function EarthGlobe({
+  variant = 'story',
+  className,
+  onUnavailable,
+  ignoreReducedMotion = false,
+}: EarthGlobeProps) {
   const hostRef = useRef<HTMLDivElement>(null)
+  const slotTokenRef = useRef(`earth-${variant}-${Math.random().toString(36).slice(2, 11)}`)
+  const onUnavailableRef = useRef(onUnavailable)
+  onUnavailableRef.current = onUnavailable
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
 
+    const slotToken = slotTokenRef.current
+
     const isFooter = variant === 'footer'
+    const phone = isPhoneViewport()
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let disposed = false
+    let inView = true
+    let tabVisible = !document.hidden
+    let staticFrameDrawn = false
+
+    const shouldAnimate = () => inView && tabVisible && (!reducedMotion || ignoreReducedMotion)
+    const shouldRenderFrame = () => inView && tabVisible
 
     const scene = new THREE.Scene()
     const config = isFooter ? FOOTER_CONFIG : STORY_CONFIG
@@ -336,16 +358,40 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       camera.lookAt(0, FOOTER_CONFIG.lookAtY, 0)
     }
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-    })
+    if (!acquireEarthWebGLSlot(slotToken)) {
+      onUnavailableRef.current?.()
+      return
+    }
+
+    const releaseSlot = () => releaseEarthWebGLSlot(slotToken)
+
+    const renderer = (() => {
+      try {
+        return new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+        })
+      } catch {
+        releaseEarthWebGLSlot(slotToken)
+        onUnavailableRef.current?.()
+        return null
+      }
+    })()
+    if (!renderer) return
+
+    const gl = renderer.getContext()
+    if (!gl) {
+      releaseSlot()
+      renderer.dispose()
+      onUnavailableRef.current?.()
+      return
+    }
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ReinhardToneMapping
     renderer.toneMappingExposure = isFooter && isCompactFooterViewport() ? 1.16 : isFooter ? 1.2 : 1
     renderer.setClearColor(0x000000, 0)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, config.pixelRatioCap))
+    renderer.setPixelRatio(globePixelRatioCap(config.pixelRatioCap))
     host.appendChild(renderer.domElement)
 
     const root = new THREE.Group()
@@ -391,7 +437,9 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
 
     if (isFooter) {
       const compact = isCompactFooterViewport()
-      const stars = buildFooterStarfield(compact ? 1000 : 1600)
+      const segments = phone ? 80 : FOOTER_CONFIG.segments
+      const starCount = phone ? 720 : compact ? 1000 : 1600
+      const stars = buildFooterStarfield(starCount)
       starMaterial = stars.material as THREE.ShaderMaterial
       scene.add(stars)
       disposables.push(stars.geometry, stars.material as THREE.Material)
@@ -404,7 +452,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       textures.push(dayMap, nightMap, bumpMap, cloudMap, moonMap)
       ;[dayMap, nightMap, bumpMap, cloudMap, moonMap].forEach((t) => setTextureQuality(t, renderer))
 
-      const dayGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius, FOOTER_CONFIG.segments, FOOTER_CONFIG.segments)
+      const dayGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius, segments, segments)
       const dayMat = new THREE.MeshStandardMaterial({
         map: dayMap,
         bumpMap,
@@ -415,7 +463,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       root.add(new THREE.Mesh(dayGeo, dayMat))
       disposables.push(dayGeo, dayMat)
 
-      const cloudGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.004, FOOTER_CONFIG.segments, FOOTER_CONFIG.segments)
+      const cloudGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.004, segments, segments)
       const cloudMat = new THREE.MeshPhongMaterial({
         map: cloudMap,
         transparent: true,
@@ -427,7 +475,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       root.add(new THREE.Mesh(cloudGeo, cloudMat))
       disposables.push(cloudGeo, cloudMat)
 
-      const nightGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.006, FOOTER_CONFIG.segments, FOOTER_CONFIG.segments)
+      const nightGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.006, segments, segments)
       const nightMat = new THREE.MeshBasicMaterial({
         map: nightMap,
         transparent: true,
@@ -518,11 +566,15 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
 
       renderFrame()
     } else {
+      const lowPower = isLowPowerDevice()
+      const storySegments = phone ? 72 : lowPower ? 96 : STORY_CONFIG.segments
+      const wireSegments = phone ? 48 : lowPower ? 56 : STORY_CONFIG.wireSegments
+      const sparkleCount = lowPower ? 420 : STORY_CONFIG.sparkleCount
       const nightMap = loader.load(TEXTURES.night, onTextureReady)
       textures.push(nightMap)
       setTextureQuality(nightMap, renderer)
 
-      const oceanGeo = new THREE.SphereGeometry(STORY_CONFIG.radius * 0.998, STORY_CONFIG.segments, STORY_CONFIG.segments)
+      const oceanGeo = new THREE.SphereGeometry(STORY_CONFIG.radius * 0.998, storySegments, storySegments)
       const oceanMat = new THREE.MeshPhongMaterial({
         color: 0x14283a,
         emissive: 0x081018,
@@ -532,7 +584,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       root.add(new THREE.Mesh(oceanGeo, oceanMat))
       disposables.push(oceanGeo, oceanMat)
 
-      const earthGeo = new THREE.SphereGeometry(STORY_CONFIG.radius, STORY_CONFIG.segments, STORY_CONFIG.segments)
+      const earthGeo = new THREE.SphereGeometry(STORY_CONFIG.radius, storySegments, storySegments)
       const earthMat = new THREE.MeshBasicMaterial({
         map: nightMap,
         transparent: true,
@@ -543,7 +595,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       root.add(new THREE.Mesh(earthGeo, earthMat))
       disposables.push(earthGeo, earthMat)
 
-      const wireGeo = new THREE.SphereGeometry(STORY_CONFIG.radius * 1.002, STORY_CONFIG.wireSegments, STORY_CONFIG.wireSegments)
+      const wireGeo = new THREE.SphereGeometry(STORY_CONFIG.radius * 1.002, wireSegments, wireSegments)
       const wireMat = new THREE.MeshBasicMaterial({
         color: 0xc8a97e,
         wireframe: true,
@@ -589,8 +641,8 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
 
       const pointPositions: number[] = []
       const pointSizes: number[] = []
-      for (let i = 0; i < STORY_CONFIG.sparkleCount; i++) {
-        const phi = Math.acos(1 - (2 * (i + 0.5)) / STORY_CONFIG.sparkleCount)
+      for (let i = 0; i < sparkleCount; i++) {
+        const phi = Math.acos(1 - (2 * (i + 0.5)) / sparkleCount)
         const theta = Math.PI * (1 + Math.sqrt(5)) * i
         if (Math.random() > STORY_CONFIG.sparkleKeep) continue
         pointPositions.push(
@@ -661,6 +713,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       if (width < 1 || height < 1) return
       camera.aspect = width / height
       camera.updateProjectionMatrix()
+      renderer.setPixelRatio(globePixelRatioCap(config.pixelRatioCap))
       renderer.setSize(width, height, false)
 
       if (isFooter) {
@@ -672,26 +725,40 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
     const resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(host)
 
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry?.isIntersecting ?? false
+        if (inView && tabVisible && !staticFrameDrawn) renderFrame()
+      },
+      { threshold: 0, rootMargin: '64px' },
+    )
+    visibilityObserver.observe(host)
+
+    const onTabVisibility = () => {
+      tabVisible = !document.hidden
+      if (tabVisible && inView) renderFrame()
+    }
+    document.addEventListener('visibilitychange', onTabVisibility)
+
     let frameId = 0
-    let running = true
     const startedAt = performance.now()
 
     if (!isFooter) {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          running = entry?.isIntersecting ?? true
-        },
-        { threshold: 0, rootMargin: '0px' },
-      )
-      observer.observe(host)
-
       const rotationSpeedY = STORY_CONFIG.rotationSpeed
       const wobble = STORY_CONFIG.wobble
 
       const animate = () => {
         if (disposed) return
         frameId = window.requestAnimationFrame(animate)
-        if (!running || reducedMotion) return
+        if (!shouldRenderFrame()) return
+
+        if (!shouldAnimate()) {
+          if (!staticFrameDrawn) {
+            renderFrame()
+            staticFrameDrawn = true
+          }
+          return
+        }
 
         const t = (performance.now() - startedAt) / 1000
         root.rotation.y = t * rotationSpeedY
@@ -707,20 +774,21 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
         }
 
         renderFrame()
+        staticFrameDrawn = true
       }
 
-      if (!reducedMotion) animate()
-      else renderFrame()
+      animate()
 
       return () => {
         disposed = true
-        running = false
         window.cancelAnimationFrame(frameId)
-        observer.disconnect()
+        visibilityObserver.disconnect()
+        document.removeEventListener('visibilitychange', onTabVisibility)
         resizeObserver.disconnect()
         textures.forEach((t) => t.dispose())
         disposables.forEach((d) => d.dispose())
         renderer.dispose()
+        releaseEarthWebGLSlot(slotToken)
         if (renderer.domElement.parentNode === host) {
           host.removeChild(renderer.domElement)
         }
@@ -735,7 +803,15 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
     const animate = () => {
       if (disposed) return
       frameId = window.requestAnimationFrame(animate)
-      if (reducedMotion) return
+      if (!shouldRenderFrame()) return
+
+      if (!shouldAnimate()) {
+        if (!staticFrameDrawn) {
+          renderFrame()
+          staticFrameDrawn = true
+        }
+        return
+      }
 
       const t = (performance.now() - startedAt) / 1000
       root.rotation.y = FOOTER_CONFIG.initialRotationY + t * rotationSpeedY
@@ -760,24 +836,26 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       }
 
       renderFrame()
+      staticFrameDrawn = true
     }
 
-    if (!reducedMotion) animate()
-    else renderFrame()
+    animate()
 
     return () => {
       disposed = true
-      running = false
       window.cancelAnimationFrame(frameId)
+      visibilityObserver.disconnect()
+      document.removeEventListener('visibilitychange', onTabVisibility)
       resizeObserver.disconnect()
       textures.forEach((t) => t.dispose())
       disposables.forEach((d) => d.dispose())
       renderer.dispose()
+      releaseSlot()
       if (renderer.domElement.parentNode === host) {
         host.removeChild(renderer.domElement)
       }
     }
-  }, [variant])
+  }, [variant, ignoreReducedMotion])
 
   return (
     <div

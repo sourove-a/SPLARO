@@ -29,6 +29,7 @@ apps/api/dist/
 # Database
 *.db
 *.sqlite
+.local/
 
 # Prisma
 packages/database/prisma/migrations/*.sql

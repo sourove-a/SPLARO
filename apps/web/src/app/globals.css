@@ -1314,12 +1314,18 @@ body.auth-page #main-content {
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 1;
+  min-height: 100%;
+  opacity: 0;
   filter: brightness(1.06) contrast(1.1) saturate(1.04);
   transform: scale(1.04);
   transform-origin: center 42%;
   animation: auth-earth-float 24s ease-in-out infinite;
   will-change: transform;
+  transition: opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.auth-shell__earth-canvas[data-earth-ready='true'] {
+  opacity: 1;
 }
 
 .auth-shell__earth-vignette {
@@ -1425,10 +1431,6 @@ body.auth-page #main-content {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-shell__earth-canvas {
-    animation: none;
-  }
-
   .auth-shell__earth-stars--twinkle,
   .auth-shell__earth-stars--twinkle::before,
   .auth-shell__earth-stars--twinkle::after,
@@ -1436,6 +1438,10 @@ body.auth-page #main-content {
     animation: none;
     opacity: 0.55;
     filter: none;
+  }
+
+  .auth-shell__earth-canvas {
+    animation: auth-earth-float 24s ease-in-out infinite;
   }
 }
 
@@ -2516,6 +2522,98 @@ body.auth-page #main-content {
   background: #050a14;
 }
 
+/* CSS footer earth — always visible until WebGL is ready (Windows / RDP / slow GPU). */
+.site-footer__earth-fallback {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.site-footer__earth-fallback--hidden {
+  opacity: 0;
+  transition: opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.site-footer__earth-fallback-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(55, 90, 130, 0.34), rgba(2, 4, 8, 0.96) 72%);
+}
+
+.site-footer__earth-fallback-globe {
+  position: absolute;
+  left: 50%;
+  top: 47%;
+  width: min(96vw, 58rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    inset -2rem -1.4rem 3.2rem rgba(0, 0, 0, 0.62),
+    inset 0.8rem 0.55rem 1.6rem rgba(150, 190, 230, 0.14),
+    0 0 3rem rgba(80, 130, 180, 0.32);
+}
+
+.site-footer__earth-fallback-map {
+  position: absolute;
+  inset: -2%;
+  background-image: url('/images/earth/earth-day.webp');
+  background-size: 200% 100%;
+  background-repeat: repeat-x;
+  background-position: var(--footer-earth-map-x, 20.4%) center;
+  filter: saturate(1.1) brightness(1.05) contrast(1.04);
+  animation: footer-earth-map-scroll 174s linear infinite;
+}
+
+.site-footer__earth-fallback-map--static {
+  animation: none !important;
+}
+
+@keyframes footer-earth-map-scroll {
+  from { background-position: var(--footer-earth-map-x, 20.4%) center; }
+  to { background-position: calc(var(--footer-earth-map-x, 20.4%) + 100%) center; }
+}
+
+.site-footer__earth-fallback-shade {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 26%, transparent 18%, rgba(0, 0, 0, 0.1) 54%, rgba(0, 0, 0, 0.68) 100%);
+}
+
+.site-footer__earth-fallback-highlight {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(190, 220, 250, 0.38) 0%, transparent 44%);
+}
+
+.site-footer__earth-fallback-atmo {
+  pointer-events: none;
+  position: absolute;
+  inset: -5%;
+  border-radius: 50%;
+  border: 1px solid rgba(140, 185, 225, 0.24);
+  box-shadow: 0 0 1.4rem rgba(100, 160, 210, 0.2);
+}
+
+.site-footer__earth-fallback-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(100, 150, 200, 0.26), transparent 58%);
+  animation: story-earth-glow-pulse 6s ease-in-out infinite;
+}
+
 .site-footer__earth-canvas {
   position: absolute;
   inset: 0;
@@ -2649,17 +2747,6 @@ body.auth-page #main-content {
   0% { opacity: 0.78; filter: brightness(0.98) saturate(1.02); }
   50% { opacity: 0.92; filter: brightness(1.04) saturate(1.08); }
   100% { opacity: 0.84; filter: brightness(1.01) saturate(1.04); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .site-footer__earth-stars--twinkle,
-  .site-footer__earth-stars--twinkle::before,
-  .site-footer__earth-stars--twinkle::after,
-  .site-footer__earth-glass {
-    animation: none;
-    opacity: 0.55;
-    filter: none;
-  }
 }
 
 .footer-lux__glass-surface {
@@ -3437,6 +3524,16 @@ body.auth-page #main-content {
   }
 }
 
+@keyframes supportSway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(1.5deg) translateY(-1.5px);
+  }
+}
+
 .support-float-backdrop {
   position: fixed;
   inset: 0;
@@ -3487,27 +3584,6 @@ body.auth-page #main-content {
 
   .support-arc__node--chat {
     transform: translate(-4.95rem, -2.35rem);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .support-glass-btn--pulse {
-    animation: none;
-  }
-
-  .support-live-bubble__dot {
-    animation: none;
-    opacity: 0.65;
-  }
-}
-
-@keyframes supportSway {
-  0%,
-  100% {
-    transform: rotate(-1.5deg) translateY(0);
-  }
-  50% {
-    transform: rotate(1.5deg) translateY(-1.5px);
   }
 }
 
@@ -27140,34 +27216,6 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .home-hero-slider .hero-progress-fill {
-    animation: none;
-    transform: scaleX(1);
-  }
-
-  .home-hero-slider[data-transitioning='true'] .hero-slide[data-exiting='true'],
-  .home-hero-slider[data-transitioning='true'] .hero-slide[data-active='true'] {
-    animation: none;
-    transform: none;
-  }
-
-  .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-video,
-  .home-hero-slider:not([data-transitioning]) .hero-slide[data-active='true'] .hero-bg-image {
-    animation: none;
-    transform: scale(1.08);
-  }
-
-  .home-hero-slider .hero-content > .hero-eyebrow,
-  .home-hero-slider .hero-content > h1,
-  .home-hero-slider .hero-content > .hero-subtitle,
-  .home-hero-slider .hero-content > .hero-actions {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
-
 /* ── Home post-hero: flow strip + trust bar ───────────────── */
 
 .home-post-hero {
@@ -27348,35 +27396,104 @@ body {
   }
 }
 
+@media (min-width: 640px) {
+  .home-flow-strip {
+    padding-inline: 0.75rem;
+  }
+}
+
+/* ── Decorative ambient motion — keep slow brand loops when OS reduces motion ──
+   Windows "Animation effects OFF" → prefers-reduced-motion: reduce.
+   Global 0.01ms rule still applies to nav/cart/forms; these homepage signatures
+   are intentional decorative motion (earth, hero, marquee, chat FAB). */
 @media (prefers-reduced-motion: reduce) {
+  .story-earth-panel__placeholder--flow .story-earth-panel__globe-map {
+    animation: story-earth-map-scroll 24s linear infinite !important;
+  }
+
+  .story-earth-panel__placeholder-glow {
+    animation: story-earth-glow-pulse 6s ease-in-out infinite !important;
+  }
+
+  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle {
+    animation: footer-star-twinkle 3.8s ease-in-out infinite alternate !important;
+  }
+
+  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle::before {
+    animation: footer-star-sparkle 2.4s ease-in-out infinite alternate !important;
+  }
+
+  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-stars--twinkle::after {
+    animation: footer-star-sparkle 3.1s ease-in-out 0.8s infinite alternate !important;
+  }
+
+  .site-footer__earth:has([data-earth-ready='true']) .site-footer__earth-glass {
+    animation: footer-glass-shimmer 9s ease-in-out infinite alternate !important;
+  }
+
+  .site-footer__earth-fallback-map:not(.site-footer__earth-fallback-map--static) {
+    animation: footer-earth-map-scroll 174s linear infinite !important;
+  }
+
+  .site-footer__earth-fallback-glow {
+    animation: story-earth-glow-pulse 6s ease-in-out infinite !important;
+  }
+
+  .home-hero-slider .hero-progress-fill:not(.hero-progress-fill--paused) {
+    animation: hero-progress-fill var(--hero-slide-duration) linear forwards !important;
+  }
+
+  .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-active='true'] {
+    animation: hero-swipe-enter-forward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
+  }
+
+  .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-exiting='true'] {
+    animation: hero-swipe-exit-forward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
+  }
+
+  .home-hero-slider[data-transitioning='true'][data-direction='backward'] .hero-slide[data-active='true'] {
+    animation: hero-swipe-enter-backward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
+  }
+
+  .home-hero-slider[data-transitioning='true'][data-direction='backward'] .hero-slide[data-exiting='true'] {
+    animation: hero-swipe-exit-backward var(--hero-swipe) var(--hero-ease-luxury) forwards !important;
+  }
+
+  .home-hero-slider .hero-bg-video,
+  .home-hero-slider .hero-bg-image,
+  .home-hero-slider .hero-slide__media img.hero-bg-image,
+  .home-hero-slider .hero-slide__media video.hero-bg-video {
+    transition: transform var(--hero-slide-duration) var(--hero-ease-luxury) !important;
+  }
+
   .home-flow-strip__track {
-    animation: none;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: center;
-    gap: 0.35rem 0;
-    padding: 0.25rem 0.75rem;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: max-content !important;
+    animation: home-flow-marquee 42s linear infinite !important;
   }
 
-  .home-flow-strip__item {
-    padding: 0 0.5rem;
+  .support-glass-btn--pulse {
+    animation: supportSway 5s ease-in-out infinite !important;
   }
-}
 
-/* Lighter glass on touch/mobile — solid panels (see performance.css) */
-@media (max-width: 1023px), (pointer: coarse) {
-  .trust-bar__panel,
-  .reels-shell {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: rgba(255, 255, 255, 0.9);
+  .support-live-bubble__dot {
+    animation: supportDotWave 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite !important;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .trust-bar__panel,
-  .reels-shell {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+  .support-live-bubble__dot:nth-child(1) {
+    animation-delay: 0s !important;
+  }
+
+  .support-live-bubble__dot:nth-child(2) {
+    animation-delay: 0.16s !important;
+  }
+
+  .support-live-bubble__dot:nth-child(3) {
+    animation-delay: 0.32s !important;
+  }
+
+  .auth-shell__earth-canvas {
+    animation: auth-earth-float 24s ease-in-out infinite !important;
   }
 }

@@ -1,11 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { usePathname } from 'next/navigation'
-import { earthIntersectionRootMargin, isNearViewport } from '@/lib/earth/globe-performance'
+import {
+  earthIntersectionRootMargin,
+  FOOTER_EARTH_MAP_X_PERCENT,
+  isNearViewport,
+  shouldUseWebGLEarth,
+} from '@/lib/earth/globe-performance'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 import { importWithChunkRetry } from '@/lib/loadable-retry'
+import { FooterEarthCssFallback } from '@/components/earth/FooterEarthCssFallback'
 
 const FooterEarthGlobe = dynamic(
   importWithChunkRetry(() =>
@@ -15,55 +20,88 @@ const FooterEarthGlobe = dynamic(
 )
 
 /**
- * Footer earth — mounts WebGL only when footer nears viewport.
- * Skipped on homepage — story earth already renders a globe in Our Story.
+ * Footer earth — premium WebGL when footer nears viewport.
+ * CSS fallback only when WebGL is unavailable (Windows RDP / blocked GPU).
  */
 export function LazyFooterEarthGlobe() {
-  const pathname = usePathname()
-  const isHomepage = pathname === '/'
   const hostRef = useRef<HTMLDivElement>(null)
   const [showGlobe, setShowGlobe] = useState(false)
+  const [webglFailed, setWebglFailed] = useState(false)
+  const [webglCapable, setWebglCapable] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (isHomepage) return
-    const host = hostRef.current
-    if (!host || showGlobe) return
+    setWebglCapable(shouldUseWebGLEarth({ decorative: true }))
+  }, [])
 
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host || showGlobe || webglFailed || webglCapable === false) return
+
+    let activated = false
     const activate = () => {
+      if (activated || !shouldUseWebGLEarth({ decorative: true })) return
+      activated = true
       void preloadFooterEarthAssets()
       setShowGlobe(true)
     }
 
-    if (isNearViewport(host, 320)) {
-      activate()
-      return
+    const boot = () => {
+      if (isNearViewport(host, 320)) {
+        activate()
+        return undefined
+      }
+
+      const margin = earthIntersectionRootMargin()
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry?.isIntersecting) activate()
+        },
+        { rootMargin: margin, threshold: 0.01 },
+      )
+      observer.observe(host)
+
+      const onScroll = () => {
+        if (isNearViewport(host, 320)) activate()
+      }
+      window.addEventListener('scroll', onScroll, { passive: true })
+
+      return () => {
+        observer.disconnect()
+        window.removeEventListener('scroll', onScroll)
+      }
     }
 
-    const margin = earthIntersectionRootMargin()
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) activate()
-      },
-      { rootMargin: margin, threshold: 0.01 },
-    )
-    observer.observe(host)
-
-    const onScroll = () => {
-      if (isNearViewport(host, 320)) activate()
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
+    let teardown: (() => void) | undefined
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        teardown = boot()
+      })
+    })
 
     return () => {
-      observer.disconnect()
-      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(raf)
+      teardown?.()
     }
-  }, [showGlobe, isHomepage])
+  }, [showGlobe, webglFailed, webglCapable])
+
+  const handleUnavailable = useCallback(() => {
+    setShowGlobe(false)
+    setWebglFailed(true)
+  }, [])
+
+  const showCssFallback = webglFailed || webglCapable === false
 
   return (
-    <div ref={hostRef} className="site-footer__earth" aria-hidden>
+    <div
+      ref={hostRef}
+      className="site-footer__earth"
+      aria-hidden
+      style={{ ['--footer-earth-map-x' as string]: FOOTER_EARTH_MAP_X_PERCENT }}
+    >
+      {showCssFallback ? <FooterEarthCssFallback flow /> : null}
       <div className="site-footer__earth-glass" aria-hidden />
       <div className="site-footer__earth-stars site-footer__earth-stars--twinkle" aria-hidden />
-      {!isHomepage && showGlobe ? <FooterEarthGlobe /> : null}
+      {showGlobe ? <FooterEarthGlobe onUnavailable={handleUnavailable} /> : null}
     </div>
   )
 }

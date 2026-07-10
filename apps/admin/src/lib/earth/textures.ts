@@ -1,5 +1,3 @@
-// Self-hosted (same assets as the storefront's footer/auth globe) — avoids
-// depending on external CDNs that admin's CSP doesn't (and shouldn't) allowlist.
 const LOCAL_EARTH_BASE = '/images/earth'
 
 export const EARTH_TEXTURE_URLS = {
@@ -10,7 +8,8 @@ export const EARTH_TEXTURE_URLS = {
   moon: `${LOCAL_EARTH_BASE}/moon.webp`,
 } as const
 
-let preloadPromise: Promise<void> | null = null
+let texturePreloadPromise: Promise<void> | null = null
+let fullPreloadPromise: Promise<void> | null = null
 
 function warmImageCache() {
   for (const url of Object.values(EARTH_TEXTURE_URLS)) {
@@ -21,21 +20,15 @@ function warmImageCache() {
   }
 }
 
-/** Preload earth textures + Three chunk so footer globe spins smoothly on first paint. */
-export function preloadFooterEarthAssets(): Promise<void> {
+/** Lightweight — image cache only, no Three.js chunk. */
+export function preloadEarthTextures(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
-  if (preloadPromise) return preloadPromise
+  if (texturePreloadPromise) return texturePreloadPromise
 
-  preloadPromise = (async () => {
+  texturePreloadPromise = (async () => {
     warmImageCache()
 
-    const [{ TextureLoader }, { EarthGlobe }] = await Promise.all([
-      import('three'),
-      import('@/components/earth/EarthGlobe'),
-    ])
-
-    void EarthGlobe
-
+    const { TextureLoader } = await import('three')
     const loader = new TextureLoader()
     loader.setCrossOrigin('anonymous')
 
@@ -49,5 +42,14 @@ export function preloadFooterEarthAssets(): Promise<void> {
     )
   })()
 
-  return preloadPromise
+  return texturePreloadPromise
+}
+
+/** Preload earth textures via Three loader — for footer earth on non-home pages. */
+export function preloadFooterEarthAssets(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve()
+  if (fullPreloadPromise) return fullPreloadPromise
+
+  fullPreloadPromise = preloadEarthTextures()
+  return fullPreloadPromise
 }

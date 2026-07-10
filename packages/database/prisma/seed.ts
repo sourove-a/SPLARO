@@ -30,6 +30,94 @@ const STORE_CONTACT_PHONE =
   process.env['NEXT_PUBLIC_SUPPORT_PHONE'] ??
   process.env['COMPANY_PHONE'] ??
   '+8801905010205'
+const STORE_WHATSAPP =
+  process.env['NEXT_PUBLIC_WHATSAPP_NUMBER'] ??
+  process.env['NEXT_PUBLIC_SUPPORT_PHONE'] ??
+  STORE_CONTACT_PHONE
+
+const DEMO_PRODUCT_IMAGE = '/images/placeholder-product.jpg'
+
+type DemoProductSeed = {
+  name: string
+  slug: string
+  categorySlug: string
+  basePrice: number
+  compareAtPrice?: number
+  isFeatured?: boolean
+  isNewArrival?: boolean
+  colors: { name: string; hex: string; sizes: string[] }[]
+}
+
+const DEMO_PRODUCTS: DemoProductSeed[] = [
+  {
+    name: 'White Kantha Odyssey Theme Shalwar Kameez',
+    slug: 'white-kantha-odyssey-theme-shalwar-kameez',
+    categorySlug: 'ethnic-wear',
+    basePrice: 4460,
+    compareAtPrice: 4877,
+    isFeatured: true,
+    isNewArrival: true,
+    colors: [{ name: 'White', hex: '#F5F5F0', sizes: ['S', 'M', 'L', 'XL'] }],
+  },
+  {
+    name: 'Midnight Silk Evening Saree',
+    slug: 'midnight-silk-evening-saree',
+    categorySlug: 'sarees',
+    basePrice: 6890,
+    compareAtPrice: 7490,
+    isFeatured: true,
+    colors: [{ name: 'Midnight', hex: '#1A1A2E', sizes: ['Free Size'] }],
+  },
+  {
+    name: 'Urban Linen Panjabi',
+    slug: 'urban-linen-panjabi',
+    categorySlug: 'panjabi',
+    basePrice: 3290,
+    isNewArrival: true,
+    colors: [{ name: 'Sand', hex: '#C4B59A', sizes: ['M', 'L', 'XL', 'XXL'] }],
+  },
+  {
+    name: 'Premium Cotton Polo',
+    slug: 'premium-cotton-polo',
+    categorySlug: 'polo-shirts',
+    basePrice: 1890,
+    colors: [{ name: 'Navy', hex: '#1E2A44', sizes: ['S', 'M', 'L', 'XL'] }],
+  },
+  {
+    name: 'Floral Party Lehenga Set',
+    slug: 'floral-party-lehenga-set',
+    categorySlug: 'kids-party-wear',
+    basePrice: 5490,
+    compareAtPrice: 5990,
+    colors: [{ name: 'Rose', hex: '#E8A0A0', sizes: ['4-5Y', '6-7Y', '8-9Y'] }],
+  },
+  {
+    name: 'Classic Leather Loafer',
+    slug: 'classic-leather-loafer',
+    categorySlug: 'footwear',
+    basePrice: 4590,
+    colors: [{ name: 'Brown', hex: '#6B4423', sizes: ['40', '41', '42', '43', '44'] }],
+  },
+  {
+    name: 'Minimalist Tote Bag',
+    slug: 'minimalist-tote-bag',
+    categorySlug: 'accessories',
+    basePrice: 2490,
+    isNewArrival: true,
+    colors: [{ name: 'Ivory', hex: '#F0EDE5', sizes: ['One Size'] }],
+  },
+  {
+    name: 'Heritage Block Print Kurti',
+    slug: 'heritage-block-print-kurti',
+    categorySlug: 'kurti-tunics',
+    basePrice: 2790,
+    compareAtPrice: 3190,
+    colors: [
+      { name: 'Indigo', hex: '#2C3E6B', sizes: ['S', 'M', 'L'] },
+      { name: 'Terracotta', hex: '#C06040', sizes: ['S', 'M', 'L'] },
+    ],
+  },
+]
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex')
@@ -78,6 +166,14 @@ async function main() {
       data: { domain: 'splaro.co', email: STORE_CONTACT_EMAIL },
     })
     console.log('Updated store domain → splaro.co')
+  }
+
+  if (!store.phone?.trim()) {
+    store = await prisma.store.update({
+      where: { id: store.id },
+      data: { phone: STORE_CONTACT_PHONE },
+    })
+    console.log(`Store phone seeded: ${STORE_CONTACT_PHONE}`)
   }
 
   await prisma.staffRole.upsert({
@@ -134,20 +230,6 @@ async function main() {
     console.log('Seeded default warehouse')
   }
 
-  await prisma.siteSettings.upsert({
-    where: { storeId: store.id },
-    create: {
-      storeId: store.id,
-      facebookPixelId: process.env['FB_PIXEL_ID'] ?? process.env['NEXT_PUBLIC_FB_PIXEL_ID'] ?? null,
-      googleAnalyticsId: process.env['GA4_MEASUREMENT_ID'] ?? process.env['NEXT_PUBLIC_GA_MEASUREMENT_ID'] ?? null,
-    },
-    update: {
-      // Only overwrite when env provides a value — never clobber admin-set IDs on reseed.
-      facebookPixelId: process.env['FB_PIXEL_ID'] ?? process.env['NEXT_PUBLIC_FB_PIXEL_ID'] ?? undefined,
-      googleAnalyticsId: process.env['GA4_MEASUREMENT_ID'] ?? process.env['NEXT_PUBLIC_GA_MEASUREMENT_ID'] ?? undefined,
-    },
-  })
-
   const categoryDefs = [
     { name: 'Women', slug: 'women', sortOrder: 1 },
     { name: 'Men', slug: 'men', sortOrder: 2 },
@@ -189,7 +271,7 @@ async function main() {
   for (const sub of subcategoryDefs) {
     const parentId = categories[sub.parent]
     if (!parentId) continue
-    await prisma.category.upsert({
+    const row = await prisma.category.upsert({
       where: { storeId_slug: { storeId: store.id, slug: sub.slug } },
       create: {
         storeId: store.id,
@@ -200,12 +282,88 @@ async function main() {
       },
       update: { parentId, name: sub.name, sortOrder: sub.sortOrder, isActive: true },
     })
+    categories[sub.slug] = row.id
   }
 
   await prisma.category.updateMany({
     where: { storeId: store.id, slug: { in: ['sarees', 'ethnic-wear', 'bridal'] } },
     data: { isActive: true },
   })
+
+  const existingSettings = await prisma.siteSettings.findUnique({ where: { storeId: store.id } })
+  await prisma.siteSettings.upsert({
+    where: { storeId: store.id },
+    create: {
+      storeId: store.id,
+      whatsappNumber: STORE_WHATSAPP,
+      facebookPixelId: process.env['FB_PIXEL_ID'] ?? process.env['NEXT_PUBLIC_FB_PIXEL_ID'] ?? null,
+      googleAnalyticsId: process.env['GA4_MEASUREMENT_ID'] ?? process.env['NEXT_PUBLIC_GA_MEASUREMENT_ID'] ?? null,
+    },
+    update: {
+      facebookPixelId: process.env['FB_PIXEL_ID'] ?? process.env['NEXT_PUBLIC_FB_PIXEL_ID'] ?? undefined,
+      googleAnalyticsId: process.env['GA4_MEASUREMENT_ID'] ?? process.env['NEXT_PUBLIC_GA_MEASUREMENT_ID'] ?? undefined,
+      ...(!existingSettings?.whatsappNumber?.trim() ? { whatsappNumber: STORE_WHATSAPP } : {}),
+    },
+  })
+
+  let demoProductsSeeded = 0
+  for (const demo of DEMO_PRODUCTS) {
+    const categoryId = categories[demo.categorySlug]
+    const existing = await prisma.product.findUnique({
+      where: { storeId_slug: { storeId: store.id, slug: demo.slug } },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    const product = await prisma.product.create({
+      data: {
+        storeId: store.id,
+        categoryId: categoryId ?? categories['women'],
+        slug: demo.slug,
+        name: demo.name,
+        shortDescription: 'Premium SPLARO piece — demo catalog for local development.',
+        description: 'Seeded demo product for local storefront development. Replace with real inventory via admin.',
+        basePrice: demo.basePrice,
+        compareAtPrice: demo.compareAtPrice ?? null,
+        isPublished: true,
+        isFeatured: demo.isFeatured ?? false,
+        isNewArrival: demo.isNewArrival ?? false,
+        status: 'PUBLISHED',
+        sku: `DEMO-${demo.slug.slice(0, 12).toUpperCase().replace(/-/g, '')}`,
+        images: {
+          create: [
+            {
+              url: DEMO_PRODUCT_IMAGE,
+              altText: demo.name,
+              position: 0,
+              isDefault: true,
+            },
+          ],
+        },
+        variants: {
+          create: demo.colors.flatMap((color) =>
+            color.sizes.map((size) => ({
+              size,
+              color: color.name,
+              colorName: color.name,
+              colorHex: color.hex,
+              price: demo.basePrice,
+              compareAtPrice: demo.compareAtPrice ?? null,
+              stock: 24,
+              isActive: true,
+            })),
+          ),
+        },
+      },
+    })
+    demoProductsSeeded += 1
+    console.log(`Seeded demo product: ${product.name}`)
+  }
+
+  if (demoProductsSeeded === 0) {
+    const productCount = await prisma.product.count({ where: { storeId: store.id, isPublished: true } })
+    console.log(`Demo products: skipped (${productCount} published product(s) already in DB)`)
+  }
 }
 
 main()

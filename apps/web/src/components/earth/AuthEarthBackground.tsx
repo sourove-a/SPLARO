@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 
-// Reuses the same EarthGlobe as the footer (variant unchanged) — footer is untouched.
 const EarthGlobe = dynamic(
   () => import('@/components/earth/EarthGlobe').then((m) => m.EarthGlobe),
   { ssr: false },
@@ -19,10 +18,11 @@ export function AuthEarthBackground() {
 
   useEffect(() => {
     void preloadFooterEarthAssets()
-    // Defer WebGL mount past first paint so the form stays instant.
     const timer = window.setTimeout(() => setShow(true), 120)
     return () => window.clearTimeout(timer)
   }, [])
+
+  const handleUnavailable = useCallback(() => setShow(false), [])
 
   return (
     <div className="auth-shell__earth" aria-hidden>
@@ -31,6 +31,8 @@ export function AuthEarthBackground() {
         {show ? (
           <EarthGlobe
             variant="footer"
+            ignoreReducedMotion
+            onUnavailable={handleUnavailable}
             className="auth-shell__earth-canvas [&>canvas]:!h-full [&>canvas]:!w-full"
           />
         ) : null}

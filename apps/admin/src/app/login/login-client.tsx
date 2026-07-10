@@ -1,6 +1,6 @@
 'use client'
 
-import type { ClipboardEvent, FormEvent, KeyboardEvent } from 'react'
+import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
@@ -36,7 +36,9 @@ export default function AdminLoginPage() {
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? '/dashboard'
   const tokenInputRef = useRef<HTMLInputElement>(null)
-  const reduceMotion = useReducedMotion()
+  const prefersReducedMotion = useReducedMotion()
+  const [motionReady, setMotionReady] = useState(false)
+  const showMotion = motionReady && !prefersReducedMotion
 
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
@@ -45,14 +47,16 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [tokenHint, setTokenHint] = useState<string | null>(null)
 
-  const panelMotion = reduceMotion
-    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 1 } }
-    : {
-        initial: { opacity: 0, y: 10 },
-        animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -8 },
-      }
-  const panelTransition = reduceMotion ? { duration: 0 } : { duration: 0.24, ease: motionEase }
+  const panelMotion = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -8 },
+  }
+  const panelTransition = { duration: 0.24, ease: motionEase }
+
+  useEffect(() => {
+    setMotionReady(true)
+  }, [])
 
   useEffect(() => {
     if (step === 'token') {
@@ -154,155 +158,189 @@ export default function AdminLoginPage() {
     }
   }
 
+  const stepCopy =
+    step === 'email'
+      ? {
+          title: 'Admin sign in',
+          subtitle: 'Orders · Products · Finance · Courier · AI',
+        }
+      : {
+          title: 'Verify with Telegram',
+          subtitle: 'Secure one-time token via Telegram',
+        }
+
+  const emailFields = (
+    <>
+      <label className="admin-auth-field">
+        <span className="admin-auth-label">Admin email</span>
+        <div className="admin-auth-field__wrap">
+          <span className="admin-auth-field__icon-chip" aria-hidden>
+            <Mail className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <input
+            required
+            type="email"
+            autoComplete="off"
+            placeholder="you@company.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="admin-auth-input"
+          />
+        </div>
+      </label>
+
+      {error ? (
+        <div className="admin-auth-error" role="alert">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      ) : null}
+
+      <button type="submit" disabled={loading} className="admin-auth-submit">
+        {loading ? (
+          <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
+        ) : (
+          <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
+        )}
+        {loading ? 'Checking…' : 'Continue'}
+      </button>
+    </>
+  )
+
+  const tokenFields = (
+    <>
+      <div className="admin-auth-telegram">
+        <p className="admin-auth-telegram__title">Check Telegram</p>
+        <p className="admin-auth-telegram__text">
+          {tokenHint ??
+            'Your one-time login token was sent to your linked SPLARO Telegram chat. Tap Copy Token in the bot message, then paste below.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleResendToken()}
+          disabled={loading}
+          className="admin-auth-telegram__btn"
+        >
+          <Send className="h-3 w-3" />
+          {loading ? 'Sending…' : 'Resend token'}
+        </button>
+      </div>
+
+      <div className="admin-auth-email-chip">
+        <Mail className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{email}</span>
+      </div>
+
+      <label className="admin-auth-field">
+        <span className="admin-auth-label">Paste token</span>
+        <div className="admin-auth-field__wrap">
+          <span className="admin-auth-field__icon-chip" aria-hidden>
+            <ClipboardPaste className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <input
+            ref={tokenInputRef}
+            required
+            type="text"
+            inputMode="text"
+            autoComplete="one-time-code"
+            placeholder="XXXX-XXXX"
+            value={formatTokenDisplay(token)}
+            onChange={(e) => setToken(normalizeTokenInput(e.target.value))}
+            onPaste={handleTokenPaste}
+            onKeyDown={handleTokenKeyDown}
+            className="admin-auth-input admin-auth-input--token"
+          />
+        </div>
+        <p className="admin-auth-hint">Paste from Telegram — auto-login when complete</p>
+      </label>
+
+      {error ? (
+        <div className="admin-auth-error" role="alert">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      ) : null}
+
+      <button
+        type="submit"
+        disabled={loading || normalizeTokenInput(token).length < 8}
+        className="admin-auth-submit"
+      >
+        {loading ? (
+          <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
+        ) : (
+          <Lock className="h-4 w-4" strokeWidth={2.5} />
+        )}
+        {loading ? 'Signing in…' : 'Enter Commerce OS'}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setStep('email')
+          setError(null)
+          setToken('')
+        }}
+        className="admin-auth-back"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Change email
+      </button>
+    </>
+  )
+
+  const renderStepForm = (children: ReactNode, formKey: Step, onSubmit: (e: FormEvent<HTMLFormElement>) => void) => {
+    if (showMotion) {
+      return (
+        <motion.form
+          key={formKey}
+          onSubmit={onSubmit}
+          className="admin-auth-form"
+          {...panelMotion}
+          transition={panelTransition}
+        >
+          {children}
+        </motion.form>
+      )
+    }
+
+    return (
+      <form key={formKey} onSubmit={onSubmit} className="admin-auth-form">
+        {children}
+      </form>
+    )
+  }
+
   return (
     <AdminLoginShell>
       <div className="admin-auth-card__brand">
         <p className="admin-auth-card__eyebrow">Commerce Operating System</p>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={step} {...panelMotion} transition={panelTransition}>
-            <h1 className="admin-auth-card__title">
-              {step === 'email' ? 'Admin sign in' : 'Verify with Telegram'}
-            </h1>
-            <p className="admin-auth-card__subtitle">
-              {step === 'email'
-                ? 'Orders · Products · Finance · Courier · AI'
-                : 'Secure one-time token via Telegram'}
-            </p>
-          </motion.div>
-        </AnimatePresence>
+        {showMotion ? (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={step} {...panelMotion} transition={panelTransition}>
+              <h1 className="admin-auth-card__title">{stepCopy.title}</h1>
+              <p className="admin-auth-card__subtitle">{stepCopy.subtitle}</p>
+            </motion.div>
+          </AnimatePresence>
+        ) : (
+          <div>
+            <h1 className="admin-auth-card__title">{stepCopy.title}</h1>
+            <p className="admin-auth-card__subtitle">{stepCopy.subtitle}</p>
+          </div>
+        )}
       </div>
 
-      <AnimatePresence mode="wait" initial={false}>
-        {step === 'email' ? (
-          <motion.form
-            key="email"
-            onSubmit={handleEmailSubmit}
-            className="admin-auth-form"
-            {...panelMotion}
-            transition={panelTransition}
-          >
-            <label className="admin-auth-field">
-              <span className="admin-auth-label">Admin email</span>
-              <div className="admin-auth-field__wrap">
-                <span className="admin-auth-field__icon-chip" aria-hidden>
-                  <Mail className="h-4 w-4" strokeWidth={2} />
-                </span>
-                <input
-                  required
-                  type="email"
-                  autoComplete="off"
-                  placeholder="you@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="admin-auth-input"
-                />
-              </div>
-            </label>
-
-            {error ? (
-              <div className="admin-auth-error" role="alert">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            ) : null}
-
-            <button type="submit" disabled={loading} className="admin-auth-submit">
-              {loading ? (
-                <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
-              ) : (
-                <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
-              )}
-              {loading ? 'Checking…' : 'Continue'}
-            </button>
-          </motion.form>
-        ) : (
-          <motion.form
-            key="token"
-            onSubmit={handleTokenSubmit}
-            className="admin-auth-form"
-            {...panelMotion}
-            transition={panelTransition}
-          >
-            <div className="admin-auth-telegram">
-              <p className="admin-auth-telegram__title">Check Telegram</p>
-              <p className="admin-auth-telegram__text">
-                {tokenHint ??
-                  'Your one-time login token was sent to your linked SPLARO Telegram chat. Tap Copy Token in the bot message, then paste below.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleResendToken()}
-                disabled={loading}
-                className="admin-auth-telegram__btn"
-              >
-                <Send className="h-3 w-3" />
-                {loading ? 'Sending…' : 'Resend token'}
-              </button>
-            </div>
-
-            <div className="admin-auth-email-chip">
-              <Mail className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{email}</span>
-            </div>
-
-            <label className="admin-auth-field">
-              <span className="admin-auth-label">Paste token</span>
-              <div className="admin-auth-field__wrap">
-                <span className="admin-auth-field__icon-chip" aria-hidden>
-                  <ClipboardPaste className="h-4 w-4" strokeWidth={2} />
-                </span>
-                <input
-                  ref={tokenInputRef}
-                  required
-                  type="text"
-                  inputMode="text"
-                  autoComplete="one-time-code"
-                  placeholder="XXXX-XXXX"
-                  value={formatTokenDisplay(token)}
-                  onChange={(e) => setToken(normalizeTokenInput(e.target.value))}
-                  onPaste={handleTokenPaste}
-                  onKeyDown={handleTokenKeyDown}
-                  className="admin-auth-input admin-auth-input--token"
-                />
-              </div>
-              <p className="admin-auth-hint">Paste from Telegram — auto-login when complete</p>
-            </label>
-
-            {error ? (
-              <div className="admin-auth-error" role="alert">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={loading || normalizeTokenInput(token).length < 8}
-              className="admin-auth-submit"
-            >
-              {loading ? (
-                <Loader2 className="admin-auth-submit__spinner h-4 w-4" strokeWidth={2.5} />
-              ) : (
-                <Lock className="h-4 w-4" strokeWidth={2.5} />
-              )}
-              {loading ? 'Signing in…' : 'Enter Commerce OS'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setStep('email')
-                setError(null)
-                setToken('')
-              }}
-              className="admin-auth-back"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Change email
-            </button>
-          </motion.form>
-        )}
-      </AnimatePresence>
+      {showMotion ? (
+        <AnimatePresence mode="wait" initial={false}>
+          {step === 'email'
+            ? renderStepForm(emailFields, 'email', handleEmailSubmit)
+            : renderStepForm(tokenFields, 'token', handleTokenSubmit)}
+        </AnimatePresence>
+      ) : step === 'email' ? (
+        renderStepForm(emailFields, 'email', handleEmailSubmit)
+      ) : (
+        renderStepForm(tokenFields, 'token', handleTokenSubmit)
+      )}
 
       <div className="admin-auth-footer">
         <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />

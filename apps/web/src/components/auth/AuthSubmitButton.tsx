@@ -1,8 +1,8 @@
 'use client'
 
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
-import { authHoverLift, authMotionTransition, authTapSpring } from '@/lib/auth/auth-motion'
+import { authHoverLift, authMotionTransition, authTapSpring, useAuthShowMotion } from '@/lib/auth/auth-motion'
 
 interface AuthSubmitButtonProps {
   loading: boolean
@@ -19,8 +19,29 @@ export function AuthSubmitButton({
   type = 'submit',
   disabled = false,
 }: AuthSubmitButtonProps) {
-  const reduceMotion = useReducedMotion()
-  const pressMotion = reduceMotion || loading ? {} : { whileHover: authHoverLift, whileTap: authTapSpring }
+  const showMotion = useAuthShowMotion()
+  const pressMotion = showMotion && !loading ? { whileHover: authHoverLift, whileTap: authTapSpring } : {}
+
+  const content = loading ? (
+    <>
+      <Loader2 className="auth-submit__spinner h-4 w-4" strokeWidth={2.2} />
+      {loadingLabel}
+    </>
+  ) : (
+    children
+  )
+
+  if (!showMotion) {
+    return (
+      <button
+        type={type}
+        disabled={disabled || loading}
+        className="auth-submit auth-submit--primary"
+      >
+        {content}
+      </button>
+    )
+  }
 
   return (
     <motion.button
@@ -28,16 +49,9 @@ export function AuthSubmitButton({
       disabled={disabled || loading}
       className="auth-submit auth-submit--primary"
       {...pressMotion}
-      transition={authMotionTransition(reduceMotion, 0.18)}
+      transition={authMotionTransition(false, 0.18)}
     >
-      {loading ? (
-        <>
-          <Loader2 className="auth-submit__spinner h-4 w-4" strokeWidth={2.2} />
-          {loadingLabel}
-        </>
-      ) : (
-        children
-      )}
+      {content}
     </motion.button>
   )
 }

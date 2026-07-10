@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { cn } from '@/lib/utils/cn'
 
 import { EARTH_TEXTURE_URLS } from '@/lib/earth/textures'
-import { globePixelRatioCap, isLowPowerDevice, isPhoneViewport } from '@/lib/earth/globe-performance'
+import { globePixelRatioCap, isLowPowerDevice, isPhoneViewport, acquireEarthWebGLSlot, releaseEarthWebGLSlot } from '@/lib/earth/globe-performance'
 
 const TEXTURES = EARTH_TEXTURE_URLS
 
@@ -318,16 +318,26 @@ interface EarthGlobeProps {
   className?: string
   /** Called when WebGL cannot init (common on RDP / blocked GPU). */
   onUnavailable?: () => void
+  /** Decorative globes — rotate even when OS prefers reduced motion. */
+  ignoreReducedMotion?: boolean
 }
 
-export function EarthGlobe({ variant = 'story', className, onUnavailable }: EarthGlobeProps) {
+export function EarthGlobe({
+  variant = 'story',
+  className,
+  onUnavailable,
+  ignoreReducedMotion = false,
+}: EarthGlobeProps) {
   const hostRef = useRef<HTMLDivElement>(null)
+  const slotTokenRef = useRef(`earth-${variant}-${Math.random().toString(36).slice(2, 11)}`)
   const onUnavailableRef = useRef(onUnavailable)
   onUnavailableRef.current = onUnavailable
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
+
+    const slotToken = slotTokenRef.current
 
     const isFooter = variant === 'footer'
     const phone = isPhoneViewport()
@@ -337,7 +347,7 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
     let tabVisible = !document.hidden
     let staticFrameDrawn = false
 
-    const shouldAnimate = () => inView && tabVisible && !reducedMotion
+    const shouldAnimate = () => inView && tabVisible && (!reducedMotion || ignoreReducedMotion)
     const shouldRenderFrame = () => inView && tabVisible
 
     const scene = new THREE.Scene()
@@ -348,6 +358,13 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
       camera.lookAt(0, FOOTER_CONFIG.lookAtY, 0)
     }
 
+    if (!acquireEarthWebGLSlot(slotToken)) {
+      onUnavailableRef.current?.()
+      return
+    }
+
+    const releaseSlot = () => releaseEarthWebGLSlot(slotToken)
+
     const renderer = (() => {
       try {
         return new THREE.WebGLRenderer({
@@ -356,11 +373,20 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
           powerPreference: 'high-performance',
         })
       } catch {
+        releaseEarthWebGLSlot(slotToken)
         onUnavailableRef.current?.()
         return null
       }
     })()
     if (!renderer) return
+
+    const gl = renderer.getContext()
+    if (!gl) {
+      releaseSlot()
+      renderer.dispose()
+      onUnavailableRef.current?.()
+      return
+    }
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ReinhardToneMapping
     renderer.toneMappingExposure = isFooter && isCompactFooterViewport() ? 1.16 : isFooter ? 1.2 : 1
@@ -762,6 +788,7 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
         textures.forEach((t) => t.dispose())
         disposables.forEach((d) => d.dispose())
         renderer.dispose()
+        releaseEarthWebGLSlot(slotToken)
         if (renderer.domElement.parentNode === host) {
           host.removeChild(renderer.domElement)
         }
@@ -823,11 +850,12 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
       textures.forEach((t) => t.dispose())
       disposables.forEach((d) => d.dispose())
       renderer.dispose()
+      releaseSlot()
       if (renderer.domElement.parentNode === host) {
         host.removeChild(renderer.domElement)
       }
     }
-  }, [variant])
+  }, [variant, ignoreReducedMotion])
 
   return (
     <div

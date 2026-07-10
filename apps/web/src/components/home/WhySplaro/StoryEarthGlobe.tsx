@@ -49,7 +49,7 @@ export function StoryEarthGlobe() {
     if (!host || mode !== 'css') return
 
     const activate = () => {
-      if (!shouldUseWebGLEarth()) return
+      if (!shouldUseWebGLEarth({ decorative: true })) return
       void preloadEarthTextures()
       setMode('webgl')
     }
@@ -101,10 +101,6 @@ export function StoryEarthGlobe() {
 
   const showCss = mode === 'css' || !webglReady
 
-  // Stable across renders: EarthGlobe's setup effect depends on this
-  // reference, so an inline arrow here would tear down and recreate the
-  // whole WebGL context (visible flicker) on every unrelated re-render of
-  // this component's subtree.
   const handleUnavailable = useCallback(() => {
     setWebglReady(false)
     setMode('css')
@@ -116,6 +112,7 @@ export function StoryEarthGlobe() {
       {mode === 'webgl' ? (
         <EarthGlobe
           variant="story"
+          ignoreReducedMotion
           className="absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
           onUnavailable={handleUnavailable}
         />

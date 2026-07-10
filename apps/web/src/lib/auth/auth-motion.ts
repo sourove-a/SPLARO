@@ -1,6 +1,19 @@
-import type { Transition } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { useReducedMotion, type Transition } from 'framer-motion'
 
 export const authMotionEase = [0.16, 1, 0.3, 1] as const
+
+/** Gate Framer Motion until after hydration — prevents SSR/client attribute mismatches. */
+export function useAuthShowMotion(): boolean {
+  const reducedMotion = useReducedMotion()
+  const [motionReady, setMotionReady] = useState(false)
+
+  useEffect(() => {
+    setMotionReady(true)
+  }, [])
+
+  return motionReady && !reducedMotion
+}
 
 export function authFadeSlide(reduced: boolean | null) {
   return reduced

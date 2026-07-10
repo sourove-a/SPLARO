@@ -4357,12 +4357,18 @@ body.admin-auth-page {
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 1;
+  min-height: 100%;
+  opacity: 0;
   filter: brightness(1.06) contrast(1.1) saturate(1.04);
   transform: scale(1.04);
   transform-origin: center 42%;
   animation: admin-auth-earth-float 24s ease-in-out infinite;
   will-change: transform;
+  transition: opacity 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-auth-shell__earth-canvas[data-earth-ready='true'] {
+  opacity: 1;
 }
 
 .admin-auth-shell__earth-vignette {
@@ -4427,10 +4433,13 @@ body.admin-auth-page {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-auth-shell__earth-canvas,
   .admin-auth-shell__earth-stars--twinkle,
   .admin-auth-shell__earth-glass {
     animation: none;
+  }
+
+  .admin-auth-shell__earth-canvas--hero {
+    animation: admin-auth-earth-float 24s ease-in-out infinite;
   }
 }
 

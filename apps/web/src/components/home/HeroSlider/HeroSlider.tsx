@@ -204,17 +204,8 @@ function useAllowHeroVideo(): boolean {
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
       .connection
     const saveData = conn?.saveData === true
-    // Only genuinely unusable links block video — BD carriers often report "3g"
-    // on connections that stream a 360p clip fine, and phones get the light rendition.
     const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-
-    const update = () => {
-      setAllow(!saveData && !slowLink && !reducedMotion.matches)
-    }
-    update()
-    reducedMotion.addEventListener('change', update)
-    return () => reducedMotion.removeEventListener('change', update)
+    setAllow(!saveData && !slowLink)
   }, [])
 
   return allow
@@ -436,7 +427,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const [exitIndex, setExitIndex] = useState<number | null>(null)
   const [direction, setDirection] = useState<SlideDirection>('forward')
   const [paused, setPaused] = useState(false)
-  const [reducedMotion, setReducedMotion] = useState(false)
   const [ready, setReady] = useState(false)
   const [interacted, setInteracted] = useState(false)
   const allowVideo = useAllowHeroVideo()
@@ -461,11 +451,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   const resetAutoplayTimer = useCallback(() => {
     clearAutoplayTimer()
-    if (paused || reducedMotion || slides.length <= 1) return
+    if (paused || slides.length <= 1) return
     autoplayIntervalRef.current = window.setInterval(() => {
       transitionToRef.current((indexRef.current + 1) % slides.length)
     }, SLIDE_DURATION_MS)
-  }, [clearAutoplayTimer, paused, reducedMotion, slides.length])
+  }, [clearAutoplayTimer, paused, slides.length])
 
   const transitionTo = useCallback(
     (next: number) => {
@@ -522,12 +512,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   useEffect(() => {
     setReady(true)
     prefersHoverPauseRef.current = window.matchMedia('(hover: hover) and (pointer: fine)').matches
-
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const syncMotion = () => setReducedMotion(mq.matches)
-    syncMotion()
-    mq.addEventListener('change', syncMotion)
-    return () => mq.removeEventListener('change', syncMotion)
   }, [])
 
   useEffect(() => {
@@ -724,7 +708,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         <div className="hero-progress" aria-hidden>
           <div
             key={`progress-${index}`}
-            className={cn('hero-progress-fill', (paused || reducedMotion) && 'hero-progress-fill--paused')}
+            className={cn('hero-progress-fill', paused && 'hero-progress-fill--paused')}
           />
         </div>
       </div>
