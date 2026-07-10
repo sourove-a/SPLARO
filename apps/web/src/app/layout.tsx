@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Link from 'next/link'
 import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/layout/Providers'
@@ -235,7 +236,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         >
           Site updated — please{' '}
-          <a
+          <Link
             href="/?_splaro=1"
             style={{
               marginInline: '4px',
@@ -249,7 +250,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }}
           >
             refresh the page
-          </a>{' '}
+          </Link>{' '}
           (Ctrl+Shift+R)
         </div>
         <Providers>
