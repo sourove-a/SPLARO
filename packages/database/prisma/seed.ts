@@ -67,7 +67,7 @@ async function main() {
         slug: 'splaro',
         domain: 'splaro.co',
         email: STORE_CONTACT_EMAIL,
-        logo: '/images/logo/splaro-brand-mark-transparent.png',
+        logo: '/images/logo/splaro-brand-mark-400.webp',
         ownerId: admin.id,
       },
     })

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import type { HeroBanner } from '@/lib/api/banners'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNavButton'
 import { cn } from '@/lib/utils/cn'
-import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO, HERO_DEFAULT_VIDEO_MOBILE } from '@splaro/config'
+import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
@@ -24,10 +24,10 @@ function slideDirection(from: number, to: number, total: number): SlideDirection
   return forward <= backward ? 'forward' : 'backward'
 }
 
-/** Override via NEXT_PUBLIC_HERO_VIDEO — cinematic background on first slide */
+/** Override via NEXT_PUBLIC_HERO_VIDEO — cinematic background on first slide.
+ *  Always routed through normalizeHeroVideoUrl() so it gets the same UHD→HD +
+ *  mobile-SD-rendition treatment as a real banner video (see resolveSlideVideo). */
 const HERO_VIDEO = process.env.NEXT_PUBLIC_HERO_VIDEO?.trim() || HERO_DEFAULT_VIDEO
-const HERO_VIDEO_MOBILE =
-  process.env.NEXT_PUBLIC_HERO_VIDEO_MOBILE?.trim() || HERO_DEFAULT_VIDEO_MOBILE || HERO_VIDEO
 
 export interface HeroSlide {
   id: string
@@ -122,7 +122,12 @@ function resolveSlideVideo(media: string, index: number) {
   // slide's real image — an ocean video behind a sneaker, plus ~12MB of lag.
   if (isVideoUrl(media)) return normalizeHeroVideoUrl(media)
   if (index === 0 && process.env.NEXT_PUBLIC_HERO_VIDEO?.trim()) {
-    return { video: HERO_VIDEO, videoMobile: HERO_VIDEO_MOBILE }
+    // Route the env override through the same UHD→HD + mobile-SD-rendition
+    // logic as a real banner video — this path was returning the raw
+    // NEXT_PUBLIC_HERO_VIDEO_MOBILE (or, absent that, the same multi-MB
+    // desktop clip) straight to mobile with zero downgrade whenever no
+    // Banner rows existed in the DB (e.g. an empty/fresh catalog).
+    return normalizeHeroVideoUrl(HERO_VIDEO)
   }
   return {}
 }
