@@ -34,7 +34,7 @@ export function StoryPillarsDropdown({
   story,
   label = 'What we stand for',
 }: StoryPillarsDropdownProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const pillars = visiblePillars(story)
   const hasContent = pillars.length > 0 || Boolean(story.quote?.trim())
 
