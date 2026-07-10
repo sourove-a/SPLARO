@@ -187,10 +187,9 @@ function useAllowHeroVideo(): boolean {
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
       .connection
     const saveData = conn?.saveData === true
-    const slowLink =
-      conn?.effectiveType === '2g' ||
-      conn?.effectiveType === 'slow-2g' ||
-      conn?.effectiveType === '3g'
+    // Only genuinely unusable links block video — BD carriers often report "3g"
+    // on connections that stream a 360p clip fine, and phones get the light rendition.
+    const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 
     const update = () => {
@@ -305,19 +304,30 @@ function HeroBackground({
   // `mounted` gate is load-bearing: during hydration `isMobile` is still false,
   // so without it the <video> mounts for one render with preload=auto and phones
   // start downloading the full desktop MP4 before the viewport check kicks in.
+  // Once mounted, phones DO play video — but only the active slide, streaming
+  // the light 640×360/540p rendition over the instantly-painted poster.
   const mountVideo = Boolean(
     mounted &&
-      !isMobile &&
       videoSrc &&
       !videoFailed &&
       allowVideo &&
-      (isActive || preloadVideo),
+      (isActive || (!isMobile && preloadVideo)),
   )
 
   useEffect(() => {
     setVideoFailed(false)
     setVideoReady(false)
   }, [videoSrc])
+
+  // AbortError = play() interrupted by a load()/pause() race, NotAllowedError =
+  // autoplay blocked (iOS Low Power, hidden tab) — both transient: the poster
+  // stays visible and onCanPlay / visibility retries recover. Only a broken
+  // source (onError) should tear the <video> down for good.
+  const failUnlessAborted = (err: unknown) => {
+    if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'NotAllowedError'))
+      return
+    setVideoFailed(true)
+  }
 
   useEffect(() => {
     const video = videoRef.current
@@ -327,11 +337,12 @@ function HeroBackground({
       if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         video.load()
       }
-      void video.play().catch(() => setVideoFailed(true))
+      void video.play().catch(failUnlessAborted)
       return
     }
 
     video.pause()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, videoSrc, videoFailed, mountVideo])
 
   return (
@@ -345,7 +356,7 @@ function HeroBackground({
           muted
           loop
           playsInline
-          preload={mobileActive ? 'none' : isActive || priority ? 'auto' : 'metadata'}
+          preload={isActive || priority ? 'auto' : mobileActive ? 'none' : 'metadata'}
           disablePictureInPicture
           controls={false}
           {...(poster ? { poster } : {})}
@@ -354,7 +365,7 @@ function HeroBackground({
           onCanPlay={(event) => {
             if (!isActive) return
             setVideoReady(true)
-            void event.currentTarget.play().catch(() => setVideoFailed(true))
+            void event.currentTarget.play().catch(failUnlessAborted)
           }}
           onError={() => setVideoFailed(true)}
         >
