@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { earthIntersectionRootMargin, isNearViewport } from '@/lib/earth/globe-performance'
+import Image from 'next/image'
+import {
+  canUseWebGL,
+  earthIntersectionRootMargin,
+  isNearViewport,
+  prefersReducedMotion,
+} from '@/lib/earth/globe-performance'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 import { importWithChunkRetry } from '@/lib/loadable-retry'
 
@@ -13,7 +19,28 @@ const EarthGlobe = dynamic(
   { ssr: false },
 )
 
-function StoryEarthPlaceholder() {
+type EarthMode = 'idle' | 'webgl' | 'fallback'
+
+function StoryEarthPlaceholder({ flow = false }: { flow?: boolean }) {
+  if (flow) {
+    return (
+      <div className="story-earth-panel__placeholder story-earth-panel__placeholder--flow" aria-hidden>
+        <div className="story-earth-panel__placeholder-bg" />
+        <div className="story-earth-panel__placeholder-orbit-wrap">
+          <Image
+            src="/images/earth/earth-day.webp"
+            alt=""
+            width={640}
+            height={640}
+            unoptimized
+            className="story-earth-panel__placeholder-orbit"
+          />
+        </div>
+        <div className="story-earth-panel__placeholder-glow" />
+      </div>
+    )
+  }
+
   return (
     <div className="story-earth-panel__placeholder" aria-hidden>
       <div
@@ -27,17 +54,23 @@ function StoryEarthPlaceholder() {
   )
 }
 
+const WEBGL_READY_TIMEOUT_MS = 12_000
+
 export function StoryEarthGlobe() {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [showGlobe, setShowGlobe] = useState(false)
+  const [mode, setMode] = useState<EarthMode>('idle')
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || showGlobe) return
+    if (!host || mode !== 'idle') return
 
     const activate = () => {
+      if (!canUseWebGL() || prefersReducedMotion()) {
+        setMode('fallback')
+        return
+      }
       void preloadFooterEarthAssets()
-      setShowGlobe(true)
+      setMode('webgl')
     }
 
     if (isNearViewport(host, 240)) {
@@ -63,15 +96,30 @@ export function StoryEarthGlobe() {
       observer.disconnect()
       window.removeEventListener('scroll', onScroll)
     }
-  }, [showGlobe])
+  }, [mode])
+
+  useEffect(() => {
+    if (mode !== 'webgl') return
+    const host = hostRef.current
+    if (!host) return
+
+    const timer = window.setTimeout(() => {
+      if (!host.querySelector('[data-earth-ready="true"]')) {
+        setMode('fallback')
+      }
+    }, WEBGL_READY_TIMEOUT_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [mode])
 
   return (
     <div ref={hostRef} className="absolute inset-0">
-      {!showGlobe ? <StoryEarthPlaceholder /> : null}
-      {showGlobe ? (
+      {mode !== 'webgl' ? <StoryEarthPlaceholder flow={mode === 'fallback'} /> : null}
+      {mode === 'webgl' ? (
         <EarthGlobe
           variant="story"
           className="absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
+          onUnavailable={() => setMode('fallback')}
         />
       ) : null}
     </div>

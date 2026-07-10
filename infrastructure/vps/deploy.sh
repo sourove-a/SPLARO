@@ -102,6 +102,15 @@ if [ -f infrastructure/vps/setup-nginx-performance.sh ]; then
   bash infrastructure/vps/setup-nginx-performance.sh || log "WARN: nginx performance skipped"
 fi
 
+if [ -f infrastructure/hostinger/splaro-co-web.conf ]; then
+  cp infrastructure/hostinger/splaro-co-web.conf /etc/nginx/sites-available/splaro-web.conf
+  cp infrastructure/hostinger/splaro-co-admin.conf /etc/nginx/sites-available/splaro-admin.conf
+  cp infrastructure/hostinger/splaro-co-api.conf /etc/nginx/sites-available/splaro-api.conf
+  ln -sf /etc/nginx/sites-available/splaro-web.conf /etc/nginx/sites-enabled/
+  ln -sf /etc/nginx/sites-available/splaro-admin.conf /etc/nginx/sites-enabled/
+  ln -sf /etc/nginx/sites-available/splaro-api.conf /etc/nginx/sites-enabled/
+fi
+
 # ── Nginx ────────────────────────────────────────────────────
 if nginx -t 2>/dev/null; then
   systemctl reload nginx

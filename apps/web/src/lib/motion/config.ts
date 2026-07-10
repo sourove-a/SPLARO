@@ -27,9 +27,9 @@ export const MOTION_DEFAULT: Transition = {
   ease: EASE_EXPO_OUT,
 }
 
-/** GPU-safe page template (opacity + translateY + subtle scale) */
+/** GPU-safe page template — keep opacity 1 so slow/blocked JS never hides the page. */
 export const pageEnter: Variants = {
-  initial: { opacity: 0, y: 16, scale: 0.996 },
+  initial: { opacity: 1, y: 12, scale: 0.998 },
   animate: {
     opacity: 1,
     y: 0,

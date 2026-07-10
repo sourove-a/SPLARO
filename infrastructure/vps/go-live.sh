@@ -138,6 +138,7 @@ if [ ! -d "/etc/letsencrypt/live/splaro.co" ]; then
     -d splaro.co \
     -d www.splaro.co \
     -d admin.splaro.co \
+    -d api.splaro.co \
     --email "${ADMIN_EMAIL:-splaro.bd@gmail.com}" \
     --agree-tos \
     --non-interactive \

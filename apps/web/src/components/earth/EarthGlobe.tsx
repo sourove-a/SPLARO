@@ -316,9 +316,11 @@ function buildFooterStarfield(count: number): THREE.Points {
 interface EarthGlobeProps {
   variant?: EarthGlobeVariant
   className?: string
+  /** Called when WebGL cannot init (common on RDP / blocked GPU). */
+  onUnavailable?: () => void
 }
 
-export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
+export function EarthGlobe({ variant = 'story', className, onUnavailable }: EarthGlobeProps) {
   const hostRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -344,11 +346,19 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
       camera.lookAt(0, FOOTER_CONFIG.lookAtY, 0)
     }
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-    })
+    const renderer = (() => {
+      try {
+        return new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          powerPreference: 'high-performance',
+        })
+      } catch {
+        onUnavailable?.()
+        return null
+      }
+    })()
+    if (!renderer) return
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ReinhardToneMapping
     renderer.toneMappingExposure = isFooter && isCompactFooterViewport() ? 1.16 : isFooter ? 1.2 : 1
@@ -813,7 +823,7 @@ export function EarthGlobe({ variant = 'story', className }: EarthGlobeProps) {
         host.removeChild(renderer.domElement)
       }
     }
-  }, [variant])
+  }, [variant, onUnavailable])
 
   return (
     <div

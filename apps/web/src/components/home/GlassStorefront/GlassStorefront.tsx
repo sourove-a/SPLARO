@@ -95,7 +95,7 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
       ) : null}
 
       {homepage.ourStory ? (
-        <DeferUntilVisible minHeight={420}>
+        <DeferUntilVisible minHeight={420} deferOnMobile={false}>
           <WhySplaro />
         </DeferUntilVisible>
       ) : null}

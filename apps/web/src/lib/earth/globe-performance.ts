@@ -14,6 +14,21 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+/** False on RDP / software GL / blocked WebGL — story earth uses CSS fallback instead. */
+export function canUseWebGL(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx =
+      canvas.getContext('webgl2') ??
+      canvas.getContext('webgl') ??
+      canvas.getContext('experimental-webgl')
+    return Boolean(ctx)
+  } catch {
+    return false
+  }
+}
+
 /** Defer heavy earth asset preload on save-data / reduced-motion — not on mobile alone. */
 export function shouldPreloadEarthAssets(): boolean {
   if (prefersReducedMotion()) return false

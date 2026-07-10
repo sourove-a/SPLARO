@@ -33,6 +33,7 @@ const cspImgSrc = [
   'https://cdn.jsdelivr.net',
   'https://raw.githubusercontent.com',
   'https://www.solarsystemscope.com',
+  'https://www.facebook.com',
 ].join(' ')
 
 const cspMediaSrc = [
