@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
+import { apiOfflineSaveMessage } from '@/lib/admin/offline-copy'
 import type { AdminSettingsData } from '@/lib/api/settings'
 
 export interface SectionProps {
@@ -217,7 +218,7 @@ export function SaveBar({
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1.25rem' }}>
       {disabled && !saving ? (
         <p style={{ marginRight: 'auto', fontSize: '0.75rem', fontWeight: 600, color: '#b45309' }}>
-          API offline — cannot save
+          {apiOfflineSaveMessage()}
         </p>
       ) : null}
       <button type="button" disabled={isDisabled} onClick={onClick} className="settings-save-btn">

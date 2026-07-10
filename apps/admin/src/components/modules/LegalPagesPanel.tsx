@@ -17,8 +17,10 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { apiOfflineMessage } from '@/lib/admin/offline-copy'
+import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
+import { useLegalPage, useLegalPages, usePermission, useSaveLegalPage } from '@/lib/api/hooks'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
-import { useLegalPage, useLegalPages, useSaveLegalPage } from '@/lib/api/hooks'
 import { DEFAULT_LEGAL_PAGES, LEGAL_PAGE_CATALOG, type LegalPageContent, type LegalPageSlug } from '@splaro/types'
 import { cn } from '@/lib/utils/cn'
 
@@ -56,7 +58,8 @@ function toDraft(content: LegalPageContent): {
 export function LegalPagesPanel() {
   const searchParams = useSearchParams()
   const slugFromQuery = searchParams.get('slug')
-  const { data: pages, isError, isLoading, refetch } = useLegalPages()
+  const { data: pages, isError, error, isLoading, refetch } = useLegalPages()
+  const canEditLegal = usePermission('settings', 'edit')
   const [activeSlug, setActiveSlug] = useState<LegalPageSlug>('terms')
   const { data: page, isLoading: pageLoading } = useLegalPage(activeSlug)
   const saveMutation = useSaveLegalPage()
@@ -77,7 +80,9 @@ export function LegalPagesPanel() {
     if (page) setDraft(toDraft(page))
   }, [page, activeSlug])
 
-  if (isError) return <ApiOfflineBanner message="Legal pages API offline — run pnpm dev:api on port 4000." />
+  if (isError && isNetworkOrServerError(error)) {
+    return <ApiOfflineBanner message={apiOfflineMessage('legal pages')} onRetry={() => void refetch()} />
+  }
 
   const resetToDefault = () => {
     const fallback = DEFAULT_LEGAL_PAGES[activeSlug]
@@ -85,6 +90,10 @@ export function LegalPagesPanel() {
   }
 
   const save = async () => {
+    if (!canEditLegal) {
+      toastFail('You do not have permission to edit legal pages.')
+      return
+    }
     if (!draft) return
 
     try {
@@ -333,7 +342,7 @@ export function LegalPagesPanel() {
               </section>
 
               <div className="flex flex-wrap gap-2">
-                <AdminButton variant="gold" onClick={() => void save()} disabled={saveMutation.isPending}>
+                <AdminButton variant="gold" onClick={() => void save()} disabled={saveMutation.isPending || !canEditLegal}>
                   {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save to storefront
                 </AdminButton>

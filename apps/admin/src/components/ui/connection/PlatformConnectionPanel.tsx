@@ -47,6 +47,8 @@ function ServiceCard({
   )
 }
 
+const isProd = process.env.NODE_ENV === 'production'
+
 /** Full platform connection panel — API Health and dedicated diagnostics only. */
 export function PlatformConnectionPanel({
   onRefresh,
@@ -90,8 +92,8 @@ export function PlatformConnectionPanel({
         </div>
       </div>
       <div className="admin-conn-platform__services">
-        <ServiceCard label="NestJS API" service={conn.api} hint=":4000" />
-        <ServiceCard label="Storefront" service={conn.storefront} hint=":3000" />
+        <ServiceCard label="NestJS API" service={conn.api} hint={isProd ? 'splaro-api' : ':4000'} />
+        <ServiceCard label="Storefront" service={conn.storefront} hint={isProd ? 'splaro.co' : ':3000'} />
         <ServiceCard label="Database" service={conn.database} hint="PostgreSQL" />
       </div>
     </div>

@@ -10,7 +10,17 @@ const PARTNERS = [
 ]
 
 const ADMIN_EMAIL = process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'splaro.bd@gmail.com'
-const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD'] ?? 'Splaro@2026!'
+const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD']
+const isProd = process.env.NODE_ENV === 'production'
+
+if (!ADMIN_PASSWORD) {
+  if (isProd) {
+    throw new Error('ADMIN_PASSWORD is required when seeding in production')
+  }
+  console.warn('[seed] ADMIN_PASSWORD not set — using dev-only default (change before production)')
+}
+
+const resolvedAdminPassword = ADMIN_PASSWORD ?? 'Splaro@2026!'
 /** Public storefront contact — never use personal admin Gmail on the live site. */
 const STORE_CONTACT_EMAIL =
   process.env['STORE_CONTACT_EMAIL'] ??
@@ -37,7 +47,7 @@ async function main() {
       data: {
         email: ADMIN_EMAIL.toLowerCase(),
         emailVerified: true,
-        passwordHash: hashPassword(ADMIN_PASSWORD),
+        passwordHash: hashPassword(resolvedAdminPassword),
         firstName: 'SPLARO',
         lastName: ADMIN_EMAIL.toLowerCase() === 'splaro.bd@gmail.com' ? 'CEO' : 'Admin',
         role: 'SUPER_ADMIN',

@@ -7724,6 +7724,24 @@ html[data-home-hero='top'] #main-content {
   padding: 0.85rem 1rem 1rem;
 }
 
+.story-pillars-dropdown__teaser {
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-style: italic;
+  color: rgba(16, 17, 20, 0.58);
+}
+
+.story-pillars-dropdown__body {
+  padding: 0.85rem 1rem 1rem;
+}
+
+.story-pillars-dropdown__grid {
+  margin-bottom: 0.85rem;
+}
+
+.story-pillars-dropdown__quote {
+  margin-bottom: 0;
+}
+
 .story-pillars {
   display: grid;
   gap: 0.55rem;

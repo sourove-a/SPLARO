@@ -5,7 +5,9 @@ import { DEFAULT_CATALOG_CHANNELS } from '@splaro/types'
 import { useNewsletterSubscribers, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import { ApiError } from '@/lib/api/client'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { apiOfflineMessage, apiOfflineSaveMessage } from '@/lib/admin/offline-copy'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
+import { usePermission } from '@/lib/api/hooks'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY } from '@/lib/storefront/homepage-defaults'
 import type { AdminSettingsData } from '@/lib/api/settings'
 import { SettingsSidebar, type SettingsSection, isSettingsSection } from './SettingsSidebar'
@@ -46,6 +48,7 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
 export function SettingsShell() {
   const { data: apiData, isLoading, isError, refetch } = useSettings()
   const updateSettings = useUpdateSettings()
+  const canEditSettings = usePermission('settings', 'edit')
   const [section, setSection] = useState<SettingsSection>('general')
   const [animKey, setAnimKey] = useState(0)
   const changeSection = useCallback((s: SettingsSection) => {
@@ -122,7 +125,7 @@ export function SettingsShell() {
       <div className="settings-loading-panel admin-panel-glass-subtle" style={{ borderColor: 'rgba(239,68,68,0.35)' }}>
         <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#ef4444' }}>Cannot load settings</p>
         <p style={{ fontSize: '0.8125rem', color: 'var(--admin-text-muted)', maxWidth: 420, textAlign: 'center' }}>
-          API is not reachable. Run <code>pnpm dev:stack</code> (or <code>pnpm dev:api</code>), then retry.
+          {apiOfflineMessage('settings')}
         </p>
         <button type="button" className="settings-save-btn" onClick={() => void refetch()}>
           Retry connection
@@ -133,7 +136,11 @@ export function SettingsShell() {
 
   const save = (patch: Partial<AdminSettingsData>, label: string, onSuccess?: () => void) => {
     if (!settingsLoaded) {
-      toastFail('API offline — settings not loaded. Start API and refresh.', 'settings-api-offline')
+      toastFail(apiOfflineSaveMessage(), 'settings-api-offline')
+      return
+    }
+    if (!canEditSettings) {
+      toastFail('You do not have permission to change settings.', 'settings-perm-denied')
       return
     }
     updateSettings.mutate(patch, {
@@ -162,7 +169,7 @@ export function SettingsShell() {
 
   const saving = updateSettings.isPending
 
-  const sharedProps = { draft, setDraft, save, saving, apiOnline: settingsLoaded }
+  const sharedProps = { draft, setDraft, save, saving, apiOnline: settingsLoaded && canEditSettings }
 
   return (
     <div
@@ -200,13 +207,15 @@ export function SettingsShell() {
             },
           ]}
         />
-        {!settingsLoaded ? (
+        {!settingsLoaded || !canEditSettings ? (
           <div
             className="admin-settings-status admin-settings-status--offline"
             style={{ marginBottom: 0 }}
           >
             <p className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-              API offline — save is disabled until connection is restored.
+              {!settingsLoaded
+                ? apiOfflineSaveMessage()
+                : 'You do not have permission to save settings.'}
             </p>
           </div>
         ) : null}

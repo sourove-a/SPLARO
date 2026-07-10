@@ -8,6 +8,10 @@ import { generateOrderCode } from '../../common/order-code.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { assertCouponForOrder } from '../coupons/coupon-validate.util'
+import {
+  assertPaymentMethodEnabled,
+  loadStorePaymentFlags,
+} from '../../common/payment-flags.util'
 import { MetaCapiService } from '../marketing/meta-capi.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { OrderEventsService } from '../orders/order-events.service'
@@ -230,6 +234,9 @@ export class StorefrontOrdersService {
     }
 
     const paymentMethod = mapPaymentMethod(input.paymentMethod)
+
+    const paymentFlags = await loadStorePaymentFlags(this.prisma, sid)
+    assertPaymentMethodEnabled(paymentMethod, paymentFlags)
 
     // ── Server-side money math ────────────────────────────────
     const serverSubtotal = Math.round(

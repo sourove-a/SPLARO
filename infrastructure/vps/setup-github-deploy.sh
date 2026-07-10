@@ -59,8 +59,15 @@ if [ -d "$APP_DIR/.git" ]; then
   git remote set-url origin "git@github.com:${REPO}.git" 2>/dev/null || true
 fi
 
-# ── 3. Deploy script symlink (GitHub Actions → bash /opt/splaro/deploy.sh) ──
-if [ -f "$APP_DIR/infrastructure/vps/deploy.sh" ]; then
+# ── 3. Deploy entrypoint (GitHub Actions → bash /opt/splaro/deploy.sh) ──
+# Install the thin wrapper, not a snapshot of the full deploy.sh — a snapshot
+# goes stale the moment deploy.sh changes in the repo (this bit us once: the
+# VPS was still running a copy from setup time that predated a fix). The
+# wrapper always delegates to the current repo checkout.
+if [ -f "$APP_DIR/infrastructure/vps/deploy-wrapper.sh" ]; then
+  cp "$APP_DIR/infrastructure/vps/deploy-wrapper.sh" /opt/splaro/deploy.sh
+  chmod +x /opt/splaro/deploy.sh
+elif [ -f "$APP_DIR/infrastructure/vps/deploy.sh" ]; then
   cp "$APP_DIR/infrastructure/vps/deploy.sh" /opt/splaro/deploy.sh
   chmod +x /opt/splaro/deploy.sh
 fi

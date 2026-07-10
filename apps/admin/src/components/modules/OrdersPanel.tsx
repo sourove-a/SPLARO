@@ -28,6 +28,7 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminSkeletonGroup } from '@/components/ui/AdminUiPrimitives'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { downloadInvoice, exportTableFromContainer } from '@/lib/admin/admin-actions'
 import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder, usePermission } from '@/lib/api/hooks'
@@ -195,7 +196,8 @@ export function OrdersPanel() {
     return params
   }, [page, statusFilter, query])
 
-  const { data: apiOrders, isLoading, isError, refetch } = useOrders(orderQuery)
+  const { data: apiOrders, isLoading, isError, error, refetch } = useOrders(orderQuery)
+  const apiOffline = isError && isNetworkOrServerError(error)
   const updateStatus = useUpdateOrderStatus()
   const bookCourier = useBookCourier()
   const bookCourierBulk = useBookCourierBulk()
@@ -421,11 +423,8 @@ export function OrdersPanel() {
 
   return (
     <div className="admin-ops-page">
-      {isError ? (
-        <ApiOfflineBanner
-          message="Orders API offline — start pnpm dev:stack and refresh."
-          onRetry={() => void refetch()}
-        />
+      {apiOffline ? (
+        <ApiOfflineBanner onRetry={() => void refetch()} />
       ) : null}
       <header className="admin-ops-header">
         <div>

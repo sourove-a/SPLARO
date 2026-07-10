@@ -3,13 +3,12 @@
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { Gem, Heart, Leaf, Sparkles, Sprout, Star, type LucideIcon } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
-import type { StoryPillarIcon } from '@/lib/storefront/homepage-defaults'
 import { resolveStoreLogo } from '@/components/brand/SplaroBrandLogo'
-import { resolveOurStory, visiblePillars } from '@/lib/storefront/homepage-defaults'
+import { resolveOurStory } from '@/lib/storefront/homepage-defaults'
 import { CustomerStoriesDropdown } from './CustomerStoriesDropdown'
 import { SocialReelsDropdown } from './SocialReelsDropdown'
+import { StoryPillarsDropdown } from './StoryPillarsDropdown'
 import { StoryReadMore } from './StoryReadMore'
 
 const StoryEarthGlobe = dynamic(
@@ -24,15 +23,6 @@ const MARK_SIZE = 48
 const LOGO_W = 200
 const LOGO_H = 80
 
-const PILLAR_ICONS: Record<StoryPillarIcon, LucideIcon> = {
-  sprout: Sprout,
-  leaf: Leaf,
-  gem: Gem,
-  star: Star,
-  heart: Heart,
-  sparkles: Sparkles,
-}
-
 const fade = {
   hidden: { opacity: 0, y: 20 },
   visible: (delay = 0) => ({
@@ -46,7 +36,6 @@ export function WhySplaro() {
   const settings = useStorefrontSettings()
   const story = resolveOurStory(settings.config.ourStory)
   const homepage = settings.config.homepage
-  const pillars = visiblePillars(story)
   const storeLogo = resolveStoreLogo(settings.store.logo ?? '')
   const brandLogo = storeLogo || SPLARO_LOGO
   /** Globe panel inverts dark wordmark to white via CSS. */
@@ -132,34 +121,7 @@ export function WhySplaro() {
 
             <StoryReadMore body1={story.body1} body2={story.body2} />
 
-            {pillars.length ? (
-              <div className="story-pillars">
-                {pillars.map((pillar, index) => {
-                  const Icon = PILLAR_ICONS[pillar.icon] ?? Star
-                  return (
-                    <motion.article
-                      key={pillar.id}
-                      className="story-pillar"
-                      initial={{ opacity: 0, y: 12 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.5, delay: 0.12 + index * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <div className="story-pillar__sheen" aria-hidden />
-                      <Icon className="story-pillar__icon" strokeWidth={1.6} />
-                      <div className="story-pillar__rule" aria-hidden />
-                      <h3 className="story-pillar__title">{pillar.title}</h3>
-                      <p className="story-pillar__body">{pillar.body}</p>
-                    </motion.article>
-                  )
-                })}
-              </div>
-            ) : null}
-
-            <blockquote className="story-quote">
-              <p>&ldquo;{story.quote}&rdquo;</p>
-              <footer>— {story.quoteAttribution}</footer>
-            </blockquote>
+            <StoryPillarsDropdown story={story} />
 
             <CustomerStoriesDropdown
               enabled={story.customerStories.enabled}

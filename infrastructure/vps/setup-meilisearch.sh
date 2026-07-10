@@ -9,7 +9,7 @@ set -euo pipefail
 
 APP_DIR="${SPLARO_APP_DIR:-/var/www/splaro}"
 MEILI_BIN="/usr/local/bin/meilisearch"
-MEILI_ENV="/etc/meilisearch/env"
+MEILI_ENV_FILE="/etc/meilisearch/env"
 MEILI_DATA="/var/lib/meilisearch/data"
 MEILI_HOST="http://127.0.0.1:7700"
 
@@ -40,24 +40,24 @@ write_env_file() {
   mkdir -p /etc/meilisearch "$(dirname "$MEILI_DATA")"
   chmod 700 /etc/meilisearch
 
-  if [ -f "$MEILI_ENV" ]; then
+  if [ -f "$MEILI_ENV_FILE" ]; then
     # shellcheck disable=SC1090
-    set -a && source "$MEILI_ENV" && set +a
-    log "Using existing $MEILI_ENV"
+    set -a && source "$MEILI_ENV_FILE" && set +a
+    log "Using existing $MEILI_ENV_FILE"
     return
   fi
 
   local key
   key="$(rand_key)"
-  cat > "$MEILI_ENV" <<EOF
+  cat > "$MEILI_ENV_FILE" <<EOF
 MEILI_ENV=production
 MEILI_HTTP_ADDR=127.0.0.1:7700
 MEILI_MASTER_KEY=${key}
 MEILI_DB_PATH=${MEILI_DATA}
 MEILI_NO_ANALYTICS=true
 EOF
-  chmod 600 "$MEILI_ENV"
-  log "Created $MEILI_ENV"
+  chmod 600 "$MEILI_ENV_FILE"
+  log "Created $MEILI_ENV_FILE"
 }
 
 install_systemd() {
@@ -89,16 +89,23 @@ append_app_env() {
   [ -f "$env_file" ] || { log "WARN: $env_file missing — set MEILISEARCH_* manually"; return 0; }
 
   # shellcheck disable=SC1090
-  set -a && source "$MEILI_ENV" && set +a
+  set -a && source "$MEILI_ENV_FILE" && set +a
   local key="${MEILI_MASTER_KEY:-}"
 
-  if ! grep -q '^MEILISEARCH_HOST=' "$env_file" 2>/dev/null; then
+  if grep -q '^MEILISEARCH_HOST=' "$env_file" 2>/dev/null; then
+    :
+  else
     echo "MEILISEARCH_HOST=${MEILI_HOST}" >> "$env_file"
     log "Appended MEILISEARCH_HOST to .env"
   fi
-  if ! grep -q '^MEILISEARCH_MASTER_KEY=' "$env_file" 2>/dev/null && [ -n "$key" ]; then
-    echo "MEILISEARCH_MASTER_KEY=${key}" >> "$env_file"
-    log "Appended MEILISEARCH_MASTER_KEY to .env"
+  if [ -n "$key" ]; then
+    if grep -q '^MEILISEARCH_MASTER_KEY=' "$env_file" 2>/dev/null; then
+      sed -i "s|^MEILISEARCH_MASTER_KEY=.*|MEILISEARCH_MASTER_KEY=${key}|" "$env_file"
+      log "Synced MEILISEARCH_MASTER_KEY in .env"
+    else
+      echo "MEILISEARCH_MASTER_KEY=${key}" >> "$env_file"
+      log "Appended MEILISEARCH_MASTER_KEY to .env"
+    fi
   fi
   chmod 600 "$env_file"
 }

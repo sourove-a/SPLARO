@@ -10,12 +10,40 @@ set -euo pipefail
 APP_DIR="${SPLARO_APP_DIR:-/var/www/splaro}"
 LOG_FILE="/var/log/splaro/deploy.log"
 BRANCH="${SPLARO_BRANCH:-main}"
+REPO_SSH="${SPLARO_REPO_SSH:-git@github.com:sourove-a/SPLARO.git}"
+DEPLOY_KEY="${SPLARO_DEPLOY_KEY:-/root/.ssh/github_deploy}"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 
 log() { echo "[$TIMESTAMP] $*" | tee -a "$LOG_FILE"; }
 die() { log "ERROR: $*"; exit 1; }
 
 log "========== VPS DEPLOY START =========="
+
+mkdir -p "$APP_DIR"
+
+# ── Fresh-clone fallback ────────────────────────────────────
+# A rebuilt/reprovisioned VPS (or a directory that lost .git some other way)
+# would otherwise hard-fail every deploy at "git fetch". Preserve .env across
+# the rebuild — everything else in APP_DIR is disposable deploy output.
+if [ ! -d "$APP_DIR/.git" ]; then
+  log "No git checkout at $APP_DIR — bootstrapping a fresh clone."
+  ENV_BACKUP=""
+  if [ -f "$APP_DIR/.env" ]; then
+    ENV_BACKUP="$(mktemp)"
+    cp "$APP_DIR/.env" "$ENV_BACKUP"
+  fi
+  [ -f "$DEPLOY_KEY" ] || die "Missing deploy key $DEPLOY_KEY — cannot clone. Run hpanel-bootstrap-github.sh first."
+  GIT_SSH_COMMAND="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+    git clone --branch "$BRANCH" "$REPO_SSH" "$APP_DIR.fresh"
+  find "$APP_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -a "$APP_DIR.fresh/." "$APP_DIR/"
+  rm -rf "$APP_DIR.fresh"
+  if [ -n "$ENV_BACKUP" ]; then
+    cp "$ENV_BACKUP" "$APP_DIR/.env"
+    rm -f "$ENV_BACKUP"
+  fi
+  [ -f "$APP_DIR/.env" ] || log "WARNING: no .env present after fresh clone — set one before the app can start."
+fi
 
 cd "$APP_DIR" || die "Missing $APP_DIR"
 
@@ -33,7 +61,7 @@ export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=6144"
 # Hard-reset to origin so stray edits on the VPS can never block a deploy.
 # The VPS working tree is a deploy target, not a dev checkout.
 log "Syncing to origin/$BRANCH..."
-git fetch origin "$BRANCH"
+GIT_SSH_COMMAND="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git fetch origin "$BRANCH"
 git checkout "$BRANCH" 2>/dev/null || git checkout -B "$BRANCH" "origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
 

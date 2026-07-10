@@ -18,19 +18,30 @@ export interface PaymentOption {
 }
 
 export interface PaymentVisibility {
+  cod: boolean
   bkash: boolean
   nagad: boolean
+  sslcommerz: boolean
+}
+
+export const DEFAULT_PAYMENT_VISIBILITY: PaymentVisibility = {
+  cod: true,
+  bkash: false,
+  nagad: false,
+  sslcommerz: false,
 }
 
 export function buildPaymentOptions(visibility: PaymentVisibility): PaymentOption[] {
-  const options: PaymentOption[] = [
-    {
+  const options: PaymentOption[] = []
+
+  if (visibility.cod) {
+    options.push({
       id: 'Cash on Delivery',
       label: 'Cash on Delivery',
       hint: 'Pay when your parcel arrives',
       priority: true,
-    },
-  ]
+    })
+  }
 
   if (visibility.bkash) {
     options.push({
@@ -50,12 +61,14 @@ export function buildPaymentOptions(visibility: PaymentVisibility): PaymentOptio
     })
   }
 
-  options.push({
-    id: 'SSLCommerz',
-    label: 'SSLCommerz',
-    hint: `Visa, MasterCard, AMEX & more${digitalDiscountHint()}`,
-    logo: PAYMENT_LOGO.sslcommerz,
-  })
+  if (visibility.sslcommerz) {
+    options.push({
+      id: 'SSLCommerz',
+      label: 'SSLCommerz',
+      hint: `Visa, MasterCard, AMEX & more${digitalDiscountHint()}`,
+      logo: PAYMENT_LOGO.sslcommerz,
+    })
+  }
 
   return options
 }
@@ -65,7 +78,8 @@ export function isDigitalPayment(payment: PaymentMethod) {
 }
 
 export function isPaymentAvailable(payment: PaymentMethod, visibility: PaymentVisibility) {
-  if (payment === 'Cash on Delivery' || payment === 'SSLCommerz') return true
+  if (payment === 'Cash on Delivery') return visibility.cod
+  if (payment === 'SSLCommerz') return visibility.sslcommerz
   if (payment === 'bKash') return visibility.bkash
   if (payment === 'Nagad') return visibility.nagad
   return false

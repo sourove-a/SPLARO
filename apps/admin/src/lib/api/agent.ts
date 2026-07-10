@@ -1,4 +1,4 @@
-import { buildAdminApiUrl } from './client'
+import { apiFetch, buildAdminApiUrl } from './client'
 import { getAdminApiToken } from '@/lib/auth/api-token'
 import type { AgentModelId } from './agent.types'
 
@@ -65,15 +65,10 @@ function agentUrl(path: string, storeId?: string) {
 }
 
 export async function fetchAgentHealth(storeId?: string) {
-  const res = await fetch(agentUrl('/agent/health', storeId), {
-    headers: authHeaders(),
-    credentials: 'include',
-  })
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(parseApiError(body))
-  }
-  return res.json() as Promise<AgentHealthSnapshot>
+  return apiFetch<AgentHealthSnapshot>(
+    '/agent/health',
+    storeId ? { storeId } : {},
+  )
 }
 
 export async function fetchAgentStatus(storeId?: string) {

@@ -54,7 +54,7 @@ export class SearchService implements OnModuleInit {
 
   async onModuleInit() {
     const host = this.config.get<string>('MEILISEARCH_HOST')
-    const key = this.config.get<string>('MEILISEARCH_MASTER_KEY')
+    const key = this.config.get<string>('MEILISEARCH_MASTER_KEY')?.trim()
 
     if (!host) {
       this.logger.warn('MEILISEARCH_HOST not configured — search disabled')
@@ -62,7 +62,10 @@ export class SearchService implements OnModuleInit {
     }
 
     try {
-      this.client = new MeiliSearch({ host, apiKey: key })
+      this.client = new MeiliSearch({
+        host,
+        ...(key ? { apiKey: key } : {}),
+      })
       this.productIndex = this.client.index('products')
 
       await this.productIndex.updateSettings({
@@ -112,21 +115,28 @@ export class SearchService implements OnModuleInit {
       : sort === 'newest' ? ['createdAt:desc']
       : undefined
 
-    const result = await this.productIndex.search<SearchHit>(query, {
-      filter: filterParts.join(' AND '),
-      sort: sortExpr,
-      limit,
-      offset,
-      attributesToHighlight: ['name'],
-      highlightPreTag: '<mark>',
-      highlightPostTag: '</mark>',
-    })
+    try {
+      const result = await this.productIndex.search<SearchHit>(query, {
+        filter: filterParts.join(' AND '),
+        sort: sortExpr,
+        limit,
+        offset,
+        attributesToHighlight: ['name'],
+        highlightPreTag: '<mark>',
+        highlightPostTag: '</mark>',
+      })
 
-    return {
-      hits: result.hits,
-      totalHits: result.estimatedTotalHits ?? result.hits.length,
-      processingTimeMs: result.processingTimeMs,
-      query,
+      return {
+        hits: result.hits,
+        totalHits: result.estimatedTotalHits ?? result.hits.length,
+        processingTimeMs: result.processingTimeMs,
+        query,
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Meilisearch search failed — DB fallback: ${err instanceof Error ? err.message : 'error'}`,
+      )
+      return this.dbSearch(params)
     }
   }
 

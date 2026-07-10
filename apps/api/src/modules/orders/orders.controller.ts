@@ -3,7 +3,6 @@ import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
-import { backfillOrderInvoiceCodes } from '../../common/order-code.util'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
 import { StorefrontOrdersService } from '../storefront/storefront-orders.service'
@@ -35,14 +34,17 @@ export class OrdersController {
 
   /** Resolve an order by id/invoiceNumber, scoped to the caller's store — prevents cross-store IDOR. */
   private async ownedOrderId(idOrInvoice: string, req: AdminRequest): Promise<string> {
+    const storeId = req.adminUser?.storeId
+      ? await resolveStoreId(this.prisma, req.adminUser.storeId)
+      : undefined
     const order = await this.prisma.order.findFirst({
-      where: { OR: [{ id: idOrInvoice }, { invoiceNumber: idOrInvoice }] },
+      where: {
+        OR: [{ id: idOrInvoice }, { invoiceNumber: idOrInvoice }],
+        ...(storeId ? { storeId } : {}),
+      },
       select: { id: true, storeId: true },
     })
     if (!order) throw new NotFoundException('Order not found')
-    if (req.adminUser?.storeId && order.storeId !== req.adminUser.storeId) {
-      throw new NotFoundException('Order not found')
-    }
     return order.id
   }
 
@@ -55,7 +57,6 @@ export class OrdersController {
     @Query('search') search?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    await backfillOrderInvoiceCodes(this.prisma, sid, 25)
     const skip = (Number(page) - 1) * Number(limit)
     const where: Prisma.OrderWhereInput = {
       storeId: sid,
@@ -380,11 +381,15 @@ export class OrdersController {
   }
 
   @Post('bulk/courier')
-  async bookCourierBulk(@Body() body: { orderIds: string[]; provider?: CourierProvider }) {
+  async bookCourierBulk(
+    @Body() body: { orderIds: string[]; provider?: CourierProvider },
+    @Req() req: AdminRequest,
+  ) {
     const results = await Promise.all(
       body.orderIds.map(async (orderId) => {
         try {
-          const result = await this.courier.bookCourier(orderId, body.provider)
+          const ownedId = await this.ownedOrderId(orderId, req)
+          const result = await this.courier.bookCourier(ownedId, body.provider)
           return { orderId, ...result }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Booking failed'
@@ -400,8 +405,10 @@ export class OrdersController {
   async bookCourier(
     @Param('id') id: string,
     @Body() body: { provider?: CourierProvider },
+    @Req() req: AdminRequest,
   ) {
-    const result = await this.courier.bookCourier(id, body.provider)
+    const ownedId = await this.ownedOrderId(id, req)
+    const result = await this.courier.bookCourier(ownedId, body.provider)
     if (!result.success) {
       return { success: false, error: result.error ?? 'Courier booking failed' }
     }

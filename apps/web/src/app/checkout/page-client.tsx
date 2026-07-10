@@ -17,9 +17,9 @@ import {
 } from 'lucide-react'
 import { type CartItem, useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
-import { useAdminStore } from '@/store/adminStore'
 import {
   buildPaymentOptions,
+  DEFAULT_PAYMENT_VISIBILITY,
   isDigitalPayment,
   isPaymentAvailable,
 } from '@/lib/checkout/payments'
@@ -40,9 +40,9 @@ import { saveOrderLocally, type StoredOrder } from '@/lib/orders'
 import { buildOrderConfirmationPath } from '@/lib/invoice-url'
 import { products } from '@/data/storefront'
 import {
-  DELIVERY_FEE_BDT,
   DIGITAL_PAYMENT_DISCOUNT_RATE,
 } from '@/lib/utils/currency'
+import { computeDeliveryFeeBdt } from '@/lib/checkout/shipping'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useClientMounted } from '@/hooks/useClientMounted'
 import { getStoredAttribution } from '@/lib/analytics/attribution'
@@ -81,10 +81,11 @@ export default function CheckoutPageClient() {
   const router = useRouter()
   const user = useAuthStore((state) => state.user)
   const authHydrated = useAuthStore((state) => state._hydrated)
-  const paymentSettings = useAdminStore((state) => state.payments)
+  const storefrontSettings = useStorefrontSettings()
+  const paymentSettings = storefrontSettings.payments ?? DEFAULT_PAYMENT_VISIBILITY
   const { items, subtotal, clearCart, replaceItems } = useCartStore()
   const cartHydrated = useCartStore((state) => state._hydrated)
-  const { shipping } = useStorefrontSettings()
+  const { shipping } = storefrontSettings
   const clientReady = useClientMounted()
   const freeDeliveryThreshold = shipping.freeDeliveryThreshold
 
@@ -195,12 +196,9 @@ export default function CheckoutPageClient() {
     setCouponApplied(false)
   }, [showPromoStep])
 
-  const delivery =
-    freeShipping ||
-    subtotal === 0 ||
-    (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold)
-      ? 0
-      : DELIVERY_FEE_BDT
+  const delivery = computeDeliveryFeeBdt(subtotal, city, shipping, {
+    freeShipping,
+  })
   const digitalDiscount = isDigitalPayment(payment)
     ? Math.round(subtotal * DIGITAL_PAYMENT_DISCOUNT_RATE)
     : 0
@@ -284,8 +282,9 @@ export default function CheckoutPageClient() {
 
   useEffect(() => {
     if (isPaymentAvailable(payment, paymentSettings)) return
-    setValue('payment', 'Cash on Delivery')
-  }, [payment, paymentSettings, setValue])
+    const fallback = paymentOptions[0]?.id ?? 'Cash on Delivery'
+    setValue('payment', fallback)
+  }, [payment, paymentSettings, paymentOptions, setValue])
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return

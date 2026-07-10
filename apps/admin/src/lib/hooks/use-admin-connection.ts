@@ -99,8 +99,14 @@ export function useAdminConnection(intervalMs = 20_000): AdminConnectionState {
           latencyMs: null,
           checkedAt: new Date().toISOString(),
           services: {
-            api: { online, message: online ? 'HTTP 200' : 'Start pnpm dev:api' },
-            storefront: { online: false, message: 'Start pnpm dev:web' },
+            api: {
+              online,
+              message: online ? 'HTTP 200' : isProd ? 'API unreachable — check VPS splaro-api' : 'Start pnpm dev:api',
+            },
+            storefront: {
+              online: false,
+              message: isProd ? 'Storefront probe unavailable' : 'Start pnpm dev:web',
+            },
             database: { online: databaseOnline },
           },
         }

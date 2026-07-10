@@ -4,6 +4,7 @@ import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModuleLiveStrip, type ModuleLiveItem } from '@/components/ui/connection/ModuleLiveStrip'
 import { PlatformConnectionPanel } from '@/components/ui/connection/PlatformConnectionPanel'
 import { AdminErrorState } from '@/components/ui/AdminUiPrimitives'
+import { apiOfflineMessage, apiOfflineHintShort } from '@/lib/admin/offline-copy'
 import { cn } from '@/lib/utils/cn'
 
 export { ModuleLiveStrip, PlatformConnectionPanel }
@@ -12,7 +13,7 @@ export type { ModuleLiveItem }
 export function ApiOfflineHint({ message }: { message?: string }) {
   return (
     <p className="admin-offline-hint">
-      {message ?? 'API offline — showing cached/empty view. Start: pnpm dev:stack'}
+      {message ?? `${apiOfflineHintShort()} — showing cached/empty view.`}
     </p>
   )
 }
@@ -21,8 +22,8 @@ export function ApiOfflineBanner({ message, onRetry }: { message?: string; onRet
   return (
     <div className="mb-3 space-y-2">
       <AdminErrorState
-        title="API offline"
-        message={message ?? 'Run pnpm dev:stack (or pnpm dev:api) and refresh.'}
+        title={apiOfflineHintShort()}
+        message={message ?? apiOfflineMessage('this module')}
         {...(onRetry ? { onRetry } : {})}
       />
       <AdminNavLink

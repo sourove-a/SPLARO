@@ -37,7 +37,11 @@ const NAV_MODULE_RULES: RouteRule[] = [
     module: 'products',
   },
   {
-    test: (p) => p.includes('/finance/'),
+    test: (p) =>
+      p.includes('/finance/') ||
+      p.includes('/coupons') ||
+      p.includes('/campaigns') ||
+      p.includes('/email-sms'),
     module: 'finance',
   },
   {

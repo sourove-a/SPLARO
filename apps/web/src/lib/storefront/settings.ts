@@ -120,6 +120,12 @@ export interface StorefrontSettings {
     dhakaDeliveryCharge: number
     outsideDhakaCharge: number
   }
+  payments: {
+    cod: boolean
+    bkash: boolean
+    nagad: boolean
+    sslcommerz: boolean
+  }
   config: {
     footerTagline?: string
     footerCopyright?: string
@@ -156,6 +162,7 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     whatsapp: '',
   },
   shipping: { freeDeliveryThreshold: 0, dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
+  payments: { cod: true, bkash: false, nagad: false, sslcommerz: false },
   config: {
     footerTagline: 'Premium everyday pieces with a quiet luxury finish.',
     footerCopyright: '',

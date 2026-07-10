@@ -601,6 +601,7 @@ export class StorefrontController {
   }
 
   @Get('orders/track')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async trackOrders(
     @Query('storeId') storeId: string,
     @Query('phone') phone: string,
@@ -649,9 +650,20 @@ export class StorefrontController {
     @Query('storeId') storeId: string,
     @Query('key') key?: string,
     @Query('phone') phone?: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+    @Headers('x-splaro-phone-access') phoneAccess?: string,
   ) {
     if (!key && !phone) {
       throw new BadRequestException('key or phone is required')
+    }
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    const sessionPhone = sessionToken
+      ? await this.storefrontAuth.sessionPhone(sessionToken)
+      : null
+    if (phone) {
+      await this.storefrontOtp.assertPhoneAccess(sid, phone, phoneAccess, sessionPhone)
     }
     const order = await this.storefrontOrders.findForStorefrontAccess(storeId, id, {
       ...(key ? { key } : {}),

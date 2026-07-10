@@ -1,6 +1,8 @@
 import { BadRequestException, Body, Controller, Get, Logger, Optional, Post, Query, Res } from '@nestjs/common'
+import { Throttle } from '@nestjs/throttler'
 import type { Response } from 'express'
 import { Public } from '../../common/auth/public.decorator'
+import { assertGatewayEnabled, loadStorePaymentFlags } from '../../common/payment-flags.util'
 import { PrismaService } from '../../common/prisma.service'
 import { OrderEventsService } from '../orders/order-events.service'
 import { CourierService } from '../courier/courier.service'
@@ -24,17 +26,18 @@ export class PaymentsController {
   // ── bKash ─────────────────────────────────────────────────
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('bkash/create')
   async createBkashPayment(
     @Body() body: { amount: number; invoiceNumber: string; callbackUrl: string },
   ) {
-    // Never initiate a gateway payment for an amount the order doesn't owe —
-    // otherwise a ৳1 payment could later confirm a ৳10,000 invoice.
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber: body.invoiceNumber },
-      select: { total: true, status: true, paymentStatus: true },
+      select: { total: true, status: true, paymentStatus: true, storeId: true },
     })
     if (!order) throw new BadRequestException('Order not found for this invoice')
+    const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
+    assertGatewayEnabled('bkash', flags)
     if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
       throw new BadRequestException('This order is no longer payable')
     }
@@ -98,8 +101,25 @@ export class PaymentsController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('nagad/init')
-  initNagadPayment(@Body() body: { orderId: string; amount: number; callbackUrl: string }) {
+  async initNagadPayment(@Body() body: { orderId: string; amount: number; callbackUrl: string }) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: body.orderId },
+      select: { storeId: true, total: true, status: true, paymentStatus: true },
+    })
+    if (!order) throw new BadRequestException('Order not found')
+    const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
+    assertGatewayEnabled('nagad', flags)
+    if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+      throw new BadRequestException('This order is no longer payable')
+    }
+    if (order.paymentStatus === 'PAID') {
+      throw new BadRequestException('This order is already paid')
+    }
+    if (Math.abs(Number(body.amount) - Number(order.total)) > 1) {
+      throw new BadRequestException('Payment amount does not match the order total')
+    }
     return this.nagad.initPayment(body)
   }
 
@@ -133,8 +153,9 @@ export class PaymentsController {
   // ── SSLCommerz ────────────────────────────────────────────
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('ssl/init')
-  initSslPayment(
+  async initSslPayment(
     @Body()
     body: {
       invoiceNumber: string
@@ -149,6 +170,22 @@ export class PaymentsController {
       cancelUrl: string
     },
   ) {
+    const order = await this.prisma.order.findUnique({
+      where: { invoiceNumber: body.invoiceNumber },
+      select: { storeId: true, total: true, status: true, paymentStatus: true },
+    })
+    if (!order) throw new BadRequestException('Order not found for this invoice')
+    const flags = await loadStorePaymentFlags(this.prisma, order.storeId)
+    assertGatewayEnabled('sslcommerz', flags)
+    if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+      throw new BadRequestException('This order is no longer payable')
+    }
+    if (order.paymentStatus === 'PAID') {
+      throw new BadRequestException('This order is already paid')
+    }
+    if (Math.abs(Number(body.amount) - Number(order.total)) > 1) {
+      throw new BadRequestException('Payment amount does not match the order total')
+    }
     return this.ssl.initPayment(body)
   }
 

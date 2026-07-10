@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerApiBaseUrl, verifyInvoiceAccessToken } from '@splaro/config'
-import { getSessionUser } from '@/lib/server/auth'
+import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { renderInvoiceHtml, resolveOrderById } from '@/lib/server/orders'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -31,12 +31,13 @@ async function fetchApiInvoiceHtml(
 
 export async function GET(request: Request, context: RouteContext) {
   const { id } = await context.params
-  const sessionUser = await getSessionUser()
+  const sessionToken = await getSessionToken()
+  const sessionUser = sessionToken ? await apiAuthMe(sessionToken) : null
   const { searchParams } = new URL(request.url)
   const key = searchParams.get('key')
   const order = await resolveOrderById(id, {
     accessKey: key,
-    phone: sessionUser?.phone,
+    phone: sessionUser?.phone ?? searchParams.get('phone'),
   })
 
   if (!order) {

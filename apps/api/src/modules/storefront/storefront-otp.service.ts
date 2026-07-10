@@ -104,11 +104,13 @@ export class StorefrontOtpService {
     phoneAccessToken?: string,
     sessionPhone?: string | null,
   ): Promise<void> {
-    if (!isStorefrontPhoneOtpEnabled()) return
-
     const phone = normalizePhone(phoneRaw)
 
     if (sessionPhone && normalizePhone(sessionPhone) === phone) return
+
+    if (!isStorefrontPhoneOtpEnabled()) {
+      throw new UnauthorizedException('Sign in to view orders for this phone number')
+    }
 
     if (!phoneAccessToken?.trim()) {
       throw new UnauthorizedException('Phone verification required')

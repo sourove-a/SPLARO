@@ -353,7 +353,7 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
     sections: [
       {
         heading: 'How do I place an order?',
-        body: 'Browse the shop, select your size and colour, add items to bag, and proceed to checkout. Guest checkout is available, or sign in to save addresses and track orders from your account.',
+        body: 'Browse the shop, select your size and colour, add items to bag, and proceed to checkout. Sign in or create a free account to complete your order and track it from your account.',
       },
       {
         heading: 'Which payment methods do you accept?',

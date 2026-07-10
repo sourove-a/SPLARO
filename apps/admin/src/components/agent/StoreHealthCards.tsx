@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Package, Search, ShoppingBag, User, WifiOff } from 'lucide-react'
-import { fetchAgentHealth, type AgentHealthSnapshot } from '@/lib/api/agent'
+import { useQuery } from '@tanstack/react-query'
+import { fetchAgentHealth } from '@/lib/api/agent'
+import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 
@@ -36,12 +37,12 @@ function HealthCard({
     >
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--admin-text-muted)]">{label}</p>
-        <Icon className="h-4 w-4 text-[#5E7CFF]" strokeWidth={1.75} />
+        <Icon className="h-4 w-4 text-[var(--admin-accent)]" strokeWidth={1.75} />
       </div>
       <p className="mt-2 text-xl font-black text-[var(--admin-text)]">{value}</p>
       {sub ? <p className="mt-1 text-[11px] font-semibold text-[var(--admin-text-secondary)]">{sub}</p> : null}
       {action ? (
-        <p className="mt-2 text-[10px] font-bold text-[#9a7b52] opacity-0 transition-opacity group-hover:opacity-100">
+        <p className="mt-2 text-[10px] font-bold text-[var(--admin-text-muted)] opacity-0 transition-opacity group-hover:opacity-100">
           {action} →
         </p>
       ) : null}
@@ -49,31 +50,37 @@ function HealthCard({
   )
 }
 
+const isProd = process.env.NODE_ENV === 'production'
+
 export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
-  const [health, setHealth] = useState<AgentHealthSnapshot | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [offline, setOffline] = useState(false)
+  const { data: health, isLoading, error, refetch } = useQuery({
+    queryKey: ['agent-health'],
+    queryFn: () => fetchAgentHealth(),
+    staleTime: 60_000,
+    retry: 1,
+  })
 
-  useEffect(() => {
-    fetchAgentHealth()
-      .then((data) => {
-        setHealth(data)
-        setOffline(false)
-      })
-      .catch(() => {
-        setHealth(null)
-        setOffline(true)
-      })
-      .finally(() => setLoading(false))
-  }, [])
-
-  const fmt = (n: number | undefined) => (n !== undefined ? String(n) : loading ? '…' : '—')
+  const offline = Boolean(error && isNetworkOrServerError(error))
+  const fmt = (n: number | undefined) => (n !== undefined ? String(n) : isLoading ? '…' : '—')
 
   if (offline) {
     return (
-      <div className="admin-glass-mini flex items-center gap-3 p-4 text-amber-800 dark:text-amber-300">
-        <WifiOff className="h-4 w-4 shrink-0" />
-        <p className="text-sm font-semibold">Store health unavailable — API offline. Start <code className="rounded bg-amber-100/60 px-1 dark:bg-amber-900/30">pnpm dev:stack</code>.</p>
+      <div className="admin-glass-mini flex flex-col gap-3 p-4 text-amber-800 dark:text-amber-300 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          <p className="text-sm font-semibold">
+            {isProd
+              ? 'Store health unavailable — API unreachable. Check splaro-api on VPS or refresh.'
+              : 'Store health unavailable — start pnpm dev:stack.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="text-xs font-bold underline underline-offset-2"
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -106,7 +113,7 @@ export function StoreHealthCards({ onAsk }: StoreHealthCardsProps) {
       />
       <HealthCard
         label="Top buyer"
-        value={health?.topCustomer?.name ?? (loading ? '…' : '—')}
+        value={health?.topCustomer?.name ?? (isLoading ? '…' : '—')}
         {...(health?.topCustomer ? { sub: `${health.topCustomer.orders} orders` } : {})}
         icon={User}
         action="Details"

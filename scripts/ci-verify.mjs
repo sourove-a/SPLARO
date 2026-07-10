@@ -73,8 +73,9 @@ run('node', ['scripts/verify-css.mjs'], { env: process.env })
 run('pnpm', ['type-check'])
 run('pnpm', ['--filter', '@splaro/web', 'lint'])
 run('pnpm', ['--filter', '@splaro/admin', 'lint'])
-run('bash', ['-lc', 'cd packages/database && npx prisma db push'], {
-  label: 'prisma db push',
+run('pnpm', ['--filter', '@splaro/api', 'lint'])
+run('bash', ['-lc', 'cd packages/database && npx prisma migrate deploy'], {
+  label: 'prisma migrate deploy',
 })
 
 // next build overwrites apps/*/.next — stop next dev first or chunks go missing (./899.js)
