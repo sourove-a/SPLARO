@@ -12,6 +12,7 @@ import { AttributionCapture } from '@/components/analytics/AttributionCapture'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
 import { CHUNK_RECOVERY_SCRIPT } from '@/lib/hydration/chunk-recovery-script'
 import { CRITICAL_HOME_CSS } from '@/lib/hydration/critical-home-css'
+import { getBuildId } from '@/lib/build-id'
 import { SPLARO_TAB_ICONS, splaroMetadataIcons } from '@splaro/config'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
@@ -116,6 +117,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await getStorefrontSettings()
+  const buildId = getBuildId()
   const rawFavicon = settings.store.favicon?.trim() || ''
   const faviconUrl =
     !rawFavicon ||
@@ -137,6 +139,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
+        <meta name="splaro-build" content={buildId} />
         <GoogleAnalyticsHead />
         <link rel="preconnect" href={cdnOrigin} />
         <link rel="dns-prefetch" href={cdnOrigin} />

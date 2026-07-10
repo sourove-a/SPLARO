@@ -7511,6 +7511,16 @@ html[data-home-hero='top'] #main-content {
   animation: story-earth-map-scroll 24s linear infinite;
 }
 
+.story-earth-panel__globe-map--static {
+  animation: none !important;
+}
+
+.story-earth-panel__placeholder--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .story-earth-panel__globe-shade {
   pointer-events: none;
   position: absolute;

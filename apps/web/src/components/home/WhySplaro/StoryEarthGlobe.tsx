@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import {
-  canUseWebGL,
   earthIntersectionRootMargin,
   isNearViewport,
   prefersReducedMotion,
+  shouldUseWebGLEarth,
 } from '@/lib/earth/globe-performance'
-import { preloadFooterEarthAssets } from '@/lib/earth/textures'
+import { preloadEarthTextures } from '@/lib/earth/textures'
 import { importWithChunkRetry } from '@/lib/loadable-retry'
 
 const EarthGlobe = dynamic(
@@ -18,53 +18,45 @@ const EarthGlobe = dynamic(
   { ssr: false },
 )
 
-type EarthMode = 'idle' | 'webgl' | 'fallback'
+type EarthMode = 'css' | 'webgl'
 
-function StoryEarthPlaceholder({ flow = false }: { flow?: boolean }) {
-  if (flow) {
-    return (
-      <div className="story-earth-panel__placeholder story-earth-panel__placeholder--flow" aria-hidden>
-        <div className="story-earth-panel__placeholder-bg" />
-        <div className="story-earth-panel__globe">
-          <div className="story-earth-panel__globe-map" />
-          <div className="story-earth-panel__globe-shade" />
-          <div className="story-earth-panel__globe-highlight" />
-          <div className="story-earth-panel__globe-atmo" />
-        </div>
-        <div className="story-earth-panel__placeholder-glow" />
-      </div>
-    )
-  }
-
+function StoryEarthPlaceholder({ flow = false, hidden = false }: { flow?: boolean; hidden?: boolean }) {
   return (
-    <div className="story-earth-panel__placeholder" aria-hidden>
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(circle at 52% 48%, rgba(70, 110, 150, 0.35), rgba(5, 8, 12, 0.92) 68%)',
-        }}
-      />
+    <div
+      className={`story-earth-panel__placeholder story-earth-panel__placeholder--flow${hidden ? ' story-earth-panel__placeholder--hidden' : ''}`}
+      aria-hidden
+    >
+      <div className="story-earth-panel__placeholder-bg" />
+      <div className="story-earth-panel__globe">
+        <div
+          className={`story-earth-panel__globe-map${flow ? '' : ' story-earth-panel__globe-map--static'}`}
+        />
+        <div className="story-earth-panel__globe-shade" />
+        <div className="story-earth-panel__globe-highlight" />
+        <div className="story-earth-panel__globe-atmo" />
+      </div>
+      <div className="story-earth-panel__placeholder-glow" />
     </div>
   )
 }
 
-const WEBGL_READY_TIMEOUT_MS = 12_000
-
 export function StoryEarthGlobe() {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [mode, setMode] = useState<EarthMode>('idle')
+  const [mode, setMode] = useState<EarthMode>('css')
+  const [webglReady, setWebglReady] = useState(false)
+  const [animateCss, setAnimateCss] = useState(false)
+
+  useEffect(() => {
+    setAnimateCss(!prefersReducedMotion())
+  }, [])
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || mode !== 'idle') return
+    if (!host || mode !== 'css') return
 
     const activate = () => {
-      if (!canUseWebGL() || prefersReducedMotion()) {
-        setMode('fallback')
-        return
-      }
-      void preloadFooterEarthAssets()
+      if (!shouldUseWebGLEarth()) return
+      void preloadEarthTextures()
       setMode('webgl')
     }
 
@@ -98,23 +90,34 @@ export function StoryEarthGlobe() {
     const host = hostRef.current
     if (!host) return
 
-    const timer = window.setTimeout(() => {
-      if (!host.querySelector('[data-earth-ready="true"]')) {
-        setMode('fallback')
-      }
-    }, WEBGL_READY_TIMEOUT_MS)
+    const markReady = () => {
+      if (host.querySelector('[data-earth-ready="true"]')) setWebglReady(true)
+    }
 
-    return () => window.clearTimeout(timer)
+    markReady()
+    const observer = new MutationObserver(markReady)
+    observer.observe(host, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-earth-ready'],
+    })
+
+    return () => observer.disconnect()
   }, [mode])
+
+  const showCss = mode === 'css' || !webglReady
 
   return (
     <div ref={hostRef} className="absolute inset-0">
-      {mode !== 'webgl' ? <StoryEarthPlaceholder flow={mode === 'fallback'} /> : null}
+      {showCss ? <StoryEarthPlaceholder flow={animateCss} hidden={webglReady} /> : null}
       {mode === 'webgl' ? (
         <EarthGlobe
           variant="story"
           className="absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
-          onUnavailable={() => setMode('fallback')}
+          onUnavailable={() => {
+            setWebglReady(false)
+            setMode('css')
+          }}
         />
       ) : null}
     </div>

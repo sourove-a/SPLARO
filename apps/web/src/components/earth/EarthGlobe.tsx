@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { cn } from '@/lib/utils/cn'
 
 import { EARTH_TEXTURE_URLS } from '@/lib/earth/textures'
-import { globePixelRatioCap, isPhoneViewport } from '@/lib/earth/globe-performance'
+import { globePixelRatioCap, isLowPowerDevice, isPhoneViewport } from '@/lib/earth/globe-performance'
 
 const TEXTURES = EARTH_TEXTURE_URLS
 
@@ -538,8 +538,10 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
 
       renderFrame()
     } else {
-      const storySegments = phone ? 72 : STORY_CONFIG.segments
-      const wireSegments = phone ? 48 : STORY_CONFIG.wireSegments
+      const lowPower = isLowPowerDevice()
+      const storySegments = phone ? 72 : lowPower ? 96 : STORY_CONFIG.segments
+      const wireSegments = phone ? 48 : lowPower ? 56 : STORY_CONFIG.wireSegments
+      const sparkleCount = lowPower ? 420 : STORY_CONFIG.sparkleCount
       const nightMap = loader.load(TEXTURES.night, onTextureReady)
       textures.push(nightMap)
       setTextureQuality(nightMap, renderer)
@@ -611,8 +613,8 @@ export function EarthGlobe({ variant = 'story', className, onUnavailable }: Eart
 
       const pointPositions: number[] = []
       const pointSizes: number[] = []
-      for (let i = 0; i < STORY_CONFIG.sparkleCount; i++) {
-        const phi = Math.acos(1 - (2 * (i + 0.5)) / STORY_CONFIG.sparkleCount)
+      for (let i = 0; i < sparkleCount; i++) {
+        const phi = Math.acos(1 - (2 * (i + 0.5)) / sparkleCount)
         const theta = Math.PI * (1 + Math.sqrt(5)) * i
         if (Math.random() > STORY_CONFIG.sparkleKeep) continue
         pointPositions.push(

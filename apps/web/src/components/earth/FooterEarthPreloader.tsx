@@ -1,12 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { shouldPreloadEarthAssets } from '@/lib/earth/globe-performance'
 import { preloadFooterEarthAssets } from '@/lib/earth/textures'
 
-/** Warm earth assets when idle — mobile included; respects save-data + reduced-motion only. */
+/** Warm earth textures when idle — skip homepage (story earth handles it). */
 export function FooterEarthPreloader() {
+  const pathname = usePathname()
+
   useEffect(() => {
+    if (pathname === '/') return
     if (!shouldPreloadEarthAssets()) return
 
     const win = window as Window & {
@@ -29,7 +33,7 @@ export function FooterEarthPreloader() {
       if (idleId !== undefined) win.cancelIdleCallback?.(idleId)
       if (timer !== undefined) clearTimeout(timer)
     }
-  }, [])
+  }, [pathname])
 
   return null
 }

@@ -29,6 +29,50 @@ export function canUseWebGL(): boolean {
   }
 }
 
+const SOFTWARE_RENDERER_MARKERS = [
+  'swiftshader',
+  'llvmpipe',
+  'microsoft basic render',
+  'software rasterizer',
+  'mesa offscreen',
+  'angle (microsoft basic render driver)',
+]
+
+/** True on RDP / software GL — use CSS earth, skip WebGL attempt. */
+export function isSoftwareRenderer(): boolean {
+  if (!canUseWebGL()) return true
+  try {
+    const canvas = document.createElement('canvas')
+    const gl =
+      canvas.getContext('webgl') ??
+      (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null)
+    if (!gl) return true
+
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
+    if (!debugInfo) return false
+
+    const renderer = String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)).toLowerCase()
+    return SOFTWARE_RENDERER_MARKERS.some((marker) => renderer.includes(marker))
+  } catch {
+    return true
+  }
+}
+
+export function isLowPowerDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+  if (memory !== undefined && memory <= 4) return true
+  return isSoftwareRenderer()
+}
+
+/** Story/footer 3D earth — CSS fallback on RDP, reduced motion, or blocked WebGL. */
+export function shouldUseWebGLEarth(): boolean {
+  if (prefersReducedMotion()) return false
+  if (!canUseWebGL()) return false
+  if (isSoftwareRenderer()) return false
+  return true
+}
+
 /** Defer heavy earth asset preload on save-data / reduced-motion — not on mobile alone. */
 export function shouldPreloadEarthAssets(): boolean {
   if (prefersReducedMotion()) return false

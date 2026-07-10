@@ -1,5 +1,5 @@
 import type { LenisOptions, ScrollToOptions } from 'lenis'
-import { canUseWebGL } from '@/lib/earth/globe-performance'
+import { shouldUseWebGLEarth } from '@/lib/earth/globe-performance'
 
 /** Expo-out — matches SPLARO --transition-expo feel */
 export const scrollEaseOutExpo = (t: number) =>
@@ -73,7 +73,7 @@ export function isSmoothScrollEligible() {
   if (mq.reduced.matches) return false
   if (mq.coarse.matches || mq.mobileLayout.matches) return false
   // RDP / software GL — Lenis wheel hijack often feels broken; native scroll is safer.
-  if (!canUseWebGL()) return false
+  if (!shouldUseWebGLEarth()) return false
   return true
 }
 
