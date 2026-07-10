@@ -34,9 +34,6 @@ const LENIS_SHARED = {
   anchors: SCROLL_ANCHOR,
 } satisfies Partial<LenisOptions>
 
-/**
- * Desktop wheel — silky inertia; lower lerp = smoother float (not snappy/native).
- */
 const LENIS_DESKTOP_OPTIONS = {
   ...LENIS_SHARED,
   lerp: 0.115,
@@ -55,7 +52,6 @@ function getScrollMedia() {
   }
 }
 
-/** True when opened via LAN IP (192.168.x etc.) — native scroll only for reliable cross-device dev. */
 export function isPrivateNetworkHost(): boolean {
   if (typeof window === 'undefined') return false
   const host = window.location.hostname
@@ -63,7 +59,6 @@ export function isPrivateNetworkHost(): boolean {
   return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
 }
 
-/** Windows desktop browsers (Chrome/Brave/Edge) — Lenis wheel capture often kills scroll + clicks. */
 export function isWindowsClient(): boolean {
   if (typeof navigator === 'undefined') return false
   return /Windows/i.test(navigator.userAgent)
@@ -79,40 +74,13 @@ export function buildLenisOptions(): LenisOptions {
   return LENIS_DESKTOP_OPTIONS
 }
 
-/** Desktop wheel only — touch/mobile and LAN dev use native scroll. */
+/**
+ * Lenis disabled site-wide — native scroll only.
+ * Smooth wheel capture breaks Windows Chrome/Brave (dead scroll/clicks after deploy).
+ * Re-enable only after verified per-OS; Mac native scroll is fine for launch.
+ */
 export function isSmoothScrollEligible() {
-  const mq = getScrollMedia()
-  if (!mq) return false
-  if (mq.reduced.matches) return false
-  if (mq.coarse.matches || mq.mobileLayout.matches) return false
-  // LAN IP dev testing (Windows PC → Mac dev server) — Lenis wheel hijack breaks scroll/clicks.
-  if (isPrivateNetworkHost()) return false
-  if (process.env.NODE_ENV === 'development') return false
-  // splaro.co on Windows — native scroll; Lenis is the #1 "dead site" report on Win/Brave.
-  if (isWindowsClient()) return false
-  // RDP / software GL — native scroll is safer than Lenis wheel capture.
-  try {
-    const canvas = document.createElement('canvas')
-    const gl =
-      canvas.getContext('webgl') ??
-      (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null)
-    if (gl) {
-      const debug = gl.getExtension('WEBGL_debug_renderer_info')
-      if (debug) {
-        const renderer = String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)).toLowerCase()
-        if (
-          /swiftshader|llvmpipe|microsoft basic render|software rasterizer|mesa offscreen|angle \(microsoft basic render driver\)/.test(
-            renderer,
-          )
-        ) {
-          return false
-        }
-      }
-    }
-  } catch {
-    return false
-  }
-  return true
+  return false
 }
 
 /** @deprecated use isSmoothScrollEligible */
@@ -121,22 +89,6 @@ export function isSmoothScrollEnabled() {
 }
 
 export function subscribeSmoothScrollEligibility(onChange: (eligible: boolean) => void) {
-  const mq = getScrollMedia()
-  if (!mq) {
-    onChange(false)
-    return () => {}
-  }
-
-  const sync = () => onChange(isSmoothScrollEligible())
-  sync()
-
-  mq.reduced.addEventListener('change', sync)
-  mq.coarse.addEventListener('change', sync)
-  mq.mobileLayout.addEventListener('change', sync)
-
-  return () => {
-    mq.reduced.removeEventListener('change', sync)
-    mq.coarse.removeEventListener('change', sync)
-    mq.mobileLayout.removeEventListener('change', sync)
-  }
+  onChange(false)
+  return () => {}
 }

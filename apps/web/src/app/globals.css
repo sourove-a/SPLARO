@@ -192,15 +192,18 @@ html.lenis.lenis-stopped {
   overflow: hidden;
 }
 
-/* Windows / recovery — never trap scroll when Lenis is not actively smoothing */
-html:not(.lenis-smooth) {
-  overflow-y: auto;
-  height: auto;
+/* Native scroll path — Lenis disabled; never trap the page */
+html:not(.lenis-smooth),
+html.lenis:not(.lenis-smooth) {
+  overflow-y: auto !important;
+  height: auto !important;
 }
 
-html:not(.lenis-smooth) body {
-  overflow-y: auto;
-  height: auto;
+html:not(.lenis-smooth) body,
+html.lenis:not(.lenis-smooth) body {
+  overflow-y: auto !important;
+  height: auto !important;
+  pointer-events: auto !important;
 }
 
 html.lenis:not(.lenis-autoToggle).lenis-stopped {
