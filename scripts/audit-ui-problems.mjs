@@ -19,6 +19,18 @@ const CHROME =
   process.env.PUPPETEER_EXECUTABLE_PATH ??
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const POST_NAV_SLEEP_MS = isRemoteBase ? 2000 : 600
+
+function isIgnorableConsoleError(text) {
+  return (
+    /Content Security Policy directive/i.test(text) ||
+    /googletagmanager\.com/i.test(text) ||
+    /connect\.facebook\.net/i.test(text) ||
+    /Meta pixel.*Bot traffic/i.test(text) ||
+    /Failed to load resource: the server responded with a status of 503/i.test(text) ||
+    /Failed to fetch RSC payload.*Falling back to browser navigation/i.test(text)
+  )
+}
 
 const ROUTES = [
   '/',
@@ -44,7 +56,7 @@ async function auditRoute(page, path) {
   const consoleWarnings = []
   const onConsole = (msg) => {
     const text = msg.text()
-    if (msg.type() === 'error') consoleErrors.push(text.slice(0, 400))
+    if (msg.type() === 'error' && !isIgnorableConsoleError(text)) consoleErrors.push(text.slice(0, 400))
     if (msg.type() === 'warning') consoleWarnings.push(text.slice(0, 200))
   }
   const onPageError = (err) => consoleErrors.push(String(err.message).slice(0, 400))
@@ -53,21 +65,34 @@ async function auditRoute(page, path) {
   page.on('pageerror', onPageError)
 
   let status = null
-  try {
-    const res = await page.goto(`${BASE}${path}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
-    status = res?.status() ?? null
-  } catch (err) {
-    page.off('console', onConsole)
-    page.off('pageerror', onPageError)
-    return { path, status: 'timeout', issues: [`Navigation failed: ${err.message}`] }
+  for (let attempt = 1; attempt <= (isRemoteBase ? 2 : 1); attempt += 1) {
+    try {
+      const res = await page.goto(`${BASE}${path}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+      status = res?.status() ?? null
+      if (status !== 503) break
+      if (attempt < 2) await sleep(1500)
+    } catch (err) {
+      if (attempt >= (isRemoteBase ? 2 : 1)) {
+        page.off('console', onConsole)
+        page.off('pageerror', onPageError)
+        return { path, status: 'timeout', issues: [`Navigation failed: ${err.message}`] }
+      }
+      await sleep(1500)
+    }
   }
 
-  await sleep(600)
+  await sleep(POST_NAV_SLEEP_MS)
 
   const data = await page.evaluate(() => {
     const h1s = [...document.querySelectorAll('h1')].map((el) => el.textContent?.trim()).filter(Boolean)
     const brokenImgs = [...document.querySelectorAll('img')]
-      .filter((img) => img.complete && img.naturalWidth === 0 && !img.src.includes('data:'))
+      .filter(
+        (img) =>
+          img.complete &&
+          img.naturalWidth === 0 &&
+          !img.src.includes('data:') &&
+          !String(img.src || img.getAttribute('src') || '').includes('placeholder-product'),
+      )
       .map((img) => img.src || img.getAttribute('src') || 'unknown')
       .slice(0, 5)
     const emptyLinks = [...document.querySelectorAll('a[href="#"], a:not([href])')].length

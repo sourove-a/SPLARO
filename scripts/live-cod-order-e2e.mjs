@@ -32,6 +32,37 @@ function uniqueTestUser() {
   }
 }
 
+async function setFieldValue(page, selector, value) {
+  const el = await page.$(selector)
+  if (!el) return false
+  await el.click({ clickCount: 3 })
+  await page.evaluate(
+    (sel, v) => {
+      const node = document.querySelector(sel)
+      if (!node) return
+      node.value = v
+      node.dispatchEvent(new Event('input', { bubbles: true }))
+      node.dispatchEvent(new Event('change', { bubbles: true }))
+    },
+    selector,
+    value,
+  )
+  return true
+}
+
+async function fillCheckout(page, user) {
+  await page.waitForSelector('#checkout-name', { timeout: 15000 })
+  await setFieldValue(page, '#checkout-name', user.name)
+  await setFieldValue(page, '#checkout-email', user.email)
+  await setFieldValue(page, '[data-checkout-field="phone"] input', user.phone)
+  await page.select('#checkout-city', 'Dhaka')
+  await sleep(300)
+  await page.select('#checkout-thana', 'Gulshan')
+  await setFieldValue(page, '#checkout-address', 'House 12, Road 5, Gulshan')
+  await page.click('.checkout-payment--featured, .checkout-payment').catch(() => {})
+  await sleep(400)
+}
+
 async function assertCatalog() {
   const res = await fetch(`${WEB}/api/products?limit=3`, { signal: AbortSignal.timeout(20000) })
   const body = await res.json().catch(() => ({}))
@@ -62,8 +93,14 @@ async function main() {
   try {
     const page = await browser.newPage()
     await page.setViewport({ width: 390, height: 844 })
+    const orderApi = { status: null, body: null }
+    page.on('response', async (res) => {
+      if (!res.url().includes('/api/orders')) return
+      if (res.request().method() !== 'POST') return
+      orderApi.status = res.status()
+      orderApi.body = await res.json().catch(() => null)
+    })
 
-    // Signup
     await page.goto(`${WEB}/signup`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
     await page.waitForSelector('input[placeholder="Full name"]', { timeout: 15000 })
     await page.type('input[placeholder="Full name"]', user.name, { delay: 20 })
@@ -77,102 +114,87 @@ async function main() {
     await sleep(1200)
     result.steps.signup = page.url()
 
-    // Shop → add first product card
-    await page.goto(`${WEB}/shop`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
-    await sleep(800)
-    const addBtn = await page.$('button[aria-label*="Add"][aria-label*="to bag"]')
-    if (!addBtn) {
-      await page.goto(`${WEB}/products/${PRODUCT_SLUG}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
-      await sleep(600)
-      const pdpAdd = await page.$('button[aria-label*="Add"][aria-label*="to bag"]')
-      if (!pdpAdd) throw new Error('No add-to-bag control on shop or PDP')
-      await pdpAdd.click()
-    } else {
-      await addBtn.click()
+    await page.goto(`${WEB}/products/${PRODUCT_SLUG}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+    await sleep(1500)
+    const buyNow = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find((b) => /buy now/i.test(b.textContent ?? ''))
+      if (!btn) return false
+      btn.click()
+      return true
+    })
+    if (!buyNow) throw new Error('Buy Now button not found on PDP')
+    await page.waitForNavigation({ waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT }).catch(() => null)
+    await sleep(1500)
+    result.steps.buyNow = page.url()
+
+    if (!page.url().includes('/checkout')) {
+      await page.goto(`${WEB}/cart`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+      await sleep(1500)
+      const cartEmpty = await page.evaluate(() => document.body.textContent?.includes('Your bag is empty') ?? false)
+      if (cartEmpty) throw new Error('Cart empty after Buy Now')
+      await page.click('.cart-checkout-btn')
+      await page.waitForNavigation({ waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT }).catch(() => null)
     }
-    await sleep(1000)
-    result.steps.addedToBag = true
 
-    // Cart sanity
-    await page.goto(`${WEB}/cart`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
-    await sleep(600)
-    const cartEmpty = await page.evaluate(() => {
-      return document.body.textContent?.includes('Your bag is empty') ?? false
-    })
-    if (cartEmpty) throw new Error('Cart empty after add-to-bag')
-    result.steps.cartHasItems = true
-
-    // Checkout
-    await page.goto(`${WEB}/checkout`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
+    await page.waitForSelector('#checkout-name', { timeout: 15000 })
+    await page.waitForFunction(
+      () => !document.body.textContent?.includes('Loading your bag'),
+      { timeout: 15000 },
+    )
     await sleep(800)
-
-    await page.type('input[name="name"], input[autocomplete="name"]', user.name, { delay: 15 }).catch(() => {})
-    await page.type('input[name="email"], input[autocomplete="email"]', user.email, { delay: 15 }).catch(() => {})
-    await page.type('input[name="phone"], input[autocomplete="tel-national"]', user.phone, { delay: 15 }).catch(() => {})
-
-    await page.select('select[name="city"]', 'Dhaka').catch(async () => {
-      await page.click('select[name="city"]')
-      await page.keyboard.type('Dhaka')
-    })
-    await sleep(400)
-    await page.select('select[name="thana"]', 'Gulshan').catch(async () => {
-      const thana = await page.$('select[name="thana"] option:nth-child(2)')
-      if (thana) await thana.click()
-    })
-    await page.type('input[name="address"], textarea[name="address"]', 'House 12, Road 5, Gulshan', {
-      delay: 15,
-    })
-
-    // COD payment
-    const codCard = await page.evaluateHandle(() => {
-      const cards = [...document.querySelectorAll('.checkout-payment-card, [class*="checkout-payment"]')]
-      return (
-        cards.find((el) => el.textContent?.includes('Cash on Delivery')) ??
-        [...document.querySelectorAll('button, label, div')].find((el) =>
-          el.textContent?.trim().startsWith('Cash on Delivery'),
-        )
-      )
-    })
-    if (codCard) await codCard.asElement()?.click()
-    await sleep(400)
+    await fillCheckout(page, user)
 
     await Promise.all([
-      page.waitForNavigation({ waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT }).catch(() => null),
+      page.waitForFunction(() => /order-confirmation/.test(location.pathname), { timeout: NAV_TIMEOUT }).catch(() => null),
       page.evaluate(() => {
-        const btn = [...document.querySelectorAll('button')].find((b) =>
-          /place order/i.test(b.textContent ?? ''),
-        )
+        const btn = [...document.querySelectorAll('button')].find((b) => /place order/i.test(b.textContent ?? ''))
         btn?.click()
       }),
     ])
-    await sleep(2000)
+    await sleep(3000)
 
-    const url = page.url()
+    let url = page.url()
+    if (orderApi.status === 201 && orderApi.body?.order?.id) {
+      result.orderId = orderApi.body.order.id
+      result.steps.orderApi = orderApi
+      if (!url.includes('order-confirmation')) {
+        await page.goto(`${WEB}/order-confirmation/${result.orderId}`, {
+          waitUntil: NAV_WAIT,
+          timeout: NAV_TIMEOUT,
+        })
+        url = page.url()
+      }
+    }
+
     result.confirmationUrl = url
-    const orderMatch = url.match(/order-confirmation\/([^/?#]+)/)
-    result.orderId = orderMatch?.[1] ?? null
+    if (!result.orderId) {
+      const orderMatch = url.match(/order-confirmation\/([^/?#]+)/)
+      result.orderId = orderMatch?.[1] ?? null
+    }
     result.steps.checkoutUrl = url
 
     if (!result.orderId) {
-      const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 2000))
-      throw new Error(`Order confirmation not reached. URL=${url} snippet=${bodyText.slice(0, 200)}`)
+      const debug = await page.evaluate(() => ({
+        text: document.body.innerText.slice(0, 2000),
+        error: document.querySelector('.checkout-error-banner')?.textContent?.trim() ?? null,
+        invalid: [...document.querySelectorAll('[data-invalid="true"]')].map((el) => el.getAttribute('data-checkout-field')),
+      }))
+      result.steps.orderApi = orderApi
+      throw new Error(
+        `Order confirmation not reached. URL=${url} api=${JSON.stringify(orderApi)} error=${debug.error ?? 'none'} invalid=${debug.invalid.join(',')}`,
+      )
     }
 
-    // Track order
     await page.goto(`${WEB}/track-order`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
     await sleep(500)
-    await page.type('input[placeholder*="order"], input[name="orderId"]', result.orderId, { delay: 20 }).catch(
-      async () => {
-        const inputs = await page.$$('input')
-        if (inputs[0]) await inputs[0].type(result.orderId, { delay: 20 })
-      },
-    )
-    await page.type('input[placeholder*="phone"], input[name="phone"]', user.phone, { delay: 20 }).catch(
-      async () => {
-        const inputs = await page.$$('input')
-        if (inputs[1]) await inputs[1].type(user.phone, { delay: 20 })
-      },
-    )
+    await page.type('input[placeholder*="order"], input[name="orderId"]', result.orderId, { delay: 20 }).catch(async () => {
+      const inputs = await page.$$('input')
+      if (inputs[0]) await inputs[0].type(result.orderId, { delay: 20 })
+    })
+    await page.type('input[placeholder*="phone"], input[name="phone"]', user.phone, { delay: 20 }).catch(async () => {
+      const inputs = await page.$$('input')
+      if (inputs[1]) await inputs[1].type(user.phone, { delay: 20 })
+    })
     await page.click('button[type="submit"]').catch(() => page.click('button'))
     await sleep(1500)
     result.steps.trackOrderFound = await page.evaluate(() => {

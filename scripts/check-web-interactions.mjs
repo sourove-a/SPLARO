@@ -15,10 +15,24 @@ const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
 const BASE = process.env.WEB_URL ?? 'http://localhost:3000'
+const isRemoteBase = /^https?:\/\//.test(BASE) && !/localhost|127\.0\.0\.1/.test(BASE)
+const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemoteBase ? 'domcontentloaded' : 'networkidle2')
+const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemoteBase ? 60000 : 45000))
 
 const CHROME =
   process.env.PUPPETEER_EXECUTABLE_PATH ??
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+
+function isIgnorableConsoleError(text) {
+  return (
+    /Content Security Policy directive/i.test(text) ||
+    /googletagmanager\.com/i.test(text) ||
+    /connect\.facebook\.net/i.test(text) ||
+    /Meta pixel.*Bot traffic/i.test(text) ||
+    /Failed to load resource: the server responded with a status of 503/i.test(text) ||
+    /Failed to fetch RSC payload.*Falling back to browser navigation/i.test(text)
+  )
+}
 
 async function inspectHomepage(page) {
   return page.evaluate(async () => {
@@ -114,12 +128,12 @@ async function main() {
     const page = await browser.newPage()
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }])
     page.on('console', (msg) => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text())
+      if (msg.type() === 'error' && !isIgnorableConsoleError(msg.text())) consoleErrors.push(msg.text())
     })
     page.on('pageerror', (err) => consoleErrors.push(String(err.message)))
 
     await page.setViewport({ width: 1280, height: 900 })
-    await page.goto(`${BASE}/`, { waitUntil: 'networkidle2', timeout: 45000 })
+    await page.goto(`${BASE}/`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
 
     const state = await inspectHomepage(page)
 

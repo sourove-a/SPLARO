@@ -12,6 +12,12 @@ const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
 const BASE = process.env.WEB_URL ?? 'http://localhost:3000'
+const isRemoteBase = /^https?:\/\//.test(BASE) && !/localhost|127\.0\.0\.1/.test(BASE)
+const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemoteBase ? 'domcontentloaded' : 'networkidle2')
+const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemoteBase ? 60000 : 30000))
+const CHROME =
+  process.env.PUPPETEER_EXECUTABLE_PATH ??
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 async function inspectPage(page) {
   return page.evaluate(async () => {
@@ -39,6 +45,9 @@ async function main() {
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    ...(process.env.PUPPETEER_EXECUTABLE_PATH || CHROME
+      ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? CHROME }
+      : {}),
   })
 
   const results = []
@@ -48,7 +57,7 @@ async function main() {
 
     for (const path of ['/', '/collections']) {
       for (let i = 0; i < 2; i++) {
-        await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle2', timeout: 30000 })
+        await page.goto(`${BASE}${path}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
         const state = await inspectPage(page)
         results.push({ path, refresh: i + 1, ...state })
       }

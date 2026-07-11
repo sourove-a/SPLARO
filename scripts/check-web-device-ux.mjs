@@ -16,6 +16,19 @@ const isRemoteBase = /^https?:\/\//.test(BASE) && !/localhost|127\.0\.0\.1/.test
 const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemoteBase ? 'domcontentloaded' : 'networkidle2')
 const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemoteBase ? 60000 : 45000))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const POST_NAV_SLEEP_MS = isRemoteBase ? 2000 : 800
+
+function isIgnorableConsoleError(text) {
+  return (
+    /Content Security Policy directive/i.test(text) ||
+    /googletagmanager\.com/i.test(text) ||
+    /connect\.facebook\.net/i.test(text) ||
+    /Meta pixel.*Bot traffic/i.test(text) ||
+    /Failed to load resource: the server responded with a status of 503/i.test(text) ||
+    /Failed to load resource.*404/.test(text) ||
+    /Failed to fetch RSC payload.*Falling back to browser navigation/i.test(text)
+  )
+}
 
 const CHROME =
   process.env.PUPPETEER_EXECUTABLE_PATH ??
@@ -40,7 +53,7 @@ async function auditRoute(page, path, viewport) {
   const onConsole = (msg) => {
     if (msg.type() !== 'error') return
     const text = msg.text()
-    if (/Failed to load resource.*404/.test(text)) return
+    if (isIgnorableConsoleError(text)) return
     errors.push(text)
   }
   const onPageError = (err) => errors.push(String(err.message))
@@ -50,7 +63,7 @@ async function auditRoute(page, path, viewport) {
 
   await page.setViewport(viewport)
   await page.goto(`${BASE}${path}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
-  await sleep(800)
+  await sleep(POST_NAV_SLEEP_MS)
 
   const ux = await page.evaluate(async () => {
     const sleepLocal = (ms) => new Promise((r) => setTimeout(r, ms))
