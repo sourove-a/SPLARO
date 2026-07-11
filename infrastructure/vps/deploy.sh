@@ -150,6 +150,26 @@ maybe_purge_demo_catalog() {
   pnpm db:purge-demo 2>&1 | tail -12 || log "WARN: demo purge script failed"
 }
 
+maybe_seed_demo_catalog() {
+  if [ -z "${INTERNAL_HEALTH_SECRET:-}" ]; then
+    log "Demo seed skipped — INTERNAL_HEALTH_SECRET unset"
+    return 0
+  fi
+
+  local store="${NEXT_PUBLIC_STORE_ID:-splaro}"
+  local body_file
+  body_file="$(mktemp)"
+  local code
+  code="$(curl -s -m 120 -o "$body_file" -w '%{http_code}' -X POST \
+    "http://127.0.0.1:4000/api/v1/storefront/deploy/seed-demo?storeId=${store}" \
+    -H "x-splaro-internal: ${INTERNAL_HEALTH_SECRET}" \
+    -H "Content-Type: application/json" || echo 000)"
+  local body
+  body="$(tr -d '\n' < "$body_file" | head -c 400)"
+  rm -f "$body_file"
+  log "Demo seed (if empty): HTTP $code — $body"
+}
+
 maybe_reindex_search() {
   if [ -z "${INTERNAL_HEALTH_SECRET:-}" ] || [ -z "${MEILISEARCH_HOST:-}" ]; then
     return 0
@@ -224,6 +244,7 @@ wait_for_local_health "http://127.0.0.1:3000/" "web" 20 2 || true
 wait_for_local_health "http://127.0.0.1:4000/api/v1/health" "api" 40 3 || die "Health check failed — pm2 logs splaro-api"
 
 maybe_purge_demo_catalog
+maybe_seed_demo_catalog
 maybe_reindex_search
 maybe_revalidate_storefront
 

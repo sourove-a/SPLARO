@@ -12,6 +12,9 @@ const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
 const BASE = process.env.WEB_URL ?? 'http://localhost:3000'
+const isRemoteBase = /^https?:\/\//.test(BASE) && !/localhost|127\.0\.0\.1/.test(BASE)
+const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemoteBase ? 'domcontentloaded' : 'networkidle2')
+const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemoteBase ? 60000 : 45000))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const CHROME =
@@ -46,7 +49,7 @@ async function auditRoute(page, path, viewport) {
   page.on('pageerror', onPageError)
 
   await page.setViewport(viewport)
-  await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle2', timeout: 45000 })
+  await page.goto(`${BASE}${path}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT })
   await sleep(800)
 
   const ux = await page.evaluate(async () => {
