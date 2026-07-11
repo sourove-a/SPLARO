@@ -4,6 +4,7 @@ import type { ColorOption, StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import { sanitizeStorefrontDescription, sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
 import {
   LISTING_PAGE_SIZE,
   type StorefrontListingQuery,
@@ -275,7 +276,7 @@ export function mapLiveProduct(
     id: p.id,
     slug: p.slug,
     name: p.name,
-    code: p.sku ?? p.slug.toUpperCase().slice(0, 8),
+    code: sanitizeStorefrontProductCode(p.sku, p.slug) ?? '',
     category,
     ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
     ...(p.category?.name ? { categoryName: p.category.name } : {}),
@@ -326,6 +327,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     : {}
   const nameBn = typeof schema.nameBn === 'string' ? schema.nameBn : undefined
   const weavingType = typeof schema.weavingType === 'string' ? schema.weavingType : undefined
+  const publicSku = sanitizeStorefrontProductCode(p.sku, p.slug)
 
   const product: ProductDetailData = {
     id: mapped.id,
@@ -344,11 +346,12 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     reviewCount: reviewCount > 0 ? reviewCount : 0,
     category,
     collectionSlug: slugFromCategory(category),
-    description:
-      p.description?.trim() ||
+    description: sanitizeStorefrontDescription(
+      p.description,
       `${p.name} is crafted with ${(p.fabricContent ?? 'premium fabric').toLowerCase()} and a ${(p.fitType ?? 'regular').toLowerCase()} fit.`,
+    ),
     ...(p.shortDescription ? { shortDescription: p.shortDescription } : {}),
-    ...(p.sku ? { sku: p.sku } : {}),
+    ...(publicSku ? { sku: publicSku } : {}),
     ...(p.fabricContent ? { fabricContent: p.fabricContent } : {}),
     ...(weavingType ? { weavingType } : {}),
     ...(p.careInstructions ? { careInstructions: p.careInstructions } : {}),

@@ -338,7 +338,9 @@ export function ProductDetailPanel({
                 <div>
                   <p className="pdp-eyebrow">SPLARO</p>
                   <h2 className="pdp-name">{product.name}</h2>
-                  <p className="pdp-code">Product Code · {product.code}</p>
+                  {product.code ? (
+                    <p className="pdp-code">Product Code · {product.code}</p>
+                  ) : null}
                 </div>
                 <MotionPressable className="pdp-close-info" onClick={onClose} aria-label="Close" variant="icon">
                   <X className="h-[0.9rem] w-[0.9rem]" strokeWidth={2.2} />

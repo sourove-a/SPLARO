@@ -41,6 +41,7 @@ import { trackAddToCart, trackViewContent } from '@/lib/analytics/meta-pixel'
 import type { ProductDetailData, ProductCardData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import { sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
@@ -197,15 +198,18 @@ export default function ProductPageClient({
   }, [colorOptions, product.variants])
 
   const media = useMemo(() => {
+    const normalizeImageUrl = (url: string) =>
+      sanitizeRemoteImageUrl(url) || PRODUCT_IMAGE_PLACEHOLDER
+
     const baseGallery = product.media?.length
       ? product.media
           .map((item) => ({
             type: item.type,
-            url: item.type === 'image' ? sanitizeRemoteImageUrl(item.url) : item.url,
+            url: item.type === 'image' ? normalizeImageUrl(item.url) : item.url,
           }))
           .filter((item) => Boolean(item.url))
       : product.images
-          .map((url) => ({ type: 'image' as const, url: sanitizeRemoteImageUrl(url) }))
+          .map((url) => ({ type: 'image' as const, url: normalizeImageUrl(url) }))
           .filter((item) => Boolean(item.url))
 
     const hex = selectedColor?.toLowerCase()
@@ -230,12 +234,9 @@ export default function ProductPageClient({
     return sortSizes(Array.from(unique) as string[], product.category)
   }, [product.variants, product.category])
 
-  const showColorPicker = useMemo(() => {
-    if (colorOptions.length > 1) return true
-    if (colorOptions.length === 0) return false
-    const name = colorOptions[0]?.name.trim().toLowerCase() ?? ''
-    return name !== 'default' && name !== 'selected'
-  }, [colorOptions])
+  const showColorPicker = colorOptions.length > 1
+
+  const displayProductCode = sanitizeStorefrontProductCode(product.sku, product.slug)
 
   const sizeStock = useMemo(() => {
     const map = new Map<string, number>()
@@ -308,8 +309,6 @@ export default function ProductPageClient({
       img.src = optimizeImageSrc(item.url, 'gallery')
     }
   }, [activeImage, media])
-
-  const productCode = product.sku ?? product.slug.replace(/-/g, ' ').slice(0, 12).toUpperCase()
 
   const detailSections = useMemo(() => {
     const sections: { id: string; content: string }[] = []
@@ -613,7 +612,9 @@ export default function ProductPageClient({
               {product.weavingType ? (
                 <p className="pp-info__weave">{product.weavingType}</p>
               ) : null}
-              <p className="pp-info__code">Product Code: {productCode}</p>
+              {displayProductCode ? (
+                <p className="pp-info__code">Product Code: {displayProductCode}</p>
+              ) : null}
               {(() => {
                 // Honest rating only: backend aggregate, else average of real
                 // approved reviews on this page — never an invented default.

@@ -92,9 +92,9 @@ export async function seedDemoCatalogCore(
         categoryId,
         slug: demo.slug,
         name: demo.name,
-        shortDescription: 'Premium SPLARO piece — demo catalog for checkout testing.',
+        shortDescription: 'Premium SPLARO piece — available now.',
         description:
-          'Seeded demo product. Replace with real inventory via admin when ready.',
+          'Crafted for everyday elegance with refined finishing and breathable comfort. Update photos and copy in admin when your final inventory is ready.',
         basePrice: demo.basePrice,
         compareAtPrice: demo.compareAtPrice ?? null,
         isPublished: true,
