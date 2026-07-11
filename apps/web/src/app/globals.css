@@ -121,6 +121,8 @@
 
 html {
   scroll-behavior: auto;
+  /* Windows classic scrollbars: reserve gutter so modal scroll-locks don't shift layout */
+  scrollbar-gutter: stable;
   scroll-padding-top: var(--site-content-pad);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -6810,14 +6812,8 @@ html[data-home-hero='top'] #main-content {
   display: flex;
   gap: 0.35rem;
   width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
   padding: 0.1rem 0;
   -webkit-overflow-scrolling: touch;
-}
-
-.reels-platform-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .reels-platform-tabs__btn {
@@ -7037,15 +7033,8 @@ html[data-home-hero='top'] #main-content {
 .reels-track {
   display: flex;
   gap: 0.85rem;
-  overflow-x: auto;
   scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
   padding: 0.25rem 0.15rem 0.75rem;
-}
-
-.reels-track::-webkit-scrollbar {
-  display: none;
 }
 
 .reels-card {
@@ -7493,9 +7482,23 @@ html[data-home-hero='top'] #main-content {
    ═══════════════════════════════════════════════════════════ */
 
 .story-section {
+  position: relative;
   overflow-x: clip;
   background: #ffffff;
   padding: 2.5rem 0 2.75rem;
+}
+
+/* Shield — homepage canvas is #080808; reveal-translate / scroll jank can open a
+   transient gap above this section. Paint it ivory so black never peeks through. */
+.story-section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -64px;
+  height: 64px;
+  background: #faf8f5;
+  pointer-events: none;
 }
 
 @media (min-width: 1024px) {
@@ -9146,6 +9149,7 @@ body[data-filter-open='true'] [data-floating-system] {
   --ilyn-info-gap: 1.25rem;
   --ilyn-action-border: #d8d8d8;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--page-content-top) 0 calc(6rem + env(safe-area-inset-bottom));
   color: #101114;
   background: var(--ilyn-page-bg);
@@ -9392,15 +9396,8 @@ body[data-filter-open='true'] [data-floating-system] {
   .shop-collections__row {
     display: flex;
     gap: 0.75rem;
-    overflow-x: auto;
     padding-bottom: 0.35rem;
     scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .shop-collections__row::-webkit-scrollbar {
-    display: none;
   }
 }
 
@@ -9840,12 +9837,6 @@ body[data-filter-open='true'] [data-floating-system] {
     inset 0 1px 0 rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(24px) saturate(1.45);
   -webkit-backdrop-filter: blur(24px) saturate(1.45);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.shop-category-pill__track::-webkit-scrollbar {
-  display: none;
 }
 
 .shop-category-pill__item {
@@ -13515,6 +13506,33 @@ body[data-filter-open='true'] [data-floating-system] {
 .checkout-success {
   display: grid;
   gap: 1rem;
+}
+
+.checkout-payment-pending {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(180, 120, 40, 0.28);
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(255, 255, 255, 0.92));
+  color: rgba(16, 17, 20, 0.82);
+}
+
+.checkout-payment-pending__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.checkout-payment-pending__copy {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: rgba(16, 17, 20, 0.62);
 }
 
 .checkout-success__hero {
@@ -19355,11 +19373,8 @@ body {
   letter-spacing: 0;
 }
 
-.ed-tiles,
-.ed-catalog,
-.ig-section {
-  background: transparent;
-}
+/* Solid light backgrounds stay — homepage #main-content canvas is #080808,
+   transparent here leaks black bands between sections. */
 
 .ed-tiles__eyebrow,
 .ig-eyebrow {
@@ -23548,6 +23563,7 @@ body {
 /* ── Track Order — premium liquid glass ───────────────────── */
 .track-page {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 7.5rem 0.85rem 4rem;
   color: #101114;
   background:
@@ -24638,6 +24654,12 @@ body {
 .shop-product-grid--homepage {
   gap: 2rem 1rem;
   margin-top: 0;
+}
+
+@media (max-width: 767px) {
+  .shop-product-grid--homepage > *:nth-child(n + 7) {
+    display: none;
+  }
 }
 
 @media (min-width: 768px) {
@@ -26752,7 +26774,8 @@ body {
   color: rgba(255, 255, 255, 0.82);
 }
 
-.home-hero-slider .hero-content h1 {
+.home-hero-slider .hero-content h1,
+.home-hero-slider .hero-content .hero-title {
   margin: 0;
   font-family: var(--font-inter), system-ui, sans-serif;
   font-size: clamp(44px, 6vw, 82px);
@@ -27496,4 +27519,453 @@ body {
   .auth-shell__earth-canvas {
     animation: auth-earth-float 24s ease-in-out infinite !important;
   }
+}
+
+
+/* ── Horizontal scroll rails (all devices) ──────────────────────── */
+.h-scroll-rail {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.h-scroll-rail__track {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 169, 126, 0.55) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-scroll-rail__track {
+    scroll-behavior: auto;
+  }
+}
+
+.h-scroll-rail__track::-webkit-scrollbar {
+  height: 4px;
+}
+
+.h-scroll-rail__track::-webkit-scrollbar-thumb {
+  background: rgba(200, 169, 126, 0.55);
+  border-radius: 999px;
+}
+
+.h-scroll-rail__track::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (pointer: fine) {
+  html:not([data-scroll-hints='thin']) .h-scroll-rail__track {
+    scrollbar-width: none;
+  }
+
+  html:not([data-scroll-hints='thin']) .h-scroll-rail__track::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.h-scroll-rail__btn {
+  display: none;
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: rgba(16, 17, 20, 0.82);
+  box-shadow: 0 10px 28px rgba(16, 17, 20, 0.12);
+  transform: translateY(-50%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.h-scroll-rail--controls .h-scroll-rail__btn {
+  display: inline-flex;
+}
+
+.h-scroll-rail__btn:disabled {
+  opacity: 0.32;
+  cursor: default;
+  box-shadow: none;
+}
+
+.h-scroll-rail__btn:not(:disabled):hover {
+  transform: translateY(-50%) scale(1.04);
+}
+
+.h-scroll-rail__btn:not(:disabled):active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.h-scroll-rail__btn--prev {
+  left: 0.25rem;
+}
+
+.h-scroll-rail__btn--next {
+  right: 0.25rem;
+}
+
+.h-scroll-rail--pill .h-scroll-rail__btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.h-scroll-rail--pill .h-scroll-rail__btn--prev {
+  left: 0.15rem;
+}
+
+.h-scroll-rail--pill .h-scroll-rail__btn--next {
+  right: 0.15rem;
+}
+
+.h-scroll-rail--pill .h-scroll-rail__btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+@media (pointer: coarse) {
+  .h-scroll-rail__btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .h-scroll-rail--pill .h-scroll-rail__btn {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+}
+
+/* Edge fade — shows more content exists (all devices) */
+.h-scroll-rail--controls::before,
+.h-scroll-rail--controls::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2.5rem;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.h-scroll-rail--controls::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(247, 248, 250, 0.96) 0%, transparent 100%);
+}
+
+.h-scroll-rail--controls::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(247, 248, 250, 0.96) 0%, transparent 100%);
+}
+
+.h-scroll-rail--can-left::before {
+  opacity: 1;
+}
+
+.h-scroll-rail--can-right::after {
+  opacity: 1;
+}
+
+.h-scroll-rail--controls .h-scroll-rail__track.reels-track {
+  padding-inline: 2.35rem;
+  scroll-padding-inline: 2.35rem;
+}
+
+.h-scroll-rail--controls .h-scroll-rail__track.shop-collections__row {
+  scroll-padding-inline: 2rem;
+}
+
+@media (max-width: 1279px) {
+  .h-scroll-rail--controls .h-scroll-rail__track.shop-collections__row {
+    padding-inline: 2rem;
+  }
+}
+
+.h-scroll-rail--controls .h-scroll-rail__track.shop-category-pill__track {
+  scroll-padding-inline: 1.85rem;
+}
+
+.reels-platform-tabs-wrap,
+.product-mini-row__rail,
+.accessories-toolbar__rail,
+.pp-color-rail,
+.pdp-gallery__thumbrail,
+.mobile-filter-drawer__chips-rail,
+.shop-category-pill__rail,
+.shop-collections__rail {
+  min-width: 0;
+  width: 100%;
+}
+
+.footwear-row__track {
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  padding-inline: 1rem;
+  scroll-snap-type: x proximity;
+}
+
+@media (min-width: 768px) {
+  .footwear-row__track {
+    padding-inline: 0;
+  }
+}
+
+.footwear-row__track > * {
+  scroll-snap-align: start;
+}
+
+.h-scroll-rail--fade-only::before,
+.h-scroll-rail--fade-only::after {
+  opacity: 0;
+}
+
+.h-scroll-rail--fade-only.h-scroll-rail--can-left::before,
+.h-scroll-rail--fade-only.h-scroll-rail--can-right::after {
+  opacity: 1;
+}
+
+/* ── Cross-Device Accessibility Fixes (mouse / Windows) ─────────── */
+html[data-scroll-hints='thin'] .h-scroll-rail__track,
+html[data-scroll-hints='thin'] .reels-platform-tabs,
+html[data-scroll-hints='thin'] .reels-track,
+html[data-scroll-hints='thin'] .shop-collections__row,
+html[data-scroll-hints='thin'] .shop-category-pill__track,
+html[data-scroll-hints='thin'] .shop-category-scroll,
+html[data-scroll-hints='thin'] .shop-toolbar__filters,
+html[data-scroll-hints='thin'] .shop-filter-panel__active-chips,
+html[data-scroll-hints='thin'] .mobile-filter-drawer__active-chips,
+html[data-scroll-hints='thin'] .pp-gallery__thumbstrip,
+html[data-scroll-hints='thin'] .pdp-gallery__thumbstrip,
+html[data-scroll-hints='thin'] .mega-menu-heroes-slider__track,
+html[data-scroll-hints='thin'] .accessories-toolbar__scroll,
+html[data-scroll-hints='thin'] .product-mini-row__scroll,
+html[data-scroll-hints='thin'] .footwear-row__track,
+html[data-scroll-hints='thin'] .pp-view .pp-color-row,
+html[data-scroll-hints='thin'] .pp-color-row {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(200, 169, 126, 0.45) transparent !important;
+}
+
+html[data-scroll-hints='thin'] .h-scroll-rail__track::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .reels-platform-tabs::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .reels-track::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .shop-collections__row::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .shop-category-pill__track::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .shop-category-scroll::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .shop-toolbar__filters::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .shop-filter-panel__active-chips::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .mobile-filter-drawer__active-chips::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .pp-gallery__thumbstrip::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .pdp-gallery__thumbstrip::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .mega-menu-heroes-slider__track::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .accessories-toolbar__scroll::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .product-mini-row__scroll::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .footwear-row__track::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .pp-view .pp-color-row::-webkit-scrollbar,
+html[data-scroll-hints='thin'] .pp-color-row::-webkit-scrollbar {
+  display: block !important;
+  height: 4px !important;
+  background: transparent !important;
+}
+
+html[data-scroll-hints='thin'] .h-scroll-rail__track::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .reels-platform-tabs::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .reels-track::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .shop-collections__row::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .shop-category-pill__track::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .shop-category-scroll::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .shop-toolbar__filters::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .shop-filter-panel__active-chips::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .mobile-filter-drawer__active-chips::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .pp-gallery__thumbstrip::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .pdp-gallery__thumbstrip::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .mega-menu-heroes-slider__track::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .accessories-toolbar__scroll::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .product-mini-row__scroll::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .footwear-row__track::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .pp-view .pp-color-row::-webkit-scrollbar-thumb,
+html[data-scroll-hints='thin'] .pp-color-row::-webkit-scrollbar-thumb {
+  background: rgba(200, 169, 126, 0.45) !important;
+  border-radius: 4px !important;
+}
+
+/* Footwear — touch-visible Add to Bag */
+.footwear-card__cta {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .footwear-card__cta {
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+  }
+
+  .footwear-card__cta--hover,
+  .footwear-card:hover .footwear-card__cta {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+/* PDP — sticky purchase bar (mobile) */
+.pp-mobile-sticky-bar {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .pp-mobile-sticky-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--mobile-nav-total) + env(safe-area-inset-bottom));
+    z-index: 45;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(255, 255, 255, 0.94);
+    border-top: 1px solid rgba(16, 17, 20, 0.08);
+    backdrop-filter: blur(22px) saturate(1.35);
+    -webkit-backdrop-filter: blur(22px) saturate(1.35);
+    box-shadow: 0 -12px 36px rgba(16, 17, 20, 0.08);
+  }
+
+  .pp-mobile-sticky-bar__price {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 5.5rem;
+    padding-right: 0.35rem;
+  }
+
+  .pp-mobile-sticky-bar__price-value {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #101114;
+    line-height: 1.1;
+  }
+
+  .pp-mobile-sticky-bar__price-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(16, 17, 20, 0.45);
+  }
+
+  .pp-mobile-sticky-bar__actions {
+    display: flex;
+    flex: 1;
+    gap: 0.45rem;
+  }
+
+  .pp-mobile-sticky-bar__btn {
+    flex: 1;
+    min-height: 2.75rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .pp-mobile-sticky-bar__btn--add {
+    border: 1px solid rgba(16, 17, 20, 0.12);
+    background: rgba(255, 255, 255, 0.92);
+    color: #101114;
+  }
+
+  .pp-mobile-sticky-bar__btn--buy {
+    border: none;
+    background: #101114;
+    color: #fff;
+  }
+
+  .pp-mobile-sticky-bar__btn:disabled {
+    opacity: 0.45;
+  }
+}
+
+/* Touch targets — min 44px interactive zones on mobile */
+@media (max-width: 1023px) {
+  .shop-category-pill__item,
+  .shop-filter-trigger,
+  .h-scroll-rail__btn,
+  .support-glass-btn {
+    min-height: 2.75rem;
+  }
+}
+
+/* ── Cross-browser resilience ───────────────────────────────────── */
+
+/* Glass fallback — GPU-blocked / old browsers where backdrop-filter is unavailable */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-panel,
+  .checkout-glass-panel,
+  .site-header-glass,
+  .pp-mobile-sticky-bar,
+  .mobile-filter-drawer,
+  .search-modal {
+    background: rgba(255, 255, 255, 0.97) !important;
+  }
+}
+
+/* Windows High Contrast / forced colors — keep controls visible */
+@media (forced-colors: active) {
+  .glass-panel,
+  .checkout-glass-panel,
+  .site-header-glass,
+  .pp-mobile-sticky-bar,
+  .h-scroll-rail__btn,
+  .btn-luxury,
+  .shop-category-pill__item,
+  .footwear-card__cta button {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .h-scroll-rail__btn:disabled {
+    border-color: GrayText;
+  }
+}
+
+/* Windows perf — lighter blur on scroll-visible chrome (weak iGPU / ANGLE) */
+html[data-scroll-hints='thin'] {
+  --header-glass-blur: blur(8px) saturate(1.15);
+}
+
+html[data-scroll-hints='thin'] .glass-panel {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html[data-scroll-hints='thin'] .pp-mobile-sticky-bar {
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.h-scroll-rail__track:focus-visible {
+  outline: 2px solid rgba(200, 169, 126, 0.85);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
 }

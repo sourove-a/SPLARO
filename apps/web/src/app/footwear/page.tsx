@@ -36,6 +36,9 @@ async function hydrateFootwearConfig(base: FootwearConfig): Promise<FootwearConf
           colors: p.colors?.length ?? 1,
           price: p.price,
           image: ('images' in p && Array.isArray(p.images) ? p.images[0] : p.image) ?? null,
+          sizes: p.sizes,
+          colorsHex: p.colors,
+          ...(p.variantRefs ? { variantRefs: p.variantRefs } : {}),
         })),
       }
     }),

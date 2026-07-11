@@ -3,11 +3,12 @@
 import type { ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { resolveStoreLogo } from '@/components/brand/SplaroBrandLogo'
 import { resolveOurStory } from '@/lib/storefront/homepage-defaults'
 import { useScrollReveal } from '@/hooks/useScrollReveal'
+import { useMotionReady } from '@/hooks/useMotionReady'
 import { CustomerStoriesDropdown } from './CustomerStoriesDropdown'
 import { SocialReelsDropdown } from './SocialReelsDropdown'
 import { StoryPillarsDropdown } from './StoryPillarsDropdown'
@@ -36,17 +37,25 @@ function StoryRevealColumn({
   delay?: number
   className?: string
 }) {
-  const reducedMotion = useReducedMotion()
+  const { showMotion } = useMotionReady()
   const { ref, isInView } = useScrollReveal({ once: true, margin: '-60px 0px -60px 0px' })
+
+  if (!showMotion) {
+    return (
+      <div ref={ref} className={className}>
+        {children}
+      </div>
+    )
+  }
 
   return (
     <motion.div
       ref={ref}
       className={className}
-      initial={reducedMotion ? false : { opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={
-        reducedMotion || isInView
-          ? { opacity: 1, y: 0, transition: { duration: 0.75, delay, ease: REVEAL_EASE } }
+        isInView
+          ? { opacity: 1, y: 0, transition: { duration: 0.55, delay, ease: REVEAL_EASE } }
           : { opacity: 0, y: 20 }
       }
     >

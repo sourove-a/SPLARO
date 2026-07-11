@@ -342,7 +342,9 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('storefront-reviews', 'Storefront Reviews', 'Storefront', q('/storefront/reviews')),
     p('storefront-redirects', 'Storefront Redirects', 'Storefront', q('/storefront/redirects')),
     p('storefront-auth-me', 'Storefront Auth Me', 'Storefront', q('/storefront/auth/me'), { allowUnauthorized: true }),
-    p('storefront-track-order', 'Order Tracking', 'Storefront', q('/storefront/orders/track') + '&phone=01700000000'),
+    p('storefront-track-order', 'Order Tracking', 'Storefront', q('/storefront/orders/track') + '&phone=01700000000', {
+      allowUnauthorized: true,
+    }),
     pw('storefront-newsletter-post', 'Newsletter Subscribe (POST)', 'Storefront', q('/storefront/newsletter/subscribe'), '{"email":"health@splaro.test"}'),
     pw('storefront-contact-post', 'Contact Form (POST)', 'Storefront', q('/storefront/contact'), '{"name":"Test User","contact":"test@example.com","subject":"Sizing","message":"Hello from health check"}'),
     pw('procurement-supplier-post', 'Create Supplier (POST)', 'Procurement', q('/admin/hub/procurement/suppliers')),

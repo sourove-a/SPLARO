@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import {
   catalogSortFromMobile,
   formatMobileBdt,
@@ -443,7 +444,12 @@ export function MobileFilterDrawer({
                 </div>
 
                 {activeChips.length > 0 ? (
-                  <div className="mobile-filter-drawer__active-chips" data-lenis-prevent>
+                  <HorizontalScrollRail
+                    className="mobile-filter-drawer__chips-rail"
+                    trackClassName="mobile-filter-drawer__active-chips"
+                    variant="pill"
+                    ariaLabel="Active filters"
+                  >
                     {activeChips.map((chip) => (
                       <button
                         key={chip.key}
@@ -455,7 +461,7 @@ export function MobileFilterDrawer({
                         <X className="h-3 w-3" strokeWidth={2.4} />
                       </button>
                     ))}
-                  </div>
+                  </HorizontalScrollRail>
                 ) : null}
               </header>
 

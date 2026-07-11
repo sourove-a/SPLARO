@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 import {
   Building2,
+  AlertCircle,
   FileText,
   Lock,
   MapPin,
@@ -76,6 +78,43 @@ function buildDeliveryAddress(address: string, thana: string, city: string): str
   return parts.join(', ')
 }
 
+const ORDER_LOCK_KEY = 'splaro-last-order-id'
+const ORDER_LOCK_TTL_MS = 60_000
+
+function readRecentOrderLock(): { id: string; ts: number } | null {
+  if (typeof window === 'undefined') return null
+  const raw = window.sessionStorage.getItem(ORDER_LOCK_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number }
+    if (parsed?.id && typeof parsed.ts === 'number') {
+      return { id: parsed.id, ts: parsed.ts }
+    }
+  } catch {
+    const legacy = raw.trim()
+    if (legacy) return { id: legacy, ts: 0 }
+  }
+  return null
+}
+
+function setRecentOrderLock(id: string) {
+  window.sessionStorage.setItem(ORDER_LOCK_KEY, JSON.stringify({ id, ts: Date.now() }))
+}
+
+function clearRecentOrderLock() {
+  window.sessionStorage.removeItem(ORDER_LOCK_KEY)
+}
+
+function isRecentOrderLockActive(): boolean {
+  const lock = readRecentOrderLock()
+  if (!lock) return false
+  if (Date.now() - lock.ts > ORDER_LOCK_TTL_MS) {
+    clearRecentOrderLock()
+    return false
+  }
+  return true
+}
+
 export default function CheckoutPageClient() {
   const router = useRouter()
   const user = useAuthStore((state) => state.user)
@@ -129,6 +168,7 @@ export default function CheckoutPageClient() {
   const [promoChecked, setPromoChecked] = useState(false)
   const [couponApplying, setCouponApplying] = useState(false)
   const [couponApplied, setCouponApplied] = useState(false)
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   const deliveryFields = useMemo(
@@ -160,8 +200,19 @@ export default function CheckoutPageClient() {
   useEffect(() => {
     if (!cartHydrated || items.length > 0) return
     const staged = consumeStagedCheckoutItems()
-    if (staged?.length) replaceItems(staged)
-  }, [cartHydrated, items.length, replaceItems])
+    if (staged?.length) {
+      replaceItems(staged)
+      return
+    }
+    if (typeof window !== 'undefined') {
+      const pending = readRecentOrderLock()
+      if (pending) {
+        setPendingOrderId(pending.id)
+        return
+      }
+    }
+    router.replace('/cart')
+  }, [cartHydrated, items.length, replaceItems, router])
 
   useEffect(() => {
     fetchPromoAvailability()
@@ -354,6 +405,14 @@ export default function CheckoutPageClient() {
   const placeOrder = async (form: CheckoutFormValues) => {
     if (submitting || items.length === 0) return
 
+    if (typeof window !== 'undefined' && isRecentOrderLockActive()) {
+      const lock = readRecentOrderLock()
+      setSubmitError(
+        `Please wait a moment before placing another order${lock?.id ? ` (order ${lock.id})` : ''}.`,
+      )
+      return
+    }
+
     const normalizedPhone = normalizeBdPhone(form.phone)
     const deliveryAddress = buildDeliveryAddress(form.address, form.thana, form.city)
 
@@ -486,7 +545,7 @@ export default function CheckoutPageClient() {
           clearCart()
           window.location.href = ssl.gatewayUrl
           return
-        } catch (err) {
+        } catch {
           if (saved.invoiceNumber) {
             void notifyOrderPaymentEvent({
               invoiceNumber: saved.invoiceNumber,
@@ -494,7 +553,8 @@ export default function CheckoutPageClient() {
               gateway: 'SSLCommerz',
             })
           }
-          setSubmitError(err instanceof Error ? err.message : 'Unable to start card payment')
+          setRecentOrderLock(saved.id)
+          router.replace(`${buildOrderConfirmationPath(saved)}?payment=pending`)
           return
         }
       }
@@ -530,7 +590,7 @@ export default function CheckoutPageClient() {
           clearCart()
           window.location.href = redirectUrl
           return
-        } catch (err) {
+        } catch {
           if (saved.invoiceNumber) {
             void notifyOrderPaymentEvent({
               invoiceNumber: saved.invoiceNumber,
@@ -538,9 +598,14 @@ export default function CheckoutPageClient() {
               gateway: form.payment,
             })
           }
-          setSubmitError(err instanceof Error ? err.message : `Unable to start ${form.payment} payment`)
+          setRecentOrderLock(saved.id)
+          router.replace(`${buildOrderConfirmationPath(saved)}?payment=pending`)
           return
         }
+      }
+
+      if (typeof window !== 'undefined') {
+        clearRecentOrderLock()
       }
 
       clearStagedCheckoutItems()
@@ -556,6 +621,52 @@ export default function CheckoutPageClient() {
 
   return (
     <CheckoutShell>
+      {!cartHydrated ? (
+        <section className="checkout-container">
+          <div className="checkout-glass-panel checkout-glass-panel--center">
+            <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />
+            <p className="mt-4 text-sm font-black text-black/55">Loading your bag…</p>
+          </div>
+        </section>
+      ) : items.length === 0 && pendingOrderId ? (
+        <section className="checkout-container">
+          <div className="checkout-glass-panel checkout-glass-panel--center max-w-lg mx-auto text-center">
+            <AlertCircle className="mx-auto h-8 w-8 text-amber-600" strokeWidth={2} />
+            <h1 className="checkout-title mt-4">Complete your pending payment</h1>
+            <p className="checkout-subtitle mt-2">
+              Your last order is saved but payment did not finish. Open your confirmation page to
+              pay or contact SPLARO support.
+            </p>
+            <div className="checkout-success__actions mt-6 justify-center">
+              <Link
+                href={`/order-confirmation/${pendingOrderId}?payment=pending`}
+                className="checkout-btn checkout-btn--primary"
+              >
+                View pending order
+              </Link>
+              <button
+                type="button"
+                className="checkout-btn checkout-btn--ghost"
+                onClick={() => {
+                  clearRecentOrderLock()
+                  setPendingOrderId(null)
+                  router.replace('/shop')
+                }}
+              >
+                Start a new order
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : items.length === 0 ? (
+        <section className="checkout-container">
+          <div className="checkout-glass-panel checkout-glass-panel--center">
+            <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />
+            <p className="mt-4 text-sm font-black text-black/55">Redirecting to your bag…</p>
+          </div>
+        </section>
+      ) : (
+      <>
       <section className="checkout-container">
         <CheckoutHeader
           isSignedIn={authHydrated && !!user}
@@ -854,6 +965,8 @@ export default function CheckoutPageClient() {
           disabled={items.length === 0}
         />
       ) : null}
+      </>
+      )}
     </CheckoutShell>
   )
 }

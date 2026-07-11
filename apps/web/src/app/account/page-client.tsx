@@ -283,6 +283,7 @@ export default function AccountDashboard() {
   const [orders, setOrders] = useState<StoredOrder[]>([])
   const [ordersError, setOrdersError] = useState<string | null>(null)
   const [wishlistProducts, setWishlistProducts] = useState<ProductCardData[]>([])
+  const [wishlistError, setWishlistError] = useState<string | null>(null)
   const [profile, setProfile] = useState({ name: '', email: '', phone: '' })
   const [address, setAddress] = useState({
     address: '',
@@ -421,12 +422,19 @@ export default function AccountDashboard() {
   useEffect(() => {
     if (!wishlistIds.length) {
       setWishlistProducts([])
+      setWishlistError(null)
       return
     }
 
     fetchWishlistProducts(wishlistIds)
-      .then(setWishlistProducts)
-      .catch(() => setWishlistProducts([]))
+      .then((products) => {
+        setWishlistProducts(products)
+        setWishlistError(null)
+      })
+      .catch((err: unknown) => {
+        setWishlistProducts([])
+        setWishlistError(err instanceof Error ? err.message : 'Could not load your wishlist.')
+      })
   }, [wishlistIds])
 
   const stats = useMemo(() => getOrderStats(orders), [orders])
@@ -906,12 +914,27 @@ export default function AccountDashboard() {
                   <p className="account-subtitle">Save pieces you love for later.</p>
                 </div>
               </div>
-              {wishlistProducts.length > 0 ? (
+              {wishlistError ? (
+                <AccountGlass className="account-empty">
+                  <p className="account-empty__text text-sm font-medium text-red-600">{wishlistError}</p>
+                  <button
+                    type="button"
+                    className="account-btn account-btn--primary mt-5"
+                    onClick={() => window.location.reload()}
+                  >
+                    Retry
+                  </button>
+                </AccountGlass>
+              ) : wishlistProducts.length > 0 ? (
                 <div className="account-wishlist-grid">
                   {wishlistProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
+              ) : wishlistIds.length > 0 ? (
+                <AccountGlass className="account-empty">
+                  <p className="account-empty__text text-sm font-medium">Loading saved items…</p>
+                </AccountGlass>
               ) : (
                 <AccountGlass className="account-empty">
                   <Heart className="account-icon-muted mx-auto h-8 w-8" strokeWidth={1.75} />

@@ -66,6 +66,7 @@ export function CustomerStoriesDropdown({ enabled, label = 'Verified Reviews' }:
   }, [enabled])
 
   if (!enabled) return null
+  if (!loading && !connected) return null
 
   const ratingValue =
     aggregateRating != null

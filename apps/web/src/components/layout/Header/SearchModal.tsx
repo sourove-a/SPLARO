@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import type { Category, StorefrontProduct } from '@/data/storefront'
 
 const TRENDING = [
   'Summer Edition',
@@ -15,15 +16,12 @@ const TRENDING = [
   'New products',
 ]
 
-const QUICK_CATEGORIES = [
-  { label: 'Summer Edition', href: '/c/summer-edition', image: '/images/placeholder-product.jpg' },
-  { label: 'Men', href: '/c/men', image: '/images/placeholder-product.jpg' },
-  { label: 'Women', href: '/c/women', image: '/images/placeholder-product.jpg' },
-  { label: 'Kids', href: '/c/kids', image: '/images/placeholder-product.jpg' },
-  { label: 'Footwear', href: '/c/footwear', image: '/images/placeholder-product.jpg' },
-]
+const PLACEHOLDER = '/images/placeholder-product.jpg'
 
-const QUICK_LINKS = [
+const QUICK_CATEGORIES: Array<{
+  label: Exclude<Category, 'All' | 'Accessories'>
+  href: string
+}> = [
   { label: 'Summer Edition', href: '/c/summer-edition' },
   { label: 'Men', href: '/c/men' },
   { label: 'Women', href: '/c/women' },
@@ -31,13 +29,25 @@ const QUICK_LINKS = [
   { label: 'Footwear', href: '/c/footwear' },
 ]
 
+const QUICK_LINKS = QUICK_CATEGORIES.map(({ label, href }) => ({ label, href }))
+
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
+function pickCategoryImages(products: StorefrontProduct[]) {
+  const images: Record<string, string> = {}
+  for (const product of products) {
+    if (!product.image || images[product.category]) continue
+    images[product.category] = product.image
+  }
+  return images
+}
+
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [query, setQuery] = useState('')
+  const [categoryImages, setCategoryImages] = useState<Record<string, string>>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -49,6 +59,21 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       setQuery('')
     }
     return () => { document.body.style.overflow = '' }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    void fetch('/api/products', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { products?: StorefrontProduct[] } | null) => {
+        if (cancelled || !payload?.products?.length) return
+        setCategoryImages(pickCategoryImages(payload.products))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [isOpen])
 
   useEffect(() => {
@@ -222,7 +247,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             >
                               <div className="search-modal__cat-frame">
                                 <Image
-                                  src={cat.image}
+                                  src={categoryImages[cat.label] ?? PLACEHOLDER}
                                   alt={cat.label}
                                   fill
                                   sizes="66px"

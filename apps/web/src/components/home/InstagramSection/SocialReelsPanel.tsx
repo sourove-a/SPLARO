@@ -14,6 +14,7 @@ import { PlatformSelect } from './PlatformSelect'
 import { PlatformTabs } from './PlatformTabs'
 import { ReelCard } from './ReelCard'
 import { ReelModal } from './ReelModal'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { cn } from '@/lib/utils/cn'
 
 interface SocialReelsPanelProps {
@@ -104,19 +105,22 @@ export function SocialReelsPanel({ compact = false, dormant = false }: SocialRee
 
         {reels.length > 0 ? (
           <>
-            <div className="reels-track-wrap">
-              <div className="reels-track" ref={trackRef} data-lenis-prevent>
-                {reels.map((reel) => (
-                  <ReelCard
-                    key={reel.id}
-                    reel={reel}
-                    isActive={!dormant && activeId === reel.id}
-                    onActivate={() => setActiveId(reel.id)}
-                    onExpand={() => setModalReel(reel)}
-                  />
-                ))}
-              </div>
-            </div>
+            <HorizontalScrollRail
+              className="reels-track-wrap"
+              trackClassName="reels-track"
+              trackRef={trackRef}
+              ariaLabel="Social reels"
+            >
+              {reels.map((reel) => (
+                <ReelCard
+                  key={reel.id}
+                  reel={reel}
+                  isActive={!dormant && activeId === reel.id}
+                  onActivate={() => setActiveId(reel.id)}
+                  onExpand={() => setModalReel(reel)}
+                />
+              ))}
+            </HorizontalScrollRail>
 
             <div className="reels-shell__dots" aria-hidden>
               {reels.map((reel) => (

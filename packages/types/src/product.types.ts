@@ -3,6 +3,14 @@ export interface ColorOption {
   name: string
 }
 
+export interface ProductCardVariantRef {
+  id: string
+  size?: string
+  colorHex?: string
+  stock: number
+  isActive: boolean
+}
+
 export interface ProductCardData {
   id: string
   slug: string
@@ -11,6 +19,9 @@ export interface ProductCardData {
   compareAtPrice?: number
   images: string[]
   colorOptions?: ColorOption[]
+  sizes?: string[]
+  colorHexes?: string[]
+  variantRefs?: ProductCardVariantRef[]
   isNewArrival: boolean
   isBestSeller: boolean
   isOnSale: boolean

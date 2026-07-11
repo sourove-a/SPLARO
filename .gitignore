@@ -96,3 +96,6 @@ test-results/
 # PM2
 .pm2/
 infrastructure/vps/.env.production.generated
+
+# Local release artifacts
+SPLARO-windows.zip

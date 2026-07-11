@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import {
   earthIntersectionRootMargin,
   isNearViewport,
+  scheduleEarthWebGLActivation,
   shouldUseWebGLEarth,
 } from '@/lib/earth/globe-performance'
 import { preloadEarthTextures } from '@/lib/earth/textures'
@@ -48,34 +49,45 @@ export function StoryEarthGlobe() {
     const host = hostRef.current
     if (!host || mode !== 'css') return
 
+    let cancelScheduled: (() => void) | undefined
+
     const activate = () => {
       if (!shouldUseWebGLEarth({ decorative: true })) return
       void preloadEarthTextures()
       setMode('webgl')
     }
 
+    const scheduleActivate = () => {
+      cancelScheduled?.()
+      cancelScheduled = scheduleEarthWebGLActivation(activate)
+    }
+
     if (isNearViewport(host, 240)) {
-      activate()
-      return
-    }
+      scheduleActivate()
+    } else {
+      const margin = earthIntersectionRootMargin(true)
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry?.isIntersecting) scheduleActivate()
+        },
+        { rootMargin: margin, threshold: 0.01 },
+      )
+      observer.observe(host)
 
-    const margin = earthIntersectionRootMargin(true)
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) activate()
-      },
-      { rootMargin: margin, threshold: 0.01 },
-    )
-    observer.observe(host)
+      const onScroll = () => {
+        if (isNearViewport(host, 240)) scheduleActivate()
+      }
+      window.addEventListener('scroll', onScroll, { passive: true })
 
-    const onScroll = () => {
-      if (isNearViewport(host, 240)) activate()
+      return () => {
+        cancelScheduled?.()
+        observer.disconnect()
+        window.removeEventListener('scroll', onScroll)
+      }
     }
-    window.addEventListener('scroll', onScroll, { passive: true })
 
     return () => {
-      observer.disconnect()
-      window.removeEventListener('scroll', onScroll)
+      cancelScheduled?.()
     }
   }, [mode])
 

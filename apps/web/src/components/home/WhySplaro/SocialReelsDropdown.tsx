@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Instagram } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
-import { resolveSocialProfiles } from '@/data/social-reels'
+import { resolveSocialProfiles, SOCIAL_REELS } from '@/data/social-reels'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
 import { cn } from '@/lib/utils/cn'
 import { SocialReelsPanel } from '@/components/home/InstagramSection/SocialReelsPanel'
@@ -17,6 +17,7 @@ export function SocialReelsDropdown() {
   const [open, setOpen] = useState(false)
 
   if (!homepage.instagram) return null
+  if (SOCIAL_REELS.length === 0) return null
 
   return (
     <div className={cn('story-reels', open && 'story-reels--open')}>

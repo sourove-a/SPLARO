@@ -1,14 +1,15 @@
 'use client'
 
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
+import { useMotionReady } from '@/hooks/useMotionReady'
 import { pageEnter } from '@/lib/motion/config'
 
-/** Premium cross-route enter — opacity + slide + micro scale (GPU compositor only). */
+/** Premium cross-route enter — gated after hydration to avoid SSR/client mismatch. */
 export default function RootTemplate({ children }: { children: ReactNode }) {
-  const reduced = useReducedMotion()
+  const { showMotion } = useMotionReady()
 
-  if (reduced) {
+  if (!showMotion) {
     return <>{children}</>
   }
 

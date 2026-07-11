@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ShopFilterDropdown } from '@/components/shop/ShopFilterDropdown'
 import { MobileFilterDrawer } from '@/components/shop/MobileFilterDrawer'
 import {
@@ -106,7 +107,12 @@ export function ShopFilterBar({
             className="shop-category-pill shop-filter-bar__categories shop-filter-bar__categories--desktop"
             aria-label="Shop categories"
           >
-            <div className="shop-category-pill__track" data-lenis-prevent>
+            <HorizontalScrollRail
+              className="shop-category-pill__rail"
+              trackClassName="shop-category-pill__track"
+              variant="pill"
+              ariaLabel="Shop categories"
+            >
               {categories.map((category) => (
                 <button
                   key={category}
@@ -121,14 +127,19 @@ export function ShopFilterBar({
                   {category}
                 </button>
               ))}
-            </div>
+            </HorizontalScrollRail>
           </nav>
 
           <nav
             className="shop-category-pill shop-filter-bar__categories shop-filter-bar__categories--mobile"
             aria-label="Shop categories"
           >
-            <div className="shop-category-pill__track" data-lenis-prevent>
+            <HorizontalScrollRail
+              className="shop-category-pill__rail"
+              trackClassName="shop-category-pill__track"
+              variant="pill"
+              ariaLabel="Shop categories"
+            >
               {categories.map((category) => (
                 <button
                   key={category}
@@ -143,7 +154,7 @@ export function ShopFilterBar({
                   {category}
                 </button>
               ))}
-            </div>
+            </HorizontalScrollRail>
           </nav>
 
           <div className="shop-filter-bar__mobile-actions">

@@ -5,13 +5,13 @@ export const EASE_EXPO_OUT = [0.16, 1, 0.3, 1] as const
 
 /** Page route enter — short, no layout thrash */
 export const PAGE_ENTER: Transition = {
-  duration: 0.36,
+  duration: 0.28,
   ease: EASE_EXPO_OUT,
 }
 
 /** In-view section reveals */
 export const REVEAL_ENTER: Transition = {
-  duration: 0.52,
+  duration: 0.42,
   ease: EASE_EXPO_OUT,
 }
 
@@ -29,7 +29,7 @@ export const MOTION_DEFAULT: Transition = {
 
 /** GPU-safe page template — keep opacity 1 so slow/blocked JS never hides the page. */
 export const pageEnter: Variants = {
-  initial: { opacity: 1, y: 12, scale: 0.998 },
+  initial: { opacity: 1, y: 8, scale: 0.999 },
   animate: {
     opacity: 1,
     y: 0,

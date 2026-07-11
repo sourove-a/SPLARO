@@ -10,6 +10,7 @@ import {
   LiquidGlassPagination,
   LiquidGlassPill,
 } from '@/components/ui/LiquidGlass'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ACCESSORIES_FILTER_CATEGORIES } from '@/lib/storefront/accessories-nav'
 import type { CatalogProduct } from '@/lib/catalog/live'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
@@ -379,7 +380,12 @@ export function AccessoriesClient({
 
         <div className="accessories-toolbar">
           <div className="accessories-toolbar__filters">
-            <div className="accessories-toolbar__scroll">
+            <HorizontalScrollRail
+              className="accessories-toolbar__rail"
+              trackClassName="accessories-toolbar__scroll"
+              variant="pill"
+              ariaLabel="Accessories categories"
+            >
               <LiquidGlassFilterRow
                 items={filterItems}
                 activeId={activeCat}
@@ -387,7 +393,7 @@ export function AccessoriesClient({
                 onChange={handleCategoryChange}
                 size="sm"
               />
-            </div>
+            </HorizontalScrollRail>
           </div>
           {filtered.length > 0 ? (
             <SortDropdown

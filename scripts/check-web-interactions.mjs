@@ -16,6 +16,10 @@ const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
 const BASE = process.env.WEB_URL ?? 'http://localhost:3000'
 
+const CHROME =
+  process.env.PUPPETEER_EXECUTABLE_PATH ??
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+
 async function inspectHomepage(page) {
   return page.evaluate(async () => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -101,6 +105,7 @@ async function main() {
   const puppeteer = require('puppeteer')
   const browser = await puppeteer.launch({
     headless: true,
+    executablePath: CHROME,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   })
 

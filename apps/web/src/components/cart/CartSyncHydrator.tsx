@@ -4,11 +4,17 @@ import { useCallback, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
-import { pullServerCart, pushCartToServer } from '@/lib/api/cart-sync'
+import {
+  cartLineCount,
+  mergeCartLines,
+  pullServerCart,
+  pushCartToServer,
+} from '@/lib/api/cart-sync'
 
 const PULL_RETRY_MS = 2500
 const PULL_MAX_RETRIES = 3
 const PUSH_TOAST_COOLDOWN_MS = 45_000
+const MERGE_TOAST_COOLDOWN_MS = 60_000
 
 function shouldNotifyCartSyncFailure(): boolean {
   const user = useAuthStore.getState().user
@@ -28,6 +34,7 @@ export function CartSyncHydrator() {
   const pullAttempts = useRef(0)
   const pullRetryTimer = useRef<number | undefined>(undefined)
   const lastPushToastAt = useRef(0)
+  const lastMergeToastAt = useRef(0)
 
   const enqueue = useCallback((task: () => Promise<void>) => {
     syncQueue.current = syncQueue.current.then(task).catch(() => {})
@@ -37,13 +44,40 @@ export function CartSyncHydrator() {
     if (pullReady.current) return
 
     enqueue(async () => {
-      const result = await pullServerCart((serverItems) => {
-        if (serverItems.length > 0) {
-          replaceItems(serverItems)
-        }
-      })
+      const result = await pullServerCart()
 
       if (result.ok) {
+        const local = useCartStore.getState().items
+        const serverItems = result.items ?? []
+
+        if (serverItems.length > 0) {
+          if (local.length === 0) {
+            replaceItems(serverItems)
+          } else {
+            const merged = mergeCartLines(local, serverItems)
+            const localCount = cartLineCount(local)
+            const serverCount = cartLineCount(serverItems)
+            const mergedCount = cartLineCount(merged)
+
+            replaceItems(merged)
+
+            if (
+              mergedCount !== serverCount &&
+              localCount > serverCount &&
+              shouldNotifyCartSyncFailure()
+            ) {
+              const now = Date.now()
+              if (now - lastMergeToastAt.current > MERGE_TOAST_COOLDOWN_MS) {
+                lastMergeToastAt.current = now
+                toast('Kept items from your device bag and merged with the server.', {
+                  id: 'cart-sync-merge',
+                  icon: '🛍️',
+                })
+              }
+            }
+          }
+        }
+
         pullReady.current = true
         pullAttempts.current = 0
         return

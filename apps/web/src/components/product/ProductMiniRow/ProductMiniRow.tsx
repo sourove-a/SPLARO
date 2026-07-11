@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import type { ProductDetailItem } from '@/components/product/ProductDetailPanel/ProductDetailPanel'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { formatBDT } from '@/lib/utils/currency'
 
 interface ProductMiniRowProps {
@@ -16,7 +17,11 @@ export function ProductMiniRow({ title, products, onSelect }: ProductMiniRowProp
   return (
     <section className="product-mini-row">
       <h3 className="product-mini-row__title">{title}</h3>
-      <div className="product-mini-row__scroll" data-lenis-prevent>
+      <HorizontalScrollRail
+        className="product-mini-row__rail"
+        trackClassName="product-mini-row__scroll"
+        ariaLabel={title}
+      >
         {products.map((item) => (
           <button
             key={item.id}
@@ -39,7 +44,7 @@ export function ProductMiniRow({ title, products, onSelect }: ProductMiniRowProp
             </div>
           </button>
         ))}
-      </div>
+      </HorizontalScrollRail>
     </section>
   )
 }

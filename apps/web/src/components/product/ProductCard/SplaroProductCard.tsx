@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useReducedMotion } from 'framer-motion'
+import { m, useReducedMotion } from 'framer-motion'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
@@ -175,8 +175,10 @@ export function SplaroProductCard({
         {!inStock ? <span className="splaro-card__sold-badge ilyn-card__sold-badge">Sold out</span> : null}
 
         {inStock ? (
-          <button
+          <m.button
             type="button"
+            {...(reducedMotion ? {} : { whileTap: { scale: 0.9 } })}
+            transition={{ duration: 0.12 }}
             className={cn(
               'splaro-card__wish ilyn-card__wish',
               !isShop && !isHomepage && saved && 'splaro-card__wish--saved ilyn-card__wish--saved',
@@ -204,7 +206,7 @@ export function SplaroProductCard({
             ) : (
               <Heart size={13} strokeWidth={1.5} className={cn(saved && 'fill-current')} />
             )}
-          </button>
+          </m.button>
         ) : null}
       </div>
 

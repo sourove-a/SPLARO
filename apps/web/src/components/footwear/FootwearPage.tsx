@@ -1,12 +1,19 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ChevronRight, ShoppingBag } from 'lucide-react'
 import { formatBDT } from '@/lib/utils/currency'
+import { useCartStore } from '@/store/cartStore'
+import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
+import { trackAddToCart } from '@/lib/analytics/meta-pixel'
+import { resolveQuickAddVariant } from '@/lib/catalog/index'
+import type { StorefrontVariantRef } from '@/data/storefront'
+import { cn } from '@/lib/utils/cn'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +25,9 @@ interface FootwearProduct {
   colors: number
   price: number
   image: string | null
+  sizes?: string[]
+  colorsHex?: string[]
+  variantRefs?: StorefrontVariantRef[]
 }
 
 interface ProductRow {
@@ -82,20 +92,50 @@ function ShoePlaceholder({ color, index }: { color?: string; index: number }) {
 
 function ProductCard({ item, index }: { item: FootwearProduct; index: number }) {
   const [hovered, setHovered] = useState(false)
+  const addItem = useCartStore((state) => state.addItem)
   const href = item.slug ? `/products/${item.slug}` : undefined
+
+  const handleAddToBag = (event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!item.slug) return
+    const variant = resolveQuickAddVariant(
+      { variantRefs: item.variantRefs ?? [] },
+      item.sizes?.[0],
+      item.colorsHex?.[0],
+    )
+    addItem({
+      productId: item.id,
+      quantity: 1,
+      name: item.name,
+      price: item.price,
+      image: item.image?.trim() || PRODUCT_IMAGE_PLACEHOLDER,
+      slug: item.slug,
+      ...(variant?.id ? { variantId: variant.id } : {}),
+      ...(variant?.size ? { size: variant.size } : item.sizes?.[0] ? { size: item.sizes[0] } : {}),
+      ...(variant?.colorHex
+        ? { color: variant.colorHex }
+        : item.colorsHex?.[0]
+          ? { color: item.colorsHex[0] }
+          : {}),
+    })
+    trackAddToCart({ id: item.id, name: item.name, price: item.price })
+  }
+
+  const canAddToBag = Boolean(item.slug)
 
   const card = (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
-      className="shrink-0 w-64 cursor-pointer"
+      className="footwear-card shrink-0 w-64"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Image block */}
       <div
-        className="relative rounded-2xl overflow-hidden mb-3 transition-all duration-300"
+        className="footwear-card__media relative rounded-2xl overflow-hidden mb-3 transition-all duration-300"
         style={{
           background: 'linear-gradient(180deg,#F7F7F8 0%,#EFEFF1 58%,#E5E5E8 100%)',
           border: `1px solid ${hovered ? 'rgba(17,17,17,0.16)' : 'rgba(17,17,17,0.06)'}`,
@@ -117,41 +157,57 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
           }
         </div>
 
-        {/* Add to bag overlay */}
-        <motion.div
-          animate={{ opacity: hovered ? 1 : 0, y: hovered ? 0 : 8 }}
-          transition={{ duration: 0.2 }}
-          className="absolute bottom-3 left-3 right-3"
+        {/* Add to bag — always on touch; hover on desktop */}
+        {canAddToBag ? (
+        <div
+          className={cn(
+            'footwear-card__cta absolute bottom-3 left-3 right-3 transition-all duration-200',
+            hovered && 'footwear-card__cta--hover',
+          )}
         >
           <button
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-white"
+            type="button"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold text-white min-h-[2.75rem]"
             style={{
               background: 'rgba(17,17,17,0.88)',
               backdropFilter: 'blur(12px)',
             }}
+            onClick={handleAddToBag}
           >
             <ShoppingBag size={13} />
             Add to Bag
           </button>
-        </motion.div>
+        </div>
+        ) : null}
       </div>
 
       {/* Product info */}
       <div className="px-0.5">
         <p className="font-semibold text-[#111] text-sm leading-snug">{item.name}</p>
         <div className="flex items-center justify-between mt-1">
-          <button
-            className="text-xs text-[#6B6B6B] flex items-center gap-1 hover:text-[#111] transition-colors"
-          >
-            {item.colors} colors <ChevronRight size={11} />
-          </button>
+          {href ? (
+            <Link
+              href={href}
+              className="text-xs text-[#6B6B6B] flex items-center gap-1 hover:text-[#111] transition-colors"
+            >
+              {item.colors} colors <ChevronRight size={11} />
+            </Link>
+          ) : (
+            <span className="text-xs text-[#6B6B6B]">{item.colors} colors</span>
+          )}
           <span className="text-xs font-bold text-[#111]">{formatBDT(item.price)}</span>
         </div>
       </div>
     </motion.div>
   )
 
-  return href ? <Link href={href}>{card}</Link> : card
+  return href ? (
+    <Link href={href} className="block">
+      {card}
+    </Link>
+  ) : (
+    card
+  )
 }
 
 // ─── Horizontal Product Row ───────────────────────────────────────────────────
@@ -159,21 +215,32 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
 function ProductRowSection({ row }: { row: ProductRow }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
-  const [canRight, setCanRight] = useState(true)
+  const [canRight, setCanRight] = useState(false)
 
-  const SCROLL_AMOUNT = 280
-
-  function scroll(dir: 'left' | 'right') {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollBy({ left: dir === 'left' ? -SCROLL_AMOUNT : SCROLL_AMOUNT, behavior: 'smooth' })
-  }
-
-  function onScroll() {
+  const syncScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
     setCanLeft(el.scrollLeft > 8)
     setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    syncScroll()
+    el.addEventListener('scroll', syncScroll, { passive: true })
+    const observer = new ResizeObserver(syncScroll)
+    observer.observe(el)
+    return () => {
+      el.removeEventListener('scroll', syncScroll)
+      observer.disconnect()
+    }
+  }, [syncScroll, row.products])
+
+  function scroll(dir: 'left' | 'right') {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: dir === 'left' ? -280 : 280, behavior: 'smooth' })
   }
 
   return (
@@ -203,12 +270,12 @@ function ProductRowSection({ row }: { row: ProductRow }) {
         </div>
       </div>
 
-      {/* Scroll row */}
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="flex gap-4 overflow-x-auto pb-2 px-4 md:px-0 scroll-smooth"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      <HorizontalScrollRail
+        className="footwear-row__rail"
+        trackClassName="footwear-row__track"
+        trackRef={scrollRef}
+        hideArrows
+        ariaLabel={row.title}
       >
         {row.products.length === 0 ? (
           <p className="px-1 text-sm text-[#6B6B6B]">
@@ -217,7 +284,7 @@ function ProductRowSection({ row }: { row: ProductRow }) {
         ) : (
           row.products.map((p, i) => <ProductCard key={p.id} item={p} index={i} />)
         )}
-      </div>
+      </HorizontalScrollRail>
     </section>
   )
 }

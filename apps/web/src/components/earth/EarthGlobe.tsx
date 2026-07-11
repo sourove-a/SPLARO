@@ -435,6 +435,13 @@ export function EarthGlobe({
       if (!disposed) renderFrame()
     }
 
+    const onStoryEarthReady = () => {
+      if (!disposed) {
+        markEarthReady()
+        renderFrame()
+      }
+    }
+
     if (isFooter) {
       const compact = isCompactFooterViewport()
       const segments = phone ? 80 : FOOTER_CONFIG.segments
@@ -570,9 +577,17 @@ export function EarthGlobe({
       const storySegments = phone ? 72 : lowPower ? 96 : STORY_CONFIG.segments
       const wireSegments = phone ? 48 : lowPower ? 56 : STORY_CONFIG.wireSegments
       const sparkleCount = lowPower ? 420 : STORY_CONFIG.sparkleCount
-      const nightMap = loader.load(TEXTURES.night, onTextureReady)
+      const nightMap = loader.load(TEXTURES.night, onStoryEarthReady)
       textures.push(nightMap)
       setTextureQuality(nightMap, renderer)
+
+      if (
+        nightMap.image &&
+        'complete' in nightMap.image &&
+        (nightMap.image as HTMLImageElement).complete
+      ) {
+        onStoryEarthReady()
+      }
 
       const oceanGeo = new THREE.SphereGeometry(STORY_CONFIG.radius * 0.998, storySegments, storySegments)
       const oceanMat = new THREE.MeshPhongMaterial({

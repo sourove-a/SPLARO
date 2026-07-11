@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { useHorizontalWheelScroll } from '@/hooks/useHorizontalWheelScroll'
 import type { MegaMenuConfig, MegaMenuHero } from '@/lib/storefront/settings'
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -97,6 +98,8 @@ function MegaMenuHeroSlider({
     setCanNext(track.scrollLeft < maxScroll - 4)
   }, [])
 
+  useHorizontalWheelScroll(trackRef)
+
   useEffect(() => {
     syncArrows()
     const track = trackRef.current
@@ -150,7 +153,7 @@ function MegaMenuHeroSlider({
       >
         <ChevronLeft size={16} strokeWidth={2} />
       </button>
-      <div ref={trackRef} className="mega-menu-heroes-slider__track">
+      <div ref={trackRef} className="mega-menu-heroes-slider__track" data-h-scroll="true" data-lenis-prevent>
         {heroes.map((hero) => (
           <div key={hero.href} className="mega-menu-heroes-slider__slide">
             <MegaMenuHeroCard hero={hero} {...(onClose ? { onClose } : {})} />

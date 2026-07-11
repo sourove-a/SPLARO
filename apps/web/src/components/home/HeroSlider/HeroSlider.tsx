@@ -656,7 +656,13 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
               <div className="hero-content">
                 <p className="hero-eyebrow">{item.eyebrow}</p>
-                <h1>{item.title}</h1>
+                {isActive ? (
+                  <h1>{item.title}</h1>
+                ) : (
+                  <p className="hero-title" aria-hidden="true">
+                    {item.title}
+                  </p>
+                )}
                 <p className="hero-subtitle">{item.subtitle}</p>
 
                 <div className="hero-actions">

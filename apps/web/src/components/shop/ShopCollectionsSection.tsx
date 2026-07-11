@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import type { CollectionCard } from '@/data/storefront'
 import { collectionHref } from '@/lib/storefront/collection-paths'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 
 interface ShopCollectionsSectionProps {
   cards: CollectionCard[]
@@ -29,7 +30,11 @@ export function ShopCollectionsSection({ cards }: ShopCollectionsSectionProps) {
           </Link>
         </div>
 
-        <div className="shop-collections__row" data-lenis-prevent>
+        <HorizontalScrollRail
+          className="shop-collections__rail"
+          trackClassName="shop-collections__row"
+          ariaLabel="Shop collections"
+        >
           {stocked.map((card) => (
             <Link
               key={card.slug}
@@ -60,7 +65,7 @@ export function ShopCollectionsSection({ cards }: ShopCollectionsSectionProps) {
               </div>
             </Link>
           ))}
-        </div>
+        </HorizontalScrollRail>
       </div>
     </section>
   )

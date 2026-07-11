@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { ReactLenis, useLenis } from 'lenis/react'
 import { useUiStore } from '@/store/uiStore'
+import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import {
   buildLenisOptions,
-  isWindowsClient,
   SCROLL_ROUTE_TOP,
   subscribeSmoothScrollEligibility,
 } from '@/lib/motion/scroll'
@@ -15,9 +15,10 @@ function LenisRouteSync() {
   const pathname = usePathname()
   const lenis = useLenis()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!lenis) return
     lenis.scrollTo(0, SCROLL_ROUTE_TOP)
+    unlockLenisPointer()
   }, [pathname, lenis])
 
   return null
@@ -30,27 +31,60 @@ function LenisScrollLock() {
   const isCartOpen = useUiStore((s) => s.isCartOpen)
   const locked = isMobileMenuOpen || isSearchOpen || isCartOpen
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!lenis) return
-    if (locked) lenis.stop()
-    else lenis.start()
+    if (locked) {
+      lenis.stop()
+    } else {
+      lenis.start()
+      unlockLenisPointer()
+    }
   }, [lenis, locked])
 
   return null
 }
 
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+/** Prevent Windows dead-clicks when Lenis pauses or scroll ends without clearing inline locks. */
+function LenisPointerGuard() {
+  const lenis = useLenis()
+
+  useLayoutEffect(() => {
+    if (!lenis) return
+
+    let raf = 0
+    const scheduleUnlock = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(unlockLenisPointer)
+    }
+
+    lenis.on('scroll', scheduleUnlock)
+
+    const onPointerDown = () => scheduleUnlock()
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') scheduleUnlock()
+    }
+
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('visibilitychange', onVisibility)
+    scheduleUnlock()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      lenis.off('scroll', scheduleUnlock)
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('visibilitychange', onVisibility)
+      unlockLenisPointer()
+    }
+  }, [lenis])
+
+  return null
+}
 
 export function SmoothScroll({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false)
 
-  useIsomorphicLayoutEffect(() => {
-    if (isWindowsClient() || (window as Window & { __splaroNativeScroll?: boolean }).__splaroNativeScroll) {
-      setEnabled(false)
-      return
-    }
-    const unsubEligibility = subscribeSmoothScrollEligibility(setEnabled)
-    return unsubEligibility
+  useLayoutEffect(() => {
+    return subscribeSmoothScrollEligibility(setEnabled)
   }, [])
 
   const lenisOptions = useMemo(() => buildLenisOptions(), [])
@@ -61,6 +95,7 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
     <ReactLenis root options={lenisOptions}>
       <LenisRouteSync />
       <LenisScrollLock />
+      <LenisPointerGuard />
       {children}
     </ReactLenis>
   )

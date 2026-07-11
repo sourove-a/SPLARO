@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, ShoppingBag } from 'lucide-react'
-import { useCartStore } from '@/store/cartStore'
+import { useCartStore, cartLineKey, toCartLineRef } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { CartEmptyState } from './CartEmptyState'
 import { CartLineItem } from './CartLineItem'
@@ -119,19 +119,15 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   <AnimatePresence initial={false} mode="popLayout">
                     {items.map((item) => (
                       <motion.li
-                        key={`${item.productId}-${item.variantId ?? ''}`}
+                        key={cartLineKey(item)}
                         layout={!reducedMotion}
                         {...lineMotion}
                       >
                         <CartLineItem
                           item={item}
-                          onDecrease={() =>
-                            updateQuantity(item.productId, item.variantId, item.quantity - 1)
-                          }
-                          onIncrease={() =>
-                            updateQuantity(item.productId, item.variantId, item.quantity + 1)
-                          }
-                          onRemove={() => removeItem(item.productId, item.variantId)}
+                          onDecrease={() => updateQuantity(toCartLineRef(item), item.quantity - 1)}
+                          onIncrease={() => updateQuantity(toCartLineRef(item), item.quantity + 1)}
+                          onRemove={() => removeItem(toCartLineRef(item))}
                         />
                       </motion.li>
                     ))}

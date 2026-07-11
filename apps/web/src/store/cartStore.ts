@@ -22,6 +22,21 @@ function sameCartLine(a: CartItem, b: Pick<CartItem, 'productId' | 'variantId' |
   )
 }
 
+export type CartLineRef = Pick<CartItem, 'productId' | 'variantId' | 'size' | 'color'>
+
+export function cartLineKey(line: CartLineRef) {
+  return `${line.productId}:${line.variantId ?? ''}:${line.size ?? ''}:${line.color ?? ''}`
+}
+
+export function toCartLineRef(item: CartItem): CartLineRef {
+  return {
+    productId: item.productId,
+    ...(item.variantId !== undefined ? { variantId: item.variantId } : {}),
+    ...(item.size !== undefined ? { size: item.size } : {}),
+    ...(item.color !== undefined ? { color: item.color } : {}),
+  }
+}
+
 function cartTotals(items: CartItem[]) {
   return {
     itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
@@ -34,8 +49,8 @@ interface CartStore {
   itemCount: number
   subtotal: number
   addItem: (item: CartItem) => void
-  removeItem: (productId: string, variantId?: string) => void
-  updateQuantity: (productId: string, variantId: string | undefined, quantity: number) => void
+  removeItem: (line: CartLineRef) => void
+  updateQuantity: (line: CartLineRef, quantity: number) => void
   replaceItems: (items: CartItem[]) => void
   clearCart: () => void
   _hydrated: boolean
@@ -68,22 +83,18 @@ export const useCartStore = create<CartStore>()(
         set({ items: updated, ...cartTotals(updated) })
       },
 
-      removeItem: (productId, variantId) => {
-        const updated = get().items.filter(
-          (i) => !(i.productId === productId && (i.variantId ?? '') === (variantId ?? '')),
-        )
+      removeItem: (line) => {
+        const updated = get().items.filter((i) => !sameCartLine(i, line))
         set({ items: updated, ...cartTotals(updated) })
       },
 
-      updateQuantity: (productId, variantId, quantity) => {
+      updateQuantity: (line, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(productId, variantId)
+          get().removeItem(line)
           return
         }
         const updated = get().items.map((i) =>
-          i.productId === productId && (i.variantId ?? '') === (variantId ?? '')
-            ? { ...i, quantity }
-            : i,
+          sameCartLine(i, line) ? { ...i, quantity } : i,
         )
         set({ items: updated, ...cartTotals(updated) })
       },

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { useMotionReady } from '@/hooks/useMotionReady'
+import { REVEAL_ENTER } from '@/lib/motion/config'
 import type { SpecialOfferConfig } from '@/lib/storefront/settings'
 
 function useCountdown(targetIso?: string | null) {
@@ -36,6 +38,7 @@ function useCountdown(targetIso?: string | null) {
 function SpecialOfferContent({ offer }: { offer: SpecialOfferConfig }) {
   const { days, hours, minutes, seconds } = useCountdown(offer.endsAt)
   const template = offer.template ?? 'countdown'
+  const { showMotion } = useMotionReady()
 
   if (template === 'minimal') {
     return (
@@ -78,6 +81,38 @@ function SpecialOfferContent({ offer }: { offer: SpecialOfferConfig }) {
     )
   }
 
+  const countdownBody = (
+    <>
+      {offer.badge ? <p className="label-luxury text-gold">{offer.badge}</p> : null}
+      <h2 id="special-offer-heading" className="mt-3 max-w-2xl font-serif text-4xl font-semibold tracking-tight md:text-5xl">
+        {offer.title}
+      </h2>
+      {offer.subtitle ? <p className="mt-4 max-w-xl text-white/70">{offer.subtitle}</p> : null}
+      {offer.discountLabel ? <p className="mt-6 text-5xl font-black text-gold">{offer.discountLabel}</p> : null}
+      {offer.endsAt ? (
+        <div className="mt-8 flex gap-3">
+          {[
+            ['Days', days],
+            ['Hours', hours],
+            ['Min', minutes],
+            ['Sec', seconds],
+          ].map(([label, value]) => (
+            <div key={label as string} className="min-w-[4.5rem] rounded-2xl border border-white/10 bg-white/5 px-3 py-4">
+              <p className="text-2xl font-black">{String(value).padStart(2, '0')}</p>
+              <p className="mt-1 text-[0.65rem] font-bold uppercase tracking-wider text-white/50">{label as string}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {offer.ctaHref ? (
+        <Link href={offer.ctaHref} className="glass-action-dark mt-10 inline-flex min-h-[3.2rem] items-center gap-2 rounded-2xl px-8 font-bold">
+          {offer.ctaLabel ?? 'Shop now'}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      ) : null}
+    </>
+  )
+
   return (
     <section className="relative overflow-hidden bg-luxury-black py-20 text-white" aria-labelledby="special-offer-heading">
       <div
@@ -89,40 +124,19 @@ function SpecialOfferContent({ offer }: { offer: SpecialOfferConfig }) {
         aria-hidden="true"
       />
       <div className="container-luxury relative">
-        <motion.div
-          className="flex flex-col items-center text-center"
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          {offer.badge ? <p className="label-luxury text-gold">{offer.badge}</p> : null}
-          <h2 id="special-offer-heading" className="mt-3 max-w-2xl font-serif text-4xl font-semibold tracking-tight md:text-5xl">
-            {offer.title}
-          </h2>
-          {offer.subtitle ? <p className="mt-4 max-w-xl text-white/70">{offer.subtitle}</p> : null}
-          {offer.discountLabel ? <p className="mt-6 text-5xl font-black text-gold">{offer.discountLabel}</p> : null}
-          {offer.endsAt ? (
-            <div className="mt-8 flex gap-3">
-              {[
-                ['Days', days],
-                ['Hours', hours],
-                ['Min', minutes],
-                ['Sec', seconds],
-              ].map(([label, value]) => (
-                <div key={label as string} className="min-w-[4.5rem] rounded-2xl border border-white/10 bg-white/5 px-3 py-4">
-                  <p className="text-2xl font-black">{String(value).padStart(2, '0')}</p>
-                  <p className="mt-1 text-[0.65rem] font-bold uppercase tracking-wider text-white/50">{label as string}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {offer.ctaHref ? (
-            <Link href={offer.ctaHref} className="glass-action-dark mt-10 inline-flex min-h-[3.2rem] items-center gap-2 rounded-2xl px-8 font-bold">
-              {offer.ctaLabel ?? 'Shop now'}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : null}
-        </motion.div>
+        {showMotion ? (
+          <motion.div
+            className="flex flex-col items-center text-center"
+            initial={{ opacity: 0, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={REVEAL_ENTER}
+          >
+            {countdownBody}
+          </motion.div>
+        ) : (
+          <div className="flex flex-col items-center text-center">{countdownBody}</div>
+        )}
       </div>
     </section>
   )

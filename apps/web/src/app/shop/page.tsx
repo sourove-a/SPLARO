@@ -26,6 +26,8 @@ export default async function ShopPage() {
       initialCatalog={catalog}
       collectionCards={collectionCards}
       listingMode="full"
+      pageTitle="Shop"
+      pageDescription="Browse SPLARO collections — filter by size and colour, pay with bKash or cash on delivery."
     />
   )
 }

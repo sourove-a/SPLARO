@@ -22,6 +22,9 @@ export function storefrontToCardData(
   const apiRating = Number(product.rating ?? 0)
   const apiReviewCount = Number(product.reviewCount ?? 0)
   const hasReviews = apiReviewCount > 0 && apiRating > 0
+  const sizes = product.sizes?.length ? product.sizes : undefined
+  const colorHexes = product.colors?.length ? product.colors : undefined
+  const variantRefs = product.variantRefs?.length ? product.variantRefs : undefined
 
   return {
     id: product.id,
@@ -31,6 +34,9 @@ export function storefrontToCardData(
     ...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {}),
     images,
     ...(colorOptions?.length ? { colorOptions } : {}),
+    ...(sizes ? { sizes } : {}),
+    ...(colorHexes ? { colorHexes } : {}),
+    ...(variantRefs ? { variantRefs } : {}),
     isNewArrival: isStorefrontNewArrival(product),
     isBestSeller: isStorefrontBestSeller(product),
     isOnSale: Boolean(product.compareAtPrice && product.compareAtPrice > product.price),

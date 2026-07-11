@@ -1,4 +1,5 @@
 import type { CartItem } from '@/store/cartStore'
+import { cartLineKey } from '@/store/cartStore'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
@@ -13,7 +14,35 @@ function cartFetchInit(init: RequestInit = {}): RequestInit {
   return { ...init, signal: AbortSignal.timeout(CART_SYNC_TIMEOUT_MS) }
 }
 
-export type CartSyncResult = { ok: true } | { ok: false; error: string }
+export type CartSyncResult = { ok: true; items?: CartItem[] } | { ok: false; error: string }
+
+/** Merge server cart into local — union lines, keep higher quantity per line. */
+export function mergeCartLines(local: CartItem[], server: CartItem[]): CartItem[] {
+  const map = new Map<string, CartItem>()
+
+  for (const item of server) {
+    map.set(cartLineKey(item), { ...item })
+  }
+
+  for (const item of local) {
+    const key = cartLineKey(item)
+    const existing = map.get(key)
+    if (!existing) {
+      map.set(key, { ...item })
+      continue
+    }
+    map.set(
+      key,
+      existing.quantity >= item.quantity ? existing : { ...item, quantity: item.quantity },
+    )
+  }
+
+  return [...map.values()]
+}
+
+export function cartLineCount(items: CartItem[]) {
+  return items.reduce((sum, item) => sum + item.quantity, 0)
+}
 
 function cartApiPath(sessionId: string, suffix = ''): string {
   const base = `/api/cart/${encodeURIComponent(sessionId)}${suffix}`
@@ -66,11 +95,9 @@ function mapApiCartItem(raw: Record<string, unknown>): CartItem | null {
   return item
 }
 
-export async function pullServerCart(
-  merge: (items: CartItem[]) => void,
-): Promise<CartSyncResult> {
+export async function pullServerCart(): Promise<CartSyncResult> {
   const sessionId = cartSessionId()
-  if (!sessionId) return { ok: true }
+  if (!sessionId) return { ok: true, items: [] }
 
   try {
     const res = await fetch(cartApiPath(sessionId), cartFetchInit({ cache: 'no-store', credentials: 'include' }))
@@ -91,8 +118,7 @@ export async function pullServerCart(
       .map(mapApiCartItem)
       .filter((item): item is CartItem => item !== null)
 
-    if (items.length) merge(items)
-    return { ok: true }
+    return { ok: true, items }
   } catch {
     return { ok: false, error: 'Cart sync is offline — your cart is saved on this device only.' }
   }

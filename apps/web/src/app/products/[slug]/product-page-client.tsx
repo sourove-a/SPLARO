@@ -45,6 +45,7 @@ import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 
 interface ProductPageClientProps {
@@ -702,7 +703,12 @@ export default function ProductPageClient({
                       </ProductFadeSwap>
                     </AnimatePresence>
                   </p>
-                  <div className="pp-color-row">
+                  <HorizontalScrollRail
+                    className="pp-color-rail"
+                    trackClassName="pp-color-row"
+                    variant="pill"
+                    ariaLabel="Product colours"
+                  >
                     {colorOptions.map((opt) => (
                       <MotionPressable
                         key={opt.hex}
@@ -726,7 +732,7 @@ export default function ProductPageClient({
                         />
                       </MotionPressable>
                     ))}
-                  </div>
+                  </HorizontalScrollRail>
                 </div>
               )}
 
@@ -969,6 +975,36 @@ export default function ProductPageClient({
           </ProductReveal>
         )}
       </div>
+
+      {inStock ? (
+        <div className="pp-mobile-sticky-bar" aria-label="Quick purchase">
+          <div className="pp-mobile-sticky-bar__price">
+            <span className="pp-mobile-sticky-bar__price-label">
+              {quantity > 1 ? 'Total' : 'Price'}
+            </span>
+            <span className="pp-mobile-sticky-bar__price-value">
+              {formatBDT(product.price * quantity)}
+            </span>
+          </div>
+          <div className="pp-mobile-sticky-bar__actions">
+            <button
+              type="button"
+              className="pp-mobile-sticky-bar__btn pp-mobile-sticky-bar__btn--add"
+              onClick={handleAddToCart}
+              disabled={addingToCart}
+            >
+              {addingToCart && !addedPulse ? 'Adding…' : addedPulse ? 'Added' : 'Add to bag'}
+            </button>
+            <button
+              type="button"
+              className="pp-mobile-sticky-bar__btn pp-mobile-sticky-bar__btn--buy"
+              onClick={handleBuyNow}
+            >
+              Buy now
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {isLightboxOpen && (
         <div

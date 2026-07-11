@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import OrderConfirmationPageClient from './page-client'
 
 interface OrderConfirmationPageProps {
@@ -15,5 +16,17 @@ export async function generateMetadata({ params }: OrderConfirmationPageProps): 
 
 export default async function OrderConfirmationPage({ params }: OrderConfirmationPageProps) {
   const { id } = await params
-  return <OrderConfirmationPageClient orderId={id} />
+  return (
+    <Suspense
+      fallback={
+        <main className="checkout-shell checkout-shell--loading">
+          <div className="checkout-glass-panel checkout-glass-panel--center">
+            <p className="text-sm font-black text-black/55">Loading order...</p>
+          </div>
+        </main>
+      }
+    >
+      <OrderConfirmationPageClient orderId={id} />
+    </Suspense>
+  )
 }

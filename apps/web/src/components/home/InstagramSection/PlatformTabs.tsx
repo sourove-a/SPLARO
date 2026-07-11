@@ -2,6 +2,7 @@
 
 import { Facebook, Instagram, Youtube } from 'lucide-react'
 import type { ReelPlatform } from '@/data/social-reels'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { cn } from '@/lib/utils/cn'
 
 const TABS: Array<{
@@ -22,7 +23,13 @@ interface PlatformTabsProps {
 
 export function PlatformTabs({ value, onChange }: PlatformTabsProps) {
   return (
-    <div className="reels-platform-tabs" role="tablist" aria-label="Social platform">
+    <HorizontalScrollRail
+      className="reels-platform-tabs-wrap"
+      trackClassName="reels-platform-tabs"
+      variant="pill"
+      trackRole="tablist"
+      ariaLabel="Social platform"
+    >
       {TABS.map((tab) => {
         const Icon = tab.icon
         const active = tab.id === value
@@ -41,6 +48,6 @@ export function PlatformTabs({ value, onChange }: PlatformTabsProps) {
           </button>
         )
       })}
-    </div>
+    </HorizontalScrollRail>
   )
 }

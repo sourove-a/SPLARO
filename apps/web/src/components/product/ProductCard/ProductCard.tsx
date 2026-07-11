@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, useReducedMotion } from 'framer-motion'
+import { useMotionReady } from '@/hooks/useMotionReady'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 import { Heart, ShoppingBag, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
@@ -12,6 +13,7 @@ import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { trackAddToCart } from '@/lib/analytics/meta-pixel'
+import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { fadeUp } from '@/lib/motion/variants'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import type { ProductCardData } from '@/types/product'
@@ -67,7 +69,7 @@ export function ProductCard({
 function ProductCardDefault({ product, priority }: { product: ProductCardData; priority: boolean }) {
   const [hovered, setHovered] = useState(false)
   const [imgIndex, setImgIndex] = useState(0)
-  const reducedMotion = useReducedMotion()
+  const { showMotion } = useMotionReady()
   const images = productImages(product)
 
   const addToCart = useCartStore((s) => s.addItem)
@@ -79,8 +81,14 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      // No variantId here — ProductCardData carries no real variant ids and the
-      // API rejects fabricated ones. The server resolves the variant by product.
+      const defaultSize = product.sizes?.[0]
+      const defaultColor = product.colorHexes?.[0] ?? product.colorOptions?.[0]?.hex
+      const variant = resolveQuickAddVariant(
+        product.variantRefs?.length ? { variantRefs: product.variantRefs } : {},
+        defaultSize,
+        defaultColor,
+      )
+      const size = variant?.size ?? defaultSize
       addToCart({
         productId: product.id,
         quantity: 1,
@@ -88,6 +96,9 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         price: product.price,
         image: images[0] ?? PRODUCT_IMAGE_PLACEHOLDER,
         slug: product.slug,
+        ...(variant ? { variantId: variant.id } : {}),
+        ...(size ? { size } : {}),
+        ...(defaultColor ? { color: defaultColor } : {}),
       })
       trackAddToCart({ id: product.id, name: product.name, price: product.price })
     },
@@ -130,7 +141,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
   const hasMultipleImages = images.length > 1
   const currentImage = images[imgIndex] ?? images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
 
-  const revealMotion = reducedMotion
+  const revealMotion = !showMotion
     ? { initial: false as const }
     : {
         initial: 'hidden' as const,
@@ -139,7 +150,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         variants: fadeUp,
       }
 
-  const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
+  const mediaTransition = productMediaTransitionStyle(product.id, !showMotion)
 
   return (
     <motion.article

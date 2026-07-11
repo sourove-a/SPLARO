@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion, useReducedMotion } from 'framer-motion'
 import {
   ArrowLeft,
+  AlertCircle,
   Check,
   Copy,
   MapPin,
@@ -23,6 +25,8 @@ import {
   fetchOrderById,
   getDeliveryStage,
   loadOrders,
+  saveOrderLocally,
+  trackOrder,
   type StoredOrder,
 } from '@/lib/orders'
 import { resolveConfirmationStage } from '@/lib/order/delivery-progress'
@@ -30,6 +34,7 @@ import { buildInvoiceUrl } from '@/lib/invoice-url'
 import { displayOrderCode } from '@splaro/config'
 import { formatBDT } from '@/lib/utils/currency'
 import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
+import { copyTextToClipboard } from '@/lib/utils/clipboard'
 
 interface OrderConfirmationPageClientProps {
   orderId: string
@@ -57,23 +62,74 @@ function confirmCardMotion(index: number, reduced: boolean | null) {
 }
 
 export default function OrderConfirmationPageClient({ orderId }: OrderConfirmationPageClientProps) {
+  const searchParams = useSearchParams()
+  const paymentPending = searchParams.get('payment') === 'pending'
   const [order, setOrder] = useState<StoredOrder | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const reducedMotion = useReducedMotion()
 
   useEffect(() => {
-    fetchOrderById(orderId).then((match) => {
-      setOrder(
-        match ??
-          loadOrders().find(
-            (item) => item.id === orderId || item.invoiceNumber === orderId,
-          ) ??
-          null,
-      )
+    let cancelled = false
+
+    async function resolveOrder() {
+      const fromApi = await fetchOrderById(orderId)
+      if (cancelled) return
+      if (fromApi) {
+        setOrder(fromApi)
+        saveOrderLocally(fromApi)
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('splaro-last-order-id')
+        }
+        setHydrated(true)
+        return
+      }
+
+      const fromCache =
+        loadOrders().find(
+          (item) => item.id === orderId || item.invoiceNumber === orderId,
+        ) ?? null
+      if (fromCache) {
+        setOrder(fromCache)
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('splaro-last-order-id')
+        }
+        setHydrated(true)
+        return
+      }
+
+      if (typeof window !== 'undefined') {
+        try {
+          const savedCustomer = window.localStorage.getItem('splaro-customer')
+          if (savedCustomer) {
+            const customer = JSON.parse(savedCustomer) as { phone?: string }
+            if (customer.phone?.trim()) {
+              const tracked = await trackOrder(orderId, customer.phone.trim())
+              if (cancelled) return
+              if (tracked) {
+                setOrder(tracked)
+                saveOrderLocally(tracked)
+                if (typeof window !== 'undefined') {
+                  window.sessionStorage.removeItem('splaro-last-order-id')
+                }
+                setHydrated(true)
+                return
+              }
+            }
+          }
+        } catch {
+          // fall through to not-found
+        }
+      }
+
       setHydrated(true)
-    })
-  }, [orderId])
+    }
+
+    void resolveOrder()
+    return () => {
+      cancelled = true
+    }
+  }, [orderId, paymentPending])
 
   const orderCode = order ? displayOrderCode(order.invoiceNumber, order.id) : orderId
   const deliveryStage = useMemo(() => {
@@ -84,14 +140,9 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
 
   const copyOrderCode = async () => {
     if (!orderCode) return
-    try {
-      await navigator.clipboard.writeText(orderCode)
-      setCopyState('copied')
-      window.setTimeout(() => setCopyState('idle'), 2000)
-    } catch {
-      setCopyState('failed')
-      window.setTimeout(() => setCopyState('idle'), 2000)
-    }
+    const ok = await copyTextToClipboard(orderCode)
+    setCopyState(ok ? 'copied' : 'failed')
+    window.setTimeout(() => setCopyState('idle'), 2000)
   }
 
   const pressMotion = reducedMotion ? {} : { whileTap: checkoutTapSpring }
@@ -136,6 +187,19 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
   return (
     <main className="checkout-shell">
       <section className="checkout-container">
+        {paymentPending ? (
+          <div className="checkout-payment-pending" role="status">
+            <AlertCircle className="h-4 w-4 shrink-0" strokeWidth={2.2} aria-hidden />
+            <div>
+              <p className="checkout-payment-pending__title">Payment not completed</p>
+              <p className="checkout-payment-pending__copy">
+                Your order is saved, but online payment did not finish. Contact SPLARO support with
+                order code <strong>{orderCode}</strong> to pay or confirm Cash on Delivery.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="checkout-success">
           <div className="checkout-success__hero checkout-glass-panel">
             <span className="checkout-success__halo checkout-success__halo--gold" aria-hidden="true" />
@@ -161,7 +225,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               animate={{ opacity: 1, y: 0 }}
               transition={checkoutMotionTransition(reducedMotion, 0.38)}
             >
-              Order confirmed
+              {paymentPending ? 'Order received' : 'Order confirmed'}
             </motion.p>
             <motion.h1
               className="checkout-title"
@@ -169,7 +233,9 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.06 }}
             >
-              Thank you, {order.customer.name.split(' ')[0]}!
+              {paymentPending
+                ? `Thanks, ${order.customer.name.split(' ')[0]} — payment pending`
+                : `Thank you, ${order.customer.name.split(' ')[0]}!`}
             </motion.h1>
             <motion.p
               className="checkout-subtitle checkout-success__subtitle"
@@ -177,7 +243,9 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...checkoutMotionTransition(reducedMotion, 0.42), delay: reducedMotion ? 0 : 0.12 }}
             >
-              We&apos;ll send delivery updates as your products move toward you.
+              {paymentPending
+                ? 'We saved your order. Our team can help you complete payment or switch to Cash on Delivery.'
+                : "We'll send delivery updates as your products move toward you."}
             </motion.p>
             <motion.div
               className="checkout-success__chips"

@@ -4,6 +4,7 @@ import { motion, type HTMLMotionProps } from 'framer-motion'
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { useScrollReveal } from '@/hooks/useScrollReveal'
+import { useMotionReady } from '@/hooks/useMotionReady'
 import { revealVariants, type RevealVariant } from '@/lib/motion/variants'
 import { cn } from '@/lib/utils/cn'
 
@@ -24,6 +25,7 @@ export function ScrollReveal({
   className,
   ...props
 }: ScrollRevealProps) {
+  const { showMotion } = useMotionReady()
   const revealOptions = useMemo(
     () => ({
       ...(once !== undefined ? { once } : {}),
@@ -32,15 +34,20 @@ export function ScrollReveal({
     [once, margin],
   )
   const { ref, isInView, reducedMotion } = useScrollReveal(revealOptions)
-  // Under prefers-reduced-motion, drop translate/scale (the kind of movement
-  // the setting exists to prevent) but keep a soft opacity fade — WCAG only
-  // requires killing large/parallax-style motion, and a fully static swap
-  // reads as "nothing is happening" on a page that's meant to feel alive.
+
   const variants = stagger
     ? revealVariants.staggerContainer
     : reducedMotion
       ? revealVariants.fadeIn
       : revealVariants[variant]
+
+  if (!showMotion) {
+    return (
+      <div ref={ref} className={cn('scroll-reveal-gpu', className)}>
+        {children}
+      </div>
+    )
+  }
 
   return (
     <motion.div
@@ -67,6 +74,16 @@ export function ScrollRevealItem({
   className,
   ...props
 }: ScrollRevealItemProps) {
+  const { showMotion } = useMotionReady()
+
+  if (!showMotion) {
+    return (
+      <div className={cn('scroll-reveal-gpu', className)}>
+        {children}
+      </div>
+    )
+  }
+
   return (
     <motion.div className={cn('scroll-reveal-gpu', className)} variants={revealVariants[variant]} {...props}>
       {children}

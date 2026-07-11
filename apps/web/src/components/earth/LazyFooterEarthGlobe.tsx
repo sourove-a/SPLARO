@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import {
   earthIntersectionRootMargin,
@@ -24,18 +25,25 @@ const FooterEarthGlobe = dynamic(
  * CSS fallback only when WebGL is unavailable (Windows RDP / blocked GPU).
  */
 export function LazyFooterEarthGlobe() {
+  const pathname = usePathname()
+  /** Homepage already runs story WebGL — footer stays CSS-only to avoid double Three.js load on refresh. */
+  const cssOnly = pathname === '/'
   const hostRef = useRef<HTMLDivElement>(null)
   const [showGlobe, setShowGlobe] = useState(false)
   const [webglFailed, setWebglFailed] = useState(false)
   const [webglCapable, setWebglCapable] = useState<boolean | null>(null)
 
   useEffect(() => {
+    if (cssOnly) {
+      setWebglCapable(false)
+      return
+    }
     setWebglCapable(shouldUseWebGLEarth({ decorative: true }))
-  }, [])
+  }, [cssOnly])
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || showGlobe || webglFailed || webglCapable === false) return
+    if (!host || cssOnly || showGlobe || webglFailed || webglCapable === false) return
 
     let activated = false
     const activate = () => {
@@ -82,14 +90,14 @@ export function LazyFooterEarthGlobe() {
       cancelAnimationFrame(raf)
       teardown?.()
     }
-  }, [showGlobe, webglFailed, webglCapable])
+  }, [cssOnly, showGlobe, webglFailed, webglCapable])
 
   const handleUnavailable = useCallback(() => {
     setShowGlobe(false)
     setWebglFailed(true)
   }, [])
 
-  const showCssFallback = webglFailed || webglCapable === false
+  const showCssFallback = cssOnly || webglFailed || webglCapable === false
 
   return (
     <div

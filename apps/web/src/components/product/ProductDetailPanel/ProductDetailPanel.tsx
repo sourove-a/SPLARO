@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
 import { MotionPressable } from '@/components/ui/MotionPressable'
+import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import {
   ProductFadeSwap,
   ProductReveal,
@@ -296,7 +297,12 @@ export function ProductDetailPanel({
               </div>
 
               {media.length > 1 && (
-                <div className="pdp-gallery__thumbstrip">
+                <HorizontalScrollRail
+                  className="pdp-gallery__thumbrail"
+                  trackClassName="pdp-gallery__thumbstrip"
+                  variant="pill"
+                  ariaLabel="Product gallery thumbnails"
+                >
                   {media.map((item, i) => (
                     <MotionPressable
                       key={`${item.type}-${item.url}-${i}`}
@@ -316,7 +322,7 @@ export function ProductDetailPanel({
                       )}
                     </MotionPressable>
                   ))}
-                </div>
+                </HorizontalScrollRail>
               )}
             </div>
           </div>

@@ -7,6 +7,8 @@ import { ArrowRight } from 'lucide-react'
 import { HeroSlider } from '@/components/home/HeroSlider'
 import { MarqueeStrip } from '@/components/home/MarqueeStrip'
 import { TrustBar } from '@/components/home/TrustBar'
+import { WhySplaro } from '@/components/home/WhySplaro'
+import { ShopCatalog } from '@/components/shop/ShopCatalog'
 import { DeferUntilVisible } from '@/components/ui/DeferUntilVisible'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { type Category } from '@/data/storefront'
@@ -18,15 +20,7 @@ const SpecialOffer = dynamic(
   () => import('@/components/home/SpecialOffer').then((m) => m.SpecialOffer),
   { ssr: false },
 )
-const ShopCatalog = dynamic(
-  () => import('@/components/shop/ShopCatalog').then((m) => m.ShopCatalog),
-  { ssr: false },
-)
 
-const WhySplaro = dynamic(
-  () => import('@/components/home/WhySplaro').then((m) => m.WhySplaro),
-  { ssr: false },
-)
 const NewsletterSection = dynamic(
   () =>
     import('@/components/home/NewsletterSection/NewsletterSection').then(

@@ -8,12 +8,12 @@ export const scrollEaseOutExpo = (t: number) =>
 export const SCROLL_ANCHOR_OFFSET = -120
 
 export const SCROLL_TO_TOP: ScrollToOptions = {
-  duration: 0.85,
+  duration: 0.65,
   easing: scrollEaseOutExpo,
 }
 
 export const SCROLL_ROUTE_TOP: ScrollToOptions = {
-  duration: 0.4,
+  duration: 0.32,
   easing: scrollEaseOutExpo,
 }
 
@@ -34,11 +34,22 @@ const LENIS_SHARED = {
   anchors: SCROLL_ANCHOR,
 } satisfies Partial<LenisOptions>
 
+/** Mac / Linux desktop — full inertia feel */
 const LENIS_DESKTOP_OPTIONS = {
   ...LENIS_SHARED,
-  lerp: 0.115,
+  lerp: 0.158,
   smoothWheel: true,
-  wheelMultiplier: 1.05,
+  wheelMultiplier: 1.08,
+  syncTouch: false,
+  touchMultiplier: 1,
+} satisfies LenisOptions
+
+/** Windows desktop — slightly snappier lerp, lower wheel gain (trackpad / ANGLE). Re-enable after real-device Windows verification. */
+const LENIS_WINDOWS_OPTIONS = {
+  ...LENIS_SHARED,
+  lerp: 0.172,
+  smoothWheel: true,
+  wheelMultiplier: 0.95,
   syncTouch: false,
   touchMultiplier: 1,
 } satisfies LenisOptions
@@ -71,16 +82,20 @@ export function isTouchScrollProfile() {
 }
 
 export function buildLenisOptions(): LenisOptions {
-  return LENIS_DESKTOP_OPTIONS
+  return isWindowsClient() ? LENIS_WINDOWS_OPTIONS : LENIS_DESKTOP_OPTIONS
 }
 
 /**
- * Lenis disabled site-wide — native scroll only.
- * Smooth wheel capture breaks Windows Chrome/Brave (dead scroll/clicks after deploy).
- * Re-enable only after verified per-OS; Mac native scroll is fine for launch.
+ * Lenis on pointer-fine desktops only — native scroll on mobile + reduced-motion.
+ * Windows excluded until real-device verification (see LENIS_WINDOWS_OPTIONS).
  */
 export function isSmoothScrollEligible() {
-  return false
+  const mq = getScrollMedia()
+  if (!mq) return false
+  if (mq.reduced.matches) return false
+  if (mq.coarse.matches || mq.mobileLayout.matches) return false
+  if (isWindowsClient()) return false
+  return true
 }
 
 /** @deprecated use isSmoothScrollEligible */
@@ -89,6 +104,22 @@ export function isSmoothScrollEnabled() {
 }
 
 export function subscribeSmoothScrollEligibility(onChange: (eligible: boolean) => void) {
-  onChange(false)
-  return () => {}
+  const mq = getScrollMedia()
+  if (!mq) {
+    onChange(false)
+    return () => {}
+  }
+
+  const update = () => onChange(isSmoothScrollEligible())
+  update()
+
+  mq.reduced.addEventListener('change', update)
+  mq.coarse.addEventListener('change', update)
+  mq.mobileLayout.addEventListener('change', update)
+
+  return () => {
+    mq.reduced.removeEventListener('change', update)
+    mq.coarse.removeEventListener('change', update)
+    mq.mobileLayout.removeEventListener('change', update)
+  }
 }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
+import { useMotionReady } from '@/hooks/useMotionReady'
 import { ShopFilterBar } from '@/components/shop/ShopFilterBar'
 import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
@@ -80,9 +81,9 @@ export function ShopCatalog({
   const isHomepage = layout === 'homepage'
   const isMobile = useMobileViewport()
   const mounted = useMounted()
-  const homepageProductLimit = mounted && isMobile ? 6 : HOMEPAGE_PRODUCT_LIMIT
+  const homepageProductLimit = HOMEPAGE_PRODUCT_LIMIT
   const priorityCount = mounted && isMobile ? 2 : 4
-  const reducedMotion = useReducedMotion()
+  const { showMotion } = useMotionReady()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
   const useApiListing = listingMode === 'scoped' && Boolean(collectionSlug || categorySlug)
@@ -475,15 +476,15 @@ export function ShopCatalog({
           <AnimatePresence mode="popLayout" initial={false}>
             {visibleProducts.map((product, index) => {
               const card = storefrontToCardData(product)
-              const motionProps = reducedMotion
+              const motionProps = !showMotion
                 ? { initial: false as const }
                 : {
                     initial: { opacity: 0, y: 12, scale: 0.988 },
                     animate: { opacity: 1, y: 0, scale: 1 },
                     exit: { opacity: 0, y: -8, scale: 0.988 },
                     transition: {
-                      duration: 0.34,
-                      delay: Math.min(index * 0.038, 0.28),
+                      duration: 0.28,
+                      delay: Math.min(index * 0.032, 0.22),
                       ease: GRID_EASE,
                     },
                   }

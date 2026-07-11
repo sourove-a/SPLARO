@@ -12,6 +12,7 @@ export async function reconcileAuthSession(): Promise<AuthUser | null> {
 
   sessionCheckPromise = (async () => {
     const res = await fetch('/api/auth/me', { credentials: 'include' })
+    if (res.status === 401) return null
     if (!res.ok) {
       throw new Error(`Session check failed (${res.status})`)
     }

@@ -24,6 +24,9 @@ export class RedisService implements OnModuleDestroy {
         lazyConnect: true,
         enableOfflineQueue: false,
       })
+      this.client.on('error', (err: Error) => {
+        this.logger.debug(`Redis client error: ${err.message}`)
+      })
       void this.client.connect().catch((err: unknown) => {
         this.logger.warn(`Redis unavailable: ${err instanceof Error ? err.message : 'connect failed'}`)
         this.client = null
@@ -59,6 +62,9 @@ export class RedisService implements OnModuleDestroy {
         maxRetriesPerRequest: 2,
         lazyConnect: true,
         enableOfflineQueue: false,
+      })
+      client.on('error', (err: Error) => {
+        this.logger.debug(`Redis client error: ${err.message}`)
       })
       await client.connect()
       this.client = client
