@@ -38,6 +38,7 @@ import { StorefrontOtpService } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
+import { SeedDemoCatalogService } from '../catalog/seed-demo-catalog.service'
 
 function bearerToken(authorization?: string): string | undefined {
   return authorization?.replace(/^Bearer\s+/i, '').trim() || undefined
@@ -73,6 +74,7 @@ export class StorefrontController {
     private readonly invoices: InvoiceService,
     private readonly legalPages: LegalPagesService,
     private readonly purgeDemoCatalog: PurgeDemoCatalogService,
+    private readonly seedDemoCatalog: SeedDemoCatalogService,
   ) {}
 
   @Get('settings')
@@ -1311,6 +1313,25 @@ export class StorefrontController {
     )
     const result = await this.purgeDemoCatalog.purge(sid)
     await this.cache.invalidateStoreResource(sid, 'products')
+    return { ok: true, ...result }
+  }
+
+  /** Deploy hook — seed demo catalog when store has zero products (requires INTERNAL_HEALTH_SECRET). */
+  @Post('deploy/seed-demo')
+  async deploySeedDemo(@Query('storeId') storeId: string, @Req() req: Request) {
+    const secret = process.env['INTERNAL_HEALTH_SECRET']
+    const header = req.headers['x-splaro-internal']
+    if (!secret || header !== secret) {
+      throw new UnauthorizedException('Invalid internal token')
+    }
+    const sid = await resolveStoreId(
+      this.prisma,
+      (storeId?.trim() || process.env['NEXT_PUBLIC_STORE_ID'] || 'splaro').trim(),
+    )
+    const result = await this.seedDemoCatalog.seedIfEmpty(sid)
+    if (result.productsCreated > 0) {
+      await this.cache.invalidateStoreResource(sid, 'products')
+    }
     return { ok: true, ...result }
   }
 }
