@@ -82,10 +82,33 @@ log "Bootstrap store contact from .env (idempotent)…"
 pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
 
 log "Build..."
+# 8GB VPS OOM-kills parallel turbo (api tsc + two next builds) → exit 137 and
+# leaves dist/.next wiped. Sequential + concurrency=1 keeps the site rebuildable.
+# Ensure swap exists (idempotent) so peak RSS doesn't SIGKILL the builder.
+if ! swapon --show 2>/dev/null | grep -q .; then
+  if [ ! -f /swapfile ]; then
+    log "Creating 4G swapfile (no swap configured)..."
+    fallocate -l 4G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=4096 status=none
+    chmod 600 /swapfile
+    mkswap /swapfile >/dev/null
+  fi
+  swapon /swapfile 2>/dev/null || true
+  grep -q '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
 # Stale .next/cache has caused dead interactivity after deploy (Windows/RDP).
 # Safe to drop — Next rebuilds fetch/cache entries during `next build`.
 rm -rf apps/web/.next/cache apps/admin/.next/cache 2>/dev/null || true
-pnpm build:all
+export TURBO_CONCURRENCY="${TURBO_CONCURRENCY:-1}"
+export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
+log "Building sequentially (TURBO_CONCURRENCY=$TURBO_CONCURRENCY)…"
+pnpm --filter @splaro/types build
+pnpm --filter @splaro/config build
+pnpm --filter @splaro/invoice-generator build
+pnpm --filter @splaro/print-service build
+pnpm --filter @splaro/api build
+pnpm --filter @splaro/worker build
+pnpm --filter @splaro/web build
+pnpm --filter @splaro/admin build
 node scripts/prepare-next-standalone.mjs apps/web
 node scripts/prepare-next-standalone.mjs apps/admin
 
