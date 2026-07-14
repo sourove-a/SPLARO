@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from '@/lib/motion/react'
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
 import { Navigation } from './Navigation'
+import { SearchModal } from './SearchModal'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
@@ -17,7 +18,6 @@ import { useHeaderScroll } from '@/hooks/useScrollY'
 import { cn } from '@/lib/utils/cn'
 
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
-const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
 
 export function Header() {
@@ -55,6 +55,23 @@ export function Header() {
     root.setAttribute('data-home-hero', isOverHero ? 'top' : 'scrolled')
     return () => root.removeAttribute('data-home-hero')
   }, [isHome, isOverHero])
+
+  // Warm search category thumbs while idle — first Search click feels instant.
+  useEffect(() => {
+    const warm = () => {
+      void fetch('/api/products?limit=48', { cache: 'force-cache' }).catch(() => {})
+    }
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+    if (win.requestIdleCallback) {
+      const id = win.requestIdleCallback(warm, { timeout: 2500 })
+      return () => win.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(warm, 1200)
+    return () => window.clearTimeout(t)
+  }, [])
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
   const closeSearch = useCallback(() => setSearchOpen(false), [setSearchOpen])

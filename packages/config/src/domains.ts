@@ -36,18 +36,22 @@ export function getApiBaseUrl(): string {
 }
 
 /**
- * Server-only API base — prefers loopback on Hostinger so SSR/sitemap never
+ * Server-only API base — prefers loopback on same-box VPS so SSR/sitemap never
  * round-trips through external TLS/proxy (fixes timeout + connection flakes).
+ *
+ * Order: INTERNAL_API_URL → same-box flags (SPLARO_VPS / SPLARO_HOSTINGER) →
+ * local dev 127.0.0.1 → public API URL.
  */
 export function getServerApiBaseUrl(): string {
   const internal = process.env.INTERNAL_API_URL?.trim()
   if (internal) return normalizeApiBase(internal)
 
-  const onHostinger =
+  const onSameBox =
+    process.env.SPLARO_VPS === '1' ||
     process.env.SPLARO_HOSTINGER === '1' ||
     (typeof process.env.HOME === 'string' && process.env.HOME.includes('domains/splaro.co'))
 
-  if (onHostinger) {
+  if (onSameBox) {
     const port = process.env.API_PORT ?? process.env.PORT_API ?? '4000'
     return normalizeApiBase(`http://127.0.0.1:${port}`)
   }

@@ -65,7 +65,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
-    void fetch('/api/products', { cache: 'no-store' })
+    // Cached + capped listing — category thumbs only. no-store made every open wait on API.
+    void fetch('/api/products?limit=48', { cache: 'force-cache' })
       .then((res) => (res.ok ? res.json() : null))
       .then((payload: { products?: StorefrontProduct[] } | null) => {
         if (cancelled || !payload?.products?.length) return
