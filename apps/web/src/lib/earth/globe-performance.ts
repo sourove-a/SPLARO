@@ -57,12 +57,21 @@ export function scheduleEarthWebGLActivation(run: () => void): () => void {
 export function globePixelRatioCap(configCap: number): number {
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   if (isPhoneViewport()) return Math.min(dpr, 1.5)
+  if (isLowPowerDevice()) return Math.min(dpr, 1.25)
   return Math.min(dpr, configCap)
 }
 
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+export function isWindowsDesktop(): boolean {
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false
+  const isWin = /Windows/i.test(navigator.userAgent || '')
+  const fine = window.matchMedia('(pointer: fine)').matches
+  const desktop = window.innerWidth > 1023
+  return isWin && fine && desktop
 }
 
 /** False on RDP / software GL / blocked WebGL — story earth uses CSS fallback instead. */
@@ -90,6 +99,7 @@ const SOFTWARE_RENDERER_MARKERS = [
   'software rasterizer',
   'mesa offscreen',
   'angle (microsoft basic render driver)',
+  'google swiftshader',
 ]
 
 /** True on RDP / software GL — use CSS earth, skip WebGL attempt. */
@@ -124,34 +134,38 @@ export function isSoftwareRenderer(): boolean {
   return softwareRendererCache
 }
 
+/**
+ * Lite paint / scroll profile.
+ * Soft-GL MUST win over the Windows desktop bypass — previously Win desktop
+ * returned false before soft-GL was checked, forcing WebGL+Lenis+blur on CPU.
+ */
 export function isLowPowerDevice(): boolean {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return false
 
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
   if (conn?.saveData) return true
 
-  // Windows desktop Mac-parity: never lite from soft-GL / low RAM alone.
-  // HA-off → "Microsoft Basic Render" used to force lite and freeze earth/slider.
-  // Soft GL still skips WebGL via isSoftwareRenderer() → CSS earth fallback.
-  const isWin = /Windows/i.test(navigator.userAgent || '')
-  const fine = window.matchMedia('(pointer: fine)').matches
-  const desktop = window.innerWidth > 1023
-  if (isWin && fine && desktop) return false
-
+  // RDP / HA-off / SwiftShader — always lite (check BEFORE Windows bypass).
   if (isSoftwareRenderer()) return true
 
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
-  if (memory !== undefined && memory <= 2) return true
+  if (memory !== undefined && memory <= 2) {
+    // Chromium often under-reports RAM on Windows; only trust ≤2GB on non-Win-desktop.
+    if (!isWindowsDesktop()) return true
+  }
+
   return false
 }
 
 export type EarthMotionOptions = { decorative?: boolean }
 
-/** Story/footer 3D earth — CSS fallback on RDP, reduced motion, or blocked WebGL. */
+/** Story/footer 3D earth — CSS fallback on Windows, RDP, reduced motion, or blocked WebGL. */
 export function shouldUseWebGLEarth(options?: EarthMotionOptions): boolean {
   if (!options?.decorative && prefersReducedMotion()) return false
   if (!canUseWebGL()) return false
   if (isSoftwareRenderer()) return false
+  // Decorative story/footer WebGL fights Lenis/search on Windows ANGLE — CSS/video instead.
+  if (options?.decorative && isWindowsDesktop()) return false
   return true
 }
 
@@ -160,7 +174,17 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
   if (!options?.decorative && prefersReducedMotion()) return false
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
   if (conn?.saveData) return false
+  if (isSoftwareRenderer()) return false
   return true
+}
+
+/** Soft-GL / lite: skip Lenis RAF so search/slider aren't starved by scroll+GPU work. */
+export function shouldUseNativeScroll(): boolean {
+  if (typeof window === 'undefined') return false
+  if (prefersReducedMotion()) return true
+  if (isLowPowerDevice()) return true
+  if (document.documentElement.getAttribute('data-perf') === 'lite') return true
+  return false
 }
 
 export function earthIntersectionRootMargin(compact = false): string {

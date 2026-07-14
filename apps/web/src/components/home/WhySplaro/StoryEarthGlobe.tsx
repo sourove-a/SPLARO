@@ -5,10 +5,21 @@ import { EarthGlobe } from '@/components/earth/EarthGlobe'
 import { shouldUseWebGLEarth } from '@/lib/earth/globe-performance'
 import { preloadEarthTextures } from '@/lib/earth/textures'
 
-/** CSS-only fallback — shows instantly while WebGL boots or when WebGL is unavailable. */
-function StoryEarthCssFallback({ flow = true }: { flow?: boolean }) {
+/** CSS-only globe — always under WebGL so soft-GL / failed canvas never leaves a black hole. */
+function StoryEarthCssFallback({
+  flow = true,
+  dimmed = false,
+}: {
+  flow?: boolean
+  dimmed?: boolean
+}) {
   return (
-    <div className="story-earth-panel__placeholder story-earth-panel__placeholder--flow" aria-hidden>
+    <div
+      className={`story-earth-panel__placeholder story-earth-panel__placeholder--flow${
+        dimmed ? ' story-earth-panel__placeholder--hidden' : ''
+      }`}
+      aria-hidden
+    >
       <div className="story-earth-panel__placeholder-bg" />
       <div className="story-earth-panel__globe">
         <div
@@ -29,9 +40,10 @@ export function StoryEarthGlobe() {
   const [webglReady, setWebglReady] = useState(false)
 
   useLayoutEffect(() => {
+    // shouldUseWebGLEarth skips Windows desktop + soft-GL → CSS map scroll only.
     const capable = shouldUseWebGLEarth({ decorative: true })
     setWebglCapable(capable)
-    void preloadEarthTextures()
+    if (capable) void preloadEarthTextures()
   }, [])
 
   useEffect(() => {
@@ -51,7 +63,18 @@ export function StoryEarthGlobe() {
       attributeFilter: ['data-earth-ready'],
     })
 
-    return () => observer.disconnect()
+    // If WebGL never marks ready, keep CSS visible forever (already mounted).
+    const failSafe = window.setTimeout(() => {
+      if (!host.querySelector('[data-earth-ready="true"]')) {
+        setWebglCapable(false)
+        setWebglReady(false)
+      }
+    }, 8000)
+
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(failSafe)
+    }
   }, [webglCapable])
 
   const handleUnavailable = useCallback(() => {
@@ -60,7 +83,6 @@ export function StoryEarthGlobe() {
   }, [])
 
   const mountWebgl = webglCapable === true
-  const showCssFallback = !mountWebgl || !webglReady
 
   return (
     <div
@@ -70,12 +92,12 @@ export function StoryEarthGlobe() {
         webglCapable === false ? 'css' : webglReady ? 'ready' : mountWebgl ? 'loading' : 'pending'
       }
     >
-      {showCssFallback ? <StoryEarthCssFallback flow /> : null}
+      <StoryEarthCssFallback flow dimmed={mountWebgl && webglReady} />
       {mountWebgl ? (
         <EarthGlobe
           variant="story"
           ignoreReducedMotion
-          className="story-earth-panel__canvas absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
+          className="story-earth-panel__canvas absolute inset-0 z-[1] [&>canvas]:!h-full [&>canvas]:!w-full"
           onUnavailable={handleUnavailable}
         />
       ) : null}

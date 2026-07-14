@@ -30240,10 +30240,9 @@ html[data-perf='lite'] .shop-product-grid .ilyn-card__wish {
   background: rgba(255, 255, 255, 0.88) !important;
 }
 
-/* ── EARTH HIDDEN (trial) — story placeholder only; footer + auth use earth-backdrop ── */
-.story-earth-panel__placeholder {
-  display: none !important;
-}
+/* Story CSS earth fallback stays visible — never hide for trials.
+   WebGL mounts on top when ready; without this underlay Windows soft-GL
+   / failed WebGL looked like an empty black panel. */
 
 /* ─── Premium Size Guide — atelier night silk ─── */
 

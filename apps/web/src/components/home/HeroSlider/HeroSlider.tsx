@@ -530,7 +530,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   useEffect(() => {
     setReady(true)
-    prefersHoverPauseRef.current = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    // Windows desktop often parks the cursor on the hero without meaning to pause —
+    // hover-pause made autoplay look “stuck” vs Mac. Keep hover-pause on Mac/others.
+    const isWin = /Windows/i.test(navigator.userAgent || '')
+    prefersHoverPauseRef.current =
+      !isWin && window.matchMedia('(hover: hover) and (pointer: fine)').matches
   }, [])
 
   useEffect(() => {

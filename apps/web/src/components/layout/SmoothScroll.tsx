@@ -13,6 +13,7 @@ import {
   subscribeScrollProfile,
   type ScrollProfile,
 } from '@/lib/motion/scroll'
+import { shouldUseNativeScroll } from '@/lib/earth/globe-performance'
 
 function usePrefersReducedMotion() {
   return useSyncExternalStore(
@@ -250,6 +251,14 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
   const mountLenis = useLenisMountReady()
   const reducedMotion = usePrefersReducedMotion()
   const profile = useScrollProfile()
+  const [nativeScroll, setNativeScroll] = useState(false)
+
+  useLayoutEffect(() => {
+    // Soft-GL / lite: native scroll — Lenis autoRaf + CPU WebGL starved Search/slider.
+    setNativeScroll(shouldUseNativeScroll())
+  }, [])
+
+  const useNative = reducedMotion || nativeScroll
 
   const lenisOptions = useMemo(() => {
     const opts = buildLenisOptions(profile)
@@ -265,21 +274,22 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
   }, [profile, reducedMotion])
 
   useLayoutEffect(() => {
-    if (mountLenis) return
+    if (mountLenis && !useNative) return
     const html = document.documentElement
     html.setAttribute('data-scroll-engine', 'native')
     html.removeAttribute('data-lenis-ready')
+    html.setAttribute('data-splaro-booted', '1')
     unlockLenisPointer()
-  }, [mountLenis])
+  }, [mountLenis, useNative])
 
   useLayoutEffect(() => {
-    if (!mountLenis) return
+    if (!mountLenis || useNative) return
     const html = document.documentElement
-    html.setAttribute('data-scroll-engine', reducedMotion ? 'native' : 'lenis')
+    html.setAttribute('data-scroll-engine', 'lenis')
     unlockLenisPointer()
-  }, [mountLenis, reducedMotion])
+  }, [mountLenis, useNative])
 
-  if (!mountLenis) {
+  if (!mountLenis || useNative) {
     return <>{children}</>
   }
 

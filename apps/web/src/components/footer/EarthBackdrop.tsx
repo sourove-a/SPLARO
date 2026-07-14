@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useFooterEarthActive } from '@/components/footer/earth-live/useFooterEarthActive'
+import { isLowPowerDevice, isSoftwareRenderer } from '@/lib/earth/globe-performance'
 
 const FOOTER_GLOBE_VIDEO = '/videos/footer-globe.mp4'
 /** Same frame as video — no PNG → video jump on load */
@@ -15,16 +16,22 @@ const FOOTER_GLOBE_POSTER = '/videos/footer-globe-poster.jpg'
  *
  * Decorative ambient motion — keep playing even when Windows has
  * "Animation effects" OFF (prefers-reduced-motion). Only pause when off-screen.
+ * Soft-GL / lite: poster only — video decode was starving Search on weak Windows GPUs.
  */
 export function EarthBackdrop() {
   const { ref, active } = useFooterEarthActive()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoReady, setVideoReady] = useState(false)
   const [videoFailed, setVideoFailed] = useState(false)
+  const [posterOnly, setPosterOnly] = useState(false)
+
+  useLayoutEffect(() => {
+    setPosterOnly(isSoftwareRenderer() || isLowPowerDevice())
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || videoFailed) return
+    if (!video || videoFailed || posterOnly) return
 
     if (active) {
       video.playbackRate = 1
@@ -37,18 +44,20 @@ export function EarthBackdrop() {
     } else {
       video.pause()
     }
-  }, [active, videoFailed])
+  }, [active, videoFailed, posterOnly])
 
   return (
     <div
       ref={ref}
       className="earth-backdrop"
       aria-hidden="true"
-      data-earth-live={videoReady ? 'video' : videoFailed ? 'poster' : 'loading'}
+      data-earth-live={
+        posterOnly || videoFailed ? 'poster' : videoReady ? 'video' : 'loading'
+      }
       data-earth-active={active ? 'true' : 'false'}
     >
       <div className="earth-backdrop__video-wrap">
-        {!videoFailed ? (
+        {!videoFailed && !posterOnly ? (
           <video
             ref={videoRef}
             className="earth-backdrop__video"
@@ -58,7 +67,7 @@ export function EarthBackdrop() {
             muted
             loop
             playsInline
-            preload="auto"
+            preload={active ? 'metadata' : 'none'}
             onCanPlayThrough={() => setVideoReady(true)}
             onLoadedData={() => setVideoReady(true)}
             onError={() => setVideoFailed(true)}

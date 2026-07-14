@@ -54,12 +54,12 @@ const LENIS_DESKTOP: LenisOptions = {
   autoToggle: false,
 }
 
-/** Windows desktop — same premium curve */
+/** Windows desktop — snappier lerp (less RAF work) than Mac; soft-GL skips Lenis entirely */
 const LENIS_WINDOWS: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.105,
+  lerp: 0.14,
   smoothWheel: true,
-  wheelMultiplier: 1.02,
+  wheelMultiplier: 1,
   syncTouch: false,
   touchMultiplier: 1,
   autoToggle: false,
@@ -128,13 +128,17 @@ export function buildLenisOptions(profile: ScrollProfile = detectScrollProfile()
 }
 
 /**
- * Lenis everywhere except prefers-reduced-motion.
- * Desktop (Mac + Windows) share the Mac Lenis profile; phone gets syncTouch.
+ * Lenis when motion is allowed AND the device isn't soft-GL/lite.
+ * Soft-GL + Lenis RAF + decorative WebGL starved Windows main thread (Search lag).
  */
 export function isSmoothScrollEligible() {
   const mq = getScrollMedia()
   if (!mq) return false
-  return !mq.reduced.matches
+  if (mq.reduced.matches) return false
+  if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-perf') === 'lite') {
+    return false
+  }
+  return true
 }
 
 /** @deprecated use isSmoothScrollEligible */

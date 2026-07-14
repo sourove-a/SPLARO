@@ -8,6 +8,8 @@ import { FooterEarthScene } from '@/components/footer/earth-live/FooterEarthScen
 import {
   acquireEarthWebGLSlot,
   globePixelRatioCap,
+  isLowPowerDevice,
+  isSoftwareRenderer,
   releaseEarthWebGLSlot,
 } from '@/lib/earth/globe-performance'
 
@@ -21,8 +23,13 @@ type FooterEarthCanvasProps = {
 
 export function FooterEarthCanvas({ active, reducedMotion, onUnavailable }: FooterEarthCanvasProps) {
   const releasedRef = useRef(false)
+  const lowPower = isLowPowerDevice() || isSoftwareRenderer()
 
   useEffect(() => {
+    if (lowPower) {
+      onUnavailable?.()
+      return
+    }
     if (!acquireEarthWebGLSlot(SLOT_TOKEN)) {
       onUnavailable?.()
     }
@@ -33,7 +40,9 @@ export function FooterEarthCanvas({ active, reducedMotion, onUnavailable }: Foot
         releasedRef.current = true
       }
     }
-  }, [onUnavailable])
+  }, [onUnavailable, lowPower])
+
+  if (lowPower) return null
 
   return (
     <Canvas
@@ -42,8 +51,8 @@ export function FooterEarthCanvas({ active, reducedMotion, onUnavailable }: Foot
       dpr={globePixelRatioCap(2)}
       gl={{
         alpha: true,
-        antialias: true,
-        powerPreference: 'high-performance',
+        antialias: !lowPower,
+        powerPreference: lowPower ? 'low-power' : 'default',
         premultipliedAlpha: false,
       }}
       onCreated={({ gl, invalidate }) => {
@@ -51,7 +60,8 @@ export function FooterEarthCanvas({ active, reducedMotion, onUnavailable }: Foot
         gl.outputColorSpace = THREE.SRGBColorSpace
         invalidate()
       }}
-      frameloop={active && !reducedMotion ? 'always' : 'demand'}
+      // Soft-GL / lite: never spin at 60fps on the CPU — starves Search + Lenis.
+      frameloop={active && !reducedMotion && !lowPower ? 'always' : 'demand'}
       style={{ width: '100%', height: '100%' }}
     >
       <FooterEarthScene active={active} reducedMotion={reducedMotion} />
