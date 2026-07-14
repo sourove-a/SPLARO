@@ -101,14 +101,24 @@ rm -rf apps/web/.next/cache apps/admin/.next/cache 2>/dev/null || true
 export TURBO_CONCURRENCY="${TURBO_CONCURRENCY:-1}"
 export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
 log "Building sequentially (TURBO_CONCURRENCY=$TURBO_CONCURRENCY)…"
+# Free RAM during Next builds — running dual cluster web+admin while compiling
+# the storefront is what OOM-kills `next build` on an 8GB box.
+if command -v pm2 >/dev/null 2>&1; then
+  pm2 stop splaro-web splaro-admin 2>/dev/null || true
+fi
 pnpm --filter @splaro/types build
 pnpm --filter @splaro/config build
 pnpm --filter @splaro/invoice-generator build
 pnpm --filter @splaro/print-service build
 pnpm --filter @splaro/api build
 pnpm --filter @splaro/worker build
+# One Next app at a time; verify standalone output before continuing.
 pnpm --filter @splaro/web build
+[ -f apps/web/.next/standalone/apps/web/server.js ] \
+  || die "Web standalone missing after build — likely OOM. Check free -h / swap."
 pnpm --filter @splaro/admin build
+[ -f apps/admin/.next/standalone/apps/admin/server.js ] \
+  || die "Admin standalone missing after build — likely OOM."
 node scripts/prepare-next-standalone.mjs apps/web
 node scripts/prepare-next-standalone.mjs apps/admin
 
