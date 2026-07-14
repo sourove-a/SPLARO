@@ -88,9 +88,31 @@ try {
     signal: AbortSignal.timeout(20_000),
   })
   const body = await res.text()
-  if (!res.ok) fail(`health/full HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
-  if (!body.includes('postgresql') || !body.includes('healthy')) {
-    fail(`health/full unexpected body: ${body.slice(0, 500)}`, stderr)
+  let payload = null
+  try {
+    payload = JSON.parse(body)
+  } catch {
+    fail(`health/full non-JSON body: ${body.slice(0, 500)}`, stderr)
+  }
+  const checks = Array.isArray(payload?.checks) ? payload.checks : []
+  const byId = Object.fromEntries(checks.map((c) => [c.id, c]))
+  for (const id of ['postgresql', 'redis']) {
+    if (byId[id]?.status !== 'healthy') {
+      fail(
+        `health/full ${id} not healthy (${byId[id]?.status ?? 'missing'}): ${body.slice(0, 500)}`,
+        stderr,
+      )
+    }
+  }
+  // Store row is required for a green /health/full — CI must seed after db push.
+  if (byId.store?.status !== 'healthy') {
+    fail(
+      `health/full store not healthy — run db:seed in CI before smoke (${byId.store?.message ?? 'missing'}): ${body.slice(0, 500)}`,
+      stderr,
+    )
+  }
+  if (!res.ok) {
+    fail(`health/full HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
   }
 } catch (err) {
   fail(err instanceof Error ? err.message : 'health/full fetch failed', stderr)

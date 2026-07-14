@@ -91,6 +91,14 @@ jobs:
           test -d apps/web/.next/static/css && ls apps/web/.next/static/css/*.css
           test -d apps/admin/.next/static/css && ls apps/admin/.next/static/css/*.css
 
+      # health/full marks Store Config down when no row exists — Search/catalog
+      # routes also expect storeId=splaro. Schema-only db push is not enough.
+      - name: Seed CI database
+        run: pnpm db:seed
+        env:
+          ADMIN_PASSWORD: CiAdmin@Splaro2026!
+          ADMIN_EMAIL: ci-admin@splaro.co
+
       - name: API unit tests
         run: pnpm --filter @splaro/api test:unit
         env:
@@ -109,3 +117,5 @@ jobs:
 
       - name: Start API and smoke test
         run: node scripts/ci-smoke-api.mjs
+        env:
+          ADMIN_SESSION_SECRET: ci-admin-session-secret-min-32-chars
