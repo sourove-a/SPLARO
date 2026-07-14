@@ -203,12 +203,12 @@ export class ModelRouter {
       return this.cache
     }
 
-    let row = await this.prisma.agentConfig.findUnique({ where: { storeId } })
-    if (!row) {
-      row = await this.prisma.agentConfig.create({
-        data: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT },
-      })
-    }
+    // Concurrent health probes can race on first create — use upsert.
+    const row = await this.prisma.agentConfig.upsert({
+      where: { storeId },
+      create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT },
+      update: {},
+    })
 
     const keys: Record<AgentModelId, string | null> = {
       openai: await this.resolveKey(storeId, 'openai', row.openaiKey),

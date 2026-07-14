@@ -142,22 +142,31 @@ try {
     headers: internalSecret ? { 'x-splaro-internal': internalSecret } : {},
   })
   const body = await res.text()
-  if (!res.ok) fail(`health/routes HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
-  const data = JSON.parse(body)
+  let data
+  try {
+    data = JSON.parse(body)
+  } catch {
+    fail(`health/routes non-JSON HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
+  }
   const { total = 0, healthy = 0, down = 0 } = data.summary ?? {}
+  const downs = (data.checks ?? []).filter((c) => c.status === 'down')
   const auth401 = (data.checks ?? []).filter(
     (c) => c.status !== 'healthy' && String(c.message ?? '').includes('401'),
   ).length
   if (auth401 > 0) {
     fail(`${auth401} route probes returned 401 — fix INTERNAL_HEALTH_SECRET bypass`, stderr)
   }
-  // CI runs against an empty database (schema only, no seed), so most
-  // routes legitimately report "degraded" (404s for missing store data).
-  // The real regression signals here are hard-down routes (5xx/unreachable)
-  // and 401 storms; the ≥95%-healthy bar is enforced post-deploy against
-  // production by the Deploy VPS smoke tests instead.
-  if (down > 0) {
-    fail(`health/routes regression: ${healthy}/${total} healthy, ${down} down`, stderr)
+  // CI runs against seeded schema; degraded (missing optional data) is OK.
+  // Hard-down (5xx/unreachable) is the regression signal.
+  if (down > 0 || downs.length > 0) {
+    const detail = downs
+      .slice(0, 8)
+      .map((c) => `${c.id}:${c.message ?? c.status}`)
+      .join('; ')
+    fail(`health/routes regression: ${healthy}/${total} healthy, ${down} down — ${detail}`, stderr)
+  }
+  if (!res.ok) {
+    fail(`health/routes HTTP ${res.status} with no down routes: ${body.slice(0, 500)}`, stderr)
   }
   console.log(`   health/routes: ${healthy}/${total} healthy, ${down} down (degraded OK in CI)`)
 } catch (err) {
