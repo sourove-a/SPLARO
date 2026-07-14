@@ -8,7 +8,8 @@ const CART_SYNC_TIMEOUT_MS =
     ? Number(process.env.SPLARO_CART_SYNC_TIMEOUT_MS)
     : process.env.NODE_ENV === 'development'
       ? 4000
-      : 8000
+      : // Prod: BFF → loopback Nest; 8s was tight under brief VPS load spikes.
+        15_000
 
 function cartFetchInit(init: RequestInit = {}): RequestInit {
   return { ...init, signal: AbortSignal.timeout(CART_SYNC_TIMEOUT_MS) }
