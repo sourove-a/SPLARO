@@ -1,16 +1,11 @@
 name: Deploy Hostinger (Git)
 
-# PRIMARY deploy path (VPS expired — deploy-vps.yml kept as secondary/manual).
-# Hostinger hPanel pulls main on push — npm install → npm run build → npm start.
-# This workflow does NOT deploy by itself; it verifies the hPanel deploy went live.
-# Runs after CI passes on main, or manually via workflow_dispatch.
+# LEGACY / optional only. Production deploy is Deploy VPS (deploy-vps.yml).
+# Kept for emergency Hostinger hPanel smoke checks — manual workflow_dispatch only.
+# Do NOT auto-run after CI (avoids confusing skipped/failed Hostinger noise).
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
 
 concurrency:
   group: deploy-hostinger-git
@@ -18,21 +13,17 @@ concurrency:
 
 jobs:
   hostinger-git-deploy:
-    # Manual runs always allowed; automatic runs only when CI succeeded.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Deploy info
         run: |
-          echo "Hostinger hPanel auto-deploys main on push (no SSH secrets needed)."
-          echo "Build: npm run build → scripts/hostinger-build.sh"
-          echo "Start: npm start → passenger-stack-app (proxy → web :3001 + api :4000 + admin :3002)"
+          echo "LEGACY: Hostinger path is not primary. Prefer Actions → Deploy VPS."
+          echo "This job only polls live URLs (does not SSH-deploy)."
           echo "Trigger: ${{ github.event_name }}"
 
-      - name: Wait for Hostinger build (up to 25 min)
+      - name: Smoke live URLs
         run: |
-          echo "Polling live URLs (Hostinger build ~15–20 min on shared hosting)…"
           check() {
             local name="$1" url="$2"
             local code
@@ -40,20 +31,8 @@ jobs:
             echo "$name → HTTP $code ($url)"
             [ "$code" = "200" ]
           }
-          for round in $(seq 1 50); do
-            echo "--- round $round/50 ($(date -u +%H:%M:%S) UTC) ---"
-            WEB_OK=0; API_OK=0; ADMIN_OK=0
-            check web "https://splaro.co" && WEB_OK=1 || true
-            check api "https://splaro.co/api/v1/health" && API_OK=1 || true
-            check admin "https://admin.splaro.co/login" && ADMIN_OK=1 || true
-            [ "$WEB_OK" = "1" ] && [ "$API_OK" = "1" ] && [ "$ADMIN_OK" = "1" ] && {
-              echo "✅ All three endpoints healthy — deploy verified."
-              exit 0
-            }
-            sleep 30
-          done
-          echo "::error::Live deploy not healthy after 25 minutes — check hPanel deployment log"
-          echo "hPanel → splaro.co → Git Deployment → latest build log"
-          echo "Or hPanel SSH Terminal (one-time):"
-          echo "  bash ~/domains/splaro.co/public_html/.builds/source/repository/infrastructure/hostinger/splaro-start-services.sh"
-          exit 1
+          fail=0
+          check web "https://splaro.co" || fail=1
+          check api "https://splaro.co/api/v1/health" || fail=1
+          check admin "https://admin.splaro.co/login" || fail=1
+          exit "$fail"

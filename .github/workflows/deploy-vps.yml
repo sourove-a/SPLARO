@@ -1,8 +1,9 @@
 name: Deploy VPS
 
-# Push main → SSH VPS → /opt/splaro/deploy.sh
-# GitHub → Settings → Secrets → Actions:
-#   VPS_HOST (or VPS_SSH_HOST), VPS_USER (or VPS_SSH_USER), VPS_SSH_KEY (or VPS_SSH_PRIVATE_KEY)
+# PRIMARY production deploy: CI green on main → SSH VPS → /opt/splaro/deploy.sh
+# Secrets (Actions): VPS_HOST, VPS_USER, VPS_SSH_KEY (+ optional aliases VPS_SSH_*)
+# Repo Deploy key (read-only): splaro-vps-read  ← VPS uses this for git pull
+# Re-sync from Mac anytime: pnpm setup:github-deploy:sync
 
 on:
   workflow_dispatch:
