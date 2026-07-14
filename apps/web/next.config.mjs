@@ -2,10 +2,9 @@
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, '') ?? 'http://localhost:4000'
 const isProd = process.env.NODE_ENV === 'production'
 const cdnOrigin = process.env.NEXT_PUBLIC_CDN_URL?.replace(/\/$/, '')
-/** Same-box Contabo/Hostinger — skip sharp image optimizer (CPU killer on 8GB VPS). */
+/** Contabo VPS (same-box web+api). SPLARO_HOSTINGER=1 is a legacy alias only. */
 const onSameBoxVps =
-  process.env.SPLARO_HOSTINGER === '1' || process.env.SPLARO_VPS === '1'
-const onHostinger = onSameBoxVps
+  process.env.SPLARO_VPS === '1' || process.env.SPLARO_HOSTINGER === '1'
 
 const connectSrc = [
   "'self'",
@@ -56,13 +55,13 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'motion/react', 'date-fns'],
     // CloudLinux NPROC counts threads — parallel build workers get the process killed
-    ...(onHostinger ? { cpus: 1, workerThreads: false } : {}),
+    ...(onSameBoxVps ? { cpus: 1, workerThreads: false } : {}),
   },
   eslint: {
-    ignoreDuringBuilds: onHostinger,
+    ignoreDuringBuilds: onSameBoxVps,
   },
   typescript: {
-    ignoreBuildErrors: onHostinger,
+    ignoreBuildErrors: onSameBoxVps,
   },
 
   images: {

@@ -4,7 +4,7 @@ import { PrismaService } from '../../../common/prisma.service'
 import { resolveStoreId } from '../../../common/store.util'
 import { EncryptionService } from '../../integrations/encryption.service'
 import { IntegrationsService } from '../../integrations/integrations.service'
-import { DEFAULT_AGENT_SYSTEM_PROMPT } from '../prompts/system.prompt'
+import { ensureAgentConfigRow } from '../agent-store.util'
 import type { AgentModelId } from '../agent.types'
 import {
   ClaudeProvider,
@@ -203,12 +203,8 @@ export class ModelRouter {
       return this.cache
     }
 
-    // Concurrent health probes can race on first create — use upsert.
-    const row = await this.prisma.agentConfig.upsert({
-      where: { storeId },
-      create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT },
-      update: {},
-    })
+    // Concurrent health probes can race on first create — use race-safe helper.
+    const row = await ensureAgentConfigRow(this.prisma, storeId)
 
     const keys: Record<AgentModelId, string | null> = {
       openai: await this.resolveKey(storeId, 'openai', row.openaiKey),

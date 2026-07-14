@@ -15,8 +15,9 @@ on:
     branches: [main]
 
 concurrency:
+  # One deploy at a time. Cancel queued/older runs — stacked builds OOM the 8GB VPS.
   group: deploy-vps-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:

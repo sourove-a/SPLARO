@@ -13,6 +13,7 @@ import { AgentToolsService } from './tools/agent-tools.service'
 import { AgentLoopService } from './agent-loop.service'
 import { AgentAuditService } from './agent-audit.service'
 import { AgentCostService } from './agent-cost.service'
+import { ensureAgentConfigRow } from './agent-store.util'
 import type { AgentMessage, AgentModelId, AgentStreamEvent } from './agent.types'
 
 function maskKey(key: string | null | undefined): string | null {
@@ -94,11 +95,7 @@ export class AgentService {
 
   async getConfig(storeIdRaw: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
-    const row = await this.prisma.agentConfig.upsert({
-      where: { storeId },
-      create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT },
-      update: {},
-    })
+    const row = await ensureAgentConfigRow(this.prisma, storeId)
 
     const claudeMap = await this.integrations.getProviderMap(storeId, 'claude')
     const claudeTokenSaved = await this.integrations.hasSecret(storeId, 'claude', 'authToken')

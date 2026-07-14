@@ -1,8 +1,7 @@
-name: Deploy Hostinger (Git)
+name: Legacy Hostinger smoke (manual)
 
-# LEGACY / optional only. Production deploy is Deploy VPS (deploy-vps.yml).
-# Kept for emergency Hostinger hPanel smoke checks — manual workflow_dispatch only.
-# Do NOT auto-run after CI (avoids confusing skipped/failed Hostinger noise).
+# NOT production. Contabo Deploy VPS is the only auto-deploy.
+# Manual URL smoke only — does not SSH or write to any host.
 
 on:
   workflow_dispatch:
