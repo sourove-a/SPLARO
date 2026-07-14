@@ -118,8 +118,9 @@ pnpm --filter @splaro/types run build 2>/dev/null || true
 pnpm --filter @splaro/api run build
 
 log "Building admin..."
-if [ -f apps/admin/next.config.mjs ] && [ -f apps/admin/next.config.ts ]; then
+if [ -f apps/admin/next.config.hostinger.mjs ] && [ -f apps/admin/next.config.ts ]; then
   mv apps/admin/next.config.ts apps/admin/next.config.ts.hostinger-bak
+  cp apps/admin/next.config.hostinger.mjs apps/admin/next.config.mjs
 fi
 pnpm --filter @splaro/admin run build || {
   NEXT_BIN=$(find node_modules -path '*/next/dist/bin/next' 2>/dev/null | head -1)

@@ -8,6 +8,23 @@ export type InfraProvider = 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx'
 
 const SECRET_KEYS = new Set(['accessKey', 'secretKey', 'apiKey', 'clientSecret', 'password'])
 
+/** Documented placeholders / local stubs — never treat as real credentials in UI. */
+const PLACEHOLDER_VALUES = new Set([
+  '',
+  'your-r2-access-key',
+  'your-r2-secret-key',
+  'local-dev-steadfast-key',
+  'local-dev-steadfast-secret',
+  'your-steadfast-api-key',
+  'your-steadfast-secret-key',
+  'your-pathao-client-id',
+  'your-pathao-client-secret',
+  'your-pathao-username',
+  'your-pathao-password',
+  'your-redx-api-key',
+  '••••••••',
+])
+
 @Injectable()
 export class InfrastructureIntegrationService {
   constructor(
@@ -49,73 +66,77 @@ export class InfrastructureIntegrationService {
     }
   }
 
-  private isConfigured(provider: InfraProvider, fields: Record<string, string>): boolean {
-    const placeholders = new Set([
-      '',
-      'your-r2-access-key',
-      'your-r2-secret-key',
-      'local-dev-steadfast-key',
-      'local-dev-steadfast-secret',
-      'your-steadfast-api-key',
-      'your-steadfast-secret-key',
-    ])
+  private isPlaceholder(value: string | undefined): boolean {
+    const v = (value ?? '').trim()
+    if (!v) return true
+    if (PLACEHOLDER_VALUES.has(v)) return true
+    if (v.includes('••••')) return true
+    if (v.startsWith('your-') || v.startsWith('local-dev-')) return true
+    return false
+  }
 
+  private isConfigured(provider: InfraProvider, fields: Record<string, string>): boolean {
     if (provider === 'cloudflare_r2') {
       return Boolean(
-        fields.accessKey &&
-          fields.secretKey &&
-          fields.bucket &&
-          !placeholders.has(fields.accessKey) &&
-          !placeholders.has(fields.secretKey),
+        !this.isPlaceholder(fields.accessKey) &&
+          !this.isPlaceholder(fields.secretKey) &&
+          fields.bucket?.trim(),
       )
     }
     if (provider === 'pathao') {
       return Boolean(
-        fields.clientId &&
-          fields.clientSecret &&
-          fields.username &&
-          fields.password &&
-          fields.storeId &&
-          !placeholders.has(fields.clientSecret) &&
-          !placeholders.has(fields.password),
+        !this.isPlaceholder(fields.clientId) &&
+          !this.isPlaceholder(fields.clientSecret) &&
+          !this.isPlaceholder(fields.username) &&
+          !this.isPlaceholder(fields.password) &&
+          fields.storeId?.trim(),
       )
     }
     if (provider === 'redx') {
-      return Boolean(fields.apiKey && !placeholders.has(fields.apiKey))
+      return !this.isPlaceholder(fields.apiKey)
     }
-    return Boolean(
-      fields.apiKey &&
-        fields.secretKey &&
-        !placeholders.has(fields.apiKey) &&
-        !placeholders.has(fields.secretKey),
-    )
+    return !this.isPlaceholder(fields.apiKey) && !this.isPlaceholder(fields.secretKey)
+  }
+
+  /** Form fields for admin UI — never dump placeholder env stubs into password inputs. */
+  private fieldsForAdminUi(
+    provider: InfraProvider,
+    runtime: Record<string, string>,
+  ): Record<string, string> {
+    const fallback = this.envFallback(provider)
+    const configured = this.isConfigured(provider, runtime)
+    const out: Record<string, string> = {}
+
+    for (const key of Object.keys(fallback)) {
+      const raw = runtime[key] ?? fallback[key] ?? ''
+      if (SECRET_KEYS.has(key)) {
+        out[key] = configured && !this.isPlaceholder(raw) ? '••••••••' : ''
+        continue
+      }
+      if (key === 'baseUrl') {
+        out[key] =
+          (raw.trim() && !this.isPlaceholder(raw) ? raw.trim() : '') ||
+          fallback.baseUrl ||
+          'https://portal.steadfast.com.bd/public/api/v1'
+        continue
+      }
+      out[key] = this.isPlaceholder(raw) ? '' : raw
+    }
+
+    void provider
+    return out
   }
 
   async getConfig(storeIdRaw: string, provider: InfraProvider) {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
     const adminManaged = await this.integrations.hasProviderSettings(storeId, provider)
-    const fallback = this.envFallback(provider)
-    const fieldKeys = Object.keys(fallback)
-
-    let fields: Record<string, string>
-    if (adminManaged) {
-      fields = {}
-      for (const key of fieldKeys) {
-        if (SECRET_KEYS.has(key)) {
-          const has = await this.integrations.hasSecret(storeId, provider, key)
-          fields[key] = has ? '••••••••' : ''
-        } else {
-          fields[key] = (await this.integrations.getPlain(storeId, provider, key)) ?? ''
-        }
-      }
-    } else {
-      fields = { ...fallback }
-    }
-
-    const runtime = await this.resolveRuntimeCredentials(storeIdRaw, provider)
-    const configured = this.isConfigured(provider, runtime as unknown as Record<string, string>)
+    const runtime = (await this.resolveRuntimeCredentials(storeIdRaw, provider)) as unknown as Record<
+      string,
+      string
+    >
+    const configured = this.isConfigured(provider, runtime)
     const source = adminManaged ? 'database' : configured ? 'env' : 'none'
-
+    const fields = this.fieldsForAdminUi(provider, runtime)
     const meta = await this.integrations.getProviderMeta(storeId, provider)
 
     return {
@@ -140,7 +161,7 @@ export class InfrastructureIntegrationService {
     for (const [key, raw] of Object.entries(body)) {
       if (raw === undefined) continue
       const value = String(raw).trim()
-      if (!value || this.crypto.isMaskedInput(value)) continue
+      if (!value || this.crypto.isMaskedInput(value) || this.isPlaceholder(value)) continue
       if (SECRET_KEYS.has(key)) {
         await this.integrations.upsertSecret({ storeId, provider, key, plain: value, userId })
       } else {
@@ -155,7 +176,7 @@ export class InfrastructureIntegrationService {
     const storeId = await this.integrations.resolveStore(storeIdRaw)
     const cfg = await this.getConfig(storeIdRaw, provider)
     if (!cfg.configured) {
-      throw new BadRequestException(`${provider} credentials incomplete — save keys first`)
+      throw new BadRequestException(`${provider} credentials incomplete — save real keys first`)
     }
 
     const creds = await this.resolveRuntimeCredentials(storeIdRaw, provider)
@@ -180,13 +201,18 @@ export class InfrastructureIntegrationService {
           storeId,
           provider,
           success: true,
-          message: balance !== undefined ? `Steadfast OK · balance ${balance} BDT` : 'Steadfast credentials verified',
+          message:
+            balance !== undefined
+              ? `Steadfast OK · balance ${balance} BDT`
+              : 'Steadfast credentials verified',
           userId,
         })
         return {
           ok: true,
           message:
-            balance !== undefined ? `Steadfast connected · balance ${balance} BDT` : 'Steadfast connection OK',
+            balance !== undefined
+              ? `Steadfast connected · balance ${balance} BDT`
+              : 'Steadfast connection OK',
         }
       }
       if (provider === 'pathao') {
@@ -236,10 +262,12 @@ export class InfrastructureIntegrationService {
 
     const pick = async (key: string) => {
       const fromSaved = saved[key]
-      if (typeof fromSaved === 'string' && fromSaved) return fromSaved
+      if (typeof fromSaved === 'string' && fromSaved && !this.isPlaceholder(fromSaved)) return fromSaved
       const fromDb = await this.integrations.getPlain(storeId, provider, key)
-      if (fromDb) return fromDb
-      if (!adminManaged) return fallback[key] ?? ''
+      if (fromDb && !this.isPlaceholder(fromDb)) return fromDb
+      if (!adminManaged) {
+        return fallback[key] ?? ''
+      }
       return ''
     }
 

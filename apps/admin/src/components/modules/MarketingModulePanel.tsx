@@ -1,7 +1,15 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import { refreshWithToast, toastOk, toastFail } from '@/lib/admin/feedback'
+import { refreshWithToast, toastFail } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
+import {
+  confirmCampaignCreated,
+  confirmCampaignDeleted,
+  confirmCampaignDuplicated,
+  confirmCampaignScheduled,
+  confirmCampaignSent,
+} from '@/lib/admin/marketing-save'
 import { ChevronDown, Copy, Megaphone, Plus, RefreshCw, Search, Send, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -120,78 +128,59 @@ function CampaignsPanel() {
     })
   }, [query, statusFilter, rows])
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.name.trim() || !form.body.trim()) {
       toastFail('Name and message body are required.')
       return
     }
-    createCampaign.mutate(
-      {
-        name: form.name.trim(),
-        type: form.type,
-        subject: form.subject.trim() || form.name.trim(),
-        body: form.body.trim(),
-      },
-      {
-        onSuccess: (c) => {
-          toastOk(`Campaign "${c.name}" saved to server.`)
-          setForm({ name: '', type: 'EMAIL', subject: '', body: '' })
-          setShowCreate(false)
-          void refetch()
-        },
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not create campaign.'),
-      },
+    const payload = {
+      name: form.name.trim(),
+      type: form.type,
+      subject: form.subject.trim() || form.name.trim(),
+      body: form.body.trim(),
+    }
+    const id = await confirmCampaignCreated(
+      { name: payload.name, type: payload.type },
+      () => createCampaign.mutateAsync(payload),
     )
+    if (!id) return
+    setForm({ name: '', type: 'EMAIL', subject: '', body: '' })
+    setShowCreate(false)
+    void refetch()
   }
 
-  const handleSend = (row: CampaignRow) => {
+  const handleSend = async (row: CampaignRow) => {
     if (!window.confirm(`Send "${row.name}" now? This queues delivery to your audience.`)) return
-    sendCampaignMut.mutate(row.id, {
-      onSuccess: (res) => {
-        toastOk(`Campaign queued — ${res.sent} recipient(s).`)
-        setExpandedId(null)
-        void refetch()
-      },
-      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not send campaign.'),
-    })
+    const sent = await confirmCampaignSent(row.id, () => sendCampaignMut.mutateAsync(row.id))
+    if (sent === null) return
+    setExpandedId(null)
+    void refetch()
   }
 
-  const handleSchedule = (row: CampaignRow) => {
+  const handleSchedule = async (row: CampaignRow) => {
     const date = window.prompt('Schedule date (YYYY-MM-DD):', new Date(Date.now() + 86400000).toISOString().slice(0, 10))
     if (!date?.trim()) return
     const scheduledAt = new Date(`${date.trim()}T09:00:00`).toISOString()
-    updateCampaign.mutate(
-      { id: row.id, scheduledAt, status: 'SCHEDULED' },
-      {
-        onSuccess: () => {
-          toastOk(`Campaign scheduled for ${date.trim()}.`)
-          void refetch()
-        },
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not schedule campaign.'),
-      },
+    const ok = await confirmCampaignScheduled(
+      row.id,
+      scheduledAt,
+      () => updateCampaign.mutateAsync({ id: row.id, scheduledAt, status: 'SCHEDULED' }),
     )
+    if (ok) void refetch()
   }
 
-  const handleDuplicate = (row: CampaignRow) => {
-    duplicateCampaign.mutate(row.id, {
-      onSuccess: (c) => {
-        toastOk(`Duplicated as "${c.name}".`)
-        void refetch()
-      },
-      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not duplicate campaign.'),
-    })
+  const handleDuplicate = async (row: CampaignRow) => {
+    const expectedName = `${row.name} (copy)`
+    const id = await confirmCampaignDuplicated(expectedName, () => duplicateCampaign.mutateAsync(row.id))
+    if (id) void refetch()
   }
 
-  const handleDelete = (row: CampaignRow) => {
+  const handleDelete = async (row: CampaignRow) => {
     if (!window.confirm(`Delete campaign "${row.name}"? This cannot be undone.`)) return
-    deleteCampaignMut.mutate(row.id, {
-      onSuccess: () => {
-        toastOk('Campaign deleted.')
-        setExpandedId(null)
-        void refetch()
-      },
-      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete campaign.'),
-    })
+    const ok = await confirmCampaignDeleted(row.id, () => deleteCampaignMut.mutateAsync(row.id))
+    if (!ok) return
+    setExpandedId(null)
+    void refetch()
   }
 
   if (isError) return (
@@ -258,7 +247,7 @@ function CampaignsPanel() {
           </div>
           <textarea className="admin-input" rows={3} placeholder="Message body…" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
           <div style={{ display: 'flex', gap: 8 }}>
-            <AdminButton variant="gold" loading={createCampaign.isPending} onClick={handleCreate}>Save draft</AdminButton>
+            <AdminButton variant="gold" loading={createCampaign.isPending} onClick={() => void handleCreate()}>Save draft</AdminButton>
             <AdminButton variant="ghost" onClick={() => setShowCreate(false)}>Cancel</AdminButton>
           </div>
         </div>
@@ -343,10 +332,10 @@ function CampaignsPanel() {
                             actions={[
                               { label: 'View details', onClick: () => setExpandedId(c.id) },
                               ...(c.status === 'draft' || c.status === 'scheduled'
-                                ? [{ label: 'Send now', onClick: () => handleSend(c) }]
+                                ? [{ label: 'Send now', onClick: () => void handleSend(c) }]
                                 : []),
-                              { label: 'Duplicate', onClick: () => handleDuplicate(c) },
-                              { label: 'Delete', tone: 'danger', onClick: () => handleDelete(c) },
+                              { label: 'Duplicate', onClick: () => void handleDuplicate(c) },
+                              { label: 'Delete', tone: 'danger', onClick: () => void handleDelete(c) },
                             ]}
                           />
                         </td>
@@ -363,21 +352,21 @@ function CampaignsPanel() {
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                               {(c.status === 'draft' || c.status === 'scheduled') && (
                                 <>
-                                  <AdminButton variant="gold" size="sm" loading={busy} onClick={() => handleSend(c)}>
+                                  <AdminButton variant="gold" size="sm" loading={busy} onClick={() => void handleSend(c)}>
                                     <Send className="h-3.5 w-3.5" /> Send now
                                   </AdminButton>
-                                  <AdminButton size="sm" loading={busy} onClick={() => handleSchedule(c)}>
+                                  <AdminButton size="sm" loading={busy} onClick={() => void handleSchedule(c)}>
                                     Schedule
                                   </AdminButton>
                                 </>
                               )}
-                              <AdminButton size="sm" loading={busy} onClick={() => handleDuplicate(c)}>
+                              <AdminButton size="sm" loading={busy} onClick={() => void handleDuplicate(c)}>
                                 <Copy className="h-3.5 w-3.5" /> Duplicate
                               </AdminButton>
-                              <AdminButton size="sm" loading={busy} onClick={() => { void navigator.clipboard?.writeText(c.id); toastOk('Campaign ID copied.') }}>
+                              <AdminButton size="sm" loading={busy} onClick={() => void copyWithToast(c.id, 'Campaign ID copied.')}>
                                 <Copy className="h-3.5 w-3.5" /> Copy ID
                               </AdminButton>
-                              <AdminButton variant="danger" size="sm" loading={busy} onClick={() => handleDelete(c)}>
+                              <AdminButton variant="danger" size="sm" loading={busy} onClick={() => void handleDelete(c)}>
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </AdminButton>
                             </div>

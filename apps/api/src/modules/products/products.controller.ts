@@ -19,8 +19,10 @@ import { CacheService } from '../../common/cache.service'
 import { ProductAdvancedService } from './product-advanced.service'
 import { SearchService } from '../search/search.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
+import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { revalidateStorefrontWeb } from '../../common/revalidate-web'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
+import { CreateAdminProductDto, AdminProductPatchDto } from '../../common/dtos/admin-products.dto'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
@@ -28,47 +30,6 @@ type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 const MAX_PRODUCT_IMAGES = 10
 const MEDIA_VIDEO_ALT = 'media:video'
 const MEDIA_IMAGE_ALT = 'media:image'
-
-type AdminProductWriteBody = {
-  name?: string
-  nameBn?: string
-  description?: string
-  shortDescription?: string
-  basePrice?: number
-  compareAtPrice?: number | null
-  costPrice?: number | null
-  sku?: string
-  lowStockThreshold?: number
-  tags?: string[]
-  weavingType?: string
-  collectionId?: string
-  categoryId?: string
-  isPublished?: boolean
-  isHidden?: boolean
-  status?: string
-  imageUrl?: string
-  imageUrls?: string[]
-  videoUrl?: string
-  fabricContent?: string
-  fitType?: string
-  occasion?: string
-  careInstructions?: string
-  metaTitle?: string
-  metaDescription?: string
-  season?: string
-  slug?: string
-  isFeatured?: boolean
-  isNewArrival?: boolean
-  isBestSeller?: boolean
-  weight?: number | null
-  badge?: string | null
-  rmCode?: string | null
-  barcode?: string | null
-  qrCode?: string | null
-  publishAt?: string | null
-  /** When true, skip pre-update version snapshot (visibility toggles). */
-  skipVersionSnapshot?: boolean
-}
 
 const VISIBILITY_ONLY_PATCH_KEYS = new Set([
   'isPublished',
@@ -80,10 +41,10 @@ const VISIBILITY_ONLY_PATCH_KEYS = new Set([
   'skipVersionSnapshot',
 ])
 
-function shouldSkipVersionSnapshot(body: AdminProductWriteBody): boolean {
+function shouldSkipVersionSnapshot(body: AdminProductPatchDto): boolean {
   if (body.skipVersionSnapshot === true) return true
   const keys = Object.keys(body).filter(
-    (key) => body[key as keyof AdminProductWriteBody] !== undefined,
+    (key) => body[key as keyof AdminProductPatchDto] !== undefined,
   )
   return keys.length > 0 && keys.every((key) => VISIBILITY_ONLY_PATCH_KEYS.has(key))
 }
@@ -160,7 +121,10 @@ export class ProductsController {
   ) {}
 
   private async bustProductCache(storeId: string): Promise<void> {
-    await this.cache.invalidateStoreResource(storeId, 'products')
+    await Promise.all([
+      this.cache.invalidateStoreResource(storeId, 'products'),
+      this.cache.invalidateStoreResource(storeId, 'product'),
+    ])
     void revalidateStorefrontWeb(['storefront-products'])
   }
 
@@ -182,7 +146,7 @@ export class ProductsController {
     @Query('status') status?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const skip = (Number(page) - 1) * Number(limit)
+    const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
     const where = {
       storeId: sid,
       ...(status === 'published' ? { isPublished: true } : status === 'draft' ? { isPublished: false } : {}),
@@ -204,12 +168,12 @@ export class ProductsController {
         },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: Number(limit),
+        take,
       }),
       this.prisma.product.count({ where }),
     ])
 
-    return { products, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
+    return { products, total, page: pageNum, totalPages: Math.ceil(total / take) }
   }
 
   // ── Reviews (admin) — must be registered before :id routes ──
@@ -222,6 +186,7 @@ export class ProductsController {
     @Query('limit') limit = 50,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
+    const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit, 50)
     const where = {
       product: { storeId: sid },
       ...(status ? { status: status as never } : {}),
@@ -234,12 +199,12 @@ export class ProductsController {
           customer: { select: { firstName: true, lastName: true, phone: true } },
         },
         orderBy: { createdAt: 'desc' },
-        skip: (Number(page) - 1) * Number(limit),
-        take: Number(limit),
+        skip,
+        take,
       }),
       this.prisma.review.count({ where }),
     ])
-    return { reviews, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
+    return { reviews, total, page: pageNum, totalPages: Math.ceil(total / take) }
   }
 
   @Patch('reviews/:id')
@@ -312,47 +277,7 @@ export class ProductsController {
   @Post()
   async create(
     @Query('storeId') storeId: string,
-    @Body()
-    body: {
-      name: string
-      nameBn?: string
-      description?: string
-      shortDescription?: string
-      basePrice: number
-      compareAtPrice?: number
-      costPrice?: number
-      sku?: string
-      lowStockThreshold?: number
-      tags?: string[]
-      weavingType?: string
-      collectionId?: string
-      categoryId?: string
-      isPublished?: boolean
-      isHidden?: boolean
-      status?: string
-      imageUrl?: string
-      imageUrls?: string[]
-      videoUrl?: string
-      sizes?: string[]
-      colors?: Array<string | { name: string; hex: string; image?: string }>
-      fabricContent?: string
-      fitType?: string
-      occasion?: string
-      careInstructions?: string
-      season?: string
-      metaTitle?: string
-      metaDescription?: string
-      defaultStock?: number
-      isFeatured?: boolean
-      isNewArrival?: boolean
-      isBestSeller?: boolean
-      weight?: number | null
-      badge?: string | null
-      rmCode?: string | null
-      barcode?: string | null
-      qrCode?: string | null
-      publishAt?: string | null
-    },
+    @Body() body: CreateAdminProductDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     let slug = slugify(body.name)
@@ -501,7 +426,7 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: AdminProductWriteBody, @Req() req: AdminRequest) {
+  async update(@Param('id') id: string, @Body() body: AdminProductPatchDto, @Req() req: AdminRequest) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
       select: { storeId: true, schemaMarkup: true },

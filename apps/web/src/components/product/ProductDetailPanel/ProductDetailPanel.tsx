@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion } from '@/lib/motion/react'
 import {
   ChevronLeft, ChevronRight,
-  Heart, Maximize2, Minus, Plus, Ruler, Share2, X,
+  Maximize2, Minus, Plus, Ruler, Share2, X,
 } from 'lucide-react'
 import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
 import { MotionPressable } from '@/components/ui/MotionPressable'
+import { MotionSwapLabel } from '@/components/ui/MotionSwapLabel/MotionSwapLabel'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import {
   ProductFadeSwap,
@@ -20,12 +21,16 @@ import {
   productGalleryMotion,
 } from '@/components/product/ProductMotion'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
-import { products, type ColorOption } from '@/data/storefront'
+import { slugFromCategory } from '@/data/storefront'
+import { storefrontToDetailItem } from '@/lib/catalog/product-detail-map'
 import { getRecentlyViewed, trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { ProductMiniRow } from '@/components/product/ProductMiniRow/ProductMiniRow'
+import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
+import type { ColorOption, Category, StorefrontProduct } from '@/data/storefront'
 
 export interface ProductDetailItem {
   id: string
@@ -51,14 +56,14 @@ interface ProductDetailPanelProps {
   product: ProductDetailItem
   modalSize: string | null
   modalColor: string | null
-  saved: boolean
+  saved?: boolean
   onClose: () => void
   onSizeChange: (size: string) => void
   onColorChange: (color: string) => void
   onAddToBag: (quantity: number) => void
   onCheckout?: () => void
   onSelectProduct?: (product: ProductDetailItem) => void
-  onToggleSaved: () => void
+  onToggleSaved?: () => void
 }
 
 const colorLabels: Record<string, string> = {
@@ -84,9 +89,9 @@ function resolveColorOptions(product: ProductDetailItem): ColorOption[] {
 }
 
 export function ProductDetailPanel({
-  product, modalSize, modalColor, saved,
+  product, modalSize, modalColor,
   onClose, onSizeChange, onColorChange, onAddToBag, onCheckout,
-  onSelectProduct, onToggleSaved,
+  onSelectProduct,
 }: ProductDetailPanelProps) {
   const router = useRouter()
   const user = useAuthStore((state) => state.user)
@@ -95,6 +100,9 @@ export function ProductDetailPanel({
   const [addedPulse, setAddedPulse] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
+  const [recentlyViewed, setRecentlyViewed] = useState<ProductDetailItem[]>([])
+  const [youMayAlsoLike, setYouMayAlsoLike] = useState<ProductDetailItem[]>([])
 
   const colorOptions = useMemo(() => resolveColorOptions(product), [product])
   const activeColorHex = modalColor ?? colorOptions[0]?.hex ?? product.colors[0] ?? ''
@@ -107,11 +115,12 @@ export function ProductDetailPanel({
   const media = useMemo(() => {
     const primary = activeColor?.image ?? product.image
     if (product.media?.length) {
-      const gallery = [...product.media]
-      if (primary && !gallery.some((item) => item.url === primary)) {
-        gallery.push({ type: 'image', url: primary })
+      // Lead with the selected colour image so colour clicks visibly change the stage
+      const rest = product.media.filter((item) => item.url !== primary)
+      if (primary) {
+        return [{ type: 'image' as const, url: primary }, ...rest]
       }
-      return gallery
+      return [...product.media]
     }
     const gallery = [{ type: 'image' as const, url: primary }]
     if (product.hoverImage && product.hoverImage !== primary) {
@@ -148,14 +157,61 @@ export function ProductDetailPanel({
     return () => window.removeEventListener('keydown', handleKey)
   }, [lightboxOpen, media.length])
 
-  const recentlyViewed = useMemo(
-    () => recentIds.map((id) => products.find((p) => p.id === id)).filter(Boolean).slice(0, 6) as ProductDetailItem[],
-    [recentIds],
-  )
-  const youMayAlsoLike = useMemo(
-    () => products.filter((p) => p.id !== product.id && p.category === product.category).slice(0, 6),
-    [product.id, product.category],
-  )
+  useEffect(() => {
+    if (!recentIds.length) {
+      setRecentlyViewed([])
+      return
+    }
+
+    let cancelled = false
+    void fetch(`/api/products?ids=${encodeURIComponent(recentIds.slice(0, 6).join(','))}`, {
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { products?: StorefrontProduct[] } | null) => {
+        if (cancelled || !data?.products?.length) return
+        const byId = new Map(data.products.map((entry) => [entry.id, storefrontToDetailItem(entry)]))
+        setRecentlyViewed(
+          recentIds
+            .map((id) => byId.get(id))
+            .filter((entry): entry is ProductDetailItem => Boolean(entry))
+            .slice(0, 6),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setRecentlyViewed([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [recentIds])
+
+  useEffect(() => {
+    let cancelled = false
+    const categorySlug = slugFromCategory(product.category as Exclude<Category, 'All'>)
+
+    void fetch(`/api/products?categorySlug=${encodeURIComponent(categorySlug)}&limit=12`, {
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { products?: StorefrontProduct[] } | null) => {
+        if (cancelled || !data?.products?.length) return
+        setYouMayAlsoLike(
+          data.products
+            .filter((entry) => entry.id !== product.id)
+            .slice(0, 6)
+            .map(storefrontToDetailItem),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setYouMayAlsoLike([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [product.id, product.category])
 
   const handleAddToBag = () => {
     onAddToBag(quantity)
@@ -166,7 +222,7 @@ export function ProductDetailPanel({
   const handleCheckout = () => {
     if (onCheckout) { onCheckout(); return }
     onAddToBag(quantity)
-    router.push(getCheckoutEntryPath(Boolean(user)))
+    safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
   }
 
   const prevImage = () => setActiveImage((i) => (i - 1 + media.length) % media.length)
@@ -408,7 +464,12 @@ export function ProductDetailPanel({
                 <div className="pdp-section">
                   <div className="flex items-center justify-between">
                     <p className="pdp-label">Select Size</p>
-                    <MotionPressable type="button" className="pdp-size-guide" variant="subtle">
+                    <MotionPressable
+                      type="button"
+                      className="pdp-size-guide"
+                      variant="subtle"
+                      onClick={() => setSizeGuideOpen(true)}
+                    >
                       <Ruler className="h-3 w-3" strokeWidth={2} />
                       Size Guide
                     </MotionPressable>
@@ -492,12 +553,6 @@ export function ProductDetailPanel({
 
             {/* ── Sticky CTA bar ─────────────────────────── */}
             <div className="pdp-cta-bar">
-              <div className="pdp-trust" aria-label="Shopping assurances">
-                <span>Easy returns</span>
-                <span>Secure checkout</span>
-                <span>Fast delivery</span>
-              </div>
-
               {/* Add to bag */}
               <MotionPressable
                 type="button"
@@ -506,36 +561,14 @@ export function ProductDetailPanel({
                 variant="cta"
               >
                 <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
-                <motion.span
-                  key={addedPulse ? 'added' : 'default'}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                >
+                <MotionSwapLabel id={addedPulse ? 'added' : 'default'}>
                   {addedPulse ? 'Added to Bag!' : 'Add to Bag'}
-                </motion.span>
+                </MotionSwapLabel>
               </MotionPressable>
 
               <div className="flex gap-2.5">
                 <MotionPressable type="button" className="pdp-cta-secondary flex-1" onClick={handleCheckout} variant="cta">
                   Buy Now
-                </MotionPressable>
-                <MotionPressable
-                  type="button"
-                  onClick={onToggleSaved}
-                  aria-label={saved ? 'Remove from wishlist' : 'Save'}
-                  className={cn('pdp-cta-icon', saved && 'pdp-cta-icon--saved')}
-                  variant="icon"
-                >
-                  <motion.span
-                    animate={saved ? { scale: [1, 1.18, 1] } : { scale: 1 }}
-                    transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    <Heart
-                      className={cn('h-[1rem] w-[1rem]', saved && 'fill-[#C8A97E] text-[#C8A97E]')}
-                      strokeWidth={2}
-                    />
-                  </motion.span>
                 </MotionPressable>
                 <MotionPressable
                   type="button"
@@ -628,6 +661,13 @@ export function ProductDetailPanel({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SizeGuideModal
+        open={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        category={product.category}
+        productName={product.name}
+      />
     </motion.div>
   )
 }

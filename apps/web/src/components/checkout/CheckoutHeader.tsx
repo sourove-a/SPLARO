@@ -24,13 +24,7 @@ export function CheckoutHeader({ userName, isSignedIn }: CheckoutHeaderProps) {
               Signed in as <strong>{userName}</strong> · Saved details applied
             </>
           ) : (
-            <>
-              Guest checkout · No account needed for COD ·{' '}
-              <Link href="/login?next=/checkout" className="checkout-subtitle__link">
-                Sign in
-              </Link>{' '}
-              to save your details
-            </>
+            <>Account required to place an order</>
           )}
         </p>
       </div>

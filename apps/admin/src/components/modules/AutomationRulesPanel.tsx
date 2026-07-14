@@ -1,6 +1,5 @@
 'use client'
 
-import toast from 'react-hot-toast'
 import { Plus, Zap, Clock, WifiOff } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AdminButton } from '@/components/ui/AdminButton'
@@ -9,6 +8,8 @@ import { cn } from '@/lib/utils/cn'
 import { useAutomationRules } from '@/lib/api/hooks'
 import { toggleAutomationRule } from '@/lib/api/automation'
 import { formatRelativeTime } from '@/lib/api/orders'
+import { toastApiSaved, toastFail, toastInfo } from '@/lib/admin/feedback'
+import { verifyBooleanEquals } from '@/lib/admin/mutation-verify'
 
 const TRIGGER_LABELS: Record<string, string> = {
   ORDER_PLACED: 'Order Placed',
@@ -22,12 +23,14 @@ export function AutomationRulesPanel() {
   const { data: rules = [], isLoading, isError, refetch } = useAutomationRules()
 
   const handleToggle = async (id: string, isActive: boolean) => {
+    const next = !isActive
     try {
-      await toggleAutomationRule(id, !isActive)
-      toast.success(isActive ? 'Rule paused.' : 'Rule activated.')
+      const saved = await toggleAutomationRule(id, next) as { isActive?: boolean }
+      if (!verifyBooleanEquals(saved.isActive, next, 'Automation rule state')) return
+      toastApiSaved(next ? 'Rule activation' : 'Rule pause')
       void qc.invalidateQueries({ queryKey: ['automation-rules'] })
     } catch {
-      toast.error('Could not update rule.')
+      toastFail('Could not update rule.')
     }
   }
 
@@ -72,7 +75,7 @@ export function AutomationRulesPanel() {
         <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">
           {rules.filter((rule) => rule.isActive).length} active · {rules.length} total
         </p>
-        <AdminButton variant="gold" onClick={() => toast('Rule builder opens from Automation → Create rule.')}>
+        <AdminButton variant="gold" onClick={() => toastInfo('Rule builder opens from Automation → Create rule.')}>
           <Plus className="h-4 w-4" />
           New rule
         </AdminButton>

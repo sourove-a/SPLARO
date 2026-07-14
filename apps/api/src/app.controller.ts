@@ -1,12 +1,15 @@
-import { Controller, Get, Inject, Query, Req } from '@nestjs/common'
-import type { Request } from 'express'
+import { Controller, Get, Inject, Query, Req, Res } from '@nestjs/common'
+import type { Request, Response } from 'express'
+import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 import { Public } from './common/auth/public.decorator'
 import { PrismaService } from './common/prisma.service'
 import { RedisService } from './common/redis.service'
 import { buildApiRouteProbes } from './common/api-routes.manifest'
 import { runApiRouteProbes } from './common/route-probe-runner'
+import { parseFeatureFlags } from '@splaro/config'
 
+@ApiTags('health')
 @Controller()
 export class AppController {
   constructor(
@@ -17,12 +20,14 @@ export class AppController {
   @SkipThrottle()
   @Public()
   @Get()
+  @ApiOperation({ summary: 'API index' })
   index() {
     return {
       service: 'splaro-api',
       version: 'v1',
       status: 'ok',
       docs: {
+        swagger: '/api/v1/docs',
         health: '/api/v1/health',
         healthFull: '/api/v1/health/full',
         healthRoutes: '/api/v1/health/routes',
@@ -33,8 +38,17 @@ export class AppController {
 
   @SkipThrottle()
   @Public()
+  @Get('features')
+  @ApiOperation({ summary: 'Runtime feature flags (admin + storefront gates)' })
+  features() {
+    return parseFeatureFlags()
+  }
+
+  @SkipThrottle()
+  @Public()
   @Get('health')
-  async health() {
+  @ApiOperation({ summary: 'Liveness probe (database ping)' })
+  async health(@Res({ passthrough: true }) res: Response) {
     const started = Date.now()
     try {
       await this.prisma.$queryRaw`SELECT 1`
@@ -46,6 +60,7 @@ export class AppController {
         latencyMs: Date.now() - started,
       }
     } catch (err) {
+      res.status(503)
       return {
         status: 'down',
         database: 'disconnected',
@@ -67,8 +82,12 @@ export class AppController {
 
   @Get('health/routes')
   @SkipThrottle()
-  @Public()
-  async routeHealth(@Query('storeId') storeId = 'splaro', @Req() req?: Request) {
+  @ApiOperation({ summary: 'Route-level health probes (admin or internal secret)' })
+  async routeHealth(
+    @Query('storeId') storeId = 'splaro',
+    @Req() req?: Request,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
     const port =
       process.env['API_PORT'] ?? process.env['PORT_API'] ?? process.env['PORT'] ?? '4000'
     const base = `http://127.0.0.1:${port}/api/v1`
@@ -87,9 +106,15 @@ export class AppController {
     const healthy = results.filter((r) => r.status === 'healthy').length
     const down = results.filter((r) => r.status === 'down').length
     const degraded = results.filter((r) => r.status === 'degraded').length
+    const status = down > 0 ? 'down' : degraded > 0 ? 'degraded' : 'healthy'
+
+    // Only hard-fail the HTTP status when probes are fully down.
+    // Degraded (e.g. feature-flagged modules) must stay 200 so admin Health
+    // does not falsely report "NestJS API Core — fetch failed".
+    if (status === 'down') res?.status(503)
 
     return {
-      status: down > 0 ? 'down' : degraded > 0 ? 'degraded' : 'healthy',
+      status,
       timestamp: new Date().toISOString(),
       latencyMs: Date.now() - started,
       summary: { total: results.length, healthy, degraded, down },
@@ -100,7 +125,8 @@ export class AppController {
   @SkipThrottle()
   @Public()
   @Get('health/full')
-  async fullHealth() {
+  @ApiOperation({ summary: 'Full infrastructure health check' })
+  async fullHealth(@Res({ passthrough: true }) res: Response) {
     const started = Date.now()
     const checks: {
       id: string
@@ -190,9 +216,13 @@ export class AppController {
 
     const down = checks.filter((c) => c.status === 'down').length
     const degraded = checks.filter((c) => c.status === 'degraded').length
+    const status = down > 0 ? 'down' : degraded > 0 ? 'degraded' : 'healthy'
+
+    if (status === 'down') res.status(503)
+    else if (status === 'degraded') res.status(503)
 
     return {
-      status: down > 0 ? 'down' : degraded > 0 ? 'degraded' : 'healthy',
+      status,
       service: 'splaro-api',
       timestamp: new Date().toISOString(),
       latencyMs: Date.now() - started,

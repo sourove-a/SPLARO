@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import {
   Eye, Search, Trash2, ShieldOff, Shield, Users,
   ShoppingBag, AlertTriangle, Star, Phone, Mail, Filter, RefreshCw,
@@ -9,6 +8,12 @@ import {
 
 import { CustomerQuickViewDialog } from '@/components/customers/CustomerQuickViewDialog'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
+import {
+  confirmCustomerBlockUpdated,
+  confirmCustomerDeleted,
+} from '@/lib/admin/customer-save'
+import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useCustomers, useDeleteCustomer, useBlockCustomer, usePermission } from '@/lib/api/hooks'
 
@@ -37,6 +42,7 @@ function CustomerRow({
     id: string; firstName: string; lastName: string; phone: string; email?: string | null
     totalOrders: number; totalSpent: number | string; loyaltyTier: string
     codRiskScore?: number; isBlocked?: boolean; tags?: string[]
+    googleLinked?: boolean; authProvider?: string
   }
   onView: () => void
   onBlock: () => void
@@ -56,6 +62,9 @@ function CustomerRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span className="admin-customers-name">{name}</span>
           <TierBadge tier={customer.loyaltyTier} />
+          {customer.googleLinked || customer.authProvider === 'google' ? (
+            <span className="admin-status admin-status--delivered">Google</span>
+          ) : null}
           {isHighRisk ? (
             <span className="admin-status admin-status--failed">COD risk</span>
           ) : null}
@@ -120,7 +129,8 @@ function CustomersView() {
   const [query, setQuery] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
   const [previewId, setPreviewId] = useState<string | null>(null)
-  const { data, isLoading, refetch } = useCustomers({ limit: 100 })
+  const { data, isLoading, isError, error, refetch } = useCustomers({ limit: 100 })
+  const apiOffline = isError && isNetworkOrServerError(error)
   const deleteCustomer = useDeleteCustomer()
   const blockCustomerMutation = useBlockCustomer()
   const canBlockCustomers = usePermission('settings', 'edit')
@@ -140,13 +150,13 @@ function CustomersView() {
   }, [query, tierFilter, rows])
 
   const handleBlock = async (id: string, currentlyBlocked: boolean) => {
-    try {
-      await blockCustomerMutation.mutateAsync({ id, blocked: !currentlyBlocked })
-      toast.success(currentlyBlocked ? 'Customer unblocked.' : 'Customer blocked.')
-      void refetch()
-    } catch {
-      toast.error('Could not update block status.')
-    }
+    const blocked = !currentlyBlocked
+    const ok = await confirmCustomerBlockUpdated(
+      id,
+      blocked,
+      () => blockCustomerMutation.mutateAsync({ id, blocked }),
+    )
+    if (ok) void refetch()
   }
 
   const handleDelete = async (id: string, name: string, orderCount: number) => {
@@ -156,14 +166,14 @@ function CustomersView() {
     } else if (!window.confirm(`Delete ${name}? This removes the account permanently.`)) {
       return
     }
-    try {
-      await deleteCustomer.mutateAsync({ id, force })
-      toast.success(force ? 'Customer and orders deleted permanently.' : 'Customer deleted permanently.')
-      void refetch()
-      if (previewId === id) setPreviewId(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete customer.')
-    }
+    const ok = await confirmCustomerDeleted(
+      id,
+      force,
+      () => deleteCustomer.mutateAsync({ id, force }),
+    )
+    if (!ok) return
+    void refetch()
+    if (previewId === id) setPreviewId(null)
   }
 
   const vipCount = rows.filter((r) => ['GOLD', 'PLATINUM', 'DIAMOND'].includes(r.loyaltyTier)).length
@@ -171,6 +181,7 @@ function CustomersView() {
 
   return (
     <div className="admin-customers-panel settings-section-enter">
+      {apiOffline ? <ApiOfflineBanner onRetry={() => void refetch()} /> : null}
       <div className="admin-customers-kpi-grid">
         <KpiCard label="Total customers" value={isLoading ? '…' : rows.length} icon={Users} />
         <KpiCard label="VIP members" value={isLoading ? '…' : vipCount} icon={Star} />
@@ -217,7 +228,11 @@ function CustomersView() {
         <div className="admin-customers-empty">Loading customers…</div>
       ) : filtered.length === 0 ? (
         <div className="admin-customers-empty">
-          {query || tierFilter !== 'all' ? 'No customers match this filter.' : 'No customers yet.'}
+          {apiOffline
+            ? 'Customer data unavailable — API offline.'
+            : query || tierFilter !== 'all'
+              ? 'No customers match this filter.'
+              : 'No customers yet.'}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

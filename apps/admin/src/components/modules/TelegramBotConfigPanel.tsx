@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toastOk, toastFail } from '@/lib/admin/feedback'
 import {
+  confirmTelegramAdminUnlinked,
+  confirmTelegramSettingsSaved,
+  confirmTelegramTestSent,
+} from '@/lib/admin/integration-save'
+import { confirmTelegramLinkTokenGenerated } from '@/lib/admin/security-save'
+import {
   useTelegramIntegration,
   useTelegramHealth,
   useTelegramLinkedAdmins,
@@ -143,54 +149,54 @@ export function TelegramBotConfigPanel({ embedded = false }: TelegramBotConfigPa
   }, [data])
 
   const handleSave = async () => {
-    try {
-      const payload: Record<string, unknown> = { ...config }
-      if (botTokenInput.trim()) payload.botToken = botTokenInput.trim()
-      else if (!data?.tokenConfigured) {
-        toastFail('Bot token is required.', 'tg-missing-token')
-        return
-      }
-      if (!config.chatId.trim()) {
-        toastFail('Chat ID is required.', 'tg-missing-chat')
-        return
-      }
-      await saveMutation.mutateAsync(payload as never)
-      const fresh = await refetch()
-      if (!fresh.data?.chatId) {
-        toastFail('Save did not persist — check API connection.', 'tg-save-verify-fail')
-        return
-      }
-      toastOk('Telegram settings saved to database.', 'tg-save-ok')
-      setBotTokenInput('')
-    } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Save failed', 'tg-save-fail')
+    if (botTokenInput.trim() === '' && !data?.tokenConfigured) {
+      toastFail('Bot token is required.', 'tg-missing-token')
+      return
     }
+    if (!config.chatId.trim()) {
+      toastFail('Chat ID is required.', 'tg-missing-chat')
+      return
+    }
+    const expected = {
+      chatId: config.chatId.trim(),
+      isEnabled: config.isEnabled,
+      notifyOrders: config.notifyOrders,
+      notifyCustomers: config.notifyCustomers,
+      notifyPayments: config.notifyPayments,
+      notifyCourier: config.notifyCourier,
+      notifyStock: config.notifyStock,
+      notifyReviews: config.notifyReviews,
+      reportDaily: config.reportDaily,
+      reportTime: config.reportTime,
+      requireTokenConfigured: true as const,
+    }
+    const ok = await confirmTelegramSettingsSaved(expected, () => {
+      const payload: Record<string, unknown> = { ...config, chatId: expected.chatId }
+      if (botTokenInput.trim()) payload.botToken = botTokenInput.trim()
+      return saveMutation.mutateAsync(payload as never)
+    })
+    if (!ok) return
+    setBotTokenInput('')
+    void refetch()
+    void refetchHealth()
   }
 
   const handleTest = async () => {
-    try {
-      const result = await testMutation.mutateAsync('✅ SPLARO — Telegram test from admin panel.')
-      if (!result.ok) {
-        toastFail(result.message || 'Telegram test failed', 'tg-test-fail')
-        return
-      }
-      toastOk(result.message || 'Telegram connected successfully', 'tg-test-ok')
-      void refetchHealth()
-    } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Telegram test failed', 'tg-test-fail')
-    }
+    const ok = await confirmTelegramTestSent(() =>
+      testMutation.mutateAsync('✅ SPLARO — Telegram test from admin panel.'),
+    )
+    if (ok) void refetchHealth()
   }
 
   const handleGenerateLinkToken = async () => {
-    try {
-      const result = await linkTokenMutation.mutateAsync()
-      setLinkToken(result.code)
-      toastOk('Link token generated — send /login TOKEN in your bot within 5 minutes.', 'tg-link-ok')
-      void refetchLinked()
-      void refetchHealth()
-    } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Could not generate link token', 'tg-link-fail')
-    }
+    const result = await confirmTelegramLinkTokenGenerated(
+      () => linkTokenMutation.mutateAsync(),
+      'tg-link-ok',
+    )
+    if (!result) return
+    setLinkToken(result.code)
+    void refetchLinked()
+    void refetchHealth()
   }
 
   const handleCopyLinkToken = async () => {
@@ -204,13 +210,10 @@ export function TelegramBotConfigPanel({ embedded = false }: TelegramBotConfigPa
   }
 
   const handleUnlink = async (id: string) => {
-    try {
-      await unlinkMutation.mutateAsync(id)
-      toastOk('Telegram admin unlinked', 'tg-unlink-ok')
+    const ok = await confirmTelegramAdminUnlinked(id, () => unlinkMutation.mutateAsync(id))
+    if (ok) {
       void refetchLinked()
       void refetchHealth()
-    } catch (err) {
-      toastFail(err instanceof Error ? err.message : 'Unlink failed', 'tg-unlink-fail')
     }
   }
 

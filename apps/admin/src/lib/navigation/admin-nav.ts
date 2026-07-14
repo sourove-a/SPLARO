@@ -1,4 +1,22 @@
 import { canAccessNavRoute, type AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
+import {
+  FEATURE_FLAG_DEFAULTS,
+  featureDisabledReason,
+  getFeatureFlagForAdminHref,
+  isAdminHrefFeatureDisabled,
+  type FeatureFlags,
+} from '@splaro/config'
+
+/** Mutable runtime flags — updated by FeatureFlagsProvider after GET /features. */
+let runtimeFeatureFlags: FeatureFlags = { ...FEATURE_FLAG_DEFAULTS }
+
+export function setAdminFeatureFlags(flags: FeatureFlags) {
+  runtimeFeatureFlags = { ...flags }
+}
+
+export function getAdminFeatureFlags(): FeatureFlags {
+  return runtimeFeatureFlags
+}
 
 export interface AdminNavItem {
   href: string
@@ -130,7 +148,7 @@ export const adminNavGroups: AdminNavGroup[] = [
     group: 'Finance',
     items: [
       item('Finance Overview', 'finance/finance-reports', 'FileBarChart', 'Live finance overview & exports'),
-      item('Partner Hub', 'finance/partner-accounts', 'Users', 'SOUROVE · RAJU · HRIDOY — hisab nikash & balance'),
+      item('Partner Hub', 'finance/partner-accounts', 'Users', 'Partner hisab, balance, investment & withdrawal'),
       item('Expenses', 'finance/expenses', 'Receipt', 'Ke kothay koto khoroch — approval workflow'),
       item('Investments', 'finance/investments', 'PiggyBank', 'Partner capital investment'),
       item('Withdrawals', 'finance/withdrawals', 'Banknote', 'Partner withdrawal ledger'),
@@ -246,7 +264,6 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     group: 'Media',
     items: [
-      item('Media Library', 'media-library', 'Image', 'Images, files, and asset management'),
       item('Video Library', 'video-library', 'Film', 'Video uploads and streaming assets'),
       item('UGC Gallery', 'ugc-gallery', 'Camera', 'User-generated content moderation'),
     ],
@@ -336,15 +353,34 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   // Duplicate ops aliases — canonical: WMS / Procurement
   '/dashboard/warehouse',
   '/dashboard/supplier-management',
-  // Overview duplicate (same ExecutiveDashboard panel as Revenue Center)
+  // Overview duplicates — Dashboard is the single entry
+  '/dashboard/analytics',
+  '/dashboard/revenue-center',
   '/dashboard/business-intelligence',
-  // Google Workspace placeholders — keep OAuth, Sheets, Gmail connected paths
+  // Executive — CEO view duplicates Dashboard KPIs
+  '/dashboard/executive/ceo-dashboard',
+  // Commerce extras — Orders is the daily hub
+  '/dashboard/pos',
+  '/dashboard/invoices',
+  '/dashboard/transactions',
+  '/dashboard/subscriptions',
+  // Finance sub-routes — tabs inside Partner Hub
+  '/dashboard/finance/expenses',
+  '/dashboard/finance/investments',
+  '/dashboard/finance/withdrawals',
+  '/dashboard/finance/google-sheets-finance',
+  // Google Workspace — keep Connect + Sheets Sync only
+  '/dashboard/google-workspace',
   '/dashboard/google-workspace/docs',
   '/dashboard/google-workspace/calendar',
   '/dashboard/google-workspace/contacts',
   '/dashboard/google-workspace/analytics',
   '/dashboard/google-workspace/search-console',
   '/dashboard/google-workspace/merchant-center',
+  '/dashboard/google-workspace/gmail',
+  '/dashboard/google-workspace/drive',
+  '/dashboard/google-workspace/sync-logs',
+  '/dashboard/google-workspace/oauth-settings',
   // Platform / multi-tenant shells — not daily SPLARO ops
   '/dashboard/stores',
   '/dashboard/saas-subscriptions',
@@ -356,8 +392,39 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   '/dashboard/observability/center',
   '/dashboard/observability/disaster-recovery',
   '/dashboard/social-commerce/hub',
-  // Support placeholder
+  // WMS / Procurement / Production — beta shells, not daily retail
+  '/dashboard/wms/overview',
+  '/dashboard/wms/warehouses',
+  '/dashboard/wms/stock-movements',
+  '/dashboard/wms/transfers',
+  '/dashboard/procurement/overview',
+  '/dashboard/procurement/suppliers',
+  '/dashboard/procurement/purchase-orders',
+  '/dashboard/procurement/goods-received',
+  '/dashboard/production/overview',
+  '/dashboard/production/fabric-inventory',
+  // Support / Delivery / Company OS — not connected for daily ops
+  '/dashboard/support/helpdesk',
   '/dashboard/support/live-chat',
+  '/dashboard/delivery/agents',
+  '/dashboard/delivery/assignments',
+  '/dashboard/company/dashboard',
+  '/dashboard/company/employees',
+  '/dashboard/company/payroll',
+  '/dashboard/company/tasks',
+  '/dashboard/company/documents',
+  // Operations duplicate — Courier Hub covers shipping
+  '/dashboard/shipping',
+  // Automation duplicates — Settings + Google Workspace Sheets
+  '/dashboard/automation/telegram-notifications',
+  '/dashboard/automation/google-sheets-sync',
+  '/dashboard/automation/ai-product-agent',
+  '/dashboard/automation/ai-seo-agent',
+  '/dashboard/automation/ai-sales-insights',
+  // Integrations — advanced / not daily
+  '/dashboard/webhooks',
+  '/dashboard/meta-business',
+  '/dashboard/google-merchant',
   // Media shells
   '/dashboard/video-library',
   '/dashboard/ugc-gallery',
@@ -368,10 +435,10 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   '/dashboard/ai-sales',
   '/dashboard/ai-customer-insights',
   '/dashboard/ai-product-generator',
-  '/dashboard/automation/ai-product-agent',
-  '/dashboard/automation/ai-seo-agent',
-  '/dashboard/automation/ai-sales-insights',
-  // Marketing analytics shells — campaigns/coupons/whatsapp stay visible
+  // Marketing — enable when campaigns/channels are live
+  '/dashboard/campaigns',
+  '/dashboard/email-sms',
+  '/dashboard/whatsapp',
   '/dashboard/influencers',
   '/dashboard/affiliate',
   '/dashboard/referrals',
@@ -386,27 +453,54 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   // Growth placeholders
   '/dashboard/vip-members',
   '/dashboard/loyalty-program',
-  '/dashboard/subscriptions',
-  // Content shells — home/hero/blog/legal stay visible
+  // Content shells — home/hero/legal/menu cover storefront
   '/dashboard/lookbooks',
   '/dashboard/reels',
   '/dashboard/cms',
   '/dashboard/landing-pages',
   '/dashboard/theme-builder',
   '/dashboard/footwear-page',
-  // Company doc upload not connected
-  '/dashboard/company/documents',
+  '/dashboard/blog',
   // SEO sub-tools — SEO Health is the hub
+  '/dashboard/keywords',
   '/dashboard/index-monitor',
+  '/dashboard/schema-manager',
+  '/dashboard/sitemap-manager',
+  '/dashboard/redirect-manager',
+  // Security advanced — single-store admin
+  '/dashboard/roles',
+  '/dashboard/permissions',
+  '/dashboard/audit-logs',
+  // System ops — dev/infra, not daily merchant
+  '/dashboard/backups',
+  '/dashboard/logs',
+  '/dashboard/system-health',
+  '/dashboard/system/sync-logs',
+  '/dashboard/system/telegram-logs',
+  '/dashboard/system/finance-audit-logs',
 ])
 
 /** Shown when a hidden route is opened via bookmark or legacy link. */
 export const NAV_HIDDEN_REASONS: Record<string, string> = {
-  '/dashboard/warehouse': 'Legacy alias — use WMS Overview for warehouse operations.',
-  '/dashboard/supplier-management': 'Legacy alias — use Procurement Hub for suppliers and POs.',
-  '/dashboard/business-intelligence': 'Same data as Revenue Center — use Revenue Center or CEO Dashboard.',
-  '/dashboard/support/live-chat': 'Live chat is not connected — use Helpdesk for tickets.',
-  '/dashboard/company/documents': 'Document upload API is not connected yet.',
+  '/dashboard/warehouse': 'Legacy alias — use Operations Hub or Courier Hub.',
+  '/dashboard/supplier-management': 'Hidden — Procurement module not needed for daily retail.',
+  '/dashboard/analytics': 'Hidden — use Dashboard for daily KPIs.',
+  '/dashboard/revenue-center': 'Hidden — same data as Dashboard.',
+  '/dashboard/business-intelligence': 'Hidden — same data as Dashboard.',
+  '/dashboard/executive/ceo-dashboard': 'Hidden — use Dashboard.',
+  '/dashboard/finance/expenses': 'Partner Hub → Expenses tab এ আছে।',
+  '/dashboard/finance/investments': 'Partner Hub → Investment tab এ আছে।',
+  '/dashboard/finance/withdrawals': 'Partner Hub → Withdrawal tab এ আছে।',
+  '/dashboard/finance/google-sheets-finance': 'Google Workspace → Sheets Sync ব্যবহার করুন।',
+  '/dashboard/shipping': 'Courier Hub দিয়ে Steadfast booking করুন।',
+  '/dashboard/support/live-chat': 'Live chat connect হয়নি।',
+  '/dashboard/support/helpdesk': 'Helpdesk beta — daily ops এ লাগে না।',
+  '/dashboard/company/documents': 'Document upload API connect হয়নি।',
+  '/dashboard/wms/overview': 'WMS beta — single warehouse এ Inventory যথেষ্ট।',
+  '/dashboard/procurement/overview': 'Procurement beta — factory sourcing না হলে লাগে না।',
+  '/dashboard/production/overview': 'Production beta — নিজে manufacture না করলে লাগে না।',
+  '/dashboard/delivery/agents': 'Steadfast courier ব্যবহার করলে নিজের rider লাগে না।',
+  '/dashboard/pos': 'Online store — physical POS লাগলে URL bookmark করুন।',
 }
 
 export function normalizeAdminHref(href: string): string {
@@ -414,11 +508,17 @@ export function normalizeAdminHref(href: string): string {
 }
 
 export function isNavHiddenFromPrimary(href: string): boolean {
-  return NAV_HIDDEN_HREFS.has(normalizeAdminHref(href))
+  const normalized = normalizeAdminHref(href)
+  if (NAV_HIDDEN_HREFS.has(normalized)) return true
+  return isAdminHrefFeatureDisabled(normalized, runtimeFeatureFlags)
 }
 
 export function getNavHiddenReason(href: string): string {
   const normalized = normalizeAdminHref(href)
+  const flag = getFeatureFlagForAdminHref(normalized)
+  if (flag && !runtimeFeatureFlags[flag]) {
+    return featureDisabledReason(flag)
+  }
   return (
     NAV_HIDDEN_REASONS[normalized] ??
     'Hidden from sidebar — module not needed for daily SPLARO operations. Bookmark still works.'
@@ -472,6 +572,26 @@ export function getNavItemByHref(href: string): FlatAdminRoute | undefined {
   return routeByHref.get(canonical)
 }
 
+const DETAIL_PAGE_TITLES: Record<string, string> = {
+  Orders: 'Order details',
+  Products: 'Product details',
+  Invoices: 'Invoice details',
+  Customers: 'Customer profile',
+  Collections: 'Collection details',
+  Categories: 'Category details',
+  Coupons: 'Coupon details',
+}
+
+function singularNavLabel(label: string): string {
+  if (label.endsWith('ies')) return `${label.slice(0, -3)}y`
+  if (label.endsWith('s')) return label.slice(0, -1)
+  return label
+}
+
+function detailPageTitle(label: string): string {
+  return DETAIL_PAGE_TITLES[label] ?? `${singularNavLabel(label)} details`
+}
+
 export interface ResolvedNavRoute {
   navItem: FlatAdminRoute
   moduleHref: string
@@ -500,13 +620,15 @@ export function resolveNavRoute(slug: string[] | undefined): ResolvedNavRoute | 
             ? 'detail'
             : null
 
+    // Never dump raw CUID/UUID into the page title — those are DB keys for
+    // routing only. Human labels (SPL-1002, product name) live inside the panel.
     const pageTitle =
       action === 'create'
-        ? `Create ${navItem.label.replace(/s$/, '')}`
+        ? `Create ${singularNavLabel(navItem.label)}`
         : action === 'edit'
-          ? `Edit ${navItem.label.replace(/s$/, '')}`
-          : action === 'detail' && subPath[0]
-            ? `${navItem.label} · ${subPath[0]}`
+          ? `Edit ${singularNavLabel(navItem.label)}`
+          : action === 'detail'
+            ? detailPageTitle(navItem.label)
             : navItem.label
 
     return { navItem, moduleHref, subPath, action, pageTitle }

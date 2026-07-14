@@ -1,11 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
 import { useMotionReady } from '@/hooks/useMotionReady'
 import { ShopFilterBar } from '@/components/shop/ShopFilterBar'
 import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
+import { ProductQuickView } from '@/components/product/ProductQuickView/ProductQuickView'
+import { buildQuickViewProduct } from '@/lib/catalog/quick-view-product'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
   buildListingSearchParams,
@@ -13,8 +15,17 @@ import {
 } from '@/lib/catalog/listing'
 import {
   isMobilePriceRangeActive,
+  isDefaultSort,
   type CatalogSortOption,
 } from '@/lib/shop/mobile-filter'
+import {
+  compareProductsBySort,
+  findPriceBandByLabel,
+  getDefaultPriceLabel,
+  getDefaultSortLabel,
+  matchesPriceBand,
+} from '@/lib/shop/filter-config'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useCartStore } from '@/store/cartStore'
 import { useUiStore } from '@/store/uiStore'
 import { productSlug } from '@/lib/catalog/index'
@@ -24,16 +35,15 @@ import {
   getShopSizeOptions,
   isStorefrontBestSeller,
   isStorefrontNewArrival,
-  PRICE_FILTER_HIGH,
-  PRICE_FILTER_LOW,
-  shopFilterMenuCategories,
   type Category,
   type StorefrontProduct,
 } from '@/data/storefront'
 import { isStorefrontProductInStock, resolveQuickAddVariant } from '@/lib/catalog/index'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
+import { sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
 import type { CachedCatalog, CatalogSource } from '@/lib/catalog/server'
-import { usePublishedShopCategories } from '@/lib/storefront/catalog-channels'
+import { useCatalogChannels } from '@/lib/storefront/catalog-channels'
+import { deriveShopFilterCategories } from '@/lib/catalog/shop-categories'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
@@ -65,6 +75,17 @@ function getProductHref(product: ShopProduct) {
   return `/products/${product.slug ?? productSlug(product)}`
 }
 
+function resolveCardProductCode(product: ShopProduct) {
+  const direct = product.code?.trim()
+  if (direct) return direct
+  const sku = sanitizeStorefrontProductCode(
+    (product as ShopProduct & { sku?: string }).sku,
+    product.slug ?? productSlug(product),
+  )
+  if (sku) return sku
+  return product.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase() || undefined
+}
+
 export function ShopCatalog({
   initialCategory = 'All',
   category: controlledCategory,
@@ -83,19 +104,25 @@ export function ShopCatalog({
   const mounted = useMounted()
   const homepageProductLimit = HOMEPAGE_PRODUCT_LIMIT
   const priorityCount = mounted && isMobile ? 2 : 4
-  const { showMotion } = useMotionReady()
+  const { allowRevealAnimation, showMotion } = useMotionReady()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
   const useApiListing = listingMode === 'scoped' && Boolean(collectionSlug || categorySlug)
+  const { config } = useStorefrontSettings()
+  const shopFilters = config.shopFilters!
+  const defaultSortLabel = getDefaultSortLabel(shopFilters)
+  const defaultPriceLabel = getDefaultPriceLabel(shopFilters)
 
   const [activeCategory, setActiveCategory] = useState<Category>(initialCategory)
   const [openFilter, setOpenFilter] = useState<FilterKey>(null)
   const [selectedColor, setSelectedColor] = useState('All')
   const [selectedSize, setSelectedSize] = useState('All')
-  const [selectedPrice, setSelectedPrice] = useState('All')
+  const [selectedPrice, setSelectedPrice] = useState(() => getDefaultPriceLabel(shopFilters))
   const [mobilePriceMin, setMobilePriceMin] = useState<number | null>(null)
   const [mobilePriceMax, setMobilePriceMax] = useState<number | null>(null)
-  const [sortBy, setSortBy] = useState<CatalogSortOption>(initialSort)
+  const [sortBy, setSortBy] = useState<CatalogSortOption>(() =>
+    initialSort === 'Default' ? getDefaultSortLabel(shopFilters) : initialSort,
+  )
   const [catalogSource, setCatalogSource] = useState<CatalogSource>(initialCatalog?.source ?? 'api')
   const [catalogProducts, setCatalogProducts] = useState<ShopProduct[]>(
     (initialCatalog?.products ?? []).map(sanitizeStorefrontProduct),
@@ -104,20 +131,88 @@ export function ShopCatalog({
   const [apiPage, setApiPage] = useState(initialCatalog?.page ?? 1)
   const [apiTotalPages, setApiTotalPages] = useState(initialCatalog?.totalPages ?? 1)
   const [loadingMore, setLoadingMore] = useState(false)
-  const visibleCategories = usePublishedShopCategories()
+  const [quickViewProduct, setQuickViewProduct] = useState<ShopProduct | null>(null)
+  const catalogProductsRef = useRef(catalogProducts)
+  catalogProductsRef.current = catalogProducts
+  const catalogChannels = useCatalogChannels()
+  const filterCategories = useMemo(
+    () => deriveShopFilterCategories(catalogChannels, catalogProducts),
+    [catalogChannels, catalogProducts],
+  )
+  const [, startFilterTransition] = useTransition()
 
   useEffect(() => {
-    if (initialCatalog?.source === 'api') return
-    fetch('/api/products', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data: { products?: StorefrontProduct[]; source?: CatalogSource }) => {
-        if (data.source) setCatalogSource(data.source)
-        if (data.source === 'api' && data.products?.length) {
-          setCatalogProducts(data.products.map(sanitizeStorefrontProduct))
+    let cancelled = false
+    const MAX_ATTEMPTS = 4
+
+    const applyCatalog = (data: { products?: StorefrontProduct[]; source?: CatalogSource }) => {
+      if (data.products?.length) {
+        setCatalogProducts(data.products.map(sanitizeStorefrontProduct))
+        setCatalogSource('api')
+        return true
+      }
+      if (data.source && data.source !== 'api-unavailable') {
+        setCatalogSource(data.source)
+      }
+      return false
+    }
+
+    const load = async (attempt = 0) => {
+      try {
+        const res = await fetch('/api/products', { cache: 'no-store' })
+        const data = (await res.json()) as { products?: StorefrontProduct[]; source?: CatalogSource }
+        if (cancelled) return
+        if (applyCatalog(data)) return
+        if ((data.source === 'api-unavailable' || !res.ok) && attempt < MAX_ATTEMPTS - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
+          return load(attempt + 1)
         }
-      })
-      .catch(() => setCatalogSource('api-unavailable'))
-  }, [initialCatalog?.source])
+        if (!catalogProductsRef.current.length) {
+          setCatalogSource('api-unavailable')
+        }
+      } catch {
+        if (cancelled) return
+        if (attempt < MAX_ATTEMPTS - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
+          return load(attempt + 1)
+        }
+        if (!catalogProductsRef.current.length) {
+          setCatalogSource('api-unavailable')
+        }
+      }
+    }
+
+    const hasSsrCatalog =
+      initialCatalog?.source === 'api' && (initialCatalog.products?.length ?? 0) > 0
+
+    if (hasSsrCatalog) {
+      // Stale-while-revalidate — keep SSR paint fast; refresh after idle
+      const win = window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+        cancelIdleCallback?: (id: number) => void
+      }
+      let idleId: number | undefined
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const run = () => {
+        if (!cancelled) void load()
+      }
+      if (win.requestIdleCallback) {
+        idleId = win.requestIdleCallback(run, { timeout: 4000 })
+      } else {
+        timer = setTimeout(run, 2500)
+      }
+      return () => {
+        cancelled = true
+        if (idleId !== undefined) win.cancelIdleCallback?.(idleId)
+        if (timer !== undefined) clearTimeout(timer)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [initialCatalog?.source, initialCatalog?.products.length])
 
   useEffect(() => {
     if (!initialCatalog) return
@@ -137,18 +232,20 @@ export function ShopCatalog({
 
   useEffect(() => {
     if (controlledCategory !== undefined) return
-    if (!visibleCategories.includes(currentCategory)) {
+    if (!filterCategories.includes(currentCategory)) {
       setActiveCategory('All')
     }
-  }, [visibleCategories, currentCategory, controlledCategory])
+  }, [filterCategories, currentCategory, controlledCategory])
 
   const updateCategory = (category: Category) => {
     if (controlledCategory === undefined) setActiveCategory(category)
     onCategoryChange?.(category)
-    setOpenFilter(null)
-    setSelectedColor('All')
-    setSelectedSize('All')
-    setVisibleCount(PAGE_SIZE)
+    startFilterTransition(() => {
+      setOpenFilter(null)
+      setSelectedColor('All')
+      setSelectedSize('All')
+      setVisibleCount(PAGE_SIZE)
+    })
   }
 
   const addProductToBag = (
@@ -158,6 +255,10 @@ export function ShopCatalog({
     openCart = true,
   ) => {
     const variant = resolveQuickAddVariant(product, size, color)
+    const colorHex = (variant?.colorHex ?? color)?.toLowerCase()
+    const colorLabel =
+      product.colorOptions?.find((option) => option.hex.toLowerCase() === colorHex)?.name ??
+      colorHex
     addItem({
       productId: product.id,
       quantity: 1,
@@ -167,7 +268,7 @@ export function ShopCatalog({
       slug: product.slug ?? productSlug(product),
       ...(variant ? { variantId: variant.id } : {}),
       ...(variant?.size ?? size ? { size: variant?.size ?? size } : {}),
-      ...(color ? { color } : {}),
+      ...(colorLabel ? { color: colorLabel } : {}),
     })
     if (openCart) setCartOpen(true)
   }
@@ -196,30 +297,21 @@ export function ShopCatalog({
         selectedColor === 'All' ||
         product.colors.some((color) => colorGroup(color) === selectedColor)
       const productPrice = product.price
+      const priceBand = findPriceBandByLabel(shopFilters, selectedPrice)
       const priceMatch = mobilePriceRangeActive
         ? productPrice >= (mobilePriceMin ?? catalogPriceBounds.min) &&
           productPrice <= (mobilePriceMax ?? catalogPriceBounds.max)
-        : selectedPrice === 'All' ||
-          (selectedPrice === 'Under BDT 6,000' && productPrice < PRICE_FILTER_LOW) ||
-          (selectedPrice === 'BDT 6,000 – 10,000' &&
-            productPrice >= PRICE_FILTER_LOW &&
-            productPrice <= PRICE_FILTER_HIGH) ||
-          (selectedPrice === 'Above BDT 10,000' && productPrice > PRICE_FILTER_HIGH)
+        : !priceBand || priceBand.id === 'all'
+          ? true
+          : matchesPriceBand(productPrice, priceBand)
       return categoryMatch && sizeMatch && colorMatch && priceMatch
     })
 
-    return [...visible].sort((a, b) => {
-      if (sortBy === 'Best Selling') {
-        const bestDiff =
-          Number(isStorefrontBestSeller(b)) - Number(isStorefrontBestSeller(a))
-        if (bestDiff !== 0) return bestDiff
-        return 0
-      }
-      if (sortBy === 'Price low to high') return a.price - b.price
-      if (sortBy === 'Price high to low') return b.price - a.price
-      if (sortBy === 'Newest') return b.id.localeCompare(a.id)
-      return 0
-    })
+    return [...visible].sort((a, b) =>
+      compareProductsBySort(a, b, sortBy, shopFilters, (product) =>
+        isStorefrontBestSeller(product as StorefrontProduct),
+      ),
+    )
   }, [
     catalogPreset,
     catalogPriceBounds.max,
@@ -232,6 +324,7 @@ export function ShopCatalog({
     selectedColor,
     selectedPrice,
     selectedSize,
+    shopFilters,
     sortBy,
   ])
 
@@ -239,28 +332,6 @@ export function ShopCatalog({
     const slice = filteredProducts.slice(0, visibleCount)
     return isHomepage ? slice.slice(0, homepageProductLimit) : slice
   }, [filteredProducts, homepageProductLimit, isHomepage, visibleCount])
-
-  const gridAnimationKey = useMemo(
-    () =>
-      [
-        currentCategory,
-        selectedColor,
-        selectedSize,
-        selectedPrice,
-        sortBy,
-        mobilePriceMin ?? '',
-        mobilePriceMax ?? '',
-      ].join('|'),
-    [
-      currentCategory,
-      mobilePriceMax,
-      mobilePriceMin,
-      selectedColor,
-      selectedPrice,
-      selectedSize,
-      sortBy,
-    ],
-  )
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
@@ -289,15 +360,24 @@ export function ShopCatalog({
   const clearFilters = () => {
     if (controlledCategory === undefined) setActiveCategory('All')
     onCategoryChange?.('All')
-    setSelectedColor('All')
-    setSelectedSize('All')
-    setSelectedPrice('All')
-    setMobilePriceMin(null)
-    setMobilePriceMax(null)
-    setSortBy('Default')
-    setOpenFilter(null)
-    setVisibleCount(PAGE_SIZE)
+    startFilterTransition(() => {
+      setSelectedColor('All')
+      setSelectedSize('All')
+      setSelectedPrice(defaultPriceLabel)
+      setMobilePriceMin(null)
+      setMobilePriceMax(null)
+      setSortBy(defaultSortLabel)
+      setOpenFilter(null)
+      setVisibleCount(PAGE_SIZE)
+    })
   }
+
+  const applyFilterChange = useCallback(
+    (update: () => void) => {
+      startFilterTransition(update)
+    },
+    [startFilterTransition],
+  )
 
   const fetchMoreFromApi = useCallback(async () => {
     if (!useApiListing || loadingMore || apiPage >= apiTotalPages) return false
@@ -367,11 +447,23 @@ export function ShopCatalog({
     currentCategory !== 'All' ||
     selectedColor !== 'All' ||
     selectedSize !== 'All' ||
-    selectedPrice !== 'All' ||
+    selectedPrice !== defaultPriceLabel ||
     mobilePriceRangeActive ||
-    sortBy !== 'Default'
+    !isDefaultSort(sortBy, shopFilters)
 
   const catalogIsEmpty = catalogProducts.length === 0 && catalogSource === 'empty'
+
+  const gridFilterKey = [
+    currentCategory,
+    selectedColor,
+    selectedSize,
+    selectedPrice,
+    sortBy,
+    mobilePriceMin,
+    mobilePriceMax,
+  ].join('|')
+
+  const animateGrid = showMotion && (isHomepage ? allowRevealAnimation : true)
 
   return (
     <>
@@ -380,7 +472,7 @@ export function ShopCatalog({
         data-section="shopCatalog"
         className={cn('shop-catalog', isHomepage && 'shop-catalog--homepage')}
       >
-        {catalogSource === 'api-unavailable' ? (
+        {catalogSource === 'api-unavailable' && catalogProducts.length === 0 ? (
           <div className="mb-4 px-3 sm:px-5 lg:px-8">
             <p className="auth-form__error">
               Product catalog is temporarily offline — live inventory could not be loaded. Please refresh or try again shortly.
@@ -389,7 +481,7 @@ export function ShopCatalog({
         ) : null}
         {showStickyBar ? (
           <ShopFilterBar
-            categories={shopFilterMenuCategories}
+            categories={filterCategories}
             activeCategory={currentCategory}
             onCategoryChange={updateCategory}
             colorOptions={colorOptions}
@@ -404,94 +496,119 @@ export function ShopCatalog({
             resultCount={filteredProducts.length}
             openFilter={openFilter}
             onOpenFilterChange={setOpenFilter}
-            onColorChange={setSelectedColor}
-            onSizeChange={setSelectedSize}
-            onPriceChange={setSelectedPrice}
+            onColorChange={(value) => applyFilterChange(() => setSelectedColor(value))}
+            onSizeChange={(value) => applyFilterChange(() => setSelectedSize(value))}
+            onPriceChange={(value) => applyFilterChange(() => setSelectedPrice(value))}
             onPriceRangeChange={(min, max) => {
-              setMobilePriceMin(min)
-              setMobilePriceMax(max)
+              applyFilterChange(() => {
+                setMobilePriceMin(min)
+                setMobilePriceMax(max)
+              })
             }}
-            onSortChange={setSortBy}
+            onSortChange={(value) => applyFilterChange(() => setSortBy(value))}
             onClearFilters={clearFilters}
           />
         ) : null}
 
-        {(selectedColor !== 'All' ||
-          selectedSize !== 'All' ||
-          selectedPrice !== 'All' ||
-          mobilePriceRangeActive ||
-          sortBy !== 'Default') && (
-          <div className="shop-active-chips">
-            {selectedColor !== 'All' ? (
-              <button
-                type="button"
-                className="shop-active-chip"
-                onClick={() => setSelectedColor('All')}
-              >
-                {selectedColor} <X className="h-3 w-3" />
+        <AnimatePresence initial={false}>
+          {hasActiveFilters ? (
+            <motion.div
+              key="active-chips"
+              className="shop-active-chips"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.28, ease: GRID_EASE }}
+            >
+              {selectedColor !== 'All' ? (
+                <motion.button
+                  type="button"
+                  className="shop-active-chip"
+                  onClick={() => setSelectedColor('All')}
+                  layout
+                  whileTap={{ scale: 0.992 }}
+                >
+                  {selectedColor} <X className="h-3 w-3" />
+                </motion.button>
+              ) : null}
+              {selectedSize !== 'All' ? (
+                <motion.button
+                  type="button"
+                  className="shop-active-chip"
+                  onClick={() => setSelectedSize('All')}
+                  layout
+                  whileTap={{ scale: 0.992 }}
+                >
+                  Size {selectedSize} <X className="h-3 w-3" />
+                </motion.button>
+              ) : null}
+              {mobilePriceRangeActive ? (
+                <motion.button
+                  type="button"
+                  className="shop-active-chip"
+                  onClick={() => {
+                    setMobilePriceMin(null)
+                    setMobilePriceMax(null)
+                  }}
+                  layout
+                  whileTap={{ scale: 0.992 }}
+                >
+                  Price range <X className="h-3 w-3" />
+                </motion.button>
+              ) : null}
+              {selectedPrice !== defaultPriceLabel ? (
+                <motion.button
+                  type="button"
+                  className="shop-active-chip"
+                  onClick={() => setSelectedPrice(defaultPriceLabel)}
+                  layout
+                  whileTap={{ scale: 0.992 }}
+                >
+                  {selectedPrice} <X className="h-3 w-3" />
+                </motion.button>
+              ) : null}
+              {!isDefaultSort(sortBy, shopFilters) ? (
+                <motion.button
+                  type="button"
+                  className="shop-active-chip"
+                  onClick={() => setSortBy(defaultSortLabel)}
+                  layout
+                  whileTap={{ scale: 0.992 }}
+                >
+                  {sortBy} <X className="h-3 w-3" />
+                </motion.button>
+              ) : null}
+              <button type="button" className="shop-clear-link" onClick={clearFilters}>
+                Clear
               </button>
-            ) : null}
-            {selectedSize !== 'All' ? (
-              <button
-                type="button"
-                className="shop-active-chip"
-                onClick={() => setSelectedSize('All')}
-              >
-                Size {selectedSize} <X className="h-3 w-3" />
-              </button>
-            ) : null}
-            {mobilePriceRangeActive ? (
-              <button
-                type="button"
-                className="shop-active-chip"
-                onClick={() => {
-                  setMobilePriceMin(null)
-                  setMobilePriceMax(null)
-                }}
-              >
-                Price range <X className="h-3 w-3" />
-              </button>
-            ) : null}
-            {selectedPrice !== 'All' ? (
-              <button
-                type="button"
-                className="shop-active-chip"
-                onClick={() => setSelectedPrice('All')}
-              >
-                {selectedPrice} <X className="h-3 w-3" />
-              </button>
-            ) : null}
-            {sortBy !== 'Default' ? (
-              <button type="button" className="shop-active-chip" onClick={() => setSortBy('Default')}>
-                {sortBy} <X className="h-3 w-3" />
-              </button>
-            ) : null}
-            <button type="button" className="shop-clear-link" onClick={clearFilters}>
-              Clear
-            </button>
-          </div>
-        )}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
-        <div className={cn('shop-product-grid', isHomepage && 'shop-product-grid--homepage')}>
-          <AnimatePresence mode="popLayout" initial={false}>
+        {animateGrid ? (
+          <motion.div
+            key={gridFilterKey}
+            className={cn('shop-product-grid', isHomepage && 'shop-product-grid--homepage')}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.24, ease: GRID_EASE }}
+          >
             {visibleProducts.map((product, index) => {
               const card = storefrontToCardData(product)
-              const motionProps = !showMotion
-                ? { initial: false as const }
-                : {
-                    initial: { opacity: 0, y: 12, scale: 0.988 },
-                    animate: { opacity: 1, y: 0, scale: 1 },
-                    exit: { opacity: 0, y: -8, scale: 0.988 },
-                    transition: {
-                      duration: 0.28,
-                      delay: Math.min(index * 0.032, 0.22),
-                      ease: GRID_EASE,
-                    },
-                  }
+              const motionProps = {
+                initial: { opacity: 0, y: 12, scale: 0.988 },
+                animate: { opacity: 1, y: 0, scale: 1 },
+                transition: {
+                  duration: 0.3,
+                  delay: Math.min(index * 0.028, 0.2),
+                  ease: GRID_EASE,
+                },
+              }
+              const cardCode = resolveCardProductCode(product)
 
               return (
                 <motion.div
-                  key={`${gridAnimationKey}:${product.id}`}
+                  key={product.id}
                   className="shop-product-grid__cell min-w-0"
                   layout={false}
                   {...motionProps}
@@ -506,7 +623,8 @@ export function ShopCatalog({
                     {...(card.compareAtPrice ? { compareAtPrice: card.compareAtPrice } : {})}
                     image={card.images[0] ?? ''}
                     {...(card.images[1] ? { imageHover: card.images[1] } : {})}
-                    {...(product.code ? { productCode: product.code } : {})}
+                    {...(card.images.length > 2 ? { galleryImages: card.images } : {})}
+                    {...(cardCode ? { productCode: cardCode } : {})}
                     colorHexes={product.colors}
                     status={product.status}
                     inStock={product.inStock ?? isStorefrontProductInStock(product)}
@@ -516,24 +634,107 @@ export function ShopCatalog({
                     onAddToBag={() =>
                       addProductToBag(product, product.sizes[0], product.colors[0], true)
                     }
+                    onShowDetails={() => setQuickViewProduct(product)}
                   />
                 </motion.div>
               )
             })}
-          </AnimatePresence>
-        </div>
+          </motion.div>
+        ) : (
+          <div className={cn('shop-product-grid', isHomepage && 'shop-product-grid--homepage')}>
+            {visibleProducts.map((product, index) => {
+              const card = storefrontToCardData(product)
+              const cardCode = resolveCardProductCode(product)
+
+              return (
+                <div key={product.id} className="shop-product-grid__cell min-w-0">
+                  <SplaroProductCard
+                    id={card.id}
+                    slug={card.slug}
+                    name={card.name}
+                    price={card.price}
+                    variant={isHomepage ? 'homepage' : 'shop'}
+                    fit="contain"
+                    {...(card.compareAtPrice ? { compareAtPrice: card.compareAtPrice } : {})}
+                    image={card.images[0] ?? ''}
+                    {...(card.images[1] ? { imageHover: card.images[1] } : {})}
+                    {...(card.images.length > 2 ? { galleryImages: card.images } : {})}
+                    {...(cardCode ? { productCode: cardCode } : {})}
+                    colorHexes={product.colors}
+                    status={product.status}
+                    inStock={product.inStock ?? isStorefrontProductInStock(product)}
+                    sizes={product.sizes}
+                    href={getProductHref(product)}
+                    priority={index < priorityCount}
+                    onAddToBag={() =>
+                      addProductToBag(product, product.sizes[0], product.colors[0], true)
+                    }
+                    onShowDetails={() => setQuickViewProduct(product)}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <ProductQuickView
+          product={quickViewProduct ? buildQuickViewProduct(quickViewProduct) : null}
+          open={Boolean(quickViewProduct)}
+          onClose={() => setQuickViewProduct(null)}
+          onAddToBag={(size, color) => {
+            if (!quickViewProduct) return
+            addProductToBag(quickViewProduct, size, color, true)
+          }}
+        />
+
+        <AnimatePresence initial={false}>
+          {!isHomepage && filteredProducts.length > 0 ? (
+            <motion.p
+              key="results-footer"
+              className="shop-results-footer"
+              aria-live="polite"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.28, ease: GRID_EASE }}
+            >
+              1 – {visibleProducts.length} of {filteredProducts.length} Item
+              {filteredProducts.length === 1 ? '' : 's'}
+            </motion.p>
+          ) : null}
+        </AnimatePresence>
 
         {canLoadMore ? (
-          <div className="shop-load-more-wrap mt-8">
-            <button
-              type="button"
-              className="shop-load-more-btn"
-              disabled={loadingMore}
-              onClick={() => void handleLoadMore()}
+          animateGrid ? (
+            <motion.div
+              className="shop-load-more-wrap mt-8"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.32, ease: GRID_EASE }}
             >
-              {loadingMore ? 'Loading…' : 'Load more'}
-            </button>
-          </div>
+              <motion.button
+                type="button"
+                className="shop-load-more-btn"
+                disabled={loadingMore}
+                onClick={() => void handleLoadMore()}
+                whileTap={{ scale: 0.992 }}
+                whileHover={{ borderColor: 'rgba(16, 17, 20, 0.55)' }}
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </motion.button>
+            </motion.div>
+          ) : (
+            <div className="shop-load-more-wrap mt-8">
+              <button
+                type="button"
+                className="shop-load-more-btn"
+                disabled={loadingMore}
+                onClick={() => void handleLoadMore()}
+              >
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
+          )
         ) : null}
 
         {filteredProducts.length === 0 && catalogSource !== 'api-unavailable' ? (

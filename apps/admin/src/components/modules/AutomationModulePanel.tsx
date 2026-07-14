@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { AlertTriangle, Bot, CheckCircle2, Globe, LineChart, Play, RefreshCw, Send, Settings, WifiOff } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
@@ -9,7 +8,8 @@ import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { AIProductAgentPanel } from '@/components/finance/AIProductAgentPanel'
 import { useAutomationRules, useExecutiveDashboard, useProducts, useSeoOverview, useTelegramLogs } from '@/lib/api/hooks'
 import { useTelegramIntegration, useTestTelegramIntegration } from '@/lib/api/integration-hooks'
-import { toastOk, toastFail, BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
+import { confirmTelegramTestSent } from '@/lib/admin/integration-save'
+import { toastFail, toastWarn, BACKEND_NOT_CONNECTED_TITLE, toastInfo } from '@/lib/admin/feedback'
 import { ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import { fetchSheetsDashboard, syncAllSheets, syncSheet, type SheetsDashboardData } from '@/lib/api/finance'
@@ -148,10 +148,7 @@ export function TelegramNotificationsPanelLive() {
             <AdminButton
               variant="gold"
               loading={testTelegram.isPending}
-              onClick={() => testTelegram.mutate(undefined, {
-                onSuccess: () => toastOk('Test message sent to Telegram.'),
-                onError: (e) => toastFail(e instanceof Error ? e.message : 'Test failed — check bot token & chat ID.'),
-              })}
+              onClick={() => void confirmTelegramTestSent(() => testTelegram.mutateAsync(undefined))}
             >
               <Send style={{ width: 14, height: 14 }} /> Send test
             </AdminButton>
@@ -279,26 +276,34 @@ export function GoogleSheetsSyncPanelLive() {
   const configuredCount = data?.stats?.configured ?? sheets.filter((s) => s.configured).length
 
   const runSyncAll = async () => {
+    if (isOffline) {
+      toastFail('API offline — cannot sync sheets.', 'sheets-sync-offline')
+      return
+    }
     setBusy(true)
     try {
       await syncAllSheets('admin')
       load()
-      toast.success('Sheet sync queued.')
+      toastWarn('Google Sheets sync queued — refresh to confirm completion.', 'sheets-sync-queued')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Sync failed — check Google Workspace setup.')
+      toastFail(err instanceof Error ? err.message : 'Sync failed — check Google Workspace setup.', 'sheets-sync-fail')
     } finally {
       setBusy(false)
     }
   }
 
   const runSyncOne = async (sheetType: string) => {
+    if (isOffline) {
+      toastFail('API offline — cannot sync sheets.', 'sheets-sync-offline')
+      return
+    }
     setSyncingType(sheetType)
     try {
       await syncSheet(sheetType, 'admin')
       load()
-      toast.success(`${sheetType} sync queued.`)
+      toastWarn(`${sheetType} sync queued — refresh to confirm completion.`, `sheets-sync-${sheetType}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to sync ${sheetType}.`)
+      toastFail(err instanceof Error ? err.message : `Failed to sync ${sheetType}.`, `sheets-sync-${sheetType}-fail`)
     } finally {
       setSyncingType(null)
     }
@@ -435,7 +440,7 @@ export function AiSeoAgentPanelLive() {
         <KpiCard label="Ready" value={audits.filter((p) => p.score >= 80).length} />
         <KpiCard label="Avg score" value={data?.summary.avgScore ?? 0} />
       </div>
-      <GlassTable icon={Globe} title="AI SEO agent queue" footer={<AdminButton variant="ghost" size="sm" onClick={() => void refetch()}><RefreshCw style={{ width: 11, height: 11 }} /> Run batch SEO</AdminButton>}>
+      <GlassTable icon={Globe} title="AI SEO agent queue" footer={<AdminButton variant="ghost" size="sm" onClick={() => { void refetch(); toastInfo('SEO queue refreshed from server.') }}><RefreshCw style={{ width: 11, height: 11 }} /> Refresh queue</AdminButton>}>
         {needsWork.length === 0 ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>All products pass SEO threshold.</p>
         ) : (

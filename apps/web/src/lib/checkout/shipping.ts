@@ -16,6 +16,7 @@ export function computeDeliveryFeeBdt(
   opts?: { freeShipping?: boolean },
 ): number {
   if (opts?.freeShipping || subtotal === 0) return 0
+  if (!district?.trim()) return 0
   const threshold = shipping.freeDeliveryThreshold
   if (threshold > 0 && subtotal >= threshold) return 0
   return isDhakaDistrict(district)

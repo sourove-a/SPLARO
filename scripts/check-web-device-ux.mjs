@@ -6,12 +6,13 @@
 import { createRequire } from 'module'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { puppeteerLaunchOptions } from './puppeteer-chrome.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
-const BASE = process.env.WEB_URL ?? 'http://localhost:3000'
+const BASE = process.env.WEB_URL ?? 'http://127.0.0.1:3000'
 const isRemoteBase = /^https?:\/\//.test(BASE) && !/localhost|127\.0\.0\.1/.test(BASE)
 const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemoteBase ? 'domcontentloaded' : 'networkidle2')
 const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemoteBase ? 60000 : 45000))
@@ -29,10 +30,6 @@ function isIgnorableConsoleError(text) {
     /Failed to fetch RSC payload.*Falling back to browser navigation/i.test(text)
   )
 }
-
-const CHROME =
-  process.env.PUPPETEER_EXECUTABLE_PATH ??
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 const SCENARIOS = [
   { path: '/', viewport: { width: 1366, height: 768 } },
@@ -136,11 +133,7 @@ async function auditRoute(page, path, viewport) {
 
 async function main() {
   const puppeteer = require('puppeteer')
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    executablePath: CHROME,
-  })
+  const browser = await puppeteer.launch(puppeteerLaunchOptions())
 
   try {
     const page = await browser.newPage()

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
+import { isFeatureEnabled } from '@splaro/config'
 import { PrismaService } from '../../common/prisma.service'
 import { GoogleSheetsSyncService } from './google-sheets-sync.service'
 
@@ -16,6 +17,7 @@ export class GoogleSheetsLiveCron {
   /** Live refresh every 3 minutes — keeps dashboard + orders in sync with SPLARO */
   @Cron('*/3 * * * *')
   async liveRefresh() {
+    if (!isFeatureEnabled('googleSheets')) return
     if (this.running) return
     this.running = true
     try {

@@ -1,11 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Logger, Optional, Post, Query, Res } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, Inject, Logger, Optional, Post, Query, Res, forwardRef } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import type { Response } from 'express'
+import { BkashCreatePaymentDto, NagadInitPaymentDto, SslInitPaymentDto } from '../../common/dtos/payments.dto'
 import { Public } from '../../common/auth/public.decorator'
 import { assertGatewayEnabled, loadStorePaymentFlags } from '../../common/payment-flags.util'
 import { PrismaService } from '../../common/prisma.service'
+import { RedisService } from '../../common/redis.service'
 import { OrderEventsService } from '../orders/order-events.service'
 import { CourierService } from '../courier/courier.service'
+import { TelegramService } from '../telegram/telegram.service'
 import { BkashService } from './bkash.service'
 import { NagadService } from './nagad.service'
 import { SslCommerzService, type SslCommerzIpnPayload } from './sslcommerz.service'
@@ -19,8 +22,12 @@ export class PaymentsController {
     private readonly nagad: NagadService,
     private readonly ssl: SslCommerzService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly orderEvents: OrderEventsService,
     @Optional() private readonly courier: CourierService | null,
+    @Inject(forwardRef(() => TelegramService))
+    @Optional()
+    private readonly telegram: TelegramService | null,
   ) {}
 
   // ── bKash ─────────────────────────────────────────────────
@@ -29,7 +36,7 @@ export class PaymentsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('bkash/create')
   async createBkashPayment(
-    @Body() body: { amount: number; invoiceNumber: string; callbackUrl: string },
+    @Body() body: BkashCreatePaymentDto,
   ) {
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber: body.invoiceNumber },
@@ -103,7 +110,7 @@ export class PaymentsController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('nagad/init')
-  async initNagadPayment(@Body() body: { orderId: string; amount: number; callbackUrl: string }) {
+  async initNagadPayment(@Body() body: NagadInitPaymentDto) {
     const order = await this.prisma.order.findUnique({
       where: { id: body.orderId },
       select: { storeId: true, total: true, status: true, paymentStatus: true },
@@ -133,17 +140,38 @@ export class PaymentsController {
     const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] ?? 'https://splaro.co'
     try {
       const result = await this.nagad.verifyPayment(paymentRefId, orderId)
-      const paid = result.status === 'Success'
-      if (paid && orderId) {
-        const order = await this.prisma.order.findUnique({
-          where: { id: orderId },
-          select: { invoiceNumber: true, total: true },
-        })
-        if (order) {
-          await this.confirmOrderPayment(order.invoiceNumber, 'nagad', paymentRefId, Number(order.total))
+      let confirmed = false
+
+      if (result.status === 'Success' && orderId) {
+        if (result.orderId && result.orderId !== orderId) {
+          this.logger.error(
+            `Nagad orderId mismatch for ref ${paymentRefId}: gateway ${result.orderId}, expected ${orderId}`,
+          )
+        } else {
+          const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            select: { invoiceNumber: true, total: true },
+          })
+          if (order) {
+            const verifiedAmount = Number.parseFloat(result.amount ?? '')
+            const expected = Number(order.total)
+            if (!Number.isFinite(verifiedAmount)) {
+              this.logger.error(
+                `Nagad invalid amount for order ${orderId}: ${result.amount ?? 'missing'} (ref ${paymentRefId})`,
+              )
+            } else if (Math.abs(verifiedAmount - expected) > 1) {
+              this.logger.error(
+                `Nagad amount mismatch for order ${orderId}: paid ${verifiedAmount}, expected ${expected} (ref ${paymentRefId})`,
+              )
+            } else {
+              await this.confirmOrderPayment(order.invoiceNumber, 'nagad', paymentRefId, verifiedAmount)
+              confirmed = true
+            }
+          }
         }
       }
-      return res.redirect(`${siteUrl}/payment/${paid ? 'success' : 'failed'}?ref=${paymentRefId}`)
+
+      return res.redirect(`${siteUrl}/payment/${confirmed ? 'success' : 'failed'}?ref=${paymentRefId}`)
     } catch (err) {
       this.logger.error(`Nagad callback error: ${err instanceof Error ? err.message : 'unknown'}`)
       return res.redirect(`${siteUrl}/payment/failed`)
@@ -156,19 +184,7 @@ export class PaymentsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('ssl/init')
   async initSslPayment(
-    @Body()
-    body: {
-      invoiceNumber: string
-      amount: number
-      customerName: string
-      customerEmail: string
-      customerPhone: string
-      customerAddress: string
-      customerCity: string
-      successUrl: string
-      failUrl: string
-      cancelUrl: string
-    },
+    @Body() body: SslInitPaymentDto,
   ) {
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber: body.invoiceNumber },
@@ -256,6 +272,19 @@ export class PaymentsController {
           note: `${gateway} payment of ${amount} received AFTER ${order.status} (TxID: ${transactionId}) — manual refund required`,
         },
       })
+      void this.telegram
+        ?.notifyStalePaymentOnDeadOrder(order.storeId, {
+          invoiceNumber,
+          orderStatus: order.status,
+          gateway,
+          transactionId,
+          amount,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Telegram stale-payment alert failed for ${invoiceNumber}: ${err instanceof Error ? err.message : 'unknown'}`,
+          ),
+        )
       return
     }
 
@@ -324,6 +353,14 @@ export class PaymentsController {
   }
 
   private async firePaymentEvent(invoiceNumber: string): Promise<void> {
+    const dedupeKey = `splaro:payment-event:${invoiceNumber}`
+    const seen = await this.redis.incrWithExpiry(dedupeKey, 3600)
+    if (seen > 1) {
+      this.logger.debug(`Payment side-effects already fired for ${invoiceNumber} — skipping duplicate webhook`)
+      await this.maybeAutoBookCourier(invoiceNumber)
+      return
+    }
+
     const order = await this.prisma.order.findUnique({
       where: { invoiceNumber },
       select: {
@@ -337,14 +374,36 @@ export class PaymentsController {
     if (!order) return
 
     void this.orderEvents.onPaymentReceived(order.storeId, order.id, Number(order.total), 'sslcommerz')
+    await this.maybeAutoBookCourier(invoiceNumber, order)
+  }
+
+  private async maybeAutoBookCourier(
+    invoiceNumber: string,
+    order?: {
+      id: string
+      paymentStatus: string
+      courier: { consignmentId: string | null } | null
+    },
+  ): Promise<void> {
+    const resolved =
+      order ??
+      (await this.prisma.order.findUnique({
+        where: { invoiceNumber },
+        select: {
+          id: true,
+          paymentStatus: true,
+          courier: { select: { consignmentId: true } },
+        },
+      }))
+    if (!resolved) return
 
     if (
-      order.paymentStatus === 'PAID' &&
-      !order.courier?.consignmentId &&
+      resolved.paymentStatus === 'PAID' &&
+      !resolved.courier?.consignmentId &&
       process.env.AUTO_COURIER_BOOK !== 'false'
     ) {
       void this.courier
-        ?.bookCourier(order.id)
+        ?.bookCourier(resolved.id)
         .catch((err) =>
           this.logger.error(
             `Auto courier booking after SSLCommerz payment failed for ${invoiceNumber}: ${err instanceof Error ? err.message : 'unknown'}`,

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from '@/lib/motion/react'
 import {
   ArrowLeft,
   AlertCircle,
@@ -164,7 +164,12 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
         <section className="checkout-container">
           <div className="checkout-success__hero checkout-glass-panel">
             <p className="checkout-eyebrow">Order not found</p>
-            <h1 className="checkout-title">We couldn&apos;t find order {orderId}</h1>
+            <h1 className="checkout-title">
+              We couldn&apos;t find{' '}
+              {displayOrderCode(orderId, orderId) === 'Order'
+                ? 'this order'
+                : `order ${displayOrderCode(orderId, orderId)}`}
+            </h1>
             <p className="checkout-subtitle">
               Check your order number or track an existing order from your account.
             </p>

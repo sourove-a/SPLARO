@@ -325,7 +325,7 @@ export class MobileAuthController {
       select: { id: true, passwordHash: true, isActive: true, email: true, firstName: true, lastName: true, customer: { select: { id: true, storeId: true } } },
     })
 
-    if (!user || !user.isActive || !verifyPassword(body.password, user.passwordHash)) {
+    if (!user || !user.isActive || !user.passwordHash || !verifyPassword(body.password, user.passwordHash)) {
       throw new UnauthorizedException('Invalid credentials')
     }
 

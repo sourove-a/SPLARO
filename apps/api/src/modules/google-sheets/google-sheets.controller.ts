@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common'
 import type { GoogleSheetType } from '@prisma/client'
+import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { GoogleSheetsService } from './google-sheets.service'
 
+@RequireFeature('googleSheets')
 @Controller('google-sheets')
 export class GoogleSheetsController {
   constructor(private readonly sheets: GoogleSheetsService) {}

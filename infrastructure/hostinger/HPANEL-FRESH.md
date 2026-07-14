@@ -111,4 +111,4 @@ Created admin user: splaro.bd@gmail.com
 
 ---
 
-**splaro.com.bd soriye splaro.co use hobe** — code + seed + admin e update kora hoyeche.
+**Purono domain soriye splaro.co use hobe** — code + seed + admin e update kora hoyeche.

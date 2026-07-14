@@ -42,10 +42,10 @@ export async function POST(request: Request) {
   }
 
   const result = await apiAuthSignup({ name, email, phone, password })
-  if (!result) {
+  if ('error' in result) {
     return NextResponse.json(
-      { error: 'Could not create account — email or phone may already be registered' },
-      { status: 409 },
+      { error: result.error },
+      { status: result.status && result.status >= 400 ? result.status : 400 },
     )
   }
 

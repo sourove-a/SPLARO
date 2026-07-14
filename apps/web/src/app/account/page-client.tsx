@@ -11,7 +11,6 @@ import {
   Building2,
   ChevronRight,
   Download,
-  Gem,
   Headphones,
   Heart,
   History,
@@ -54,11 +53,12 @@ import {
   fetchWishlistProducts,
   updateAccountProfile,
 } from '@/lib/api/account'
-import { displayOrderCode } from '@splaro/config'
+import { displayOrderCode, isFeatureEnabled } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
 import { BD_DISTRICTS } from '@/lib/checkout/bd-districts'
 import { getThanasForDistrict } from '@/lib/checkout/bd-thanas'
 import { formatBdPhoneInput } from '@/lib/checkout/phone'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 type AccountSection =
   | 'dashboard'
@@ -302,7 +302,7 @@ export default function AccountDashboard() {
   const redirectToLogin = useCallback(() => {
     const tab = searchParams.get('tab')
     const next = tab ? `/account?tab=${tab}` : '/account'
-    router.replace(`/login?next=${encodeURIComponent(next)}`)
+    safeClientNavigate(router, `/login?next=${encodeURIComponent(next)}`, 'replace')
   }, [router, searchParams])
 
   const handleSessionExpired = useCallback(async () => {
@@ -568,15 +568,26 @@ export default function AccountDashboard() {
       router.back()
       return
     }
-    router.push('/shop')
+    safeClientNavigate(router, '/shop')
   }
 
-  if (!authHydrated || !user) {
+  if (!authHydrated) {
     return (
       <div className="account-shell account-shell--loading">
         <AccountGlass center>
-          <UserRound className="account-icon-muted mx-auto h-8 w-8" strokeWidth={2} />
-          <p className="account-loading-text mt-4 text-sm font-semibold">Loading your account...</p>
+          <Loader2 className="account-icon-muted mx-auto h-8 w-8 animate-spin" strokeWidth={2} />
+          <p className="account-loading-text mt-4 text-sm font-semibold">Loading your account…</p>
+        </AccountGlass>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="account-shell account-shell--loading">
+        <AccountGlass center>
+          <Loader2 className="account-icon-muted mx-auto h-8 w-8 animate-spin" strokeWidth={2} />
+          <p className="account-loading-text mt-4 text-sm font-semibold">Redirecting to sign in…</p>
         </AccountGlass>
       </div>
     )
@@ -584,7 +595,8 @@ export default function AccountDashboard() {
 
   const memberSince = loyalty.memberSince
     ? new Date(loyalty.memberSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    : '—'
+    : null
+  const loyaltyEnabled = isFeatureEnabled('loyalty')
   const tierLabel = loyalty.tier.charAt(0) + loyalty.tier.slice(1).toLowerCase()
 
   return (
@@ -620,13 +632,18 @@ export default function AccountDashboard() {
                 {user.name}
                 <BadgeCheck className="account-verified-badge h-4 w-4" strokeWidth={2.2} aria-label="Verified member" />
               </p>
-              <div className="account-badge">
-                <Gem className="h-3 w-3" strokeWidth={2.2} />
-                {tierLabel} Member
-              </div>
-              <p className="account-sidebar__meta">
-                Joined {memberSince} · {loyalty.points.toLocaleString('en-BD')} Points
-              </p>
+              {loyaltyEnabled ? (
+                <>
+                  <div className="account-badge">{tierLabel} Member</div>
+                  <p className="account-sidebar__meta">
+                    {memberSince ? `Joined ${memberSince}` : 'Member'}
+                    {' · '}
+                    {loyalty.points.toLocaleString('en-BD')} Points
+                  </p>
+                </>
+              ) : memberSince ? (
+                <p className="account-sidebar__meta">Member since {memberSince}</p>
+              ) : null}
             </div>
           </div>
 
@@ -653,7 +670,7 @@ export default function AccountDashboard() {
               className="account-nav__signout"
               onClick={() => {
                 signOut()
-                router.push('/login')
+                safeClientNavigate(router, '/login')
               }}
             >
               <span className="account-nav__icon account-nav__icon--muted">

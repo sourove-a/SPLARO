@@ -1,6 +1,16 @@
 import type { PrismaClient } from '@prisma/client'
 
-const DEMO_PRODUCT_IMAGE = '/images/placeholder-product.jpg'
+const DEMO_PRODUCT_IMAGE =
+  'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&q=80&auto=format'
+
+const DEMO_COLOR_IMAGES = {
+  // Clearly indigo/navy garment — matches “Indigo” colour name on PDP
+  indigo: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?w=900&q=80&auto=format',
+  // Warm orange ethnic wear — matches “Terracotta” colour name on PDP
+  terracotta: 'https://images.unsplash.com/photo-1594709287485-447f40e8d7a8?w=900&q=80&auto=format',
+  navy: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=900&q=80&auto=format',
+  ivory: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=900&q=80&auto=format',
+} as const
 
 type DemoProductSeed = {
   name: string
@@ -10,7 +20,8 @@ type DemoProductSeed = {
   compareAtPrice?: number
   isFeatured?: boolean
   isNewArrival?: boolean
-  colors: { name: string; hex: string; sizes: string[] }[]
+  gallery?: string[]
+  colors: { name: string; hex: string; sizes: string[]; image?: string }[]
 }
 
 const DEMO_PRODUCTS: DemoProductSeed[] = [
@@ -20,9 +31,20 @@ const DEMO_PRODUCTS: DemoProductSeed[] = [
     categorySlug: 'kurti-tunics',
     basePrice: 2790,
     compareAtPrice: 3190,
+    gallery: [DEMO_COLOR_IMAGES.indigo, DEMO_COLOR_IMAGES.terracotta],
     colors: [
-      { name: 'Indigo', hex: '#2C3E6B', sizes: ['S', 'M', 'L'] },
-      { name: 'Terracotta', hex: '#C06040', sizes: ['S', 'M', 'L'] },
+      {
+        name: 'Indigo',
+        hex: '#2C3E6B',
+        sizes: ['S', 'M', 'L'],
+        image: DEMO_COLOR_IMAGES.indigo,
+      },
+      {
+        name: 'Terracotta',
+        hex: '#C06040',
+        sizes: ['S', 'M', 'L'],
+        image: DEMO_COLOR_IMAGES.terracotta,
+      },
     ],
   },
   {
@@ -30,7 +52,15 @@ const DEMO_PRODUCTS: DemoProductSeed[] = [
     slug: 'premium-cotton-polo',
     categorySlug: 'polo-shirts',
     basePrice: 1890,
-    colors: [{ name: 'Navy', hex: '#1E2A44', sizes: ['S', 'M', 'L', 'XL'] }],
+    gallery: [DEMO_COLOR_IMAGES.navy],
+    colors: [
+      {
+        name: 'Navy',
+        hex: '#1E2A44',
+        sizes: ['S', 'M', 'L', 'XL'],
+        image: DEMO_COLOR_IMAGES.navy,
+      },
+    ],
   },
   {
     name: 'Minimalist Tote Bag',
@@ -38,7 +68,15 @@ const DEMO_PRODUCTS: DemoProductSeed[] = [
     categorySlug: 'accessories',
     basePrice: 2490,
     isNewArrival: true,
-    colors: [{ name: 'Ivory', hex: '#F0EDE5', sizes: ['One Size'] }],
+    gallery: [DEMO_COLOR_IMAGES.ivory],
+    colors: [
+      {
+        name: 'Ivory',
+        hex: '#F0EDE5',
+        sizes: ['One Size'],
+        image: DEMO_COLOR_IMAGES.ivory,
+      },
+    ],
   },
 ]
 
@@ -103,14 +141,14 @@ export async function seedDemoCatalogCore(
         status: 'PUBLISHED',
         sku: `DEMO-${demo.slug.slice(0, 12).toUpperCase().replace(/-/g, '')}`,
         images: {
-          create: [
-            {
-              url: DEMO_PRODUCT_IMAGE,
+          create: (demo.gallery?.length ? demo.gallery : [DEMO_PRODUCT_IMAGE]).map(
+            (url, position) => ({
+              url,
               altText: demo.name,
-              position: 0,
-              isDefault: true,
-            },
-          ],
+              position,
+              isDefault: position === 0,
+            }),
+          ),
         },
         variants: {
           create: demo.colors.flatMap((color) =>
@@ -119,6 +157,7 @@ export async function seedDemoCatalogCore(
               color: color.name,
               colorName: color.name,
               colorHex: color.hex,
+              image: color.image ?? demo.gallery?.[0] ?? DEMO_PRODUCT_IMAGE,
               price: demo.basePrice,
               compareAtPrice: demo.compareAtPrice ?? null,
               stock: 24,

@@ -1,9 +1,10 @@
 'use client'
 
-import { motion, useReducedMotion, type Variants } from 'framer-motion'
+import { motion, type Variants } from '@/lib/motion/react'
 import type { ReactNode } from 'react'
 import { EASE_EXPO_OUT } from '@/lib/motion/config'
 import { fadeUpSoft, staggerContainer } from '@/lib/motion/variants'
+import { useMotionReady } from '@/hooks/useMotionReady'
 
 export const PRODUCT_GALLERY_MS = 0.38
 
@@ -30,8 +31,8 @@ export function ProductStagger({
   children: ReactNode
   className?: string
 }) {
-  const reduced = useReducedMotion()
-  if (reduced) return <div className={className}>{children}</div>
+  const { allowRevealAnimation } = useMotionReady()
+  if (!allowRevealAnimation) return <div className={className}>{children}</div>
 
   return (
     <motion.div
@@ -52,8 +53,8 @@ export function ProductReveal({
   children: ReactNode
   className?: string
 }) {
-  const reduced = useReducedMotion()
-  if (reduced) return <div className={className}>{children}</div>
+  const { allowRevealAnimation } = useMotionReady()
+  if (!allowRevealAnimation) return <div className={className}>{children}</div>
 
   return (
     <motion.div className={className} variants={fadeUpSoft}>
@@ -71,8 +72,8 @@ export function ProductFadeSwap({
   motionKey: string
   className?: string
 }) {
-  const reduced = useReducedMotion()
-  if (reduced) return <span className={className}>{children}</span>
+  const { showMotion } = useMotionReady()
+  if (!showMotion) return <span className={className}>{children}</span>
 
   return (
     <motion.span

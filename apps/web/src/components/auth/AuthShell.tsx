@@ -4,7 +4,7 @@ import { useLayoutEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, X } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { AuthEarthBackground } from '@/components/earth/AuthEarthBackground'
 import {
@@ -13,6 +13,7 @@ import {
   getAuthReturnPath,
 } from '@/lib/auth/auth-return'
 import { authMotionTransition, authTapSpring, useAuthShowMotion } from '@/lib/auth/auth-motion'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 interface AuthShellProps {
   children: ReactNode
@@ -54,7 +55,7 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
       router.back()
       return
     }
-    router.push(returnPath)
+    safeClientNavigate(router, returnPath)
   }
 
   return (

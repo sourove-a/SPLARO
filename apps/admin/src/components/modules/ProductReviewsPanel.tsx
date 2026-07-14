@@ -1,7 +1,6 @@
 'use client'
 
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { MessageSquareQuote, Star } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ModulePanelShell } from '@/components/modules/ModulePanelShell'
@@ -16,7 +15,8 @@ import {
 } from '@/lib/api/reviews'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { downloadCsv } from '@/lib/admin/admin-actions'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastApiSaved } from '@/lib/admin/feedback'
+import { verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { cn } from '@/lib/utils/cn'
 
 const STATUS_TABS: { key: ReviewStatus | 'ALL'; label: string }[] = [
@@ -58,7 +58,7 @@ export function ProductReviewsPanel() {
       .catch(() => {
         setRows([])
         setLoadError(true)
-        toast.error('Could not load reviews — check API connection.')
+        toastFail('Could not load reviews — check API connection.')
       })
       .finally(() => setLoading(false))
   }
@@ -108,23 +108,29 @@ export function ProductReviewsPanel() {
 
   const setStatusAction = async (id: string, next: 'APPROVED' | 'REJECTED' | 'PENDING') => {
     try {
-      await updateReviewStatus(id, next)
+      const updated = await updateReviewStatus(id, next)
+      if (!verifyPersisted(updated.status === next, 'Review status did not persist on server')) return
       void revalidateWebCache(['storefront-products'])
-      toast.success(next === 'APPROVED' ? 'Review approved — live on storefront.' : `Review marked ${next.toLowerCase()}.`)
+      if (next === 'APPROVED') {
+        toastOk('Review approved — live on storefront.')
+      } else {
+        toastApiSaved(`Review marked ${next.toLowerCase()}`)
+      }
       load()
     } catch {
-      toast.error('Could not update review status.')
+      toastFail('Could not update review status.')
     }
   }
 
   const remove = async (id: string) => {
     try {
-      await deleteReview(id)
+      const result = await deleteReview(id)
+      if (!verifyPersisted(result.deleted === true, 'Review delete did not persist on server')) return
       void revalidateWebCache(['storefront-products'])
-      toast.success('Review deleted.')
+      toastApiSaved('Review')
       load()
     } catch {
-      toast.error('Could not delete review.')
+      toastFail('Could not delete review.')
     }
   }
 
@@ -134,15 +140,17 @@ export function ProductReviewsPanel() {
   }
 
   const saveReply = async (id: string) => {
+    const nextReply = replyText.trim() || null
     try {
-      await updateReviewReply(id, replyText.trim() || null)
+      const updated = await updateReviewReply(id, nextReply)
+      if (!verifyStringEquals(updated.adminReply ?? '', nextReply ?? '', 'Official reply')) return
       void revalidateWebCache(['storefront-products'])
-      toast.success(replyText.trim() ? 'Official reply saved.' : 'Reply removed.')
+      toastApiSaved(nextReply ? 'Official reply' : 'Reply removal')
       setReplyId(null)
       setReplyText('')
       load()
     } catch {
-      toast.error('Could not save reply.')
+      toastFail('Could not save reply.')
     }
   }
 

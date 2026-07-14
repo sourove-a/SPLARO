@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { randomBytes, randomInt } from 'crypto'
 import { RedisService } from '../../common/redis.service'
 
@@ -47,6 +47,11 @@ export class StorefrontOtpService {
 
     const stored = await this.setJsonWithTtl(key, { code }, OTP_TTL_SEC)
     if (!stored) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Phone verification is temporarily unavailable. Sign in or try again later.',
+        )
+      }
       memoryOtp.set(key, { code, exp: Date.now() + OTP_TTL_SEC * 1000 })
     }
 
@@ -66,6 +71,32 @@ export class StorefrontOtpService {
     phoneRaw: string,
     code: string,
   ): Promise<{ phoneAccessToken: string; expiresAt: string }> {
+    const phone = await this.assertValidOtp(storeId, phoneRaw, code)
+
+    const phoneAccessToken = randomBytes(24).toString('hex')
+    const payload: PhoneAccessPayload = { phone, storeId }
+    const accessKey = phoneAccessKey(phoneAccessToken)
+    const stored = await this.setJsonWithTtl(accessKey, payload, PHONE_ACCESS_TTL_SEC)
+    if (!stored) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Phone verification is temporarily unavailable. Sign in or try again later.',
+        )
+      }
+      memoryPhoneAccess.set(phoneAccessToken, {
+        ...payload,
+        exp: Date.now() + PHONE_ACCESS_TTL_SEC * 1000,
+      })
+    }
+
+    return {
+      phoneAccessToken,
+      expiresAt: new Date(Date.now() + PHONE_ACCESS_TTL_SEC * 1000).toISOString(),
+    }
+  }
+
+  /** Validate and consume an OTP — used by signup phone completion and order tracking. */
+  async assertValidOtp(storeId: string, phoneRaw: string, code: string): Promise<string> {
     if (!isStorefrontPhoneOtpEnabled()) {
       throw new BadRequestException('Phone verification is not enabled yet')
     }
@@ -80,22 +111,7 @@ export class StorefrontOtpService {
 
     await this.redis.del(key)
     memoryOtp.delete(key)
-
-    const phoneAccessToken = randomBytes(24).toString('hex')
-    const payload: PhoneAccessPayload = { phone, storeId }
-    const accessKey = phoneAccessKey(phoneAccessToken)
-    const stored = await this.setJsonWithTtl(accessKey, payload, PHONE_ACCESS_TTL_SEC)
-    if (!stored) {
-      memoryPhoneAccess.set(phoneAccessToken, {
-        ...payload,
-        exp: Date.now() + PHONE_ACCESS_TTL_SEC * 1000,
-      })
-    }
-
-    return {
-      phoneAccessToken,
-      expiresAt: new Date(Date.now() + PHONE_ACCESS_TTL_SEC * 1000).toISOString(),
-    }
+    return phone
   }
 
   async assertPhoneAccess(

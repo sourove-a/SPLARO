@@ -14,7 +14,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
-import { toastOk, toastFail, toastWarn } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastWarn, toastIntegrationTestResult } from '@/lib/admin/feedback'
 import {
   useIntegrationsCatalog,
   useTestTelegramIntegration,
@@ -186,22 +186,21 @@ export function AllIntegrationsPanel(_props: ModuleContextProps) {
         toastOk(r.message || 'Telegram OK', `test-${item.provider}`)
       } else if (item.provider === 'openai') {
         const r = await testAi.mutateAsync({ testPrompt: 'Reply: SPLARO OK' })
-        toastOk(r.message, `test-${item.provider}`)
+        if (!toastIntegrationTestResult(r, 'AI', `test-${item.provider}`)) return false
       } else if (item.provider === 'bkash' || item.provider === 'nagad' || item.provider === 'sslcommerz') {
         const r = await testPayment.mutateAsync(item.provider)
-        toastOk(r.message, `test-${item.provider}`)
+        if (!toastIntegrationTestResult(r, item.name, `test-${item.provider}`)) return false
       } else if (item.provider === 'meta_pixel') {
         const r = await testMeta.mutateAsync()
-        if (!r.ok) throw new Error(r.message)
-        toastOk(r.message, `test-${item.provider}`)
+        if (!toastIntegrationTestResult(r, 'Meta Pixel', `test-${item.provider}`)) return false
       } else if (item.provider === 'pathao' || item.provider === 'redx') {
         const r = await testInfra.mutateAsync(item.provider)
-        toastOk(r.message, `test-${item.provider}`)
+        if (!toastIntegrationTestResult(r, item.name, `test-${item.provider}`)) return false
       } else {
         const mode = googleTestMode(item.provider)
-        if (!mode) return
+        if (!mode) return false
         const r = await testGoogle.mutateAsync(mode)
-        toastOk(r.message || `${item.name} OK`, `test-${item.provider}`)
+        if (!toastIntegrationTestResult(r, item.name, `test-${item.provider}`)) return false
       }
       await refetch()
       return true

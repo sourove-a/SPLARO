@@ -1,7 +1,6 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { Search, Globe, Code, Map, ArrowRightLeft, AlertTriangle, ChevronDown } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -11,7 +10,9 @@ import { cn } from '@/lib/utils/cn'
 import { useSeoOverview, useRedirects, useCreateRedirect, useUpdateRedirect, useDeleteRedirect, usePermission } from '@/lib/api/hooks'
 import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { formatRelativeTime } from '@/lib/api/orders'
-import { GSC_REQUIRED_TITLE } from '@/lib/admin/feedback'
+import { GSC_REQUIRED_TITLE, toastApiSaved, toastFail, toastInfo, toastOk } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
+import { verifyBooleanEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { getLiveSitemapUrl } from '@/lib/api/seo'
 
 type SeoStatus = 'good' | 'warning' | 'error' | 'pending'
@@ -59,7 +60,7 @@ export function KeywordsPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search keyword..."
       createLabel="Add keyword"
-      onCreate={() => toast('Keywords are derived from storefront search analytics.', { icon: '🔍' })}
+      onCreate={() => toastInfo('Keywords are derived from storefront search analytics.')}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={Search}
@@ -402,24 +403,27 @@ export function RedirectManagerPanelLive() {
     void refetchRedirects()
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const fromPath = window.prompt('From path (old URL)', '/old-page')
     if (!fromPath?.trim()) return
     const toPath = window.prompt('To path (new URL)', '/shop')
     if (!toPath?.trim()) return
     const type = window.prompt('Redirect type (301 or 302)', '301')?.trim() || '301'
-    createRedirect.mutate(
-      { fromPath: fromPath.trim(), toPath: toPath.trim(), type, isActive: true },
-      {
-        onSuccess: () => toast.success('Redirect rule added'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    const from = fromPath.trim()
+    const to = toPath.trim()
+    try {
+      const row = await createRedirect.mutateAsync({ fromPath: from, toPath: to, type, isActive: true })
+      if (!verifyStringEquals(row.fromPath, from, 'Redirect from path')) return
+      if (!verifyStringEquals(row.toPath, to, 'Redirect to path')) return
+      toastApiSaved('Redirect rule')
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not add redirect')
+    }
   }
 
-  const handleEdit = (row: (typeof allRows)[0]) => {
+  const handleEdit = async (row: (typeof allRows)[0]) => {
     if (row.source === 'canonical') {
-      toast('Canonical redirects come from product SEO settings.', { icon: 'ℹ️' })
+      toastInfo('Canonical redirects come from product SEO settings.')
       return
     }
     const fromPath = window.prompt('From path', row.from)
@@ -428,44 +432,56 @@ export function RedirectManagerPanelLive() {
     if (toPath === null) return
     const type = window.prompt('Type (301 or 302)', row.type)
     if (type === null) return
-    updateRedirect.mutate(
-      { id: row.id, fromPath: fromPath.trim(), toPath: toPath.trim(), type: type.trim() },
-      {
-        onSuccess: () => toast.success('Redirect updated'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    const from = fromPath.trim()
+    const to = toPath.trim()
+    const nextType = type.trim()
+    try {
+      const saved = await updateRedirect.mutateAsync({
+        id: row.id,
+        fromPath: from,
+        toPath: to,
+        type: nextType,
+      })
+      if (!verifyStringEquals(saved.fromPath, from, 'Redirect from path')) return
+      if (!verifyStringEquals(saved.toPath, to, 'Redirect to path')) return
+      toastApiSaved('Redirect')
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update redirect')
+    }
   }
 
-  const handleToggle = (row: (typeof allRows)[0]) => {
+  const handleToggle = async (row: (typeof allRows)[0]) => {
     if (row.source === 'canonical') return
     const next = row.status !== 'good'
-    updateRedirect.mutate(
-      { id: row.id, isActive: next },
-      {
-        onSuccess: () => toast.success(next ? 'Redirect is live' : 'Redirect disabled'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    try {
+      const saved = await updateRedirect.mutateAsync({ id: row.id, isActive: next })
+      if (!verifyBooleanEquals(saved.isActive, next, 'Redirect active state')) return
+      toastOk(next ? 'Redirect is live on storefront' : 'Redirect disabled')
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update redirect')
+    }
   }
 
-  const handleDelete = (row: (typeof allRows)[0]) => {
+  const handleDelete = async (row: (typeof allRows)[0]) => {
     if (row.source === 'canonical') {
-      toast('Remove canonical URL from product SEO settings.', { icon: 'ℹ️' })
+      toastInfo('Remove canonical URL from product SEO settings.')
       return
     }
     if (!window.confirm(`Delete redirect ${row.from} → ${row.to}?`)) return
-    deleteRedirect.mutate(row.id, {
-      onSuccess: () => toast.success('Redirect deleted'),
-      onError: (e) => toast.error(e.message),
-    })
+    try {
+      const result = await deleteRedirect.mutateAsync(row.id)
+      if (!verifyPersisted(result.deleted === true, 'Redirect delete did not persist on server')) return
+      toastApiSaved('Redirect')
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not delete redirect')
+    }
   }
 
   const rowActions = (row: (typeof allRows)[0]) => {
     if (row.source === 'canonical') {
       return [
         { label: 'Open SEO health', onClick: () => { window.location.href = '/dashboard/seo-health' } },
-        { label: 'Copy from URL', onClick: () => void navigator.clipboard.writeText(row.from).then(() => toast.success('Copied')) },
+        { label: 'Copy from URL', onClick: () => void copyWithToast(row.from, 'Copied') },
       ]
     }
     return [
@@ -511,12 +527,12 @@ export function RedirectManagerPanelLive() {
       onRefresh={refetchAll}
       onExport={() => {
         if (filtered.length === 0) {
-          toast.error('No redirects to export')
+          toastFail('No redirects to export')
           return
         }
         import('@/lib/api/redirects').then(({ exportRedirectsCsv }) => {
           exportRedirectsCsv(filtered)
-          toast.success('Redirect list exported')
+          toastOk('Redirect list exported')
         })
       }}
       tableIcon={ArrowRightLeft}

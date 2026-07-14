@@ -1,0 +1,53 @@
+/**
+ * SPLARO Admin — white liquid glass polish (CSS only)
+ * Goal: 2026 frosted glass depth. No API / backend / JS behavior changes.
+ * Brand-safe: monochrome white glass — no purple/blue neon SaaS skins.
+ *
+ * Note: light-mode token + shell overrides also live in globals.css
+ * “premium pass” so they win over earlier cream rules.
+ */
+
+html:not(.dark) .admin-sidebar .admin-glass-panel__surface {
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.82) 0%, rgba(255, 255, 255, 0.58) 55%, rgba(252, 252, 253, 0.5) 100%);
+  backdrop-filter: blur(36px) saturate(1.2);
+  -webkit-backdrop-filter: blur(36px) saturate(1.2);
+}
+
+html:not(.dark) .admin-sidebar .admin-glass-panel__sheen {
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.75) 0%, transparent 36%),
+    radial-gradient(circle at 85% 6%, rgba(255, 255, 255, 0.55), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, transparent 40%);
+}
+
+html:not(.dark) .admin-header .admin-glass-panel__surface {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.62));
+  backdrop-filter: blur(28px) saturate(1.16);
+  -webkit-backdrop-filter: blur(28px) saturate(1.16);
+}
+
+html:not(.dark) .admin-module-card::before,
+html:not(.dark) .admin-kpi::before {
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.62) 100%);
+  backdrop-filter: blur(28px) saturate(1.14);
+  -webkit-backdrop-filter: blur(28px) saturate(1.14);
+}
+
+html:not(.dark) .admin-sidebar .admin-nav-item:hover:not(.admin-nav-item--active) {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html:not(.dark) .admin-intel,
+html:not(.dark) .intelligence-panel {
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.dark) .admin-module-card:hover {
+    transform: none;
+  }
+}

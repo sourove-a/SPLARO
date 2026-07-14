@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { useQuery } from '@tanstack/react-query'
 import { Bell, Download, FileSpreadsheet, Instagram, MessageCircle, Search, Share2 } from 'lucide-react'
+import { toastFail, toastOk, toastInfo } from '@/lib/admin/feedback'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModulePanelShell, STATUS_CLASS } from '@/components/modules/ModulePanelShell'
 import { ApiOfflineBanner, KpiGrid } from '@/components/modules/PlatformUi'
+import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { useNotificationsOverview, useMarketingOverview, useUpdateSocialChannels } from '@/lib/api/hooks'
 import { fetchOrders } from '@/lib/api/orders'
 import { fetchCustomers } from '@/lib/api/customers'
@@ -27,8 +28,19 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 export function ExportCenterPanelLive() {
   const [busy, setBusy] = useState<string | null>(null)
+  const apiProbe = useQuery({
+    queryKey: ['export-api-probe'],
+    queryFn: () => fetchOrders({ limit: 1 }),
+    staleTime: 30_000,
+    retry: false,
+  })
+  const apiOffline = apiProbe.isError && isNetworkOrServerError(apiProbe.error)
 
   const exportDataset = async (kind: 'orders' | 'customers' | 'products', format: 'csv' | 'excel') => {
+    if (apiOffline) {
+      toastFail('Export unavailable — API offline.', 'export-offline')
+      return
+    }
     setBusy(`${kind}-${format}`)
     try {
       if (kind === 'orders') {
@@ -60,9 +72,9 @@ export function ExportCenterPanelLive() {
         ]
         downloadCsv('splaro-products.csv', rows)
       }
-      toast.success(`${kind} exported as ${format.toUpperCase()}.`)
+      toastOk(`${kind} exported as ${format.toUpperCase()}.`, `export-${kind}`)
     } catch {
-      toast.error('Export failed — is the API running?')
+      toastFail('Export failed — is the API running?', 'export-fail')
     } finally {
       setBusy(null)
     }
@@ -76,7 +88,13 @@ export function ExportCenterPanelLive() {
 
   return (
     <div className="space-y-5">
-      <KpiGrid items={[['Datasets', '3', 'default'], ['Format', 'CSV', 'gold'], ['API', 'Live', 'success'], ['Max rows', '500', 'warning']]} />
+      {apiOffline ? <ApiOfflineBanner onRetry={() => void apiProbe.refetch()} /> : null}
+      <KpiGrid items={[
+        ['Datasets', '3', 'default'],
+        ['Format', 'CSV', 'gold'],
+        ['API', apiProbe.isLoading ? '…' : apiOffline ? 'Offline' : 'Live', apiOffline ? 'warning' : 'success'],
+        ['Max rows', '500', 'warning'],
+      ]} />
       <div className="grid gap-4 md:grid-cols-3">
         {exports.map((ex) => (
           <section key={ex.kind} className="admin-module-card">
@@ -154,7 +172,7 @@ export function NotificationCenterPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search channel, recipient..."
       createLabel="View channels"
-      onCreate={() => toast('Configure channels in Integrations.', { icon: '🔔' })}
+      onCreate={() => toastInfo('Configure channels in Integrations.')}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={Bell}
@@ -244,13 +262,32 @@ export function SocialCommercePanelLive() {
 
   async function handleSave() {
     try {
-      await updateSocial.mutateAsync({
+      const saved = await updateSocial.mutateAsync({
         instagram: draft.instagram,
         facebook: draft.facebook,
         tiktok: draft.tiktok,
         youtube: draft.youtube,
         whatsapp: draft.whatsapp,
       })
+      const byId = Object.fromEntries((saved.channels ?? []).map((c) => [c.id, c]))
+      const checks: Array<[keyof typeof draft, string]> = [
+        ['instagram', draft.instagram],
+        ['facebook', draft.facebook],
+        ['tiktok', draft.tiktok],
+        ['youtube', draft.youtube],
+        ['whatsapp', draft.whatsapp],
+      ]
+      for (const [id, sent] of checks) {
+        const got = byId[id]
+        const persisted = String(got?.storedUrl ?? got?.url ?? got?.handle ?? '').trim()
+        const expected = String(sent).trim()
+        if (!expected) continue
+        if (!persisted || (!persisted.includes(expected) && persisted !== expected && !expected.includes(persisted))) {
+          toastFail(`${id} did not persist on server — check API response.`, `social-verify-${id}`)
+          void refetch()
+          return
+        }
+      }
       toastOk('Social channels saved to database.')
       setEditing(false)
       void refetch()

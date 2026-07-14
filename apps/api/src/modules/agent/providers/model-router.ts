@@ -15,6 +15,7 @@ import {
   type ModelProviderOptions,
 } from './model.providers'
 import { DEFAULT_OPENAI_MODEL } from './openai-models'
+import { cheapModelForProvider } from '../agent-difficulty'
 
 const CONFIG_CACHE_MS = 60_000
 
@@ -56,8 +57,13 @@ export class ModelRouter {
     const apiKey = cfg.keys[model]
 
     if (!apiKey) {
+      const configured = (['openai', 'claude', 'gemini', 'grok'] as AgentModelId[]).filter((m) => cfg.keys[m])
+      const hint =
+        configured.length > 0
+          ? ` Configured models: ${configured.join(', ')} — switch active model in AI Command Brain.`
+          : ''
       throw new Error(
-        `No API key for ${model}. Add it in AI Command Brain (/dashboard/ai-agent) or set ${model === 'claude' ? 'ANTHROPIC' : model === 'openai' ? 'OPENAI' : model === 'gemini' ? 'GEMINI' : 'GROK'}_API_KEY in .env`,
+        `No API key for ${model}. Add it in AI Command Brain (/dashboard/ai-agent) or set ${model === 'claude' ? 'ANTHROPIC' : model === 'openai' ? 'OPENAI' : model === 'gemini' ? 'GEMINI' : 'GROK'}_API_KEY in .env.${hint}`,
       )
     }
 
@@ -131,6 +137,27 @@ export class ModelRouter {
     this.cache = null
   }
 
+  async getProviderForDifficulty(
+    storeIdRaw: string,
+    difficulty: import('../agent-difficulty').AgentDifficulty,
+  ): Promise<{
+    provider: ModelProvider
+    apiKey: string
+    model: AgentModelId
+    providerOptions?: ModelProviderOptions
+  }> {
+    const base = await this.getProvider(storeIdRaw)
+    if (difficulty === 'complex') return base
+
+    const cheap = cheapModelForProvider(base.model)
+    if (!cheap) return base
+
+    const options: ModelProviderOptions = { ...(base.providerOptions ?? {}) }
+    if (cheap) options.model = cheap
+
+    return { ...base, providerOptions: options }
+  }
+
   private envKey(model: AgentModelId): string | null {
     switch (model) {
       case 'openai':
@@ -183,12 +210,24 @@ export class ModelRouter {
       })
     }
 
-    const activeModel = (row.activeModel as AgentModelId) || 'claude'
     const keys: Record<AgentModelId, string | null> = {
       openai: await this.resolveKey(storeId, 'openai', row.openaiKey),
       claude: await this.resolveClaudeKey(storeId, row.claudeKey),
       gemini: await this.resolveKey(storeId, 'gemini', row.geminiKey),
       grok: await this.resolveKey(storeId, 'grok', row.grokKey),
+    }
+
+    const activeModelRaw = (row.activeModel as AgentModelId) || 'claude'
+    let activeModel = activeModelRaw
+    if (!keys[activeModel]) {
+      const fallback = (['openai', 'claude', 'gemini', 'grok'] as AgentModelId[]).find((m) => keys[m])
+      if (fallback) {
+        this.logger.warn(`Active model ${activeModel} has no key; using ${fallback}`)
+        activeModel = fallback
+        void this.prisma.agentConfig
+          .update({ where: { storeId }, data: { activeModel: fallback } })
+          .catch((err) => this.logger.warn(`Could not persist activeModel fallback: ${err}`))
+      }
     }
 
     this.cache = { at: now, storeId, activeModel, keys }

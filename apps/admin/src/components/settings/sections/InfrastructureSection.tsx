@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Cloud, Loader2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { toastApiSaved, toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastInfo, toastIntegrationTestResult, toastWarn } from '@/lib/admin/feedback'
+import { saveIntegrationAndVerify } from '@/lib/admin/integration-save'
 import {
   useInfrastructureConfig,
   useTestInfrastructureIntegration,
@@ -11,16 +12,25 @@ import {
 } from '@/lib/api/integration-hooks'
 import { SectionCard, SectionPageHeader, type SectionProps } from './shared'
 
+const SECRET_FIELD_KEYS = new Set(['accessKey', 'secretKey', 'apiKey', 'clientSecret', 'password'])
+
+function isMaskedOrEmpty(value: string | undefined): boolean {
+  const v = (value ?? '').trim()
+  return !v || v.includes('••••')
+}
+
 function Field({
   label,
   value,
   onChange,
   secret,
+  placeholder,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   secret?: boolean
+  placeholder?: string
 }) {
   return (
     <label className="block">
@@ -33,6 +43,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete="off"
+        placeholder={placeholder}
       />
     </label>
   )
@@ -53,15 +64,20 @@ function ConfigStatus({
   return (
     <p className="mb-3 text-[11px] font-semibold leading-relaxed text-[var(--admin-text-muted)]">
       {configured ? 'Configured' : 'Not configured'}
-      {activeFromAdmin ? (
+      {configured && activeFromAdmin ? (
         <span className="text-emerald-700 dark:text-emerald-400">
           {' '}
-          · Live from admin (encrypted DB) — .env ignored for this provider
+          · Live from admin (encrypted DB)
         </span>
-      ) : source === 'env' ? (
+      ) : configured && source === 'env' ? (
         <span className="text-amber-700 dark:text-amber-400">
           {' '}
-          · Using .env fallback — save here once to manage from admin only
+          · Using real .env keys — save once here to manage from admin
+        </span>
+      ) : !configured ? (
+        <span>
+          {' '}
+          · Paste real API keys from steadfast.com.bd (empty fields = nothing saved yet)
         </span>
       ) : null}
       {lastTestStatus === 'success' ? ' · last test OK' : lastTestStatus === 'failed' ? ' · last test failed' : ''}
@@ -99,16 +115,51 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
   }, [redx.data])
 
   const save = async (provider: 'cloudflare_r2' | 'steadfast' | 'pathao' | 'redx', body: Record<string, string>) => {
+    const hasNewSecrets = Object.entries(body).some(
+      ([key, value]) => SECRET_FIELD_KEYS.has(key) && !isMaskedOrEmpty(value),
+    )
+    const hasAnyWritable = Object.entries(body).some(([, value]) => !isMaskedOrEmpty(value))
+
+    if (!hasAnyWritable) {
+      toastWarn('Nothing to save — paste real keys first (masked/empty fields are ignored).')
+      return
+    }
+
     setBusy(`save-${provider}`)
     try {
-      await update.mutateAsync({ provider, body })
+      const refetchMap = {
+        cloudflare_r2: r2.refetch,
+        steadfast: steadfast.refetch,
+        pathao: pathao.refetch,
+        redx: redx.refetch,
+      } as const
+      const result = await saveIntegrationAndVerify({
+        save: () => update.mutateAsync({ provider, body }),
+        refetch: refetchMap[provider],
+        assert: (data) => {
+          if (hasNewSecrets && !data?.configured) {
+            return 'Keys did not take effect — check API Key & Secret are real (not placeholders).'
+          }
+          return null
+        },
+      })
+      if (!result.ok) {
+        toastFail(result.reason, `infra-${provider}`)
+        return
+      }
       const labels: Record<string, string> = {
         cloudflare_r2: 'R2 storage',
         steadfast: 'Steadfast courier',
         pathao: 'Pathao courier',
         redx: 'RedX courier',
       }
-      toastApiSaved(labels[provider] ?? provider)
+      if (hasNewSecrets && result.data?.configured) {
+        toastApiSaved(labels[provider] ?? provider)
+      } else if (result.data?.configured) {
+        toastApiSaved(labels[provider] ?? provider)
+      } else {
+        toastInfo('Saved non-secret fields. Paste API Key + Secret Key to finish Steadfast setup.')
+      }
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Save failed', `infra-${provider}`)
     } finally {
@@ -120,7 +171,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
     setBusy(`test-${provider}`)
     try {
       const res = await testInfra.mutateAsync(provider)
-      toastOk(res.message, `infra-test-${provider}`)
+      toastIntegrationTestResult(res, provider, `infra-test-${provider}`)
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Connection test failed', `infra-test-${provider}`)
     } finally {
@@ -162,8 +213,8 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
       >
         <ConfigStatus configured={r2.data?.configured} source={r2.data?.source} adminManaged={r2.data?.adminManaged} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Access Key" value={r2Draft.accessKey ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, accessKey: v }))} secret />
-          <Field label="Secret Key" value={r2Draft.secretKey ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, secretKey: v }))} secret />
+          <Field label="Access Key" value={r2Draft.accessKey ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, accessKey: v }))} secret placeholder="Paste access key" />
+          <Field label="Secret Key" value={r2Draft.secretKey ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, secretKey: v }))} secret placeholder="Paste secret key" />
           <Field label="Bucket" value={r2Draft.bucket ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, bucket: v }))} />
           <Field label="Endpoint" value={r2Draft.endpoint ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, endpoint: v }))} />
           <Field label="Public URL" value={r2Draft.publicUrl ?? ''} onChange={(v) => setR2Draft((p) => ({ ...p, publicUrl: v }))} />
@@ -179,7 +230,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
         </AdminButton>
       </SectionCard>
 
-      <SectionCard title="Steadfast Courier" subtitle="Keys from steadfast.com.bd → Merchant → API. Save here (encrypted) or set STEADFAST_* in .env." accent={Boolean(steadfast.data?.configured)}>
+      <SectionCard title="Steadfast Courier" subtitle="Keys from steadfast.com.bd → Merchant → API. Leave empty until you have real keys — no fake values." accent={Boolean(steadfast.data?.configured)}>
         <ConfigStatus
           configured={steadfast.data?.configured}
           source={steadfast.data?.source}
@@ -187,9 +238,25 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
           lastTestStatus={steadfast.data?.lastTestStatus}
         />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="API Key" value={sfDraft.apiKey ?? ''} onChange={(v) => setSfDraft((p) => ({ ...p, apiKey: v }))} secret />
-          <Field label="Secret Key" value={sfDraft.secretKey ?? ''} onChange={(v) => setSfDraft((p) => ({ ...p, secretKey: v }))} secret />
-          <Field label="Base URL" value={sfDraft.baseUrl ?? ''} onChange={(v) => setSfDraft((p) => ({ ...p, baseUrl: v }))} />
+          <Field
+            label="API Key"
+            value={sfDraft.apiKey ?? ''}
+            onChange={(v) => setSfDraft((p) => ({ ...p, apiKey: v }))}
+            secret
+            placeholder="Paste Steadfast API key"
+          />
+          <Field
+            label="Secret Key"
+            value={sfDraft.secretKey ?? ''}
+            onChange={(v) => setSfDraft((p) => ({ ...p, secretKey: v }))}
+            secret
+            placeholder="Paste Steadfast secret key"
+          />
+          <Field
+            label="Base URL"
+            value={sfDraft.baseUrl ?? 'https://portal.steadfast.com.bd/public/api/v1'}
+            onChange={(v) => setSfDraft((p) => ({ ...p, baseUrl: v }))}
+          />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <AdminButton
@@ -219,10 +286,10 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
           lastTestStatus={pathao.data?.lastTestStatus}
         />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Client ID" value={pathaoDraft.clientId ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, clientId: v }))} />
-          <Field label="Client Secret" value={pathaoDraft.clientSecret ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, clientSecret: v }))} secret />
+          <Field label="Client ID" value={pathaoDraft.clientId ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, clientId: v }))} placeholder="Pathao client id" />
+          <Field label="Client Secret" value={pathaoDraft.clientSecret ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, clientSecret: v }))} secret placeholder="Paste client secret" />
           <Field label="Username" value={pathaoDraft.username ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, username: v }))} />
-          <Field label="Password" value={pathaoDraft.password ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, password: v }))} secret />
+          <Field label="Password" value={pathaoDraft.password ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, password: v }))} secret placeholder="Paste password" />
           <Field label="Store ID" value={pathaoDraft.storeId ?? ''} onChange={(v) => setPathaoDraft((p) => ({ ...p, storeId: v }))} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -253,7 +320,7 @@ export function InfrastructureSection({ apiOnline }: Pick<SectionProps, 'apiOnli
           lastTestStatus={redx.data?.lastTestStatus}
         />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="API Key" value={redxDraft.apiKey ?? ''} onChange={(v) => setRedxDraft((p) => ({ ...p, apiKey: v }))} secret />
+          <Field label="API Key" value={redxDraft.apiKey ?? ''} onChange={(v) => setRedxDraft((p) => ({ ...p, apiKey: v }))} secret placeholder="Paste RedX API key" />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <AdminButton

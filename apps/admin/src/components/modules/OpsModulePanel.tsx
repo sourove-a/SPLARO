@@ -7,7 +7,28 @@ import { ProcurementSubNav, ProductionSubNav } from '@/components/operations/Pro
 import { ApiOfflineBanner, ApiOfflineHint } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastFail } from '@/lib/admin/feedback'
+import {
+  confirmCompanyTaskCreated,
+  confirmCompanyTaskStatusUpdated,
+  confirmDeliveryAgentActiveUpdated,
+  confirmDeliveryAgentCreated,
+  confirmDeliveryAssignmentStatusUpdated,
+  confirmEmployeeCreated,
+  confirmEmployeeDeactivated,
+  confirmEmployeeUpdated,
+  confirmFabricCreated,
+  confirmFabricStockUpdated,
+  confirmGoodsGrnReceived,
+  confirmHelpdeskReplySaved,
+  confirmOrderAssigned,
+  confirmPayrollRunCreated,
+  confirmProductionBatchCreated,
+  confirmProductionBatchStatusUpdated,
+  confirmPurchaseOrderCreated,
+  confirmSupplierCreated,
+  confirmSupportTicketCreated,
+} from '@/lib/admin/ops-save'
 import {
   useCustomers, useOrders, useSettings, useProcurementOverview,
   useHelpdeskOverview, useCompanyOverview, useProductionOverview,
@@ -237,26 +258,20 @@ function HelpdeskPanel() {
   const replyTicket = useReplyHelpdeskTicket()
   const tickets = useMemo(() => data?.tickets ?? [], [data])
 
-  const handleReply = (ticketId: string, subject: string) => {
+  const handleReply = async (ticketId: string, subject: string) => {
     if (isOffline) {
       toastFail('Helpdesk API offline.')
       return
     }
     const message = window.prompt(`Reply to: ${subject}`)
     if (!message?.trim()) return
-    replyTicket.mutate(
-      { ticketId, message: message.trim() },
-      {
-        onSuccess: () => {
-          toastOk('Reply saved.')
-          void refetch()
-        },
-        onError: (e) => toastFail(e.message),
-      },
+    const ok = await confirmHelpdeskReplySaved(ticketId, message.trim(), () =>
+      replyTicket.mutateAsync({ ticketId, message: message.trim() }),
     )
+    if (ok) void refetch()
   }
 
-  const handleCreateTicket = () => {
+  const handleCreateTicket = async () => {
     if (isOffline) {
       toastFail('Helpdesk API offline — start pnpm dev:api first.')
       return
@@ -264,7 +279,13 @@ function HelpdeskPanel() {
     const subject = window.prompt('Ticket subject')
     if (!subject?.trim()) return
     const message = window.prompt('Initial message (optional)') ?? undefined
-    createTicket.mutate({ subject: subject.trim(), ...(message?.trim() ? { message: message.trim() } : {}) }, { onSuccess: () => { toastOk('Support ticket created.'); void refetch() }, onError: (e) => toastFail(e.message) })
+    const created = await confirmSupportTicketCreated({ subject: subject.trim() }, () =>
+      createTicket.mutateAsync({
+        subject: subject.trim(),
+        ...(message?.trim() ? { message: message.trim() } : {}),
+      }),
+    )
+    if (created) void refetch()
   }
 
   const columns = useMemo(() => ({
@@ -448,36 +469,36 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
       toastFail('First and last name are required.')
       return
     }
-    try {
-      await createEmployee.mutateAsync({
+    const created = await confirmEmployeeCreated(
+      {
         firstName: empFirst.trim(),
         lastName: empLast.trim(),
         ...(empPhone.trim() ? { phone: empPhone.trim() } : {}),
         ...(empPosition.trim() ? { position: empPosition.trim() } : {}),
-        ...(empSalary ? { salary: Number(empSalary) || 0 } : {}),
-      })
-      toastOk('Employee created.')
-      setShowEmployeeForm(false)
-      setEmpFirst('')
-      setEmpLast('')
-      setEmpPhone('')
-      setEmpPosition('')
-      setEmpSalary('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not create employee')
-    }
+      },
+      () =>
+        createEmployee.mutateAsync({
+          firstName: empFirst.trim(),
+          lastName: empLast.trim(),
+          ...(empPhone.trim() ? { phone: empPhone.trim() } : {}),
+          ...(empPosition.trim() ? { position: empPosition.trim() } : {}),
+          ...(empSalary ? { salary: Number(empSalary) || 0 } : {}),
+        }),
+    )
+    if (!created) return
+    setShowEmployeeForm(false)
+    setEmpFirst('')
+    setEmpLast('')
+    setEmpPhone('')
+    setEmpPosition('')
+    setEmpSalary('')
+    void refetch()
   }
 
   const handleDeactivate = async (id: string, name: string) => {
     if (!window.confirm(`Deactivate ${name}?`)) return
-    try {
-      await deactivateEmployee.mutateAsync(id)
-      toastOk('Employee deactivated.')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not deactivate employee')
-    }
+    const ok = await confirmEmployeeDeactivated(id, () => deactivateEmployee.mutateAsync(id))
+    if (ok) void refetch()
   }
 
   const startEditEmployee = (id: string, firstName: string, lastName: string, phone: string | null, position: string | null, salary: unknown) => {
@@ -496,21 +517,27 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
       toastFail('First and last name are required.')
       return
     }
-    try {
-      await updateEmployee.mutateAsync({
-        id: editingEmployeeId,
+    const ok = await confirmEmployeeUpdated(
+      editingEmployeeId,
+      {
         firstName: editFirst.trim(),
         lastName: editLast.trim(),
         ...(editPhone.trim() ? { phone: editPhone.trim() } : {}),
         ...(editPosition.trim() ? { position: editPosition.trim() } : {}),
-        ...(editSalary ? { salary: Number(editSalary) || 0 } : {}),
-      })
-      toastOk('Employee updated.')
-      setEditingEmployeeId(null)
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not update employee')
-    }
+      },
+      () =>
+        updateEmployee.mutateAsync({
+          id: editingEmployeeId,
+          firstName: editFirst.trim(),
+          lastName: editLast.trim(),
+          ...(editPhone.trim() ? { phone: editPhone.trim() } : {}),
+          ...(editPosition.trim() ? { position: editPosition.trim() } : {}),
+          ...(editSalary ? { salary: Number(editSalary) || 0 } : {}),
+        }),
+    )
+    if (!ok) return
+    setEditingEmployeeId(null)
+    void refetch()
   }
 
   const handleCreateTask = async () => {
@@ -518,35 +545,28 @@ function CompanyListPanel({ kind }: { kind: 'employees' | 'payroll' | 'tasks' | 
       toastFail('Task title is required.')
       return
     }
-    try {
-      await createTask.mutateAsync({ title: taskTitle.trim(), priority: taskPriority })
-      toastOk('Task created.')
-      setShowTaskForm(false)
-      setTaskTitle('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not create task')
-    }
+    const created = await confirmCompanyTaskCreated(
+      { title: taskTitle.trim(), priority: taskPriority },
+      () => createTask.mutateAsync({ title: taskTitle.trim(), priority: taskPriority }),
+    )
+    if (!created) return
+    setShowTaskForm(false)
+    setTaskTitle('')
+    void refetch()
   }
 
   const handleTaskStatus = async (id: string, status: string) => {
-    try {
-      await updateTaskStatus.mutateAsync({ id, status })
-      toastOk('Task status updated.')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not update task')
-    }
+    const ok = await confirmCompanyTaskStatusUpdated(id, status, () =>
+      updateTaskStatus.mutateAsync({ id, status }),
+    )
+    if (ok) void refetch()
   }
 
   const handleCreatePayroll = async () => {
     const now = new Date()
-    try {
-      const run = await createPayrollRun.mutateAsync({ month: now.getMonth() + 1, year: now.getFullYear() })
-      toastOk(`Payroll run created for ${run.month}/${run.year}.`)
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not create payroll run')
-    }
+    const month = now.getMonth() + 1
+    const year = now.getFullYear()
+    await confirmPayrollRunCreated(month, year, () => createPayrollRun.mutateAsync({ month, year }))
   }
 
   if (isError) return <ErrorBanner msg="Company OS API offline." />
@@ -768,21 +788,26 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
       toastFail('Name and phone are required.')
       return
     }
-    try {
-      await createAgent.mutateAsync({
+    const phone = agentPhone.trim().replace(/\D/g, '')
+    const created = await confirmDeliveryAgentCreated(
+      {
         name: agentName.trim(),
-        phone: agentPhone.trim(),
+        phone,
         ...(agentVehicle.trim() ? { vehicleType: agentVehicle.trim() } : {}),
-      })
-      toastOk('Delivery agent created.')
-      setShowAgentForm(false)
-      setAgentName('')
-      setAgentPhone('')
-      setAgentVehicle('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not create agent')
-    }
+      },
+      () =>
+        createAgent.mutateAsync({
+          name: agentName.trim(),
+          phone: agentPhone.trim(),
+          ...(agentVehicle.trim() ? { vehicleType: agentVehicle.trim() } : {}),
+        }),
+    )
+    if (!created) return
+    setShowAgentForm(false)
+    setAgentName('')
+    setAgentPhone('')
+    setAgentVehicle('')
+    void refetch()
   }
 
   const handleAssign = async () => {
@@ -790,25 +815,27 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
       toastFail('Select an order and agent.')
       return
     }
-    try {
-      await assignOrder.mutateAsync({ orderId: assignOrderId, agentId: assignAgentId })
-      toastOk('Order assigned to agent.')
-      setAssignOrderId('')
-      setAssignAgentId('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not assign order')
-    }
+    const ok = await confirmOrderAssigned(assignOrderId, assignAgentId, () =>
+      assignOrder.mutateAsync({ orderId: assignOrderId, agentId: assignAgentId }),
+    )
+    if (!ok) return
+    setAssignOrderId('')
+    setAssignAgentId('')
+    void refetch()
   }
 
   const handleAssignmentStatus = async (id: string, status: string) => {
-    try {
-      await updateAssignment.mutateAsync({ id, status })
-      toastOk('Assignment status updated.')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not update status')
-    }
+    const ok = await confirmDeliveryAssignmentStatusUpdated(id, status, () =>
+      updateAssignment.mutateAsync({ id, status }),
+    )
+    if (ok) void refetch()
+  }
+
+  const handleToggleAgent = async (id: string, isActive: boolean) => {
+    const ok = await confirmDeliveryAgentActiveUpdated(id, !isActive, () =>
+      updateAgent.mutateAsync({ id, isActive: !isActive }),
+    )
+    if (ok) void refetch()
   }
 
   if (kind === 'agents') {
@@ -849,15 +876,7 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
                         variant="ghost"
                         size="sm"
                         loading={updateAgent.isPending}
-                        onClick={() =>
-                          void updateAgent.mutateAsync(
-                            { id: a.id, isActive: !a.isActive },
-                            {
-                              onSuccess: () => toastOk(a.isActive ? 'Agent deactivated.' : 'Agent activated.'),
-                              onError: (e) => toastFail(e.message),
-                            },
-                          )
-                        }
+                        onClick={() => void handleToggleAgent(a.id, a.isActive)}
                       >
                         {a.isActive ? 'Deactivate' : 'Activate'}
                       </AdminButton>
@@ -873,7 +892,7 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
     )
   }
 
-  const queue = assignments.length > 0 ? assignments : unassigned.map((o) => ({ id: o.id, orderId: o.id, status: 'UNASSIGNED', earnings: 0, updatedAt: o.updatedAt, agent: { name: '—', phone: '' }, order: { id: o.id, invoiceNumber: o.invoiceNumber, shippingName: o.shippingName, shippingCity: o.shippingCity, total: o.total, status: o.status } }))
+  const queue = assignments
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -904,7 +923,13 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
         {isLoading ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading…</p>
         ) : queue.length === 0 ? (
+          unassigned.length > 0 ? (
+            <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>
+              No delivery assignments yet — {unassigned.length} order(s) awaiting agent assignment.
+            </p>
+          ) : (
           <EmptyState icon={Truck} title="No shipments to assign" hint="All confirmed orders are booked or delivered." action={{ label: 'View orders', href: '/dashboard/orders' }} />
+          )
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>{['Invoice', 'Customer', 'City', 'Agent', 'Total', 'Status', ''].map((h) => <th key={h} style={TH}>{h}</th>)}</tr></thead>
@@ -922,7 +947,7 @@ function DeliveryPanel({ kind }: { kind: 'agents' | 'assignments' }) {
                   <td style={TD}>{a.order ? formatBDT(Number(a.order.total)) : '—'}</td>
                   <td style={TD}><StatusPill value={a.status.toLowerCase().replace(/_/g, ' ')} /></td>
                   <td style={TD}>
-                    {'status' in a && a.status !== 'UNASSIGNED' && assignments.some((x) => x.id === a.id) ? (
+                    {'status' in a && assignments.some((x) => x.id === a.id) ? (
                       <select
                         className="admin-input admin-input--premium text-xs"
                         value={a.status}
@@ -1000,7 +1025,7 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
     [poItems],
   )
 
-  const handleCreatePo = () => {
+  const handleCreatePo = async () => {
     if (!poSupplierId) {
       toastFail('Select a supplier first.')
       return
@@ -1022,24 +1047,19 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
       return
     }
 
-    createPurchaseOrder.mutate(
-      {
+    const created = await confirmPurchaseOrderCreated(poSupplierId, () =>
+      createPurchaseOrder.mutateAsync({
         supplierId: poSupplierId,
         ...(poNotes.trim() ? { notes: poNotes.trim() } : {}),
         items,
-      },
-      {
-        onSuccess: (po) => {
-          toastOk(`Purchase order ${po.poNumber} created.`)
-          setShowCreatePo(false)
-          setPoSupplierId('')
-          setPoNotes('')
-          setPoItems([{ productName: '', sku: '', quantity: '1', unitCost: '' }])
-          void refetch()
-        },
-        onError: (e) => toastFail(e.message),
-      },
+      }),
     )
+    if (!created) return
+    setShowCreatePo(false)
+    setPoSupplierId('')
+    setPoNotes('')
+    setPoItems([{ productName: '', sku: '', quantity: '1', unitCost: '' }])
+    void refetch()
   }
 
   const statusByHref: Record<string, 'ok' | 'warn' | 'down' | 'loading'> = {
@@ -1051,24 +1071,25 @@ function ProcurementPanel({ moduleHref }: { moduleHref: string }) {
 
   const handleReceiveGrn = async (purchaseOrderId: string, poNumber: string) => {
     if (!window.confirm(`Receive goods for ${poNumber}? Stock will update for line items with SKUs.`)) return
-    try {
-      const result = await receiveGrn.mutateAsync({ purchaseOrderId })
-      toastOk(`GRN ${result.grn.grnNumber} recorded — PO ${result.purchaseOrder.poNumber} marked received.`)
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not receive goods')
-    }
+    const ok = await confirmGoodsGrnReceived(purchaseOrderId, () =>
+      receiveGrn.mutateAsync({ purchaseOrderId }),
+    )
+    if (ok) void refetch()
   }
 
-  const handleCreateSupplier = () => {
+  const handleCreateSupplier = async () => {
     const name = window.prompt('Supplier name')
     if (!name?.trim()) return
     const phone = window.prompt('Phone (optional)') ?? undefined
     const email = window.prompt('Email (optional)') ?? undefined
-    createSupplier.mutate(
-      { name: name.trim(), ...(phone?.trim() ? { phone: phone.trim() } : {}), ...(email?.trim() ? { email: email.trim() } : {}) },
-      { onSuccess: () => toastOk('Supplier created.'), onError: (e) => toastFail(e.message) },
+    const created = await confirmSupplierCreated({ name: name.trim() }, () =>
+      createSupplier.mutateAsync({
+        name: name.trim(),
+        ...(phone?.trim() ? { phone: phone.trim() } : {}),
+        ...(email?.trim() ? { email: email.trim() } : {}),
+      }),
     )
+    if (created) void refetch()
   }
 
   if (isError) {
@@ -1348,21 +1369,26 @@ function ProductionPanel({ moduleHref }: { moduleHref: string }) {
       toastFail('Fabric name is required.')
       return
     }
-    try {
-      await createFabric.mutateAsync({
+    const quantity = Number(fabricQty) || 0
+    const created = await confirmFabricCreated(
+      {
         name: fabricName.trim(),
         ...(fabricColor.trim() ? { color: fabricColor.trim() } : {}),
-        quantity: Number(fabricQty) || 0,
-      })
-      toastOk('Fabric inventory item created.')
-      setShowFabricForm(false)
-      setFabricName('')
-      setFabricColor('')
-      setFabricQty('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not create fabric')
-    }
+        quantity,
+      },
+      () =>
+        createFabric.mutateAsync({
+          name: fabricName.trim(),
+          ...(fabricColor.trim() ? { color: fabricColor.trim() } : {}),
+          quantity,
+        }),
+    )
+    if (!created) return
+    setShowFabricForm(false)
+    setFabricName('')
+    setFabricColor('')
+    setFabricQty('')
+    void refetch()
   }
 
   const handleFabricAdjust = async () => {
@@ -1372,15 +1398,15 @@ function ProductionPanel({ moduleHref }: { moduleHref: string }) {
       toastFail('Enter a non-zero delta (+ inbound, − outbound meters).')
       return
     }
-    try {
-      await updateFabricStock.mutateAsync({ id: adjustFabricId, delta })
-      toastOk('Fabric stock updated.')
-      setAdjustFabricId(null)
-      setFabricDelta('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not update fabric stock')
-    }
+    const current = fabrics.find((f) => f.id === adjustFabricId)
+    const expectedQuantity = Number(current?.quantity ?? 0) + delta
+    const ok = await confirmFabricStockUpdated(adjustFabricId, expectedQuantity, () =>
+      updateFabricStock.mutateAsync({ id: adjustFabricId, delta }),
+    )
+    if (!ok) return
+    setAdjustFabricId(null)
+    setFabricDelta('')
+    void refetch()
   }
 
   const handleCreateBatch = async () => {
@@ -1393,26 +1419,22 @@ function ProductionPanel({ moduleHref }: { moduleHref: string }) {
       toastFail('Quantity must be a positive integer.')
       return
     }
-    try {
-      await createBatch.mutateAsync({ productName: batchName.trim(), quantity: qty })
-      toastOk('Production batch created.')
-      setShowBatchForm(false)
-      setBatchName('')
-      setBatchQty('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not create batch')
-    }
+    const created = await confirmProductionBatchCreated(
+      { productName: batchName.trim(), quantity: qty },
+      () => createBatch.mutateAsync({ productName: batchName.trim(), quantity: qty }),
+    )
+    if (!created) return
+    setShowBatchForm(false)
+    setBatchName('')
+    setBatchQty('')
+    void refetch()
   }
 
   const handleBatchStatus = async (id: string, status: string) => {
-    try {
-      await updateBatchStatus.mutateAsync({ id, status })
-      toastOk('Batch status updated.')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not update batch status')
-    }
+    const ok = await confirmProductionBatchStatusUpdated(id, status, () =>
+      updateBatchStatus.mutateAsync({ id, status }),
+    )
+    if (ok) void refetch()
   }
 
   const statusByHref: Record<string, 'ok' | 'warn' | 'down' | 'loading'> = {

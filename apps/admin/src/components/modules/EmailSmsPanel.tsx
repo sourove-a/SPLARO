@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { toastFail, toastInfo, toastNotImplemented } from '@/lib/admin/feedback'
+import { toastFail, toastInfo, BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { Mail, MessageSquare, Send, Users, Filter } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -241,7 +241,8 @@ export function EmailSmsPanel(_props: ModuleContextProps) {
           <AdminButton
             variant="gold"
             className="mt-3"
-            onClick={() => toastNotImplemented('Bulk broadcast')}
+            disabled
+            title={BACKEND_NOT_CONNECTED_TITLE}
           >
             <Send className="h-4 w-4" /> Queue broadcast
           </AdminButton>

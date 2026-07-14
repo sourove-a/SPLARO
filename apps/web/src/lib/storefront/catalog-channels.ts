@@ -4,13 +4,13 @@ import { useMemo } from 'react'
 import {
   DEFAULT_CATALOG_CHANNELS,
   filterNavByCatalogChannels,
-  getPublishedShopCategories,
   isCatalogChannelPublished,
   mergeCatalogChannels,
   type CatalogChannel,
 } from '@splaro/types'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import type { Category } from '@/data/storefront'
+import { deriveShopFilterCategories } from '@/lib/catalog/shop-categories'
 
 export function useCatalogChannels(): CatalogChannel[] {
   const { config } = useStorefrontSettings()
@@ -22,10 +22,7 @@ export function useCatalogChannels(): CatalogChannel[] {
 
 export function usePublishedShopCategories(): Category[] {
   const channels = useCatalogChannels()
-  return useMemo(() => {
-    const published = getPublishedShopCategories(channels)
-    return ['All', ...published] as Category[]
-  }, [channels])
+  return useMemo(() => deriveShopFilterCategories(channels), [channels])
 }
 
 export function useVisibleNavLinks<T extends { href: string }>(links: T[] | undefined): T[] {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { refreshWithToast, toastInfo, toastNotImplemented } from '@/lib/admin/feedback'
+import { refreshWithToast, toastInfo, BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { Sparkles, Globe, LineChart, TrendingUp, Users } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -307,7 +307,7 @@ export function AiCustomerInsightsPanelLive() {
               </td>
               <td className="text-xs font-semibold text-[#5E7CFF]">{s.action}</td>
               <td>
-                <AdminButton size="sm" onClick={() => toastNotImplemented('Campaign from segment')}>
+                <AdminButton size="sm" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
                   Activate
                 </AdminButton>
               </td>

@@ -9,16 +9,15 @@ import { MarqueeStrip } from '@/components/home/MarqueeStrip'
 import { TrustBar } from '@/components/home/TrustBar'
 import { WhySplaro } from '@/components/home/WhySplaro'
 import { ShopCatalog } from '@/components/shop/ShopCatalog'
-import { DeferUntilVisible } from '@/components/ui/DeferUntilVisible'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { type Category } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import type { HeroBanner } from '@/lib/api/banners'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
+import { ScrollReveal } from '@/components/motion/ScrollReveal'
 
 const SpecialOffer = dynamic(
   () => import('@/components/home/SpecialOffer').then((m) => m.SpecialOffer),
-  { ssr: false },
 )
 
 const NewsletterSection = dynamic(
@@ -26,7 +25,6 @@ const NewsletterSection = dynamic(
     import('@/components/home/NewsletterSection/NewsletterSection').then(
       (m) => m.NewsletterSection,
     ),
-  { ssr: false },
 )
 
 interface GlassStorefrontProps {
@@ -34,10 +32,18 @@ interface GlassStorefrontProps {
   heroBanners?: HeroBanner[]
 }
 
-export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStorefrontProps) {
+export function GlassStorefront({
+  initialCatalog,
+  heroBanners = [],
+}: GlassStorefrontProps) {
   const [activeCategory, setActiveCategory] = useState<Category>('All')
   const settings = useStorefrontSettings()
   const homepage = resolveHomepageSections(settings.config.homepage)
+  const offer = settings.config.specialOffer
+  const showSpecialOffer =
+    Boolean(homepage.specialOffer) &&
+    Boolean(offer?.enabled) &&
+    Boolean(offer?.title?.trim())
   const showNewsletter = homepage.newsletter && (settings.config.newsletter?.enabled ?? true)
 
   return (
@@ -52,23 +58,23 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
       ) : null}
 
       <div className="ed-root">
-      {homepage.specialOffer ? (
-        <DeferUntilVisible minHeight={320}>
-          <SpecialOffer />
-        </DeferUntilVisible>
-      ) : null}
+        {showSpecialOffer ? (
+          <ScrollReveal variant="fadeUp" margin="-40px 0px -40px 0px">
+            <SpecialOffer />
+          </ScrollReveal>
+        ) : null}
 
-      {homepage.catalog ? (
-        <DeferUntilVisible minHeight={560}>
+        {homepage.catalog ? (
           <section className="ed-catalog-intro ed-defer-section" aria-label="Shop catalog">
             <div className="ed-catalog-intro__ambient" aria-hidden />
             <div className="ed-catalog">
+              <ScrollReveal variant="fadeUp" margin="-50px 0px -50px 0px">
                 <div className="ed-catalog__header">
                   <div className="ed-catalog__header-inner">
                     <div>
-                      <p className="ed-tiles__eyebrow">SPLARO EDIT</p>
-                      <h2 className="ed-catalog__title">Curated for You</h2>
-                      <p className="ed-catalog__lede">A refined selection of timeless essentials.</p>
+                      <p className="ed-tiles__eyebrow">SPLARO PICKS</p>
+                      <h2 className="ed-catalog__title">Our favourite styles</h2>
+                      <p className="ed-catalog__lede">Soft, elegant pieces for everyday wear.</p>
                     </div>
                     <Link href="/shop" className="ed-catalog__view-all">
                       View all
@@ -76,29 +82,21 @@ export function GlassStorefront({ initialCatalog, heroBanners = [] }: GlassStore
                     </Link>
                   </div>
                 </div>
-                <ShopCatalog
-                  category={activeCategory}
-                  onCategoryChange={setActiveCategory}
-                  showStickyBar={false}
-                  layout="homepage"
-                  {...(initialCatalog ? { initialCatalog } : {})}
-                />
+              </ScrollReveal>
+              <ShopCatalog
+                category={activeCategory}
+                onCategoryChange={setActiveCategory}
+                showStickyBar={false}
+                layout="homepage"
+                {...(initialCatalog ? { initialCatalog } : {})}
+              />
             </div>
           </section>
-        </DeferUntilVisible>
-      ) : null}
+        ) : null}
 
-      {homepage.ourStory ? (
-        <DeferUntilVisible minHeight={420} deferOnMobile={false}>
-          <WhySplaro />
-        </DeferUntilVisible>
-      ) : null}
+        {homepage.ourStory ? <WhySplaro /> : null}
 
-      {showNewsletter ? (
-        <DeferUntilVisible minHeight={280}>
-          <NewsletterSection />
-        </DeferUntilVisible>
-      ) : null}
+        {showNewsletter ? <NewsletterSection /> : null}
       </div>
     </>
   )

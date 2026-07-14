@@ -530,6 +530,8 @@ model Store {
   agentConfig        AgentConfig?
   agentConversations AgentConversation[]
   agentPromptVersions AgentPromptVersion[]
+  agentRuns          AgentRun[]
+  agentPendingActions AgentPendingAction[]
   integrationSettings IntegrationSetting[]
   integrationTestLogs IntegrationTestLog[]
   systemSettings     SystemSetting[]
@@ -554,7 +556,9 @@ model User {
   emailVerified  Boolean     @default(false)
   phone          String?     @unique
   phoneVerified  Boolean     @default(false)
-  passwordHash   String
+  passwordHash   String?
+  googleId       String?     @unique
+  authProvider   String?     @default("password")
   firstName      String
   lastName       String
   avatar         String?
@@ -1928,9 +1932,9 @@ model SiteSettings {
   whatsappEnabled        Boolean         @default(false)
   telegramEnabled        Boolean         @default(false)
   codEnabled             Boolean         @default(true)
-  bkashEnabled           Boolean         @default(true)
-  nagadEnabled           Boolean         @default(true)
-  sslcommerzEnabled      Boolean         @default(true)
+  bkashEnabled           Boolean         @default(false)
+  nagadEnabled           Boolean         @default(false)
+  sslcommerzEnabled      Boolean         @default(false)
   loyaltyEnabled         Boolean         @default(false)
   referralEnabled        Boolean         @default(false)
   searchProvider         String          @default("meilisearch")
@@ -2854,6 +2858,59 @@ model AgentPromptVersion {
   createdAt DateTime @default(now())
 
   @@index([storeId])
+}
+
+model AgentRun {
+  id           String   @id @default(cuid())
+  storeId      String
+  sessionId    String
+  channel      String   @default("admin")
+  model        String
+  difficulty   String?
+  status       String   @default("running")
+  tokenInEst   Int      @default(0)
+  tokenOutEst  Int      @default(0)
+  costEstUsd   Decimal  @default(0) @db.Decimal(10, 6)
+  userMessage  String   @db.Text
+  startedAt    DateTime @default(now())
+  finishedAt   DateTime?
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  toolCalls    AgentToolCall[]
+
+  @@index([storeId, startedAt])
+  @@index([sessionId])
+}
+
+model AgentToolCall {
+  id             String   @id @default(cuid())
+  runId          String
+  toolName       String
+  tier           String
+  input          Json
+  resultSummary  String   @db.Text
+  previousValues Json?
+  confirmed      Boolean  @default(false)
+  costEstUsd     Decimal  @default(0) @db.Decimal(10, 6)
+  createdAt      DateTime @default(now())
+  run            AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model AgentPendingAction {
+  id             String   @id @default(cuid())
+  storeId        String
+  sessionId      String
+  toolName       String
+  arguments      Json
+  preview        String   @db.Text
+  previousValues Json?
+  expiresAt      DateTime
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, sessionId, status])
 }
 
 // ── INTEGRATIONS (encrypted persistence) ─────────────────────

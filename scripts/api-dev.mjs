@@ -2,10 +2,10 @@
 /**
  * Dev entry for @splaro/api — clears stale :4000 listeners, then ts-node-dev.
  */
-import { spawn } from 'child_process'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { cleanupOrphanApiProcesses, getApiPort, reclaimPort, waitForPortFree } from './api-port.mjs'
+import { killProcessTree, spawnCli } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = resolve(ROOT, 'apps/api')
@@ -27,7 +27,7 @@ if (reclaim.reason === 'healthy') {
   await waitForPortFree(port)
 }
 
-const child = spawn(
+const child = spawnCli(
   'pnpm',
   [
     'exec',
@@ -44,13 +44,20 @@ const child = spawn(
   ],
   {
     cwd: API_DIR,
-    stdio: 'inherit',
     env: process.env,
-    shell: process.platform === 'win32',
   },
 )
 
-child.on('exit', (code, signal) => {
-  if (signal) process.kill(process.pid, signal)
+const stop = () => {
+  killProcessTree(child, 'SIGTERM')
+  setTimeout(() => {
+    killProcessTree(child, 'SIGKILL')
+    process.exit(0)
+  }, 400)
+}
+process.on('SIGINT', stop)
+process.on('SIGTERM', stop)
+
+child.on('exit', (code) => {
   process.exit(code ?? 0)
 })

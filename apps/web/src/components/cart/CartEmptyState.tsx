@@ -16,7 +16,7 @@ export function CartEmptyState({ onClose }: CartEmptyStateProps) {
         <p className="mt-1 text-[0.75rem] text-luxury-gray">Discover the latest SPLARO products</p>
       </div>
       <Link
-        href="/collections"
+        href="/shop"
         {...(onClose ? { onClick: onClose } : {})}
         className="btn-luxury mt-2 text-[0.625rem]"
       >

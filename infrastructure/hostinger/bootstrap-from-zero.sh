@@ -89,8 +89,9 @@ log "Building web..."
 SPLARO_HOSTINGER=1 bash scripts/hostinger-build.sh
 
 log "Building admin + API..."
-if [ -f apps/admin/next.config.mjs ] && [ -f apps/admin/next.config.ts ]; then
+if [ -f apps/admin/next.config.hostinger.mjs ] && [ -f apps/admin/next.config.ts ]; then
   mv apps/admin/next.config.ts apps/admin/next.config.ts.bak
+  cp apps/admin/next.config.hostinger.mjs apps/admin/next.config.mjs
 fi
 pnpm --filter @splaro/admin run build || true
 [ -f apps/admin/next.config.ts.bak ] && mv apps/admin/next.config.ts.bak apps/admin/next.config.ts

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function resolveNextConfig(appDir) {
-  for (const name of ['next.config.mjs', 'next.config.ts', 'next.config.js']) {
+  for (const name of ['next.config.ts', 'next.config.mjs', 'next.config.hostinger.mjs', 'next.config.js']) {
     const path = resolve(ROOT, appDir, name)
     if (existsSync(path)) return path
   }

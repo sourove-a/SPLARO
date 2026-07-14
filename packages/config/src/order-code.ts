@@ -32,7 +32,7 @@ export function needsInvoiceCodeBackfill(invoiceNumber: string | null | undefine
   return false
 }
 
-/** Safe public label — never returns a full CUID/UUID. */
+/** Safe public label — never returns a raw CUID/UUID or fake SPL-#### from id digits. */
 export function displayOrderCode(
   invoiceNumber: string | null | undefined,
   id: string,
@@ -40,8 +40,22 @@ export function displayOrderCode(
   const code = invoiceNumber?.trim()
   if (code && isSplOrderCode(code)) return code.toUpperCase()
   if (code && !looksLikeInternalOrderId(code)) return code
-  const tail = (id.replace(/\D/g, '').slice(-4) || id.slice(-4)).toUpperCase()
-  return `${ORDER_CODE_PREFIX}-${tail}`
+  // Internal id only — do not invent a random-looking SPL-#### from CUID chars
+  if (id && !looksLikeInternalOrderId(id) && isSplOrderCode(id)) {
+    return id.trim().toUpperCase()
+  }
+  return 'Order'
+}
+
+/** Tab / SEO title — hides scary CUID slugs. */
+export function orderDocumentTitle(idOrInvoice: string): string {
+  const raw = idOrInvoice.trim()
+  if (!raw) return 'Order confirmed'
+  if (isSplOrderCode(raw)) return `Order ${raw.toUpperCase()} confirmed`
+  if (!looksLikeInternalOrderId(raw) && raw.length <= 24) {
+    return `Order ${raw.toUpperCase()} confirmed`
+  }
+  return 'Order confirmed'
 }
 
 export function formatSplOrderCode(sequence: number): string {

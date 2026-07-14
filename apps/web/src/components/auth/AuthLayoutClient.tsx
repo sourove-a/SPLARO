@@ -2,6 +2,7 @@
 
 import { Suspense, type ReactNode } from 'react'
 import { AuthExperience } from '@/components/auth/AuthExperience'
+import { AuthGoogleProvider } from '@/components/auth/AuthGoogleProvider'
 import { AuthShell } from '@/components/auth/AuthShell'
 
 function AuthExperienceFallback() {
@@ -10,10 +11,12 @@ function AuthExperienceFallback() {
 
 export function AuthLayoutClient({ children: _children }: { children: ReactNode }) {
   return (
-    <AuthShell>
-      <Suspense fallback={<AuthExperienceFallback />}>
-        <AuthExperience />
-      </Suspense>
-    </AuthShell>
+    <AuthGoogleProvider>
+      <AuthShell>
+        <Suspense fallback={<AuthExperienceFallback />}>
+          <AuthExperience />
+        </Suspense>
+      </AuthShell>
+    </AuthGoogleProvider>
   )
 }

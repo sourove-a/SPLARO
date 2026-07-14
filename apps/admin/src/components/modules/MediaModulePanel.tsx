@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Film, Image as ImageIcon, Search, Trash2, Users } from 'lucide-react'
-import toast from 'react-hot-toast'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { useCreateBanner, useDeleteBanner, useMedia, useUpdateCategory, usePermission } from '@/lib/api/hooks'
-import { deleteProductImage } from '@/lib/api/products'
+import { deleteProductImage, fetchProduct } from '@/lib/api/products'
 import { MediaUploadZone } from '@/components/media/MediaUploadZone'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { confirmBannerDeleted, confirmBannerSaved } from '@/lib/admin/catalog-save'
+import { verifyPersisted } from '@/lib/admin/mutation-verify'
 
 type MediaAsset = {
   id: string
@@ -64,20 +66,38 @@ export function MediaModulePanel({ moduleHref }: ModuleContextProps) {
     return filtered
   }, [data, query, moduleHref])
 
-  const handleUploadBanner = (url: string) => {
+  const handleUploadBanner = async (url: string) => {
     const title = window.prompt('Banner title (optional)')?.trim()
-    createBanner.mutate(
-      { image: url, ...(title ? { title } : {}), position: 'hero', isActive: true },
-      { onSuccess: () => { toast.success('Hero banner saved'); refetch() }, onError: (e) => toast.error(e.message) },
+    const ok = await confirmBannerSaved(
+      null,
+      { ...(title ? { title } : {}), isActive: true, image: url },
+      () =>
+        createBanner.mutateAsync({
+          image: url,
+          ...(title ? { title } : {}),
+          position: 'hero',
+          isActive: true,
+        }),
+      'Hero banner',
     )
+    if (ok) void refetch()
   }
 
-  const handleUploadLibrary = (url: string) => {
+  const handleUploadLibrary = async (url: string) => {
     const title = window.prompt('Image name (optional)')?.trim() || 'Library image'
-    createBanner.mutate(
-      { image: url, title, position: 'library', isActive: false },
-      { onSuccess: () => { toast.success('Saved to media library'); refetch() }, onError: (e) => toast.error(e.message) },
+    const ok = await confirmBannerSaved(
+      null,
+      { title, image: url, isActive: false },
+      () =>
+        createBanner.mutateAsync({
+          image: url,
+          title,
+          position: 'library',
+          isActive: false,
+        }),
+      'Media library image',
     )
+    if (ok) void refetch()
   }
 
   const handleDelete = async (asset: MediaAsset) => {
@@ -85,19 +105,27 @@ export function MediaModulePanel({ moduleHref }: ModuleContextProps) {
     setDeletingId(asset.id)
     try {
       if (asset.type === 'banner') {
-        await deleteBanner.mutateAsync(asset.id)
+        const ok = await confirmBannerDeleted(asset.id, () => deleteBanner.mutateAsync(asset.id))
+        if (ok) void refetch()
       } else if (asset.type === 'product' && asset.productId) {
-        await deleteProductImage(asset.productId, asset.id)
+        const result = await deleteProductImage(asset.productId, asset.id)
+        if (!verifyPersisted(result.deleted === true, 'Product image delete')) return
+        const product = await fetchProduct(asset.productId)
+        const stillThere =
+          (product.images as { id?: string }[] | undefined)?.some((img) => img.id === asset.id) ?? false
+        if (!verifyPersisted(!stillThere, 'Product image removal')) return
+        toastApiSaved('Image removal')
+        void refetch()
       } else if (asset.type === 'category') {
-        await updateCategory.mutateAsync({ id: asset.id, image: null })
+        const updated = await updateCategory.mutateAsync({ id: asset.id, image: null })
+        if (!verifyPersisted(updated.image == null || updated.image === '', 'Category image removal')) return
+        toastApiSaved('Image removal')
+        void refetch()
       } else {
-        toast.error('Cannot delete this asset type.')
-        return
+        toastFail('Cannot delete this asset type.')
       }
-      toast.success('Image deleted')
-      void refetch()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Delete failed')
+      toastFail(e instanceof Error ? e.message : 'Delete failed')
     } finally {
       setDeletingId(null)
     }

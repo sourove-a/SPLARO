@@ -1,7 +1,3 @@
-import { getApiBaseUrl } from '@splaro/config'
-
-const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
-
 export interface SubmitContactInput {
   name: string
   contact: string
@@ -23,14 +19,11 @@ function parseErrorMessage(data: { message?: string | string[] }, status: number
 export async function submitContactForm(input: SubmitContactInput) {
   let res: Response
   try {
-    res = await fetch(
-      `${getApiBaseUrl()}/storefront/contact?storeId=${encodeURIComponent(STORE_ID)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      },
-    )
+    res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
   } catch {
     throw new Error('Could not reach SPLARO support. Check your connection and try again.')
   }

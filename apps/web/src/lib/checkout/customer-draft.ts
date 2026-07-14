@@ -1,5 +1,5 @@
 import { isBdDistrict } from '@/lib/checkout/bd-districts'
-import { getThanasForDistrict, isBdThana } from '@/lib/checkout/bd-thanas'
+import { isBdThana } from '@/lib/checkout/bd-thanas'
 import { formatBdPhoneInput } from '@/lib/checkout/phone'
 import type { PaymentMethod } from '@/lib/checkout/payments'
 
@@ -22,8 +22,9 @@ export function getCheckoutFormDefaults(): CheckoutCustomerDraft {
     email: '',
     phone: '',
     address: '',
-    city: 'Dhaka',
-    thana: getThanasForDistrict('Dhaka')[0] ?? '',
+    // Empty until customer chooses — do not silent-default to Dhaka/Adabor.
+    city: '',
+    thana: '',
     payment: DEFAULT_PAYMENT,
   }
 }
@@ -41,9 +42,10 @@ export function loadCheckoutCustomerDraft(): CheckoutCustomerDraft {
       if (parsed.phone) defaults.phone = formatBdPhoneInput(parsed.phone)
       if (parsed.address) defaults.address = parsed.address
       if (parsed.city && isBdDistrict(parsed.city)) defaults.city = parsed.city
-      if (parsed.thana && isBdThana(defaults.city, parsed.thana)) defaults.thana = parsed.thana
-      else if (isBdDistrict(defaults.city)) {
-        defaults.thana = getThanasForDistrict(defaults.city)[0] ?? ''
+      if (parsed.thana && defaults.city && isBdThana(defaults.city, parsed.thana)) {
+        defaults.thana = parsed.thana
+      } else {
+        defaults.thana = ''
       }
     }
   } catch {

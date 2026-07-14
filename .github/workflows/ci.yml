@@ -74,6 +74,9 @@ jobs:
       - name: Lint admin
         run: pnpm --filter @splaro/admin lint
 
+      - name: Lint API
+        run: pnpm --filter @splaro/api lint
+
       - name: Database push
         run: cd packages/database && npx prisma db push
 
@@ -87,6 +90,22 @@ jobs:
           test -f apps/api/dist/main.js
           test -d apps/web/.next/static/css && ls apps/web/.next/static/css/*.css
           test -d apps/admin/.next/static/css && ls apps/admin/.next/static/css/*.css
+
+      - name: API unit tests
+        run: pnpm --filter @splaro/api test:unit
+        env:
+          NODE_ENV: test
+          ADMIN_SESSION_SECRET: ci-admin-session-secret-min-32-chars
+
+      - name: API e2e tests
+        run: pnpm --filter @splaro/api test:e2e
+        env:
+          NODE_ENV: test
+          ADMIN_SESSION_SECRET: ci-admin-session-secret-min-32-chars
+          REDIS_ENABLED: 'false'
+          JWT_SECRET: ci-jwt-secret-min-32-characters-long
+          ENCRYPTION_KEY: ci-encryption-key-min-32-characters-long
+          INTERNAL_HEALTH_SECRET: ci-internal-health-secret-min-16-chars
 
       - name: Start API and smoke test
         run: node scripts/ci-smoke-api.mjs

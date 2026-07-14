@@ -1,17 +1,17 @@
-import type { Transition, Variants } from 'framer-motion'
+import type { Transition, Variants } from '@/lib/motion/react'
 
 /** SPLARO expo-out — matches --ease-out-expo / Lenis feel */
 export const EASE_EXPO_OUT = [0.16, 1, 0.3, 1] as const
 
-/** Page route enter — short, no layout thrash */
+/** Page route enter — noticeable but quick, no layout thrash */
 export const PAGE_ENTER: Transition = {
-  duration: 0.28,
+  duration: 0.42,
   ease: EASE_EXPO_OUT,
 }
 
-/** In-view section reveals */
+/** In-view section reveals — premium settle without sluggish feel */
 export const REVEAL_ENTER: Transition = {
-  duration: 0.42,
+  duration: 0.48,
   ease: EASE_EXPO_OUT,
 }
 
@@ -27,9 +27,11 @@ export const MOTION_DEFAULT: Transition = {
   ease: EASE_EXPO_OUT,
 }
 
-/** GPU-safe page template — keep opacity 1 so slow/blocked JS never hides the page. */
+/** Route enter — soft fade + rise, the "premium settle" on every navigation.
+    Only applied on client-side navigations (see useMotionReady), so a blocked
+    first paint can never be hidden behind opacity 0. */
 export const pageEnter: Variants = {
-  initial: { opacity: 1, y: 8, scale: 0.999 },
+  initial: { opacity: 0, y: 16, scale: 0.994 },
   animate: {
     opacity: 1,
     y: 0,

@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
-import { useMotionReady } from '@/hooks/useMotionReady'
-import { REVEAL_ENTER } from '@/lib/motion/config'
 import type { SpecialOfferConfig } from '@/lib/storefront/settings'
 
 function useCountdown(targetIso?: string | null) {
@@ -38,7 +35,6 @@ function useCountdown(targetIso?: string | null) {
 function SpecialOfferContent({ offer }: { offer: SpecialOfferConfig }) {
   const { days, hours, minutes, seconds } = useCountdown(offer.endsAt)
   const template = offer.template ?? 'countdown'
-  const { showMotion } = useMotionReady()
 
   if (template === 'minimal') {
     return (
@@ -124,19 +120,7 @@ function SpecialOfferContent({ offer }: { offer: SpecialOfferConfig }) {
         aria-hidden="true"
       />
       <div className="container-luxury relative">
-        {showMotion ? (
-          <motion.div
-            className="flex flex-col items-center text-center"
-            initial={{ opacity: 0, y: 22 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={REVEAL_ENTER}
-          >
-            {countdownBody}
-          </motion.div>
-        ) : (
-          <div className="flex flex-col items-center text-center">{countdownBody}</div>
-        )}
+        <div className="flex flex-col items-center text-center">{countdownBody}</div>
       </div>
     </section>
   )

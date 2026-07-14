@@ -2,20 +2,25 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import {
-  catalogSortFromMobile,
   formatMobileBdt,
+  isDefaultSort,
   isMobilePriceRangeActive,
-  mobilePriceQuickChips,
-  mobileSortFromCatalog,
-  mobileSortOptions,
   type CatalogSortOption,
   type MobileSortOption,
 } from '@/lib/shop/mobile-filter'
+import {
+  catalogSortFromMobile,
+  getDefaultSortLabel,
+  getEnabledMobilePriceChips,
+  getMobileSortOptions,
+  mobileSortFromCatalog,
+} from '@/lib/shop/filter-config'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { getShopSizeSectionMeta, type Category } from '@/data/storefront'
 
 const COLOR_SWATCH: Record<string, string> = {
@@ -31,7 +36,7 @@ const COLOR_SWATCH: Record<string, string> = {
 }
 
 const DRAWER_EASE = [0.22, 1, 0.36, 1] as const
-type FilterSectionId = 'category' | 'color' | 'size' | 'price' | 'sort'
+type FilterSectionId = 'color' | 'size' | 'price' | 'sort'
 
 interface PriceBounds {
   min: number
@@ -42,9 +47,7 @@ interface MobileFilterDrawerProps {
   open: boolean
   onClose: () => void
   resultCount: number
-  categories: readonly Category[]
   activeCategory: Category
-  onCategoryChange: (category: Category) => void
   colorOptions: readonly string[]
   sizeOptions: readonly string[]
   selectedColor: string
@@ -200,9 +203,7 @@ export function MobileFilterDrawer({
   open,
   onClose,
   resultCount,
-  categories,
   activeCategory,
-  onCategoryChange,
   colorOptions,
   sizeOptions,
   selectedColor,
@@ -217,34 +218,35 @@ export function MobileFilterDrawer({
   onPriceRangeChange,
   onClear,
 }: MobileFilterDrawerProps) {
+  const { config } = useStorefrontSettings()
+  const shopFilters = config.shopFilters!
+  const defaultSortLabel = getDefaultSortLabel(shopFilters)
+  const mobilePriceQuickChips = getEnabledMobilePriceChips(shopFilters)
+  const mobileSortOptions = getMobileSortOptions(shopFilters)
   const reduceMotion = useReducedMotion()
   const drawerRef = useRef<HTMLElement>(null)
   const touchStartX = useRef(0)
   const sizeMeta = useMemo(() => getShopSizeSectionMeta(activeCategory), [activeCategory])
   const [expandedSections, setExpandedSections] = useState<Set<FilterSectionId>>(
-    () => new Set(['category']),
+    () => new Set(['color']),
   )
 
   const drawerMin = priceMin ?? priceBounds.min
   const drawerMax = priceMax ?? priceBounds.max
-  const mobileSort = mobileSortFromCatalog(sortBy)
+  const mobileSort = mobileSortFromCatalog(sortBy, shopFilters)
   const priceRangeActive = isMobilePriceRangeActive(priceMin, priceMax, priceBounds)
 
   const activeCount = useMemo(() => {
     let count = 0
-    if (activeCategory !== 'All') count += 1
     if (selectedColor !== 'All') count += 1
     if (selectedSize !== 'All') count += 1
     if (priceRangeActive) count += 1
-    if (sortBy !== 'Default') count += 1
+    if (!isDefaultSort(sortBy, shopFilters)) count += 1
     return count
-  }, [activeCategory, priceRangeActive, selectedColor, selectedSize, sortBy])
+  }, [priceRangeActive, selectedColor, selectedSize, shopFilters, sortBy])
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; onClear: () => void }[] = []
-    if (activeCategory !== 'All') {
-      chips.push({ key: 'category', label: activeCategory, onClear: () => onCategoryChange('All') })
-    }
     if (selectedColor !== 'All') {
       chips.push({ key: 'color', label: selectedColor, onClear: () => onColorChange('All') })
     }
@@ -258,20 +260,18 @@ export function MobileFilterDrawer({
         onClear: () => onPriceRangeChange(null, null),
       })
     }
-    if (sortBy !== 'Default') {
+    if (!isDefaultSort(sortBy, shopFilters)) {
       chips.push({
         key: 'sort',
         label: mobileSort,
-        onClear: () => onSortChange('Default'),
+        onClear: () => onSortChange(defaultSortLabel),
       })
     }
     return chips
   }, [
-    activeCategory,
     drawerMax,
     drawerMin,
     mobileSort,
-    onCategoryChange,
     onColorChange,
     onPriceRangeChange,
     onSizeChange,
@@ -279,6 +279,8 @@ export function MobileFilterDrawer({
     priceRangeActive,
     selectedColor,
     selectedSize,
+    defaultSortLabel,
+    shopFilters,
     sortBy,
   ])
 
@@ -326,14 +328,18 @@ export function MobileFilterDrawer({
   useEffect(() => {
     if (!open) return
     const next = new Set<FilterSectionId>()
-    if (activeCategory !== 'All') next.add('category')
     if (selectedColor !== 'All') next.add('color')
     if (selectedSize !== 'All') next.add('size')
     if (priceRangeActive) next.add('price')
-    if (sortBy !== 'Default') next.add('sort')
-    if (!next.size) next.add('category')
+    if (!isDefaultSort(sortBy, shopFilters)) next.add('sort')
+    if (!next.size) {
+      if (shopFilters.showColorFilter) next.add('color')
+      else if (shopFilters.showSizeFilter) next.add('size')
+      else if (shopFilters.showPriceFilter) next.add('price')
+      else if (shopFilters.showSortFilter) next.add('sort')
+    }
     setExpandedSections(next)
-  }, [open, activeCategory, selectedColor, selectedSize, priceRangeActive, sortBy])
+  }, [open, selectedColor, selectedSize, priceRangeActive, shopFilters, sortBy])
 
   useEffect(() => {
     if (!sizeMeta.enabled && selectedSize !== 'All') onSizeChange('All')
@@ -348,19 +354,13 @@ export function MobileFilterDrawer({
     })
   }
 
-  const handleCategoryChange = (category: Category) => {
-    onCategoryChange(category)
-    onSizeChange('All')
-  }
-
   const sectionSummary = (id: FilterSectionId) => {
-    if (id === 'category' && activeCategory !== 'All') return activeCategory
     if (id === 'color' && selectedColor !== 'All') return selectedColor
     if (id === 'size' && selectedSize !== 'All') return selectedSize
     if (id === 'price' && priceRangeActive) {
       return `${formatMobileBdt(drawerMin)} – ${formatMobileBdt(drawerMax)}`
     }
-    if (id === 'sort' && sortBy !== 'Default') return mobileSort
+    if (id === 'sort' && !isDefaultSort(sortBy, shopFilters)) return mobileSort
     return undefined
   }
 
@@ -466,39 +466,10 @@ export function MobileFilterDrawer({
               </header>
 
               <div className="mobile-filter-drawer__body" data-lenis-prevent>
-                <AccordionSection
-                  id="category"
-                  title="Category"
-                  summary={sectionSummary('category')}
-                  hasSelection={activeCategory !== 'All'}
-                  expanded={expandedSections.has('category')}
-                  onToggle={toggleSection}
-                >
-                  <div className="mobile-filter-drawer__chips">
-                    {categories.map((category) => {
-                      const selected = activeCategory === category
-                      return (
-                        <button
-                          key={category}
-                          type="button"
-                          className={cn(
-                            'mobile-filter-drawer__chip',
-                            selected && 'mobile-filter-drawer__chip--active',
-                          )}
-                          onClick={() => handleCategoryChange(category)}
-                          aria-pressed={selected}
-                        >
-                          {category}
-                          {selected ? <Check className="mobile-filter-drawer__chip-check" strokeWidth={2.5} /> : null}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </AccordionSection>
-
+                {shopFilters.showColorFilter ? (
                 <AccordionSection
                   id="color"
-                  title="Color"
+                  title={shopFilters.labels.color}
                   summary={sectionSummary('color')}
                   hasSelection={selectedColor !== 'All'}
                   expanded={expandedSections.has('color')}
@@ -541,10 +512,12 @@ export function MobileFilterDrawer({
                     })}
                   </div>
                 </AccordionSection>
+                ) : null}
 
+                {shopFilters.showSizeFilter ? (
                 <AccordionSection
                   id="size"
-                  title="Size"
+                  title={shopFilters.labels.size}
                   hint={
                     sizeMeta.enabled
                       ? sizeMeta.hint
@@ -587,10 +560,12 @@ export function MobileFilterDrawer({
                     </p>
                   )}
                 </AccordionSection>
+                ) : null}
 
+                {shopFilters.showPriceFilter ? (
                 <AccordionSection
                   id="price"
-                  title="Price"
+                  title={shopFilters.labels.price}
                   summary={sectionSummary('price')}
                   hasSelection={priceRangeActive}
                   expanded={expandedSections.has('price')}
@@ -633,12 +608,14 @@ export function MobileFilterDrawer({
                     })}
                   </div>
                 </AccordionSection>
+                ) : null}
 
+                {shopFilters.showSortFilter ? (
                 <AccordionSection
                   id="sort"
-                  title="Sort by"
+                  title={shopFilters.labels.sort}
                   summary={sectionSummary('sort')}
-                  hasSelection={sortBy !== 'Default'}
+                  hasSelection={!isDefaultSort(sortBy, shopFilters)}
                   expanded={expandedSections.has('sort')}
                   onToggle={toggleSection}
                 >
@@ -653,7 +630,9 @@ export function MobileFilterDrawer({
                             'mobile-filter-drawer__row',
                             selected && 'mobile-filter-drawer__row--active',
                           )}
-                          onClick={() => onSortChange(catalogSortFromMobile(option as MobileSortOption))}
+                          onClick={() =>
+                            onSortChange(catalogSortFromMobile(option as MobileSortOption, shopFilters))
+                          }
                           aria-pressed={selected}
                         >
                           <span>{option}</span>
@@ -670,6 +649,7 @@ export function MobileFilterDrawer({
                     })}
                   </div>
                 </AccordionSection>
+                ) : null}
               </div>
 
               <footer className="mobile-filter-drawer__footer">

@@ -6,18 +6,15 @@
 import { createRequire } from 'module'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { puppeteerLaunchOptions } from './puppeteer-chrome.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
-const WEB = process.env.WEB_URL ?? 'http://localhost:3000'
-const API = process.env.API_URL ?? 'http://localhost:4000'
+const WEB = process.env.WEB_URL ?? 'http://127.0.0.1:3000'
+const API = process.env.API_URL ?? 'http://127.0.0.1:4000'
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
-
-const CHROME =
-  process.env.PUPPETEER_EXECUTABLE_PATH ??
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -29,11 +26,7 @@ async function fetchJson(url) {
 
 async function browserChecks() {
   const puppeteer = require('puppeteer')
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: CHROME,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await puppeteer.launch(puppeteerLaunchOptions())
 
   const out = { homepage: {}, shop: {}, login: {}, chatHref: null, consoleErrors: [] }
 

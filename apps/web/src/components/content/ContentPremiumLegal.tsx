@@ -16,7 +16,7 @@ import {
   UserCog,
   type LucideIcon,
 } from 'lucide-react'
-import { motion, useInView, useReducedMotion } from 'framer-motion'
+import { motion, useInView, useReducedMotion } from '@/lib/motion/react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
 import type { SitePageSection } from '@/lib/content/site-pages'
@@ -133,10 +133,10 @@ export function ContentPremiumLegal({
 
       <div className="legal-premium__watermark" aria-hidden="true">
         <Image
-          src="/images/logo/splaro-brand-mark-400.webp"
+          src="/images/logo/splaro-logo-black-premium.png"
           alt=""
           width={280}
-          height={112}
+          height={149}
           className="legal-premium__watermark-logo"
           unoptimized
         />
@@ -162,10 +162,10 @@ export function ContentPremiumLegal({
               <span className="legal-premium__crest-ring" />
               <span className="legal-premium__crest-glass">
                 <Image
-                  src="/images/logo/splaro-brand-mark-400.webp"
+                  src="/images/logo/splaro-logo-black-premium.png"
                   alt=""
                   width={168}
-                  height={68}
+                  height={89}
                   priority
                   className="legal-premium__crest-logo"
                   unoptimized

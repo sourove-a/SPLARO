@@ -1,8 +1,9 @@
 import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
 import type { StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductCardData } from '@splaro/types'
 import { sanitizeStorefrontProduct } from '@/lib/assets/images'
-import { productSlug } from '@/lib/catalog/index'
+import { productSlug, toProductDetail } from '@/lib/catalog/index'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
   fetchLiveProductDetailBySlug,
@@ -12,6 +13,7 @@ import {
 } from './live'
 import { LISTING_PAGE_SIZE } from '@/lib/catalog/listing'
 import type { CollectionShopContext } from '@/lib/storefront/collection-context'
+import { rememberGoodCatalog, resolveCatalogFailure, getStaleCatalog } from '@/lib/catalog/catalog-stale'
 import { catalogFetchAttempts } from '@/lib/server/fetch-timeouts'
 import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 
@@ -28,37 +30,54 @@ export interface CachedCatalog {
 const BUILD_CATALOG: CachedCatalog = { products: [], source: 'empty' }
 const EMPTY_CATALOG: CachedCatalog = { products: [], source: 'api-unavailable' }
 
-const getCachedLiveCatalog = unstable_cache(
-  async (): Promise<CachedCatalog> => {
-    // `next build` runs before API starts (CI + Hostinger Git deploy) — skip upstream.
-    if (isCiOrProductionBuild()) return BUILD_CATALOG
+async function fetchLiveCatalogDirect(): Promise<CachedCatalog> {
+  if (isCiOrProductionBuild()) return BUILD_CATALOG
 
-    const attempts = catalogFetchAttempts()
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      try {
-        const live = await fetchLiveProductsRaw()
-        if (!live.length) {
-          return { products: [], source: 'empty' }
-        }
-        return { products: live.map(sanitizeStorefrontProduct), source: 'api' }
-      } catch {
-        if (attempt === attempts - 1) break
+  const attempts = catalogFetchAttempts()
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const live = await fetchLiveProductsRaw()
+      if (!live.length) {
+        return { products: [], source: 'empty' }
       }
+      const catalog: CachedCatalog = {
+        products: live.map(sanitizeStorefrontProduct),
+        source: 'api',
+      }
+      rememberGoodCatalog(catalog)
+      return catalog
+    } catch {
+      if (attempt === attempts - 1) break
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)))
     }
-    return EMPTY_CATALOG
-  },
-  ['splaro-storefront-catalog', 'v3-retry'],
+  }
+  const stale = getStaleCatalog()
+  if (stale) return stale
+  throw new Error('storefront-catalog-unavailable')
+}
+
+const getCachedLiveCatalog = unstable_cache(
+  async (): Promise<CachedCatalog> => fetchLiveCatalogDirect(),
+  ['splaro-storefront-catalog', 'v4-no-failure-cache'],
   { revalidate: 30, tags: ['storefront-products'] },
 )
 
 export async function getStorefrontCatalog(): Promise<CachedCatalog> {
   try {
-    const catalog = await getCachedLiveCatalog()
-    if (process.env.NODE_ENV === 'development' && catalog.source === 'api-unavailable') {
-      console.warn('[splaro] Product catalog API unavailable — showing empty catalog. Run: pnpm dev:stack')
+    const catalog =
+      process.env.NODE_ENV === 'development'
+        ? await fetchLiveCatalogDirect()
+        : await getCachedLiveCatalog()
+    if (catalog.source === 'api' && catalog.products.length) {
+      rememberGoodCatalog(catalog)
     }
     return catalog
   } catch {
+    const fallback = resolveCatalogFailure(EMPTY_CATALOG)
+    if (fallback.products.length) return fallback
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[splaro] Product catalog API unavailable — showing empty catalog. Run: pnpm dev:stack')
+    }
     return EMPTY_CATALOG
   }
 }
@@ -89,13 +108,15 @@ export async function getStorefrontCatalogForCollection(
         limit: LISTING_PAGE_SIZE,
       })
       if (listing.products.length > 0) {
-        return {
+        const catalog: CachedCatalog = {
           products: listing.products.map(sanitizeStorefrontProduct),
           source: 'api',
           total: listing.total,
           totalPages: listing.totalPages,
           page: listing.page,
         }
+        rememberGoodCatalog(catalog)
+        return catalog
       }
     } catch {
       /* try next query */
@@ -123,36 +144,87 @@ export async function getStorefrontCatalogForCollection(
     /* unavailable */
   }
 
+  const stale = getStaleCatalog()
+  if (stale?.products.length) {
+    const filtered =
+      context.initialCategory === 'All'
+        ? stale.products
+        : stale.products.filter((product) => product.category === context.initialCategory)
+    if (filtered.length) {
+      return {
+        products: filtered,
+        source: 'api',
+        total: filtered.length,
+        totalPages: 1,
+        page: 1,
+      }
+    }
+  }
+
   return { products: [], source: 'api-unavailable', total: 0, totalPages: 0, page: 1 }
 }
 
-export async function getProductDetailBySlug(
+/** Per-slug detail cache — product clicks stop paying a live API round trip on
+    every view. Real 404s (live == null) are cached; transient API errors throw,
+    so they are NOT cached and the next request retries. */
+const getCachedProductDetail = unstable_cache(
+  async (
+    slug: string,
+  ): Promise<{ product: ProductDetailData; reviews: ProductReview[]; source: CatalogSource } | null> => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const live = await fetchLiveProductDetailBySlug(slug)
+        return live ? { ...live, source: 'api' } : null
+      } catch (error) {
+        if (attempt === 1) throw error
+      }
+    }
+    return null
+  },
+  ['splaro-product-detail', 'v1'],
+  { revalidate: 30, tags: ['storefront-products'] },
+)
+
+export const getProductDetailBySlug = cache(async function getProductDetailBySlug(
   slug: string,
 ): Promise<{ product: ProductDetailData; reviews: ProductReview[]; source: CatalogSource } | null> {
   if (isCiOrProductionBuild()) return null
 
   try {
-    const live = await fetchLiveProductDetailBySlug(slug)
-    if (live) return { ...live, source: 'api' }
+    return await getCachedProductDetail(slug)
   } catch {
-    /* API unavailable — honest not-found / error upstream */
+    /* API unavailable — fall back to last good catalog entry */
+  }
+
+  const stale = getStaleCatalog()
+  if (stale?.products.length) {
+    const match = stale.products.find(
+      (entry) => entry.slug === slug || productSlug(entry) === slug,
+    )
+    if (match) {
+      return { product: toProductDetail(match), reviews: [], source: 'api' }
+    }
   }
 
   return null
-}
+})
 
 export async function getRelatedProducts(
   product: ProductDetailData,
   limit = 4,
 ): Promise<ProductCardData[]> {
   try {
-    const { products, source } = await getStorefrontCatalog()
-    if (source !== 'api' || !products.length) return []
+    const listing = await fetchStorefrontProductListing({
+      ...(product.categorySlug ? { categorySlug: product.categorySlug } : {}),
+      page: 1,
+      limit: limit + 2,
+    })
+    if (!listing.products.length) return []
 
-    const others = products.filter((entry) => entry.id !== product.id)
-    const sameCategory = others.filter((entry) => entry.category === product.category)
-    const picks = sameCategory.length >= 2 ? sameCategory : others
-    return picks.slice(0, limit).map((entry) => storefrontToCardData(entry))
+    return listing.products
+      .filter((entry) => entry.id !== product.id)
+      .slice(0, limit)
+      .map((entry) => storefrontToCardData(entry))
   } catch {
     return []
   }

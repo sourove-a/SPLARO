@@ -145,6 +145,32 @@ export function toastBulkOpResult(
   toastFail(labels.fail)
 }
 
+/** Integration / infra test — green only when response.ok === true. */
+export function toastIntegrationTestResult(
+  res: { ok?: boolean; message?: string },
+  fallbackLabel: string,
+  id?: string,
+): boolean {
+  if (!res.ok) {
+    toastFail(res.message || `${fallbackLabel} failed`, id ? `${id}-fail` : undefined)
+    return false
+  }
+  toastOk(res.message || `${fallbackLabel} OK`, id)
+  return true
+}
+
+function isFailedRefetch(result: unknown): Error | null {
+  if (!result || typeof result !== 'object') return null
+  const r = result as { isError?: boolean; error?: unknown; status?: string }
+  if (r.isError) {
+    return r.error instanceof Error ? r.error : new Error('Refresh failed')
+  }
+  if (r.status === 'error') {
+    return r.error instanceof Error ? r.error : new Error('Refresh failed')
+  }
+  return null
+}
+
 /** Await refetch, toast only on real success. */
 export async function refreshWithToast(
   refetch: () => Promise<unknown>,
@@ -152,7 +178,12 @@ export async function refreshWithToast(
   failMsg = 'Refresh failed',
 ) {
   try {
-    await refetch()
+    const result = await refetch()
+    const refetchError = isFailedRefetch(result)
+    if (refetchError) {
+      toastFail(refetchError.message || failMsg, `refresh-fail:${successMsg}`)
+      return
+    }
     toastOk(successMsg, `refresh:${successMsg}`)
   } catch (err) {
     toastFail(err instanceof Error ? err.message : failMsg, `refresh-fail:${successMsg}`)

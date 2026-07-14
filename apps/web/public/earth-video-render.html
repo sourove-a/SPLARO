@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body { margin: 0; background: #000; overflow: hidden; }
+    canvas { display: block; width: 1920px; height: 1080px; }
+  </style>
+</head>
+<body>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three'
+
+/**
+ * Cinematic footer globe bake (Design Monks / SPLARO PNG vibe)
+ * — night cities + soft cyan limb + controlled whites (glass-safe)
+ * — full 360° @ 24fps / 80s seamless
+ * Stars handled in CSS (sky only) — keep bake sky clean black.
+ */
+const W = 1920
+const H = 1080
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0x000000)
+
+const camera = new THREE.PerspectiveCamera(36, W / H, 0.05, 200)
+camera.position.set(0, 0.72, 6.2)
+camera.lookAt(0, -0.55, 0)
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  preserveDrawingBuffer: true,
+  powerPreference: 'high-performance',
+})
+renderer.setSize(W, H, false)
+renderer.setPixelRatio(1)
+renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.12
+document.body.appendChild(renderer.domElement)
+
+const loader = new THREE.TextureLoader()
+const loadTex = (url) => new Promise((res, rej) => loader.load(url, res, undefined, rej))
+const day = await loadTex('/images/earth/earth-day.webp')
+const night = await loadTex('/images/earth/earth-night.webp')
+const clouds = await loadTex('/images/earth/earth-clouds.webp')
+for (const t of [day, night, clouds]) {
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 16
+  t.minFilter = THREE.LinearMipmapLinearFilter
+  t.magFilter = THREE.LinearFilter
+}
+
+const group = new THREE.Group()
+group.position.set(0, -3.15, 0)
+group.scale.setScalar(3.35)
+group.rotation.x = 0.12
+scene.add(group)
+
+// Sun above limb — night band below for city lights + soft day crest
+const sunDir = new THREE.Vector3(0.08, 0.88, 0.46).normalize()
+
+const earthMat = new THREE.ShaderMaterial({
+  uniforms: {
+    dayMap: { value: day },
+    nightMap: { value: night },
+    sunDirection: { value: sunDir },
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    varying vec3 vNormalW;
+    varying vec3 vPosW;
+    void main() {
+      vUv = uv;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vPosW = wp.xyz;
+      vNormalW = normalize(mat3(modelMatrix) * normal);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D dayMap;
+    uniform sampler2D nightMap;
+    uniform vec3 sunDirection;
+    varying vec2 vUv;
+    varying vec3 vNormalW;
+    varying vec3 vPosW;
+
+    vec3 gradeDay(vec3 c) {
+      float luma = dot(c, vec3(0.299, 0.587, 0.114));
+      float ocean = smoothstep(0.16, 0.4, c.b - max(c.r, c.g) * 0.45);
+      float ice = smoothstep(0.58, 0.78, luma) * (1.0 - ocean);
+
+      // Deep cinematic ocean
+      vec3 oceanDeep = vec3(0.05, 0.22, 0.55);
+      c = mix(c, mix(c, oceanDeep, 0.48) * vec3(0.88, 0.96, 1.18), ocean * 0.5);
+
+      // Soft land
+      c = mix(c, c * vec3(1.04, 1.01, 0.94), (1.0 - ocean) * (1.0 - ice) * 0.3);
+
+      // Ice: keep white vibe but NOT blown — glass-safe
+      c = mix(c, vec3(0.72, 0.8, 0.9) * luma + c * 0.35, ice * 0.55);
+      c = mix(vec3(luma), c, 1.14);
+      return clamp(c, 0.0, 1.05);
+    }
+
+    void main() {
+      vec3 N = normalize(vNormalW);
+      vec3 L = normalize(sunDirection);
+      vec3 daySample = texture2D(dayMap, vUv).rgb;
+      vec3 dayC = gradeDay(daySample);
+      vec3 nightRaw = texture2D(nightMap, vUv).rgb;
+
+      // Warm city lights — visible, not neon
+      float nightLuma = max(max(nightRaw.r, nightRaw.g), nightRaw.b);
+      vec3 nightC = pow(max(nightRaw, 0.0), vec3(0.72)) * vec3(1.65, 1.18, 0.62) * 4.4;
+      nightC += vec3(0.02, 0.04, 0.08) * (1.0 - nightLuma); // deep night fill
+
+      float ndl = dot(N, L);
+      float dayFactor = smoothstep(-0.2, 0.22, ndl);
+      float twilight = 1.0 - smoothstep(0.0, 0.28, abs(ndl + 0.02));
+      vec3 twilightTint = vec3(0.35, 0.28, 0.55) * 0.1 * twilight;
+
+      // Day crest readable; lower band night-dominant (DM vibe)
+      dayC *= mix(0.48, 0.98, dayFactor);
+      vec3 color = mix(nightC, dayC, dayFactor) + twilightTint;
+
+      vec3 V = normalize(cameraPosition - vPosW);
+      vec3 H = normalize(L + V);
+      float spec = pow(max(dot(N, H), 0.0), 64.0) * dayFactor;
+      float oceanMask = smoothstep(0.14, 0.36, daySample.b - max(daySample.r, daySample.g) * 0.45);
+      color += vec3(0.45, 0.7, 1.0) * spec * 0.18 * oceanMask;
+
+      // Soft cyan atmospheric rim
+      float fresnel = pow(1.0 - max(dot(N, normalize(V)), 0.0), 2.35);
+      color += vec3(0.3, 0.7, 1.05) * fresnel * 0.42;
+
+      // Soft highlight clamp — avoid blown whites
+      float outLuma = dot(color, vec3(0.299, 0.587, 0.114));
+      color *= mix(1.0, 0.88, smoothstep(0.78, 1.05, outLuma));
+
+      gl_FragColor = vec4(clamp(color, 0.0, 1.15), 1.0);
+    }
+  `,
+})
+
+let yaw = 0.55
+const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 192, 192), earthMat)
+earth.rotation.y = yaw
+group.add(earth)
+
+const cloudsMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(1.014, 128, 128),
+  new THREE.MeshBasicMaterial({
+    map: clouds,
+    transparent: true,
+    opacity: 0.24,
+    depthWrite: false,
+  }),
+)
+cloudsMesh.rotation.y = yaw
+group.add(cloudsMesh)
+
+{
+  const atmo = new THREE.Mesh(
+    new THREE.SphereGeometry(1.058, 64, 64),
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      vertexShader: /* glsl */`
+        varying vec3 vNormalV;
+        void main() {
+          vNormalV = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */`
+        varying vec3 vNormalV;
+        void main() {
+          float intensity = pow(max(0.0, 0.7 - dot(vNormalV, vec3(0.0, 0.0, 1.0))), 2.8);
+          gl_FragColor = vec4(0.28, 0.75, 1.05, 1.0) * intensity * 1.25;
+        }
+      `,
+    }),
+  )
+  group.add(atmo)
+}
+
+// Soft sun bloom above horizon center
+{
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')
+  const g = ctx.createRadialGradient(256, 256, 0, 256, 256, 256)
+  g.addColorStop(0, 'rgba(210,235,255,0.85)')
+  g.addColorStop(0.2, 'rgba(100,175,255,0.35)')
+  g.addColorStop(0.5, 'rgba(40,110,210,0.08)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 512, 512)
+  const bloom = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(canvas),
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    opacity: 0.7,
+  }))
+  bloom.position.set(0, 2.4, 0.15)
+  bloom.scale.set(5.8, 3.6, 1)
+  scene.add(bloom)
+}
+
+function render() {
+  earth.rotation.y = yaw
+  cloudsMesh.rotation.y = yaw
+  renderer.render(scene, camera)
+}
+
+const FPS = 24
+const DURATION = 80
+const FRAMES = FPS * DURATION
+const STEP = (2 * Math.PI) / FRAMES
+
+window.__EARTH_STEP__ = () => {
+  yaw += STEP
+  render()
+}
+window.__EARTH_FRAMES__ = FRAMES
+window.__EARTH_FPS__ = FPS
+window.__EARTH_STEP_RAD__ = STEP
+render()
+window.__EARTH_READY__ = true
+</script>
+</body>
+</html>

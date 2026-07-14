@@ -1,6 +1,6 @@
 'use client'
 
-import { motion, type MotionProps } from 'framer-motion'
+import { motion, type MotionProps } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 
 interface AddToBagIconProps {

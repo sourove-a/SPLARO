@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
 import {
   TrendingUp,
   TrendingDown,
@@ -11,14 +10,14 @@ import {
   ArrowUpRight,
   Download,
   RefreshCw,
-  UserPlus,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { PartnerSetupCard } from '@/components/finance/PartnerSetupCard'
+import { toastFail, toastOk } from '@/lib/admin/feedback'
 import {
   downloadFinanceCsv,
   downloadPartnerExport,
   fetchFinanceDashboard,
-  seedPartners,
   type FinanceDashboardData,
 } from '@/lib/api/finance'
 import { formatBDT } from '@/lib/format/currency'
@@ -58,7 +57,6 @@ export function FinanceDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState<string | null>(null)
-  const [seeding, setSeeding] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -73,26 +71,13 @@ export function FinanceDashboard() {
     load()
   }, [])
 
-  const handleSeed = async () => {
-    setSeeding(true)
-    try {
-      await seedPartners('admin')
-      toast.success('Partners seeded — SOUROVE, RAJU, HRIDOY')
-      load()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not seed partners')
-    } finally {
-      setSeeding(false)
-    }
-  }
-
   const handleOrdersExport = async () => {
     setExporting('orders')
     try {
       await downloadFinanceCsv('orders', 30)
-      toast.success('Orders CSV downloaded')
+      toastOk('Orders CSV downloaded')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export failed')
+      toastFail(err instanceof Error ? err.message : 'Export failed')
     } finally {
       setExporting(null)
     }
@@ -102,9 +87,9 @@ export function FinanceDashboard() {
     setExporting(partnerId)
     try {
       await downloadPartnerExport(partnerId, name)
-      toast.success(`${name} report downloaded`)
+      toastOk(`${name} report downloaded`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export failed')
+      toastFail(err instanceof Error ? err.message : 'Export failed')
     } finally {
       setExporting(null)
     }
@@ -127,16 +112,10 @@ export function FinanceDashboard() {
           Finance API unavailable: {error}. Ensure API is running at{' '}
           <code className="rounded bg-white/80 px-1 dark:bg-black/30">NEXT_PUBLIC_API_URL</code>.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <AdminButton variant="gold" onClick={load}>
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </AdminButton>
-          <AdminButton variant="ghost" loading={seeding} onClick={() => void handleSeed()}>
-            <UserPlus className="h-4 w-4" />
-            Seed partners
-          </AdminButton>
-        </div>
+        <AdminButton variant="gold" onClick={load}>
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </AdminButton>
       </div>
     )
   }
@@ -148,15 +127,7 @@ export function FinanceDashboard() {
   return (
     <div className="space-y-6">
       {noPartners ? (
-        <div className="admin-settings-status admin-settings-status--offline flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-amber-900">
-            No partners found. Seed SOUROVE · RAJU · HRIDOY to start finance tracking.
-          </p>
-          <AdminButton variant="gold" loading={seeding} onClick={() => void handleSeed()}>
-            <UserPlus className="h-4 w-4" />
-            Seed partners
-          </AdminButton>
-        </div>
+        <PartnerSetupCard partners={[]} onUpdated={load} />
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -216,36 +187,42 @@ export function FinanceDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="settings-card admin-panel-glass p-5">
           <h3 className="admin-kpi__label mb-4">Partner Balances</h3>
-          <div className="space-y-3">
-            {data.partners.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between rounded-[16px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-strong)] px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5E7CFF]/15">
-                    <Users className="h-4 w-4 text-[#5E7CFF]" />
+          {noPartners ? (
+            <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">
+              Partner যোগ করলে এখানে balance দেখাবে।
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {data.partners.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-[16px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-strong)] px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#5E7CFF]/15">
+                      <Users className="h-4 w-4 text-[#5E7CFF]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-[var(--admin-text)]">{p.name}</p>
+                      <p className="text-[10px] font-semibold text-[var(--admin-text-secondary)]">{p.sharePercent}% share</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-[var(--admin-text)]">{p.name}</p>
-                    <p className="text-[10px] font-semibold text-[var(--admin-text-secondary)]">{p.sharePercent}% share</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-black text-[var(--admin-text)]">{formatBDT(p.currentBalance)}</p>
+                    <button
+                      type="button"
+                      disabled={!!exporting}
+                      onClick={() => void handlePartnerExport(p.id, p.name)}
+                      className="rounded-lg border border-[var(--admin-glass-border-subtle)] p-2 text-[var(--admin-text-secondary)] transition hover:text-[#5E7CFF] disabled:opacity-50"
+                      title={`Export ${p.name} report`}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-sm font-black text-[var(--admin-text)]">{formatBDT(p.currentBalance)}</p>
-                  <button
-                    type="button"
-                    disabled={!!exporting}
-                    onClick={() => void handlePartnerExport(p.id, p.name)}
-                    className="rounded-lg border border-[var(--admin-glass-border-subtle)] p-2 text-[var(--admin-text-secondary)] transition hover:text-[#5E7CFF] disabled:opacity-50"
-                    title={`Export ${p.name} report`}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="settings-card admin-panel-glass p-5">
@@ -270,46 +247,50 @@ export function FinanceDashboard() {
           <h3 className="admin-kpi__label">Recent Finance Activity</h3>
           <ArrowUpRight className="h-4 w-4 text-[var(--admin-text-muted)]" />
         </div>
-        <div className="overflow-x-auto">
-          <table className="admin-module-table w-full text-left text-sm">
-            <thead>
-              <tr>
-                {['Partner', 'Type', 'Amount', 'Status'].map((h) => (
-                  <th key={h} className="pb-2 pr-4 text-[10px] font-black uppercase tracking-wider text-[var(--admin-text-muted)]">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(data.recentActivity as Array<{
-                partner?: { name: string }
-                type: string
-                amount: number
-                status: string
-              }>).map((tx, i) => (
-                <tr key={i} className="border-b border-[var(--admin-glass-border-subtle)]">
-                  <td className="py-2.5 pr-4 font-semibold text-[var(--admin-text)]">{tx.partner?.name ?? '—'}</td>
-                  <td className="pr-4 font-medium text-[var(--admin-text-secondary)]">{tx.type.replace(/_/g, ' ')}</td>
-                  <td className="pr-4 font-black text-[var(--admin-text)]">{formatBDT(Number(tx.amount))}</td>
-                  <td>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
-                        tx.status === 'APPROVED'
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : tx.status === 'PENDING'
-                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                            : 'bg-red-500/15 text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {tx.status}
-                    </span>
-                  </td>
+        {data.recentActivity.length === 0 ? (
+          <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">No transactions yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-module-table w-full text-left text-sm">
+              <thead>
+                <tr>
+                  {['Partner', 'Type', 'Amount', 'Status'].map((h) => (
+                    <th key={h} className="pb-2 pr-4 text-[10px] font-black uppercase tracking-wider text-[var(--admin-text-muted)]">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {(data.recentActivity as Array<{
+                  partner?: { name: string }
+                  type: string
+                  amount: number
+                  status: string
+                }>).map((tx, i) => (
+                  <tr key={i} className="border-b border-[var(--admin-glass-border-subtle)]">
+                    <td className="py-2.5 pr-4 font-semibold text-[var(--admin-text)]">{tx.partner?.name ?? '—'}</td>
+                    <td className="pr-4 font-medium text-[var(--admin-text-secondary)]">{tx.type.replace(/_/g, ' ')}</td>
+                    <td className="pr-4 font-black text-[var(--admin-text)]">{formatBDT(Number(tx.amount))}</td>
+                    <td>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                          tx.status === 'APPROVED'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            : tx.status === 'PENDING'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                              : 'bg-red-500/15 text-red-600 dark:text-red-400'
+                        }`}
+                      >
+                        {tx.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   )

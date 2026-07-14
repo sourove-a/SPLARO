@@ -1,25 +1,83 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { verifyAdminSessionToken, type AdminSessionPayload } from '../../common/auth/admin-session.util'
-import { verifyPassword } from '../../common/password.util'
+import { AdminSessionResolver } from '../../common/auth/admin-session.resolver'
+import { verifyPasswordWithTimingPad } from '../../common/password.util'
 import { PrismaService } from '../../common/prisma.service'
+import { RedisService } from '../../common/redis.service'
 import { resolveStoreId } from '../../common/store.util'
 import { resolveStaffPermissionTokens } from '../security/staff-permissions.resolver'
 import { AdminLoginTokenService } from './admin-login-token.service'
 
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000
+const LOCKOUT_TTL_SEC = Math.ceil(LOCKOUT_WINDOW_MS / 1000)
 const MAX_FAILED_ATTEMPTS = 5
+const IP_FAIL_KEY_PREFIX = 'splaro:admin:login:fail:ip:'
 
 @Injectable()
 export class AuthService {
+  private readonly ipFailMemory = new Map<string, { count: number; expiresAt: number }>()
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly loginTokens: AdminLoginTokenService,
+    private readonly redis: RedisService,
+    private readonly sessionResolver: AdminSessionResolver,
   ) {}
 
   verifyToken(token: string): AdminSessionPayload | null {
     return verifyAdminSessionToken(token)
+  }
+
+  async verifyLiveToken(token: string): Promise<AdminSessionPayload | null> {
+    const session = verifyAdminSessionToken(token)
+    if (!session) return null
+    return this.sessionResolver.resolveLiveSession(session)
+  }
+
+  private normalizeIp(ip: string): string {
+    const trimmed = ip.trim().toLowerCase()
+    return trimmed.length > 0 ? trimmed : 'unknown'
+  }
+
+  private ipFailRedisKey(ip: string): string {
+    return `${IP_FAIL_KEY_PREFIX}${this.normalizeIp(ip)}`
+  }
+
+  private async getIpFailCount(ip: string): Promise<number> {
+    const normalized = this.normalizeIp(ip)
+    const redisCount = await this.redis.getCounter(this.ipFailRedisKey(normalized))
+    if (redisCount > 0) return redisCount
+
+    const entry = this.ipFailMemory.get(normalized)
+    if (!entry) return 0
+    if (entry.expiresAt <= Date.now()) {
+      this.ipFailMemory.delete(normalized)
+      return 0
+    }
+    return entry.count
+  }
+
+  private async assertIpNotLockedOut(ip: string) {
+    const failed = await this.getIpFailCount(ip)
+    if (failed >= MAX_FAILED_ATTEMPTS) {
+      throw new UnauthorizedException('Too many failed login attempts. Try again in 15 minutes.')
+    }
+  }
+
+  private async recordIpFailedAttempt(ip: string) {
+    const normalized = this.normalizeIp(ip)
+    const redisCount = await this.redis.incrWithExpiry(this.ipFailRedisKey(normalized), LOCKOUT_TTL_SEC)
+    if (redisCount > 0) return
+
+    const now = Date.now()
+    const entry = this.ipFailMemory.get(normalized)
+    if (!entry || entry.expiresAt <= now) {
+      this.ipFailMemory.set(normalized, { count: 1, expiresAt: now + LOCKOUT_WINDOW_MS })
+      return
+    }
+    entry.count += 1
   }
 
   private async recordLoginAttempt(opts: {
@@ -69,6 +127,8 @@ export class AuthService {
     const ipAddress = meta?.ipAddress ?? 'unknown'
     const userAgent = meta?.userAgent
 
+    await this.assertIpNotLockedOut(ipAddress)
+
     const user = await this.prisma.user.findFirst({
       where: { email: normalized },
       select: {
@@ -89,8 +149,8 @@ export class AuthService {
       await this.assertNotLockedOut(user.id)
     }
 
-    const passwordOk =
-      Boolean(user?.passwordHash) && Boolean(user?.isActive) && verifyPassword(password, user!.passwordHash)
+    const hashMatches = verifyPasswordWithTimingPad(password, user?.passwordHash)
+    const passwordOk = Boolean(user?.isActive) && hashMatches
 
     if (!user || !passwordOk) {
       if (user) {
@@ -102,6 +162,7 @@ export class AuthService {
           failReason: !user.isActive ? 'inactive' : 'invalid_password',
         })
       }
+      await this.recordIpFailedAttempt(ipAddress)
       throw new UnauthorizedException('Invalid email or password')
     }
 
@@ -179,8 +240,11 @@ export class AuthService {
     const ipAddress = meta?.ipAddress ?? 'unknown'
     const userAgent = meta?.userAgent
 
+    await this.assertIpNotLockedOut(ipAddress)
+
     const record = await this.loginTokens.consume(normalized, token)
     if (!record) {
+      await this.recordIpFailedAttempt(ipAddress)
       throw new UnauthorizedException('Invalid or expired token. Send /login in Telegram bot for a new one.')
     }
 
@@ -297,18 +361,45 @@ export class AuthService {
         email: true,
         firstName: true,
         lastName: true,
+        role: true,
         staffRoles: {
           select: { role: true, storeId: true },
+        },
+        ownedStores: {
+          select: { id: true },
+          take: 5,
         },
       },
     })
 
-    if (!user?.email || user.staffRoles.length === 0) return null
+    if (!user?.email) return null
 
     const storeId = storeIdRaw ? await resolveStoreId(this.prisma, storeIdRaw) : undefined
-    const staff = storeId
+    let staff = storeId
       ? user.staffRoles.find((s) => s.storeId === storeId)
       : user.staffRoles[0]
+
+    if (!staff) {
+      const staffRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'])
+      if (!staffRoles.has(user.role)) return null
+      const targetStoreId =
+        storeId ??
+        user.ownedStores[0]?.id ??
+        (await this.prisma.store.findFirst({ where: { slug: 'splaro' }, select: { id: true } }))?.id
+      if (!targetStoreId) return null
+
+      staff = await this.prisma.staffRole.upsert({
+        where: { userId_storeId: { userId: user.id, storeId: targetStoreId } },
+        create: {
+          userId: user.id,
+          storeId: targetStoreId,
+          role: user.role === 'CUSTOMER' || user.role === 'VENDOR' ? 'ADMIN' : user.role,
+          permissions: user.role === 'SUPER_ADMIN' ? ['*'] : [],
+        },
+        update: {},
+        select: { role: true, storeId: true },
+      })
+    }
 
     if (!staff) return null
 

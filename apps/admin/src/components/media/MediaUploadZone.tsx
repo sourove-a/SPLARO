@@ -2,8 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { ImagePlus, Loader2 } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { uploadAdminImage } from '@/lib/api/upload'
+import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { cn } from '@/lib/utils/cn'
 
 interface MediaUploadZoneProps {
@@ -25,9 +25,9 @@ export function MediaUploadZone({ folder, label = 'Upload image', className, onU
       try {
         const url = await uploadAdminImage(file, folder)
         onUploaded(url)
-        toast.success('Image uploaded')
+        toastOk('Image uploaded to server.')
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed')
+        toastFail(err instanceof Error ? err.message : 'Upload failed')
       } finally {
         setUploading(false)
         if (inputRef.current) inputRef.current.value = ''

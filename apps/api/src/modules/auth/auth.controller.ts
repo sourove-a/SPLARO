@@ -1,9 +1,12 @@
 import { Body, Controller, Get, Headers, Inject, Post, Req, ServiceUnavailableException, UnauthorizedException, forwardRef } from '@nestjs/common'
+import { ApiTags } from '@nestjs/swagger'
 import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
+import { AdminLoginDto, AdminRequestLoginDto } from '../../common/dtos/admin-auth.dto'
 import { AuthService } from './auth.service'
 import { TelegramService } from '../telegram/telegram.service'
 
+@ApiTags('admin-auth')
 @Controller('admin/auth')
 export class AuthController {
   constructor(
@@ -14,13 +17,8 @@ export class AuthController {
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('request-login')
-  async requestLogin(@Body() body: { email?: string; storeId?: string }) {
-    const email = body.email?.trim()
-    if (!email) {
-      throw new UnauthorizedException('Email required')
-    }
-
-    await this.auth.validateAdminEmail(email, body.storeId)
+  async requestLogin(@Body() body: AdminRequestLoginDto) {
+    const email = body.email.trim()
     const storeId = body.storeId ?? 'splaro'
 
     const delivery = await this.telegram.resolveAdminLoginDelivery(storeId, email)
@@ -43,14 +41,8 @@ export class AuthController {
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
-  async login(
-    @Body() body: { email?: string; token?: string; password?: string; storeId?: string },
-    @Req() req: Request,
-  ) {
-    const email = body.email?.trim()
-    if (!email) {
-      throw new UnauthorizedException('Email required')
-    }
+  async login(@Body() body: AdminLoginDto, @Req() req: Request) {
+    const email = body.email.trim()
 
     const meta = {
       ipAddress: req.ip ?? req.socket?.remoteAddress ?? 'unknown',
@@ -98,11 +90,11 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@Headers('authorization') authorization?: string) {
+  async me(@Headers('authorization') authorization?: string) {
     const token = authorization?.replace(/^Bearer\s+/i, '').trim()
     if (!token) throw new UnauthorizedException('Missing bearer token')
 
-    const user = this.auth.verifyToken(token)
+    const user = await this.auth.verifyLiveToken(token)
     if (!user) throw new UnauthorizedException('Invalid or expired session')
 
     return {

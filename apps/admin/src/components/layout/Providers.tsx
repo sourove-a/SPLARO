@@ -6,8 +6,10 @@ import { useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { AdminNavRecovery } from '@/components/layout/AdminNavRecovery'
 import { AdminCssHealthGuard } from '@/components/layout/AdminCssHealthGuard'
+import { AdminChunkReloadGuard } from '@/components/layout/AdminChunkReloadGuard'
 import { AdminPersistHydrator } from '@/components/layout/AdminPersistHydrator'
 import { ApiError } from '@/lib/api/client'
+import { FeatureFlagsProvider } from '@/lib/feature-flags'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -38,9 +40,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="splaro-admin-theme">
       <QueryClientProvider client={queryClient}>
+        <FeatureFlagsProvider>
         <AdminPersistHydrator />
         <AdminNavRecovery />
         <AdminCssHealthGuard />
+        <AdminChunkReloadGuard />
         {children}
         <Toaster
           position="top-center"
@@ -72,6 +76,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             },
           }}
         />
+        </FeatureFlagsProvider>
       </QueryClientProvider>
     </ThemeProvider>
   )

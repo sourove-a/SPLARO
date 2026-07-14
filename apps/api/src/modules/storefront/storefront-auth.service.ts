@@ -8,6 +8,8 @@ import {
   generatePasswordResetEmailText,
 } from '../email/password-reset-email.template'
 import { CustomersService } from '../customers/customers.service'
+import { GoogleIdTokenService } from './google-id-token.service'
+import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-otp.service'
 
 const SCRYPT_KEYLEN = 64
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30
@@ -45,6 +47,7 @@ export interface StorefrontAuthUser {
   avatar?: string | null
   phoneVerified?: boolean
   loyaltyTier?: string
+  needsPhone?: boolean
 }
 
 @Injectable()
@@ -53,6 +56,8 @@ export class StorefrontAuthService {
     private readonly prisma: PrismaService,
     private readonly customers: CustomersService,
     private readonly email: EmailService,
+    private readonly googleIdToken: GoogleIdTokenService,
+    private readonly otp: StorefrontOtpService,
   ) {}
 
   async signup(
@@ -128,7 +133,7 @@ export class StorefrontAuthService {
       },
     })
 
-    if (!user || !user.isActive || !verifyPassword(password, user.passwordHash)) {
+    if (!user || !user.isActive || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
       throw new UnauthorizedException('Invalid email or password')
     }
 
@@ -174,6 +179,182 @@ export class StorefrontAuthService {
     })
 
     return this.toAuthUser(session.user, session.user.customer?.id, session.user.customer?.loyaltyTier)
+  }
+
+  async googleSignIn(storeId: string, credential: string) {
+    if (!this.googleIdToken.isConfigured()) {
+      throw new ServiceUnavailableException('Google sign-in is not configured')
+    }
+
+    const googleUser = await this.googleIdToken.verify(credential)
+
+    let user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ googleId: googleUser.googleId }, { email: googleUser.email }],
+      },
+      select: {
+        id: true,
+        email: true,
+        emailVerified: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        phoneVerified: true,
+        googleId: true,
+        authProvider: true,
+        isActive: true,
+        customer: { select: { id: true, storeId: true, loyaltyTier: true } },
+      },
+    })
+
+    if (user && !user.isActive) {
+      throw new UnauthorizedException('Account is disabled')
+    }
+
+    if (!user) {
+      try {
+        user = await this.prisma.user.create({
+          data: {
+            googleId: googleUser.googleId,
+            authProvider: 'google',
+            email: googleUser.email,
+            emailVerified: googleUser.emailVerified,
+            firstName: googleUser.firstName,
+            lastName: googleUser.lastName,
+            ...(googleUser.picture ? { avatar: googleUser.picture } : {}),
+            role: 'CUSTOMER',
+            isActive: true,
+            lastLoginAt: new Date(),
+          },
+          select: {
+            id: true,
+            email: true,
+            emailVerified: true,
+            phone: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            phoneVerified: true,
+            googleId: true,
+            authProvider: true,
+            isActive: true,
+            customer: { select: { id: true, storeId: true, loyaltyTier: true } },
+          },
+        })
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          user = await this.prisma.user.findFirst({
+            where: {
+              OR: [{ googleId: googleUser.googleId }, { email: googleUser.email }],
+            },
+            select: {
+              id: true,
+              email: true,
+              emailVerified: true,
+              phone: true,
+              firstName: true,
+              lastName: true,
+              avatar: true,
+              phoneVerified: true,
+              googleId: true,
+              authProvider: true,
+              isActive: true,
+              customer: { select: { id: true, storeId: true, loyaltyTier: true } },
+            },
+          })
+        }
+        if (!user) throw err
+      }
+    } else {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId: user.googleId ?? googleUser.googleId,
+          authProvider: user.authProvider === 'password' && !user.googleId ? 'google' : user.authProvider ?? 'google',
+          email: user.email ?? googleUser.email,
+          emailVerified: user.emailVerified || googleUser.emailVerified,
+          firstName: googleUser.firstName,
+          lastName: googleUser.lastName,
+          lastLoginAt: new Date(),
+          ...(googleUser.picture ? { avatar: googleUser.picture } : {}),
+        },
+        select: {
+          id: true,
+          email: true,
+          emailVerified: true,
+          phone: true,
+          firstName: true,
+          lastName: true,
+          avatar: true,
+          phoneVerified: true,
+          googleId: true,
+          authProvider: true,
+          isActive: true,
+          customer: { select: { id: true, storeId: true, loyaltyTier: true } },
+        },
+      })
+    }
+
+    const customerId =
+      user.customer?.storeId === storeId ? user.customer.id : user.customer?.id
+    const needsPhone = this.userNeedsPhone(user.phone, user.customer?.id)
+    const session = await this.createSession(user.id)
+
+    return {
+      sessionToken: session.sessionToken,
+      expiresAt: session.expiresAt.toISOString(),
+      needsPhone,
+      user: this.toAuthUser(
+        user,
+        customerId,
+        user.customer?.loyaltyTier,
+        needsPhone,
+      ),
+    }
+  }
+
+  async completePhone(
+    storeId: string,
+    sessionToken: string,
+    input: { phone: string; code?: string },
+  ) {
+    const current = await this.validateSession(sessionToken)
+    if (!current) throw new UnauthorizedException('Session expired')
+
+    if (!current.needsPhone) {
+      throw new BadRequestException('Phone number is already on your account')
+    }
+
+    if (isStorefrontPhoneOtpEnabled()) {
+      if (!input.code?.trim()) {
+        throw new BadRequestException('Enter the verification code sent to your phone')
+      }
+      await this.otp.assertValidOtp(storeId, input.phone, input.code)
+    }
+
+    const customer = await this.customers.completeGoogleSignup(storeId, current.id, {
+      phone: input.phone,
+      phoneVerified: isStorefrontPhoneOtpEnabled(),
+    })
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: current.id },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        phoneVerified: true,
+      },
+    })
+    if (!user) throw new UnauthorizedException('Session expired')
+
+    return {
+      user: this.toAuthUser(user, customer.id, customer.loyaltyTier, false),
+    }
   }
 
   /**
@@ -429,6 +610,12 @@ export class StorefrontAuthService {
     })
   }
 
+  private userNeedsPhone(phone: string | null | undefined, customerId?: string | null) {
+    const digits = normalizePhone(phone ?? '')
+    if (digits.length < 11) return true
+    return !customerId
+  }
+
   private toAuthUser(
     user: {
       id: string
@@ -441,7 +628,9 @@ export class StorefrontAuthService {
     },
     customerId?: string,
     loyaltyTier?: string,
+    needsPhone?: boolean,
   ): StorefrontAuthUser {
+    const phonePending = needsPhone ?? this.userNeedsPhone(user.phone, customerId)
     return {
       id: user.id,
       name: `${user.firstName} ${user.lastName}`.trim(),
@@ -451,6 +640,7 @@ export class StorefrontAuthService {
       ...(user.avatar ? { avatar: user.avatar } : {}),
       ...(user.phoneVerified ? { phoneVerified: true } : {}),
       ...(loyaltyTier ? { loyaltyTier } : {}),
+      ...(phonePending ? { needsPhone: true } : {}),
     }
   }
 }

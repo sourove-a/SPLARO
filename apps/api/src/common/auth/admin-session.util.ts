@@ -59,7 +59,7 @@ export const PUBLIC_ROUTE_PREFIXES = [
   'storefront',
   'payments',
   'telegram-webhook',
-  'agent/telegram',
+  'agent/telegram/webhook',
   'mobile/auth',
 ] as const
 
@@ -82,8 +82,6 @@ export function isPublicApiPath(path: string, method = 'GET'): boolean {
   if (normalized === 'health') return true
 
   if (normalized === 'health/full' && verb === 'GET') return true
-
-  if (normalized === 'health/routes' && verb === 'GET') return true
 
   if (normalized === 'admin/auth/login' && verb === 'POST') return true
   if (normalized === 'admin/auth/request-login' && verb === 'POST') return true

@@ -1,6 +1,10 @@
 'use client'
 
-import toast from 'react-hot-toast'
+import {
+  confirmCustomerBlockUpdated,
+  confirmCustomerNoteAdded,
+  confirmCustomerTagsUpdated,
+} from '@/lib/admin/customer-save'
 import { Customer360Profile } from '@/components/customers/Customer360Profile'
 import { addCustomerNote, updateCustomerTags } from '@/lib/api/customers'
 import { useBlockCustomer, useCustomer } from '@/lib/api/hooks'
@@ -12,7 +16,7 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
 
   if (isLoading) {
     return (
-      <div className="admin-module-card py-12 text-center text-sm text-[#6B6B6B]">
+      <div className="admin-module-card py-12 text-center text-sm text-[var(--admin-text-secondary)]">
         Loading customer profile…
       </div>
     )
@@ -37,7 +41,6 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
         phone: data.phone,
         ...(data.email ? { email: data.email } : {}),
         signupDate: data.createdAt.slice(0, 10),
-        ...(data.lastOrderDate ? { lastLogin: formatRelativeTime(data.lastOrderDate) } : {}),
         totalOrders: data.totalOrders,
         totalSpent: Number(data.totalSpent),
         avgOrderValue: Number(data.avgOrderValue ?? 0),
@@ -48,6 +51,16 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
         codRiskScore: data.codRiskScore,
         tags: data.tags ?? [],
         isBlocked: data.isBlocked ?? false,
+        ...(data.authProvider ? { authProvider: data.authProvider } : {}),
+        ...(data.googleLinked ? { googleLinked: true } : {}),
+        ...(data.emailVerified ? { emailVerified: true } : {}),
+        ...(data.avatar ? { avatar: data.avatar } : {}),
+        ...(data.lastLogin
+          ? { lastLogin: formatRelativeTime(data.lastLogin) }
+          : data.lastOrderDate
+            ? { lastLogin: formatRelativeTime(data.lastOrderDate) }
+            : {}),
+        ...(data.lastDevice ? { lastDevice: data.lastDevice } : {}),
         orders: data.orders ?? [],
         activityNotes: data.customerNotes ?? [],
         ...(notes ? { adminNotes: notes } : {}),
@@ -60,35 +73,31 @@ export function CustomerProfileClient({ customerId }: { customerId: string }) {
       }}
       variant="light"
       onAddNote={async (note) => {
-        try {
-          await addCustomerNote(customerId, note)
-          toast.success('Note saved.')
-          void refetch()
-        } catch {
-          toast.error('Could not save note.')
-        }
+        const ok = await confirmCustomerNoteAdded(customerId, note, () =>
+          addCustomerNote(customerId, note),
+        )
+        if (ok) void refetch()
+        return ok
       }}
       onAddTag={async (tag) => {
-        try {
-          const next = [...new Set([...(data.tags ?? []), tag])]
-          await updateCustomerTags(customerId, next)
-          toast.success(`Tag "${tag}" added.`)
-          void refetch()
-        } catch {
-          toast.error('Could not add tag.')
-        }
-      }}
-      onToggleBlock={(blocked) => {
-        blockCustomer.mutate(
-          { id: customerId, blocked },
-          {
-            onSuccess: () => {
-              toast.success(blocked ? 'Customer blocked.' : 'Customer unblocked.')
-              void refetch()
-            },
-            onError: () => toast.error('Could not update block status.'),
-          },
+        const trimmed = tag.trim()
+        if (!trimmed) return false
+        const next = [...new Set([...(data.tags ?? []), trimmed])]
+        const ok = await confirmCustomerTagsUpdated(
+          customerId,
+          next,
+          `Tag "${trimmed}" added.`,
+          () => updateCustomerTags(customerId, next),
         )
+        if (ok) void refetch()
+        return ok
+      }}
+      onToggleBlock={async (blocked) => {
+        const ok = await confirmCustomerBlockUpdated(customerId, blocked, () =>
+          blockCustomer.mutateAsync({ id: customerId, blocked }),
+        )
+        if (ok) void refetch()
+        return ok
       }}
     />
   )

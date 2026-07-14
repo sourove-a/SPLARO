@@ -29,10 +29,14 @@ export interface ModelChatResult {
 }
 
 export interface AgentStreamEvent {
-  type: 'token' | 'tool_start' | 'tool_end' | 'error' | 'done'
+  type: 'token' | 'tool_start' | 'tool_end' | 'error' | 'done' | 'confirm_required' | 'cost' | 'budget_exceeded'
   content?: string
   toolName?: string
   toolResult?: unknown
+  pendingId?: string
+  tokenInEst?: number
+  tokenOutEst?: number
+  costEstUsd?: number
 }
 
 export interface AgentHealthSnapshot {

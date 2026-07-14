@@ -11,6 +11,7 @@ import {
   MapPin,
   Megaphone,
   Menu,
+  SlidersHorizontal,
   Sparkles,
   Store,
   Truck,
@@ -19,25 +20,28 @@ import {
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { CatalogVisibilityPanel } from '@/components/modules/CatalogVisibilityPanel'
+import { MenuBuilderPanel } from '@/components/modules/MenuBuilderPanel'
+import { ShopFiltersPanel } from '@/components/modules/ShopFiltersPanel'
 import { HomepageVisibilityPanel } from '@/components/modules/HomepageVisibilityPanel'
 import { NewsletterAdminPreview } from '@/components/modules/NewsletterAdminPreview'
 import { OurStoryAdminPanel } from '@/components/modules/OurStoryAdminPanel'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY } from '@/lib/storefront/homepage-defaults'
-import { DEFAULT_CATALOG_CHANNELS } from '@splaro/types'
+import { DEFAULT_CATALOG_CHANNELS, DEFAULT_SHOP_FILTERS, mergeShopFilters } from '@splaro/types'
 import { SPLARO_DOMAINS } from '@splaro/config'
 import { useNewsletterSubscribers, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { AdminSettingsData, FooterGroup, NavLink } from '@/lib/api/settings'
 import { cn } from '@/lib/utils/cn'
 
-type TabId = 'brand' | 'location' | 'navigation' | 'catalog' | 'footer' | 'homepage' | 'marquee' | 'offers' | 'story' | 'newsletter' | 'shipping' | 'smtp'
+type TabId = 'brand' | 'location' | 'navigation' | 'catalog' | 'shopFilters' | 'footer' | 'homepage' | 'marquee' | 'offers' | 'story' | 'newsletter' | 'shipping' | 'smtp'
 
 const TABS: { id: TabId; label: string; icon: typeof Store }[] = [
   { id: 'brand', label: 'Brand & logo', icon: Store },
   { id: 'location', label: 'Location & contact', icon: MapPin },
   { id: 'navigation', label: 'Menu', icon: Menu },
   { id: 'catalog', label: 'Catalog', icon: Eye },
+  { id: 'shopFilters', label: 'Shop filters', icon: SlidersHorizontal },
   { id: 'footer', label: 'Footer', icon: LayoutGrid },
   { id: 'homepage', label: 'Homepage', icon: Home },
   { id: 'marquee', label: 'Marquee', icon: Megaphone },
@@ -60,6 +64,7 @@ const EMPTY_SETTINGS: AdminSettingsData = {
   contact: { email: '', phone: '', whatsapp: '', address: '' },
   social: { instagram: '', facebook: '', tiktok: '', youtube: '' },
   navigation: { headerNav: [], footerGroups: [] },
+  menuOverrides: { autoSync: true, departments: [] },
   marquee: { enabled: false, items: [] },
   specialOffer: { enabled: false, template: 'countdown', title: '', subtitle: '', badge: '', discountLabel: '', ctaLabel: 'Shop now', ctaHref: '/shop', endsAt: null },
   newsletter: {
@@ -75,6 +80,7 @@ const EMPTY_SETTINGS: AdminSettingsData = {
   ourStory: DEFAULT_OUR_STORY,
   homepage: DEFAULT_HOMEPAGE_SECTIONS,
   catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
+  shopFilters: DEFAULT_SHOP_FILTERS,
   catalog: { autoGenerateSku: false },
   payments: { cod: true, bkash: true, sslcommerz: true, nagad: true },
   shipping: { dhakaSameDay: true, outsideDhaka: true, freeShippingMin: '0', dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
@@ -107,7 +113,9 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
         catalogChannels: apiData.catalogChannels?.length
           ? apiData.catalogChannels
           : DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
+        shopFilters: mergeShopFilters(apiData.shopFilters),
         catalog: { ...(apiData.catalog ?? {}), autoGenerateSku: apiData.catalog?.autoGenerateSku ?? false },
+        menuOverrides: apiData.menuOverrides ?? { autoSync: true, departments: [] },
       })
     }
   }, [apiData])
@@ -202,7 +210,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             </label>
             <label className="admin-field md:col-span-2">
               <span className="admin-kpi__label">Logo URL</span>
-              <input className="admin-input" placeholder="https://… or /images/logo/splaro-logo.png" value={draft.branding.logo} onChange={(e) => setDraft((p) => ({ ...p, branding: { ...p.branding, logo: e.target.value }, store: { ...p.store, logo: e.target.value } }))} />
+              <input className="admin-input" placeholder="https://… or /images/logo/splaro-logo-black-premium.png" value={draft.branding.logo} onChange={(e) => setDraft((p) => ({ ...p, branding: { ...p.branding, logo: e.target.value }, store: { ...p.store, logo: e.target.value } }))} />
             </label>
             <label className="admin-field md:col-span-2">
               <span className="admin-kpi__label">Store image (footer card)</span>
@@ -267,29 +275,41 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
       ) : null}
 
       {tab === 'navigation' ? (
-        <section className="admin-module-card">
-          <h3 className="admin-module-card__title mb-2">Header menu</h3>
-          <p className="admin-module-card__text mb-4">Control the main navigation links on your storefront.</p>
-          <div className="space-y-3">
-            {draft.navigation.headerNav.map((item, index) => (
-              <div key={`nav-${index}`} className="grid gap-2 rounded-[14px] border border-black/6 bg-white/70 p-3 md:grid-cols-[1fr_1fr_auto]">
-                <input className="admin-input" placeholder="Label" value={item.label} onChange={(e) => updateNavItem(index, { label: e.target.value })} />
-                <input className="admin-input" placeholder="/shop" value={item.href} onChange={(e) => updateNavItem(index, { href: e.target.value })} />
-                <AdminButton variant="ghost" onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: p.navigation.headerNav.filter((_, i) => i !== index) } }))}>
-                  Remove
-                </AdminButton>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <AdminButton onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: [...p.navigation.headerNav, { label: 'New link', href: '/' }] } }))}>
-              Add menu item
-            </AdminButton>
-            <AdminButton variant="gold" loading={updateSettings.isPending} onClick={() => save({ navigation: draft.navigation }, 'Header menu')}>
-              Save menu
-            </AdminButton>
-          </div>
-        </section>
+        <>
+          <section className="admin-module-card">
+            <h3 className="admin-module-card__title mb-2">Header menu links</h3>
+            <p className="admin-module-card__text mb-4">Top-level navigation labels and URLs.</p>
+            <div className="space-y-3">
+              {draft.navigation.headerNav.map((item, index) => (
+                <div key={`nav-${index}`} className="grid gap-2 rounded-[14px] border border-black/6 bg-white/70 p-3 md:grid-cols-[1fr_1fr_auto]">
+                  <input className="admin-input" placeholder="Label" value={item.label} onChange={(e) => updateNavItem(index, { label: e.target.value })} />
+                  <input className="admin-input" placeholder="/shop" value={item.href} onChange={(e) => updateNavItem(index, { href: e.target.value })} />
+                  <AdminButton variant="ghost" onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: p.navigation.headerNav.filter((_, i) => i !== index) } }))}>
+                    Remove
+                  </AdminButton>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <AdminButton onClick={() => setDraft((p) => ({ ...p, navigation: { ...p.navigation, headerNav: [...p.navigation.headerNav, { label: 'New link', href: '/' }] } }))}>
+                Add menu item
+              </AdminButton>
+              <AdminButton variant="gold" loading={updateSettings.isPending} onClick={() => save({ navigation: draft.navigation }, 'Header menu')}>
+                Save links
+              </AdminButton>
+            </div>
+          </section>
+
+          <MenuBuilderPanel
+            menuOverrides={draft.menuOverrides ?? { autoSync: true, departments: [] }}
+            onChange={(menuOverrides) => setDraft((p) => ({ ...p, menuOverrides }))}
+            onSave={() => {
+              const overrides = draft.menuOverrides ?? { autoSync: true, departments: [] }
+              save({ menuOverrides: overrides }, 'Menu builder')
+            }}
+            saving={updateSettings.isPending}
+          />
+        </>
       ) : null}
 
       {tab === 'catalog' ? (
@@ -299,6 +319,16 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
           storefrontUrl={apiData?.store.domain ? `https://${apiData.store.domain.replace(/^https?:\/\//, '')}` : SPLARO_DOMAINS.site}
           onChange={(catalogChannels) => setDraft((prev) => ({ ...prev, catalogChannels }))}
           onSave={() => save({ catalogChannels: draft.catalogChannels }, 'Catalog visibility')}
+          saving={updateSettings.isPending}
+        />
+      ) : null}
+
+      {tab === 'shopFilters' ? (
+        <ShopFiltersPanel
+          filters={draft.shopFilters}
+          {...(apiData?.shopFilters ? { savedFilters: mergeShopFilters(apiData.shopFilters) } : {})}
+          onChange={(shopFilters) => setDraft((prev) => ({ ...prev, shopFilters }))}
+          onSave={() => save({ shopFilters: draft.shopFilters }, 'Shop filters')}
           saving={updateSettings.isPending}
         />
       ) : null}

@@ -22,10 +22,10 @@ export function MaintenanceScreen({
       <div className="maint-screen__content">
         <header className="maint-brand">
           <Image
-            src="/images/logo/splaro-logo-white.svg"
+            src="/images/logo/splaro-logo-white-premium.png"
             alt="SPLARO"
             width={280}
-            height={70}
+            height={149}
             priority
             unoptimized
             className="maint-brand__logo"

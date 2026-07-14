@@ -5,11 +5,16 @@ import { resolveStoreId } from '../../common/store.util'
 import type { PartnerTransactionType, FinanceTransactionStatus } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
 
-const DEFAULT_PARTNERS = [
-  { name: 'SOUROVE', slug: 'sourove', email: 'sourove@splaro.co', sharePercent: 33.33 },
-  { name: 'RAJU', slug: 'raju', email: 'raju@splaro.co', sharePercent: 33.33 },
-  { name: 'HRIDOY', slug: 'hridoy', email: 'hridoy@splaro.co', sharePercent: 33.34 },
-] as const
+function slugifyPartnerName(name: string): string {
+  const base = name
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return base || 'partner'
+}
 
 @Injectable()
 export class PartnersService {
@@ -24,46 +29,80 @@ export class PartnersService {
     return resolveStoreId(this.prisma, raw)
   }
 
-  async ensureDefaultPartners(storeIdOrSlug: string, createdBy?: string) {
+  async ensureDefaultPartners(storeIdOrSlug: string, _createdBy?: string) {
     const storeId = await this.sid(storeIdOrSlug)
-    const existing = await this.prisma.partner.count({ where: { storeId } })
-    if (existing > 0) {
-      return this.prisma.partner.findMany({
-        where: { storeId, isActive: true },
-        orderBy: { name: 'asc' },
-      })
-    }
-
-    for (const p of DEFAULT_PARTNERS) {
-      const partner = await this.prisma.partner.create({
-        data: {
-          storeId,
-          name: p.name,
-          slug: p.slug,
-          email: p.email,
-          sharePercent: p.sharePercent,
-          createdBy,
-        },
-      })
-      await this.prisma.partnerShareSetting.create({
-        data: {
-          storeId,
-          partnerId: partner.id,
-          sharePercent: p.sharePercent,
-          createdBy,
-        },
-      })
-    }
     return this.prisma.partner.findMany({
       where: { storeId, isActive: true },
       orderBy: { name: 'asc' },
     })
   }
 
+  async create(
+    storeIdOrSlug: string,
+    data: {
+      name: string
+      slug?: string
+      email?: string
+      phone?: string
+      sharePercent: number
+      notes?: string
+      createdBy?: string
+    },
+  ) {
+    const storeId = await this.sid(storeIdOrSlug)
+    const name = data.name?.trim()
+    if (!name || name.length < 2) {
+      throw new BadRequestException('Partner name is required (min 2 characters)')
+    }
+
+    const sharePercent = Number(data.sharePercent)
+    if (!Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
+      throw new BadRequestException('Share percent must be between 0 and 100')
+    }
+
+    const slug = (data.slug?.trim() || slugifyPartnerName(name)).toLowerCase()
+    const duplicate = await this.prisma.partner.findFirst({ where: { storeId, slug } })
+    if (duplicate) {
+      throw new BadRequestException('A partner with this slug already exists — choose a different name')
+    }
+
+    const partner = await this.prisma.partner.create({
+      data: {
+        storeId,
+        name,
+        slug,
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim() || null,
+        sharePercent,
+        notes: data.notes?.trim() || null,
+        createdBy: data.createdBy,
+      },
+    })
+
+    await this.prisma.partnerShareSetting.create({
+      data: {
+        storeId,
+        partnerId: partner.id,
+        sharePercent,
+        createdBy: data.createdBy,
+      },
+    })
+
+    await this.audit.log({
+      storeId,
+      action: 'CREATE',
+      resource: 'Partner',
+      resourceId: partner.id,
+      after: partner,
+      userId: data.createdBy,
+      note: `Created partner ${name}`,
+    })
+
+    return partner
+  }
+
   async list(storeIdOrSlug: string) {
     const storeId = await this.sid(storeIdOrSlug)
-    const count = await this.prisma.partner.count({ where: { storeId } })
-    if (count === 0) await this.ensureDefaultPartners(storeIdOrSlug)
     const partners = await this.prisma.partner.findMany({
       where: { storeId, isActive: true },
       orderBy: { name: 'asc' },
@@ -298,6 +337,16 @@ export class PartnerTransactionsService {
     const tx = await this.prisma.partnerTransaction.findFirst({ where: { id, storeId } })
     if (!tx) throw new NotFoundException('Transaction not found')
     if (tx.status !== 'PENDING') throw new BadRequestException('Transaction is not pending')
+
+    if (tx.type === 'WITHDRAWAL') {
+      const partner = await this.prisma.partner.findUnique({ where: { id: tx.partnerId } })
+      if (!partner) throw new NotFoundException('Partner not found')
+      if (Number(partner.currentBalance) < Number(tx.amount)) {
+        throw new BadRequestException(
+          `Insufficient balance — ${partner.name} has ${Number(partner.currentBalance)} BDT available`,
+        )
+      }
+    }
 
     const updated = await this.prisma.partnerTransaction.update({
       where: { id },

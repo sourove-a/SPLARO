@@ -52,7 +52,14 @@ export function getServerApiBaseUrl(): string {
     return normalizeApiBase(`http://127.0.0.1:${port}`)
   }
 
-  return getApiBaseUrl()
+  const publicBase = getApiBaseUrl()
+  // Local SSR/BFF: prefer IPv4 loopback — Windows often stalls on localhost → ::1.
+  if (!isProd && /localhost/i.test(publicBase)) {
+    const port = process.env.PORT_API ?? process.env.API_PORT ?? String(SPLARO_PORTS.api)
+    return normalizeApiBase(`http://127.0.0.1:${port}`)
+  }
+
+  return publicBase
 }
 
 /** Parse CORS origins from env (supports CORS_ORIGIN and CORS_ORIGINS) */

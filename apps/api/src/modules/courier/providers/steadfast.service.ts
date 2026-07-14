@@ -3,6 +3,28 @@ import axios from 'axios'
 import type { CourierBookingResult } from '../courier.service'
 import { InfrastructureIntegrationService } from '../../integrations/infrastructure-integration.service'
 
+function axiosErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as
+      | { message?: string | string[]; error?: string; errors?: Record<string, string[]> }
+      | string
+      | undefined
+    const status = err.response?.status
+    let detail = ''
+    if (typeof data === 'string' && data.trim()) {
+      detail = data.trim().slice(0, 400)
+    } else if (data && typeof data === 'object') {
+      if (typeof data.message === 'string') detail = data.message
+      else if (Array.isArray(data.message)) detail = data.message.join(', ')
+      else if (typeof data.error === 'string') detail = data.error
+      else if (data.errors) detail = Object.values(data.errors).flat().join(', ')
+    }
+    if (detail) return status ? `Steadfast ${status}: ${detail}` : detail
+    if (status) return `Steadfast request failed (${status})`
+  }
+  return err instanceof Error ? err.message : 'Steadfast API error'
+}
+
 interface SteadfastParcelPayload {
   invoiceNumber: string
   recipientName: string
@@ -61,7 +83,6 @@ export class SteadfastService {
       this.logger.warn(`Steadfast not configured — refusing fake booking for ${payload.invoiceNumber}`)
       return {
         success: false,
-        simulated: true,
         error:
           'Steadfast not connected. Save API keys in Admin → Settings → Infrastructure, or set STEADFAST_* in .env.',
       }
@@ -105,7 +126,7 @@ export class SteadfastService {
 
       return { success: false, error: data.message ?? 'Steadfast booking failed' }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Steadfast API error'
+      const message = axiosErrorMessage(err)
       this.logger.error(`Steadfast createParcel failed: ${message}`)
       return { success: false, error: message }
     }
@@ -113,12 +134,12 @@ export class SteadfastService {
 
   /** True when real Steadfast API keys are configured (not placeholders). */
   async isConfigured(storeId: string): Promise<boolean> {
-    const creds = await this.getCredentials(storeId)
-    return !this.shouldUseDevStub(creds) || process.env.COURIER_DEV_STUB === 'true'
+    return this.hasRealCredentials(storeId)
   }
 
   async hasRealCredentials(storeId: string): Promise<boolean> {
     const creds = await this.getCredentials(storeId)
+    if (process.env.COURIER_DEV_STUB === 'true') return false
     return !this.shouldUseDevStub(creds)
   }
 

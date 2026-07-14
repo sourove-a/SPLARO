@@ -1,4 +1,4 @@
-import type { Transition } from 'framer-motion'
+import type { Transition } from '@/lib/motion/react'
 
 export const checkoutEase = [0.16, 1, 0.3, 1] as const
 
@@ -16,5 +16,5 @@ export function checkoutMotionTransition(reduced: boolean | null, ms = 0.24): Tr
   return reduced ? { duration: 0 } : { duration: ms, ease: checkoutEase }
 }
 
-export const checkoutTapSpring = { scale: 0.985 }
-export const checkoutHoverLift = { y: -1 }
+export const checkoutTapSpring = { scale: 0.992 }
+export const checkoutHoverLift = { opacity: 0.92 }

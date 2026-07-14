@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Loader2, Save, Package,
@@ -17,10 +16,15 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
-import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail } from '@/lib/admin/feedback'
+import {
+  confirmProductArchived,
+  confirmProductRestored,
+  confirmProductSaved,
+} from '@/lib/admin/catalog-save'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
+import { useCategoryTree, useCollections, useProduct, useUpdateProduct, useDeleteProduct, useProductVersions, useRestoreProductVersion, useAdminSession, usePermission } from '@/lib/api/hooks'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
 import { ProductMediaPanel } from '@/components/modules/product-form/ProductMediaPanel'
 import { ProductVariantManager } from '@/components/modules/product-form/ProductVariantManager'
@@ -106,8 +110,9 @@ function StatusBadge({ published }: { published: boolean }) {
 
 export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProps) {
   const { navigate } = useAdminNavigate()
-  const { data: product, isLoading, isError } = useProduct(productId)
-  const { data: categories = [] } = useCategories()
+  const { data: product, isLoading, isError, refetch } = useProduct(productId)
+  const { data: categoryTreeData } = useCategoryTree()
+  const categories = categoryTreeData?.categories ?? []
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
   const updateProduct = useUpdateProduct()
@@ -174,7 +179,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
     publishAt: '',
   })
 
-  const categoryPicker = useMemo(() => buildCategoryPicker(categories), [categories])
+  const categoryPicker = useMemo(
+    () => buildCategoryPicker(categories, categoryTreeData?.tree),
+    [categories, categoryTreeData?.tree],
+  )
 
   const subcategories = useMemo(
     () => (departmentId ? categoryPicker.subcategoriesForDepartment(departmentId) : []),
@@ -299,16 +307,24 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
       setForm((prev) => ({ ...prev, ...nextForm }))
 
       try {
-        await updateProduct.mutateAsync({
-          id: productId,
-          skipVersionSnapshot: true,
-          ...updates,
-          ...(updates.isPublished === true ? { isHidden: false } : {}),
-        })
-        if (updates.isPublished !== undefined) {
-          toastOk(nextPublished ? 'Live on storefront' : 'Saved as draft')
-        } else {
-          toastOk('Visibility updated')
+        const ok = await confirmProductSaved(
+          productId,
+          {
+            name: form.name.trim(),
+            basePrice: Number(form.basePrice) || 0,
+            isPublished: nextPublished,
+            status: nextStatus,
+          },
+          () =>
+            updateProduct.mutateAsync({
+              id: productId,
+              skipVersionSnapshot: true,
+              ...updates,
+              ...(updates.isPublished === true ? { isHidden: false } : {}),
+            }),
+        )
+        if (!ok) {
+          setForm((prev) => ({ ...prev, ...prevForm }))
         }
       } catch (err) {
         setForm((prev) => ({ ...prev, ...prevForm }))
@@ -390,7 +406,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const applyBanglaPolish = () => {
     if (!form.name.trim() && !form.descriptionBn.trim()) {
-      toast.error('Product name বা কিছু বাংলা লিখুন।')
+      toastFail('Product name বা কিছু বাংলা লিখুন।')
       return
     }
     const bn = polishBanglaDescription({
@@ -406,7 +422,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   }
 
   const handleGenerateDescription = useCallback(async () => {
-    if (!form.name.trim()) { toast.error('Enter product name first.'); return }
+    if (!form.name.trim()) { toastFail('Enter product name first.'); return }
     setAiLoading(true)
     try {
       const job = await generateAIProduct({
@@ -442,7 +458,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   }, [form.name, form.fabricContent, form.categoryId, form.basePrice, form.occasion, categories])
 
   const handleFillAllWithAI = useCallback(async () => {
-    if (!form.name.trim()) { toast.error('Enter product name first.'); return }
+    if (!form.name.trim()) { toastFail('Enter product name first.'); return }
     setFillAllLoading(true)
     try {
       const job = await generateAIProduct({
@@ -512,17 +528,17 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleSave = async () => {
     if (!canEditProducts) {
-      toast.error('Your role cannot edit products.')
+      toastFail('Your role cannot edit products.')
       return
     }
-    if (!form.name.trim()) { toast.error('Product name required.'); return }
+    if (!form.name.trim()) { toastFail('Product name required.'); return }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
-    if (!sellingPrice || sellingPrice <= 0) { toast.error('Enter a valid price.'); return }
+    if (!sellingPrice || sellingPrice <= 0) { toastFail('Enter a valid price.'); return }
     setSaving(true)
     try {
       const tags = parseTagsInput(form.tags)
       const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
-      await updateProduct.mutateAsync({
+      const payload = {
         id: productId,
         name: form.name.trim(),
         slug: form.slug,
@@ -559,11 +575,21 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
         publishAt: form.publishAt ? new Date(form.publishAt).toISOString() : null,
         imageUrls: form.imageUrls,
         videoUrl: form.videoUrl.trim(),
-      })
-      toastApiSaved('Product')
-      setDirty(false)
+      }
+      const ok = await confirmProductSaved(
+        productId,
+        {
+          name: form.name.trim(),
+          basePrice: sellingPrice,
+          isPublished: form.isPublished,
+          categoryId: form.categoryId,
+          status: form.status,
+        },
+        () => updateProduct.mutateAsync(payload),
+      )
+      if (ok) setDirty(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Update failed.')
+      toastFail(err instanceof Error ? err.message : 'Update failed.')
     } finally {
       setSaving(false)
     }
@@ -571,13 +597,8 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleArchive = async () => {
     if (!window.confirm(`Archive "${form.name}"? It will be hidden from storefront.`)) return
-    try {
-      await deleteProduct.mutateAsync(productId)
-      toast.success('Product archived.')
-      navigate(moduleHref)
-    } catch {
-      toast.error('Could not archive product.')
-    }
+    const ok = await confirmProductArchived(productId, form.name, () => deleteProduct.mutateAsync(productId))
+    if (ok) navigate(moduleHref)
   }
 
   if (isLoading) {
@@ -611,11 +632,11 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleCopyStorefrontUrl = async () => {
     if (!form.slug.trim()) {
-      toast.error('Save a URL slug first.')
+      toastFail('Save a URL slug first.')
       return
     }
     if (!form.isPublished) {
-      toast.error('Publish the product first — draft links do not work on the storefront.')
+      toastFail('Publish the product first — draft links do not work on the storefront.')
       return
     }
     const ok = await copyProductStorefrontUrl(form.slug)
@@ -625,11 +646,11 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
 
   const handleOpenStorefront = () => {
     if (!form.slug.trim()) {
-      toast.error('Save a URL slug first.')
+      toastFail('Save a URL slug first.')
       return
     }
     if (!form.isPublished) {
-      toast.error('Publish first to view on the live storefront.')
+      toastFail('Publish first to view on the live storefront.')
       return
     }
     window.open(storefrontUrl, '_blank', 'noopener,noreferrer')
@@ -859,13 +880,16 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                       disabled={restoreVersion.isPending}
                       onClick={() => {
                         if (!window.confirm(`Restore product to v${v.version}? Reverts catalog fields, pricing, SEO, codes, and visibility from that snapshot (variants/images unchanged).`)) return
-                        restoreVersion.mutate(
-                          { productId, versionId: v.id, restoredBy: adminSession?.email ?? adminSession?.name ?? 'admin' },
-                          {
-                            onSuccess: () => toastOk('Product restored from version history.'),
-                            onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not restore version.'),
-                          },
-                        )
+                        void (async () => {
+                          const ok = await confirmProductRestored(productId, () =>
+                            restoreVersion.mutateAsync({
+                              productId,
+                              versionId: v.id,
+                              restoredBy: adminSession?.email ?? adminSession?.name ?? 'admin',
+                            }),
+                          )
+                          if (ok) void refetch()
+                        })()
                       }}
                       className="rounded-lg bg-[rgba(200,169,126,0.12)] px-2.5 py-1 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50"
                     >

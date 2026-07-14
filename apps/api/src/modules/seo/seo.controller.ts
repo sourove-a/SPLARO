@@ -114,6 +114,17 @@ export class SeoController {
     return this.seoService.generateBreadcrumbSchema(items)
   }
 
+  /** Fill missing product meta titles/descriptions and re-audit */
+  @Post('fix/missing-meta')
+  async fixMissingMeta(
+    @Query('storeId') storeId: string,
+    @Query('siteUrl') siteUrl?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const site = siteUrl ?? process.env['SITE_URL'] ?? 'https://splaro.co'
+    return this.seoService.fillMissingProductMeta(sid, site)
+  }
+
   /** SEO overview: meta coverage stats */
   @Get('overview')
   async overview(@Query('storeId') storeId: string) {

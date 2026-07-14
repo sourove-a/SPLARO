@@ -69,6 +69,8 @@ export interface ApiCreateOrderInput {
   }
   clientIp?: string
   userAgent?: string
+  /** Required storefront session — guest orders are not allowed. */
+  sessionToken?: string
 }
 
 function mapApiOrderToStored(order: {
@@ -151,6 +153,7 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (input.clientIp) headers['X-Forwarded-For'] = input.clientIp
   if (input.userAgent) headers['User-Agent'] = input.userAgent
+  if (input.sessionToken) headers['x-splaro-session'] = input.sessionToken
   const idempotencyKey = checkoutIdempotencyKey(input)
   headers['Idempotency-Key'] = idempotencyKey
 

@@ -1,5 +1,5 @@
 import { useMotionReady } from '@/hooks/useMotionReady'
-import type { Transition } from 'framer-motion'
+import type { Transition } from '@/lib/motion/react'
 
 export const authMotionEase = [0.16, 1, 0.3, 1] as const
 
@@ -32,5 +32,5 @@ export function authMotionTransition(reduced: boolean | null, ms = 0.22): Transi
   return reduced ? { duration: 0 } : { duration: ms, ease: authMotionEase }
 }
 
-export const authTapSpring = { scale: 0.97 }
-export const authHoverLift = { y: -1, scale: 1.01 }
+export const authTapSpring = { scale: 0.992 }
+export const authHoverLift = { opacity: 0.92 }

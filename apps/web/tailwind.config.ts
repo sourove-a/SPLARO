@@ -8,11 +8,11 @@ const config: Config = {
       colors: {
         // SPLARO Design Tokens
         ivory: {
-          DEFAULT: '#FAF8F5',
-          50: '#FDFCFB',
-          100: '#FAF8F5',
-          200: '#F5F3F0',
-          300: '#EDE9E3',
+          DEFAULT: '#FFFFFF',
+          50: '#FFFFFF',
+          100: '#FFFFFF',
+          200: '#F5F5F5',
+          300: '#EEEEEE',
         },
         gold: {
           DEFAULT: '#C8A97E',
@@ -100,6 +100,11 @@ const config: Config = {
         'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'slide-in-right': 'slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         shimmer: 'shimmer 2s infinite',
+        'spl-radix-accordion-down': 'splRadixAccordionDown 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'spl-radix-accordion-up': 'splRadixAccordionUp 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'spl-radix-fade-in': 'splRadixFadeIn 180ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'spl-radix-fade-out': 'splRadixFadeOut 140ms ease-out',
+        'spl-radix-slide-in': 'splRadixSlideIn 220ms cubic-bezier(0.16, 1, 0.3, 1)',
       },
 
       keyframes: {
@@ -118,6 +123,26 @@ const config: Config = {
         shimmer: {
           '0%': { backgroundPosition: '-1000px 0' },
           '100%': { backgroundPosition: '1000px 0' },
+        },
+        splRadixAccordionDown: {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        splRadixAccordionUp: {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+        splRadixFadeIn: {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        splRadixFadeOut: {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+        },
+        splRadixSlideIn: {
+          from: { opacity: '0', transform: 'translateY(-12px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
         },
       },
 

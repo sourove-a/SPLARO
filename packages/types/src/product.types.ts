@@ -28,6 +28,7 @@ export interface ProductCardData {
   rating: number
   reviewCount: number
   category?: string
+  categorySlug?: string
   collectionSlug?: string
   media?: ProductMediaData[]
 }

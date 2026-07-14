@@ -1,11 +1,16 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { productSlug } from '@/lib/catalog/index'
-import { getProductDetailBySlug, getRelatedProducts, getStorefrontCatalog } from '@/lib/catalog/server'
+import { getProductDetailBySlug, getStorefrontCatalog } from '@/lib/catalog/server'
 import { isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import { pageTitleSegment } from '@/lib/seo/page-title'
 import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
+import { RelatedProducts } from './related-products'
+import { ProductRelatedSkeleton } from './product-related-section'
+import { optimizeImageSrc } from '@/lib/assets/image-optimize'
+import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
@@ -66,8 +71,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (!result) notFound()
 
   const { product, reviews } = result
-  const related = await getRelatedProducts(product)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
+  const heroPreloadUrl = product.images[0]
+    ? optimizeImageSrc(sanitizeRemoteImageUrl(product.images[0]), 'gallery')
+    : null
   const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const inStock = product.variants.some((variant) => variant.stock > 0)
 
@@ -128,11 +135,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <>
+      {heroPreloadUrl ? (
+        <link rel="preload" as="image" href={heroPreloadUrl} fetchPriority="high" />
+      ) : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
-      <ProductPageClient product={product} reviews={reviews} relatedProducts={related} />
+      <ProductPageClient product={product} reviews={reviews} />
+      <Suspense fallback={<ProductRelatedSkeleton />}>
+        <RelatedProducts product={product} />
+      </Suspense>
     </>
   )
 }

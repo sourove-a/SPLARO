@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
 import { ContentService } from './content.service'
 import { LegalPagesService } from './legal-pages.service'
+import { FootwearConfigService, type FootwearPageConfig } from './footwear-config.service'
 import { LEGAL_PAGE_SLUGS, type LegalPageContent } from '@splaro/types'
 
 @Controller('admin/content')
@@ -11,6 +12,7 @@ export class ContentController {
     private readonly content: ContentService,
     private readonly prisma: PrismaService,
     private readonly legalPages: LegalPagesService,
+    private readonly footwearConfig: FootwearConfigService,
   ) {}
 
   @Get('overview')
@@ -37,6 +39,16 @@ export class ContentController {
     @Body() body: LegalPageContent,
   ) {
     return this.legalPages.upsert(storeId, slug, body)
+  }
+
+  @Get('footwear')
+  getFootwearConfig(@Query('storeId') storeId: string) {
+    return this.footwearConfig.get(storeId)
+  }
+
+  @Put('footwear')
+  upsertFootwearConfig(@Query('storeId') storeId: string, @Body() body: FootwearPageConfig) {
+    return this.footwearConfig.upsert(storeId, body)
   }
 
   // ── Blog Posts ────────────────────────────────────────────

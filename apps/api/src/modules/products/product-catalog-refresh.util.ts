@@ -8,6 +8,25 @@ export async function refreshProductCatalogAfterMutation(
   storeId: string,
 ): Promise<void> {
   void deps.search?.indexProducts(storeId)
-  await deps.cache.invalidateStoreResource(storeId, 'products')
+  await Promise.all([
+    deps.cache.invalidateStoreResource(storeId, 'products'),
+    deps.cache.invalidateStoreResource(storeId, 'product'),
+  ])
   void revalidateStorefrontWeb(['storefront-products'])
+}
+
+export async function refreshCategoryCatalogAfterMutation(
+  cache: CacheService,
+  storeId: string,
+): Promise<void> {
+  await cache.invalidateStoreResource(storeId, 'categories')
+  void revalidateStorefrontWeb(['storefront-categories'])
+}
+
+export async function refreshCollectionCatalogAfterMutation(
+  cache: CacheService,
+  storeId: string,
+): Promise<void> {
+  await cache.invalidateStoreResource(storeId, 'collections')
+  void revalidateStorefrontWeb(['storefront-collections'])
 }

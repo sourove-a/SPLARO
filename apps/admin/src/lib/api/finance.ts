@@ -145,6 +145,32 @@ export function fetchPartners() {
   return apiFetch<PartnerAccount[]>('/partners')
 }
 
+export function createPartner(body: {
+  name: string
+  slug?: string
+  email?: string
+  phone?: string
+  sharePercent: number
+  notes?: string
+  createdBy?: string
+}) {
+  return apiFetch<PartnerAccount>('/partners', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function updatePartnerShares(
+  shares: { partnerId: string; sharePercent: number }[],
+  createdBy?: string,
+) {
+  return apiFetch<PartnerAccount[]>('/partners/share-settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ shares, createdBy }),
+  })
+}
+
+/** @deprecated Use createPartner — no hardcoded seed */
 export function seedPartners(createdBy?: string) {
   return apiFetch<PartnerAccount[]>('/partners/seed', {
     method: 'POST',
@@ -321,21 +347,28 @@ export function fetchAIJobs(page = 1) {
 }
 
 export function approveTransaction(id: string, approvedBy?: string) {
-  return apiFetch<unknown>(`/partner-transactions/${id}/approve`, {
+  return apiFetch<PartnerTransactionRow>(`/partner-transactions/${id}/approve`, {
     method: 'PATCH',
     body: JSON.stringify({ approvedBy }),
   })
 }
 
+export function rejectTransaction(id: string, reason: string, rejectedBy?: string) {
+  return apiFetch<PartnerTransactionRow>(`/partner-transactions/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason, rejectedBy }),
+  })
+}
+
 export function createPartnerTransaction(body: Record<string, unknown>) {
-  return apiFetch<unknown>('/partner-transactions', {
+  return apiFetch<PartnerTransactionRow>('/partner-transactions', {
     method: 'POST',
     body: JSON.stringify(body),
   })
 }
 
 export function createExpense(body: Record<string, unknown>) {
-  return apiFetch<unknown>('/expenses', {
+  return apiFetch<ExpenseRow>('/expenses', {
     method: 'POST',
     body: JSON.stringify(body),
   })

@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { MessageCircle, Share2, Star, Filter, Send, Instagram } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
@@ -9,7 +8,9 @@ import { ModulePanelShell, STATUS_CLASS, formatBDT } from '@/components/modules/
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { cn } from '@/lib/utils/cn'
 import { useMarketingOverview, useCreateAffiliate } from '@/lib/api/hooks'
-import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
+import { BACKEND_NOT_CONNECTED_TITLE, toastApiSaved, toastFail, toastInfo } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
+import { verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { formatRelativeTime } from '@/lib/api/orders'
 
 export function WhatsAppPanelLive() {
@@ -52,7 +53,7 @@ export function WhatsAppPanelLive() {
         onQuery={setQuery}
         searchPlaceholder="Search recipient, subject..."
         createLabel="New broadcast"
-        onCreate={() => toast('Create WhatsApp campaigns in Marketing → Campaigns.', { icon: '📢' })}
+        onCreate={() => toastInfo('Create WhatsApp campaigns in Marketing → Campaigns.')}
         onRefresh={() => void refetch()}
         exportDisabled
         tableIcon={MessageCircle}
@@ -186,19 +187,27 @@ export function AffiliatePanelLive() {
   const pendingPayout = affiliates.reduce((s, a) => s + Number(a.pendingPayout), 0)
   const totalEarned = affiliates.reduce((s, a) => s + Number(a.totalEarned), 0)
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = window.prompt('Partner name')
     if (!name?.trim()) return
     const code = window.prompt('Referral code (e.g. STYLE15)')
     if (!code?.trim()) return
     const email = window.prompt('Email (optional)') ?? undefined
-    createAffiliate.mutate(
-      { name: name.trim(), code: code.trim(), ...(email?.trim() ? { email: email.trim() } : {}) },
-      {
-        onSuccess: () => toast.success('Affiliate partner created.'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    const trimmedName = name.trim()
+    const trimmedCode = code.trim()
+    try {
+      const row = await createAffiliate.mutateAsync({
+        name: trimmedName,
+        code: trimmedCode,
+        ...(email?.trim() ? { email: email.trim() } : {}),
+      }) as { name?: string; code?: string }
+      if (!verifyStringEquals(row.name, trimmedName, 'Affiliate name')) return
+      if (!verifyStringEquals(row.code, trimmedCode, 'Affiliate code')) return
+      toastApiSaved('Affiliate partner')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create affiliate partner')
+    }
   }
 
   if (isError) return <ApiOfflineBanner message="Marketing API offline." />
@@ -252,8 +261,7 @@ export function AffiliatePanelLive() {
                   <button
                     type="button"
                     onClick={() => {
-                      void navigator.clipboard?.writeText(a.code)
-                      toast.success('Code copied.')
+                      void copyWithToast(a.code, 'Code copied')
                     }}
                     className="font-mono text-xs font-black hover:text-[#5E7CFF]"
                   >
@@ -360,7 +368,7 @@ export function InfluencersPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search influencer, campaign..."
       createLabel="Add influencer"
-      onCreate={() => toast('Add influencers as affiliate partners with social codes.', { icon: '⭐' })}
+      onCreate={() => toastInfo('Add influencers as affiliate partners with social codes.')}
       onRefresh={() => void refetch()}
       exportDisabled
       tabs={tabs.map((t) => ({

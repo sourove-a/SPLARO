@@ -23,7 +23,8 @@
     "db:reset": "prisma migrate reset"
   },
   "dependencies": {
-    "@prisma/client": "^5.16.0"
+    "@prisma/client": "^5.16.0",
+    "@splaro/config": "workspace:*"
   },
   "devDependencies": {
     "prisma": "^5.16.0",

@@ -1,21 +1,37 @@
 'use client'
 
 import Link from 'next/link'
-import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion'
+import { motion, useReducedMotion, type HTMLMotionProps } from '@/lib/motion/react'
 import { forwardRef, type ComponentProps } from 'react'
-import { SPRING } from '@/lib/motion/variants'
+import { MICRO } from '@/lib/motion/config'
 
 export type MotionPressableVariant = 'cta' | 'icon' | 'chip' | 'nav' | 'subtle'
 
+/** Soft press only — opacity flash, no scale jump on click */
 const VARIANT_MOTION: Record<
   MotionPressableVariant,
   Pick<HTMLMotionProps<'button'>, 'whileHover' | 'whileTap'>
 > = {
-  cta: { whileHover: { y: -1 }, whileTap: { scale: 0.985 } },
-  icon: { whileHover: { scale: 1.05, y: -1 }, whileTap: { scale: 0.93 } },
-  chip: { whileHover: { scale: 1.03 }, whileTap: { scale: 0.96 } },
-  nav: { whileHover: { scale: 1.06 }, whileTap: { scale: 0.9 } },
-  subtle: { whileHover: { y: -1 }, whileTap: { scale: 0.98 } },
+  cta: {
+    whileHover: { opacity: 0.92 },
+    whileTap: { opacity: 0.88 },
+  },
+  icon: {
+    whileHover: { opacity: 0.88 },
+    whileTap: { opacity: 0.82 },
+  },
+  chip: {
+    whileHover: { opacity: 0.92 },
+    whileTap: { opacity: 0.88 },
+  },
+  nav: {
+    whileHover: { opacity: 0.88 },
+    whileTap: { opacity: 0.82 },
+  },
+  subtle: {
+    whileHover: { opacity: 0.9 },
+    whileTap: { opacity: 0.85 },
+  },
 }
 
 type MotionPressableProps = HTMLMotionProps<'button'> & {
@@ -35,7 +51,8 @@ export const MotionPressable = forwardRef<HTMLButtonElement, MotionPressableProp
         ref={ref}
         type="button"
         disabled={disabled}
-        transition={transition ?? SPRING}
+        data-no-press=""
+        transition={transition ?? MICRO}
         {...preset}
         {...props}
       >
@@ -60,7 +77,7 @@ export const MotionLink = forwardRef<HTMLAnchorElement, MotionLinkProps>(functio
     <Link ref={ref} className={className} {...props}>
       <motion.span
         className="inline-flex items-center gap-[inherit]"
-        transition={SPRING}
+        transition={MICRO}
         {...preset}
       >
         {children}
@@ -81,7 +98,7 @@ export const MotionAnchor = forwardRef<HTMLAnchorElement, MotionAnchorProps>(fun
   const preset = reducedMotion ? {} : VARIANT_MOTION[variant]
 
   return (
-    <motion.a ref={ref} transition={transition ?? SPRING} {...preset} {...props}>
+    <motion.a ref={ref} transition={transition ?? MICRO} {...preset} {...props}>
       {children}
     </motion.a>
   )

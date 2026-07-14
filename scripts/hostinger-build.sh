@@ -156,7 +156,10 @@ if [ "${SPLARO_BUILD_ADMIN:-0}" = "1" ]; then
   log "Building admin…"
   ADMIN_TS="$ROOT/apps/admin/next.config.ts"
   ADMIN_TS_BAK="$ROOT/apps/admin/next.config.ts.hostinger-bak"
-  [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ADMIN_TS" ] && mv "$ADMIN_TS" "$ADMIN_TS_BAK"
+  [ -f "$ROOT/apps/admin/next.config.hostinger.mjs" ] && [ -f "$ADMIN_TS" ] && {
+    mv "$ADMIN_TS" "$ADMIN_TS_BAK"
+    cp "$ROOT/apps/admin/next.config.hostinger.mjs" "$ROOT/apps/admin/next.config.mjs"
+  }
   rm -rf "$ROOT/apps/admin/.next"
   (cd "$ROOT/apps/admin" && NEXT_DISABLE_TURBOPACK=1 $LEAN node "$NEXT_BIN" build) || { log "ERROR: admin build failed"; exit 1; }
   [ -f "$ADMIN_TS_BAK" ] && mv "$ADMIN_TS_BAK" "$ADMIN_TS"

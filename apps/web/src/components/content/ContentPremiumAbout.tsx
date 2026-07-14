@@ -15,7 +15,7 @@ import {
   Sunrise,
   type LucideIcon,
 } from 'lucide-react'
-import { motion, useInView, useReducedMotion } from 'framer-motion'
+import { motion, useInView, useReducedMotion } from '@/lib/motion/react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
 import { splitLegalLines } from '@/components/content/split-legal-lines'

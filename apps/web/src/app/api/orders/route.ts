@@ -7,11 +7,11 @@ import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
 import type { StoredOrderItem } from '@/lib/server/store'
 import {
-  DELIVERY_FEE_BDT,
   DIGITAL_PAYMENT_DISCOUNT_RATE,
 } from '@/lib/utils/currency'
 import { isDigitalPayment, type PaymentMethod } from '@/lib/checkout/payments'
 import { isBdDistrict } from '@/lib/checkout/bd-districts'
+import { computeDeliveryFeeBdt } from '@/lib/checkout/shipping'
 import { getBdPhoneError, normalizeBdPhone } from '@/lib/checkout/phone'
 import type { StoredOrder as ClientStoredOrder } from '@/lib/orders'
 import type { StoredOrder as ServerStoredOrder } from '@/lib/server/store'
@@ -107,6 +107,22 @@ export async function POST(request: Request) {
     )
   }
 
+  // Signup / sign-in required — guest checkout is disabled.
+  const sessionToken = await getSessionToken()
+  if (!sessionToken) {
+    return NextResponse.json(
+      { error: 'Create an account or sign in to place an order' },
+      { status: 401 },
+    )
+  }
+  const sessionUser = await apiAuthMe(sessionToken)
+  if (!sessionUser) {
+    return NextResponse.json(
+      { error: 'Create an account or sign in to place an order' },
+      { status: 401 },
+    )
+  }
+
   let body: CreateOrderBody
   try {
     body = (await request.json()) as CreateOrderBody
@@ -157,28 +173,28 @@ export async function POST(request: Request) {
     items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   const settings = await getStorefrontSettings()
-  const freeThreshold = settings.shipping.freeDeliveryThreshold
-
-  let delivery =
-    body.delivery ??
-    (subtotal === 0 || (freeThreshold > 0 && subtotal >= freeThreshold) ? 0 : DELIVERY_FEE_BDT)
 
   let couponDiscount = 0
+  let couponFreeShipping = false
   if (body.couponCode) {
     const coupon = await validateCoupon(body.couponCode, subtotal)
     if (!coupon.valid) {
       return NextResponse.json({ error: coupon.message }, { status: 400 })
     }
     couponDiscount = coupon.discount
-    if (coupon.freeShipping) delivery = 0
+    couponFreeShipping = Boolean(coupon.freeShipping)
   }
+
+  const delivery = computeDeliveryFeeBdt(subtotal, normalizedCustomer.city, settings.shipping, {
+    freeShipping: couponFreeShipping,
+  })
 
   const digitalDiscount = isDigitalPayment(paymentMethod)
     ? Math.round(subtotal * DIGITAL_PAYMENT_DISCOUNT_RATE)
     : 0
 
   const discount = body.discount ?? digitalDiscount + couponDiscount
-  const total = body.total ?? Math.max(0, Math.round(subtotal + delivery - discount))
+  const total = Math.max(0, Math.round(subtotal + delivery - discount))
 
   const clientIp = getClientKey(request, 'ip').split(':').slice(1).join(':')
   const userAgent = request.headers.get('user-agent') ?? undefined
@@ -186,9 +202,9 @@ export async function POST(request: Request) {
   try {
     const order = await createOrderViaApi({
       customer: {
-        name: normalizedCustomer.name,
-        email: normalizedCustomer.email,
-        phone: normalizedCustomer.phone,
+        name: normalizedCustomer.name || sessionUser.name,
+        email: normalizedCustomer.email || sessionUser.email,
+        phone: normalizedCustomer.phone || sessionUser.phone,
         address: normalizedCustomer.address,
         city: normalizedCustomer.city,
       },
@@ -202,6 +218,7 @@ export async function POST(request: Request) {
       ...(body.attribution ? { attribution: body.attribution } : {}),
       ...(clientIp !== 'local' ? { clientIp } : {}),
       ...(userAgent ? { userAgent } : {}),
+      sessionToken,
     })
 
     if (!order) {
@@ -220,7 +237,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: isApiDown
-          ? 'Order service is offline. Start the API (pnpm dev:api) and try again.'
+          ? 'Orders are temporarily unavailable. Please try again in a moment.'
           : message,
       },
       { status: isApiDown ? 503 : 400 },

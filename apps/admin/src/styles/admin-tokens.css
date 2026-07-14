@@ -3,6 +3,7 @@
 
 :root {
   --admin-brand-gold: #16181d;
+  --admin-brand-gold-rgb: 22 24 29;
   --admin-brand-gold-strong: #040507;
   --admin-brand-gold-muted: rgba(16, 17, 20, 0.06);
   --admin-brand-gold-border: rgba(16, 17, 20, 0.22);
@@ -13,6 +14,7 @@
 
 .dark {
   --admin-brand-gold: #ffffff;
+  --admin-brand-gold-rgb: 255 255 255;
   --admin-brand-gold-strong: #d9dce2;
   --admin-brand-gold-muted: rgba(255, 255, 255, 0.08);
   --admin-brand-gold-border: rgba(255, 255, 255, 0.24);
@@ -111,11 +113,24 @@
   gap: 0.8rem;
 }
 
+/* White liquid glass selection — ring + black text, never solid black fill. */
 .admin-module-page .product-form-tabs__tab--active,
 .admin-module-page .product-size-chip--active {
-  background: linear-gradient(135deg, var(--admin-brand-gold), var(--admin-brand-gold-strong));
-  color: var(--admin-brand-gold-contrast);
-  border-color: var(--admin-brand-gold-border);
+  background: rgba(255, 255, 255, 0.94);
+  color: #101114;
+  border: 1px solid rgba(16, 17, 20, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 0 2px rgba(16, 17, 20, 0.07),
+    0 8px 22px rgba(16, 17, 20, 0.06);
+}
+
+.dark .admin-module-page .product-form-tabs__tab--active,
+.dark .admin-module-page .product-size-chip--active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f4f4f5;
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
 
 /* ── Unified connection UI (chips, strips, cards, header pill) ── */

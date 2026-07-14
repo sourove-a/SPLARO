@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff, Save, RotateCcw, ExternalLink, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { toastFail, toastWarn } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { deepEqual } from '@/lib/admin/settings-save'
+import { fetchFootwearConfig, saveFootwearConfig } from '@/lib/api/footwear-config'
 import { revalidateWebCache } from '@/lib/api/revalidate'
 import { cn } from '@/lib/utils/cn'
 
@@ -50,7 +52,6 @@ interface FootwearConfig {
 }
 
 const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
-const API_URL = '/api/footwear-config'
 
 function ToggleSwitch({
   checked,
@@ -162,13 +163,9 @@ export function FootwearPagePanel() {
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
-    fetch(API_URL)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
+    fetchFootwearConfig()
       .then((data) => {
-        setConfig(data)
+        setConfig(data as unknown as FootwearConfig)
         setLoading(false)
       })
       .catch(() => {
@@ -186,15 +183,13 @@ export function FootwearPagePanel() {
     if (!config) return
     setSaving(true)
     try {
-      const res = await fetch(API_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      })
-      const payload = (await res.json()) as { ok?: boolean; error?: string }
-      if (!res.ok || !payload.ok) throw new Error(payload.error ?? 'Save failed')
+      const saved = await saveFootwearConfig(config as unknown as Record<string, unknown>)
+      if (!deepEqual(saved, config)) {
+        toastFail('Save failed verification — server response mismatch.')
+        return
+      }
       await revalidateWebCache(['storefront-settings'])
-      toastWarn('Footwear page saved to local config file — refresh storefront to preview.')
+      toastApiSaved('Footwear page')
       setDirty(false)
     } catch {
       toastFail('Footwear save failed')
@@ -205,11 +200,14 @@ export function FootwearPagePanel() {
 
   function reset() {
     setLoading(true)
-    fetch(API_URL)
-      .then((r) => r.json())
+    fetchFootwearConfig()
       .then((data) => {
-        setConfig(data)
+        setConfig(data as unknown as FootwearConfig)
         setDirty(false)
+        setLoading(false)
+      })
+      .catch(() => {
+        toastFail('Failed to reload footwear config')
         setLoading(false)
       })
   }
@@ -227,7 +225,7 @@ export function FootwearPagePanel() {
   return (
     <div className="footwear-panel">
       <p className="footwear-panel__notice">
-        Local config file — saves to storefront JSON, not NestJS API. Use for dev/content edits; deploy or restart web to go live.
+        Saves to database via Nest API — changes appear on the storefront after cache revalidation.
       </p>
 
       <div className="footwear-panel__toolbar">

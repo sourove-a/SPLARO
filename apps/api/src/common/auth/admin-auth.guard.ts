@@ -14,15 +14,19 @@ import {
   verifyAdminSessionToken,
   type AdminSessionPayload,
 } from './admin-session.util'
+import { AdminSessionResolver } from './admin-session.resolver'
 import { staffHasPermission } from '../../modules/security/security-permissions.util'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
 @Injectable()
 export class AdminAuthGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly sessionResolver: AdminSessionResolver,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -82,12 +86,17 @@ export class AdminAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired admin session')
     }
 
+    const liveSession = await this.sessionResolver.resolveLiveSession(session)
+    if (!liveSession) {
+      throw new UnauthorizedException('Admin account inactive or access revoked')
+    }
+
     const routePermission = resolveRoutePermission(rawPath, method)
     if (
       routePermission &&
       !staffHasPermission(
-        session.role,
-        session.permissions,
+        liveSession.role,
+        liveSession.permissions,
         routePermission.moduleSlug,
         routePermission.action,
       )
@@ -95,7 +104,7 @@ export class AdminAuthGuard implements CanActivate {
       throw new ForbiddenException('Insufficient permissions for this action')
     }
 
-    request.adminUser = session
+    request.adminUser = liveSession
     return true
   }
 }

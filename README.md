@@ -977,7 +977,7 @@ SPLARO production today is a **single store** (`splaro.co`). The schema can hold
 - Store-owner sub-dashboard
 - Custom domain per store
 
-Keep `FEATURE_SAAS_ENABLED=false` and `FEATURE_VENDOR_ENABLED=false` until vendor features ship.
+Keep `FEATURE_SAAS_ENABLED=false`, `FEATURE_VENDOR_ENABLED=false`, and `FEATURE_LOYALTY_ENABLED=false` until those products ship. Flags are enforced in code (`packages/config` → API `@RequireFeature` + admin nav/UI via `GET /api/v1/features`) — not docs-only.
 
 ---
 
@@ -1365,8 +1365,8 @@ See full list in [`.env.example`](.env.example).
 DATABASE_URL=postgresql://splaro:PASSWORD@localhost:5432/splaro_db
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-256-bit-secret
-NEXT_PUBLIC_SITE_URL=https://splaro.com.bd
-NEXT_PUBLIC_API_URL=https://api.splaro.com.bd
+NEXT_PUBLIC_SITE_URL=https://splaro.co
+NEXT_PUBLIC_API_URL=https://api.splaro.co
 
 # Payments
 BKASH_APP_KEY=
@@ -1418,11 +1418,18 @@ GOOGLE_SHEETS_INVENTORY_ID=
 
 ## Deployment
 
-> **Production deploy (current): see [HOSTINGER_DEPLOY.md](HOSTINGER_DEPLOY.md)** — GitHub → hPanel Git deploy (Node 20, `npm run build` / `npm start`).
+> **Production deploy:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Hostinger KVM VPS (Ubuntu, Nginx, PM2, Let's Encrypt).  
+> **Bangla quick start:** [docs/VPS-GO-LIVE-BN.md](docs/VPS-GO-LIVE-BN.md)  
 > Before pushing `main`: `pnpm check:web && pnpm check:admin && pnpm check:api && pnpm validate:production-env`.
-> The VPS instructions below are kept as a secondary path only.
 
-### Hostinger VPS Setup (secondary)
+### VPS go-live (from Mac)
+
+```bash
+pnpm prep:vps          # local checks + optional build
+bash infrastructure/vps/go-live.sh   # on the VPS after clone
+```
+
+### Hostinger VPS setup
 
 ```bash
 # 1. SSH into your VPS

@@ -3,7 +3,11 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toastOk, toastFail, toastInfo } from '@/lib/admin/feedback'
+import {
+  confirmBannerDeleted,
+  confirmBannerSaved,
+} from '@/lib/admin/catalog-save'
 import { ExternalLink, Image as ImageIcon, Pencil, RefreshCw, SlidersHorizontal, Upload } from 'lucide-react'
 import { HERO_DEFAULT_SLIDES, SPLARO_DOMAINS } from '@splaro/config'
 import { AdminButton } from '@/components/ui/AdminButton'
@@ -106,12 +110,12 @@ function HeroSliderPanel() {
     void importLiveSlides()
       .then(() => {
         if (typeof window !== 'undefined') sessionStorage.setItem(storageKey, '1')
-        toast.success('Live homepage slides loaded — এখন edit করতে পারবেন')
+        toastOk('Live homepage slides loaded — এখন edit করতে পারবেন')
       })
       .catch((e) => {
         autoImportRef.current = false
         if (typeof window !== 'undefined') sessionStorage.removeItem(storageKey)
-        toast.error(e instanceof Error ? e.message : 'Could not load live slides')
+        toastFail(e instanceof Error ? e.message : 'Could not load live slides')
       })
       .finally(() => setImporting(false))
   }, [isLoading, isError, banners.length, importLiveSlides])
@@ -155,46 +159,46 @@ function HeroSliderPanel() {
     })
   }
 
-  const handleSaveSlide = (values: HeroSlideFormValues) => {
+  const handleSaveSlide = async (values: HeroSlideFormValues) => {
     if (editor?.mode === 'edit' && editor.slideId) {
-      updateBanner.mutate(
-        {
-          id: editor.slideId,
-          title: values.title,
-          subtitle: values.subtitle,
-          linkUrl: values.linkUrl,
-          image: values.image,
-        },
-        {
-          onSuccess: () => {
-            toast.success('Slide updated')
-            setEditor(null)
-            void refetch()
-          },
-          onError: (e) => toast.error(e.message),
-        },
+      const ok = await confirmBannerSaved(
+        editor.slideId,
+        { title: values.title, image: values.image },
+        () =>
+          updateBanner.mutateAsync({
+            id: editor.slideId!,
+            title: values.title,
+            subtitle: values.subtitle,
+            linkUrl: values.linkUrl,
+            image: values.image,
+          }),
+        'Slide',
       )
+      if (ok) {
+        setEditor(null)
+        void refetch()
+      }
       return
     }
 
-    createBanner.mutate(
-      {
-        image: values.image,
-        title: values.title,
-        subtitle: values.subtitle,
-        linkUrl: values.linkUrl,
-        position: 'hero',
-        isActive: true,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Hero slide added')
-          setEditor(null)
-          void refetch()
-        },
-        onError: (e) => toast.error(e.message),
-      },
+    const ok = await confirmBannerSaved(
+      null,
+      { title: values.title, isActive: true, image: values.image },
+      () =>
+        createBanner.mutateAsync({
+          image: values.image,
+          title: values.title,
+          subtitle: values.subtitle,
+          linkUrl: values.linkUrl,
+          position: 'hero',
+          isActive: true,
+        }),
+      'Hero slide',
     )
+    if (ok) {
+      setEditor(null)
+      void refetch()
+    }
   }
 
   const handleImportDefaults = async () => {
@@ -203,9 +207,9 @@ function HeroSliderPanel() {
     try {
       await importLiveSlides()
       if (typeof window !== 'undefined') sessionStorage.setItem('splaro-hero-slides-seeded', '1')
-      toast.success('Live slides imported — edit below')
+      toastInfo('Live slides imported — edit below')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Import failed')
+      toastFail(e instanceof Error ? e.message : 'Import failed')
     } finally {
       setImporting(false)
     }
@@ -219,13 +223,16 @@ function HeroSliderPanel() {
     {
       label: slide.isActive ? 'Hide from homepage' : 'Publish on homepage',
       onClick: () => {
-        updateBanner.mutate(
-          { id: slide.id, isActive: !slide.isActive },
-          {
-            onSuccess: () => { toast.success(slide.isActive ? 'Slide hidden' : 'Slide is live'); void refetch() },
-            onError: (e) => toast.error(e.message),
-          },
-        )
+        void (async () => {
+          const next = !slide.isActive
+          const ok = await confirmBannerSaved(
+            slide.id,
+            { isActive: next },
+            () => updateBanner.mutateAsync({ id: slide.id, isActive: next }),
+            slide.isActive ? 'Slide hidden' : 'Slide live',
+          )
+          if (ok) void refetch()
+        })()
       },
     },
     {
@@ -233,10 +240,10 @@ function HeroSliderPanel() {
       tone: 'danger' as const,
       onClick: () => {
         if (!window.confirm(`Delete "${slide.title}"?`)) return
-        deleteBanner.mutate(slide.id, {
-          onSuccess: () => { toast.success('Slide deleted'); void refetch() },
-          onError: (e) => toast.error(e.message),
-        })
+        void (async () => {
+          const ok = await confirmBannerDeleted(slide.id, () => deleteBanner.mutateAsync(slide.id))
+          if (ok) void refetch()
+        })()
       },
     },
   ]

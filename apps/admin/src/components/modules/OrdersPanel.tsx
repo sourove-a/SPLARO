@@ -6,10 +6,12 @@ import {
   toastOk,
   toastFail,
   toastWarn,
-  toastCourierResult,
   toastBulkOpResult,
   refreshWithToast,
+  toastApiSaved,
 } from '@/lib/admin/feedback'
+import { verifyDeleteSuccess, verifyOrderStatus, verifyCodRisk } from '@/lib/admin/mutation-verify'
+import { confirmCourierBookingSaved, toastBulkCourierHonesty } from '@/lib/admin/courier-save'
 import {
   Search,
   Plus,
@@ -31,8 +33,9 @@ import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import { downloadInvoice, exportTableFromContainer } from '@/lib/admin/admin-actions'
-import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder, usePermission } from '@/lib/api/hooks'
-import { mapPaymentMethod, type ApiOrder } from '@/lib/api/orders'
+import { useOrders, useUpdateOrderStatus, useBookCourier, useBookCourierBulk, useBulkUpdateOrderStatus, useDeleteOrder, usePermission, useSetOrderCodRisk } from '@/lib/api/hooks'
+import { useInfrastructureConfig } from '@/lib/api/integration-hooks'
+import { mapPaymentMethod, fetchOrder, type ApiOrder } from '@/lib/api/orders'
 import { displayOrderCode } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
@@ -100,14 +103,25 @@ const PIPELINE: { key: OrderStatus | 'all'; label: string; count: (rows: OrderRo
   { key: 'delivered', label: 'Delivered', count: (r) => r.filter((o) => o.status === 'delivered').length },
 ]
 
+const SHIPPED_API_STATUSES =
+  'SHIPPED,COURIER_BOOKED,PICKED_UP,IN_TRANSIT,OUT_FOR_DELIVERY'
+
 const ORDER_API_STATUS: Partial<Record<OrderStatus, string>> = {
   pending: 'PENDING',
   confirmed: 'CONFIRMED',
   processing: 'PROCESSING',
   packed: 'PACKED',
-  shipped: 'SHIPPED',
+  shipped: SHIPPED_API_STATUSES,
   delivered: 'DELIVERED',
   cancelled: 'CANCELLED',
+}
+
+function formatPaymentCell(order: OrderRow): string {
+  const method = order.payment
+  const raw = order.paymentStatus?.trim()
+  if (!raw) return method
+  const status = raw.replace(/_/g, ' ').toUpperCase()
+  return `${method} · ${status}`
 }
 
 function formatBDT(n: number) {
@@ -198,24 +212,41 @@ export function OrdersPanel() {
 
   const { data: apiOrders, isLoading, isError, error, refetch } = useOrders(orderQuery)
   const apiOffline = isError && isNetworkOrServerError(error)
+  const { data: steadfast } = useInfrastructureConfig('steadfast')
+  const courierReady = Boolean(steadfast?.configured)
   const updateStatus = useUpdateOrderStatus()
   const bookCourier = useBookCourier()
   const bookCourierBulk = useBookCourierBulk()
   const bulkStatus = useBulkUpdateOrderStatus()
   const deleteOrderMutation = useDeleteOrder()
+  const setCodRisk = useSetOrderCodRisk()
   const canDeleteOrders = usePermission('orders', 'delete')
   const canEditOrders = usePermission('orders', 'edit')
-  const handleDeleteOrder = (order: OrderRow) => {
+  const handleDeleteOrder = async (order: OrderRow) => {
     const id = order.linkId ?? order.id
     if (!window.confirm(`Permanently delete order ${order.id}? Database record and items will be removed.`)) return
-    deleteOrderMutation.mutate(id, {
-      onSuccess: () => {
-        toastOk(`Order ${order.id} deleted permanently.`)
-        void refetch()
-        setPreviewOrder((prev) => (prev?.id === order.id ? null : prev))
-      },
-      onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not delete order.'),
-    })
+    try {
+      const result = await deleteOrderMutation.mutateAsync(id)
+      if (!verifyDeleteSuccess(result)) return
+      toastApiSaved(`Order ${order.id}`)
+      void refetch()
+      setPreviewOrder((prev) => (prev?.id === order.id ? null : prev))
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not delete order.')
+    }
+  }
+
+  const handleCodRiskToggle = async (order: OrderRow) => {
+    const id = order.linkId ?? order.id
+    const next = !order.codRisk
+    try {
+      const saved = await setCodRisk.mutateAsync({ id, isCodRisk: next })
+      if (!verifyCodRisk(saved, next)) return
+      toastApiSaved(`Order ${order.id} COD risk`)
+      void refetch()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not update COD risk flag.')
+    }
   }
 
   const orderRowActions = (order: OrderRow) => [
@@ -223,6 +254,14 @@ export function OrdersPanel() {
       label: 'View details',
       onClick: () => navigate(`/dashboard/orders/${order.linkId ?? order.id}`),
     },
+    ...(canEditOrders && order.payment === 'COD'
+      ? [
+          {
+            label: order.codRisk ? 'Clear COD risk flag' : 'Flag COD risk',
+            onClick: () => void handleCodRiskToggle(order),
+          },
+        ]
+      : []),
     ...(canDeleteOrders
       ? [
           {
@@ -250,33 +289,68 @@ export function OrdersPanel() {
     if (fresh) setPreviewOrder(fresh)
   }, [sourceOrders, previewOrderId])
 
-  const handleStatusChange = (order: OrderRow, apiStatus: string, label: string) => {
+  const handleStatusChange = async (order: OrderRow, apiStatus: string, label: string) => {
     const id = order.linkId ?? order.id
-    updateStatus.mutate(
-      { id, status: apiStatus, note: `Set to ${label} from orders list` },
-      {
-        onSuccess: () => toastOk(`${order.id} → ${label}.`),
-        onError: () => toastFail('Could not update order status.'),
-      },
-    )
+    try {
+      const saved = await updateStatus.mutateAsync({
+        id,
+        status: apiStatus,
+        note: `Set to ${label} from orders list`,
+      })
+      if (!verifyOrderStatus(saved, apiStatus)) return
+      toastApiSaved(`Order ${order.id} → ${label}`)
+      void refetch()
+    } catch {
+      toastFail('Could not update order status.')
+    }
   }
 
-  const handleCancel = (order: OrderRow) => {
+  const handleCancel = async (order: OrderRow) => {
     const id = order.linkId ?? order.id
     if (!window.confirm(`Cancel order ${order.id}?`)) return
-    updateStatus.mutate(
-      { id, status: 'CANCELLED', note: 'Cancelled from admin panel' },
-      {
-        onSuccess: () => toastOk(`${order.id} cancelled.`),
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not cancel order.'),
-      },
-    )
+    try {
+      const saved = await updateStatus.mutateAsync({
+        id,
+        status: 'CANCELLED',
+        note: 'Cancelled from admin panel',
+      })
+      if (!verifyOrderStatus(saved, 'CANCELLED')) return
+      toastApiSaved(`Order ${order.id} cancellation`)
+      void refetch()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not cancel order.')
+    }
   }
 
-  const handleBulkProcessing = () => {
+  const verifyBulkStatusPersisted = async (
+    targets: OrderRow[],
+    status: string,
+    res: { updated: number; failed: number },
+  ): Promise<boolean> => {
+    if (res.updated === 0 && targets.length > 0) {
+      toastFail('Bulk update did not persist on server')
+      return false
+    }
+    const sample = targets.find((o) => o.linkId)
+    if (res.updated > 0 && sample?.linkId) {
+      try {
+        const fresh = await fetchOrder(sample.linkId)
+        if (fresh.status !== status) {
+          toastFail('Bulk update did not persist on server — refresh and retry')
+          return false
+        }
+      } catch {
+        toastFail('Bulk update saved but could not verify — refresh orders list')
+        return false
+      }
+    }
+    return true
+  }
+
+  const handleBulkProcessing = async () => {
     const targets = filtered.filter((o) => selected.has(o.id) && o.linkId)
     if (!targets.length) return
-    Promise.all(
+    const results = await Promise.allSettled(
       targets.map((order) =>
         updateStatus.mutateAsync({
           id: order.linkId!,
@@ -285,111 +359,137 @@ export function OrdersPanel() {
         }),
       ),
     )
-      .then(() => {
-        toastOk(`${targets.length} orders marked processing.`)
-        setSelected(new Set())
-      })
-      .catch(() => toastFail('Some orders could not be updated.'))
+    let ok = 0
+    let fail = 0
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        const status =
+          result.value && typeof result.value === 'object' && 'status' in result.value
+            ? String((result.value as { status: unknown }).status)
+            : ''
+        if (status === 'PROCESSING') ok += 1
+        else fail += 1
+      } else {
+        fail += 1
+      }
+    }
+    toastBulkOpResult(
+      { updated: ok, failed: fail },
+      {
+        ok: (n) => `${n} orders marked processing.`,
+        partial: (succeeded, failed) => `Processing: ${succeeded} updated, ${failed} failed.`,
+        fail: 'Could not mark orders as processing.',
+      },
+    )
+    if (ok > 0) setSelected(new Set())
+    void refetch()
   }
 
-  const handleBulkCancel = () => {
+  const handleBulkCancel = async () => {
     const targets = filtered.filter((o) => selected.has(o.id) && o.linkId)
     if (!targets.length) return
     if (!window.confirm(`Cancel ${targets.length} selected order(s)?`)) return
-    bulkStatus.mutate(
-      {
+    try {
+      const res = await bulkStatus.mutateAsync({
         orderIds: targets.map((o) => o.linkId!),
         status: 'CANCELLED',
         note: 'Bulk cancelled from admin',
-      },
-      {
-        onSuccess: (res) => {
-          toastBulkOpResult(res, {
-            ok: (n) => `${n} order(s) cancelled.`,
-            partial: (ok, fail) => `${ok} cancelled, ${fail} failed.`,
-            fail: 'Bulk cancel failed.',
-          })
-          setSelected(new Set())
-          void refetch()
-        },
-        onError: () => toastFail('Bulk cancel failed.'),
-      },
-    )
+      })
+      if (!(await verifyBulkStatusPersisted(targets, 'CANCELLED', res))) return
+      toastBulkOpResult(res, {
+        ok: (n) => `${n} order(s) cancelled.`,
+        partial: (ok, fail) => `${ok} cancelled, ${fail} failed.`,
+        fail: 'Bulk cancel failed.',
+      })
+      setSelected(new Set())
+      void refetch()
+    } catch {
+      toastFail('Bulk cancel failed.')
+    }
   }
 
-  const handleBulkPacked = () => {
+  const handleBulkPacked = async () => {
     const targets = filtered.filter((o) => selected.has(o.id) && o.linkId)
     if (!targets.length) return
-    bulkStatus.mutate(
-      { orderIds: targets.map((o) => o.linkId!), status: 'PACKED', note: 'Bulk packed from admin' },
-      {
-        onSuccess: (res) => {
-          toastBulkOpResult(res, {
-            ok: (n) => `${n} order(s) marked packed.`,
-            partial: (ok, fail) => `${ok} packed, ${fail} failed.`,
-            fail: 'Bulk update failed.',
-          })
-          setSelected(new Set())
-          void refetch()
-        },
-        onError: () => toastFail('Bulk update failed.'),
-      },
-    )
+    try {
+      const res = await bulkStatus.mutateAsync({
+        orderIds: targets.map((o) => o.linkId!),
+        status: 'PACKED',
+        note: 'Bulk packed from admin',
+      })
+      if (!(await verifyBulkStatusPersisted(targets, 'PACKED', res))) return
+      toastBulkOpResult(res, {
+        ok: (n) => `${n} order(s) marked packed.`,
+        partial: (ok, fail) => `${ok} packed, ${fail} failed.`,
+        fail: 'Bulk update failed.',
+      })
+      setSelected(new Set())
+      void refetch()
+    } catch {
+      toastFail('Bulk update failed.')
+    }
   }
 
-  const handleBookCourier = (order: OrderRow) => {
+  const handleBookCourier = async (order: OrderRow) => {
     const id = order.linkId
     if (!id) return
-    bookCourier.mutate(
-      { id },
-      {
-        onSuccess: (res) => {
-          toastCourierResult(res, order.id)
-          if (res.success && !res.simulated && res.consignmentId && !res.consignmentId.startsWith('DEV-')) {
-            void refetch()
-          }
-        },
-        onError: () => toastFail('Could not book courier — is the API running?'),
-      },
-    )
+    if (!courierReady) {
+      toastWarn('Steadfast not configured — save keys in Settings → Infrastructure.', 'courier-ready')
+      return
+    }
+    try {
+      const res = await bookCourier.mutateAsync({ id })
+      const ok = await confirmCourierBookingSaved(res, id, order.id)
+      if (ok) void refetch()
+    } catch {
+      toastFail('Could not book courier — is the API running?')
+    }
   }
 
-  const handleBulkCourier = () => {
+  const handleBulkCourier = async () => {
     const targets = filtered.filter((o) => selected.has(o.id) && o.linkId && o.courier === '—')
     if (!targets.length) {
       toastFail('Select orders without courier assigned.')
       return
     }
-    bookCourierBulk.mutate(
-      { orderIds: targets.map((o) => o.linkId!) },
-      {
-        onSuccess: (res) => {
-          toastBulkOpResult(res, {
-            ok: (n) => `Courier booked for ${n} order(s).`,
-            partial: (ok, fail) => `Courier: ${ok} booked, ${fail} failed.`,
-            fail: 'Courier booking failed — Steadfast not connected or invalid keys.',
-          })
-          if (res.booked > 0) setSelected(new Set())
-          void refetch()
-        },
-        onError: () => toastFail('Bulk courier booking failed — check API connection.'),
-      },
-    )
+    if (!courierReady) {
+      toastWarn('Steadfast not configured — save keys in Settings → Infrastructure.', 'courier-ready-bulk')
+      return
+    }
+    try {
+      const res = await bookCourierBulk.mutateAsync({ orderIds: targets.map((o) => o.linkId!) })
+      const { realBooked } = await toastBulkCourierHonesty(res)
+      if (realBooked > 0) setSelected(new Set())
+      void refetch()
+    } catch {
+      toastFail('Bulk courier booking failed — check API connection.')
+    }
   }
 
-  const handlePrintLabels = () => {
+  const handlePrintLabels = async () => {
     const targets = filtered.filter((o) => selected.has(o.id) && o.linkId)
     if (!targets.length) {
       toastFail('Select orders to print.')
       return
     }
-    for (const order of targets.slice(0, 10)) {
-      downloadInvoice(order.linkId!)
+    const batch = targets.slice(0, 10)
+    let opened = 0
+    let failed = 0
+    for (const order of batch) {
+      const ok = await downloadInvoice(order.id || order.linkId!)
+      if (ok) opened += 1
+      else failed += 1
     }
     if (targets.length > 10) {
-      toastWarn(`Opened 10 invoices — ${targets.length - 10} more not opened.`)
+      toastWarn(`Opened ${opened} of ${batch.length} invoices — ${targets.length - 10} more not opened.`)
+      return
+    }
+    if (opened > 0 && failed === 0) {
+      toastOk(`Opened ${opened} invoice(s) for printing.`)
+    } else if (opened > 0) {
+      toastWarn(`Opened ${opened} invoice(s); ${failed} failed — check API connection.`)
     } else {
-      toastOk(`Opened ${targets.length} invoice(s) for printing.`)
+      toastFail('Could not open invoices — check API connection.')
     }
   }
 
@@ -457,7 +557,7 @@ export function OrdersPanel() {
 
       <div className="admin-kpi-grid">
         {[
-          { label: 'Today', value: kpis.today, icon: ShoppingBag },
+          { label: 'Total', value: kpis.today, icon: ShoppingBag },
           { label: 'Pending', value: kpis.pending, icon: Clock },
           { label: 'Shipped', value: kpis.shipped, icon: Truck },
           { label: 'Revenue', value: formatBDT(kpis.revenue), icon: Banknote },
@@ -552,7 +652,7 @@ export function OrdersPanel() {
                   </th>
                   <th>Order</th>
                   <th>Customer</th>
-                  <th>Type</th>
+                  <th>Payment</th>
                   <th>Status</th>
                   <th>Products</th>
                   <th>Total</th>
@@ -610,8 +710,8 @@ export function OrdersPanel() {
                       </div>
                     </td>
                     <td>
-                      <span className="admin-type-badge">
-                        {order.payment === 'COD' ? 'COD' : 'Shipping'}
+                      <span className="admin-type-badge" title={formatPaymentCell(order)}>
+                        {formatPaymentCell(order)}
                       </span>
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
@@ -681,27 +781,29 @@ export function OrdersPanel() {
             bookingCourier={bookCourier.isPending}
             {...(canEditOrders
               ? {
-                  onAdvance: (nextStatus: string) => {
+                  onAdvance: async (nextStatus: string) => {
                     const id = previewOrder.linkId ?? previewOrder.id
-                    updateStatus.mutate(
-                      { id, status: nextStatus, note: 'Updated from order preview' },
-                      {
-                        onSuccess: () => {
-                          toastOk(`${previewOrder.id} updated.`)
-                          setPreviewOrder((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  apiStatus: nextStatus,
-                                  status: API_STATUS_UI[nextStatus] ?? prev.status,
-                                }
-                              : null,
-                          )
-                          void refetch()
-                        },
-                        onError: () => toastFail('Could not update order.'),
-                      },
-                    )
+                    try {
+                      const saved = await updateStatus.mutateAsync({
+                        id,
+                        status: nextStatus,
+                        note: 'Updated from order preview',
+                      })
+                      if (!verifyOrderStatus(saved, nextStatus)) return
+                      toastApiSaved(`Order ${previewOrder.id}`)
+                      setPreviewOrder((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              apiStatus: nextStatus,
+                              status: API_STATUS_UI[nextStatus] ?? prev.status,
+                            }
+                          : null,
+                      )
+                      void refetch()
+                    } catch {
+                      toastFail('Could not update order.')
+                    }
                   },
                   onCancel: () => {
                     handleCancel(previewOrder)
@@ -740,7 +842,17 @@ export function OrdersPanel() {
               <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkPacked}>
                 Mark packed
               </button>
-              <button type="button" className="admin-bulk-bar__btn" onClick={handleBulkCourier}>
+              <button
+                type="button"
+                className="admin-bulk-bar__btn"
+                disabled={!courierReady || bookCourierBulk.isPending}
+                title={
+                  courierReady
+                    ? 'Book Steadfast courier'
+                    : 'Steadfast not configured — Settings → Infrastructure'
+                }
+                onClick={handleBulkCourier}
+              >
                 <Truck className="h-4 w-4" />
                 Courier
               </button>

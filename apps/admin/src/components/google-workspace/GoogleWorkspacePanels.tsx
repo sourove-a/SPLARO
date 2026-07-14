@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastWarn, toastIntegrationTestResult } from '@/lib/admin/feedback'
+import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
@@ -125,11 +126,19 @@ function useGoogleStatus() {
 }
 
 function OverviewPanel() {
-  const { data, isLoading, refetch } = useGoogleStatus()
+  const { data, isLoading, isError, refetch } = useGoogleStatus()
   const testMut = useMutation({ mutationFn: () => testGoogleConnection('auto') })
 
   if (isLoading) {
     return <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-[#5E7CFF]" /></div>
+  }
+
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-4xl pb-8">
+        <ApiOfflineBanner message="Google Workspace API offline — run pnpm dev:api on port 4000." onRetry={() => void refetch()} />
+      </div>
+    )
   }
 
   const cards = [
@@ -181,7 +190,7 @@ function OverviewPanel() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <AdminButton variant="gold" loading={testMut.isPending} disabled={!data?.connected} onClick={() => void testMut.mutateAsync().then((r) => toastOk(r.message, 'gw-test')).catch((e) => toastFail(e.message, 'gw-test-fail'))}>
+        <AdminButton variant="gold" loading={testMut.isPending} disabled={!data?.connected} onClick={() => void testMut.mutateAsync().then((r) => toastIntegrationTestResult(r, 'Google API test', 'gw-test')).catch((e) => toastFail(e.message, 'gw-test-fail'))}>
           Test Google API
         </AdminButton>
         <AdminButton onClick={() => void refetch()}><RefreshCw className="h-4 w-4" /> Refresh</AdminButton>
@@ -433,7 +442,14 @@ function ConnectPanelInner() {
             onClick={() =>
               void revokeMut
                 .mutateAsync()
-                .then(() => { toastOk('Gmail access revoked', 'gw-revoke'); void refetch() })
+                .then((r) => {
+                  if (!r.ok || !r.revoked) {
+                    toastFail('Gmail revoke failed — token may still be active', 'gw-revoke-fail')
+                    return
+                  }
+                  toastOk('Gmail access revoked', 'gw-revoke')
+                  void refetch()
+                })
                 .catch((e) => toastFail(e.message, 'gw-revoke-fail'))
             }
           >
@@ -445,7 +461,7 @@ function ConnectPanelInner() {
             onClick={() =>
               void testMut
                 .mutateAsync()
-                .then((r) => toastOk(r.message, 'gw-test'))
+                .then((r) => toastIntegrationTestResult(r, 'Gmail OAuth test', 'gw-test'))
                 .catch((e) => toastFail(e.message, 'gw-test-fail'))
             }
           >
@@ -472,7 +488,10 @@ function ConnectPanelInner() {
             onClick={() =>
               void saMut
                 .mutateAsync()
-                .then((r) => { toastOk(r.message, 'gw-sa'); void refetch() })
+                .then((r) => {
+                  if (!toastIntegrationTestResult(r, 'Service account activation', 'gw-sa')) return
+                  void refetch()
+                })
                 .catch((e) => toastFail(e.message, 'gw-sa-fail'))
             }
           >
@@ -494,8 +513,8 @@ function ConnectPanel() {
 
 function SheetsPanel() {
   const qc = useQueryClient()
-  const { data: status } = useGoogleStatus()
-  const { data: sheets, isLoading, refetch } = useQuery({ queryKey: ['google-sheets'], queryFn: fetchGoogleSheetsConfig })
+  const { data: status, isError: statusError, refetch: refetchStatus } = useGoogleStatus()
+  const { data: sheets, isLoading, isError: sheetsError, refetch } = useQuery({ queryKey: ['google-sheets'], queryFn: fetchGoogleSheetsConfig })
   const createMut = useMutation({ mutationFn: createDefaultSpreadsheet })
   const syncMut = useMutation({ mutationFn: syncGoogleNow })
   const autoMut = useMutation({ mutationFn: toggleGoogleAutoSync })
@@ -506,6 +525,17 @@ function SheetsPanel() {
   const defaultSheetUrl = 'https://docs.google.com/spreadsheets/d/1sOehorwCZ6Qoa7rU4T-sKXcXMzNm5x3NbWQ6LCqMEW0/edit'
 
   if (isLoading) return <Loader2 className="mx-auto my-16 h-7 w-7 animate-spin text-[#5E7CFF]" />
+
+  if (statusError || sheetsError) {
+    return (
+      <div className="mx-auto max-w-3xl pb-8">
+        <ApiOfflineBanner
+          message="Google Sheets API offline — run pnpm dev:api on port 4000."
+          onRetry={() => { void refetchStatus(); void refetch() }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-8">
@@ -527,10 +557,10 @@ function SheetsPanel() {
         <p className="mb-2 text-xs text-[var(--admin-text-secondary)]">
           Sheet-এ Share করুন: <strong className="text-[var(--admin-text-strong)]">{status?.serviceAccountEmail}</strong> → Editor
         </p>
-        <AdminButton variant="gold" loading={saMut.isPending} disabled={!status?.serviceAccountConfigured} onClick={() => void saMut.mutateAsync().then((r) => { toastOk(r.message, 'gw-sa'); void qc.invalidateQueries({ queryKey: ['google-status'] }); void refetch() }).catch((e) => toastFail(e.message, 'gw-sa-fail'))}>
+        <AdminButton variant="gold" loading={saMut.isPending} disabled={!status?.serviceAccountConfigured} onClick={() => void saMut.mutateAsync().then((r) => { if (!toastIntegrationTestResult(r, 'Service account activation', 'gw-sa')) return; void qc.invalidateQueries({ queryKey: ['google-status'] }); void refetch() }).catch((e) => toastFail(e.message, 'gw-sa-fail'))}>
           Activate Service Account
         </AdminButton>
-        <AdminButton loading={linkMut.isPending} disabled={!sheetsReady} onClick={() => void linkMut.mutateAsync({ spreadsheetUrl: defaultSheetUrl }).then((r) => { toastOk(`Linked — ${r.orders ?? 0} orders synced`, 'gw-link'); void refetch(); void qc.invalidateQueries({ queryKey: ['google-status'] }) }).catch((e) => toastFail(e.message, 'gw-link-fail'))}>
+        <AdminButton loading={linkMut.isPending} disabled={!sheetsReady} onClick={() => void linkMut.mutateAsync({ spreadsheetUrl: defaultSheetUrl }).then((r) => { if (!r.linked || !r.spreadsheetId) { toastFail('Spreadsheet link failed — check sharing permissions', 'gw-link-fail'); return } toastOk(`Linked — ${r.orders ?? 0} orders synced`, 'gw-link'); void refetch(); void qc.invalidateQueries({ queryKey: ['google-status'] }) }).catch((e) => toastFail(e.message, 'gw-link-fail'))}>
           Link your spreadsheet & sync
         </AdminButton>
       </Collapsible>
@@ -542,13 +572,13 @@ function SheetsPanel() {
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <AdminButton variant="gold" loading={createMut.isPending} disabled={!sheetsReady} onClick={() => void createMut.mutateAsync().then((r) => { toastOk(`Business hub ready — ${r.orders ?? 0} orders, ${r.customers ?? 0} customers`, 'gw-sheet-create'); void refetch(); void qc.invalidateQueries({ queryKey: ['google-status'] }) }).catch((e) => toastFail(e.message, 'gw-sheet-fail'))}>
+          <AdminButton variant="gold" loading={createMut.isPending} disabled={!sheetsReady} onClick={() => void createMut.mutateAsync().then((r) => { if (!r.spreadsheetId) { toastFail('Spreadsheet creation failed', 'gw-sheet-fail'); return } toastOk(`Business hub ready — ${r.orders ?? 0} orders, ${r.customers ?? 0} customers`, 'gw-sheet-create'); void refetch(); void qc.invalidateQueries({ queryKey: ['google-status'] }) }).catch((e) => toastFail(e.message, 'gw-sheet-fail'))}>
             Create SPLARO Business Spreadsheet
           </AdminButton>
-          <AdminButton loading={syncMut.isPending} disabled={!sheets?.spreadsheetId} onClick={() => void syncMut.mutateAsync({ jobType: 'google.sync.full-backup' }).then(() => toastOk('Full sync queued', 'gw-sync')).catch((e) => toastFail(e.message, 'gw-sync-fail'))}>
+          <AdminButton loading={syncMut.isPending} disabled={!sheets?.spreadsheetId} onClick={() => void syncMut.mutateAsync({ jobType: 'google.sync.full-backup' }).then((r) => { const queued = (r as { queued?: boolean })?.queued; if (!queued) { toastFail('Full sync could not be queued', 'gw-sync-fail'); return } toastWarn('Full sync queued — refresh Google Sheets to confirm completion.', 'gw-sync') }).catch((e) => toastFail(e.message, 'gw-sync-fail'))}>
             <RefreshCw className="h-4 w-4" /> Manual full sync
           </AdminButton>
-          <AdminButton loading={autoMut.isPending} onClick={() => void autoMut.mutateAsync(!sheets?.autoSyncEnabled).then(() => { toastOk('Auto sync updated', 'gw-auto'); void refetch() }).catch((e) => toastFail(e.message, 'gw-auto-fail'))}>
+          <AdminButton loading={autoMut.isPending} onClick={() => void autoMut.mutateAsync(!sheets?.autoSyncEnabled).then((r) => { const enabled = (r as { autoSyncEnabled?: boolean })?.autoSyncEnabled; const expected = !sheets?.autoSyncEnabled; if (enabled !== expected) { toastFail('Auto sync state did not update on server', 'gw-auto-fail'); return } toastOk('Auto sync updated', 'gw-auto'); void refetch() }).catch((e) => toastFail(e.message, 'gw-auto-fail'))}>
             Auto sync: {sheets?.autoSyncEnabled ? 'ON' : 'OFF'}
           </AdminButton>
         </div>
@@ -617,7 +647,15 @@ function GmailPanel() {
           className="mt-3"
           loading={saveMut.isPending}
           disabled={!oauthReady}
-          onClick={() => void saveMut.mutateAsync({ senderName }).then(() => { toastOk('Gmail settings saved', 'gw-gmail-save'); void refetch() }).catch((e) => toastFail(e.message, 'gw-gmail-save-fail'))}
+          onClick={() => void saveMut.mutateAsync({ senderName }).then((saved) => {
+            if (String(saved?.senderName ?? '') !== String(senderName ?? '')) {
+              toastFail('Gmail sender name did not persist on server', 'gw-gmail-verify')
+              void refetch()
+              return
+            }
+            toastOk('Gmail settings saved', 'gw-gmail-save')
+            void refetch()
+          }).catch((e) => toastFail(e.message, 'gw-gmail-save-fail'))}
         >
           Save sender
         </AdminButton>
@@ -633,7 +671,13 @@ function GmailPanel() {
           variant="gold"
           loading={testMut.isPending}
           disabled={!oauthReady || !testTo}
-          onClick={() => void testMut.mutateAsync(testTo).then((r) => toastOk(`Sent · ${r.messageId}`, 'gw-gmail-test')).catch((e) => toastFail(e.message, 'gw-gmail-test-fail'))}
+          onClick={() => void testMut.mutateAsync(testTo).then((r) => {
+            if (!r.ok) {
+              toastFail('Test email failed — check Gmail OAuth and sender settings', 'gw-gmail-test-fail')
+              return
+            }
+            toastOk(`Test email sent · ${r.messageId}`, 'gw-gmail-test')
+          }).catch((e) => toastFail(e.message, 'gw-gmail-test-fail'))}
         >
           Send test email
         </AdminButton>
@@ -684,7 +728,14 @@ function DrivePanel() {
           onClick={() =>
             void folderMut
               .mutateAsync()
-              .then(() => toastOk('Drive folders created', 'gw-drive'))
+              .then((r) => {
+                const folders = (r as { folders?: Record<string, string> })?.folders
+                if (!folders || !Object.keys(folders).length) {
+                  toastFail('Drive folder creation failed', 'gw-drive-fail')
+                  return
+                }
+                toastOk('Drive folders created', 'gw-drive')
+              })
               .catch((e: Error) => toastFail(e.message, 'gw-drive-fail'))
           }
         >
@@ -752,8 +803,15 @@ function ServicePlaceholder({ title, desc, icon: Icon }: { title: string; desc: 
 }
 
 function SyncLogsPanel() {
-  const { data, isLoading } = useQuery({ queryKey: ['google-sync-logs'], queryFn: () => fetchGoogleSyncLogs(1) })
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['google-sync-logs'], queryFn: () => fetchGoogleSyncLogs(1) })
   if (isLoading) return <Loader2 className="mx-auto my-16 h-7 w-7 animate-spin" />
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-3xl pb-8">
+        <ApiOfflineBanner message="Sync logs API offline — run pnpm dev:api on port 4000." onRetry={() => void refetch()} />
+      </div>
+    )
+  }
   const items = (data?.items ?? []) as Array<{ id: string; jobType: string; sheetTab?: string; status: string; errorMsg?: string; createdAt: string }>
   return (
     <div className="mx-auto max-w-3xl space-y-4 pb-8">
@@ -904,6 +962,14 @@ function OAuthSettingsPanel() {
             void saveMut
               .mutateAsync(body)
               .then(async (saved) => {
+                if (!saved?.clientId || String(saved.clientId) !== id) {
+                  toastFail('OAuth Client ID did not persist on server', 'gw-oauth-verify')
+                  return
+                }
+                if (!saved?.redirectUri || String(saved.redirectUri) !== uri) {
+                  toastFail('OAuth Redirect URI did not persist on server', 'gw-oauth-verify-uri')
+                  return
+                }
                 setClientId(saved.clientId ?? id)
                 setRedirectUri(saved.redirectUri ?? uri)
                 setClientSecret('')

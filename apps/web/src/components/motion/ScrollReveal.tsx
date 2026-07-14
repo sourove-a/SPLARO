@@ -1,6 +1,6 @@
 'use client'
 
-import { motion, type HTMLMotionProps } from 'framer-motion'
+import { motion, type HTMLMotionProps } from '@/lib/motion/react'
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { useScrollReveal } from '@/hooks/useScrollReveal'
@@ -25,7 +25,7 @@ export function ScrollReveal({
   className,
   ...props
 }: ScrollRevealProps) {
-  const { showMotion } = useMotionReady()
+  const { allowRevealAnimation } = useMotionReady()
   const revealOptions = useMemo(
     () => ({
       ...(once !== undefined ? { once } : {}),
@@ -41,7 +41,8 @@ export function ScrollReveal({
       ? revealVariants.fadeIn
       : revealVariants[variant]
 
-  if (!showMotion) {
+  // Hard refresh: static visible until motion gate opens — no opacity:0 flash
+  if (!allowRevealAnimation) {
     return (
       <div ref={ref} className={cn('scroll-reveal-gpu', className)}>
         {children}
@@ -52,10 +53,13 @@ export function ScrollReveal({
   return (
     <motion.div
       ref={ref}
-      className={cn('scroll-reveal-gpu', className)}
-      initial="hidden"
+      className={cn('scroll-reveal-gpu', isInView && 'scroll-reveal-gpu--revealed', className)}
+      initial={isInView ? false : 'hidden'}
       animate={isInView ? 'visible' : 'hidden'}
       variants={variants}
+      onAnimationComplete={() => {
+        ref.current?.classList.add('scroll-reveal-gpu--revealed')
+      }}
       {...props}
     >
       {children}
@@ -74,9 +78,9 @@ export function ScrollRevealItem({
   className,
   ...props
 }: ScrollRevealItemProps) {
-  const { showMotion } = useMotionReady()
+  const { allowRevealAnimation } = useMotionReady()
 
-  if (!showMotion) {
+  if (!allowRevealAnimation) {
     return (
       <div className={cn('scroll-reveal-gpu', className)}>
         {children}

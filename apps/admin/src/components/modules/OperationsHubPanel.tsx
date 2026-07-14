@@ -12,7 +12,6 @@ import {
   Truck,
   Warehouse,
   WifiOff,
-  Zap,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
@@ -36,7 +35,8 @@ import {
 } from '@/lib/api/hooks'
 import { useIntegrationsCatalog } from '@/lib/api/integration-hooks'
 import { ApiError } from '@/lib/api/client'
-import { toastApiSaved, toastCourierResult, toastFail } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { confirmCourierBookingSaved } from '@/lib/admin/courier-save'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import type { AdminSettingsData } from '@/lib/api/settings'
 import { formatRelativeTime } from '@/lib/api/orders'
@@ -85,11 +85,7 @@ function OpsShell({
 }
 
 function OperationsOverview({ moduleHref, statusByHref }: { moduleHref: string; statusByHref: Record<string, 'ok' | 'warn' | 'down' | 'loading'> }) {
-  const settings = useSettings()
   const courierStats = useCourierStats()
-  const wms = useWmsOverview()
-  const procurement = useProcurementOverview()
-  const rules = useAutomationRules()
   const integrations = useIntegrationsCatalog()
   const orders = useOrders({ limit: 30 })
 
@@ -105,45 +101,30 @@ function OperationsOverview({ moduleHref, statusByHref }: { moduleHref: string; 
 
   const cards = [
     {
-      href: '/dashboard/shipping',
-      label: 'Shipping',
-      icon: Truck,
-      stat: settings.data?.shipping.dhakaSameDay ? 'Dhaka on' : 'Dhaka off',
-      meta: formatBDT(Number(settings.data?.shipping.dhakaDeliveryCharge ?? 0)) + ' · Dhaka',
-      ok: !settings.isError,
+      href: '/dashboard/orders',
+      label: 'Orders',
+      icon: Package,
+      stat: `${pendingCourier} awaiting`,
+      meta: 'Confirm · pack · courier',
+      ok: !orders.isError,
     },
     {
       href: '/dashboard/courier-hub',
       label: 'Courier Hub',
       icon: PackageCheck,
-      stat: `${pendingCourier} awaiting`,
-      meta: `${inTransit} in transit · ${steadfast?.connected ? 'Steadfast live' : 'Steadfast not connected'}`,
+      stat: `${inTransit} in transit`,
+      meta: steadfast?.connected ? 'Steadfast live' : 'Steadfast not connected',
       ok: !courierStats.isError && !orders.isError,
       warn: !steadfast?.connected,
     },
     {
-      href: '/dashboard/automation-rules',
-      label: 'Automation',
-      icon: Zap,
-      stat: `${rules.data?.filter((r) => r.isActive).length ?? 0} active`,
-      meta: `${rules.data?.length ?? 0} rules total`,
-      ok: !rules.isError,
-    },
-    {
-      href: '/dashboard/wms/overview',
-      label: 'WMS',
-      icon: Warehouse,
-      stat: `${wms.data?.warehouses.length ?? 0} sites`,
-      meta: `${wms.data?.stockSummary.available ?? 0} units available`,
-      ok: !wms.isError,
-    },
-    {
-      href: '/dashboard/procurement/overview',
-      label: 'Procurement',
-      icon: Building2,
-      stat: `${procurement.data?.suppliers.length ?? 0} vendors`,
-      meta: formatBDT(procurement.data?.suppliers.reduce((s, x) => s + Number(x.dueAmount), 0) ?? 0) + ' due',
-      ok: !procurement.isError,
+      href: '/dashboard/settings?section=infrastructure',
+      label: 'Infrastructure',
+      icon: Truck,
+      stat: steadfast?.connected ? 'Courier ready' : 'Keys needed',
+      meta: 'Steadfast · R2 · payments',
+      ok: true,
+      warn: !steadfast?.connected,
     },
   ]
 
@@ -151,7 +132,7 @@ function OperationsOverview({ moduleHref, statusByHref }: { moduleHref: string; 
     <OpsShell
       moduleHref={moduleHref}
       title="Operations Hub"
-      subtitle="Shipping, courier, warehouse, suppliers — live from API."
+      subtitle="Daily ops — orders, courier, Steadfast setup."
       statusByHref={statusByHref}
     >
       <PlatformConnectionPanel />
@@ -185,10 +166,13 @@ function OperationsOverview({ moduleHref, statusByHref }: { moduleHref: string; 
         <div className="admin-health-banner admin-health-banner--warn">
           <p className="admin-health-banner__title">Courier API not connected</p>
           <p className="admin-health-banner__body">
-            Add Steadfast keys in .env or connect via Integrations — bookings will fail until configured.
+            Save Steadfast API key + secret in Settings → Infrastructure before booking courier.
           </p>
-          <AdminNavLink href="/dashboard/all-integrations" className="admin-btn admin-btn--gold mt-3 inline-flex px-4 py-2 text-xs">
-            Open Integrations
+          <AdminNavLink
+            href="/dashboard/settings?section=infrastructure"
+            className="admin-btn admin-btn--gold mt-3 inline-flex px-4 py-2 text-xs"
+          >
+            Open Infrastructure
           </AdminNavLink>
         </div>
       ) : null}
@@ -303,11 +287,11 @@ function CourierHubView({
   const delivered = byStatus.find((s) => s.status === 'DELIVERED')?._count ?? 0
   const failed = byStatus.find((s) => s.status === 'FAILED')?._count ?? 0
 
-  const handleBook = async (orderId: string) => {
+  const handleBook = async (orderId: string, invoiceNumber: string) => {
     try {
       const res = await bookCourier.mutateAsync({ id: orderId })
-      toastCourierResult(res, orderId)
-      if (res.success && !res.simulated) void refetch()
+      const ok = await confirmCourierBookingSaved(res, orderId, invoiceNumber)
+      if (ok) void refetch()
     } catch (err) {
       toastFail(err instanceof ApiError ? err.message : 'Booking failed', `book-${orderId}`)
     }
@@ -376,7 +360,7 @@ function CourierHubView({
                       variant="gold"
                       size="sm"
                       loading={bookCourier.isPending}
-                      onClick={() => void handleBook(o.id)}
+                      onClick={() => void handleBook(o.id, o.invoiceNumber)}
                     >
                       Book courier
                     </AdminButton>

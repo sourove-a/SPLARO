@@ -26,6 +26,7 @@ export interface ApiOrder {
   paymentMethod: string
   paymentStatus: string
   isCodRisk: boolean
+  requireAdvancePayment?: boolean
   createdAt: string
   updatedAt: string
   items: ApiOrderItem[]
@@ -61,7 +62,7 @@ export function fetchOrder(id: string) {
 }
 
 export function updateOrderStatus(id: string, status: string, note?: string) {
-  return apiFetch(`/admin/orders/${id}/status`, {
+  return apiFetch<ApiOrder>(`/admin/orders/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status, note }),
   })
@@ -74,6 +75,28 @@ export type OrderPaymentStatus =
   | 'FAILED'
   | 'REFUNDED'
   | 'PARTIALLY_REFUNDED'
+
+export function setOrderCodRisk(
+  id: string,
+  data: { isCodRisk: boolean; requireAdvancePayment?: boolean },
+) {
+  return apiFetch<{
+    id: string
+    invoiceNumber: string
+    isCodRisk: boolean
+    requireAdvancePayment: boolean
+  }>(`/admin/orders/${id}/cod-risk`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export function addOrderNote(id: string, body: string) {
+  return apiFetch<{ id: string; body: string; createdAt: string }>(`/admin/orders/${id}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  })
+}
 
 export function updateOrderPaymentStatus(id: string, paymentStatus: OrderPaymentStatus) {
   return apiFetch<{
@@ -125,10 +148,13 @@ export function createOrder(input: CreateOrderInput) {
 }
 
 export function bulkUpdateOrderStatus(orderIds: string[], status: string, note?: string) {
-  return apiFetch<{ updated: number; failed: number }>('/admin/orders/bulk/status', {
-    method: 'POST',
-    body: JSON.stringify({ orderIds, status, note }),
-  })
+  return apiFetch<{ updated: number; failed: number; results?: Array<{ orderId: string; success: boolean }> }>(
+    '/admin/orders/bulk/status',
+    {
+      method: 'POST',
+      body: JSON.stringify({ orderIds, status, note }),
+    },
+  )
 }
 
 export type CourierProvider = 'STEADFAST' | 'PATHAO' | 'REDX' | 'PAPERFLY'

@@ -13,10 +13,11 @@ const STANDALONE_DIR = resolve(ROOT, 'apps/web/.next/standalone/apps/web')
 const STANDALONE = resolve(STANDALONE_DIR, 'server.js')
 const STACK_APP = resolve(ROOT, 'infrastructure/hostinger/passenger-stack-app.cjs')
 
+const homeDir = process.env.HOME || process.env.USERPROFILE || ''
 const onHostinger =
   process.env.SPLARO_HOSTINGER === '1' ||
   ROOT.includes('.builds/source/repository') ||
-  existsSync(resolve(process.env.HOME ?? '', 'domains/splaro.co'))
+  existsSync(resolve(homeDir, 'domains/splaro.co'))
 
 function runNode(script, opts = {}) {
   const child = spawn(process.execPath, [script], {

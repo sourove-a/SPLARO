@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/motion/react'
 import { Award, ChevronRight, Heart, Shield, ShoppingBag, Sparkles, Truck } from 'lucide-react'
 import {
   LiquidGlassFilterRow,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/LiquidGlass'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ACCESSORIES_FILTER_CATEGORIES } from '@/lib/storefront/accessories-nav'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import type { CatalogProduct } from '@/lib/catalog/live'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { formatBDT } from '@/lib/utils/currency'
@@ -27,10 +28,6 @@ const TRUST_BADGES = [
   { icon: Truck, label: 'Nationwide delivery' },
   { icon: Award, label: 'Curated edit' },
 ] as const
-
-const CATEGORY_EMOJI: Record<string, string> = Object.fromEntries(
-  ACCESSORIES_FILTER_CATEGORIES.map((cat) => [cat.id, cat.emoji]),
-)
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
 
@@ -59,15 +56,15 @@ interface AccessoriesClientProps {
   initialFilter?: string
 }
 
-function CategoryPlaceholder({ categorySlug }: { categorySlug?: string }) {
-  const emoji =
-    CATEGORY_EMOJI[
-      ACCESSORIES_FILTER_CATEGORIES.find((cat) => categorySlug?.startsWith(cat.id))?.id ?? 'all'
-    ] ?? '✦'
-
+/** Soft brand plate when a live product has no image — never emoji as product art. */
+function CategoryPlaceholder() {
   return (
-    <div className="flex h-full w-full items-center justify-center text-5xl opacity-70">
-      {emoji}
+    <div
+      className="accessories-media-placeholder flex h-full w-full flex-col items-center justify-center gap-2"
+      aria-hidden
+    >
+      <span className="accessories-media-placeholder__mark">S</span>
+      <span className="accessories-media-placeholder__label">SPLARO</span>
     </div>
   )
 }
@@ -137,7 +134,7 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
         <div className="relative">
           <Link href={`/products/${product.slug}`} className="block text-inherit no-underline">
             <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-white">
-              <CategoryPlaceholder {...(product.categorySlug ? { categorySlug: product.categorySlug } : {})} />
+              <CategoryPlaceholder />
             </div>
             <div className="pt-3">
               <h3 className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[#111111]">
@@ -234,7 +231,7 @@ function AccessoriesEmptyState({
     <div className="accessories-empty">
       <div className="accessories-empty__panel lg-glass-card">
         <span className="accessories-empty__mark" aria-hidden>
-          {CATEGORY_EMOJI[category] ?? '✦'}
+          S
         </span>
         <h2 className="accessories-empty__title">
           {catalogEmpty
@@ -245,10 +242,10 @@ function AccessoriesEmptyState({
         </h2>
         <p className="accessories-empty__body">
           {catalogEmpty
-            ? 'Our accessories atelier is being curated. Every piece shown here will come from the live SPLARO catalog — nothing placeholder, nothing fake.'
+            ? 'Accessories are not published in the live catalog yet. Check Shop or New arrivals for pieces that are live now.'
             : filteredEmpty
-              ? `We do not have published ${label.toLowerCase()} in the accessories collection right now. Browse the full edit or explore the main shop.`
-              : 'Try another category or reset the filters to see what is currently live.'}
+              ? `No published ${label.toLowerCase()} in accessories right now. Browse the full edit or the main shop.`
+              : 'Try another category or reset filters to see what is currently live.'}
         </p>
         <div className="accessories-empty__actions">
           <Link href="/shop" className="btn-luxury">
@@ -326,7 +323,6 @@ export function AccessoriesClient({
         return {
           id: cat.id,
           label: count > 0 && cat.id !== 'all' ? `${cat.label} (${count})` : cat.label,
-          emoji: cat.emoji,
           ...(count === 0 && cat.id !== 'all' && products.length > 0 ? { unavailable: true } : {}),
         }
       }),
@@ -356,7 +352,7 @@ export function AccessoriesClient({
     else params.set('cat', id)
     params.delete('filter')
     const query = params.toString()
-    router.replace(query ? `/accessories?${query}` : '/accessories', { scroll: false })
+    safeClientNavigate(router, query ? `/accessories?${query}` : '/accessories', 'replace')
   }
 
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)

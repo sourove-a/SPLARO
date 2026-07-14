@@ -1,5 +1,5 @@
-/** Public static asset paths (non-logo). */
-export const PRODUCT_IMAGE_PLACEHOLDER = '/images/placeholder-product.jpg'
+/** Soft ivory empty-state — never the grey shopping-bag mark in catalog. */
+export const PRODUCT_IMAGE_PLACEHOLDER = '/images/placeholder-product.svg'
 
 export const PAYMENT_LOGO = {
   bkash: '/images/payments/bkash.svg',

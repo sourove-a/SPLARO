@@ -1,11 +1,15 @@
-import { Body, Controller, Delete, Get, Patch, Post, Param, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Inject, Patch, Post, Param, Query } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import { CacheService } from '../../common/cache.service'
 import { resolveStoreId, slugify } from '../../common/store.util'
-import { revalidateStorefrontWeb } from '../../common/revalidate-web'
+import { refreshCollectionCatalogAfterMutation } from '../products/product-catalog-refresh.util'
 
 @Controller('admin/collections')
 export class CollectionsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CacheService) private readonly cache: CacheService,
+  ) {}
 
   @Get()
   async list(@Query('storeId') storeId: string) {
@@ -41,7 +45,7 @@ export class CollectionsController {
       },
       include: { _count: { select: { products: true } } },
     })
-    void revalidateStorefrontWeb(['storefront-collections'])
+    await refreshCollectionCatalogAfterMutation(this.cache, sid)
     return collection
   }
 
@@ -57,7 +61,7 @@ export class CollectionsController {
       data: body,
       include: { _count: { select: { products: true } } },
     })
-    void revalidateStorefrontWeb(['storefront-collections'])
+    await refreshCollectionCatalogAfterMutation(this.cache, sid)
     return collection
   }
 
@@ -65,7 +69,7 @@ export class CollectionsController {
   async remove(@Param('id') id: string, @Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
     await this.prisma.collection.delete({ where: { id, storeId: sid } })
-    void revalidateStorefrontWeb(['storefront-collections'])
+    await refreshCollectionCatalogAfterMutation(this.cache, sid)
     return { deleted: true }
   }
 }

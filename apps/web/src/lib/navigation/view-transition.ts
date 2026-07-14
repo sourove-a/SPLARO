@@ -10,10 +10,12 @@ export function supportsViewTransitions() {
 
 export function startViewTransition(callback: () => void | Promise<void>) {
   if (!supportsViewTransitions()) {
-    void callback()
+    void Promise.resolve(callback()).catch(() => undefined)
     return
   }
-  document.startViewTransition(callback)
+  void document.startViewTransition(() => Promise.resolve(callback())).finished.catch(() => {
+    void Promise.resolve(callback()).catch(() => undefined)
+  })
 }
 
 /** Shared element name for card → PDP image morph (no-op when reduced motion). */

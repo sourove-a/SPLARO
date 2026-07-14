@@ -17,9 +17,7 @@ export default async function NewArrivalsPage() {
       showCollections={false}
       catalogPreset="new-arrivals"
       initialSort="Newest"
-      pageEyebrow="Just Arrived"
       pageTitle="New Arrivals"
-      pageDescription="Fresh drops marked as new in the SPLARO catalogue."
     />
   )
 }

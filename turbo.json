@@ -28,8 +28,14 @@
       "dependsOn": ["^build"],
       "inputs": ["src/**", "test/**", "*.config.*"]
     },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "*.config.*"]
+    },
     "test:e2e": {
-      "cache": false
+      "dependsOn": ["^build"],
+      "cache": false,
+      "inputs": ["src/**", "test/**", "*.config.*"]
     },
     "db:generate": {
       "cache": false

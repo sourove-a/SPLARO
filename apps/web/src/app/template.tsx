@@ -1,15 +1,18 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import type { ReactNode } from 'react'
 import { useMotionReady } from '@/hooks/useMotionReady'
 import { pageEnter } from '@/lib/motion/config'
 
-/** Premium cross-route enter — gated after hydration to avoid SSR/client mismatch. */
+/**
+ * Premium cross-route enter — ONLY on client navigations.
+ * Hard refresh keeps a static tree (no opacity:0 flash).
+ */
 export default function RootTemplate({ children }: { children: ReactNode }) {
-  const { showMotion } = useMotionReady()
+  const { allowEnterAnimation } = useMotionReady()
 
-  if (!showMotion) {
+  if (!allowEnterAnimation) {
     return <>{children}</>
   }
 

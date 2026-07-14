@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CreditCard, Loader2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { toastApiSaved, toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastOk, toastIntegrationTestResult } from '@/lib/admin/feedback'
 import {
   usePaymentIntegrations,
   useTestPaymentIntegration,
@@ -204,7 +204,7 @@ function PaymentProviderBlock({
 }
 
 export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: SectionProps) {
-  const { data, isLoading } = usePaymentIntegrations()
+  const { data, isLoading, refetch } = usePaymentIntegrations()
   const updatePay = useUpdatePaymentIntegration()
   const testPay = useTestPaymentIntegration()
   const [busy, setBusy] = useState<string | null>(null)
@@ -223,9 +223,15 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
   const saveCredentials = async (provider: string, body: Record<string, string | boolean>) => {
     setBusy(provider)
     try {
-      const saved = await updatePay.mutateAsync({ provider, body })
+      await updatePay.mutateAsync({ provider, body })
+      const fresh = await refetch()
+      const item = fresh.data?.items?.find((i) => i.provider === provider)
+      if (!item?.configured) {
+        toastFail('Keys saved but provider still not configured — check every field.', `pay-${provider}`)
+        return undefined
+      }
       toastApiSaved(`${provider} keys`)
-      return saved
+      return item
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Save failed', `pay-${provider}`)
       return undefined
@@ -238,7 +244,7 @@ export function PaymentsSection({ draft, setDraft, save, saving, apiOnline }: Se
     setBusy(provider)
     try {
       const r = await testPay.mutateAsync(provider)
-      toastOk(r.message, `pay-test-${provider}`)
+      if (!toastIntegrationTestResult(r, provider, `pay-test-${provider}`)) return
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Test failed', `pay-test-${provider}-fail`)
     } finally {

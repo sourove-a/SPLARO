@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CreditCard, Smartphone } from 'lucide-react'
 import { fetchOrderById, loadOrders, type StoredOrder } from '@/lib/orders'
 import { buildOrderConfirmationPath } from '@/lib/invoice-url'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { formatBDT } from '@/lib/utils/currency'
+import { displayOrderCode } from '@splaro/config'
 
 interface MobilePaymentPageClientProps {
   orderId: string
@@ -71,6 +73,9 @@ export default function MobilePaymentPageClient({
   }
 
   const total = order?.total ?? 0
+  const orderLabel = order
+    ? displayOrderCode(order.invoiceNumber, order.id)
+    : displayOrderCode(orderId, orderId)
 
   return (
     <main className="checkout-shell">
@@ -82,7 +87,7 @@ export default function MobilePaymentPageClient({
           </div>
           <h1 className="checkout-title mt-2">Pay with {providerLabel}</h1>
           <p className="checkout-subtitle mt-2">
-            Order <strong>{orderId}</strong>
+            Order <strong>{orderLabel}</strong>
             {paymentId ? ` · ref ${paymentId.slice(0, 20)}` : ''}
           </p>
 
@@ -95,7 +100,7 @@ export default function MobilePaymentPageClient({
           <ol className="mt-6 space-y-3 text-sm font-semibold text-black/70 list-decimal list-inside">
             <li>Open your {providerLabel} app on the phone used at checkout.</li>
             <li>Send <strong>{formatBDT(total)}</strong> to SPLARO&apos;s merchant wallet.</li>
-            <li>Use invoice <strong>{order?.invoiceNumber ?? orderId}</strong> as the reference.</li>
+            <li>Use invoice <strong>{orderLabel}</strong> as the reference.</li>
             <li>Return here once payment is complete.</li>
           </ol>
 
@@ -109,7 +114,7 @@ export default function MobilePaymentPageClient({
                   loadOrders().find(
                     (item) => item.id === orderId || item.invoiceNumber === orderId,
                   )
-                router.push(buildOrderConfirmationPath(match ?? { id: orderId }))
+                safeClientNavigate(router, buildOrderConfirmationPath(match ?? { id: orderId }))
               }}
             >
               I&apos;ve completed payment

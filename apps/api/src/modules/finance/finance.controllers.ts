@@ -18,9 +18,27 @@ export class PartnersController {
     return this.partners.list(storeId)
   }
 
+  @Post()
+  create(
+    @Query('storeId') storeId: string,
+    @Body()
+    body: {
+      name: string
+      slug?: string
+      email?: string
+      phone?: string
+      sharePercent: number
+      notes?: string
+      createdBy?: string
+    },
+  ) {
+    return this.partners.create(storeId, body)
+  }
+
+  /** @deprecated Use POST /partners — partners are added manually in admin */
   @Post('seed')
-  seed(@Query('storeId') storeId: string, @Body() body: { createdBy?: string }) {
-    return this.partners.ensureDefaultPartners(storeId, body.createdBy)
+  seed(@Query('storeId') storeId: string) {
+    return this.partners.list(storeId)
   }
 
   @Get(':slug')

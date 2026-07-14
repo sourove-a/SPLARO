@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toastFail } from '@/lib/admin/feedback'
 import { RefreshCw } from 'lucide-react'
 import { fetchProfitLoss } from '@/lib/api/finance'
 import { formatBDT } from '@/lib/format/currency'
@@ -53,7 +53,7 @@ export function ProfitLossPanel() {
       .catch(() => {
         setSummary(null)
         setApiOnline(false)
-        toast.error('Profit & loss API unavailable')
+        toastFail('Profit & loss API unavailable')
       })
       .finally(() => setLoading(false))
   }

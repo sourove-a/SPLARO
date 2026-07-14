@@ -51,13 +51,43 @@ export interface AgentStatusResponse {
   activeModelReady: boolean
   models: Record<AgentModelId, { configured: boolean }>
   telegram: { configured: boolean; isActive?: boolean; chatId: string | null }
+  budget?: { spentUsd: number; limitUsd: number; pct: number }
 }
 
 export interface AgentStreamEvent {
-  type: 'token' | 'tool_start' | 'tool_end' | 'error' | 'done'
+  type: 'token' | 'tool_start' | 'tool_end' | 'error' | 'done' | 'confirm_required' | 'cost' | 'budget_exceeded'
   content?: string
   toolName?: string
   toolResult?: unknown
+  pendingId?: string
+  tokenInEst?: number
+  tokenOutEst?: number
+  costEstUsd?: number
+}
+
+export interface AgentActivityToolCall {
+  id: string
+  toolName: string
+  tier: string
+  confirmed: boolean
+  resultSummary: string
+  createdAt: string
+}
+
+export interface AgentActivityRun {
+  id: string
+  sessionId: string
+  channel: string
+  model: string
+  difficulty: string | null
+  status: string
+  userMessage: string
+  tokenInEst: number
+  tokenOutEst: number
+  costEstUsd: number
+  startedAt: string
+  finishedAt: string | null
+  toolCalls: AgentActivityToolCall[]
 }
 
 function agentUrl(path: string, storeId?: string) {
@@ -135,6 +165,19 @@ export async function switchAgentModel(model: AgentModelId, storeId?: string) {
     throw new Error(parseApiError(text))
   }
   return res.json() as Promise<AgentConfigResponse>
+}
+
+export async function fetchAgentActivity(storeId?: string, limit = 50) {
+  const qs = new URLSearchParams({ limit: String(limit) })
+  const res = await fetch(agentUrl(`/agent/activity?${qs}`, storeId), {
+    headers: authHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(parseApiError(body))
+  }
+  return res.json() as Promise<AgentActivityRun[]>
 }
 
 export async function fetchAgentHistory(sessionId: string, storeId?: string) {

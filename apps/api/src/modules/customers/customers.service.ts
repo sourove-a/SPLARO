@@ -17,6 +17,10 @@ function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '')
 }
 
+function isValidBdPhone(phone: string) {
+  return /^01[3-9]\d{8}$/.test(normalizePhone(phone))
+}
+
 function splitName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   const firstName = parts[0] ?? 'Customer'
@@ -103,6 +107,74 @@ export class CustomersService {
         email,
         phone,
         ...(sourceTag ? { tags: [sourceTag] } : {}),
+      },
+    })
+  }
+
+  /** Finish Google signup — attach BD phone and create Customer row. */
+  async completeGoogleSignup(
+    storeId: string,
+    userId: string,
+    input: { phone: string; phoneVerified: boolean },
+  ) {
+    const phone = normalizePhone(input.phone)
+    if (!isValidBdPhone(phone)) {
+      throw new BadRequestException('Enter a valid Bangladesh mobile number (01XXXXXXXXX)')
+    }
+
+    const phoneOwner = await this.prisma.user.findFirst({
+      where: { phone, NOT: { id: userId } },
+      select: { id: true },
+    })
+    if (phoneOwner) {
+      throw new BadRequestException('This phone number is already registered')
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        customer: { select: { id: true, storeId: true } },
+      },
+    })
+    if (!user) throw new BadRequestException('Account not found')
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        phone,
+        phoneVerified: input.phoneVerified,
+      },
+    })
+
+    const email = user.email ? normalizeEmail(user.email) : null
+    const existing = user.customer
+
+    if (existing) {
+      return this.prisma.customer.update({
+        where: { id: existing.id },
+        data: {
+          storeId,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          ...(email ? { email } : {}),
+          phone,
+        },
+      })
+    }
+
+    return this.prisma.customer.create({
+      data: {
+        userId: user.id,
+        storeId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        ...(email ? { email } : {}),
+        phone,
+        tags: ['Google signup'],
       },
     })
   }

@@ -1,5 +1,10 @@
-import { fetchAdminInvoice, parseInvoiceError } from '@/lib/api/invoice-access'
-import { toastOk, toastFail, notifyBackendMissing } from '@/lib/admin/feedback'
+import {
+  fetchAdminInvoice,
+  invoiceApiUrl,
+  parseInvoiceError,
+  type InvoiceSuffix,
+} from '@/lib/api/invoice-access'
+import { toastOk, toastFail, toastWarn, notifyBackendMissing } from '@/lib/admin/feedback'
 
 export { notifyBackendMissing }
 
@@ -14,6 +19,39 @@ export function downloadBlob(filename: string, content: BlobPart, mime: string) 
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
+}
+
+/**
+ * Open a same-origin invoice route in a new tab.
+ * Must run synchronously from a click path (before any await) or popup blockers
+ * will kill it. Never put `noopener` in windowFeatures — Chrome returns null.
+ */
+function openInvoiceTab(orderId: string, suffix: InvoiceSuffix = ''): Window | null {
+  const popup = window.open(invoiceApiUrl(orderId, suffix), '_blank')
+  if (!popup) return null
+  try {
+    popup.opener = null
+  } catch {
+    /* ignore */
+  }
+  return popup
+}
+
+function openBlankInvoiceTab(): Window | null {
+  const popup = window.open('about:blank', '_blank')
+  if (!popup) return null
+  try {
+    popup.opener = null
+  } catch {
+    /* ignore */
+  }
+  return popup
+}
+
+function writePopupHtml(popup: Window, html: string) {
+  popup.document.open()
+  popup.document.write(html)
+  popup.document.close()
 }
 
 function escapeCsvCell(value: string) {
@@ -40,7 +78,6 @@ export function tableElementToRows(table: HTMLTableElement): string[][] {
     const cells = Array.from(tr.querySelectorAll('th, td'))
       .map((cell) => cell.textContent?.trim().replace(/\s+/g, ' ') ?? '')
       .filter((_, i, arr) => {
-        // skip empty action columns
         if (arr.length > 1 && i === arr.length - 1 && arr[i] === '') return false
         return true
       })
@@ -67,35 +104,26 @@ export function exportTableFromContainer(container: HTMLElement | null, slug: st
   return true
 }
 
-function openInvoiceHtml(html: string) {
-  const popup = window.open('', '_blank', 'noopener,noreferrer')
+export async function downloadInvoice(orderId: string): Promise<boolean> {
+  // Sync open first — preserves user gesture against popup blockers.
+  const popup = openInvoiceTab(orderId)
   if (!popup) {
     toastFail('Pop-up blocked — allow pop-ups to view invoice.')
     return false
   }
-  popup.document.write(html)
-  popup.document.close()
+  toastOk('Invoice opened', 'invoice-view')
   return true
 }
 
-export async function downloadInvoice(orderId: string) {
-  const res = await fetchAdminInvoice(orderId)
-  if (!res.ok) {
-    toastFail(await parseInvoiceError(res))
-    return
+export async function printInvoice(orderId: string): Promise<boolean> {
+  // Navigate to print route (autoPrint=true on API). Sync open = not blocked.
+  const popup = openInvoiceTab(orderId, '/print')
+  if (!popup) {
+    toastFail('Pop-up blocked — allow pop-ups to print invoice.')
+    return false
   }
-  const html = await res.text()
-  openInvoiceHtml(html)
-}
-
-export async function printInvoice(orderId: string) {
-  const res = await fetchAdminInvoice(orderId, '/print')
-  if (!res.ok) {
-    toastFail(await parseInvoiceError(res))
-    return
-  }
-  const html = await res.text()
-  openInvoiceHtml(html)
+  toastOk('Print dialog opening…', 'invoice-print')
+  return true
 }
 
 export function printProductLabel(opts: {
@@ -140,21 +168,72 @@ export function printProductLabel(opts: {
 </body>
 </html>`
 
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=420,height=360')
+  const popup = window.open('', '_blank', 'width=420,height=360')
   if (!popup) {
     toastFail('Pop-up blocked — allow pop-ups to print product label.')
     return
   }
-  popup.document.write(html)
-  popup.document.close()
+  try {
+    popup.opener = null
+  } catch {
+    /* ignore */
+  }
+  writePopupHtml(popup, html)
 }
 
-export async function downloadInvoicePdf(orderId: string, invoiceNumber?: string) {
-  const res = await fetchAdminInvoice(orderId, '/pdf')
-  if (!res.ok) {
-    toastFail(await parseInvoiceError(res))
-    return
+export async function downloadInvoicePdf(orderId: string, invoiceNumber?: string): Promise<boolean> {
+  // Reserve a tab up-front (sync) so popup blockers can't kill the Print fallback
+  // if Chrome/PDF engine is missing after the async fetch.
+  const fallbackTab = openBlankInvoiceTab()
+  if (fallbackTab) {
+    try {
+      writePopupHtml(
+        fallbackTab,
+        '<!doctype html><title>SPLARO invoice</title><p style="font-family:system-ui;padding:24px">Preparing PDF…</p>',
+      )
+    } catch {
+      /* ignore */
+    }
   }
-  const blob = await res.blob()
-  downloadBlob(`${invoiceNumber ?? orderId}.pdf`, blob, 'application/pdf')
+
+  try {
+    const res = await fetchAdminInvoice(orderId, '/pdf')
+    if (!res.ok) {
+      const message = await parseInvoiceError(res)
+      if (fallbackTab) fallbackTab.location.href = invoiceApiUrl(orderId, '/print')
+      else toastFail(`${message} Use the Print button (allow pop-ups).`)
+      toastWarn(`${message} Opening print view — use Save as PDF.`)
+      return false
+    }
+    const blob = await res.blob()
+    const type = blob.type || ''
+    if (type.includes('json') || type.includes('text/html') || !blob.size) {
+      if (fallbackTab) fallbackTab.location.href = invoiceApiUrl(orderId, '/print')
+      else toastFail('PDF unavailable. Use the Print button — Save as PDF.')
+      toastWarn('PDF engine unavailable. Opening print view — use Save as PDF.')
+      return false
+    }
+
+    const filename = `${invoiceNumber ?? orderId}.pdf`
+    downloadBlob(filename, blob, 'application/pdf')
+    try {
+      fallbackTab?.close()
+    } catch {
+      /* ignore */
+    }
+    toastOk(`Downloaded ${filename}`, 'invoice-pdf')
+    return true
+  } catch {
+    if (fallbackTab) {
+      try {
+        fallbackTab.location.href = invoiceApiUrl(orderId, '/print')
+      } catch {
+        /* ignore */
+      }
+    } else {
+      toastFail('PDF failed. Use Print button — allow pop-ups.')
+    }
+    toastWarn('PDF download failed. Opening print view — use Save as PDF.')
+    return false
+  }
 }

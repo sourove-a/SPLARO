@@ -3,29 +3,38 @@ import { SPLARO_TAB_ICONS } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
 
 /**
- * Official SPLARO Arabic + wordmark — one asset for large logos.
- * Small surfaces (tab, profile pill) use baked icon — never theme-swaps.
+ * Official SPLARO Arabic + wordmark.
+ * Black premium on light surfaces; white premium on always-dark shells (login).
+ * Dark theme inverts the black wordmark to white via CSS (except onLightSurface).
  */
-const LOGO_WORDMARK = '/images/logo/splaro-brand-mark-transparent.png'
+const LOGO_WORDMARK_BLACK = '/images/logo/splaro-logo-black-premium.png'
+const LOGO_WORDMARK_WHITE = '/images/logo/splaro-logo-white-premium.png'
 const LOGO_ICON = SPLARO_TAB_ICONS.profile
-const WORDMARK_WIDTH = 1024
-const WORDMARK_HEIGHT = 682
+const WORDMARK_WIDTH = 220
+const WORDMARK_HEIGHT = 117
 const ICON_SIZE = 64
 
 const variants = {
   sidebar: {
-    src: LOGO_WORDMARK,
+    src: LOGO_WORDMARK_BLACK,
     width: WORDMARK_WIDTH,
     height: WORDMARK_HEIGHT,
     className: 'h-8 w-auto max-w-[168px] sm:h-9',
     onLightSurface: false,
   },
   login: {
-    src: LOGO_WORDMARK,
+    src: LOGO_WORDMARK_WHITE,
     width: WORDMARK_WIDTH,
     height: WORDMARK_HEIGHT,
     className: 'h-auto w-[170px] sm:w-[210px] md:w-[240px]',
-    onLightSurface: false,
+    onLightSurface: true,
+  },
+  pos: {
+    src: LOGO_WORDMARK_BLACK,
+    width: WORDMARK_WIDTH,
+    height: WORDMARK_HEIGHT,
+    className: 'h-8 w-auto max-w-[150px] sm:h-9',
+    onLightSurface: true,
   },
   mark: {
     src: LOGO_ICON,
@@ -44,7 +53,7 @@ const variants = {
     square: true,
   },
   empty: {
-    src: LOGO_WORDMARK,
+    src: LOGO_WORDMARK_BLACK,
     width: WORDMARK_WIDTH,
     height: WORDMARK_HEIGHT,
     className: 'h-14 w-auto max-w-[140px] opacity-35',

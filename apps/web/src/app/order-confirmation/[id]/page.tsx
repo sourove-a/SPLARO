@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
+import { orderDocumentTitle } from '@splaro/config'
 import OrderConfirmationPageClient from './page-client'
 
 interface OrderConfirmationPageProps {
@@ -9,7 +10,7 @@ interface OrderConfirmationPageProps {
 export async function generateMetadata({ params }: OrderConfirmationPageProps): Promise<Metadata> {
   const { id } = await params
   return {
-    title: `Order ${id} confirmed`,
+    title: orderDocumentTitle(id),
     description: 'Your SPLARO order has been placed successfully.',
   }
 }

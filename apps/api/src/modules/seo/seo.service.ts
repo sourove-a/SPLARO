@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../common/prisma.service'
+import {
+  buildProductMetaDescription,
+  buildProductMetaTitle,
+  hasMetaValue,
+} from '../../common/seo-meta.util'
 import type { Prisma } from '@prisma/client'
 
 export interface SEOAuditResult {
@@ -87,7 +92,7 @@ export class SeoService {
       '@type': 'Organization',
       name: 'SPLARO',
       url: siteUrl,
-      logo: `${siteUrl}/images/logo/splaro-logo.svg`,
+      logo: `${siteUrl}/images/logo/splaro-logo-black-premium.png`,
       description: "Luxury women's fashion brand from Bangladesh",
       contactPoint: {
         '@type': 'ContactPoint',
@@ -134,7 +139,7 @@ export class SeoService {
       publisher: {
         '@type': 'Organization',
         name: 'SPLARO',
-        logo: { '@type': 'ImageObject', url: `${data.siteUrl}/images/logo/splaro-logo.svg` },
+        logo: { '@type': 'ImageObject', url: `${data.siteUrl}/images/logo/splaro-logo-black-premium.png` },
       },
       datePublished: data.publishedAt.toISOString(),
       dateModified: data.updatedAt.toISOString(),
@@ -227,6 +232,80 @@ export class SeoService {
       score: Math.max(0, score),
       issues,
       suggestions,
+    }
+  }
+
+  /** Fill missing meta title/description for published products, then re-audit each. */
+  async fillMissingProductMeta(
+    storeId: string,
+    siteUrl: string,
+  ): Promise<{
+    total: number
+    updated: number
+    skipped: number
+    avgScoreAfter: number
+    products: { id: string; name: string; score: number }[]
+  }> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        storeId,
+        isPublished: true,
+        OR: [
+          { metaTitle: null },
+          { metaTitle: '' },
+          { metaDescription: null },
+          { metaDescription: '' },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        shortDescription: true,
+        metaTitle: true,
+        metaDescription: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    const updatedProducts: { id: string; name: string; score: number }[] = []
+    let updated = 0
+
+    for (const product of products) {
+      const needsTitle = !hasMetaValue(product.metaTitle)
+      const needsDescription = !hasMetaValue(product.metaDescription)
+      if (!needsTitle && !needsDescription) continue
+
+      const metaTitle = needsTitle ? buildProductMetaTitle(product.name) : product.metaTitle!.trim()
+      const metaDescription = needsDescription
+        ? buildProductMetaDescription(product.name, product.description, product.shortDescription)
+        : product.metaDescription!.trim()
+
+      await this.prisma.product.update({
+        where: { id: product.id },
+        data: {
+          ...(needsTitle ? { metaTitle } : {}),
+          ...(needsDescription ? { metaDescription } : {}),
+        },
+      })
+
+      const audit = await this.auditProduct(product.id, siteUrl)
+      updated += 1
+      updatedProducts.push({ id: product.id, name: product.name, score: audit.score })
+      this.logger.log(`SEO meta filled for ${product.name} → ${audit.score}/100`)
+    }
+
+    const avgScoreAfter =
+      updatedProducts.length > 0
+        ? Math.round(updatedProducts.reduce((sum, p) => sum + p.score, 0) / updatedProducts.length)
+        : 0
+
+    return {
+      total: products.length,
+      updated,
+      skipped: products.length - updated,
+      avgScoreAfter,
+      products: updatedProducts,
     }
   }
 

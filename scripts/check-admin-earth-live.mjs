@@ -7,12 +7,13 @@
 import { createRequire } from 'module'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { puppeteerLaunchOptions } from './puppeteer-chrome.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
-const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001/login'
+const ADMIN_URL = process.env.ADMIN_URL ?? 'http://127.0.0.1:3001/login'
 const WAIT_MS = Number(process.env.EARTH_WAIT_MS ?? 6000)
 
 async function main() {
@@ -24,10 +25,7 @@ async function main() {
     process.exit(1)
   }
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await puppeteer.launch(puppeteerLaunchOptions())
 
   try {
     const page = await browser.newPage()

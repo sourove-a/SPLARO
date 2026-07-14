@@ -1,7 +1,11 @@
 'use client'
 
+import { useMemo } from 'react'
 import { ShopCatalog, type ShopCatalogPreset } from '@/components/shop/ShopCatalog'
 import { ShopCollectionsSection } from '@/components/shop/ShopCollectionsSection'
+import { ShopBreadcrumbs } from '@/components/shop/ShopBreadcrumbs'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { resolveCollectionBreadcrumbs } from '@/lib/storefront/collection-subnav'
 import type { Category } from '@/data/storefront'
 import type { CollectionCard } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
@@ -14,9 +18,8 @@ interface ShopExperienceProps {
   collectionCards?: CollectionCard[]
   catalogPreset?: ShopCatalogPreset
   initialSort?: CatalogSortOption
-  pageEyebrow?: string
+  /** Breadcrumb label fallback + screen-reader page title (no hero block). */
   pageTitle?: string
-  pageDescription?: string
   collectionSlug?: string
   categorySlug?: string
   listingMode?: 'full' | 'scoped'
@@ -29,24 +32,28 @@ export function ShopExperience({
   collectionCards = [],
   catalogPreset,
   initialSort,
-  pageEyebrow,
   pageTitle,
-  pageDescription,
   collectionSlug,
   categorySlug,
   listingMode = collectionSlug || categorySlug ? 'scoped' : 'full',
 }: ShopExperienceProps) {
+  const settings = useStorefrontSettings()
+  const headerNav = settings.config.headerNav
+
+  const breadcrumbs = useMemo(
+    () => resolveCollectionBreadcrumbs(collectionSlug, pageTitle, headerNav),
+    [collectionSlug, pageTitle, headerNav],
+  )
+
   return (
     <div className="shop-page-shell">
-      {pageTitle ? (
-        <section className="px-3 pb-2 pt-6 sm:px-5 lg:px-8">
-          {pageEyebrow ? <p className="label-luxury mb-2 text-gold">{pageEyebrow}</p> : null}
-          <h1 className="heading-xl text-luxury-black">{pageTitle}</h1>
-          {pageDescription ? (
-            <p className="mt-2 max-w-2xl text-sm text-luxury-gray">{pageDescription}</p>
-          ) : null}
-        </section>
-      ) : null}
+      <div className="shop-page-intro">
+        <div className="shop-page-intro__top">
+          <ShopBreadcrumbs items={breadcrumbs} />
+          {pageTitle ? <h1 className="sr-only">{pageTitle}</h1> : null}
+        </div>
+      </div>
+
       {showCollections ? <ShopCollectionsSection cards={collectionCards} /> : null}
 
       <ShopCatalog

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000" fill="none">
+  <rect width="800" height="1000" fill="#F4F1EC"/>
+  <rect x="140" y="180" width="520" height="640" rx="2" stroke="#D8D0C4" stroke-width="1.5" fill="#FAF8F5"/>
+  <text x="400" y="520" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="28" letter-spacing="10" fill="#B7AD9F">SPLARO</text>
+</svg>

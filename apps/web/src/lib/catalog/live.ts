@@ -246,7 +246,6 @@ export function mapLiveProduct(
   const colorOptions = buildColorOptions(variants, img)
   const colors = colorOptions.map((option) => option.hex)
   const rawSizes = [...new Set(variants.map((v) => v.size).filter(Boolean))] as string[]
-  const defaultSizes = category === 'Footwear' ? ['39', '40', '41', '42'] : ['M', 'L']
   const activeStock = variants
     .filter((v) => v.isActive !== false)
     .reduce((sum, v) => sum + Number(v.stock ?? 0), 0)
@@ -282,10 +281,11 @@ export function mapLiveProduct(
     ...(p.category?.name ? { categoryName: p.category.name } : {}),
     price: Number(p.basePrice),
     ...(p.compareAtPrice != null ? { compareAtPrice: Number(p.compareAtPrice) } : {}),
-    colors: colors.length ? colors : ['#111111'],
+    colors,
     ...(colorOptions.length ? { colorOptions } : {}),
-    sizes: rawSizes.length ? sortSizes(rawSizes, category) : defaultSizes,
-    inStock: variants.length === 0 ? true : activeStock > 0,
+    // Never invent M/L or shoe sizes — unsized products stay size-free.
+    sizes: rawSizes.length ? sortSizes(rawSizes, category) : [],
+    inStock: activeStock > 0,
     status: p.isNewArrival ? 'New' : p.isBestSeller ? 'Limited' : 'Ready',
     isNewArrival: Boolean(p.isNewArrival),
     isBestSeller: Boolean(p.isBestSeller),
@@ -345,6 +345,7 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
     rating: rating > 0 && reviewCount > 0 ? rating : 0,
     reviewCount: reviewCount > 0 ? reviewCount : 0,
     category,
+    ...(p.category?.slug ? { categorySlug: p.category.slug } : {}),
     collectionSlug: slugFromCategory(category),
     description: sanitizeStorefrontDescription(
       p.description,

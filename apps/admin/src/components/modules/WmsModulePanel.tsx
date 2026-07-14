@@ -4,7 +4,14 @@ import { useMemo, useState } from 'react'
 import { ArrowLeftRight, Building2, MapPin, Plus, RefreshCw, Download, Search, Truck, Warehouse } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminErrorState } from '@/components/ui/AdminUiPrimitives'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastFail } from '@/lib/admin/feedback'
+import {
+  confirmStockMovementRecorded,
+  confirmStockTransferCreated,
+  confirmStockTransferReceived,
+  confirmStockTransferShipped,
+  confirmWarehouseCreated,
+} from '@/lib/admin/wms-save'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
@@ -245,17 +252,18 @@ function WarehousesPanel() {
       toastFail('Name and code are required.')
       return
     }
-    try {
-      await createWarehouse.mutateAsync({ name: name.trim(), code: code.trim(), ...(city.trim() ? { city: city.trim() } : {}) })
-      toastOk('Warehouse created.')
-      setShowCreate(false)
-      setName('')
-      setCode('')
-      setCity('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Create failed')
+    const payload = {
+      name: name.trim(),
+      code: code.trim(),
+      ...(city.trim() ? { city: city.trim() } : {}),
     }
+    const id = await confirmWarehouseCreated(payload, () => createWarehouse.mutateAsync(payload))
+    if (!id) return
+    setShowCreate(false)
+    setName('')
+    setCode('')
+    setCity('')
+    void refetch()
   }
 
   if (isError) return <ErrorBanner msg="WMS API offline — start pnpm dev:api." />
@@ -347,22 +355,22 @@ function StockMovementsPanel() {
       toastFail('Delta must be a non-zero integer (+ inbound, − outbound).')
       return
     }
-    try {
-      await recordMovement.mutateAsync({
-        sku: sku.trim(),
-        delta: deltaNum,
-        reason,
-        ...(note.trim() ? { note: note.trim() } : {}),
-      })
-      toastOk('Stock movement recorded.')
-      setShowCreate(false)
-      setSku('')
-      setDelta('')
-      setNote('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not record movement')
+    const payload = {
+      sku: sku.trim(),
+      delta: deltaNum,
+      reason,
+      ...(note.trim() ? { note: note.trim() } : {}),
     }
+    const ok = await confirmStockMovementRecorded(
+      { sku: sku.trim(), delta: deltaNum },
+      () => recordMovement.mutateAsync(payload),
+    )
+    if (!ok) return
+    setShowCreate(false)
+    setSku('')
+    setDelta('')
+    setNote('')
+    void refetch()
   }
 
   if (isError) return <ErrorBanner msg="WMS movements API offline." />
@@ -469,43 +477,30 @@ function StockTransfersPanel() {
       toastFail('Quantity must be a positive integer.')
       return
     }
-    try {
-      await createTransfer.mutateAsync({
-        fromWarehouseId: fromId,
-        toWarehouseId: toId,
-        sku: sku.trim(),
-        quantity: qty,
-        ...(notes.trim() ? { notes: notes.trim() } : {}),
-      })
-      toastOk('Transfer created.')
-      setShowCreate(false)
-      setSku('')
-      setQuantity('')
-      setNotes('')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Create transfer failed')
+    const payload = {
+      fromWarehouseId: fromId,
+      toWarehouseId: toId,
+      sku: sku.trim(),
+      quantity: qty,
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
     }
+    const id = await confirmStockTransferCreated(() => createTransfer.mutateAsync(payload))
+    if (!id) return
+    setShowCreate(false)
+    setSku('')
+    setQuantity('')
+    setNotes('')
+    void refetch()
   }
 
   const handleShip = async (transferId: string) => {
-    try {
-      await shipTransfer.mutateAsync(transferId)
-      toastOk('Transfer marked in transit.')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not ship transfer')
-    }
+    const ok = await confirmStockTransferShipped(transferId, () => shipTransfer.mutateAsync(transferId))
+    if (ok) void refetch()
   }
 
   const handleReceive = async (transferId: string) => {
-    try {
-      await receiveTransfer.mutateAsync(transferId)
-      toastOk('Transfer received and completed.')
-      void refetch()
-    } catch (e) {
-      toastFail(e instanceof Error ? e.message : 'Could not receive transfer')
-    }
+    const ok = await confirmStockTransferReceived(transferId, () => receiveTransfer.mutateAsync(transferId))
+    if (ok) void refetch()
   }
 
   if (isError) return <ErrorBanner msg="WMS transfers API offline." />

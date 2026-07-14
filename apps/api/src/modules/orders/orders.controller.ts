@@ -1,9 +1,8 @@
-import { Controller, Delete, Get, Header, Logger, NotFoundException, Patch, Param, Query, Body, Post, Inject, Req, StreamableFile } from '@nestjs/common'
+import { Controller, Delete, Get, Header, Logger, NotFoundException, BadRequestException, Patch, Param, Query, Body, Post, Inject, Req, StreamableFile } from '@nestjs/common'
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
-import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
 import { StorefrontOrdersService } from '../storefront/storefront-orders.service'
 import { ProfitLossService } from '../finance/profit-loss.service'
@@ -11,11 +10,53 @@ import { GoogleSheetsFinanceService } from '../finance/finance-support.service'
 import { CourierService } from '../courier/courier.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { OrderEventsService } from './order-events.service'
+import { OrderStatusService } from './order-status.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { resolveStoreId } from '../../common/store.util'
-import type { CourierProvider, OrderStatus, PaymentStatus, Prisma } from '@prisma/client'
+import { resolveAdminPagination } from '../../common/admin-pagination.util'
+import {
+  BookCourierDto,
+  BulkBookCourierDto,
+  BulkUpdateOrderStatusDto,
+  InvoiceEmailDto,
+  AddOrderNoteDto,
+  SetCodRiskDto,
+  UpdateOrderPaymentDto,
+  UpdateOrderStatusDto,
+} from '../../common/dtos/admin-orders.dto'
+import type { OrderStatus, Prisma } from '@prisma/client'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
+
+const VALID_ORDER_STATUSES = new Set<string>([
+  'PENDING',
+  'CONFIRMED',
+  'PROCESSING',
+  'PACKED',
+  'SHIPPED',
+  'COURIER_BOOKED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'CANCELLED',
+  'RETURNED',
+  'REFUNDED',
+])
+
+/** Single status or comma-separated list → Prisma equality / `in` filter. */
+function parseOrderStatusFilter(
+  status?: string,
+): OrderStatus | { in: OrderStatus[] } | undefined {
+  if (!status?.trim()) return undefined
+  const parts = status
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => VALID_ORDER_STATUSES.has(s)) as OrderStatus[]
+  if (parts.length === 0) return undefined
+  if (parts.length === 1) return parts[0]
+  return { in: parts }
+}
 
 @Controller('admin/orders')
 export class OrdersController {
@@ -28,6 +69,7 @@ export class OrdersController {
     @Inject(CourierService) private readonly courier: CourierService,
     @Inject(StorefrontOrdersService) private readonly storefrontOrders: StorefrontOrdersService,
     @Inject(InvoiceService) private readonly invoices: InvoiceService,
+    private readonly orderStatus: OrderStatusService,
     private readonly orderEvents: OrderEventsService,
     private readonly telegramHub: AdminTelegramHubService,
   ) {}
@@ -57,10 +99,11 @@ export class OrdersController {
     @Query('search') search?: string,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const skip = (Number(page) - 1) * Number(limit)
+    const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
+    const statusFilter = parseOrderStatusFilter(status)
     const where: Prisma.OrderWhereInput = {
       storeId: sid,
-      ...(status ? { status: status as OrderStatus } : {}),
+      ...(statusFilter ? { status: statusFilter } : {}),
       ...(search ? {
         OR: [
           { invoiceNumber: { contains: search, mode: 'insensitive' as const } },
@@ -89,12 +132,12 @@ export class OrdersController {
         },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: Number(limit),
+        take,
       }),
       this.prisma.order.count({ where }),
     ])
 
-    return { orders, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
+    return { orders, total, page: pageNum, totalPages: Math.ceil(total / take) }
   }
 
   @Get(':id/invoice/pdf')
@@ -112,11 +155,16 @@ export class OrdersController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   async invoicePrint(@Param('id') id: string, @Req() req: AdminRequest) {
     const orderId = await this.ownedOrderId(id, req)
-    return this.invoices.buildHtml(orderId, { showToolbar: true, autoPrint: true })
+    // Print action always opens the browser print dialog (FEATURE_PRINT_AUTO only
+    // gates optional auto-print on the generic HTML view).
+    return this.invoices.buildHtml(orderId, {
+      showToolbar: true,
+      autoPrint: true,
+    })
   }
 
   @Post(':id/invoice/email')
-  async invoiceEmail(@Param('id') id: string, @Body() body: { email?: string }, @Req() req: AdminRequest) {
+  async invoiceEmail(@Param('id') id: string, @Body() body: InvoiceEmailDto, @Req() req: AdminRequest) {
     const orderId = await this.ownedOrderId(id, req)
     return this.invoices.sendInvoiceEmail(orderId, body.email)
   }
@@ -165,64 +213,18 @@ export class OrdersController {
     return order
   }
 
-  private async applyStatusChange(
-    id: string,
-    statusRaw: string,
-    note: string | undefined,
-    callerStoreId?: string,
-  ) {
-    const existing = await this.prisma.order.findUnique({
-      where: { id },
-      select: { id: true, storeId: true, status: true },
-    })
-    if (!existing) throw new NotFoundException('Order not found')
-    if (callerStoreId && existing.storeId !== callerStoreId) {
-      throw new NotFoundException('Order not found')
-    }
-
-    const status = assertOrderStatusTransition(existing.status, statusRaw)
-    const shouldRestoreStock =
-      STOCK_RESTORING_STATUSES.includes(status) &&
-      !STOCK_RESTORING_STATUSES.includes(existing.status)
-
-    const order = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.order.update({
-        where: { id },
-        data: {
-          status,
-          ...(status === 'CONFIRMED' ? { confirmedAt: new Date() } : {}),
-          ...(status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
-          ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
-        },
-      })
-
-      if (shouldRestoreStock) {
-        await restoreOrderStock(tx, id, `Stock restored — order ${status.toLowerCase()}`)
-      }
-
-      await tx.orderStatusHistory.create({
-        data: { orderId: id, status, note: note ?? `Status changed to ${status}` },
-      })
-
-      return updated
-    })
-
-    if (note) {
-      await this.prisma.orderNote.create({
-        data: { orderId: id, body: note, isPrivate: true },
-      })
-    }
-
-    return order
-  }
-
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,
-    @Body() body: { status: string; note?: string },
+    @Body() body: UpdateOrderStatusDto,
     @Req() req: AdminRequest,
   ) {
-    const order = await this.applyStatusChange(id, body.status, body.note, req.adminUser?.storeId)
+    const order = await this.orderStatus.applyStatusChange(
+      id,
+      body.status,
+      body.note,
+      req.adminUser?.storeId,
+    )
 
     if (order.status === 'DELIVERED') {
       await this.profitLoss.calculateOrderProfit(order.storeId, id)
@@ -230,30 +232,57 @@ export class OrdersController {
       await this.sheets.queueSync(order.storeId, 'PROFIT_LOSS', id, 'ORDER')
     }
 
-    void this.orderEvents
-      .onStatusChanged(order.storeId, id, order.status, body.note)
-      .catch((err: unknown) => this.logger.error(`onStatusChanged failed for order ${id}: ${err instanceof Error ? err.message : err}`))
-
     return order
   }
 
   @Patch(':id/cod-risk')
   async setCodRisk(
     @Param('id') id: string,
-    @Body() body: { isCodRisk: boolean; requireAdvancePayment?: boolean },
+    @Body() body: SetCodRiskDto,
     @Req() req: AdminRequest,
   ) {
     const orderId = await this.ownedOrderId(id, req)
     return this.prisma.order.update({
       where: { id: orderId },
-      data: { isCodRisk: body.isCodRisk, requireAdvancePayment: body.requireAdvancePayment },
+      data: {
+        isCodRisk: body.isCodRisk,
+        ...(body.requireAdvancePayment !== undefined
+          ? { requireAdvancePayment: body.requireAdvancePayment }
+          : {}),
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        isCodRisk: true,
+        requireAdvancePayment: true,
+      },
+    })
+  }
+
+  @Post(':id/notes')
+  async addNote(
+    @Param('id') id: string,
+    @Body() body: AddOrderNoteDto,
+    @Req() req: AdminRequest,
+  ) {
+    const orderId = await this.ownedOrderId(id, req)
+    const noteBody = body.body.trim()
+    if (!noteBody) throw new BadRequestException('Note body is required')
+    return this.prisma.orderNote.create({
+      data: {
+        orderId,
+        body: noteBody,
+        isPrivate: true,
+        authorId: req.adminUser?.userId,
+      },
+      select: { id: true, body: true, createdAt: true },
     })
   }
 
   @Patch(':id/payment')
   async updatePayment(
     @Param('id') id: string,
-    @Body() body: { paymentStatus: PaymentStatus },
+    @Body() body: UpdateOrderPaymentDto,
     @Req() req: AdminRequest,
   ) {
     const order = await this.prisma.order.findFirst({
@@ -279,18 +308,18 @@ export class OrdersController {
 
   @Post('bulk/status')
   async bulkUpdateStatus(
-    @Body() body: { orderIds: string[]; status: string; note?: string },
+    @Body() body: BulkUpdateOrderStatusDto,
     @Req() req: AdminRequest,
   ) {
     const results = await Promise.all(
       body.orderIds.map(async (orderId) => {
         try {
-          const order = await this.applyStatusChange(orderId, body.status, body.note, req.adminUser?.storeId)
-          void this.orderEvents
-            .onStatusChanged(order.storeId, orderId, order.status, body.note)
-            .catch((err: unknown) =>
-              this.logger.error(`onStatusChanged failed for order ${orderId}: ${err instanceof Error ? err.message : err}`),
-            )
+          const order = await this.orderStatus.applyStatusChange(
+            orderId,
+            body.status,
+            body.note,
+            req.adminUser?.storeId,
+          )
           return { orderId, success: true, invoiceNumber: order.invoiceNumber }
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Update failed'
@@ -382,7 +411,7 @@ export class OrdersController {
 
   @Post('bulk/courier')
   async bookCourierBulk(
-    @Body() body: { orderIds: string[]; provider?: CourierProvider },
+    @Body() body: BulkBookCourierDto,
     @Req() req: AdminRequest,
   ) {
     const results = await Promise.all(
@@ -397,14 +426,14 @@ export class OrdersController {
         }
       }),
     )
-    const booked = results.filter((r) => r.success).length
+    const booked = results.filter((r) => r.success && !r.simulated).length
     return { results, booked, failed: results.length - booked }
   }
 
   @Post(':id/courier')
   async bookCourier(
     @Param('id') id: string,
-    @Body() body: { provider?: CourierProvider },
+    @Body() body: BookCourierDto,
     @Req() req: AdminRequest,
   ) {
     const ownedId = await this.ownedOrderId(id, req)

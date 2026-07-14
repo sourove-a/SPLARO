@@ -18,16 +18,43 @@ import {
   UnauthorizedException,
 } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
+import { ApiTags } from '@nestjs/swagger'
 import type { Request } from 'express'
 import { LEGAL_PAGE_SLUGS } from '@splaro/types'
+import { isFeatureEnabled } from '@splaro/config'
 import { Public } from '../../common/auth/public.decorator'
+import {
+  CreateStorefrontOrderDto,
+  NewsletterSubscribeDto,
+  StorefrontCartAddItemDto,
+  StorefrontCartReplaceDto,
+  StorefrontForgotPasswordDto,
+  StorefrontGoogleAuthDto,
+  StorefrontCompletePhoneDto,
+  StorefrontLoginDto,
+  StorefrontOtpSendDto,
+  StorefrontOtpVerifyDto,
+  StorefrontResetPasswordDto,
+  StorefrontSignupDto,
+  StorefrontSubmitReviewDto,
+} from '../../common/dtos/storefront.dto'
 import { PrismaService } from '../../common/prisma.service'
+import { CATALOG_CACHE_TTL } from '../../common/catalog-cache.constants'
+import { buildCategoryTree } from '../../common/category-tree.util'
 import { CacheService } from '../../common/cache.service'
+import {
+  assertCartLineStock,
+  CART_MAX_LINES,
+  clampCartLineQuantity,
+  clampCartLineToStock,
+  resolveCartVariant,
+} from '../../common/cart-line.util'
 import { resolveStoreId } from '../../common/store.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { serializePublicOrder, serializePublicOrders } from '../../common/public-order.util'
 import { mergeStorefrontConfig } from '../settings/storefront-config'
-import { CreateStorefrontOrderInput, StorefrontOrdersService } from './storefront-orders.service'
+import { NavBuilderService } from '../settings/nav-builder.service'
+import { StorefrontOrdersService } from './storefront-orders.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { AdminTelegramHubService } from '../notifications/admin-telegram-hub.service'
 import { EmailService } from '../email/email.service'
@@ -37,6 +64,7 @@ import { StorefrontWishlistService } from './storefront-wishlist.service'
 import { StorefrontOtpService } from './storefront-otp.service'
 import { InvoiceService } from '../invoices/invoice.service'
 import { LegalPagesService } from '../content/legal-pages.service'
+import { FootwearConfigService } from '../content/footwear-config.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
 import { SeedDemoCatalogService } from '../catalog/seed-demo-catalog.service'
 
@@ -58,6 +86,7 @@ function clientIp(req: Request): string | undefined {
 }
 
 @Public()
+@ApiTags('storefront')
 @Controller('storefront')
 export class StorefrontController {
   constructor(
@@ -73,9 +102,26 @@ export class StorefrontController {
     private readonly storefrontOtp: StorefrontOtpService,
     private readonly invoices: InvoiceService,
     private readonly legalPages: LegalPagesService,
+    private readonly footwearConfig: FootwearConfigService,
     private readonly purgeDemoCatalog: PurgeDemoCatalogService,
     private readonly seedDemoCatalog: SeedDemoCatalogService,
+    private readonly navBuilder: NavBuilderService,
   ) {}
+
+  @Get('nav')
+  async getNav(@Query('storeId') storeId: string) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.cache.getOrSet(this.cache.storeKey(sid, 'nav'), 60, async () => {
+      const store = await this.prisma.store.findUnique({
+        where: { id: sid },
+        include: { settings: true },
+      })
+      if (!store) throw new NotFoundException('Store not found')
+      const config = mergeStorefrontConfig(store.settings?.storefrontConfig)
+      const headerNav = await this.navBuilder.buildStorefrontNav(sid, config)
+      return { headerNav }
+    })
+  }
 
   @Get('settings')
   async getSettings(@Query('storeId') storeId: string) {
@@ -135,6 +181,12 @@ export class StorefrontController {
   }
 
   @Public()
+  @Get('footwear')
+  getFootwearPage(@Query('storeId') storeId: string) {
+    return this.footwearConfig.get(storeId)
+  }
+
+  @Public()
   @Get('redirects')
   async listRedirects(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
@@ -182,17 +234,21 @@ export class StorefrontController {
       .map((id) => id.trim())
       .filter(Boolean)
     if (ids?.length) {
-      const products = await this.prisma.product.findMany({
-        where: storefrontVisibleProductWhere({ storeId: sid, id: { in: ids } }),
-        include: {
-          images: { orderBy: { position: 'asc' as const } },
-          variants: { where: { isActive: true } },
-          category: { select: { id: true, name: true, slug: true } },
-        },
+      const sortedIds = [...ids].sort().join(',')
+      const cacheKey = this.cache.storeKey(sid, 'products', `ids:${sortedIds}`)
+      return this.cache.getOrSet(cacheKey, CATALOG_CACHE_TTL.productIds, async () => {
+        const products = await this.prisma.product.findMany({
+          where: storefrontVisibleProductWhere({ storeId: sid, id: { in: ids } }),
+          include: {
+            images: { orderBy: { position: 'asc' as const } },
+            variants: { where: { isActive: true } },
+            category: { select: { id: true, name: true, slug: true } },
+          },
+        })
+        const order = new Map(ids.map((id, index) => [id, index]))
+        products.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+        return { products, total: products.length }
       })
-      const order = new Map(ids.map((id, index) => [id, index]))
-      products.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
-      return { products, total: products.length }
     }
 
     const category = categorySlug?.trim() || undefined
@@ -270,43 +326,49 @@ export class StorefrontController {
     }
 
     if (!filtered) {
-      return this.cache.getOrSet(this.cache.storeKey(sid, 'products'), 60, load)
+      return this.cache.getOrSet(this.cache.storeKey(sid, 'products'), CATALOG_CACHE_TTL.products, load)
     }
 
     const cacheKey = `${this.cache.storeKey(sid, 'products')}:cat:${category ?? ''}:parent:${parentCategory ?? ''}:col:${collection ?? ''}:p${page}:l${limit}`
-    return this.cache.getOrSet(cacheKey, 60, load)
+    return this.cache.getOrSet(cacheKey, CATALOG_CACHE_TTL.products, load)
   }
 
   @Get('products/:slug')
   async getProduct(@Query('storeId') storeId: string, @Param('slug') slug: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const product = await this.prisma.product.findFirst({
-      where: storefrontVisibleProductWhere({ storeId: sid, slug }),
-      include: {
-        images: { orderBy: { position: 'asc' } },
-        variants: { where: { isActive: true } },
-        category: { select: { id: true, name: true, slug: true } },
-        reviews: {
-          where: { status: 'APPROVED' },
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-          select: {
-            id: true,
-            rating: true,
-            title: true,
-            body: true,
-            verifiedPurchase: true,
-            helpfulCount: true,
-            adminReply: true,
-            adminReplyAt: true,
-            createdAt: true,
-            customer: { select: { firstName: true, lastName: true } },
+    return this.cache.getOrSet(
+      this.cache.storeKey(sid, 'product', slug),
+      CATALOG_CACHE_TTL.productDetail,
+      async () => {
+        const product = await this.prisma.product.findFirst({
+          where: storefrontVisibleProductWhere({ storeId: sid, slug }),
+          include: {
+            images: { orderBy: { position: 'asc' } },
+            variants: { where: { isActive: true } },
+            category: { select: { id: true, name: true, slug: true } },
+            reviews: {
+              where: { status: 'APPROVED' },
+              orderBy: { createdAt: 'desc' },
+              take: 50,
+              select: {
+                id: true,
+                rating: true,
+                title: true,
+                body: true,
+                verifiedPurchase: true,
+                helpfulCount: true,
+                adminReply: true,
+                adminReplyAt: true,
+                createdAt: true,
+                customer: { select: { firstName: true, lastName: true } },
+              },
+            },
           },
-        },
+        })
+        if (!product) throw new NotFoundException('Product not found')
+        return { product }
       },
-    })
-    if (!product) throw new NotFoundException('Product not found')
-    return { product }
+    )
   }
 
   @Get('customer/profile')
@@ -347,14 +409,14 @@ export class StorefrontController {
   @Throttle({ default: { limit: 6, ttl: 60_000 } })
   async authSignup(
     @Query('storeId') storeId: string,
-    @Body() body: { name?: string; email?: string; phone?: string; password?: string },
+    @Body() body: StorefrontSignupDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     const result = await this.storefrontAuth.signup(sid, {
-      name: body.name ?? '',
-      email: body.email ?? '',
-      phone: body.phone ?? '',
-      password: body.password ?? '',
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      password: body.password,
     })
 
     void this.telegramHub.notifyCustomerRegistered(sid, {
@@ -371,13 +433,61 @@ export class StorefrontController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async authLogin(
     @Query('storeId') storeId: string,
-    @Body() body: { email?: string; password?: string },
+    @Body() body: StorefrontLoginDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.storefrontAuth.login(sid, {
-      identifier: body.email ?? '',
-      password: body.password ?? '',
+      identifier: body.email,
+      password: body.password,
     })
+  }
+
+  @Post('auth/google')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async authGoogle(
+    @Query('storeId') storeId: string,
+    @Body() body: StorefrontGoogleAuthDto,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const result = await this.storefrontAuth.googleSignIn(sid, body.credential)
+
+    if (!result.needsPhone) {
+      void this.telegramHub.notifyCustomerRegistered(sid, {
+        name: result.user.name,
+        email: result.user.email,
+        phone: result.user.phone,
+        source: 'Google signup',
+      })
+    }
+
+    return result
+  }
+
+  @Post('auth/complete-phone')
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  async authCompletePhone(
+    @Query('storeId') storeId: string,
+    @Body() body: StorefrontCompletePhoneDto,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+
+    const result = await this.storefrontAuth.completePhone(sid, sessionToken, {
+      phone: body.phone,
+      ...(body.code ? { code: body.code } : {}),
+    })
+
+    void this.telegramHub.notifyCustomerRegistered(sid, {
+      name: result.user.name,
+      email: result.user.email,
+      phone: result.user.phone,
+      source: 'Google signup',
+    })
+
+    return result
   }
 
   @Public()
@@ -385,17 +495,17 @@ export class StorefrontController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async authForgotPassword(
     @Query('storeId') storeId: string,
-    @Body() body: { email?: string },
+    @Body() body: StorefrontForgotPasswordDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    return this.storefrontAuth.forgotPassword(sid, body.email ?? '')
+    return this.storefrontAuth.forgotPassword(sid, body.email)
   }
 
   @Public()
   @Post('auth/reset-password')
   @Throttle({ default: { limit: 8, ttl: 60_000 } })
-  async authResetPassword(@Body() body: { token?: string; password?: string }) {
-    return this.storefrontAuth.resetPassword(body.token ?? '', body.password ?? '')
+  async authResetPassword(@Body() body: StorefrontResetPasswordDto) {
+    return this.storefrontAuth.resetPassword(body.token, body.password)
   }
 
   @Get('auth/me')
@@ -542,21 +652,14 @@ export class StorefrontController {
 
   @Post('auth/otp/send')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async sendOtp(@Query('storeId') storeId: string, @Body() body: { phone?: string }) {
-    if (!body.phone?.trim()) throw new BadRequestException('Phone is required')
+  async sendOtp(@Query('storeId') storeId: string, @Body() body: StorefrontOtpSendDto) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.storefrontOtp.sendOtp(sid, body.phone)
   }
 
   @Post('auth/otp/verify')
   @Throttle({ default: { limit: 8, ttl: 60_000 } })
-  async verifyOtp(
-    @Query('storeId') storeId: string,
-    @Body() body: { phone?: string; code?: string },
-  ) {
-    if (!body.phone?.trim() || !body.code?.trim()) {
-      throw new BadRequestException('Phone and code are required')
-    }
+  async verifyOtp(@Query('storeId') storeId: string, @Body() body: StorefrontOtpVerifyDto) {
     const sid = await resolveStoreId(this.prisma, storeId)
     return this.storefrontOtp.verifyOtp(sid, body.phone, body.code)
   }
@@ -565,13 +668,27 @@ export class StorefrontController {
   @Throttle({ default: { limit: 8, ttl: 60_000 } })
   async createOrder(
     @Query('storeId') storeId: string,
-    @Body() body: CreateStorefrontOrderInput,
+    @Body() body: CreateStorefrontOrderDto,
     @Req() req: Request,
     @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
   ) {
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) {
+      throw new UnauthorizedException('Create an account or sign in to place an order')
+    }
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user) {
+      throw new UnauthorizedException('Create an account or sign in to place an order')
+    }
+    const sid = await resolveStoreId(this.prisma, body.storeId ?? storeId)
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+
     const order = await this.storefrontOrders.create({
       ...body,
       storeId: body.storeId ?? storeId,
+      customerId,
       idempotencyKey: body.idempotencyKey ?? idempotencyKey,
       clientIp: clientIp(req),
       userAgent: req.headers['user-agent'],
@@ -611,7 +728,7 @@ export class StorefrontController {
     @Headers('x-splaro-session') sessionHeader?: string,
     @Headers('x-splaro-phone-access') phoneAccess?: string,
   ) {
-    if (!phone) return { orders: [] }
+    if (!phone) throw new BadRequestException('phone is required')
     const sid = await resolveStoreId(this.prisma, storeId)
     const sessionToken = sessionFromHeaders(authorization, sessionHeader)
     const sessionPhone = sessionToken
@@ -642,7 +759,8 @@ export class StorefrontController {
     if (!order) throw new NotFoundException('Order not found')
     return this.invoices.buildHtml(order.id, {
       showToolbar: true,
-      autoPrint: autoPrint === '1' || autoPrint === 'true',
+      autoPrint:
+        isFeatureEnabled('printAuto') && (autoPrint === '1' || autoPrint === 'true'),
     })
   }
 
@@ -679,12 +797,9 @@ export class StorefrontController {
   @Throttle({ default: { limit: 6, ttl: 60_000 } })
   async subscribeNewsletter(
     @Query('storeId') storeId: string,
-    @Body() body: { email?: string },
+    @Body() body: NewsletterSubscribeDto,
   ) {
-    const email = body.email?.trim().toLowerCase()
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new BadRequestException('Enter a valid email address.')
-    }
+    const email = body.email.trim().toLowerCase()
 
     const sid = await resolveStoreId(this.prisma, storeId)
     const config = mergeStorefrontConfig(
@@ -839,20 +954,20 @@ export class StorefrontController {
   @Get('categories')
   async listCategories(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    return this.cache.getOrSet(this.cache.storeKey(sid, 'categories'), 120, async () => {
+    return this.cache.getOrSet(this.cache.storeKey(sid, 'categories'), CATALOG_CACHE_TTL.categories, async () => {
       const categories = await this.prisma.category.findMany({
         where: { storeId: sid, isActive: true },
         include: { _count: { select: { products: true } } },
         orderBy: { sortOrder: 'asc' },
       })
-      return { categories }
+      return { categories, tree: buildCategoryTree(categories) }
     })
   }
 
   @Get('collections')
   async listCollections(@Query('storeId') storeId: string) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    return this.cache.getOrSet(this.cache.storeKey(sid, 'collections'), 120, async () => {
+    return this.cache.getOrSet(this.cache.storeKey(sid, 'collections'), CATALOG_CACHE_TTL.collections, async () => {
       const collections = await this.prisma.collection.findMany({
         where: { storeId: sid, isActive: true },
         include: { _count: { select: { products: true } } },
@@ -918,26 +1033,21 @@ export class StorefrontController {
   async addToCart(
     @Query('storeId') storeId: string,
     @Param('sessionId') sessionId: string,
-    @Body() body: { productId: string; variantId?: string; quantity?: number },
+    @Body() body: StorefrontCartAddItemDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
 
     const product = await this.prisma.product.findFirst({
       where: storefrontVisibleProductWhere({ id: body.productId, storeId: sid }),
-      select: { id: true },
+      select: { id: true, name: true },
     })
     if (!product) throw new NotFoundException('Product not found or no longer available')
 
-    const qty = Math.max(1, body.quantity ?? 1)
-    const variantId = body.variantId?.trim() || null
+    const variantIdInput = body.variantId?.trim() || null
+    const variant = await resolveCartVariant(this.prisma, sid, body.productId, variantIdInput)
+    if (!variant) throw new NotFoundException('Product variant not found')
 
-    if (variantId) {
-      const variant = await this.prisma.productVariant.findFirst({
-        where: { id: variantId, productId: body.productId },
-        select: { id: true },
-      })
-      if (!variant) throw new NotFoundException('Product variant not found')
-    }
+    const qty = clampCartLineQuantity(body.quantity)
 
     const cart = await this.prisma.cartSession.upsert({
       where: { sessionId },
@@ -949,22 +1059,25 @@ export class StorefrontController {
       where: {
         cartId: cart.id,
         productId: body.productId,
-        variantId,
+        variantId: variant.id,
       },
     })
+
+    const nextQty = clampCartLineQuantity((existing?.quantity ?? 0) + qty)
+    assertCartLineStock(product.name, nextQty, variant.stock)
 
     if (existing) {
       await this.prisma.cartItem.update({
         where: { id: existing.id },
-        data: { quantity: existing.quantity + qty },
+        data: { quantity: nextQty },
       })
     } else {
       await this.prisma.cartItem.create({
         data: {
           cartId: cart.id,
           productId: body.productId,
-          variantId,
-          quantity: qty,
+          variantId: variant.id,
+          quantity: nextQty,
         },
       })
     }
@@ -982,14 +1095,14 @@ export class StorefrontController {
   async replaceCart(
     @Query('storeId') storeId: string,
     @Param('sessionId') sessionId: string,
-    @Body() body: { items?: { productId: string; variantId?: string; quantity?: number }[] },
+    @Body() body: StorefrontCartReplaceDto,
   ) {
     const sid = await resolveStoreId(this.prisma, storeId)
-    const requested = Array.isArray(body.items) ? body.items.slice(0, 100) : []
+    const requested = Array.isArray(body.items) ? body.items.slice(0, CART_MAX_LINES) : []
 
     // Validate up front — invalid lines are skipped, not fatal, so a single
     // stale local item can't block syncing the rest of the cart.
-    const validated: { productId: string; variantId: string | null; quantity: number }[] = []
+    const validated: { productId: string; variantId: string; quantity: number }[] = []
     for (const item of requested) {
       if (!item?.productId) continue
       const product = await this.prisma.product.findFirst({
@@ -998,18 +1111,21 @@ export class StorefrontController {
       })
       if (!product) continue
 
-      const variantId = item.variantId?.trim() || null
-      if (variantId) {
-        const variant = await this.prisma.productVariant.findFirst({
-          where: { id: variantId, productId: item.productId },
-          select: { id: true },
-        })
-        if (!variant) continue
-      }
+      const variant = await resolveCartVariant(
+        this.prisma,
+        sid,
+        item.productId,
+        item.variantId?.trim() || null,
+      )
+      if (!variant) continue
+
+      const quantity = clampCartLineToStock(item.quantity ?? 1, variant.stock)
+      if (quantity === null) continue
+
       validated.push({
         productId: item.productId,
-        variantId,
-        quantity: Math.min(500, Math.max(1, Math.round(Number(item.quantity ?? 1)))),
+        variantId: variant.id,
+        quantity,
       })
     }
 
@@ -1121,7 +1237,7 @@ export class StorefrontController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async submitReview(
     @Query('storeId') storeId: string,
-    @Body() body: { productId: string; rating: number; title?: string; body?: string },
+    @Body() body: StorefrontSubmitReviewDto,
     @Headers('authorization') authorization?: string,
     @Headers('x-splaro-session') sessionHeader?: string,
   ) {
@@ -1246,11 +1362,7 @@ export class StorefrontController {
     @Req() req: Request,
     @Body() body: { name?: string; email?: string; phone?: string; source?: string; passwordHash?: string },
   ) {
-    const secret = process.env['INTERNAL_HEALTH_SECRET']
-    const header = req.headers['x-splaro-internal']
-    if (secret && header !== secret) {
-      throw new BadRequestException('Unauthorized event source')
-    }
+    this.assertInternalEventAuth(req)
 
     const sid = await resolveStoreId(this.prisma, storeId)
     const name = body.name?.trim()
@@ -1284,11 +1396,7 @@ export class StorefrontController {
     @Req() req: Request,
     @Body() body: { area?: string; detail?: string },
   ) {
-    const secret = process.env['INTERNAL_HEALTH_SECRET']
-    const header = req.headers['x-splaro-internal']
-    if (secret && header !== secret) {
-      throw new BadRequestException('Unauthorized event source')
-    }
+    this.assertInternalEventAuth(req)
 
     const sid = await resolveStoreId(this.prisma, storeId)
     void this.telegramHub.notifyApiConnectionIssue(
@@ -1312,7 +1420,7 @@ export class StorefrontController {
       (storeId?.trim() || process.env['NEXT_PUBLIC_STORE_ID'] || 'splaro').trim(),
     )
     const result = await this.purgeDemoCatalog.purge(sid)
-    await this.cache.invalidateStoreResource(sid, 'products')
+    await this.cache.invalidateCatalog(sid)
     return { ok: true, ...result }
   }
 
@@ -1330,8 +1438,17 @@ export class StorefrontController {
     )
     const result = await this.seedDemoCatalog.seedIfEmpty(sid)
     if (result.productsCreated > 0) {
-      await this.cache.invalidateStoreResource(sid, 'products')
+      await this.cache.invalidateCatalog(sid)
     }
     return { ok: true, ...result }
+  }
+
+  /** Internal-only storefront events (web server → API). */
+  private assertInternalEventAuth(req: Request): void {
+    const secret = process.env['INTERNAL_HEALTH_SECRET']
+    const header = req.headers['x-splaro-internal']
+    if (!secret || header !== secret) {
+      throw new UnauthorizedException('Unauthorized event source')
+    }
   }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { DEFAULT_CATALOG_CHANNELS } from '@splaro/types'
+import { DEFAULT_CATALOG_CHANNELS, DEFAULT_SHOP_FILTERS } from '@splaro/types'
 import { useNewsletterSubscribers, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import { ApiError } from '@/lib/api/client'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
@@ -36,8 +36,9 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
   ourStory: DEFAULT_OUR_STORY,
   homepage: DEFAULT_HOMEPAGE_SECTIONS,
   catalogChannels: DEFAULT_CATALOG_CHANNELS.map((c) => ({ ...c })),
+  shopFilters: DEFAULT_SHOP_FILTERS,
   catalog: { autoGenerateSku: false },
-  payments: { cod: true, bkash: true, sslcommerz: true, nagad: true },
+  payments: { cod: true, bkash: false, sslcommerz: false, nagad: false },
   shipping: { dhakaSameDay: true, outsideDhaka: true, freeShippingMin: '0', dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
   smtp: { enabled: false, host: '', port: 587, secure: false, user: '', password: '', fromName: '', fromEmail: '' },
   emailEnabled: false,

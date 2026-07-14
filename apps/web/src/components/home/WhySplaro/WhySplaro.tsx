@@ -1,9 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { resolveStoreLogo } from '@/components/brand/SplaroBrandLogo'
 import { resolveOurStory } from '@/lib/storefront/homepage-defaults'
@@ -13,18 +12,15 @@ import { CustomerStoriesDropdown } from './CustomerStoriesDropdown'
 import { SocialReelsDropdown } from './SocialReelsDropdown'
 import { StoryPillarsDropdown } from './StoryPillarsDropdown'
 import { StoryReadMore } from './StoryReadMore'
+import { StoryEarthGlobe } from './StoryEarthGlobe'
 
-const StoryEarthGlobe = dynamic(
-  () => import('./StoryEarthGlobe').then((m) => m.StoryEarthGlobe),
-  { ssr: false },
-)
-
-/** Same PNG wordmarks as header — not the legacy Georgia serif SVG placeholders. */
-const SPLARO_LOGO = '/images/logo/splaro-brand-mark-400.webp'
-const SPLARO_MARK = '/images/logo/splaro-brand-mark-tab-48.png'
-const MARK_SIZE = 48
-const LOGO_W = 200
-const LOGO_H = 80
+/** Same premium PNG wordmarks as header/footer. */
+const SPLARO_LOGO_BLACK = '/images/logo/splaro-logo-black-premium.png'
+const SPLARO_LOGO_WHITE = '/images/logo/splaro-logo-white-premium.png'
+const SPLARO_MARK = '/images/logo/splaro-logo-white-premium.png'
+const MARK_SIZE = 64
+const LOGO_W = 220
+const LOGO_H = 117
 
 const REVEAL_EASE = [0.16, 1, 0.3, 1] as const
 
@@ -37,10 +33,10 @@ function StoryRevealColumn({
   delay?: number
   className?: string
 }) {
-  const { showMotion } = useMotionReady()
+  const { allowRevealAnimation } = useMotionReady()
   const { ref, isInView } = useScrollReveal({ once: true, margin: '-60px 0px -60px 0px' })
 
-  if (!showMotion) {
+  if (!allowRevealAnimation) {
     return (
       <div ref={ref} className={className}>
         {children}
@@ -52,7 +48,7 @@ function StoryRevealColumn({
     <motion.div
       ref={ref}
       className={className}
-      initial={{ opacity: 0, y: 20 }}
+      initial={isInView ? false : { opacity: 0, y: 20 }}
       animate={
         isInView
           ? { opacity: 1, y: 0, transition: { duration: 0.55, delay, ease: REVEAL_EASE } }
@@ -69,9 +65,9 @@ export function WhySplaro() {
   const story = resolveOurStory(settings.config.ourStory)
   const homepage = settings.config.homepage
   const storeLogo = resolveStoreLogo(settings.store.logo ?? '')
-  const brandLogo = storeLogo || SPLARO_LOGO
-  /** Globe panel inverts dark wordmark to white via CSS. */
-  const earthLogo = storeLogo || SPLARO_LOGO
+  const brandLogo = storeLogo || SPLARO_LOGO_BLACK
+  /** Native white wordmark on the dark globe panel — no CSS invert. */
+  const earthLogo = SPLARO_LOGO_WHITE
 
   if (!story.enabled || homepage?.ourStory === false) return null
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { toastNotImplemented } from '@/lib/admin/feedback'
+import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { Database, FileText, HeartPulse, Download, RefreshCw } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
@@ -68,7 +68,7 @@ function BackupsView() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <AdminButton variant="gold" onClick={() => toastNotImplemented('Database backup')}>
+          <AdminButton variant="gold" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
             <Download style={{ width: 16, height: 16 }} /> Run backup now
           </AdminButton>
           <Link href="/dashboard/observability/disaster-recovery" className="admin-catalog-action inline-flex items-center">

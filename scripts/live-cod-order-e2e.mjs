@@ -6,21 +6,18 @@
 import { createRequire } from 'module'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { puppeteerLaunchOptions } from './puppeteer-chrome.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
-const WEB = process.env.WEB_URL ?? 'http://localhost:3000'
+const WEB = process.env.WEB_URL ?? 'http://127.0.0.1:3000'
 const PRODUCT_SLUG = process.env.E2E_PRODUCT_SLUG ?? 'heritage-block-print-kurti'
 const isRemote = /^https?:\/\//.test(WEB) && !/localhost|127\.0\.0\.1/.test(WEB)
 const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemote ? 'domcontentloaded' : 'networkidle2')
 const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemote ? 60000 : 45000))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-const CHROME =
-  process.env.PUPPETEER_EXECUTABLE_PATH ??
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 function uniqueTestUser() {
   const stamp = Date.now()
@@ -80,13 +77,7 @@ async function main() {
 
   const user = uniqueTestUser()
   const puppeteer = require('puppeteer')
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    ...(process.env.PUPPETEER_EXECUTABLE_PATH || CHROME
-      ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? CHROME }
-      : {}),
-  })
+  const browser = await puppeteer.launch(puppeteerLaunchOptions())
 
   const result = { ok: false, user, steps: {}, orderId: null, confirmationUrl: null }
 

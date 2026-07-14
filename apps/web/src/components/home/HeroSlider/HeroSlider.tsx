@@ -84,7 +84,10 @@ function isBrandLogoPoster(url: string) {
   const trimmed = url.trim()
   // The generic product placeholder (grey bag icon) reads as broken imagery in
   // a full-bleed hero — treat it like "no poster" so the premium gradient shows.
-  return /splaro-logo-(white|dark)\.svg/i.test(trimmed) || trimmed.includes('placeholder-product')
+  return (
+    /splaro-logo-(white|dark)\.svg/i.test(trimmed) ||
+    /placeholder-product\.(jpg|jpeg|png|svg|webp)/i.test(trimmed)
+  )
 }
 
 /** Pexels hosts a cinematic still for every video — use preview-0 (free-video-* 404s on newer IDs). */
@@ -147,23 +150,15 @@ function resolveSlidePoster(media: string, index: number, banner: HeroBanner) {
 
 function resolveSlideEyebrow(banner: HeroBanner, index: number, subtitle: string): string {
   const fromDefaults = HERO_DEFAULT_SLIDES[index]?.eyebrow
-  if (fromDefaults) return fromDefaults
+  if (fromDefaults?.trim()) return fromDefaults.trim()
 
   const collectionMatch = subtitle.match(/^(.+?)\s+collection$/i)
   if (collectionMatch?.[1]) {
-    return `${collectionMatch[1].trim().toUpperCase()} COLLECTION`
+    return 'SPLARO'
   }
 
-  const href = banner.linkUrl?.trim() || ''
-  const segments = href.split('/').filter(Boolean)
-  const segment = segments[0] === 'c' && segments[1] ? segments[1] : segments[segments.length - 1]
-  if (segment && !['shop', 'products', 'collections'].includes(segment)) {
-    const label = segment.replace(/[-_]+/g, ' ').trim()
-    if (label.length > 0 && label.length <= 40) return label.toUpperCase()
-  }
-
-  const ROTATING = ['SPLARO COLLECTION', 'FEATURED EDIT', 'NEW SEASON', 'CURATED PICKS'] as const
-  return ROTATING[index % ROTATING.length]!
+  // Brand is the hero signal — never rotate generic “FEATURED EDIT” as eyebrow.
+  return 'SPLARO'
 }
 
 function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
@@ -201,11 +196,23 @@ function useAllowHeroVideo(): boolean {
   const [allow, setAllow] = useState(true)
 
   useEffect(() => {
-    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
-      .connection
-    const saveData = conn?.saveData === true
-    const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
-    setAllow(!saveData && !slowLink)
+    const sync = () => {
+      const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
+        .connection
+      const saveData = conn?.saveData === true
+      const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
+      /** Low-power / save-data lite profile — images only. Re-check when data-perf flips. */
+      const lite = document.documentElement.getAttribute('data-perf') === 'lite'
+      setAllow(!saveData && !slowLink && !lite)
+    }
+
+    sync()
+    const html = document.documentElement
+    const observer = new MutationObserver((records) => {
+      if (records.some((r) => r.type === 'attributes' && r.attributeName === 'data-perf')) sync()
+    })
+    observer.observe(html, { attributes: true, attributeFilter: ['data-perf'] })
+    return () => observer.disconnect()
   }, [])
 
   return allow
@@ -245,11 +252,17 @@ function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
   slides.forEach(warmImage)
 }
 
+const warmedHeroVideos = new Set<string>()
+
 function warmHeroVideo(url: string) {
   if (typeof window === 'undefined' || !url) return
   if (isMobileViewport()) return
+  if (warmedHeroVideos.has(url)) return
+  warmedHeroVideos.add(url)
+  // metadata only — warms the connection + headers without downloading the whole
+  // 1080p file up front (full preload made refresh feel heavy on slow networks).
   const video = document.createElement('video')
-  video.preload = 'auto'
+  video.preload = 'metadata'
   video.muted = true
   video.playsInline = true
   video.src = url
@@ -290,12 +303,14 @@ function HeroStaticBackdrop({
 function HeroBackground({
   slide,
   isActive,
+  playbackActive = isActive,
   priority,
   allowVideo,
   preloadVideo,
 }: {
   slide: HeroSlide
   isActive: boolean
+  playbackActive?: boolean
   priority: boolean
   allowVideo: boolean
   preloadVideo: boolean
@@ -336,15 +351,15 @@ function HeroBackground({
 
   const tryPlay = useCallback(() => {
     const video = videoRef.current
-    if (!video || !isActive || !mountVideo) return
+    if (!video || !playbackActive || !mountVideo) return
     void video.play().catch(failUnlessAborted)
-  }, [isActive, mountVideo])
+  }, [playbackActive, mountVideo])
 
   useEffect(() => {
     const video = videoRef.current
     if (!video || !videoSrc || videoFailed || !mountVideo) return
 
-    if (isActive) {
+    if (playbackActive) {
       if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
         video.load()
       }
@@ -353,13 +368,13 @@ function HeroBackground({
     }
 
     video.pause()
-  }, [isActive, videoSrc, videoFailed, mountVideo, tryPlay])
+  }, [playbackActive, videoSrc, videoFailed, mountVideo, tryPlay])
 
   useEffect(() => {
-    if (!mountVideo || !isActive) return
+    if (!mountVideo || !playbackActive) return
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') tryPlay()
+      if (document.visibilityState === 'visible' && playbackActive) tryPlay()
     }
 
     const onUserGesture = () => tryPlay()
@@ -375,7 +390,7 @@ function HeroBackground({
       window.removeEventListener('scroll', onUserGesture, { capture: true })
       window.removeEventListener('pointerdown', onUserGesture, { capture: true })
     }
-  }, [mountVideo, isActive, tryPlay])
+  }, [mountVideo, playbackActive, tryPlay])
 
   const onVideoError = () => {
     const next = sourceIndex + 1
@@ -406,7 +421,7 @@ function HeroBackground({
           aria-hidden={!isActive}
           onPlaying={() => setVideoReady(true)}
           onCanPlay={(event) => {
-            if (!isActive) return
+            if (!playbackActive) return
             setVideoReady(true)
             void event.currentTarget.play().catch(failUnlessAborted)
           }}
@@ -427,9 +442,13 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const [exitIndex, setExitIndex] = useState<number | null>(null)
   const [direction, setDirection] = useState<SlideDirection>('forward')
   const [paused, setPaused] = useState(false)
+  const [inViewport, setInViewport] = useState(true)
+  const [tabVisible, setTabVisible] = useState(true)
   const [ready, setReady] = useState(false)
   const [interacted, setInteracted] = useState(false)
   const allowVideo = useAllowHeroVideo()
+  const heroRef = useRef<HTMLElement>(null)
+  const sliderActive = inViewport && tabVisible
   const indexRef = useRef(index)
   const exitTimerRef = useRef<number | undefined>(undefined)
   const autoplayIntervalRef = useRef<number | undefined>(undefined)
@@ -451,11 +470,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   const resetAutoplayTimer = useCallback(() => {
     clearAutoplayTimer()
-    if (paused || slides.length <= 1) return
+    if (paused || !sliderActive || slides.length <= 1) return
     autoplayIntervalRef.current = window.setInterval(() => {
       transitionToRef.current((indexRef.current + 1) % slides.length)
     }, SLIDE_DURATION_MS)
-  }, [clearAutoplayTimer, paused, slides.length])
+  }, [clearAutoplayTimer, paused, sliderActive, slides.length])
 
   const transitionTo = useCallback(
     (next: number) => {
@@ -512,6 +531,23 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   useEffect(() => {
     setReady(true)
     prefersHoverPauseRef.current = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  }, [])
+
+  useEffect(() => {
+    const el = heroRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setInViewport(entry?.isIntersecting ?? false),
+      { threshold: 0.05, rootMargin: '0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [slides.length])
+
+  useEffect(() => {
+    const onTabVisibility = () => setTabVisible(!document.hidden)
+    document.addEventListener('visibilitychange', onTabVisibility)
+    return () => document.removeEventListener('visibilitychange', onTabVisibility)
   }, [])
 
   useEffect(() => {
@@ -603,8 +639,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     )
   }
 
+  const progressPaused = paused || !sliderActive
+
   return (
     <section
+      ref={heroRef}
       className="home-hero-slider"
       data-section="hero"
       data-slider-ready={ready ? 'true' : undefined}
@@ -646,6 +685,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
                   <HeroBackground
                     slide={item}
                     isActive={isActive}
+                    playbackActive={isActive && sliderActive}
                     priority={slideIndex === 0}
                     allowVideo={allowVideo}
                     preloadVideo={preloadVideo}
@@ -668,9 +708,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
                 <div className="hero-actions">
                   <Link href={item.primaryHref} className="hero-btn hero-btn-primary">
                     {item.primaryLabel}
-                  </Link>
-                  <Link href={item.secondaryHref} className="hero-btn hero-btn-secondary">
-                    {item.secondaryLabel}
                   </Link>
                 </div>
               </div>
@@ -714,7 +751,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         <div className="hero-progress" aria-hidden>
           <div
             key={`progress-${index}`}
-            className={cn('hero-progress-fill', paused && 'hero-progress-fill--paused')}
+            className={cn('hero-progress-fill', progressPaused && 'hero-progress-fill--paused')}
           />
         </div>
       </div>

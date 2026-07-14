@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 
 declare global {
   interface Window {
@@ -13,9 +13,12 @@ const MAX_RELOADS = 5
 
 /** After deploy, stale HTML can 404 old webpack chunks — auto-reload fixes it. */
 export function ChunkReloadGuard() {
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute('data-splaro-booted', '1')
+  }, [])
+
   useEffect(() => {
     window.__splaroBootOk?.()
-    document.documentElement.setAttribute('data-splaro-booted', '1')
 
     const reloadOnce = () => {
       if (process.env.NODE_ENV === 'development') return

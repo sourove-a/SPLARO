@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import { ChevronDown } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { cn } from '@/lib/utils/cn'
@@ -85,17 +85,23 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   const activeMegaMenu: MegaMenuConfig | null =
     openIndex !== null ? (navItems[openIndex]?.megaMenu ?? null) : null
 
-  // Retain the last opened menu so its content stays rendered during the close fade.
-  const [lastMega, setLastMega] = useState<{ key: string; config: MegaMenuConfig } | null>(null)
+  // Keep a mega shell mounted so first open is CSS-only (no late-mount jump).
+  // Do NOT depend on `navItems` (new array every render) — that caused infinite setState.
+  const [lastMega, setLastMega] = useState<{ key: string; config: MegaMenuConfig } | null>(() => {
+    const item = (settings.config.headerNav ?? []).find((nav) => !nav.hidden && nav.megaMenu)
+    return item?.megaMenu ? { key: item.label, config: item.megaMenu } : null
+  })
+
   useEffect(() => {
-    if (activeMegaMenu && openIndex !== null) {
-      setLastMega({
-        key: navItems[openIndex]?.label ?? `nav-${openIndex}`,
-        config: activeMegaMenu,
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openIndex, activeMegaMenu])
+    if (openIndex === null || !activeMegaMenu) return
+    const key =
+      (settings.config.headerNav ?? []).filter((item) => !item.hidden)[openIndex]?.label ??
+      `nav-${openIndex}`
+    setLastMega((prev) => {
+      if (prev?.key === key && prev.config === activeMegaMenu) return prev
+      return { key, config: activeMegaMenu }
+    })
+  }, [openIndex, activeMegaMenu, settings.config.headerNav])
 
   if (!navItems.length) return null
 
@@ -136,7 +142,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
                       <motion.span
                         layoutId="nav-mega-pill"
                         className="site-header-glass__nav-pill"
-                        transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.82 }}
+                        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                         aria-hidden
                       />
                     ) : null}

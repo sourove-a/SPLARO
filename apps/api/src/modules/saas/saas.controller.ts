@@ -8,10 +8,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common'
+import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { SaasService } from './saas.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 
+@RequireFeature('saas')
 @Controller('admin/saas')
 export class SaasController {
   constructor(

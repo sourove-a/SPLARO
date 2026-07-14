@@ -2,34 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { SplaroBrandLogo, logoUrlProp } from '@/components/brand/SplaroBrandLogo'
-import { AnimatePresence, motion } from 'framer-motion'
+import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
+import { MotionLink, MotionPressable } from '@/components/ui/MotionPressable'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
+import { Navigation } from './Navigation'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useUiStore } from '@/store/uiStore'
-import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { useHeaderScroll } from '@/hooks/useScrollY'
-import { useMinWidth } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 
-const DesktopNavigation = dynamic(() => import('./Navigation').then((m) => m.Navigation), {
-  ssr: false,
-})
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
 const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
 
 export function Header() {
   const pathname = usePathname()
-  const isDesktopNav = useMinWidth(1024)
-  const [desktopNavReady, setDesktopNavReady] = useState(false)
   const isHome = pathname === '/'
-  const settings = useStorefrontSettings()
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false)
 
   const cartHydrated = useCartStore((s) => s._hydrated)
@@ -54,14 +47,6 @@ export function Header() {
   const isOverHero = isHome && !isScrolled
 
   useEffect(() => {
-    if (isDesktopNav) setDesktopNavReady(true)
-  }, [isDesktopNav])
-
-  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
-  const closeSearch = useCallback(() => setSearchOpen(false), [setSearchOpen])
-  const closeCart = useCallback(() => setCartOpen(false), [setCartOpen])
-
-  useEffect(() => {
     const root = document.documentElement
     if (!isHome) {
       root.removeAttribute('data-home-hero')
@@ -70,6 +55,10 @@ export function Header() {
     root.setAttribute('data-home-hero', isOverHero ? 'top' : 'scrolled')
     return () => root.removeAttribute('data-home-hero')
   }, [isHome, isOverHero])
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
+  const closeSearch = useCallback(() => setSearchOpen(false), [setSearchOpen])
+  const closeCart = useCallback(() => setCartOpen(false), [setCartOpen])
 
   const iconBtnClass = 'site-header-glass__icon-btn'
 
@@ -89,10 +78,11 @@ export function Header() {
       >
         <div className="site-header-glass__inner">
           <div className="site-header-glass__row">
-            <button
+            <MotionPressable
               onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
               aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMobileMenuOpen}
+              variant="nav"
               className={cn(iconBtnClass, 'site-header-glass__menu-btn lg:hidden')}
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -118,7 +108,7 @@ export function Header() {
                   </motion.span>
                 )}
               </AnimatePresence>
-            </button>
+            </MotionPressable>
 
             <div className="site-header-glass__brand site-header-glass__logo--center-mobile">
               <SplaroBrandLogo
@@ -127,34 +117,36 @@ export function Header() {
                 tone="light"
                 priority
                 className="site-header-glass__logo-img splaro-logo-header"
-                {...logoUrlProp(settings.store.logo)}
               />
             </div>
 
-            {desktopNavReady ? (
-              <DesktopNavigation onMegaMenuChange={setIsMegaMenuOpen} />
-            ) : null}
+            <div className="site-header-glass__nav hidden lg:block">
+              <Navigation onMegaMenuChange={setIsMegaMenuOpen} />
+            </div>
 
             <div className="site-header-glass__actions">
-              <button
+              <MotionPressable
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
+                variant="icon"
                 className={cn(iconBtnClass, 'site-header-glass__action-search')}
               >
                 <Search strokeWidth={1.35} />
-              </button>
+              </MotionPressable>
 
-              <Link
+              <MotionLink
                 href={authHydrated && user ? '/account' : '/login'}
                 aria-label="Account"
+                variant="icon"
                 className={cn(iconBtnClass, 'site-header-glass__action-desktop')}
               >
                 <User strokeWidth={1.55} />
-              </Link>
+              </MotionLink>
 
-              <Link
+              <MotionLink
                 href="/account?tab=wishlist"
                 aria-label="Wishlist"
+                variant="icon"
                 className={cn(iconBtnClass, 'site-header-glass__action-desktop')}
               >
                 <Heart strokeWidth={1.55} />
@@ -163,11 +155,12 @@ export function Header() {
                     {wishlistCount > 99 ? '99+' : wishlistCount}
                   </span>
                 ) : null}
-              </Link>
+              </MotionLink>
 
-              <button
+              <MotionPressable
                 onClick={() => setCartOpen(true)}
                 aria-label={`Cart (${cartCount} items)`}
+                variant="icon"
                 className={cn(iconBtnClass, 'site-header-glass__action-cart relative hidden lg:inline-flex')}
               >
                 <ShoppingBag strokeWidth={1.55} />
@@ -176,7 +169,7 @@ export function Header() {
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 ) : null}
-              </button>
+              </MotionPressable>
             </div>
           </div>
         </div>

@@ -13,8 +13,8 @@ export interface HeroDefaultSlide {
   secondaryLinkUrl: string
 }
 
-/** Only used if even the curated Unsplash defaults below fail to load. */
-const HERO_PLACEHOLDER = '/images/placeholder-product.jpg'
+/** Soft ivory empty-state for last-resort missing assets. */
+const HERO_PLACEHOLDER = '/images/placeholder-product.svg'
 
 // Curated editorial photos shown when the admin hasn't added real hero banners
 // yet (empty/fresh catalog) — a plain dark gradient here reads as "the site is
@@ -22,7 +22,7 @@ const HERO_PLACEHOLDER = '/images/placeholder-product.jpg'
 export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
   {
     key: 'women-collection',
-    eyebrow: 'SPLARO WOMEN COLLECTION',
+    eyebrow: 'SPLARO',
     title: 'Elegance That Moves With You.',
     subtitle: 'Premium fashion crafted for timeless everyday luxury.',
     image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d',
@@ -31,7 +31,7 @@ export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
   },
   {
     key: 'summer',
-    eyebrow: 'SUMMER EDITION — 2026',
+    eyebrow: 'SPLARO',
     title: 'Dress the warmth.',
     subtitle: 'Light fabrics, golden hours, effortless grace.',
     image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b',
@@ -40,7 +40,7 @@ export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
   },
   {
     key: 'new-season',
-    eyebrow: 'NEW SEASON',
+    eyebrow: 'SPLARO',
     title: 'Refined silhouettes.',
     subtitle: 'Editorial pieces for every occasion.',
     image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b',

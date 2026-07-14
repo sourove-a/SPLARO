@@ -1,3 +1,4 @@
+import { isFeatureEnabled } from '@splaro/config'
 import type { ApiRouteProbe } from './api-routes.manifest'
 
 export type RouteProbeResult = {
@@ -49,8 +50,7 @@ async function runWithConcurrency<T, R>(
   return results
 }
 
-/** Probe GET routes with bounded concurrency so health checks stay accurate under load. */
-/** Write probes only verify route registration — 401/400 = healthy. Auth + empty body often 500s. */
+/** Write probes strip auth so empty-body writes don't mutate live data as staff. */
 function headersForProbe(
   headers: Record<string, string>,
   isWrite: boolean,
@@ -70,6 +70,22 @@ export async function runApiRouteProbes(options: RouteProbeOptions): Promise<Rou
 
   return runWithConcurrency(options.probes, concurrency, async (probe) => {
     const url = `${options.base}${probe.path}`
+    const endpoint = url.replace(/\?.*$/, '')
+
+    // Feature-gated modules (loyalty / SaaS / vendor) are OFF by default for
+    // single-store launch — counting them as degraded is false alarm noise.
+    if (probe.requiresFeature && !isFeatureEnabled(probe.requiresFeature)) {
+      return {
+        id: probe.id,
+        name: probe.name,
+        group: probe.group,
+        endpoint,
+        status: 'healthy',
+        latencyMs: 0,
+        message: `Feature ${probe.requiresFeature} off (expected)`,
+      }
+    }
+
     const t0 = Date.now()
     const method = probe.method ?? 'GET'
     const isWrite = probe.writeProbe === true || method !== 'GET'
@@ -85,17 +101,20 @@ export async function runApiRouteProbes(options: RouteProbeOptions): Promise<Rou
     }
     try {
       const res = await fetch(url, init)
-      const writeOk = [200, 201, 204, 400, 401, 403, 404, 422]
+      // 429 = route exists but rate-limited (health spam) — not a real outage
+      const writeOk = [200, 201, 204, 400, 401, 403, 404, 422, 429]
       const ok = isWrite
         ? writeOk.includes(res.status)
         : res.ok ||
           (probe.allowNotFound === true && res.status === 404) ||
-          (probe.allowUnauthorized === true && res.status === 401)
+          (probe.allowUnauthorized === true && res.status === 401) ||
+          // Feature gate race: flag on in env but guard still 403
+          (probe.requiresFeature !== undefined && res.status === 403)
       return {
         id: probe.id,
         name: probe.name,
         group: probe.group,
-        endpoint: url.replace(/\?.*$/, ''),
+        endpoint,
         status: ok ? ('healthy' as const) : res.status >= 500 ? ('down' as const) : ('degraded' as const),
         latencyMs: Date.now() - t0,
         message: isWrite ? `${method} ${res.status}` : `HTTP ${res.status}`,
@@ -106,7 +125,7 @@ export async function runApiRouteProbes(options: RouteProbeOptions): Promise<Rou
         id: probe.id,
         name: probe.name,
         group: probe.group,
-        endpoint: url.replace(/\?.*$/, ''),
+        endpoint,
         status: timedOut ? ('degraded' as const) : ('down' as const),
         latencyMs: timedOut ? Date.now() - t0 : null,
         message: err instanceof Error ? err.message : 'Unreachable',

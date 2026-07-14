@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ChevronRight, ShoppingBag } from 'lucide-react'

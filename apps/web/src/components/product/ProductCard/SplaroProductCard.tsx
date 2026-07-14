@@ -1,15 +1,19 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import { m, useReducedMotion } from 'framer-motion'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AnimatePresence, m, useReducedMotion } from '@/lib/motion/react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
+import { LiquidGlassNavPair } from '@/components/ui/LiquidGlass'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
 import { Heart, ChevronUp, ChevronDown, ShoppingBag, Loader2 } from 'lucide-react'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
+
+const IMAGE_EASE = [0.16, 1, 0.3, 1] as const
+const IMAGE_SPRING = { type: 'spring' as const, stiffness: 380, damping: 34, mass: 0.82 }
 
 export interface SplaroProductCardProps {
   id: string
@@ -19,6 +23,7 @@ export interface SplaroProductCardProps {
   compareAtPrice?: number
   image: string
   imageHover?: string
+  galleryImages?: string[]
   category?: string
   collection?: string
   productCode?: string
@@ -31,6 +36,7 @@ export interface SplaroProductCardProps {
   priority?: boolean
   fit?: 'contain' | 'cover'
   onAddToBag?: () => void
+  onShowDetails?: () => void
   variant?: 'default' | 'shop' | 'homepage'
 }
 
@@ -42,6 +48,7 @@ export function SplaroProductCard({
   compareAtPrice,
   image,
   imageHover,
+  galleryImages = [],
   category,
   collection,
   productCode,
@@ -49,22 +56,21 @@ export function SplaroProductCard({
   status = 'Ready',
   meta,
   inStock = true,
-  sizes: _sizes = [],
+  sizes: productSizes = [],
   href,
   priority = false,
   fit = 'contain',
   onAddToBag,
+  onShowDetails,
   variant = 'default',
 }: SplaroProductCardProps) {
   const reducedMotion = useReducedMotion()
   const isMobile = useMobileViewport()
   const mounted = useMounted()
-  const showHoverImage = !mounted || !isMobile
   const wishlistHydrated = useWishlistStore((s) => s._hydrated)
   const { toggleWishlist, isInWishlist } = useWishlistStore()
   const saved = wishlistHydrated && isInWishlist(id)
   const [adding, setAdding] = useState(false)
-  const [linkPressed, setLinkPressed] = useState(false)
 
   const link = href ?? `/products/${slug}`
   const hasDiscount = Boolean(compareAtPrice && compareAtPrice > price)
@@ -73,12 +79,56 @@ export function SplaroProductCard({
     : 0
   const tag = collection ?? category
   const showStatus = status && status !== 'Ready'
-  const secondImage = imageHover ?? image
+  const imageGallery = useMemo(() => {
+    const merged = [image, ...galleryImages, imageHover ?? image].map((url) => url?.trim()).filter(Boolean)
+    return [...new Set(merged)].slice(0, 4) as string[]
+  }, [galleryImages, image, imageHover])
+  const [hovered, setHovered] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
   const isShop = variant === 'shop'
   const isHomepage = variant === 'homepage'
-  const imageFit = isHomepage ? 'cover' : fit
-  const showCollectionTag = Boolean(tag) && !isHomepage
+  const imageFit = isHomepage || isShop ? 'cover' : fit
+  const showCollectionTag = Boolean(tag) && !isHomepage && !isShop
   const mediaTransition = productMediaTransitionStyle(id, reducedMotion)
+  const showGalleryNav = !isShop && !isHomepage && imageGallery.length > 1
+  const displayImage = useMemo(() => {
+    if (imageGallery.length <= 1) return image
+    if (showGalleryNav) return imageGallery[galleryIndex] ?? image
+    if (hovered) {
+      if (isShop || isHomepage) return imageGallery[1] ?? image
+      return imageGallery[galleryIndex] ?? image
+    }
+    return image
+  }, [galleryIndex, hovered, image, imageGallery, isHomepage, isShop, showGalleryNav])
+
+  useEffect(() => {
+    if (!hovered || imageGallery.length <= 1 || showGalleryNav || isShop || isHomepage) {
+      setGalleryIndex(0)
+      return
+    }
+    const timer = window.setInterval(() => {
+      setGalleryIndex((current) => (current + 1) % imageGallery.length)
+    }, 850)
+    return () => window.clearInterval(timer)
+  }, [hovered, imageGallery.length, showGalleryNav, isHomepage, isShop])
+
+  const imageTransition = reducedMotion
+    ? { duration: 0 }
+    : { duration: 0.42, ease: IMAGE_EASE }
+
+  const imageEnter = reducedMotion
+    ? { opacity: 1, scale: 1 }
+    : { opacity: 0, scale: 1.035 }
+
+  const imageExit = reducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.98 }
+
+  const handleGalleryPrev = useCallback(() => {
+    setGalleryIndex((current) => (current - 1 + imageGallery.length) % imageGallery.length)
+  }, [imageGallery.length])
+
+  const handleGalleryNext = useCallback(() => {
+    setGalleryIndex((current) => (current + 1) % imageGallery.length)
+  }, [imageGallery.length])
 
   const handleCardAction = useCallback(
     (e: React.MouseEvent) => {
@@ -86,6 +136,12 @@ export function SplaroProductCard({
       e.stopPropagation()
       if (isShop || isHomepage) {
         if (adding) return
+        // Multi size/colour → open quick view instead of guessing first variant.
+        const needsChoice = productSizes.length > 1 || colorHexes.length > 1
+        if (needsChoice && onShowDetails) {
+          onShowDetails()
+          return
+        }
         setAdding(true)
         onAddToBag?.()
         window.setTimeout(() => setAdding(false), 420)
@@ -93,7 +149,17 @@ export function SplaroProductCard({
       }
       toggleWishlist(id)
     },
-    [adding, id, isHomepage, isShop, onAddToBag, toggleWishlist],
+    [
+      adding,
+      colorHexes.length,
+      id,
+      isHomepage,
+      isShop,
+      onAddToBag,
+      onShowDetails,
+      productSizes.length,
+      toggleWishlist,
+    ],
   )
 
   return (
@@ -103,54 +169,59 @@ export function SplaroProductCard({
         !inStock && 'splaro-card--out-of-stock ilyn-card--out-of-stock',
         isShop && 'splaro-card--shop ilyn-card--shop',
         isHomepage && 'splaro-card--homepage ilyn-card--homepage',
-        linkPressed && 'splaro-card--pressed ilyn-card--pressed',
       )}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className="splaro-card__media ilyn-card__media">
+      <m.div
+        className="splaro-card__media ilyn-card__media"
+      >
         <ProductTransitionLink
           href={link}
           className="splaro-card__link ilyn-card__link"
           aria-label={name}
           prefetch={!(isHomepage && mounted && isMobile)}
-          onMouseDown={() => setLinkPressed(true)}
-          onMouseUp={() => setLinkPressed(false)}
-          onMouseLeave={() => setLinkPressed(false)}
-          onTouchStart={() => setLinkPressed(true)}
-          onTouchEnd={() => setLinkPressed(false)}
         >
           <div className="product-shared-media" style={mediaTransition}>
-            <StorefrontImage
-              src={image}
-              alt={name}
-              profile="card"
-              fill
-              fit={imageFit}
-              priority={priority}
-              className={cn(
-                'splaro-card__img splaro-card__img--primary ilyn-card__img ilyn-card__img--primary',
-                imageFit === 'cover'
-                  ? 'splaro-card__img--cover ilyn-card__img--cover'
-                  : 'splaro-card__img--contain ilyn-card__img--contain',
-              )}
-            />
+            <AnimatePresence mode="sync" initial={false}>
+              <m.div
+                key={displayImage}
+                className="splaro-card__img-frame ilyn-card__img-frame"
+                initial={imageEnter}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={imageExit}
+                transition={imageTransition}
+              >
+                <StorefrontImage
+                  src={displayImage}
+                  alt={name}
+                  profile="card"
+                  fill
+                  fit={imageFit}
+                  priority={priority}
+                  className={cn(
+                    'splaro-card__img splaro-card__img--primary ilyn-card__img ilyn-card__img--primary',
+                    imageFit === 'cover'
+                      ? 'splaro-card__img--cover ilyn-card__img--cover'
+                      : 'splaro-card__img--contain ilyn-card__img--contain',
+                  )}
+                />
+              </m.div>
+            </AnimatePresence>
           </div>
-          {showHoverImage ? (
-            <StorefrontImage
-              src={secondImage}
-              alt=""
-              profile="card"
-              aria-hidden
-              fill
-              fit={imageFit}
-              className={cn(
-                'splaro-card__img splaro-card__img--hover ilyn-card__img ilyn-card__img--hover',
-                imageFit === 'cover'
-                  ? 'splaro-card__img--cover ilyn-card__img--cover'
-                  : 'splaro-card__img--contain ilyn-card__img--contain',
-              )}
-            />
-          ) : null}
         </ProductTransitionLink>
+
+        {showGalleryNav ? (
+          <m.div
+            className="ilyn-card__gallery-nav"
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <LiquidGlassNavPair onPrev={handleGalleryPrev} onNext={handleGalleryNext} />
+          </m.div>
+        ) : null}
 
         {showStatus ? (
           <span
@@ -177,8 +248,9 @@ export function SplaroProductCard({
         {inStock ? (
           <m.button
             type="button"
-            {...(reducedMotion ? {} : { whileTap: { scale: 0.9 } })}
-            transition={{ duration: 0.12 }}
+            data-no-press=""
+            {...(reducedMotion ? {} : { whileTap: { scale: 0.992 } })}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
               'splaro-card__wish ilyn-card__wish',
               !isShop && !isHomepage && saved && 'splaro-card__wish--saved ilyn-card__wish--saved',
@@ -199,26 +271,50 @@ export function SplaroProductCard({
                   : 'Save product'
             }
           >
-            {adding ? (
-              <Loader2 className="splaro-card__wish-spinner h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-            ) : isShop || isHomepage ? (
-              <ShoppingBag size={isHomepage ? 16 : 13} strokeWidth={1.5} />
-            ) : (
-              <Heart size={13} strokeWidth={1.5} className={cn(saved && 'fill-current')} />
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              {adding ? (
+                <m.span
+                  key="loading"
+                  initial={reducedMotion ? false : { opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  {...(reducedMotion ? {} : { exit: { opacity: 0, scale: 0.8 } })}
+                  transition={{ duration: 0.18 }}
+                  className="inline-flex"
+                >
+                  <Loader2 className="splaro-card__wish-spinner h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                </m.span>
+              ) : isShop || isHomepage ? (
+                <m.span
+                  key="bag"
+                  initial={reducedMotion ? false : { opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  {...(reducedMotion ? {} : { exit: { opacity: 0, scale: 0.85 } })}
+                  transition={{ duration: 0.18 }}
+                  className="inline-flex"
+                >
+                  <ShoppingBag size={isHomepage ? 16 : 13} strokeWidth={1.5} />
+                </m.span>
+              ) : (
+                <m.span
+                  key="heart"
+                  initial={false}
+                  animate={{ scale: saved ? 1.08 : 1 }}
+                  transition={IMAGE_SPRING}
+                  className="inline-flex"
+                >
+                  <Heart size={13} strokeWidth={1.5} className={cn(saved && 'fill-current')} />
+                </m.span>
+              )}
+            </AnimatePresence>
           </m.button>
         ) : null}
-      </div>
+      </m.div>
 
-      <ProductTransitionLink
-        href={link}
-        className="splaro-card__info ilyn-card__info"
-        tabIndex={-1}
-        prefetch
-        onMouseDown={() => setLinkPressed(true)}
-        onMouseUp={() => setLinkPressed(false)}
-        onMouseLeave={() => setLinkPressed(false)}
-      >
+        <ProductTransitionLink
+          href={link}
+          className="splaro-card__info ilyn-card__info"
+          tabIndex={-1}
+        >
         <div className="splaro-card__title-row ilyn-card__title-row">
           <h3 className="splaro-card__name ilyn-card__name">{name}</h3>
           {productCode ? (

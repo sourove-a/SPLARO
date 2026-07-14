@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { buildInvoiceAccessToken } from '@splaro/config'
 import {
   apiTrackOrders,
   getPhoneAccessToken,
@@ -7,10 +6,6 @@ import {
 } from '@/lib/server/api-auth'
 import { getOrdersByPhone } from '@/lib/server/orders'
 import type { StoredOrder } from '@/lib/orders'
-
-function isPhoneOtpEnabled(): boolean {
-  return process.env.STOREFRONT_PHONE_OTP_ENABLED === 'true'
-}
 
 function isTerminalOrder(order: StoredOrder) {
   const status = order.status?.toLowerCase() ?? ''
@@ -30,7 +25,7 @@ function mapApiOrder(raw: Record<string, unknown>): StoredOrder {
   const mapped: StoredOrder = {
     id,
     ...(raw.invoiceNumber ? { invoiceNumber: String(raw.invoiceNumber) } : {}),
-    invoiceAccessKey: String(raw.invoiceAccessKey ?? buildInvoiceAccessToken(id)),
+    invoiceAccessKey: String(raw.invoiceAccessKey ?? id),
     createdAt: String(raw.createdAt),
     ...(raw.updatedAt ? { updatedAt: String(raw.updatedAt) } : {}),
     ...(raw.status ? { status: String(raw.status) } : {}),
@@ -76,21 +71,29 @@ export async function GET(request: Request) {
   const sessionToken = await getSessionToken()
   const phoneAccessToken = await getPhoneAccessToken()
 
-  let orders: StoredOrder[] = []
-
-  const apiOrders = await apiTrackOrders(phone, {
+  const trackResult = await apiTrackOrders(phone, {
     ...(sessionToken ? { sessionToken } : {}),
     ...(phoneAccessToken ? { phoneAccessToken } : {}),
   })
 
-  if (apiOrders) {
-    orders = apiOrders.map(mapApiOrder)
-  } else if (isPhoneOtpEnabled() && !phoneAccessToken && !sessionToken) {
-    return NextResponse.json(
-      { error: 'Phone verification required', requiresOtp: true },
-      { status: 401 },
-    )
+  let orders: StoredOrder[] = []
+
+  if ('orders' in trackResult) {
+    orders = trackResult.orders.map(mapApiOrder)
   } else {
+    if (trackResult.requiresOtp) {
+      return NextResponse.json(
+        { error: trackResult.error, requiresOtp: true },
+        { status: 401 },
+      )
+    }
+    if (trackResult.status >= 500) {
+      return NextResponse.json({ error: trackResult.error }, { status: trackResult.status })
+    }
+    if (trackResult.status === 401 || trackResult.status === 403) {
+      return NextResponse.json({ error: trackResult.error }, { status: trackResult.status })
+    }
+
     const localOrders = await getOrdersByPhone(phone)
     orders = localOrders.map((order) => ({
       id: order.id,

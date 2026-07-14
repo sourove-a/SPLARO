@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, Save, ShoppingBag, Trash2 } from 'lucide-react'
+import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { verifyNumberEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { useCreateOrder, useProducts } from '@/lib/api/hooks'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
@@ -55,12 +56,12 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
 
   const addLine = () => {
     if (!pickerProduct) {
-      toast.error('Select a product.')
+      toastFail('Select a product.')
       return
     }
     const variant = pickerVariants.find((v) => v.id === pickerVariantId) ?? pickerVariants[0]
     if (!variant?.id) {
-      toast.error('Product has no variants.')
+      toastFail('Product has no variants.')
       return
     }
     const qty = Math.max(1, Number(pickerQty) || 1)
@@ -82,11 +83,11 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
 
   const handleSubmit = async () => {
     if (!customer.name.trim() || !customer.phone.trim() || !customer.address.trim()) {
-      toast.error('Customer name, phone, and address are required.')
+      toastFail('Customer name, phone, and address are required.')
       return
     }
     if (!lines.length) {
-      toast.error('Add at least one product line.')
+      toastFail('Add at least one product line.')
       return
     }
     try {
@@ -105,10 +106,14 @@ export function OrderCreatePanel({ moduleHref }: OrderCreatePanelProps) {
         total,
         paymentMethod,
       })
-      toast.success(`Order ${order.invoiceNumber} created.`)
+      if (!verifyPersisted(Boolean(order.id && order.invoiceNumber), 'Order create did not return a valid order')) return
+      if (!verifyStringEquals(order.shippingPhone, customer.phone.trim(), 'Customer phone')) return
+      if (!verifyStringEquals(order.shippingName, customer.name.trim(), 'Customer name')) return
+      if (!verifyNumberEquals(order.total, total, 'Order total')) return
+      toastApiSaved(`Order ${order.invoiceNumber}`)
       navigate(`${moduleHref}/${order.invoiceNumber}`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not create order.')
+      toastFail(err instanceof Error ? err.message : 'Could not create order.')
     }
   }
 

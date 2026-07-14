@@ -16,7 +16,8 @@ export async function reconcileAuthSession(): Promise<AuthUser | null> {
     if (!res.ok) {
       throw new Error(`Session check failed (${res.status})`)
     }
-    const payload = (await res.json()) as { user?: AuthUser | null }
+    const payload = (await res.json()) as { user?: AuthUser | null; sessionExpired?: boolean }
+    if (payload.sessionExpired) return null
     return payload.user ?? null
   })()
     .finally(() => {

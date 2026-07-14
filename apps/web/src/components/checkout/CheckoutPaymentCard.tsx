@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { Truck } from 'lucide-react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from '@/lib/motion/react'
 import type { PaymentOption } from '@/lib/checkout/payments'
 import type { PaymentMethod } from '@/lib/checkout/payments'
 import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
@@ -59,9 +59,9 @@ export function CheckoutPaymentCard({
         )}
         <div>
           <p className="checkout-payment__label">{option.label}</p>
-          <p className="checkout-payment__hint">
-            {disabled && disabledReason ? disabledReason : option.hint}
-          </p>
+          {disabled && disabledReason ? (
+            <p className="checkout-payment__hint">{disabledReason}</p>
+          ) : null}
         </div>
       </div>
       <span className="checkout-payment__radio" aria-hidden />

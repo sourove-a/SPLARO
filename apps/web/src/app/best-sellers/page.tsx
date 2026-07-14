@@ -16,9 +16,7 @@ export default async function BestSellersPage() {
       initialCatalog={catalog}
       showCollections={false}
       catalogPreset="best-sellers"
-      pageEyebrow="Customer Favourites"
       pageTitle="Best Sellers"
-      pageDescription="Our most-loved pieces, curated from live SPLARO catalogues."
     />
   )
 }

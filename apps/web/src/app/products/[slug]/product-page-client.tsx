@@ -1,44 +1,45 @@
 'use client'
 
-import { useEffect, useMemo, useState, type SVGProps } from 'react'
+/** Product detail client — purchase flow + gallery (no PDP wishlist). */
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type SVGProps } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
+  Minus,
   Plus,
   Ruler,
-  Heart,
   Star,
-  X as CloseIcon,
 } from 'lucide-react'
+import { useLenis } from 'lenis/react'
+import { subscribeScroll } from '@/hooks/useScrollY'
 import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
-import { MotionAnchor, MotionLink, MotionPressable } from '@/components/ui/MotionPressable'
+import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
+import { MotionSwapLabel } from '@/components/ui/MotionSwapLabel/MotionSwapLabel'
 import {
   ProductFadeSwap,
   ProductReveal,
   ProductStagger,
   PRODUCT_GALLERY_MS,
   productGalleryEase,
-  productGalleryMotion,
   productShake,
 } from '@/components/product/ProductMotion'
-import { ProductCard } from '@/components/product/ProductCard/ProductCard'
 import { trackRecentlyViewed } from '@/lib/recentlyViewed'
 import { collectionHref } from '@/lib/storefront/collection-paths'
 import { useCartStore, type CartItem } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { stageCheckoutItems } from '@/lib/cart/checkout-intent'
-import { useWishlistStore } from '@/store/wishlistStore'
 import { useUiStore } from '@/store/uiStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { trackAddToCart, trackViewContent } from '@/lib/analytics/meta-pixel'
-import type { ProductDetailData, ProductCardData } from '@/types/product'
+import type { ProductDetailData } from '@/types/product'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import { sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
@@ -46,13 +47,19 @@ import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import type { ProductReview } from '@/lib/catalog/live'
 import { sortSizes } from '@/lib/catalog/live'
 import { ProductReviews } from '@/components/product/ProductReviews/ProductReviews'
+import { ProductLightbox } from '@/components/product/ProductLightbox/ProductLightbox'
+import { ProductPurchaseExtras } from '@/components/product/ProductPurchaseExtras/ProductPurchaseExtras'
+import { ProductPurchaseSticky } from '@/components/product/ProductPurchaseSticky/ProductPurchaseSticky'
+import { SizeGuideModal } from '@/components/product/SizeGuideModal/SizeGuideModal'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
+import { useMotionReady } from '@/hooks/useMotionReady'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import toast from 'react-hot-toast'
 
 interface ProductPageClientProps {
   product: ProductDetailData
   reviews?: ProductReview[]
-  relatedProducts?: ProductCardData[]
 }
 
 const PANEL_EASE = [0.22, 1, 0.36, 1] as const
@@ -94,18 +101,15 @@ function XSocialIcon(props: SVGProps<SVGSVGElement>) {
 export default function ProductPageClient({
   product,
   reviews = [],
-  relatedProducts = [],
 }: ProductPageClientProps) {
   const router = useRouter()
   const reducedMotion = useReducedMotion()
+  const { showMotion } = useMotionReady()
+  const galleryAnimated = showMotion && !reducedMotion
   const user = useAuthStore((state) => state.user)
   const authHydrated = useAuthStore((state) => state._hydrated)
-  const { addItem, replaceItems } = useCartStore()
+  const { addItem } = useCartStore()
   const setCartOpen = useUiStore((state) => state.setCartOpen)
-  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist)
-  const saved = useWishlistStore(
-    (state) => state._hydrated && state.productIds.includes(product.id),
-  )
 
   const [activeImage, setActiveImage] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
@@ -116,7 +120,15 @@ export default function ProductPageClient({
   const [descExpanded, setDescExpanded] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
-  const [lightboxZoom, setLightboxZoom] = useState<'fit' | 'deep'>('fit')
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false)
+  const [sizeShake, setSizeShake] = useState(false)
+  const sizeRowRef = useRef<HTMLDivElement>(null)
+  const optionsRef = useRef<HTMLDivElement>(null)
+  const ctaRef = useRef<HTMLDivElement>(null)
+  const swipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const [showFloatingCta, setShowFloatingCta] = useState(false)
+  const { shipping } = useStorefrontSettings()
+  const lenis = useLenis()
 
   const fullDescription = product.description?.trim() ?? ''
   const shortDesc =
@@ -213,15 +225,16 @@ export default function ProductPageClient({
           .filter((item) => Boolean(item.url))
 
     const hex = selectedColor?.toLowerCase()
-    const colorUrls = hex ? colorMediaMap.get(hex)?.filter(Boolean) : undefined
+    const colorUrls = (hex ? colorMediaMap.get(hex)?.filter(Boolean) : undefined) ?? []
 
-    // Multiple uploads but one colour — show full gallery, not a single variant thumb.
-    if (baseGallery.length > 1 && (!colorUrls?.length || colorUrls.length === 1)) {
-      return baseGallery
-    }
-
-    if (colorUrls?.length) {
-      return colorUrls.map((url) => ({ type: 'image' as const, url }))
+    // Colour selected → lead gallery with that colour’s image(s), then other media.
+    // (Previously skipped when only 1 colour image + multi gallery — main photo never changed.)
+    if (colorUrls.length > 0) {
+      const colorItems = colorUrls.map((url) => ({ type: 'image' as const, url }))
+      const extras = baseGallery.filter(
+        (item) => item.type !== 'image' || !colorUrls.includes(item.url),
+      )
+      return [...colorItems, ...extras]
     }
 
     return baseGallery.length > 0
@@ -259,12 +272,18 @@ export default function ProductPageClient({
   const selectedColorName =
     colors.find(([hex]) => hex === selectedColor)?.[1] ?? '—'
 
-  const stock = activeVariant?.stock ?? product.variants.reduce((max, v) => Math.max(max, v.stock), 0)
-  const inStock = stock > 0
+  const productHasStock = product.variants.some(
+    (v) => v.isActive !== false && v.stock > 0,
+  )
+  const stock = activeVariant?.stock ?? 0
+  const selectionInStock = stock > 0
+  const inStock = selectionInStock
   const lowStock = inStock && stock <= 5
-  const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
+  const unitPrice = activeVariant?.price ?? product.price
+  const compareAtPrice = activeVariant?.compareAtPrice ?? product.compareAtPrice
+  const hasDiscount = Boolean(compareAtPrice && compareAtPrice > unitPrice)
   const discountPct = hasDiscount
-    ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
+    ? Math.round(((compareAtPrice! - unitPrice) / compareAtPrice!) * 100)
     : 0
 
   const [shareUrl, setShareUrl] = useState('')
@@ -275,6 +294,104 @@ export default function ProductPageClient({
       setShareUrl(window.location.href)
     }
   }, [product.slug])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    let attachedEl: HTMLElement | null = null
+    let io: IntersectionObserver | null = null
+    let footerIo: IntersectionObserver | null = null
+    let unsubScroll: (() => void) | null = null
+    let raf = 0
+    let alive = true
+    let attachTries = 0
+
+    const resolveCta = () =>
+      ctaRef.current ?? (document.querySelector('.pp-info__ctas') as HTMLElement | null)
+
+    const updateFloatingCta = () => {
+      const el = resolveCta()
+      if (!el) {
+        setShowFloatingCta(false)
+        return
+      }
+      const rect = el.getBoundingClientRect()
+      if (rect.height <= 0 && rect.width <= 0) {
+        setShowFloatingCta(false)
+        return
+      }
+
+      // Never sit on top of the footer (footer markup locked — hide sticky instead).
+      const footer = document.querySelector('footer.site-footer, footer[data-site-chrome]')
+      if (footer) {
+        const footerTop = footer.getBoundingClientRect().top
+        if (footerTop < window.innerHeight - 12) {
+          setShowFloatingCta((prev) => (prev ? false : prev))
+          return
+        }
+      }
+
+      const topInset = 72
+      const bottomInset = 28
+      const visible =
+        rect.bottom > topInset && rect.top < window.innerHeight - bottomInset
+      const next = !visible
+      setShowFloatingCta((prev) => (prev === next ? prev : next))
+    }
+
+    const attach = () => {
+      const el = resolveCta()
+      if (!el || !alive) return false
+      if (attachedEl === el && io) {
+        updateFloatingCta()
+        return true
+      }
+
+      io?.disconnect()
+      attachedEl = el
+      updateFloatingCta()
+
+      if (typeof IntersectionObserver !== 'undefined') {
+        io = new IntersectionObserver(updateFloatingCta, {
+          threshold: [0, 0.05, 0.15, 0.35, 0.6, 1],
+          rootMargin: '-72px 0px -28px 0px',
+        })
+        io.observe(el)
+
+        const footer = document.querySelector('footer.site-footer, footer[data-site-chrome]')
+        if (footer) {
+          footerIo?.disconnect()
+          footerIo = new IntersectionObserver(updateFloatingCta, {
+            threshold: [0, 0.01, 0.1],
+          })
+          footerIo.observe(footer)
+        }
+      }
+      return true
+    }
+
+    // Retry attach a few times if ProductReveal delays the CTA — no permanent poll (kills Lenis feel).
+    const tryAttach = () => {
+      if (attach() || !alive) return
+      attachTries += 1
+      if (attachTries < 12) {
+        raf = window.requestAnimationFrame(tryAttach)
+      }
+    }
+    tryAttach()
+
+    unsubScroll = subscribeScroll(lenis, updateFloatingCta)
+    window.addEventListener('resize', updateFloatingCta, { passive: true })
+
+    return () => {
+      alive = false
+      window.cancelAnimationFrame(raf)
+      io?.disconnect()
+      footerIo?.disconnect()
+      unsubScroll?.()
+      window.removeEventListener('resize', updateFloatingCta)
+    }
+  }, [product.id, lenis])
 
   useEffect(() => {
     trackRecentlyViewed(product.id)
@@ -295,9 +412,37 @@ export default function ProductPageClient({
     }
   }, [selectedColor, selectedSize, sizeStock, sizes])
 
-  // Warm the browser cache for neighbouring gallery images so arrows switch instantly.
+  // Warm gallery cache: thumbs immediately, full gallery on idle.
   useEffect(() => {
-    if (typeof window === 'undefined' || media.length < 2) return
+    if (typeof window === 'undefined' || !media.length) return
+
+    for (const item of media) {
+      if (item?.type !== 'image' || !item.url) continue
+      const thumb = new window.Image()
+      thumb.decoding = 'async'
+      thumb.src = optimizeImageSrc(item.url, 'thumb')
+    }
+
+    const preloadGallery = () => {
+      for (const item of media) {
+        if (item?.type !== 'image' || !item.url) continue
+        const img = new window.Image()
+        img.decoding = 'async'
+        img.src = optimizeImageSrc(item.url, 'gallery')
+      }
+    }
+
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleId = window.requestIdleCallback(preloadGallery, { timeout: 2200 })
+      return () => window.cancelIdleCallback(idleId)
+    }
+
+    const timeoutId = globalThis.setTimeout(preloadGallery, 600)
+    return () => globalThis.clearTimeout(timeoutId)
+  }, [media])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !media.length) return
     const neighbours = [
       media[(activeImage + 1) % media.length],
       media[(activeImage - 1 + media.length) % media.length],
@@ -309,6 +454,10 @@ export default function ProductPageClient({
       img.src = optimizeImageSrc(item.url, 'gallery')
     }
   }, [activeImage, media])
+
+  useEffect(() => {
+    setQuantity((q) => Math.min(Math.max(1, q), Math.max(1, stock)))
+  }, [stock])
 
   const detailSections = useMemo(() => {
     const sections: { id: string; content: string }[] = []
@@ -326,8 +475,11 @@ export default function ProductPageClient({
     }
 
     const shippingParts = [
-      'Complimentary standard delivery across Bangladesh within 3–7 business days.',
-      'Express same-day delivery available in Dhaka metro.',
+      `Delivery: Dhaka ${formatBDT(Math.round(shipping.dhakaDeliveryCharge))} · Outside ${formatBDT(Math.round(shipping.outsideDhakaCharge))}.`,
+      shipping.freeDeliveryThreshold > 0
+        ? `Free delivery on orders over ${formatBDT(Math.round(shipping.freeDeliveryThreshold))}.`
+        : null,
+      'Most orders arrive within 2–4 business days.',
       product.origin ? `Origin · ${product.origin}` : null,
     ].filter(Boolean) as string[]
 
@@ -352,10 +504,13 @@ export default function ProductPageClient({
     product.occasion,
     product.origin,
     product.season,
+    shipping.dhakaDeliveryCharge,
+    shipping.outsideDhakaCharge,
+    shipping.freeDeliveryThreshold,
   ])
 
   const buildSelectedCartItem = (): CartItem | null => {
-    if (!inStock) return null
+    if (!productHasStock || !selectionInStock) return null
     // Synthetic variant ids (product.id or `${product.id}-…`) are UI-only —
     // the API rejects them, so only send ids that came from the database.
     const realVariantId =
@@ -369,7 +524,7 @@ export default function ProductPageClient({
       ...(realVariantId ? { variantId: realVariantId } : {}),
       quantity,
       name: product.name,
-      price: product.price,
+      price: unitPrice,
       image: activeVariant?.image ?? activeColorOption?.image ?? product.images[0] ?? '',
       slug: product.slug,
     }
@@ -384,12 +539,62 @@ export default function ProductPageClient({
     const item = buildSelectedCartItem()
     if (!item) return false
     addItem(item)
-    trackAddToCart({ id: product.id, name: product.name, price: product.price })
+    trackAddToCart({ id: product.id, name: product.name, price: unitPrice })
+    return true
+  }
+
+  /** Prefer Lenis — native scrollIntoView desyncs virtual scroll and breaks follow-up clicks. */
+  const scrollElIntoView = (el: HTMLElement | null) => {
+    if (!el) return
+    if (lenis) {
+      lenis.scrollTo(el, { offset: -96, duration: 0.65 })
+      return
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  const validatePurchaseSelection = (): boolean => {
+    if (!productHasStock) {
+      setCtaShake(true)
+      window.setTimeout(() => setCtaShake(false), 480)
+      toast.error('This product is out of stock')
+      return false
+    }
+    if (!selectionInStock) {
+      setCtaShake(true)
+      scrollElIntoView(optionsRef.current)
+      toast.error('This size or colour is out of stock — try another')
+      window.setTimeout(() => setCtaShake(false), 480)
+      return false
+    }
+    if (sizes.length > 0) {
+      if (!selectedSize) {
+        setSizeShake(true)
+        scrollElIntoView(sizeRowRef.current)
+        toast.error('Please select a size')
+        window.setTimeout(() => setSizeShake(false), 520)
+        return false
+      }
+      if ((sizeStock.get(selectedSize) ?? 0) === 0) {
+        setSizeShake(true)
+        scrollElIntoView(sizeRowRef.current)
+        toast.error('Selected size is out of stock')
+        window.setTimeout(() => setSizeShake(false), 520)
+        return false
+      }
+    }
+    if (showColorPicker && !selectedColor) {
+      scrollElIntoView(optionsRef.current)
+      toast.error('Please select a colour')
+      return false
+    }
     return true
   }
 
   const handleAddToCart = () => {
     if (addingToCart) return
+    if (isLightboxOpen) closeLightbox()
+    if (!validatePurchaseSelection()) return
     setAddingToCart(true)
     if (!addSelectedItemToCart()) {
       setAddingToCart(false)
@@ -406,37 +611,73 @@ export default function ProductPageClient({
   }
 
   const handleBuyNow = () => {
+    if (isLightboxOpen) closeLightbox()
+    if (!validatePurchaseSelection()) return
     const item = buildSelectedCartItem()
     if (!item) return
-    stageCheckoutItems([item])
-    replaceItems([item])
-    trackAddToCart({ id: product.id, name: product.name, price: product.price })
-    router.push(getCheckoutEntryPath(Boolean(user)))
+    // Merge into cart — never wipe existing lines (Buy Now used to replaceItems).
+    addItem(item)
+    stageCheckoutItems(useCartStore.getState().items)
+    trackAddToCart({ id: product.id, name: product.name, price: unitPrice })
+    safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
   }
 
   const prevImage = () => {
-    setLightboxZoom('fit')
     setActiveImage((i) => (i - 1 + media.length) % media.length)
   }
   const nextImage = () => {
-    setLightboxZoom('fit')
     setActiveImage((i) => (i + 1) % media.length)
   }
   const openLightbox = () => {
-    setLightboxZoom('fit')
     setIsLightboxOpen(true)
   }
   const closeLightbox = () => {
     setIsLightboxOpen(false)
-    setLightboxZoom('fit')
-  }
-  const toggleLightboxZoom = () => {
-    if (media[activeImage]?.type === 'video') return
-    setLightboxZoom((z) => (z === 'fit' ? 'deep' : 'fit'))
   }
   const openGalleryZoom = () => {
     if (media[activeImage]?.type === 'video') return
+    if (swipeRef.current?.moved) return
+    // Tap cycles photos; expand button / double-click opens fullscreen zoom
+    if (media.length > 1) {
+      nextImage()
+      return
+    }
     openLightbox()
+  }
+
+  const onGalleryPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (media[activeImage]?.type === 'video' || media.length < 2) return
+    swipeRef.current = { x: event.clientX, y: event.clientY, moved: false }
+  }
+
+  const onGalleryPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = swipeRef.current
+    if (!start) return
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) start.moved = true
+  }
+
+  const onGalleryPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = swipeRef.current
+    if (!start) return
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    const swiped = start.moved && Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)
+    swipeRef.current = swiped ? { ...start, moved: true } : null
+    if (!swiped) {
+      swipeRef.current = null
+      return
+    }
+    if (dx < 0) nextImage()
+    else prevImage()
+    window.setTimeout(() => {
+      swipeRef.current = null
+    }, 0)
+  }
+
+  const onGalleryPointerCancel = () => {
+    swipeRef.current = null
   }
 
   const heroMediaTransition =
@@ -444,31 +685,38 @@ export default function ProductPageClient({
       ? productMediaTransitionStyle(product.id, reducedMotion)
       : undefined
 
-  useEffect(() => {
-    if (!isLightboxOpen) return
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeLightbox()
-      }
-      if (event.key === 'ArrowLeft') {
-        setActiveImage((i) => (i - 1 + media.length) % media.length)
-      }
-      if (event.key === 'ArrowRight') {
-        setActiveImage((i) => (i + 1) % media.length)
-      }
+  const renderGallerySlide = (item: (typeof media)[number], index: number) => {
+    if (item.type === 'video') {
+      return (
+        <video
+          src={item.url}
+          className="pp-gallery__video"
+          autoPlay
+          muted
+          loop
+          playsInline
+          controls
+        />
+      )
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
-    }
-  }, [isLightboxOpen, media.length])
+    return (
+      <div
+        className="product-shared-media"
+        style={index === 0 ? heroMediaTransition : undefined}
+      >
+        <StorefrontImage
+          src={item.url}
+          alt={product.name}
+          profile="gallery"
+          fill
+          fit="cover"
+          className="pp-gallery__img"
+          priority={index === 0}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="pp-root pp-view">
@@ -485,62 +733,54 @@ export default function ProductPageClient({
           {/* ─── Gallery ─────────────────────────────────── */}
           <div className="pp-gallery">
             <div className="pp-gallery__main">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${selectedColor ?? 'default'}-${media[activeImage]?.type}-${media[activeImage]?.url}`}
-                  className={cn(
-                    'pp-gallery__stage',
-                    media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
-                  )}
-                  {...(reducedMotion
-                    ? {}
-                    : {
-                        initial: productGalleryMotion.initial,
-                        exit: productGalleryMotion.exit,
-                      })}
-                  animate={productGalleryMotion.animate}
-                  transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
-                  onClick={openGalleryZoom}
-                  onDoubleClick={(event) => {
-                    event.stopPropagation()
-                    openLightbox()
-                    setLightboxZoom('deep')
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      openGalleryZoom()
-                    }
-                  }}
-                  role={media[activeImage]?.type !== 'video' ? 'button' : undefined}
-                  tabIndex={media[activeImage]?.type !== 'video' ? 0 : undefined}
-                  aria-label={media[activeImage]?.type !== 'video' ? 'Open product image zoom' : undefined}
-                >
-                  {media[activeImage]?.type === 'video' ? (
-                    <video
-                      src={media[activeImage]!.url}
-                      className="pp-gallery__video"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      controls
-                    />
-                  ) : (
-                    <div className="product-shared-media" style={heroMediaTransition}>
-                      <StorefrontImage
-                        src={media[activeImage]!.url}
-                        alt={product.name}
-                        profile="gallery"
-                        fill
-                        fit="cover"
-                        className="pp-gallery__img"
-                        priority={activeImage === 0}
-                      />
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
+              <div
+                className={cn(
+                  'pp-gallery__stage pp-gallery__stage--stack',
+                  media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
+                )}
+                onPointerDown={onGalleryPointerDown}
+                onPointerMove={onGalleryPointerMove}
+                onPointerUp={onGalleryPointerUp}
+                onPointerCancel={onGalleryPointerCancel}
+                onClick={openGalleryZoom}
+                onDoubleClick={(event) => {
+                  event.stopPropagation()
+                  openLightbox()
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    openGalleryZoom()
+                  }
+                }}
+                role={media[activeImage]?.type !== 'video' ? 'button' : undefined}
+                tabIndex={media[activeImage]?.type !== 'video' ? 0 : undefined}
+                aria-label={
+                  media[activeImage]?.type !== 'video'
+                    ? media.length > 1
+                      ? 'Show next product image'
+                      : 'Open product image zoom'
+                    : undefined
+                }
+              >
+                {galleryAnimated
+                  ? media.map((item, i) => (
+                      <motion.div
+                        key={`${selectedColor ?? 'default'}-${item.type}-${item.url}-${i}`}
+                        className="pp-gallery__slide"
+                        animate={{ opacity: i === activeImage ? 1 : 0 }}
+                        transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
+                        style={{
+                          pointerEvents: i === activeImage ? 'auto' : 'none',
+                          zIndex: i === activeImage ? 2 : 1,
+                        }}
+                        aria-hidden={i !== activeImage}
+                      >
+                        {renderGallerySlide(item, i)}
+                      </motion.div>
+                    ))
+                  : renderGallerySlide(media[activeImage]!, activeImage)}
+              </div>
 
               <MotionPressable
                 type="button"
@@ -585,20 +825,12 @@ export default function ProductPageClient({
               )}
             </div>
 
-            {media.length > 1 && (
-              <div className="pp-gallery__progress" aria-live="polite">
-                <span className="pp-gallery__progress-label">
-                  {activeImage + 1} / {media.length}
-                </span>
-                <div className="pp-gallery__progress-track">
-                  <motion.div
-                    className="pp-gallery__progress-fill"
-                    animate={{ width: `${((activeImage + 1) / media.length) * 100}%` }}
-                    transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
-                  />
-                </div>
-              </div>
-            )}
+            {/* Colour thumbs choose look; arrows / stage click cycle gallery — no second thumb strip. */}
+            {media.length > 1 ? (
+              <span className="sr-only" aria-live="polite">
+                Image {activeImage + 1} of {media.length}
+              </span>
+            ) : null}
           </div>
 
           {/* ─── Product info ─────────────────────────────── */}
@@ -652,14 +884,16 @@ export default function ProductPageClient({
 
             <ProductReveal className="pp-info__lead">
               <div className="pp-info__price-row">
-                <span className="pp-info__price">{formatBDT(product.price)}</span>
+                <span className="pp-info__price">{formatBDT(unitPrice)}</span>
                 {hasDiscount && (
                   <>
-                    <span className="pp-info__compare">{formatBDT(product.compareAtPrice!)}</span>
+                    <span className="pp-info__compare">{formatBDT(compareAtPrice!)}</span>
                     <span className="pp-info__discount-badge">-{discountPct}%</span>
                   </>
                 )}
               </div>
+              <ProductPurchaseExtras product={product} price={unitPrice} variant="highlights" />
+              <ProductPurchaseExtras product={product} price={unitPrice} variant="delivery" />
             </ProductReveal>
 
             <AnimatePresence mode="wait">
@@ -675,7 +909,7 @@ export default function ProductPageClient({
                   Only {stock} left — order soon
                 </motion.p>
               )}
-              {!inStock && (
+              {!productHasStock ? (
                 <motion.p
                   key="out-stock"
                   className="pp-info__outstock"
@@ -686,10 +920,22 @@ export default function ProductPageClient({
                 >
                   Out of stock
                 </motion.p>
-              )}
+              ) : !selectionInStock ? (
+                <motion.p
+                  key="variant-out-stock"
+                  className="pp-info__outstock"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.24, ease: productGalleryEase }}
+                >
+                  This size / colour is out of stock — try another
+                </motion.p>
+              ) : null}
             </AnimatePresence>
 
-            <ProductReveal className="pp-info__options">
+            <ProductReveal>
+            <div ref={optionsRef} className="pp-info__options">
               {showColorPicker && (
                 <div className="pp-info__option">
                   <p className="pp-info__option-label">
@@ -741,13 +987,23 @@ export default function ProductPageClient({
                 <div className="pp-info__option">
                   <div className="pp-info__option-head">
                     <p className="pp-info__option-label pp-info__option-label--inline">Select Size</p>
-                    <MotionLink href="/size-guide" className="pp-size-guide" variant="subtle">
+                    <MotionPressable
+                      type="button"
+                      className="pp-size-guide"
+                      variant="subtle"
+                      onClick={() => setSizeGuideOpen(true)}
+                    >
                       <Ruler className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Size Guide
-                    </MotionLink>
+                    </MotionPressable>
                   </div>
                   <LayoutGroup id="pp-size-select">
-                  <div className="pp-size-row">
+                  <motion.div
+                    ref={sizeRowRef}
+                    className="pp-size-row"
+                    variants={productShake}
+                    animate={sizeShake && showMotion ? 'shake' : 'idle'}
+                  >
                     {sizes.map((size) => {
                       const qty = sizeStock.get(size) ?? stock
                       const disabled = qty === 0
@@ -778,17 +1034,49 @@ export default function ProductPageClient({
                         </MotionPressable>
                       )
                     })}
-                  </div>
+                  </motion.div>
                   </LayoutGroup>
                 </div>
               )}
+            </div>
             </ProductReveal>
 
+            <ProductReveal className="pp-info__option">
+              <p className="pp-info__option-label">Quantity</p>
+              <div className="pp-qty">
+                <MotionPressable
+                  type="button"
+                  className="pp-qty__btn"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
+                  disabled={quantity <= 1}
+                  variant="icon"
+                >
+                  <Minus className="h-3.5 w-3.5" strokeWidth={2.2} />
+                </MotionPressable>
+                <span className="pp-qty__value" aria-live="polite">
+                  {quantity}
+                </span>
+                <MotionPressable
+                  type="button"
+                  className="pp-qty__btn"
+                  onClick={() => setQuantity((q) => Math.min(Math.max(1, stock), q + 1))}
+                  aria-label="Increase quantity"
+                  disabled={quantity >= stock}
+                  variant="icon"
+                >
+                  <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
+                </MotionPressable>
+              </div>
+            </ProductReveal>
+
+            <div className="pp-info__purchase-panel">
             <ProductReveal>
             <motion.div
+              ref={ctaRef}
               className="pp-info__ctas"
               variants={productShake}
-              animate={ctaShake ? 'shake' : 'idle'}
+              animate={ctaShake && showMotion ? 'shake' : 'idle'}
             >
               <MotionPressable
                 type="button"
@@ -798,48 +1086,35 @@ export default function ProductPageClient({
                   addingToCart && !addedPulse && 'pp-btn-add--pending',
                 )}
                 onClick={handleAddToCart}
-                disabled={!inStock || addingToCart}
+                disabled={!productHasStock || !selectionInStock || addingToCart}
                 variant="cta"
               >
                 <AddToBagIconBadge size={17} tone="dark" pulse={addedPulse} />
-                <motion.span
-                  key={addedPulse ? 'added' : addingToCart ? 'pending' : 'default'}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                <MotionSwapLabel
+                  id={
+                    addingToCart && !addedPulse
+                      ? 'pending'
+                      : addedPulse
+                        ? 'added'
+                        : 'default'
+                  }
                 >
                   {addingToCart && !addedPulse
                     ? 'Adding…'
                     : addedPulse
                       ? 'Added to Bag!'
                       : 'Add to bag'}
-                </motion.span>
+                </MotionSwapLabel>
               </MotionPressable>
 
               <MotionPressable
                 type="button"
                 className="pp-btn-store pp-pressable"
                 onClick={handleBuyNow}
-                disabled={!inStock}
+                disabled={!productHasStock || !selectionInStock}
                 variant="cta"
               >
                 Buy Now
-              </MotionPressable>
-
-              <MotionPressable
-                type="button"
-                className={cn('pp-btn-wish pp-pressable', saved && 'pp-btn-wish--saved')}
-                onClick={() => toggleWishlist(product.id)}
-                aria-pressed={saved}
-                aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
-                variant="icon"
-              >
-                <motion.span
-                  animate={saved ? { scale: [1, 1.18, 1] } : { scale: 1 }}
-                  transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Heart className={cn('h-4 w-4', saved && 'fill-current')} strokeWidth={1.75} />
-                </motion.span>
               </MotionPressable>
 
               {shareUrl ? (
@@ -878,6 +1153,11 @@ export default function ProductPageClient({
               ) : null}
             </motion.div>
             </ProductReveal>
+
+            <ProductReveal>
+              <ProductPurchaseExtras product={product} price={unitPrice} variant="payments" />
+            </ProductReveal>
+            </div>
             </ProductStagger>
 
             {(shortDesc || detailSections.length > 0) && (
@@ -962,151 +1242,42 @@ export default function ProductPageClient({
           reviews={reviews}
           isLoggedIn={authHydrated && Boolean(user)}
         />
-
-        {relatedProducts.length > 0 && (
-          <ProductReveal>
-          <section className="pp-related">
-            <h2 className="pp-related__title">You may also like</h2>
-            <div className="pp-related__grid">
-              {relatedProducts.map((item) => (
-                <ProductCard key={item.id} product={item} />
-              ))}
-            </div>
-          </section>
-          </ProductReveal>
-        )}
       </div>
 
-      {inStock ? (
-        <div className="pp-mobile-sticky-bar" aria-label="Quick purchase">
-          <div className="pp-mobile-sticky-bar__price">
-            <span className="pp-mobile-sticky-bar__price-label">
-              {quantity > 1 ? 'Total' : 'Price'}
-            </span>
-            <span className="pp-mobile-sticky-bar__price-value">
-              {formatBDT(product.price * quantity)}
-            </span>
-          </div>
-          <div className="pp-mobile-sticky-bar__actions">
-            <button
-              type="button"
-              className="pp-mobile-sticky-bar__btn pp-mobile-sticky-bar__btn--add"
-              onClick={handleAddToCart}
-              disabled={addingToCart}
-            >
-              {addingToCart && !addedPulse ? 'Adding…' : addedPulse ? 'Added' : 'Add to bag'}
-            </button>
-            <button
-              type="button"
-              className="pp-mobile-sticky-bar__btn pp-mobile-sticky-bar__btn--buy"
-              onClick={handleBuyNow}
-            >
-              Buy now
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <ProductPurchaseSticky
+        showFloating={showFloatingCta}
+        inStock={productHasStock}
+        price={unitPrice}
+        quantity={quantity}
+        selectedSize={selectedSize}
+        selectedColorLabel={
+          selectedColorName !== '—' ? selectedColorName : null
+        }
+        addingToCart={addingToCart}
+        addedPulse={addedPulse}
+        onAddToCart={handleAddToCart}
+        onBuyNow={handleBuyNow}
+        showMotion={showMotion}
+      />
 
-      {isLightboxOpen && (
-        <div
-          className="pp-lightbox"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${product.name} fullscreen preview`}
-          onClick={closeLightbox}
-        >
-          <MotionPressable
-            type="button"
-            className="pp-lightbox__close pp-pressable"
-            onClick={(event) => {
-              event.stopPropagation()
-              closeLightbox()
-            }}
-            aria-label="Close fullscreen preview"
-            variant="icon"
-          >
-            <CloseIcon size={22} strokeWidth={1.8} />
-          </MotionPressable>
+      <ProductLightbox
+        isOpen={isLightboxOpen}
+        onClose={closeLightbox}
+        productName={product.name}
+        media={media}
+        activeIndex={activeImage}
+        onPrev={prevImage}
+        onNext={nextImage}
+        showMotion={galleryAnimated}
+      />
 
-          {media.length > 1 && (
-            <MotionPressable
-              type="button"
-              className="pp-lightbox__nav pp-lightbox__nav--prev pp-pressable"
-              onClick={(event) => {
-                event.stopPropagation()
-                prevImage()
-              }}
-              aria-label="Previous image"
-              variant="nav"
-            >
-              <ChevronLeft size={30} strokeWidth={1.55} />
-            </MotionPressable>
-          )}
-
-          <div
-            className={cn(
-              'pp-lightbox__stage',
-              lightboxZoom === 'deep' && 'pp-lightbox__stage--deep',
-            )}
-            onClick={(event) => event.stopPropagation()}
-            onDoubleClick={toggleLightboxZoom}
-          >
-            {media[activeImage]?.type === 'video' ? (
-              <video
-                src={media[activeImage]!.url}
-                className="pp-lightbox__media"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-              />
-            ) : (
-              <div
-                className={cn(
-                  'pp-lightbox__media-wrap',
-                  lightboxZoom === 'deep' && 'pp-lightbox__media-wrap--deep',
-                )}
-              >
-                <StorefrontImage
-                  src={media[activeImage]?.url ?? PRODUCT_IMAGE_PLACEHOLDER}
-                  alt={product.name}
-                  profile="lightbox"
-                  fill
-                  fit="contain"
-                  className="pp-lightbox__media"
-                  draggable={false}
-                />
-              </div>
-            )}
-          </div>
-
-          {media[activeImage]?.type !== 'video' && (
-            <p className="pp-lightbox__hint">
-              {lightboxZoom === 'fit' ? 'Double-click to zoom in' : 'Double-click to zoom out'}
-            </p>
-          )}
-
-          {media.length > 1 && (
-            <MotionPressable
-              type="button"
-              className="pp-lightbox__nav pp-lightbox__nav--next pp-pressable"
-              onClick={(event) => {
-                event.stopPropagation()
-                nextImage()
-              }}
-              aria-label="Next image"
-              variant="nav"
-            >
-              <ChevronRight size={30} strokeWidth={1.55} />
-            </MotionPressable>
-          )}
-
-          <div className="pp-lightbox__counter">
-            {activeImage + 1} / {media.length}
-          </div>
-        </div>
-      )}
+      <SizeGuideModal
+        open={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        category={product.category ?? null}
+        categorySlug={product.categorySlug ?? null}
+        productName={product.name}
+      />
     </div>
   )
 }

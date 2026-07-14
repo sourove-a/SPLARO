@@ -14,7 +14,7 @@ import type { Response } from 'express'
 import { PrintService } from './print.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
-import { displayOrderCode } from '@splaro/config'
+import { displayOrderCode, isFeatureEnabled } from '@splaro/config'
 
 @Controller('admin/print')
 export class PrintController {
@@ -37,7 +37,8 @@ export class PrintController {
   ) {
     return this.print.invoiceHtml(orderId, {
       showToolbar: true,
-      autoPrint: autoPrint === '1' || autoPrint === 'true',
+      autoPrint:
+        isFeatureEnabled('printAuto') && (autoPrint === '1' || autoPrint === 'true'),
     })
   }
 

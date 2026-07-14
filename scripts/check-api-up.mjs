@@ -3,10 +3,11 @@
  * Warn when admin/web starts but Nest API is not listening on :4000.
  * Non-blocking — always exit 0.
  */
-import { spawnSync } from 'child_process'
+import { isPortListening } from './port-utils.mjs'
+import { loopbackUrl } from './spawn-utils.mjs'
 
 const port = Number(process.env.API_PORT ?? process.env.PORT_API ?? 4000)
-const base = (process.env.API_URL ?? `http://localhost:${port}`).replace(/\/+$/, '')
+const base = (process.env.API_URL ?? loopbackUrl(port)).replace(/\/+$/, '')
 const health = base.endsWith('/api/v1') ? `${base}/health` : `${base}/api/v1/health`
 
 async function ping() {
@@ -18,24 +19,20 @@ async function ping() {
   }
 }
 
-function isPortListening() {
-  const result = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  })
-  return result.status === 0 && result.stdout.includes(`:${port}`)
+function isPortListeningOnApiPort() {
+  return isPortListening(port)
 }
 
 const ok = await ping()
 if (ok) {
   console.log(`✅ API live on :${port}`)
-} else if (isPortListening()) {
+} else if (isPortListeningOnApiPort()) {
   console.warn(`
 ⚠️  SPLARO API port ${port} is listening, but health check did not respond.
    API may be starting, blocked by local sandbox networking, or waiting on database.
 
    If admin data is empty:
-     brew services start postgresql@16
+     pnpm infra:up          # Postgres + Redis (Docker)
      pnpm db:push
      pnpm db:seed
 `)

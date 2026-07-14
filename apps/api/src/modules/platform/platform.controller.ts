@@ -1,10 +1,12 @@
 import { Controller, Get, Query } from '@nestjs/common'
+import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { PlatformService } from './platform.service'
 
 @Controller('admin/platform')
 export class PlatformController {
   constructor(private readonly platform: PlatformService) {}
 
+  @RequireFeature('saas')
   @Get('saas')
   getSaaS(@Query('storeId') storeId: string) {
     return this.platform.getSaaS(storeId)
@@ -20,6 +22,7 @@ export class PlatformController {
     return this.platform.getMedia(storeId)
   }
 
+  @RequireFeature('vendor')
   @Get('marketplace')
   getMarketplace(@Query('storeId') storeId: string) {
     return this.platform.getMarketplace(storeId)

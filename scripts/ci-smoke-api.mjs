@@ -6,6 +6,7 @@ import { spawn } from 'child_process'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { reclaimPort, waitForPortFree } from './api-port.mjs'
+import { killProcessTree } from './port-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = resolve(ROOT, 'apps/api')
@@ -41,7 +42,8 @@ const child = spawn('node', ['dist/main.js'], {
   cwd: API_DIR,
   env,
   stdio: ['ignore', 'pipe', 'pipe'],
-  detached: true,
+  // Detached process groups are Unix-only; Windows uses taskkill /T on cleanup.
+  detached: process.platform !== 'win32',
 })
 
 let stderr = ''
@@ -159,7 +161,8 @@ try {
 console.log('✅ /api/v1/search')
 
 try {
-  process.kill(-child.pid, 'SIGTERM')
+  killProcessTree(child, 'SIGTERM')
+  setTimeout(() => killProcessTree(child, 'SIGKILL'), 500)
 } catch {
   try {
     child.kill('SIGTERM')

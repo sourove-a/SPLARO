@@ -6,7 +6,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from '@/lib/auth/sessio
 
 const MAX_BYTES = 8 * 1024 * 1024
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
-const ALLOWED_FOLDERS = new Set(['general', 'products', 'partners'])
+const ALLOWED_FOLDERS = new Set(['general', 'products', 'partners', 'banners', 'media'])
 
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',

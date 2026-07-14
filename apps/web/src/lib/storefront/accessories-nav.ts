@@ -1,4 +1,5 @@
 import type { MegaMenuCategory } from '@/lib/storefront/settings'
+import { EDITORIAL } from '@/lib/assets/editorial-images'
 
 /** Shared accessories categories — mega menu, mobile nav, and /accessories page. */
 export const ACCESSORIES_FILTER_CATEGORIES = [
@@ -65,16 +66,16 @@ export const ACCESSORIES_MEGA_HEROES = [
   {
     label: 'Eyewear Edit',
     href: '/accessories?cat=glasses',
-    image: '/images/placeholder-product.jpg',
+    image: EDITORIAL.accessoriesEyewear,
   },
   {
     label: 'New Arrivals',
     href: '/accessories?filter=new',
-    image: '/images/placeholder-product.jpg',
+    image: EDITORIAL.accessoriesNew,
   },
   {
     label: 'Bestsellers',
     href: '/accessories?filter=bestsellers',
-    image: '/images/placeholder-product.jpg',
+    image: EDITORIAL.accessoriesBest,
   },
 ] as const

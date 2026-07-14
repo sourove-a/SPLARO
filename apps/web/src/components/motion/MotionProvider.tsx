@@ -1,12 +1,13 @@
 'use client'
 
-import { LazyMotion, MotionConfig, domAnimation } from 'framer-motion'
+import { LazyMotion, MotionConfig, domAnimation } from '@/lib/motion/react'
 import type { ReactNode } from 'react'
 import { MOTION_DEFAULT } from '@/lib/motion/config'
 
 /**
- * Lazy-loaded Framer Motion (~60% smaller than full bundle).
+ * Lazy-loaded Motion for React (~60% smaller than full bundle).
  * Global defaults: expo easing, user reduced-motion, transform-friendly transitions.
+ * @see https://motion.dev/docs/react
  */
 export function MotionProvider({ children }: { children: ReactNode }) {
   return (

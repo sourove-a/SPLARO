@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
+import { toastInfo } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
+import {
+  confirmCouponDeleted,
+  confirmCouponSaved,
+  confirmCouponToggled,
+} from '@/lib/admin/catalog-save'
 import { Copy, Tag } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { ModulePanelShell, formatBDT } from '@/components/modules/ModulePanelShell'
@@ -33,14 +39,15 @@ export function CouponsLivePanel() {
   }, [query, rows])
 
   const create = async () => {
-    if (!code.trim()) return
-    try {
-      await createCoupon({ code: code.trim(), type: 'PERCENTAGE', value: Number(value) || 10, isActive: true })
-      toast.success('Coupon created.')
+    const trimmed = code.trim()
+    if (!trimmed) return
+    const ok = await confirmCouponSaved(
+      { code: trimmed.toUpperCase(), isActive: true },
+      () => createCoupon({ code: trimmed, type: 'PERCENTAGE', value: Number(value) || 10, isActive: true }),
+    )
+    if (ok) {
       setCode('')
       load()
-    } catch {
-      toast.error('Could not create coupon.')
     }
   }
 
@@ -73,7 +80,7 @@ export function CouponsLivePanel() {
         searchPlaceholder="Search coupon code..."
         onRefresh={load}
         createLabel="New coupon"
-        onCreate={() => toast('Use the form above to create a coupon.')}
+        onCreate={() => toastInfo('Use the form above to create a coupon.')}
         exportDisabled
         tableIcon={Tag}
         tableTitle={`Coupons · ${filtered.length} results`}
@@ -100,8 +107,7 @@ export function CouponsLivePanel() {
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard?.writeText(c.code)
-                        toast.success(`Copied ${c.code}`)
+                        void copyWithToast(c.code, `Copied ${c.code}`)
                       }}
                       className="flex items-center gap-1 font-mono text-sm font-black hover:text-[#5E7CFF]"
                     >
@@ -120,24 +126,20 @@ export function CouponsLivePanel() {
                   <td className="space-x-2">
                     <AdminButton
                       variant="ghost"
-                      onClick={() =>
-                        toggleCoupon(c.id, !c.isActive)
-                          .then(load)
-                          .catch(() => toast.error('Update failed'))
-                      }
+                      onClick={async () => {
+                        const next = !c.isActive
+                        const ok = await confirmCouponToggled(c.id, next, () => toggleCoupon(c.id, next))
+                        if (ok) load()
+                      }}
                     >
                       {c.isActive ? 'Disable' : 'Enable'}
                     </AdminButton>
                     <AdminButton
                       variant="ghost"
-                      onClick={() =>
-                        deleteCoupon(c.id)
-                          .then(() => {
-                            toast.success('Coupon deleted.')
-                            load()
-                          })
-                          .catch(() => toast.error('Delete failed'))
-                      }
+                      onClick={async () => {
+                        const ok = await confirmCouponDeleted(c.id, () => deleteCoupon(c.id))
+                        if (ok) load()
+                      }}
                     >
                       Delete
                     </AdminButton>

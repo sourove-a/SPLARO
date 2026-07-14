@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Production smoke test — web, admin, API health.
- * Usage: node scripts/verify-production.mjs
- *        SPLARO_DOMAIN=splaro.co node scripts/verify-production.mjs
+ * Uses fetch (cross-platform). curl kept as optional fast path on Unix.
  */
 import { spawnSync } from 'node:child_process'
+import { cliSpawnOpts } from './spawn-utils.mjs'
 
 const domain = process.env.SPLARO_DOMAIN || 'splaro.co'
 const isLocal = domain === '127.0.0.1' || domain === 'localhost'
@@ -20,17 +20,37 @@ const targets = [
 
 let failed = 0
 
-for (const { name, url, expect } of targets) {
-  const result = spawnSync('curl', ['-sI', '--max-time', '25', url], { encoding: 'utf8' })
+async function probeWithFetch(url) {
+  const res = await fetch(url, {
+    method: 'HEAD',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(25_000),
+  })
+  return res.status
+}
+
+function probeWithCurl(url) {
+  const result = spawnSync('curl', ['-sI', '--max-time', '25', url], {
+    encoding: 'utf8',
+    ...cliSpawnOpts(),
+  })
   const statusLine = result.stdout.split('\n')[0] || ''
   const match = statusLine.match(/HTTP\/[\d.]+ (\d+)/)
-  const code = match ? Number(match[1]) : 0
+  return match ? Number(match[1]) : 0
+}
+
+for (const { name, url, expect } of targets) {
+  let code = 0
+  try {
+    code = await probeWithFetch(url)
+  } catch {
+    code = probeWithCurl(url)
+  }
 
   if (expect.includes(code)) {
     console.log(`✅ ${name} — ${code} ${url}`)
   } else {
     console.error(`❌ ${name} — ${code || 'timeout'} ${url}`)
-    if (result.stderr) console.error(result.stderr.trim())
     failed += 1
   }
 }

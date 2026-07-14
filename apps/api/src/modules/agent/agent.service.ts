@@ -10,7 +10,9 @@ import { ConversationStore } from './memory/conversation.store'
 import { ModelRouter } from './providers/model-router'
 import { sanitizeAgentHistory } from './providers/openai-models'
 import { AgentToolsService } from './tools/agent-tools.service'
-import { AGENT_TOOL_DEFINITIONS } from './tools/agent-tools.definitions'
+import { AgentLoopService } from './agent-loop.service'
+import { AgentAuditService } from './agent-audit.service'
+import { AgentCostService } from './agent-cost.service'
 import type { AgentMessage, AgentModelId, AgentStreamEvent } from './agent.types'
 
 function maskKey(key: string | null | undefined): string | null {
@@ -32,6 +34,9 @@ export class AgentService {
     private readonly config: ConfigService,
     private readonly crypto: EncryptionService,
     private readonly integrations: IntegrationsService,
+    private readonly loop: AgentLoopService,
+    private readonly audit: AgentAuditService,
+    private readonly cost: AgentCostService,
   ) {}
 
   async *chatStream(
@@ -40,6 +45,7 @@ export class AgentService {
     userMessage: string,
     createdBy?: string,
     context?: string,
+    channel: 'admin' | 'telegram' = 'admin',
   ): AsyncGenerator<AgentStreamEvent> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
     const trimmed = userMessage.trim()
@@ -50,78 +56,40 @@ export class AgentService {
 
     await this.conversations.append(storeId, sessionId, 'user', trimmed)
 
+    this.router.invalidateCache()
+
     const history = sanitizeAgentHistory(await this.conversations.getHistory(storeId, sessionId))
     const systemPrompt = await this.prompts.getSystemPrompt(storeId)
-    const messages: AgentMessage[] = [
-      { role: 'system', content: context ? `${systemPrompt}\n\nCONTEXT:\n${context}` : systemPrompt },
-      ...history,
-    ]
+    const fullSystem = context ? `${systemPrompt}\n\nCONTEXT:\n${context}` : systemPrompt
 
-    const { provider, apiKey, providerOptions } = await this.router.getProvider(storeId)
-    let iterations = 0
+    const generator = this.loop.run({
+      storeId,
+      sessionId,
+      userMessage: trimmed,
+      systemPrompt: fullSystem,
+      history: history as AgentMessage[],
+      createdBy,
+      channel,
+    })
+
     let finalText = ''
-
-    while (iterations < 5) {
-      iterations += 1
-      let result
-      try {
-        result = await provider.chat(messages, AGENT_TOOL_DEFINITIONS, apiKey, providerOptions)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Model request failed'
-        this.logger.error(msg)
-        yield { type: 'error', content: msg }
-        return
-      }
-
-      if (result.toolCalls.length === 0) {
-        finalText = result.content
+    let done = false
+    while (!done) {
+      const next = await generator.next()
+      if (next.done) {
+        const result = next.value
+        if (result?.finalText) finalText = result.finalText
+        done = true
         break
       }
-
-      messages.push({
-        role: 'assistant',
-        content: result.content ?? '',
-        toolCalls: result.toolCalls,
-      })
-
-      for (const call of result.toolCalls) {
-        yield { type: 'tool_start', toolName: call.name }
-        let toolResult: unknown
-        try {
-          toolResult = await this.tools.execute(storeId, sessionId, call.name, call.arguments, createdBy)
-        } catch (err) {
-          toolResult = { error: err instanceof Error ? err.message : 'Tool failed' }
-        }
-        yield { type: 'tool_end', toolName: call.name, toolResult: toolResult }
-        messages.push({
-          role: 'tool',
-          content: JSON.stringify(toolResult),
-          name: call.name,
-          toolCallId: call.id,
-        })
-      }
+      const event = next.value
+      if (event.type === 'token' && event.content) finalText += event.content
+      yield event
     }
 
-    if (!finalText) {
-      try {
-        for await (const token of provider.streamText(messages, apiKey, providerOptions)) {
-          finalText += token
-          yield { type: 'token', content: token }
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Response stream failed'
-        this.logger.error(msg)
-        yield { type: 'error', content: msg }
-        return
-      }
-    } else {
-      for (const char of finalText) {
-        yield { type: 'token', content: char }
-      }
+    if (finalText.trim()) {
+      await this.conversations.append(storeId, sessionId, 'assistant', finalText)
     }
-
-    await this.conversations.append(storeId, sessionId, 'assistant', finalText)
-    yield { type: 'done' }
   }
 
   async getConfig(storeIdRaw: string) {
@@ -162,9 +130,35 @@ export class AgentService {
     if (body.telegramAllowedIds !== undefined) data.telegramAllowedIds = body.telegramAllowedIds ? String(body.telegramAllowedIds) : null
 
     const keyFields = ['openaiKey', 'geminiKey', 'claudeKey', 'grokKey', 'telegramBotToken'] as const
+    const integrationKeyMap: Partial<Record<(typeof keyFields)[number], string>> = {
+      openaiKey: 'openai',
+      claudeKey: 'claude',
+      geminiKey: 'gemini',
+      grokKey: 'grok',
+    }
+
     for (const field of keyFields) {
-      if (body[field] !== undefined && body[field] !== '' && !String(body[field]).includes('••••')) {
-        data[field] = String(body[field])
+      const raw = body[field]
+      if (raw !== undefined && raw !== '' && !String(raw).includes('••••')) {
+        const plain = String(raw)
+        data[field] = this.crypto.encrypt(plain)
+        const provider = integrationKeyMap[field]
+        if (provider) {
+          await this.integrations.upsertSecret({
+            storeId,
+            provider,
+            key: 'apiKey',
+            plain,
+          })
+          if (provider === 'openai') {
+            await this.integrations.recordTest({
+              storeId,
+              provider: 'openai',
+              success: true,
+              message: 'API key saved via AI Command Brain',
+            })
+          }
+        }
       }
     }
 
@@ -194,13 +188,21 @@ export class AgentService {
       })
     }
 
-    const row = await this.prisma.agentConfig.upsert({
+    await this.prisma.agentConfig.upsert({
       where: { storeId },
       create: { storeId, systemPrompt: DEFAULT_AGENT_SYSTEM_PROMPT, ...data },
       update: data,
     })
 
     this.router.invalidateCache()
+
+    const modelStatus = await this.router.getModelStatus(storeId)
+    if (!modelStatus.activeModelReady) {
+      throw new BadRequestException(
+        `Active model "${modelStatus.activeModel}" has no API key. Save a key for that model or pick another active model.`,
+      )
+    }
+
     return this.getConfig(storeId)
   }
 
@@ -238,14 +240,30 @@ export class AgentService {
     const modelStatus = await this.router.getModelStatus(storeId)
     const telegram = await this.resolveTelegram(storeId)
 
+    let database = true
+    try {
+      await this.prisma.$queryRaw`SELECT 1`
+    } catch {
+      database = false
+    }
+
+    const spentUsd = await this.cost.getDailySpendUsd(storeId)
+    const limitUsd = this.cost.dailyCostLimitUsd()
+    const pct = limitUsd > 0 ? Math.min(1, spentUsd / limitUsd) : 0
+
     return {
       api: true,
-      database: true,
+      database,
       ...modelStatus,
       telegram: {
         configured: Boolean(telegram.token && telegram.chatId),
         isActive: telegram.isActive,
         chatId: telegram.chatId,
+      },
+      budget: {
+        spentUsd,
+        limitUsd,
+        pct,
       },
     }
   }
@@ -295,8 +313,31 @@ export class AgentService {
     return this.prompts.listVersions(storeIdRaw)
   }
 
-  async handleTelegramMessage(storeIdRaw: string, chatId: string, text: string): Promise<string> {
+  listActivity(storeIdRaw: string, limit?: number) {
+    return resolveStoreId(this.prisma, storeIdRaw).then((storeId) =>
+      this.audit.listActivity(storeId, limit ?? 50),
+    )
+  }
+
+  private async isTelegramChatAllowed(storeId: string, chatId: string): Promise<boolean> {
+    const cfg = await this.prisma.agentConfig.findUnique({ where: { storeId } })
+    const allowed = cfg?.telegramAllowedIds?.trim()
+    if (!allowed) return true
+    const ids = allowed.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean)
+    return ids.includes(String(chatId))
+  }
+
+  async handleTelegramMessage(
+    storeIdRaw: string,
+    chatId: string,
+    text: string,
+  ): Promise<{ reply: string; confirmRequired: boolean }> {
     const storeId = await resolveStoreId(this.prisma, storeIdRaw)
+
+    if (!(await this.isTelegramChatAllowed(storeId, chatId))) {
+      return { reply: 'Unauthorized — chat ID not in telegramAllowedIds', confirmRequired: false }
+    }
+
     const telegramUser = await this.prisma.telegramUser.findFirst({
       where: {
         telegramId: String(chatId),
@@ -307,17 +348,22 @@ export class AgentService {
     })
 
     if (!telegramUser || !['SUPER_ADMIN', 'MANAGER'].includes(telegramUser.role)) {
-      return 'Unauthorized'
+      return { reply: 'Unauthorized', confirmRequired: false }
     }
 
     const sessionId = `telegram:${chatId}`
     let reply = ''
+    let confirmRequired = false
 
-    for await (const event of this.chatStream(storeId, sessionId, text)) {
+    for await (const event of this.chatStream(storeId, sessionId, text, undefined, undefined, 'telegram')) {
       if (event.type === 'token' && event.content) reply += event.content
-      if (event.type === 'error') return event.content ?? 'Error'
+      if (event.type === 'confirm_required') confirmRequired = true
+      if (event.type === 'error') return { reply: event.content ?? 'Error', confirmRequired: false }
+      if (event.type === 'budget_exceeded') {
+        return { reply: event.content ?? 'Budget exceeded', confirmRequired: false }
+      }
     }
 
-    return reply.slice(0, 3000) || 'Done.'
+    return { reply: reply.slice(0, 3000) || 'Done.', confirmRequired }
   }
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   Logger,
@@ -304,20 +305,69 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
 
     const order = await this.prisma.order.findFirst({
       where: { storeId, invoiceNumber },
-      select: { id: true },
+      select: { id: true, status: true },
     })
     if (!order) {
       await this.bot?.sendMessage(targetChat, '❌ Order not found')
       return { confirmed: false, invoiceSent: false }
     }
 
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: { status: 'CONFIRMED' },
-    })
-    await this.bot?.sendMessage(targetChat, `✅ Order <b>${invoiceNumber}</b> confirmed`, { parse_mode: 'HTML' })
-    if (telegramUserId) {
-      await this.logCommand(targetChat, `/confirm_order ${invoiceNumber}`, telegramUserId)
+    let nextStatus: typeof order.status
+    try {
+      nextStatus = assertOrderStatusTransition(order.status, 'CONFIRMED')
+    } catch (err) {
+      const detail =
+        err instanceof BadRequestException
+          ? String(
+              typeof err.getResponse() === 'string'
+                ? err.getResponse()
+                : (err.getResponse() as { message?: string }).message ?? err.message,
+            )
+          : 'Status transition not allowed'
+      await this.bot?.sendMessage(
+        targetChat,
+        `❌ Cannot confirm <b>${invoiceNumber}</b>\nCurrent: ${order.status.replace(/_/g, ' ')}\n${detail}`,
+        { parse_mode: 'HTML' },
+      )
+      return { confirmed: false, invoiceSent: false }
+    }
+
+    const statusChanged = order.status !== nextStatus
+    if (statusChanged) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: nextStatus, confirmedAt: new Date() },
+        })
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            status: nextStatus,
+            note: telegramUserId ? 'Confirmed via Telegram bot' : 'Confirmed via Telegram',
+          },
+        })
+      })
+
+      const orderEvents = this.moduleRef.get(OrderEventsService, { strict: false })
+      void orderEvents?.onStatusChanged(
+        storeId,
+        order.id,
+        nextStatus,
+        'Confirmed via Telegram',
+      )
+
+      await this.bot?.sendMessage(targetChat, `✅ Order <b>${invoiceNumber}</b> confirmed`, {
+        parse_mode: 'HTML',
+      })
+      if (telegramUserId) {
+        await this.logCommand(targetChat, `/confirm_order ${invoiceNumber}`, telegramUserId)
+      }
+    } else {
+      await this.bot?.sendMessage(
+        targetChat,
+        `ℹ️ Order <b>${invoiceNumber}</b> is already confirmed — resending invoice`,
+        { parse_mode: 'HTML' },
+      )
     }
 
     const invoice = await this.sendInvoiceToChat(storeId, targetChat, invoiceNumber)
@@ -328,7 +378,11 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       )
     }
 
-    return { confirmed: true, invoiceSent: invoice.sent, ...(invoice.format ? { format: invoice.format } : {}) }
+    return {
+      confirmed: statusChanged || order.status === 'CONFIRMED',
+      invoiceSent: invoice.sent,
+      ...(invoice.format ? { format: invoice.format } : {}),
+    }
   }
 
   async notifyNewOrder(storeId: string, order: {
@@ -409,6 +463,41 @@ Order: <code>${input.invoiceNumber}</code>
 Gateway: ${input.gateway ?? 'Online payment'}
 
 <i>Track: send only <code>${input.invoiceNumber}</code> to this bot.</i>
+`.trim()
+
+    await this.sendToStore(storeId, msg)
+  }
+
+  /** Late gateway success on CANCELLED/REFUNDED order — money may be stuck; needs manual action. */
+  async notifyStalePaymentOnDeadOrder(
+    storeId: string,
+    input: {
+      invoiceNumber: string
+      orderStatus: string
+      gateway: string
+      transactionId: string
+      amount: number
+    },
+  ): Promise<void> {
+    const dedupeKey = `stale-payment:${storeId}:${input.invoiceNumber}:${input.transactionId}`
+    if (!this.shouldSendNotification(dedupeKey, 15 * 60_000)) return
+
+    const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
+    if (!config?.notifyPayments) return
+
+    const msg = `
+🚨 <b>HIGH PRIORITY — Money Stuck</b>
+
+Order: <code>${input.invoiceNumber}</code>
+Status: <b>${input.orderStatus}</b>
+Gateway: ${input.gateway}
+Paid: <b>${formatBDT(input.amount)}</b>
+TxID: <code>${input.transactionId}</code>
+
+Customer was charged AFTER this order was ${input.orderStatus}.
+<b>Action:</b> refund manually or re-open the order.
+
+<i>Check order history note for audit trail.</i>
 `.trim()
 
     await this.sendToStore(storeId, msg)
@@ -721,6 +810,14 @@ ${items}
         } else {
           await this.executeBookCourier(ctx, orderAction.invoice)
         }
+        return
+      }
+
+      if (data === 'agent:confirm' || data === 'agent:cancel') {
+        await this.bot?.answerCallbackQuery(query.id, {
+          text: data === 'agent:confirm' ? 'Confirming…' : 'Cancelled',
+        })
+        await this.replyAgentChat(chatId, data === 'agent:confirm' ? 'confirm' : 'cancel', userId)
         return
       }
 
@@ -1496,8 +1593,22 @@ ${items}
     try {
       await this.bot?.sendChatAction(chatId, 'typing')
       const agent = this.moduleRef.get(AgentService, { strict: false })
-      const reply = await agent.handleTelegramMessage(storeId, chatId, text)
-      await this.bot?.sendMessage(chatId, reply.slice(0, 3900), { parse_mode: 'HTML' })
+      const { reply, confirmRequired } = await agent.handleTelegramMessage(storeId, chatId, text)
+      if (confirmRequired) {
+        await this.bot?.sendMessage(chatId, reply.slice(0, 3900), {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Confirm', callback_data: 'agent:confirm' },
+                { text: '❌ Cancel', callback_data: 'agent:cancel' },
+              ],
+            ],
+          },
+        })
+      } else {
+        await this.bot?.sendMessage(chatId, reply.slice(0, 3900), { parse_mode: 'HTML' })
+      }
       await this.logCommand(chatId, `AI: ${text.slice(0, 180)}`, telegramUserId)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'AI agent failed'

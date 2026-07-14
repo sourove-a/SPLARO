@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cliSpawnOpts } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PROD_ENV = resolve(ROOT, 'infrastructure/hostinger/.env.splaro.co.production')
@@ -18,7 +19,7 @@ function run(cmd, args, opts = {}) {
     cwd: opts.cwd ?? ROOT,
     env: opts.env ?? process.env,
     stdio: 'inherit',
-    shell: false,
+    ...cliSpawnOpts(),
   })
   if (result.status !== 0) {
     console.error(`\n❌ Pre-deploy blocked: ${label}`)

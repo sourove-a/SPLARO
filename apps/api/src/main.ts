@@ -1,9 +1,11 @@
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe, Logger } from '@nestjs/common'
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import helmet from 'helmet'
 import compression from 'compression'
 import { AppModule } from './app.module'
+import { resolveCorsOriginsFromEnv } from './common/cors-origins.util'
 
 async function listenWithRetry(
   app: Awaited<ReturnType<typeof NestFactory.create>>,
@@ -28,14 +30,11 @@ async function listenWithRetry(
 }
 
 function getCorsOrigins(): string[] {
-  const raw =
-    process.env['CORS_ORIGINS'] ??
-    process.env['CORS_ORIGIN'] ??
-    `${process.env['WEB_URL'] ?? 'http://localhost:3000'},${process.env['ADMIN_URL'] ?? 'http://localhost:3001'}`
-  return raw
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean)
+  return resolveCorsOriginsFromEnv()
+}
+
+function isProduction() {
+  return process.env['NODE_ENV'] === 'production'
 }
 
 async function bootstrap() {
@@ -73,7 +72,15 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Store-Id', 'X-Request-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Store-Id',
+      'X-Request-Id',
+      'x-splaro-session',
+      'x-splaro-phone-access',
+      'idempotency-key',
+    ],
   })
 
   app.setGlobalPrefix('api/v1')
@@ -83,9 +90,29 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: isProduction(),
+      forbidUnknownValues: isProduction(),
     }),
   )
+
+  const swaggerEnabled =
+    process.env['SWAGGER_ENABLED'] === 'true' || !isProduction()
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('SPLARO API')
+      .setDescription('SPLARO eCommerce platform REST API (v1)')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('health', 'Service health probes')
+      .addTag('admin-auth', 'Admin authentication')
+      .addTag('storefront', 'Customer storefront')
+      .build()
+    const document = SwaggerModule.createDocument(app, swaggerConfig)
+    SwaggerModule.setup('api/v1/docs', app, document, {
+      swaggerOptions: { persistAuthorization: true },
+    })
+    logger.log('Swagger UI: /api/v1/docs')
+  }
 
   await listenWithRetry(app, port, logger)
   logger.log(`SPLARO API running on :${port}`)

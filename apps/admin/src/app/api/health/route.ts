@@ -19,20 +19,29 @@ interface ServiceHealthCheck {
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
-/** Avoid hammering the API during dashboard polling. */
+/** Short cache — false “API down” must clear quickly after Nest restarts. */
 let healthCache: { at: number; key: string; payload: unknown } | null = null
-const HEALTH_CACHE_MS = 60_000
+const HEALTH_CACHE_MS = 8_000
 const HEALTH_FETCH_TIMEOUT_MS = 120_000
 
-async function pingApiCore(base: string): Promise<boolean> {
+async function pingApiCore(base: string): Promise<{ ok: boolean; latencyMs: number | null; message: string }> {
+  const start = Date.now()
   try {
     const res = await fetch(`${base}/health`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(4000),
     })
-    return res.ok
-  } catch {
-    return false
+    return {
+      ok: res.ok,
+      latencyMs: Date.now() - start,
+      message: `HTTP ${res.status}`,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      latencyMs: null,
+      message: err instanceof Error ? err.message : 'fetch failed',
+    }
   }
 }
 
@@ -49,7 +58,7 @@ async function pingWebShop(): Promise<ServiceHealthCheck> {
       endpoint: url,
       status: ok ? 'healthy' : 'degraded',
       latencyMs: Date.now() - start,
-      message: ok ? `HTTP ${res.status}` : `HTTP ${res.status}`,
+      message: `HTTP ${res.status}`,
       ...(ok ? {} : { fixHint: 'Run: pnpm dev:web (port 3000)' }),
     }
   } catch (err) {
@@ -81,7 +90,10 @@ function fixHintForCheck(c: { id: string; group: string; message?: string }): st
   if (c.message?.includes('timeout') || c.message?.includes('aborted')) {
     return 'Route responded slowly under load — refresh health; not necessarily broken'
   }
-  if (c.id === 'health') return 'Run: pnpm dev:api (port 4000)'
+  if (c.id === 'health' || c.id === 'api-core') return 'Run: pnpm dev:api (port 4000)'
+  if (c.id === 'health-routes') {
+    return 'Set INTERNAL_HEALTH_SECRET in apps/admin/.env.local (same as root .env), then restart admin'
+  }
   if (c.id === 'admin-invoices') {
     return 'Set INTERNAL_HEALTH_SECRET in apps/admin/.env.local (same as root .env) — then restart admin'
   }
@@ -106,20 +118,32 @@ export async function GET(request: NextRequest) {
     headers: routeProbeHeaders,
   }
 
-  const [coreOk, routesRes, fullRes, webCheck] = await Promise.all([
+  const [corePing, routesRes, fullRes, webCheck] = await Promise.all([
     pingApiCore(base),
     fetch(`${base}/health/routes?storeId=${sid}`, fetchOpts).catch(() => null),
     fetch(`${base}/health/full`, fetchOpts).catch(() => null),
     pingWebShop(),
   ])
 
-  let apiChecks: ServiceHealthCheck[] = []
-  let apiOnline = coreOk
+  const coreCheck: ServiceHealthCheck = {
+    id: 'api-core',
+    name: 'NestJS API Core',
+    group: 'Core',
+    endpoint: `${base}/health`,
+    status: corePing.ok ? 'healthy' : 'down',
+    latencyMs: corePing.latencyMs,
+    message: corePing.message,
+    ...(corePing.ok ? {} : { fixHint: 'Run: pnpm dev:api (port 4000)' }),
+  }
 
-  if (apiOnline && routesRes?.ok) {
+  let apiChecks: ServiceHealthCheck[] = [coreCheck]
+  const apiOnline = corePing.ok
+
+  if (apiOnline && routesRes) {
     try {
       const data = (await routesRes.json()) as {
-        checks: {
+        status?: HealthStatus
+        checks?: {
           id: string
           name: string
           group: string
@@ -129,41 +153,59 @@ export async function GET(request: NextRequest) {
           message?: string
         }[]
       }
-      apiChecks = (data.checks ?? []).map((c) => {
-        const row: ServiceHealthCheck = {
-          id: c.id,
-          name: c.name,
-          group: c.group,
-          endpoint: c.endpoint,
-          status: c.status,
-          latencyMs: c.latencyMs,
-        }
-        if (c.message) row.message = c.message
-        if (c.status !== 'healthy') {
-          row.fixHint = fixHintForCheck(c)
-        }
-        return row
-      })
-    } catch {
-      apiOnline = false
-    }
-  } else if (apiOnline && !routesRes?.ok) {
-    apiOnline = false
-  }
 
-  if (!apiOnline) {
-    apiChecks = [
-      {
-        id: 'api-core',
-        name: 'NestJS API Core',
-        group: 'Core',
-        endpoint: `${base}/health`,
-        status: 'down',
-        latencyMs: null,
-        message: 'fetch failed',
-        fixHint: 'Run: pnpm dev:api (port 4000)',
-      },
-    ]
+      if (Array.isArray(data.checks) && data.checks.length > 0) {
+        apiChecks = data.checks.map((c) => {
+          const row: ServiceHealthCheck = {
+            id: c.id,
+            name: c.name,
+            group: c.group,
+            endpoint: c.endpoint,
+            status: c.status,
+            latencyMs: c.latencyMs,
+          }
+          if (c.message) row.message = c.message
+          if (c.status !== 'healthy') {
+            row.fixHint = fixHintForCheck(c)
+          }
+          return row
+        })
+        // Ensure core ping truth is never lost if routes catalog omitted it
+        if (!apiChecks.some((c) => c.id === 'health' || c.id === 'api-core')) {
+          apiChecks = [coreCheck, ...apiChecks]
+        }
+      } else if (!routesRes.ok) {
+        apiChecks = [
+          coreCheck,
+          {
+            id: 'health-routes',
+            name: 'API route catalog',
+            group: 'Core',
+            endpoint: `${base}/health/routes`,
+            status: 'degraded',
+            latencyMs: null,
+            message: `HTTP ${routesRes.status} — catalog unavailable`,
+            fixHint: fixHintForCheck({ id: 'health-routes', group: 'Core', message: String(routesRes.status) }),
+          },
+        ]
+      }
+    } catch {
+      apiChecks = [
+        coreCheck,
+        {
+          id: 'health-routes',
+          name: 'API route catalog',
+          group: 'Core',
+          endpoint: `${base}/health/routes`,
+          status: 'degraded',
+          latencyMs: null,
+          message: 'Could not parse route catalog',
+          fixHint: fixHintForCheck({ id: 'health-routes', group: 'Core' }),
+        },
+      ]
+    }
+  } else if (!apiOnline) {
+    apiChecks = [coreCheck]
   }
 
   let infraChecks: ServiceHealthCheck[] = []

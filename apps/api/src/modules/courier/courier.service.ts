@@ -2,6 +2,9 @@ import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common
 import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
+import { RedisService } from '../../common/redis.service'
+import { withDistributedLock } from '../../common/redis-lock.util'
+import { redisQueuesEnabled } from '../../common/noop-queue.providers'
 import { SteadfastService } from './providers/steadfast.service'
 import { PathaoService } from './providers/pathao.service'
 import { RedxService } from './providers/redx.service'
@@ -26,6 +29,8 @@ export interface CourierBookingResult {
   simulated?: boolean
   /** True when order already had a consignment — no new booking attempted */
   alreadyBooked?: boolean
+  /** False when Redis queues are off — caller must re-book manually */
+  retryScheduled?: boolean
 }
 
 @Injectable()
@@ -45,6 +50,7 @@ export class CourierService {
     @Optional()
     private readonly telegram: TelegramService | null,
     @InjectQueue('courier') private readonly courierQueue: Queue,
+    private readonly redis: RedisService,
   ) {}
 
   /**
@@ -52,6 +58,39 @@ export class CourierService {
    * Falls back to retry queue on failure.
    */
   async bookCourier(
+    orderId: string,
+    provider?: CourierProvider,
+    opts?: BookCourierOptions,
+  ): Promise<CourierBookingResult> {
+    const lockKey = `splaro:courier:booking:${orderId}`
+    const locked = await withDistributedLock(this.redis, lockKey, 180, async () =>
+      this.bookCourierUnderLock(orderId, provider, opts),
+    )
+
+    if (locked !== null) return locked
+
+    const existing = await this.prisma.courierShipment.findUnique({
+      where: { orderId },
+      select: { consignmentId: true, trackingCode: true, trackingUrl: true, status: true },
+    })
+    if (existing?.consignmentId) {
+      return {
+        success: true,
+        alreadyBooked: true,
+        consignmentId: existing.consignmentId,
+        trackingCode: existing.trackingCode ?? undefined,
+        trackingUrl: existing.trackingUrl ?? undefined,
+      }
+    }
+
+    this.logger.warn(`Courier booking for ${orderId} skipped — another request holds the lock`)
+    return {
+      success: false,
+      error: 'Courier booking already in progress',
+    }
+  }
+
+  private async bookCourierUnderLock(
     orderId: string,
     provider?: CourierProvider,
     opts?: BookCourierOptions,
@@ -78,6 +117,22 @@ export class CourierService {
     this.logger.log(`Booking courier ${selectedProvider} for order ${orderId}`)
 
     const result = await this.dispatchToProvider(order, selectedProvider)
+
+    // Never persist simulated / DEV-* as live BOOKED — ops must not see a fake parcel.
+    if (result.success && result.simulated) {
+      this.logger.warn(
+        `Simulated courier booking for ${orderId} (${result.consignmentId}) — not persisted as live BOOKED`,
+      )
+      return {
+        success: false,
+        simulated: true,
+        consignmentId: result.consignmentId,
+        trackingCode: result.trackingCode,
+        trackingUrl: result.trackingUrl,
+        error:
+          'Simulated booking only (COURIER_DEV_STUB) — not saved. Configure real Steadfast keys in Settings → Infrastructure.',
+      }
+    }
 
     if (result.success) {
       await this.prisma.$transaction([
@@ -150,7 +205,9 @@ export class CourierService {
         },
       })
 
-      if (!opts?.fromRetry) {
+      const queuesLive = redisQueuesEnabled()
+      let retryScheduled = false
+      if (!opts?.fromRetry && queuesLive && !result.simulated) {
         await this.courierQueue.add(
           'retry-booking',
           { orderId, provider: selectedProvider, attempt: 1 },
@@ -160,12 +217,13 @@ export class CourierService {
             backoff: { type: 'exponential', delay: 5 * 60 * 1000 },
           },
         )
+        retryScheduled = true
       }
 
       await this.notifications.notifyAdmin({
         storeId: order.storeId,
         subject: `Courier booking failed: ${order.invoiceNumber}`,
-        body: `Order ${order.invoiceNumber} (${orderId}) courier booking failed via ${selectedProvider}. Error: ${result.error}.${opts?.fromRetry ? '' : ' Added to retry queue.'}`,
+        body: `Order ${order.invoiceNumber} (${orderId}) courier booking failed via ${selectedProvider}. Error: ${result.error}.${retryScheduled ? ' Added to retry queue.' : queuesLive ? '' : ' Retry queue unavailable (Redis off) — re-book manually.'}`,
         level: 'error',
       })
 
@@ -180,6 +238,8 @@ export class CourierService {
             `Telegram courier failed notify failed: ${err instanceof Error ? err.message : 'unknown'}`,
           ),
         )
+
+      return { ...result, retryScheduled }
     }
 
     return result

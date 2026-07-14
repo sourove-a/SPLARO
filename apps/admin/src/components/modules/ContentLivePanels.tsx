@@ -2,8 +2,8 @@
 
 import { Fragment, useMemo, useState } from 'react'
 import Image from 'next/image'
-import toast from 'react-hot-toast'
-import { toastInfo } from '@/lib/admin/feedback'
+import { toastApiSaved, toastFail, toastInfo, toastOk } from '@/lib/admin/feedback'
+import { verifyBooleanEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import {
   BookOpen,
   ChevronDown,
@@ -82,16 +82,18 @@ export function BlogPanelLive() {
     { key: 'scheduled', label: 'Scheduled' },
   ] as const
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const title = window.prompt('Post title')
     if (!title?.trim()) return
-    createPost.mutate(
-      { title: title.trim(), status: 'DRAFT' },
-      {
-        onSuccess: () => toast.success('Blog post created.'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    const trimmed = title.trim()
+    try {
+      const row = await createPost.mutateAsync({ title: trimmed, status: 'DRAFT' })
+      if (!verifyStringEquals(row.title, trimmed, 'Blog post title')) return
+      toastApiSaved('Blog post')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create blog post')
+    }
   }
 
   if (isError) return <ApiOfflineBanner message="Content API offline — start pnpm dev:api." />
@@ -176,19 +178,18 @@ export function LookbooksPanelLive() {
     return collections.filter((c) => !q || c.name.toLowerCase().includes(q))
   }, [query, collections])
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = window.prompt('Lookbook / collection name')
     if (!name?.trim()) return
-    createCollection.mutate(
-      { name: name.trim() },
-      {
-        onSuccess: () => {
-          toast.success('Lookbook collection created.')
-          void refetch()
-        },
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    const trimmed = name.trim()
+    try {
+      const row = await createCollection.mutateAsync({ name: trimmed })
+      if (!verifyStringEquals(row.name, trimmed, 'Lookbook collection name')) return
+      toastApiSaved('Lookbook collection')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create collection')
+    }
   }
 
   if (isError) return <ApiOfflineBanner message="Content API offline." />
@@ -276,7 +277,7 @@ export function ReelsPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search banner..."
       createLabel="Upload reel"
-      onCreate={() => toast('Upload video banners via Media Library.', { icon: '🎬' })}
+      onCreate={() => toastInfo('Upload video banners via Media Library.')}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={Video}
@@ -369,7 +370,7 @@ export function CmsPanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search page or slug..."
       createLabel="New page"
-      onCreate={() => toast('Static pages are storefront routes — use Blog for new content.', { icon: '📄' })}
+      onCreate={() => toastInfo('Static pages are storefront routes — use Blog for new content.')}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={FileEdit}
@@ -453,66 +454,80 @@ export function LandingPagesPanelLive() {
 
   const liveUrl = (slug: string) => `${SPLARO_DOMAINS.site.replace(/\/$/, '')}/lp/${slug}`
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const title = window.prompt('Landing page title (e.g. Eid Sale 2026)')
     if (!title?.trim()) return
-    createPage.mutate(
-      { title: title.trim(), isPublished: false },
-      {
-        onSuccess: (row) => toast.success(`Created /lp/${row.slug}`),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    const trimmed = title.trim()
+    try {
+      const row = await createPage.mutateAsync({ title: trimmed, isPublished: false })
+      if (!verifyStringEquals(row.title, trimmed, 'Landing page title')) return
+      toastOk(`Created /lp/${row.slug}`)
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not create landing page')
+    }
   }
 
-  const togglePublish = (id: string, next: boolean, title: string) => {
-    updatePage.mutate(
-      { id, isPublished: next },
-      {
-        onSuccess: () => toast.success(next ? `"${title}" is live` : `"${title}" unpublished`),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+  const togglePublish = async (id: string, next: boolean, title: string) => {
+    try {
+      const row = await updatePage.mutateAsync({ id, isPublished: next })
+      if (!verifyBooleanEquals(row.isPublished, next, 'Landing page publish state')) return
+      toastOk(next ? `"${title}" is live on storefront` : `"${title}" unpublished`)
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update landing page')
+    }
   }
 
-  const handleDelete = (id: string, title: string) => {
+  const handleDelete = async (id: string, title: string) => {
     if (!window.confirm(`Delete landing page "${title}"?`)) return
-    deletePage.mutate(id, {
-      onSuccess: () => toast.success('Landing page deleted.'),
-      onError: (e) => toast.error(e.message),
-    })
+    try {
+      const result = await deletePage.mutateAsync(id)
+      if (!verifyPersisted(result.deleted === true, 'Landing page delete did not persist on server')) return
+      toastApiSaved('Landing page')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not delete landing page')
+    }
   }
 
-  const handleEditContent = (page: SitePageRow) => {
+  const handleEditContent = async (page: SitePageRow) => {
     const current = landingBodyFromContent(page)
     const next = window.prompt(`Edit body for "${page.title}":`, current)
     if (next === null) return
     const content = buildLandingContent(page.title, next)
-    updatePage.mutate(
-      {
+    try {
+      const row = await updatePage.mutateAsync({
         id: page.id,
         content,
         metaDesc: next.trim().slice(0, 160) || page.title,
-      },
-      {
-        onSuccess: () => toast.success('Landing page content saved.'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+      })
+      if (!verifyStringEquals(row.content, content, 'Landing page content')) return
+      toastApiSaved('Landing page content')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not save landing page content')
+    }
   }
 
-  const handleRename = (page: SitePageRow) => {
+  const handleRename = async (page: SitePageRow) => {
     const next = window.prompt('Landing page title:', page.title)
     if (!next?.trim() || next.trim() === page.title) return
     const title = next.trim()
     const content = buildLandingContent(title, landingBodyFromContent(page))
-    updatePage.mutate(
-      { id: page.id, title, content, metaTitle: title },
-      {
-        onSuccess: () => toast.success('Title updated.'),
-        onError: (e) => toast.error(e.message),
-      },
-    )
+    try {
+      const row = await updatePage.mutateAsync({
+        id: page.id,
+        title,
+        content,
+        metaTitle: title,
+      })
+      if (!verifyStringEquals(row.title, title, 'Landing page title')) return
+      toastApiSaved('Landing page title')
+      void refetch()
+    } catch (e) {
+      toastFail(e instanceof Error ? e.message : 'Could not update landing page title')
+    }
   }
 
   if (isError) return <ApiOfflineBanner message="Content API offline — run pnpm dev:api on :4000." />
@@ -597,9 +612,9 @@ export function LandingPagesPanelLive() {
                           const url = liveUrl(p.slug)
                           try {
                             await navigator.clipboard.writeText(url)
-                            toast.success('URL copied')
+                            toastOk('URL copied')
                           } catch {
-                            toast.error('Could not copy URL')
+                            toastFail('Could not copy URL')
                           }
                         },
                       },
@@ -676,7 +691,7 @@ export function HomePagePanelLive() {
       onQuery={setQuery}
       searchPlaceholder="Search homepage section..."
       createLabel="Add section"
-      onCreate={() => toast('Homepage sections are driven by banners, collections, and settings.', { icon: '🏠' })}
+      onCreate={() => toastInfo('Homepage sections are driven by banners, collections, and settings.')}
       onRefresh={() => void refetch()}
       exportDisabled
       tableIcon={Home}
@@ -784,7 +799,7 @@ export function ThemeBuilderPanelLive() {
         onQuery={() => {}}
         searchPlaceholder=""
         createLabel="Edit in settings"
-        onCreate={() => toast('Branding edits save in Storefront Settings.', { icon: '🎨' })}
+        onCreate={() => toastInfo('Branding edits save in Storefront Settings.')}
         onRefresh={() => void refetch()}
         exportDisabled
         tableIcon={Palette}

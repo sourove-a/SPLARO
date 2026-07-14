@@ -1,8 +1,5 @@
-'use client'
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import toast from 'react-hot-toast'
 import {
   BarChart3,
   Camera,
@@ -18,8 +15,12 @@ import {
   Users,
   Wallet,
   WifiOff,
+  XCircle,
 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { PartnerSetupCard } from '@/components/finance/PartnerSetupCard'
+import { toastFail, toastOk, toastApiSaved } from '@/lib/admin/feedback'
+import { verifyNumberEquals, verifyPersisted, verifyStringEquals } from '@/lib/admin/mutation-verify'
 import {
   approveExpense,
   approveTransaction,
@@ -28,6 +29,7 @@ import {
   fetchExpenses,
   fetchPartnerHub,
   fetchPartnerTransactions,
+  rejectTransaction,
   type ExpenseRow,
   type InventoryItem,
   type PartnerAccount,
@@ -40,7 +42,16 @@ import { formatBDT } from '@/lib/format/currency'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import { cn } from '@/lib/utils/cn'
 
-const PARTNER_ORDER = ['sourove', 'raju', 'hridoy']
+const EXPENSE_CATEGORIES = [
+  { value: 'PRODUCT_COST', label: 'Product cost' },
+  { value: 'COURIER_COST', label: 'Courier / delivery' },
+  { value: 'MARKETING_COST', label: 'Marketing' },
+  { value: 'PACKAGING_COST', label: 'Packaging' },
+  { value: 'OFFICE_EXPENSE', label: 'Office expense' },
+  { value: 'SALARY', label: 'Salary' },
+  { value: 'SAAS_SUBSCRIPTION_COST', label: 'SaaS / tools' },
+  { value: 'OTHER_EXPENSE', label: 'Other' },
+] as const
 
 type HubTab =
   | 'overview'
@@ -52,17 +63,6 @@ type HubTab =
   | 'ledger'
   | 'invest'
   | 'withdraw'
-
-const EXPENSE_CATEGORIES = [
-  { value: 'PRODUCT_COST', label: 'Product cost' },
-  { value: 'COURIER_COST', label: 'Courier / delivery' },
-  { value: 'MARKETING_COST', label: 'Marketing' },
-  { value: 'PACKAGING_COST', label: 'Packaging' },
-  { value: 'OFFICE_EXPENSE', label: 'Office expense' },
-  { value: 'SALARY', label: 'Salary' },
-  { value: 'SAAS_SUBSCRIPTION_COST', label: 'SaaS / tools' },
-  { value: 'OTHER_EXPENSE', label: 'Other' },
-] as const
 
 function tabFromHref(href: string): HubTab {
   if (href.includes('/expenses')) return 'expenses'
@@ -209,12 +209,17 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   }, [loadAll])
 
   const sortedPartners = useMemo(
-    () =>
-      [...partners].sort(
-        (a, b) =>
-          (PARTNER_ORDER.indexOf(a.slug) === -1 ? 99 : PARTNER_ORDER.indexOf(a.slug)) -
-          (PARTNER_ORDER.indexOf(b.slug) === -1 ? 99 : PARTNER_ORDER.indexOf(b.slug)),
-      ),
+    () => [...partners].sort((a, b) => a.name.localeCompare(b.name)),
+    [partners],
+  )
+
+  const pendingWithdrawals = useMemo(
+    () => ledger.filter((row) => row.type === 'WITHDRAWAL' && row.status === 'PENDING'),
+    [ledger],
+  )
+
+  const partnerLabel = useMemo(
+    () => (partners.length ? partners.map((p) => p.name).join(' · ') : 'Partner ledger'),
     [partners],
   )
 
@@ -222,11 +227,12 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
     setUploadingSlug(partner.slug)
     try {
       const url = await uploadAdminImage(file, 'partners')
-      await updatePartnerProfile(partner.slug, { avatarUrl: url })
-      toast.success(`${partner.name} photo updated`)
+      const saved = await updatePartnerProfile(partner.slug, { avatarUrl: url })
+      if (!verifyStringEquals(saved.avatarUrl, url, 'Partner photo')) return
+      toastApiSaved(`${partner.name} photo`)
       loadAll()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed')
+      toastFail(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploadingSlug(null)
     }
@@ -235,11 +241,14 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   const handleSaveProfile = async (partner: PartnerAccount, patch: { name: string; email: string; phone: string }) => {
     setSavingSlug(partner.slug)
     try {
-      await updatePartnerProfile(partner.slug, patch)
-      toast.success(`${partner.name} profile saved`)
+      const saved = await updatePartnerProfile(partner.slug, patch)
+      if (!verifyStringEquals(saved.name, patch.name, 'Partner name')) return
+      if (!verifyStringEquals(saved.email ?? '', patch.email, 'Partner email')) return
+      if (!verifyStringEquals(saved.phone ?? '', patch.phone, 'Partner phone')) return
+      toastApiSaved(`${partner.name} profile`)
       loadAll()
     } catch {
-      toast.error('Could not save profile')
+      toastFail('Could not save profile')
     } finally {
       setSavingSlug(null)
     }
@@ -248,61 +257,101 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
   const handleCreateExpense = async () => {
     const amount = Number(expenseForm.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error('Enter a valid amount')
+      toastFail('Enter a valid amount')
       return
     }
     if (!expenseForm.note.trim()) {
-      toast.error('Write why this expense was made')
+      toastFail('Write why this expense was made')
       return
     }
+    const note = expenseForm.note.trim()
     try {
-      await createExpense({
+      const created = await createExpense({
         category: expenseForm.category,
         amount,
-        note: expenseForm.note.trim(),
+        note,
         ...(expenseForm.partnerId ? { partnerId: expenseForm.partnerId } : {}),
         createdBy: 'admin',
       })
-      toast.success('Expense recorded — pending approval')
+      if (!verifyNumberEquals(created.amount, amount, 'Expense amount')) return
+      if (!verifyStringEquals(created.note ?? '', note, 'Expense note')) return
+      if (!verifyPersisted(created.status === 'PENDING', 'Expense status')) return
+      toastOk('Expense recorded — pending approval')
       setExpenseForm({ category: 'OTHER_EXPENSE', amount: '', note: '', partnerId: '' })
       loadAll()
     } catch {
-      toast.error('Could not save expense')
+      toastFail('Could not save expense')
     }
   }
 
   const handleApproveExpense = async (id: string) => {
     try {
-      await approveExpense(id, 'admin')
-      toast.success('Expense approved — partner balances updated')
+      const approved = await approveExpense(id, 'admin')
+      if (!verifyPersisted(approved.status === 'APPROVED', 'Expense approval did not persist on server')) return
+      toastOk('Expense approved — partner balances updated')
       loadAll()
     } catch {
-      toast.error('Could not approve expense')
+      toastFail('Could not approve expense')
     }
   }
 
   const handleCreateTxn = async (type: 'INVESTMENT' | 'WITHDRAWAL') => {
     const amount = Number(txnForm.amount)
     if (!txnForm.partnerId || !Number.isFinite(amount) || amount <= 0) {
-      toast.error('Select partner and valid amount')
+      toastFail('Select partner and valid amount')
       return
     }
+    if (type === 'WITHDRAWAL') {
+      const partner = partners.find((p) => p.id === txnForm.partnerId)
+      if (partner && Number(partner.currentBalance) < amount) {
+        toastFail(`${partner.name} এর balance ${formatBDT(Number(partner.currentBalance))} — এত টাকা তোলা যাবে না`)
+        return
+      }
+    }
     try {
-      const tx = await createPartnerTransaction({
+      const created = await createPartnerTransaction({
         partnerId: txnForm.partnerId,
         type,
         amount,
         note: txnForm.note.trim() || undefined,
         createdBy: 'admin',
-      }) as { id: string; status: string }
-      if (type === 'WITHDRAWAL' && tx.status === 'PENDING') {
-        await approveTransaction(tx.id, 'admin')
+      })
+      if (!verifyStringEquals(created.type, type, 'Transaction type')) return
+      if (!verifyNumberEquals(created.amount, amount, 'Transaction amount')) return
+      if (type === 'WITHDRAWAL') {
+        if (!verifyPersisted(created.status === 'PENDING', 'Withdrawal status')) return
+        toastOk('Withdrawal request পাঠানো হয়েছে — approval এর পর balance কাটা হবে')
+      } else {
+        if (!verifyPersisted(created.status === 'APPROVED', 'Investment status')) return
+        toastApiSaved('Investment')
       }
-      toast.success(type === 'INVESTMENT' ? 'Investment recorded' : 'Withdrawal recorded')
       setTxnForm({ partnerId: '', amount: '', note: '' })
       loadAll()
-    } catch {
-      toast.error('Could not record transaction')
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not record transaction')
+    }
+  }
+
+  const handleApproveTxn = async (id: string) => {
+    try {
+      const approved = await approveTransaction(id, 'admin')
+      if (!verifyPersisted(approved.status === 'APPROVED', 'Transaction approval did not persist on server')) return
+      toastApiSaved('Transaction approval')
+      loadAll()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not approve')
+    }
+  }
+
+  const handleRejectTxn = async (id: string) => {
+    const reason = window.prompt('Reject reason (optional)') ?? 'Rejected by admin'
+    try {
+      const rejected = await rejectTransaction(id, reason, 'admin')
+      if (!verifyPersisted(rejected.status === 'REJECTED', 'Transaction rejection did not persist on server')) return
+      toastApiSaved('Transaction rejection')
+      loadAll()
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not reject')
     }
   }
 
@@ -340,10 +389,10 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
 
       <section className="partner-hero-card">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#5E7CFF]">SOUROVE · RAJU · HRIDOY</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--admin-accent)]">{partnerLabel}</p>
           <h2 className="mt-1 text-2xl font-black text-[var(--admin-text)]">Partner Command Center</h2>
           <p className="mt-2 max-w-2xl text-sm font-semibold text-[var(--admin-text-secondary)]">
-            Protteker alada hisab, investment, stock value, profit/loss — sob kichu live database theke. Kono demo number nai.
+            Protteker alada hisab, investment, stock value, profit/loss — sob live database theke. Apni je partner add korben, shei naam ekhane dekhabe.
           </p>
         </div>
         <AdminButton variant="gold" onClick={loadAll}>
@@ -352,7 +401,11 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
         </AdminButton>
       </section>
 
-      {totals ? (
+      {partners.length === 0 ? (
+        <PartnerSetupCard partners={[]} onUpdated={loadAll} />
+      ) : null}
+
+      {totals && partners.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <KpiTile label="Combined balance" value={formatBDT(totals.combinedBalance)} icon={Wallet} />
           <KpiTile label="Total invested" value={formatBDT(totals.totalInvested)} icon={TrendingUp} tone="text-emerald-700" />
@@ -363,6 +416,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
         </div>
       ) : null}
 
+      {partners.length > 0 ? (
       <div className="admin-tab-row flex-wrap">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button key={id} type="button" onClick={() => setTab(id)} className={cn('admin-tab-pill', tab === id && 'admin-tab-pill--active')}>
@@ -371,6 +425,7 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
           </button>
         ))}
       </div>
+      ) : null}
 
       {tab === 'overview' && hub ? (
         <div className="space-y-4">
@@ -434,23 +489,27 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       ) : null}
 
       {tab === 'partners' ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="space-y-4">
           {sortedPartners.length === 0 ? (
-            <div className="admin-module-card lg:col-span-3">
-              <p className="admin-module-card__subtitle">Start API and refresh — SOUROVE, RAJU, HRIDOY auto-create on first load.</p>
-            </div>
-          ) : null}
-          {sortedPartners.map((partner) => (
-            <PartnerProfileCard
-              key={partner.id}
-              partner={partner}
-              investments={hub?.recentInvestments.filter((i) => i.partner?.slug === partner.slug) ?? []}
-              uploading={uploadingSlug === partner.slug}
-              saving={savingSlug === partner.slug}
-              onUpload={(file) => handleAvatarUpload(partner, file)}
-              onSave={(patch) => handleSaveProfile(partner, patch)}
-            />
-          ))}
+            <PartnerSetupCard partners={[]} onUpdated={loadAll} />
+          ) : (
+            <>
+              <PartnerSetupCard partners={partners} onUpdated={loadAll} />
+              <div className="grid gap-4 lg:grid-cols-3">
+              {sortedPartners.map((partner) => (
+                <PartnerProfileCard
+                  key={partner.id}
+                  partner={partner}
+                  investments={hub?.recentInvestments.filter((i) => i.partner?.slug === partner.slug) ?? []}
+                  uploading={uploadingSlug === partner.slug}
+                  saving={savingSlug === partner.slug}
+                  onUpload={(file) => handleAvatarUpload(partner, file)}
+                  onSave={(patch) => handleSaveProfile(partner, patch)}
+                />
+              ))}
+              </div>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -665,32 +724,76 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
       ) : null}
 
       {(tab === 'invest' || tab === 'withdraw') ? (
-        <section className="admin-module-card admin-module-card--accent max-w-xl">
-          <h3 className="admin-module-card__title">{tab === 'invest' ? 'Partner investment' : 'Partner withdrawal'}</h3>
-          <p className="admin-module-card__subtitle mb-4">Ke koto taka invest korlo ba tullo — note diye record korun.</p>
-          <div className="space-y-3">
-            <label className="admin-field">
-              <span className="admin-kpi__label">Partner</span>
-              <select className="admin-input" value={txnForm.partnerId} onChange={(e) => setTxnForm((f) => ({ ...f, partnerId: e.target.value }))}>
-                <option value="">Select partner</option>
-                {partners.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+        <div className="space-y-4">
+          {tab === 'withdraw' && pendingWithdrawals.length > 0 ? (
+            <section className="admin-module-card border-amber-500/25 bg-amber-500/6">
+              <h3 className="admin-module-card__title">Pending withdrawals — approval লাগবে</h3>
+              <p className="admin-module-card__subtitle mb-4">
+                Withdrawal approve না করা পর্যন্ত balance কাটা হবে না।
+              </p>
+              <div className="space-y-2">
+                {pendingWithdrawals.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-surface)] px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-black text-[var(--admin-text)]">
+                        {row.partner?.name ?? 'Partner'} — {formatBDT(Number(row.amount))}
+                      </p>
+                      <p className="text-xs text-[var(--admin-text-muted)]">{row.note ?? 'No note'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <AdminButton size="sm" variant="gold" onClick={() => void handleApproveTxn(row.id)}>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Approve
+                      </AdminButton>
+                      <AdminButton size="sm" variant="ghost" onClick={() => void handleRejectTxn(row.id)}>
+                        <XCircle className="h-3.5 w-3.5" />
+                        Reject
+                      </AdminButton>
+                    </div>
+                  </div>
                 ))}
-              </select>
-            </label>
-            <label className="admin-field">
-              <span className="admin-kpi__label">Amount (৳)</span>
-              <input className="admin-input" type="number" min="0" value={txnForm.amount} onChange={(e) => setTxnForm((f) => ({ ...f, amount: e.target.value }))} />
-            </label>
-            <label className="admin-field">
-              <span className="admin-kpi__label">Note — kothay / keno</span>
-              <input className="admin-input" placeholder="e.g. Initial stock purchase, Dhaka warehouse" value={txnForm.note} onChange={(e) => setTxnForm((f) => ({ ...f, note: e.target.value }))} />
-            </label>
-            <AdminButton variant="gold" onClick={() => handleCreateTxn(tab === 'invest' ? 'INVESTMENT' : 'WITHDRAWAL')}>
-              Save {tab === 'invest' ? 'investment' : 'withdrawal'}
-            </AdminButton>
-          </div>
-        </section>
+              </div>
+            </section>
+          ) : null}
+
+          <section className="admin-module-card admin-module-card--accent max-w-xl">
+            <h3 className="admin-module-card__title">{tab === 'invest' ? 'Partner investment' : 'Partner withdrawal'}</h3>
+            <p className="admin-module-card__subtitle mb-4">
+              {tab === 'invest'
+                ? 'Capital add korle turant balance update hobe.'
+                : 'Withdrawal request pending thakbe — approve korar por balance katabe.'}
+            </p>
+            {partners.length === 0 ? (
+              <p className="text-sm font-semibold text-[var(--admin-text-secondary)]">আগে partner যোগ করুন Partners tab থেকে।</p>
+            ) : (
+              <div className="space-y-3">
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Partner</span>
+                  <select className="admin-input" value={txnForm.partnerId} onChange={(e) => setTxnForm((f) => ({ ...f, partnerId: e.target.value }))}>
+                    <option value="">Select partner</option>
+                    {partners.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} — {formatBDT(Number(p.currentBalance))}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Amount (৳)</span>
+                  <input className="admin-input" type="number" min="0" value={txnForm.amount} onChange={(e) => setTxnForm((f) => ({ ...f, amount: e.target.value }))} />
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Note — kothay / keno</span>
+                  <input className="admin-input" placeholder="e.g. bKash payout, initial stock" value={txnForm.note} onChange={(e) => setTxnForm((f) => ({ ...f, note: e.target.value }))} />
+                </label>
+                <AdminButton variant="gold" onClick={() => handleCreateTxn(tab === 'invest' ? 'INVESTMENT' : 'WITHDRAWAL')}>
+                  {tab === 'invest' ? 'Save investment' : 'Request withdrawal'}
+                </AdminButton>
+              </div>
+            )}
+          </section>
+        </div>
       ) : null}
 
       {tab === 'ledger' ? (
@@ -719,9 +822,28 @@ export function PartnerHubPage({ moduleHref = '/dashboard/finance/partner-accoun
                     <td className="max-w-[220px] truncate text-xs">{row.note ?? '—'}</td>
                     <td className="font-black">{formatBDT(Number(row.amount))}</td>
                     <td>
-                      <span className={cn('admin-status', row.status === 'APPROVED' ? 'admin-status--delivered' : 'admin-status--pending')}>
-                        {row.status.toLowerCase()}
-                      </span>
+                      {row.status === 'PENDING' ? (
+                        <div className="flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-700"
+                            onClick={() => void handleApproveTxn(row.id)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg bg-red-500/10 px-2 py-1 text-[10px] font-bold text-red-600"
+                            onClick={() => void handleRejectTxn(row.id)}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className={cn('admin-status', row.status === 'APPROVED' ? 'admin-status--delivered' : 'admin-status--pending')}>
+                          {row.status.toLowerCase()}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

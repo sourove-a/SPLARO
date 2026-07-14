@@ -1,28 +1,53 @@
 import { NextResponse } from 'next/server'
-import { readFileSync, writeFileSync } from 'fs'
-import path from 'path'
+import { getServerApiBaseUrl } from '@splaro/config'
 
-const CONFIG_PATH = path.join(process.cwd(), 'src/data/footwear-page-config.json')
+export const dynamic = 'force-dynamic'
 
-function readConfig() {
-  return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'))
+const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
+
+async function proxyToApi(method: 'GET' | 'PUT', body?: unknown) {
+  const base = getServerApiBaseUrl()
+  const init: RequestInit = {
+    method,
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
+  }
+  if (method === 'PUT') {
+    init.headers = { 'Content-Type': 'application/json' }
+    init.body = JSON.stringify(body)
+  }
+  return fetch(`${base}/storefront/footwear?storeId=${encodeURIComponent(STORE_ID)}`, init)
 }
 
+/** Storefront footwear config — reads from Nest API (database-backed). */
 export async function GET() {
   try {
-    const config = readConfig()
-    return NextResponse.json(config)
+    const res = await proxyToApi('GET')
+    if (!res.ok) {
+      return NextResponse.json({ error: 'Footwear config unavailable' }, { status: res.status })
+    }
+    return NextResponse.json(await res.json())
   } catch {
-    return NextResponse.json({ error: 'Config not found' }, { status: 404 })
+    return NextResponse.json({ error: 'API unreachable' }, { status: 502 })
   }
 }
 
 export async function PUT(req: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'Direct footwear file writes disabled — use admin panel (saves to database).' },
+      { status: 403 },
+    )
+  }
+  const body = await req.json()
   try {
-    const body = await req.json()
-    writeFileSync(CONFIG_PATH, JSON.stringify(body, null, 2))
+    const res = await proxyToApi('PUT', body)
+    const payload = (await res.json().catch(() => ({}))) as { error?: string }
+    if (!res.ok) {
+      return NextResponse.json({ error: payload.error ?? 'Save failed' }, { status: res.status })
+    }
     return NextResponse.json({ ok: true })
   } catch {
-    return NextResponse.json({ error: 'Write failed' }, { status: 500 })
+    return NextResponse.json({ error: 'API unreachable' }, { status: 502 })
   }
 }

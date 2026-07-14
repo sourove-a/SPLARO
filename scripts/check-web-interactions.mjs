@@ -4,24 +4,21 @@
  * (prefers-reduced-motion: reduce) and verifies decorative motion still runs.
  *
  * Run: node scripts/check-web-interactions.mjs
- * Env: WEB_URL=http://localhost:3000
+ * Env: WEB_URL=http://127.0.0.1:3000
  */
 import { createRequire } from 'module'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { puppeteerLaunchOptions } from './puppeteer-chrome.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const require = createRequire(resolve(ROOT, 'apps/api/package.json'))
 
-const BASE = process.env.WEB_URL ?? 'http://localhost:3000'
+const BASE = process.env.WEB_URL ?? 'http://127.0.0.1:3000'
 const isRemoteBase = /^https?:\/\//.test(BASE) && !/localhost|127\.0\.0\.1/.test(BASE)
 const NAV_WAIT = process.env.AUDIT_WAIT_UNTIL ?? (isRemoteBase ? 'domcontentloaded' : 'networkidle2')
 const NAV_TIMEOUT = Number(process.env.AUDIT_NAV_TIMEOUT ?? (isRemoteBase ? 60000 : 45000))
-
-const CHROME =
-  process.env.PUPPETEER_EXECUTABLE_PATH ??
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 function isIgnorableConsoleError(text) {
   return (
@@ -85,9 +82,17 @@ async function inspectHomepage(page) {
     await sleep(1500)
     const storyPos2 = storyMap ? getComputedStyle(storyMap).backgroundPosition : null
 
-    // Footer earth
+    // Footer earth (EarthBackdrop video — decorative, must keep under reduced-motion)
     window.scrollTo(0, document.body.scrollHeight)
     await sleep(2000)
+    const footerVideo = document.querySelector('.earth-backdrop__video')
+    const footerVideoVisible = footerVideo
+      ? getComputedStyle(footerVideo).display !== 'none' && getComputedStyle(footerVideo).visibility !== 'hidden'
+      : false
+    const footerVideoPlaying = footerVideo
+      ? !footerVideo.paused && !footerVideo.ended && footerVideo.readyState >= 2
+      : false
+    const footerLive = document.querySelector('.earth-backdrop')?.getAttribute('data-earth-live')
     const footerMap = document.querySelector('.site-footer__earth-fallback-map')
     const footerPos1 = footerMap ? getComputedStyle(footerMap).backgroundPosition : null
     await sleep(1500)
@@ -111,17 +116,17 @@ async function inspectHomepage(page) {
       footerMapMoved: footerPos1 !== footerPos2,
       footerReady,
       footerWebGL,
+      footerVideoVisible,
+      footerVideoPlaying,
+      footerLive,
+      dataPerf: document.documentElement.getAttribute('data-perf'),
     }
   })
 }
 
 async function main() {
   const puppeteer = require('puppeteer')
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: CHROME,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  })
+  const browser = await puppeteer.launch(puppeteerLaunchOptions())
 
   const consoleErrors = []
   try {
@@ -155,7 +160,14 @@ async function main() {
         state.storyMapMoved ||
         state.storyMapAnim?.name === 'story-earth-map-scroll' ||
         storyWebGL,
-      footerEarth: state.footerMapMoved || state.footerWebGL || state.footerReady,
+      footerEarth:
+        state.footerVideoVisible ||
+        state.footerVideoPlaying ||
+        state.footerLive === 'video' ||
+        state.footerMapMoved ||
+        state.footerWebGL ||
+        state.footerReady,
+      noLiteProfile: state.dataPerf !== 'lite',
       noConsoleErrors: consoleErrors.length === 0,
     }
 

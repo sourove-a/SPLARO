@@ -1,9 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common'
 import { PrismaClient } from '@splaro/database'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { homedir } from 'os'
-import { dirname, join, resolve } from 'path'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
+import { PrismaService } from '../../common/prisma.service'
+import { resolveStoreId } from '../../common/store.util'
+import { EncryptionService } from '../integrations/encryption.service'
 
 export interface DatabaseConnectionInfo {
   host: string
@@ -12,9 +12,9 @@ export interface DatabaseConnectionInfo {
   user: string
   passwordSet: boolean
   connected: boolean
-  source: string
-  envFile: string | null
-  backupFile: string | null
+  source: 'environment' | 'database'
+  savedInDatabase: boolean
+  requiresRestart: boolean
 }
 
 export interface DatabaseCredentialsInput {
@@ -27,11 +27,18 @@ export interface DatabaseCredentialsInput {
   password?: string
 }
 
-const TEST_TIMEOUT_MS = 10_000
+const DB_SETTING_GROUP = 'infrastructure'
+const DB_SETTING_KEY = 'database_url'
+const TEST_TIMEOUT_MS = Number(process.env['DATABASE_TEST_TIMEOUT_MS'] ?? 20_000)
 
 @Injectable()
 export class DatabaseConnectionService {
   private readonly logger = new Logger(DatabaseConnectionService.name)
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crypto: EncryptionService,
+  ) {}
 
   private requireSuperAdmin(actor?: AdminSessionPayload) {
     if (actor?.role !== 'SUPER_ADMIN') {
@@ -47,27 +54,34 @@ export class DatabaseConnectionService {
     }
   }
 
-  /** Nearest .env walking up from cwd — repo root in dev, .builds source on Hostinger. */
-  private findEnvFile(): string | null {
-    const override = process.env['SPLARO_ENV_FILE']?.trim()
-    if (override && existsSync(override)) return override
-    let dir = process.cwd()
-    for (let i = 0; i < 6; i += 1) {
-      const candidate = join(dir, '.env')
-      if (existsSync(candidate)) return candidate
-      const parent = dirname(dir)
-      if (parent === dir) break
-      dir = parent
+  private urlFromParsed(parsed: URL | null) {
+    return {
+      host: parsed?.hostname ?? '',
+      port: parsed?.port ?? '5432',
+      database: parsed?.pathname.replace(/^\//, '') ?? '',
+      user: parsed ? decodeURIComponent(parsed.username) : '',
+      passwordSet: Boolean(parsed?.password),
     }
-    return null
   }
 
-  /** Hostinger watchdog restores .env from this file — keep it in sync or a redeploy reverts the password. */
-  private findBackupFile(): string | null {
-    const override = process.env['SPLARO_ENV_BACKUP_FILE']?.trim()
-    if (override && existsSync(override)) return override
-    const fallback = resolve(homedir(), 'splaro-env-backup.env')
-    return existsSync(fallback) ? fallback : null
+  private async resolveStoreId(actor?: AdminSessionPayload) {
+    return resolveStoreId(this.prisma, actor?.storeId ?? 'splaro')
+  }
+
+  private async readSavedUrl(storeId: string): Promise<string | null> {
+    const row = await this.prisma.systemSetting.findUnique({
+      where: {
+        storeId_group_key: { storeId, group: DB_SETTING_GROUP, key: DB_SETTING_KEY },
+      },
+      select: { encryptedValue: true },
+    })
+    if (!row?.encryptedValue) return null
+    try {
+      return this.crypto.decrypt(row.encryptedValue)
+    } catch (err) {
+      this.logger.warn(`Could not decrypt saved DATABASE_URL: ${err instanceof Error ? err.message : err}`)
+      return null
+    }
   }
 
   private buildUrl(input: DatabaseCredentialsInput): string {
@@ -98,7 +112,10 @@ export class DatabaseConnectionService {
       await Promise.race([
         client.$queryRaw`SELECT 1`,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timed out after 10s')), TEST_TIMEOUT_MS),
+          setTimeout(
+            () => reject(new Error(`Connection timed out after ${TEST_TIMEOUT_MS / 1000}s`)),
+            TEST_TIMEOUT_MS,
+          ),
         ),
       ])
       return { ok: true, message: 'Database connection verified.' }
@@ -110,30 +127,23 @@ export class DatabaseConnectionService {
     }
   }
 
-  private writeEnvLine(file: string, url: string) {
-    const content = readFileSync(file, 'utf8')
-    const line = `DATABASE_URL=${url}`
-    const updated = /^DATABASE_URL=.*$/m.test(content)
-      ? content.replace(/^DATABASE_URL=.*$/m, line)
-      : `${content.replace(/\n*$/, '\n')}${line}\n`
-    writeFileSync(file, updated, 'utf8')
-  }
-
   async info(actor?: AdminSessionPayload): Promise<DatabaseConnectionInfo> {
     this.requireSuperAdmin(actor)
-    const raw = process.env['DATABASE_URL'] ?? ''
-    const parsed = this.parseUrl(raw)
-    const probe = raw ? await this.probe(raw) : { ok: false }
+    const storeId = await this.resolveStoreId(actor)
+    const activeRaw = process.env['DATABASE_URL'] ?? ''
+    const savedRaw = await this.readSavedUrl(storeId)
+    const displayRaw = savedRaw ?? activeRaw
+    const parsed = this.parseUrl(displayRaw)
+    const probe = activeRaw ? await this.probe(activeRaw) : { ok: false }
+    const fields = this.urlFromParsed(parsed)
+    const requiresRestart = Boolean(savedRaw && savedRaw !== activeRaw)
+
     return {
-      host: parsed?.hostname ?? '',
-      port: parsed?.port ?? '5432',
-      database: parsed?.pathname.replace(/^\//, '') ?? '',
-      user: parsed ? decodeURIComponent(parsed.username) : '',
-      passwordSet: Boolean(parsed?.password),
+      ...fields,
       connected: probe.ok,
-      source: process.env['SPLARO_ENV_FILE'] ? 'env-file-override' : 'environment',
-      envFile: this.findEnvFile(),
-      backupFile: this.findBackupFile(),
+      source: savedRaw ? 'database' : 'environment',
+      savedInDatabase: Boolean(savedRaw),
+      requiresRestart,
     }
   }
 
@@ -152,32 +162,33 @@ export class DatabaseConnectionService {
       throw new BadRequestException(`Refusing to save — connection test failed: ${probe.message}`)
     }
 
-    const envFile = this.findEnvFile()
-    if (!envFile) {
-      throw new BadRequestException('No .env file found on the server (set SPLARO_ENV_FILE)')
-    }
+    const storeId = await this.resolveStoreId(actor)
+    const encrypted = this.crypto.encrypt(url)
 
-    const written: string[] = [envFile]
-    this.writeEnvLine(envFile, url)
+    await this.prisma.systemSetting.upsert({
+      where: {
+        storeId_group_key: { storeId, group: DB_SETTING_GROUP, key: DB_SETTING_KEY },
+      },
+      create: {
+        storeId,
+        group: DB_SETTING_GROUP,
+        key: DB_SETTING_KEY,
+        encryptedValue: encrypted,
+        updatedBy: actor?.userId,
+      },
+      update: {
+        encryptedValue: encrypted,
+        updatedBy: actor?.userId,
+      },
+    })
 
-    const backupFile = this.findBackupFile()
-    if (backupFile) {
-      try {
-        this.writeEnvLine(backupFile, url)
-        written.push(backupFile)
-      } catch (err) {
-        this.logger.warn(`Could not update env backup ${backupFile}: ${err instanceof Error ? err.message : err}`)
-      }
-    }
-
-    process.env['DATABASE_URL'] = url
-    this.logger.log(`DATABASE_URL updated by ${actor?.email} → ${written.join(', ')}`)
+    this.logger.log(`DATABASE_URL saved to SystemSetting by ${actor?.email} (restart required to apply)`)
 
     return {
       ok: true,
       message:
-        'Database credentials saved and verified. Restart the API (watchdog picks this up automatically on Hostinger) so all connections use the new password.',
-      files: written,
+        'Database credentials saved to database and connection verified. Restart the API so all connections use the new URL.',
+      savedToDatabase: true,
     }
   }
 }

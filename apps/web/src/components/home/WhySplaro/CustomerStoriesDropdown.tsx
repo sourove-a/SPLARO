@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { BadgeCheck, ChevronDown, Star } from 'lucide-react'
 import {
   fetchStorefrontReviews,
@@ -66,13 +66,14 @@ export function CustomerStoriesDropdown({ enabled, label = 'Verified Reviews' }:
   }, [enabled])
 
   if (!enabled) return null
-  if (!loading && !connected) return null
+  // Wait for fetch — never flash loading shell then collapse (hard-reload layout jump)
+  if (loading || !connected) return null
 
   const ratingValue =
     aggregateRating != null
       ? Math.max(0, Math.min(5, Math.round(aggregateRating)))
       : 0
-  const hint = loading ? 'Loading verified reviews…' : hintText(connected, reviewCount, aggregateRating)
+  const hint = hintText(connected, reviewCount, aggregateRating)
 
   return (
     <div className={cn('story-stories', open && 'story-stories--open')}>

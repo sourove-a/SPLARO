@@ -8,12 +8,13 @@ import { existsSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cliSpawnOpts } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const STANDALONE = resolve(ROOT, 'apps/web/.next/standalone/apps/web/server.js')
 
 function run(cmd, args) {
-  const result = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: process.env })
+  const result = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', env: process.env, ...cliSpawnOpts() })
   process.exit(result.status ?? 1)
 }
 
@@ -27,6 +28,12 @@ const pnpmWorkspaceReady = existsSync(resolve(ROOT, 'node_modules/.pnpm'))
 const useHostingerBuild = forceHostinger || !pnpmWorkspaceReady
 
 if (useHostingerBuild) {
+  if (process.platform === 'win32') {
+    console.error(
+      '[build] Hostinger bash build is Linux/VPS-only. On Windows use: pnpm install && pnpm exec turbo run build',
+    )
+    process.exit(1)
+  }
   console.log('[build] Hostinger / npm-only install detected → hostinger-build.sh')
   run('bash', ['scripts/hostinger-build.sh'])
 } else {

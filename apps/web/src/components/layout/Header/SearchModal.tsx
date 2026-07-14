@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { Search, X, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Category, StorefrontProduct } from '@/data/storefront'
+import { LuxuryDialog, LuxuryDialogContent } from '@/components/ui/radix'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 const TRENDING = [
   'Summer Edition',
@@ -16,7 +19,7 @@ const TRENDING = [
   'New products',
 ]
 
-const PLACEHOLDER = '/images/placeholder-product.jpg'
+const PLACEHOLDER = '/images/placeholder-product.svg'
 
 const QUICK_CATEGORIES: Array<{
   label: Exclude<Category, 'All' | 'Accessories'>
@@ -46,6 +49,7 @@ function pickCategoryImages(products: StorefrontProduct[]) {
 }
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [categoryImages, setCategoryImages] = useState<Record<string, string>>({})
   const inputRef = useRef<HTMLInputElement>(null)
@@ -53,12 +57,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 80)
-      document.body.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = ''
       setQuery('')
     }
-    return () => { document.body.style.overflow = '' }
   }, [isOpen])
 
   useEffect(() => {
@@ -76,83 +77,56 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }
   }, [isOpen])
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    if (isOpen) document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [isOpen, onClose])
-
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="search-modal-backdrop"
-            onClick={onClose}
-            aria-hidden="true"
-          />
+    <LuxuryDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <LuxuryDialogContent hideClose className="search-modal spl-radix-dialog--search" aria-label="Search">
+        <div className="search-modal__shine" aria-hidden="true" />
+        <div className="search-modal__sweep" aria-hidden="true" />
 
-          <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="search-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Search"
-          >
-            <div className="search-modal__shine" aria-hidden="true" />
-            <div className="search-modal__sweep" aria-hidden="true" />
-
-            <div className="container-luxury search-modal__inner">
-              <div className="search-modal__top">
-                <div className="search-modal__bar">
-                  <div className="search-modal__bar-shine" aria-hidden="true" />
-                  <Search className="search-modal__bar-icon" strokeWidth={2} />
-                  <input
-                    ref={inputRef}
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search SPLARO products..."
-                    className="search-modal__input"
-                    autoComplete="off"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && query.trim()) {
-                        window.location.href = `/search?q=${encodeURIComponent(query)}`
-                        onClose()
-                      }
-                    }}
-                  />
-                  {query ? (
-                    <button
-                      type="button"
-                      onClick={() => setQuery('')}
-                      className="search-modal__clear"
-                      aria-label="Clear search"
-                    >
-                      <X className="h-3.5 w-3.5" strokeWidth={2} />
-                    </button>
-                  ) : null}
-                </div>
-
+        <div className="container-luxury search-modal__inner">
+          <div className="search-modal__top">
+            <div className="search-modal__bar">
+              <div className="search-modal__bar-shine" aria-hidden="true" />
+              <Search className="search-modal__bar-icon" strokeWidth={2} />
+              <input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search SPLARO products..."
+                className="search-modal__input"
+                autoComplete="off"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && query.trim()) {
+                    safeClientNavigate(router, `/search?q=${encodeURIComponent(query.trim())}`)
+                    onClose()
+                  }
+                }}
+              />
+              {query ? (
                 <button
                   type="button"
-                  onClick={onClose}
-                  aria-label="Close search"
-                  className="search-modal__close"
+                  onClick={() => setQuery('')}
+                  className="search-modal__clear"
+                  aria-label="Clear search"
                 >
-                  <X className="h-4 w-4" strokeWidth={1.5} />
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
                 </button>
-              </div>
+              ) : null}
+            </div>
 
-              <div className="search-modal__body">
-                <AnimatePresence mode="wait">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close search"
+              className="search-modal__close"
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
+
+          <div className="search-modal__body">
+            <AnimatePresence mode="wait">
                   {query ? (
                     <motion.div
                       key="results"
@@ -264,9 +238,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 </AnimatePresence>
               </div>
             </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+      </LuxuryDialogContent>
+    </LuxuryDialog>
   )
 }

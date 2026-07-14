@@ -5,9 +5,18 @@ import { useCallback, useEffect, useTransition } from 'react'
 
 let pendingAdminNavHref: string | null = null
 let recoveryInstalled = false
+const pendingListeners = new Set<() => void>()
+
+function notifyPendingListeners() {
+  pendingListeners.forEach((listener) => listener())
+}
 
 export function isExternalHref(href: string) {
   return /^https?:\/\//i.test(href)
+}
+
+export function adminHrefPath(href: string) {
+  return href.split('?')[0]?.split('#')[0] ?? href
 }
 
 export function hardAdminNavigate(href: string) {
@@ -20,6 +29,18 @@ export function hardAdminNavigate(href: string) {
 
 export function setPendingAdminNav(href: string | null) {
   pendingAdminNavHref = href
+  notifyPendingListeners()
+}
+
+export function getPendingAdminNav() {
+  return pendingAdminNavHref
+}
+
+export function subscribePendingAdminNav(onChange: () => void) {
+  pendingListeners.add(onChange)
+  return () => {
+    pendingListeners.delete(onChange)
+  }
 }
 
 export function installAdminNavRecovery() {
@@ -46,6 +67,7 @@ export function installAdminNavRecovery() {
       event.preventDefault()
       const href = pendingAdminNavHref
       pendingAdminNavHref = null
+      notifyPendingListeners()
       hardAdminNavigate(href)
     }
   })
@@ -77,7 +99,7 @@ export function useAdminNavigate() {
         return
       }
 
-      const targetPath = href.split('?')[0] ?? href
+      const targetPath = adminHrefPath(href)
       if (pathname === targetPath) return
 
       setPendingAdminNav(href)

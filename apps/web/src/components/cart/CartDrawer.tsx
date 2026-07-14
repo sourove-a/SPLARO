@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from '@/lib/motion/react'
 import { X, ShoppingBag } from 'lucide-react'
 import { useCartStore, cartLineKey, toCartLineRef } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
@@ -9,6 +9,7 @@ import { CartEmptyState } from './CartEmptyState'
 import { CartLineItem } from './CartLineItem'
 import { CartFreeShippingBar } from './CartFreeShippingBar'
 import { CartSummary } from './CartSummary'
+import { exitPop } from '@/lib/motion/variants'
 
 interface CartDrawerProps {
   isOpen: boolean
@@ -44,10 +45,10 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const lineMotion = reducedMotion
     ? { initial: false as const }
     : {
-        initial: { opacity: 0, x: 18 },
-        animate: { opacity: 1, x: 0 },
-        exit: { opacity: 0, x: 12 },
-        transition: { duration: 0.32, ease: LINE_EASE },
+        variants: exitPop,
+        initial: 'initial',
+        animate: 'animate',
+        exit: 'exit',
       }
 
   return (

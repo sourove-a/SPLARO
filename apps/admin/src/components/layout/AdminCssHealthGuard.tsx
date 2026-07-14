@@ -10,7 +10,8 @@ function isStaleChunkError(message: string) {
     message.includes("reading 'call'") ||
     message.includes('ChunkLoadError') ||
     message.includes('Loading chunk') ||
-    message.includes('Failed to fetch dynamically imported module')
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('missing required error components')
   )
 }
 

@@ -15,7 +15,7 @@ export function BrandingSection({ draft, setDraft, save, saving, apiOnline }: Se
           <Field label="Logo URL (header & footer)">
             <input
               className="settings-input"
-              placeholder="https://… or /images/logo/splaro-logo.png"
+              placeholder="https://… or /images/logo/splaro-logo-black-premium.png"
               value={draft.branding.logo}
               onChange={(e) =>
                 setDraft((p) => ({
@@ -51,7 +51,7 @@ export function BrandingSection({ draft, setDraft, save, saving, apiOnline }: Se
           <Field label="Site icon / favicon (browser tab)">
             <input
               className="settings-input"
-              placeholder="/images/logo/splaro-brand-mark-transparent.png"
+              placeholder="/images/logo/splaro-logo-black-premium.png"
               value={draft.branding.favicon}
               onChange={(e) =>
                 setDraft((p) => ({

@@ -2,14 +2,22 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchDashboardStats, fetchDashboardInsights, fetchInventoryAlerts, periodFromLabel } from './dashboard'
-import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus } from './orders'
+import { fetchOrders, fetchOrder, updateOrderStatus, updateOrderPaymentStatus, deleteOrder, bookOrderCourier, bookOrdersCourierBulk, createOrder, bulkUpdateOrderStatus, setOrderCodRisk, addOrderNote, type OrderPaymentStatus } from './orders'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, fetchProduct, updateProductVariant, fetchProductVersions, restoreProductVersion, createProductVariant, archiveProductVariant } from './products'
-import { fetchCategories, createCategory, updateCategory, deleteCategory } from './categories'
+import {
+  fetchCategories,
+  fetchCategoryTree,
+  seedDefaultCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  reorderCategories,
+} from './categories'
 import { fetchCollections, createCollection, updateCollection } from './collections'
 import { fetchBrands, createBrand, updateBrand } from './brands'
 import { createBanner, fetchBanners, updateBanner, deleteBanner } from './banners'
 import { createRedirect, deleteRedirect, fetchRedirects, updateRedirect } from './redirects'
-import { auditProduct } from './seo'
+import { auditProduct, fixMissingProductMeta } from './seo'
 import { EMPTY_HELPDESK_OVERVIEW, EMPTY_SEO_OVERVIEW, isNetworkOrServerError } from './offline-defaults'
 import { fetchCustomers, fetchCustomer, deleteCustomer, blockCustomer } from './customers'
 import { fetchLoyaltySummary, fetchReferralStats, fetchReferrals } from './loyalty'
@@ -24,7 +32,7 @@ import {
   sendCampaign,
 } from './marketing'
 import { fetchCourierShipments, fetchCourierStats } from './courier'
-import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, type RmaApiStatus } from './commerce-finance'
+import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions, fetchTransactionHealth, fetchTransaction, fetchReturns, updateReturnStatus, createReturn, type RmaApiStatus } from './commerce-finance'
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
 import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
@@ -92,6 +100,7 @@ import {
 import type { PermissionRow } from './security'
 import { fetchRolePermissions, fetchSecuritySessions, fetchStaffTelegramLinkToken, inviteAdmin, removeStaff, resetStaffTelegram, revokeSecuritySession, saveRolePermissions, updateStaffRole } from './security'
 import { fetchLegalPage, fetchLegalPages, saveLegalPage } from './legal-pages'
+import { fetchFootwearConfig } from './footwear-config'
 import type { LegalPageContent, LegalPageSlug } from '@splaro/types'
 
 export function useDashboardStats(periodLabel: string) {
@@ -143,6 +152,42 @@ export function useUpdateOrderStatus() {
       void qc.invalidateQueries({ queryKey: ['orders'] })
       void qc.invalidateQueries({ queryKey: ['order', vars.id] })
       void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useSetOrderCodRisk() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      isCodRisk,
+      requireAdvancePayment,
+    }: {
+      id: string
+      isCodRisk: boolean
+      requireAdvancePayment?: boolean
+    }) =>
+      setOrderCodRisk(
+        id,
+        requireAdvancePayment === undefined
+          ? { isCodRisk }
+          : { isCodRisk, requireAdvancePayment },
+      ),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['orders'] })
+      void qc.invalidateQueries({ queryKey: ['order', vars.id] })
+      void qc.invalidateQueries({ queryKey: ['dashboard-stats'] })
+    },
+  })
+}
+
+export function useAddOrderNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: string }) => addOrderNote(id, body),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ['order', vars.id] })
     },
   })
 }
@@ -558,6 +603,7 @@ export function useSaveLegalPage() {
     onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: ['legal-pages'] })
       void qc.invalidateQueries({ queryKey: ['legal-page', variables.slug] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }
@@ -565,11 +611,7 @@ export function useSaveLegalPage() {
 export function useFootwearConfig() {
   return useQuery({
     queryKey: ['footwear-config'],
-    queryFn: async () => {
-      const res = await fetch('/api/footwear-config', { cache: 'no-store' })
-      if (!res.ok) throw new Error('Footwear config unavailable')
-      return res.json() as Promise<Record<string, unknown>>
-    },
+    queryFn: fetchFootwearConfig,
     staleTime: 30_000,
     retry: 1,
   })
@@ -579,7 +621,10 @@ export function useCreateBlogPost() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createBlogPost,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['content-overview'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['content-overview'] })
+      void revalidateWebCache(['storefront-settings'])
+    },
   })
 }
 
@@ -596,7 +641,10 @@ export function useCreateSitePage() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createSitePage,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['site-pages'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['site-pages'] })
+      void revalidateWebCache(['storefront-settings'])
+    },
   })
 }
 
@@ -605,7 +653,10 @@ export function useUpdateSitePage() {
   return useMutation({
     mutationFn: ({ id, ...input }: { id: string } & Parameters<typeof updateSitePage>[1]) =>
       updateSitePage(id, input),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['site-pages'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['site-pages'] })
+      void revalidateWebCache(['storefront-settings'])
+    },
   })
 }
 
@@ -613,7 +664,10 @@ export function useDeleteSitePage() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: deleteSitePage,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['site-pages'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['site-pages'] })
+      void revalidateWebCache(['storefront-settings'])
+    },
   })
 }
 
@@ -645,6 +699,16 @@ export function useAuditProductSeo() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (productId: string) => auditProduct(productId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+    },
+  })
+}
+
+export function useFixMissingProductSeo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => fixMissingProductMeta(),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['seo-overview'] })
     },
@@ -683,6 +747,7 @@ export function useCreateRedirect() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['url-redirects'] })
       void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }
@@ -695,6 +760,7 @@ export function useUpdateRedirect() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['url-redirects'] })
       void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }
@@ -706,6 +772,7 @@ export function useDeleteRedirect() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['url-redirects'] })
       void qc.invalidateQueries({ queryKey: ['seo-overview'] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }
@@ -959,7 +1026,7 @@ export function useInvoiceStats(days = 30) {
 export function useUpdateOrderPayment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, paymentStatus }: { id: string; paymentStatus: 'PAID' | 'UNPAID' | 'PENDING' }) =>
+    mutationFn: ({ id, paymentStatus }: { id: string; paymentStatus: OrderPaymentStatus }) =>
       updateOrderPaymentStatus(id, paymentStatus),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ['invoices'] })
@@ -1018,6 +1085,16 @@ export function useUpdateReturnStatus() {
       note?: string
       refundAmount?: number
     }) => updateReturnStatus(id, data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['returns'] })
+    },
+  })
+}
+
+export function useCreateReturn() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createReturn,
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['returns'] })
     },
@@ -1218,22 +1295,70 @@ export function useCategories() {
   })
 }
 
+export function useCategoryTree() {
+  return useQuery({
+    queryKey: ['categories', 'tree'],
+    queryFn: async () => {
+      const res = await fetchCategoryTree()
+      return res
+    },
+    staleTime: 60_000,
+  })
+}
+
+export function useSeedDefaultCategories() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: seedDefaultCategories,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['categories'] })
+      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+    },
+  })
+}
+
 export function useCreateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (name: string) => createCategory(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+    mutationFn: (data: { name: string; description?: string; parentId?: string; image?: string }) =>
+      createCategory(data),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['categories'] })
+      void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
+      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+    },
+  })
+}
+
+export function useReorderCategories() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: reorderCategories,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['categories'] })
+      void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
+      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+    },
   })
 }
 
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean; image?: string | null }) =>
-      updateCategory(id, data),
+    mutationFn: ({ id, ...data }: {
+      id: string
+      name?: string
+      description?: string
+      isActive?: boolean
+      image?: string | null
+      parentId?: string | null
+      sortOrder?: number
+    }) => updateCategory(id, data),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['categories'] })
+      void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
+      void revalidateWebCache(['storefront-products', 'storefront-settings'])
     },
   })
 }
@@ -1242,7 +1367,11 @@ export function useDeleteCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: deleteCategory,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['categories'] })
+      void qc.invalidateQueries({ queryKey: ['categories', 'tree'] })
+      void revalidateWebCache(['storefront-products', 'storefront-settings'])
+    },
   })
 }
 
@@ -1345,6 +1474,7 @@ export function useCreateCollection() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['collections'] })
       void qc.invalidateQueries({ queryKey: ['content-overview'] })
+      void revalidateWebCache(['storefront-products'])
     },
   })
 }
@@ -1354,7 +1484,10 @@ export function useUpdateCollection() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; isActive?: boolean }) =>
       updateCollection(id, data),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['collections'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['collections'] })
+      void revalidateWebCache(['storefront-products'])
+    },
   })
 }
 
@@ -1371,7 +1504,10 @@ export function useCreateBrand() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createBrand,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['brands'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['brands'] })
+      void revalidateWebCache(['storefront-products'])
+    },
   })
 }
 
@@ -1380,7 +1516,10 @@ export function useUpdateBrand() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; vendorLabel?: string; isActive?: boolean }) =>
       updateBrand(id, data),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['brands'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['brands'] })
+      void revalidateWebCache(['storefront-products'])
+    },
   })
 }
 
@@ -1403,6 +1542,7 @@ export function useCreateBanner() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
       void qc.invalidateQueries({ queryKey: ['banners'] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }
@@ -1415,6 +1555,7 @@ export function useUpdateBanner() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
       void qc.invalidateQueries({ queryKey: ['banners'] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }
@@ -1426,6 +1567,7 @@ export function useDeleteBanner() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform-media'] })
       void qc.invalidateQueries({ queryKey: ['banners'] })
+      void revalidateWebCache(['storefront-settings'])
     },
   })
 }

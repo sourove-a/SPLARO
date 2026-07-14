@@ -8,51 +8,75 @@ export const scrollEaseOutExpo = (t: number) =>
 export const SCROLL_ANCHOR_OFFSET = -120
 
 export const SCROLL_TO_TOP: ScrollToOptions = {
-  duration: 0.65,
+  duration: 0.72,
   easing: scrollEaseOutExpo,
 }
 
 export const SCROLL_ROUTE_TOP: ScrollToOptions = {
-  duration: 0.32,
+  duration: 0.38,
   easing: scrollEaseOutExpo,
+}
+
+/** Hard reload / bfcache — snap without animation */
+export const SCROLL_BOOT: ScrollToOptions = {
+  immediate: true,
 }
 
 export const SCROLL_ANCHOR: ScrollToOptions = {
   offset: SCROLL_ANCHOR_OFFSET,
-  duration: 1.0,
+  duration: 1.05,
   easing: scrollEaseOutExpo,
 }
+
+export type ScrollProfile = 'mac' | 'windows' | 'mobile'
 
 const LENIS_SHARED = {
   infinite: false,
   orientation: 'vertical' as const,
   gestureOrientation: 'vertical' as const,
   autoRaf: true,
-  autoToggle: false,
+  autoResize: false,
   overscroll: true,
   allowNestedScroll: true,
+  stopInertiaOnNavigate: true,
   anchors: SCROLL_ANCHOR,
+  easing: scrollEaseOutExpo,
 } satisfies Partial<LenisOptions>
 
-/** Mac / Linux desktop — full inertia feel */
-const LENIS_DESKTOP_OPTIONS = {
+/** Mac / Linux desktop — luxury inertia without floaty lag */
+const LENIS_DESKTOP: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.158,
+  lerp: 0.1,
   smoothWheel: true,
-  wheelMultiplier: 1.08,
+  wheelMultiplier: 1,
   syncTouch: false,
   touchMultiplier: 1,
-} satisfies LenisOptions
+  autoToggle: false,
+}
 
-/** Windows desktop — slightly snappier lerp, lower wheel gain (trackpad / ANGLE). Re-enable after real-device Windows verification. */
-const LENIS_WINDOWS_OPTIONS = {
+/** Windows desktop — same premium curve */
+const LENIS_WINDOWS: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.172,
+  lerp: 0.105,
   smoothWheel: true,
-  wheelMultiplier: 0.95,
+  wheelMultiplier: 1.02,
   syncTouch: false,
   touchMultiplier: 1,
-} satisfies LenisOptions
+  autoToggle: false,
+}
+
+/** Phone / tablet — syncTouch inertia (iOS + Android) */
+const LENIS_MOBILE: LenisOptions = {
+  ...LENIS_SHARED,
+  lerp: 0.108,
+  smoothWheel: false,
+  syncTouch: true,
+  syncTouchLerp: 0.088,
+  touchInertiaExponent: 1.65,
+  touchMultiplier: 1.08,
+  wheelMultiplier: 1,
+  autoToggle: true,
+}
 
 function getScrollMedia() {
   if (typeof window === 'undefined') return null
@@ -70,32 +94,47 @@ export function isPrivateNetworkHost(): boolean {
   return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
 }
 
-export function isWindowsClient(): boolean {
-  if (typeof navigator === 'undefined') return false
-  return /Windows/i.test(navigator.userAgent)
-}
-
 export function isTouchScrollProfile() {
-  const mq = getScrollMedia()
-  if (!mq) return false
-  return mq.coarse.matches || mq.mobileLayout.matches
+  return detectScrollProfile() === 'mobile'
 }
 
-export function buildLenisOptions(): LenisOptions {
-  return isWindowsClient() ? LENIS_WINDOWS_OPTIONS : LENIS_DESKTOP_OPTIONS
+/** Runtime profile — boot script sets data-scroll-profile; JS refines on resize. */
+export function detectScrollProfile(): ScrollProfile {
+  if (typeof window === 'undefined') return 'mac'
+
+  const mq = getScrollMedia()
+  if (mq && (mq.coarse.matches || mq.mobileLayout.matches)) return 'mobile'
+
+  const attr = document.documentElement.getAttribute('data-scroll-profile')
+  if (attr === 'windows') return 'windows'
+  if (attr === 'mobile') return 'mobile'
+  if (attr === 'mac') return 'mac'
+
+  const os = document.documentElement.getAttribute('data-os')
+  if (os === 'windows') return 'windows'
+
+  return 'mac'
+}
+
+export function applyScrollProfileAttributes(profile: ScrollProfile) {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-scroll-profile', profile)
+}
+
+export function buildLenisOptions(profile: ScrollProfile = detectScrollProfile()): LenisOptions {
+  if (profile === 'mobile') return { ...LENIS_MOBILE }
+  if (profile === 'windows') return { ...LENIS_WINDOWS }
+  return { ...LENIS_DESKTOP }
 }
 
 /**
- * Lenis on pointer-fine desktops only — native scroll on mobile + reduced-motion.
- * Windows excluded until real-device verification (see LENIS_WINDOWS_OPTIONS).
+ * Lenis everywhere except prefers-reduced-motion.
+ * Desktop (Mac + Windows) share the Mac Lenis profile; phone gets syncTouch.
  */
 export function isSmoothScrollEligible() {
   const mq = getScrollMedia()
   if (!mq) return false
-  if (mq.reduced.matches) return false
-  if (mq.coarse.matches || mq.mobileLayout.matches) return false
-  if (isWindowsClient()) return false
-  return true
+  return !mq.reduced.matches
 }
 
 /** @deprecated use isSmoothScrollEligible */
@@ -112,14 +151,37 @@ export function subscribeSmoothScrollEligibility(onChange: (eligible: boolean) =
 
   const update = () => onChange(isSmoothScrollEligible())
   update()
-
   mq.reduced.addEventListener('change', update)
-  mq.coarse.addEventListener('change', update)
-  mq.mobileLayout.addEventListener('change', update)
 
   return () => {
     mq.reduced.removeEventListener('change', update)
-    mq.coarse.removeEventListener('change', update)
-    mq.mobileLayout.removeEventListener('change', update)
+  }
+}
+
+export function subscribeScrollProfile(onChange: (profile: ScrollProfile) => void) {
+  if (typeof window === 'undefined') {
+    onChange('mac')
+    return () => {}
+  }
+
+  const update = () => {
+    const profile = detectScrollProfile()
+    applyScrollProfileAttributes(profile)
+    onChange(profile)
+  }
+
+  update()
+  window.addEventListener('resize', update)
+  window.addEventListener('orientationchange', update)
+
+  const mq = getScrollMedia()
+  mq?.coarse.addEventListener('change', update)
+  mq?.mobileLayout.addEventListener('change', update)
+
+  return () => {
+    window.removeEventListener('resize', update)
+    window.removeEventListener('orientationchange', update)
+    mq?.coarse.removeEventListener('change', update)
+    mq?.mobileLayout.removeEventListener('change', update)
   }
 }

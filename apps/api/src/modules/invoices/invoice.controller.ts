@@ -1,5 +1,6 @@
 import { Controller, Get, Header, Inject, Param, Post, Query, Res } from '@nestjs/common'
 import type { Response } from 'express'
+import { isFeatureEnabled } from '@splaro/config'
 import { InvoiceService } from './invoice.service'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
@@ -119,7 +120,8 @@ export class InvoiceController {
   ) {
     return this.invoices.buildHtml(orderId, {
       showToolbar: true,
-      autoPrint: autoPrint === '1' || autoPrint === 'true',
+      autoPrint:
+        isFeatureEnabled('printAuto') && (autoPrint === '1' || autoPrint === 'true'),
     })
   }
 

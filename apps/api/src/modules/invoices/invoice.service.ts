@@ -1,10 +1,42 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common'
+import { existsSync } from 'node:fs'
 import { PrismaService } from '../../common/prisma.service'
 import { EmailService } from '../email/email.service'
 import { buildInvoiceViewModel, type InvoiceOrder } from './invoice.helpers'
 import { generateInvoiceHTML } from './invoice.template'
 import { generateInvoiceEmailHTML } from './invoice-email.template'
 import { SPLARO_INVOICE_BRAND } from '@splaro/config'
+
+function resolveChromeExecutable(puppeteerExecutablePath: () => string): string | undefined {
+  const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
+  if (fromEnv && existsSync(fromEnv)) return fromEnv
+
+  const candidates = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/snap/bin/chromium',
+    // Windows — Puppeteer PDF on local/dev PCs
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  ]
+  for (const path of candidates) {
+    if (existsSync(path)) return path
+  }
+
+  try {
+    const bundled = puppeteerExecutablePath()
+    if (bundled && existsSync(bundled)) return bundled
+  } catch {
+    /* bundled chrome not installed */
+  }
+  return undefined
+}
 
 @Injectable()
 export class InvoiceService {
@@ -61,8 +93,16 @@ export class InvoiceService {
     const html = await this.buildHtml(orderId, { showToolbar: false, autoPrint: false })
     try {
       const puppeteer = await import('puppeteer')
+      const executablePath = resolveChromeExecutable(() => puppeteer.default.executablePath())
+      if (!executablePath) {
+        throw new Error(
+          'Chrome not found for PDF. Set PUPPETEER_EXECUTABLE_PATH or install Chrome.',
+        )
+      }
+
       const browser = await puppeteer.default.launch({
         headless: true,
+        executablePath,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'],
       })
       try {
@@ -79,10 +119,11 @@ export class InvoiceService {
         await browser.close()
       }
     } catch (error) {
-      this.logger.warn(
-        `PDF generation unavailable (${error instanceof Error ? error.message : 'unknown'}). Install puppeteer or use Print/Save as PDF.`,
+      const message = error instanceof Error ? error.message : 'unknown'
+      this.logger.warn(`PDF generation unavailable (${message}). Use Print → Save as PDF.`)
+      throw new ServiceUnavailableException(
+        'PDF engine unavailable. Use Print → Save as PDF, or set PUPPETEER_EXECUTABLE_PATH to Chrome.',
       )
-      throw error
     }
   }
 

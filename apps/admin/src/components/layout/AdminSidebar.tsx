@@ -10,6 +10,7 @@ import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useAdminSession } from '@/lib/api/hooks'
 import { getVisibleAdminRoutes, getSidebarNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
+import { useFeatureFlags } from '@/lib/feature-flags'
 import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
 import { usePrefersReducedMotion } from '@/lib/hooks/use-prefers-reduced-motion'
@@ -300,6 +301,7 @@ function SidebarNav({
   session?: AdminNavSession | null
 }) {
   const pathname = usePathname()
+  useFeatureFlags() // re-render sidebar when feature flags hydrate from API
   const primaryGroups = PRIMARY_SECTIONS.map((name) => groupByName(name, session)).filter(Boolean) as AdminNavGroup[]
   const advancedGroups = ADVANCED_SECTIONS.map((section) => ({
     ...section,

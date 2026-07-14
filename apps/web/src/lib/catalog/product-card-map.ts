@@ -10,9 +10,14 @@ export function storefrontToCardData(
   product: StorefrontProduct & { slug?: string },
 ): ProductCardData {
   const slug = product.slug ?? productSlug(product)
-  const images = [product.image, product.hoverImage].filter(
-    (url, index, arr) => Boolean(url) && arr.indexOf(url) === index,
-  )
+  const fromMedia =
+    product.media?.filter((entry) => entry.type === 'image').map((entry) => entry.url) ?? []
+  const fromColors = product.colorOptions?.map((color) => color.image) ?? []
+  const images = [product.image, product.hoverImage, ...fromMedia, ...fromColors]
+    .map((url) => url?.trim())
+    .filter(Boolean)
+    .filter((url, index, arr) => arr.indexOf(url) === index)
+    .slice(0, 4) as string[]
 
   const colorOptions = product.colorOptions?.map((color) => ({
     hex: color.hex,

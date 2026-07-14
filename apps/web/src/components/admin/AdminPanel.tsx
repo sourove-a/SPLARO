@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from '@/lib/motion/react'
 import { Eye, EyeOff, X, ChevronRight } from 'lucide-react'
 import {
   useAdminStore,

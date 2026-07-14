@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import { Loader2 } from 'lucide-react'
 import { authHoverLift, authMotionTransition, authTapSpring, useAuthShowMotion } from '@/lib/auth/auth-motion'
 

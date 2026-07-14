@@ -3,9 +3,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useDropzone } from 'react-dropzone'
-import toast from 'react-hot-toast'
-import { ImagePlus, Link as LinkIcon, Loader2, PlayCircle, Plus, Trash2 } from 'lucide-react'
+import { FolderOpen, ImagePlus, Link as LinkIcon, Loader2, PlayCircle, Plus, Trash2 } from 'lucide-react'
 import { uploadAdminImage } from '@/lib/api/upload'
+import { toastFail, toastInfo } from '@/lib/admin/feedback'
+import { MediaPickerModal } from '@/components/media/MediaPickerModal'
 import { cn } from '@/lib/utils/cn'
 
 export const MAX_PRODUCT_IMAGES = 10
@@ -41,6 +42,7 @@ export function ProductMediaPanel({
   const [uploading, setUploading] = useState(false)
   const [imageLink, setImageLink] = useState('')
   const [activeMedia, setActiveMedia] = useState(0)
+  const [libraryOpen, setLibraryOpen] = useState(false)
 
   const mediaItems = useMemo(
     () => [
@@ -76,7 +78,7 @@ export function ProductMediaPanel({
   const handleAddImageLink = () => {
     if (!imageLink.trim()) return
     if (imageUrls.length >= MAX_PRODUCT_IMAGES) {
-      toast.error(`Maximum ${MAX_PRODUCT_IMAGES} images allowed.`)
+      toastFail(`Maximum ${MAX_PRODUCT_IMAGES} images allowed.`)
       return
     }
     addImageUrls([imageLink])
@@ -94,9 +96,9 @@ export function ProductMediaPanel({
           urls.push(await uploadAdminImage(file, 'products'))
         }
         addImageUrls(urls)
-        toast.success(`${urls.length} image${urls.length > 1 ? 's' : ''} optimized to WebP.`)
+        toastInfo(`${urls.length} image${urls.length > 1 ? 's' : ''} uploaded — save product to persist on catalog.`)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed')
+        toastFail(err instanceof Error ? err.message : 'Upload failed')
       } finally {
         setUploading(false)
       }
@@ -181,6 +183,31 @@ export function ProductMediaPanel({
           <Plus className="h-4 w-4" />
         </button>
       </div>
+
+      <button
+        type="button"
+        className="mb-3 flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[rgba(200,169,126,0.45)] bg-[rgba(200,169,126,0.06)] px-3 py-2.5 text-xs font-bold text-[#8a6d45] transition hover:bg-[rgba(200,169,126,0.12)] disabled:opacity-50"
+        disabled={disabled || imageUrls.length >= MAX_PRODUCT_IMAGES}
+        onClick={() => setLibraryOpen(true)}
+      >
+        <FolderOpen className="h-4 w-4" />
+        Choose from library
+      </button>
+
+      <MediaPickerModal
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        title="Product images"
+        multi
+        onSelectMany={(urls) => {
+          addImageUrls(urls)
+          setLibraryOpen(false)
+        }}
+        onSelect={(url) => {
+          addImageUrls([url])
+          setLibraryOpen(false)
+        }}
+      />
 
       <div
         {...getRootProps()}

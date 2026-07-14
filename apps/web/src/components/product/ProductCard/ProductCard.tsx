@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from '@/lib/motion/react'
+import { StorefrontImage } from '@/components/ui/StorefrontImage'
+import { MotionPressable } from '@/components/ui/MotionPressable'
 import { useMotionReady } from '@/hooks/useMotionReady'
 import { ProductTransitionLink } from '@/components/product/ProductTransitionLink'
 import { productMediaTransitionStyle } from '@/lib/navigation/view-transition'
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
 import { trackAddToCart } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
-import { fadeUp } from '@/lib/motion/variants'
+import { fadeUp, cardHover } from '@/lib/motion/variants'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import type { ProductCardData } from '@/types/product'
 import type { ProductStatus } from '@/data/storefront'
@@ -69,7 +69,8 @@ export function ProductCard({
 function ProductCardDefault({ product, priority }: { product: ProductCardData; priority: boolean }) {
   const [hovered, setHovered] = useState(false)
   const [imgIndex, setImgIndex] = useState(0)
-  const { showMotion } = useMotionReady()
+  const reducedMotion = useReducedMotion()
+  const { showMotion, allowRevealAnimation } = useMotionReady()
   const images = productImages(product)
 
   const addToCart = useCartStore((s) => s.addItem)
@@ -141,7 +142,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
   const hasMultipleImages = images.length > 1
   const currentImage = images[imgIndex] ?? images[0] ?? PRODUCT_IMAGE_PLACEHOLDER
 
-  const revealMotion = !showMotion
+  const revealMotion = !allowRevealAnimation
     ? { initial: false as const }
     : {
         initial: 'hidden' as const,
@@ -150,7 +151,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         variants: fadeUp,
       }
 
-  const mediaTransition = productMediaTransitionStyle(product.id, !showMotion)
+  const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
 
   return (
     <motion.article
@@ -158,22 +159,23 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
       {...revealMotion}
+      {...(showMotion && !reducedMotion ? cardHover : {})}
     >
       <div className="pc-media">
         <ProductTransitionLink
           href={`/products/${product.slug}`}
           className="pc-media__link"
           aria-label={product.name}
-          prefetch
         >
           <div className="product-shared-media" style={mediaTransition}>
-            <Image
+            <StorefrontImage
               src={currentImage}
               alt={product.name}
+              profile="card"
               fill
-              priority={priority}
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              fit="cover"
               className="pc-media__img"
+              priority={priority}
             />
           </div>
         </ProductTransitionLink>
@@ -206,26 +208,29 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           </>
         )}
 
-        <button
+        <MotionPressable
           className="pc-cart-btn"
+          variant="icon"
           onClick={handleAddToCart}
           aria-label={`Add ${product.name} to cart`}
           type="button"
         >
           <ShoppingBag size={14} strokeWidth={1.4} />
-        </button>
+        </MotionPressable>
 
         <motion.button
           className={cn('pc-wish-btn', 'pc-wish-btn--touch', inWishlist && 'pc-wish-btn--saved')}
           onClick={handleWishlist}
           aria-label={inWishlist ? 'Remove from wishlist' : 'Save'}
           aria-pressed={inWishlist}
+          transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          {...(showMotion ? { whileTap: { scale: 0.992 } } : {})}
         >
           <Heart size={14} strokeWidth={1.6} className={cn(inWishlist && 'fill-current')} />
         </motion.button>
       </div>
 
-      <Link href={`/products/${product.slug}`} className="pc-info" tabIndex={-1} prefetch>
+      <ProductTransitionLink href={`/products/${product.slug}`} className="pc-info" tabIndex={-1}>
         <div className="pc-info__row">
           <span className="pc-info__name">{product.name}</span>
           {product.category && <span className="pc-info__sku">{product.category}</span>}
@@ -244,7 +249,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           <span className="pc-info__price">{formatBDT(product.price)}</span>
           {hasDiscount && <span className="pc-info__compare">{formatBDT(product.compareAtPrice!)}</span>}
         </div>
-      </Link>
+      </ProductTransitionLink>
     </motion.article>
   )
 }
@@ -276,6 +281,7 @@ function ProductCardShop({
   const hoverImage = images[1] ?? primaryImage
   const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price
   const reducedMotion = useReducedMotion()
+  const { showMotion } = useMotionReady()
   const mediaTransition = productMediaTransitionStyle(product.id, reducedMotion)
 
   const handleBag = (size?: string, color?: string) => {
@@ -283,27 +289,37 @@ function ProductCardShop({
   }
 
   return (
-    <article className="shop-product-card group">
+    <motion.article
+      className="shop-product-card group"
+      {...(showMotion && !reducedMotion ? cardHover : {})}
+    >
       <div className="shop-product-card__shell">
-        <ProductTransitionLink href={productHref} className="shop-product-card__link" aria-label={`View ${product.name}`} prefetch>
+        <div className="shop-product-card__media-wrap">
+        <ProductTransitionLink
+          href={productHref}
+          className="shop-product-card__link"
+          aria-label={`View ${product.name}`}
+        >
           <div className="shop-product-card__media">
             <div className="product-shared-media" style={mediaTransition}>
-              <Image
+              <StorefrontImage
                 src={primaryImage}
                 alt={product.name}
+                profile="card"
                 fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                fit="cover"
                 className="shop-product-card__img shop-product-card__img--primary"
                 priority={priority}
               />
             </div>
-            <Image
+            <StorefrontImage
               src={hoverImage}
               alt=""
-              aria-hidden
+              profile="card"
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              fit="cover"
               className="shop-product-card__img shop-product-card__img--hover"
+              aria-hidden
             />
 
             {productStatus !== 'Ready' ? (
@@ -349,25 +365,28 @@ function ProductCardShop({
             </div>
           </div>
         </ProductTransitionLink>
+        </div>
 
         <div className="shop-product-card__media-actions" aria-hidden={false}>
-          <button
+          <MotionPressable
             type="button"
+            variant="icon"
             className={cn('shop-wishlist-btn', saved && 'shop-wishlist-btn--saved')}
             onClick={() => toggleWishlist(product.id)}
             aria-label={saved ? 'Remove from saved' : 'Save product'}
           >
             <Heart className={cn('h-3.5 w-3.5', saved && 'fill-current')} strokeWidth={2} />
-          </button>
+          </MotionPressable>
 
-          <button
+          <MotionPressable
             type="button"
+            variant="icon"
             className="shop-bag-btn"
             onClick={() => handleBag(sizes[0], colorHexes[0])}
             aria-label={`Add ${product.name} to bag`}
           >
             <ShoppingBag className="h-4 w-4" strokeWidth={2} />
-          </button>
+          </MotionPressable>
 
           {sizes.length > 0 ? (
             <div className="shop-quickadd">
@@ -388,6 +407,6 @@ function ProductCardShop({
           ) : null}
         </div>
       </div>
-    </article>
+    </motion.article>
   )
 }

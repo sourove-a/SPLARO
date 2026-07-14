@@ -1,19 +1,12 @@
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
-const SECRET = process.env.REVALIDATE_SECRET ?? ''
-
 export async function revalidateWebCache(tags?: string[]): Promise<void> {
-  if (!SECRET) return
   try {
-    const res = await fetch(`${WEB_URL}/api/revalidate`, {
+    const res = await fetch('/api/revalidate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-revalidate-secret': SECRET,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         tags: tags ?? ['storefront-products', 'storefront-settings'],
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')

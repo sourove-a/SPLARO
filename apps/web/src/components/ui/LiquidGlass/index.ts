@@ -1,4 +1,5 @@
 export { LiquidGlassPill, type LiquidGlassPillProps } from './LiquidGlassPill'
 export { LiquidGlassNavButton } from './LiquidGlassNavButton'
+export { LiquidGlassNavPair } from './LiquidGlassNavPair'
 export { LiquidGlassPagination } from './LiquidGlassPagination'
 export { LiquidGlassFilterRow, type LiquidGlassFilterItem } from './LiquidGlassFilterRow'

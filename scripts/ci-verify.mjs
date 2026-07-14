@@ -8,6 +8,7 @@ import { existsSync, readdirSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { getListeningPids, reclaimPort } from './api-port.mjs'
+import { cliSpawnOpts } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -37,7 +38,7 @@ function run(cmd, args, opts = {}) {
     cwd: opts.cwd ?? ROOT,
     env: opts.env ?? CI_ENV,
     stdio: 'inherit',
-    shell: false,
+    ...cliSpawnOpts(),
   })
   if (result.status !== 0) {
     console.error(`\n❌ Failed: ${label}`)
@@ -74,7 +75,7 @@ run('pnpm', ['type-check'])
 run('pnpm', ['--filter', '@splaro/web', 'lint'])
 run('pnpm', ['--filter', '@splaro/admin', 'lint'])
 run('pnpm', ['--filter', '@splaro/api', 'lint'])
-run('bash', ['-lc', 'cd packages/database && npx prisma migrate deploy'], {
+run('node', ['scripts/db-run.mjs', 'migrate', 'deploy'], {
   label: 'prisma migrate deploy',
 })
 
@@ -95,6 +96,22 @@ assertFile(resolve(ROOT, 'packages/config/dist/index.js'), 'packages/config/dist
 assertFile(resolve(ROOT, 'apps/api/dist/main.js'), 'apps/api/dist/main.js')
 assertGlobDir(resolve(ROOT, 'apps/web/.next/static/css'), /\.css$/, 'web CSS artifacts')
 assertGlobDir(resolve(ROOT, 'apps/admin/.next/static/css'), /\.css$/, 'admin CSS artifacts')
+
+const TEST_ENV = {
+  ...CI_ENV,
+  NODE_ENV: 'test',
+  ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET ?? 'ci-admin-session-secret-min-32-chars',
+  REDIS_ENABLED: 'false',
+}
+
+run('pnpm', ['--filter', '@splaro/api', 'test:unit'], {
+  label: 'API unit tests',
+  env: TEST_ENV,
+})
+run('pnpm', ['--filter', '@splaro/api', 'test:e2e'], {
+  label: 'API e2e tests',
+  env: TEST_ENV,
+})
 
 run('node', ['scripts/ci-smoke-api.mjs'], { label: 'API smoke test' })
 

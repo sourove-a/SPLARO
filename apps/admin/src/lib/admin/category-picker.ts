@@ -18,6 +18,7 @@ export interface CategoryPickerRow {
   parentId?: string | null
   isActive?: boolean
   sortOrder?: number
+  children?: CategoryPickerRow[]
 }
 
 const WOMEN_KEYWORDS = [
@@ -147,18 +148,27 @@ function departmentSlugForCategory(
   return null
 }
 
-export function buildCategoryPicker(categories: CategoryPickerRow[]) {
+export function buildCategoryPicker(categories: CategoryPickerRow[], treeRoots?: CategoryPickerRow[]) {
   const active = categories.filter((c) => c.isActive !== false)
 
-  const departments = active.filter((c) => isMenuDepartment(c)).sort(sortCats)
+  const departments = (treeRoots?.length
+    ? treeRoots.filter((c) => isMenuDepartment(c) || DEPARTMENT_SLUGS.includes(c.slug as DepartmentSlug))
+    : active.filter((c) => isMenuDepartment(c))
+  ).sort(sortCats)
 
   const deptBySlug = new Map(departments.map((d) => [d.slug, d]))
   const deptById = new Map(departments.map((d) => [d.id, d]))
   const deptIds = new Set(departments.map((d) => d.id))
+  const treeChildMap = new Map(
+    (treeRoots ?? []).map((root) => [root.id, (root.children ?? []).filter((c) => c.isActive !== false)]),
+  )
 
   function subcategoriesForDepartment(deptId: string): CategoryPickerRow[] {
-    const dept = active.find((c) => c.id === deptId)
+    const dept = active.find((c) => c.id === deptId) ?? departments.find((c) => c.id === deptId)
     if (!dept) return []
+
+    const treeChildren = treeChildMap.get(deptId)
+    if (treeChildren?.length) return [...treeChildren].sort(sortCats)
 
     const deptSlug = dept.slug as DepartmentSlug
 

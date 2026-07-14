@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 import { useAuthShowMotion } from '@/lib/auth/auth-motion'
 
@@ -13,14 +13,14 @@ interface AuthModeSwitchProps {
 export function AuthModeSwitch({ nextPath = '/account' }: AuthModeSwitchProps) {
   const pathname = usePathname()
   const isLogin = pathname === '/login'
-  const query = nextPath !== '/account' ? `?next=${encodeURIComponent(nextPath)}` : ''
+  const query = nextPath ? `?next=${encodeURIComponent(nextPath)}` : ''
   const showMotion = useAuthShowMotion()
 
   return (
     <div className="auth-mode-switch" role="tablist" aria-label="Account access">
       <Link
         href={`/login${query}`}
-        prefetch
+        prefetch={false}
         scroll={false}
         replace={pathname === '/signup'}
         className={cn('auth-mode-switch__btn', isLogin && 'auth-mode-switch__btn--active')}
@@ -32,7 +32,7 @@ export function AuthModeSwitch({ nextPath = '/account' }: AuthModeSwitchProps) {
             <motion.span
               layoutId="auth-mode-pill"
               className="auth-mode-switch__pill"
-              transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.85 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             />
           ) : (
             <span className="auth-mode-switch__pill" aria-hidden />
@@ -42,7 +42,7 @@ export function AuthModeSwitch({ nextPath = '/account' }: AuthModeSwitchProps) {
       </Link>
       <Link
         href={`/signup${query}`}
-        prefetch
+        prefetch={false}
         scroll={false}
         replace={pathname === '/login'}
         className={cn('auth-mode-switch__btn', !isLogin && 'auth-mode-switch__btn--active')}
@@ -54,7 +54,7 @@ export function AuthModeSwitch({ nextPath = '/account' }: AuthModeSwitchProps) {
             <motion.span
               layoutId="auth-mode-pill"
               className="auth-mode-switch__pill"
-              transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.85 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             />
           ) : (
             <span className="auth-mode-switch__pill" aria-hidden />

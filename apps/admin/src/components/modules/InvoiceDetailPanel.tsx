@@ -5,7 +5,7 @@ import { AdminButton } from '@/components/ui/AdminButton'
 import { InvoiceActionsBar } from '@/components/modules/InvoiceActionsBar'
 import { STATUS_CLASS, formatBDT } from '@/components/modules/ModulePanelShell'
 import { useInvoices, useOrder, useUpdateOrderPayment } from '@/lib/api/hooks'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { confirmOrderPaymentSaved } from '@/lib/admin/payment-save'
 import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
 interface InvoiceDetailPanelProps {
@@ -28,20 +28,17 @@ export function InvoiceDetailPanel({ recordId, moduleHref }: InvoiceDetailPanelP
   const liveStatus = order?.paymentStatus === 'PAID' ? 'paid' : invoice?.status ?? 'draft'
   const isPaid = order?.paymentStatus === 'PAID' || invoice?.status === 'paid'
 
-  const markPaid = () => {
+  const markPaid = async () => {
     if (!orderId || isPaid) return
-    updatePayment.mutate(
-      { id: orderId, paymentStatus: 'PAID' },
-      {
-        onSuccess: (res) => {
-          toastOk(`Invoice ${res.invoiceNumber} marked as paid.`)
-          void refetch()
-          void refetchOrder()
-        },
-        onError: (err) =>
-          toastFail(err instanceof Error ? err.message : 'Could not update payment status.'),
-      },
+    const ok = await confirmOrderPaymentSaved(
+      orderId,
+      () => updatePayment.mutateAsync({ id: orderId, paymentStatus: 'PAID' }),
+      `Invoice ${invoice?.invoiceNumber ?? orderId}`,
     )
+    if (ok) {
+      void refetch()
+      void refetchOrder()
+    }
   }
 
   if (isLoading) {

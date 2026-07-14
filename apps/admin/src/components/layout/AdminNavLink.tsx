@@ -2,9 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { MouseEvent, ReactNode } from 'react'
+import { useSyncExternalStore, type MouseEvent, type ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
-import { isExternalHref, markAdminLinkNavigation } from '@/lib/navigation/client-nav'
+import {
+  adminHrefPath,
+  getPendingAdminNav,
+  isExternalHref,
+  markAdminLinkNavigation,
+  subscribePendingAdminNav,
+} from '@/lib/navigation/client-nav'
 
 interface AdminNavLinkProps {
   href: string
@@ -16,9 +22,18 @@ interface AdminNavLinkProps {
 
 export function AdminNavLink({ href, className, title, children, onNavigate }: AdminNavLinkProps) {
   const pathname = usePathname()
+  const pendingHref = useSyncExternalStore(
+    subscribePendingAdminNav,
+    getPendingAdminNav,
+    () => null,
+  )
 
+  const hrefPath = adminHrefPath(href)
   const active =
-    pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`))
+    pathname === hrefPath || (hrefPath !== '/dashboard' && pathname.startsWith(`${hrefPath}/`))
+  const pending =
+    pendingHref != null &&
+    (adminHrefPath(pendingHref) === hrefPath || pendingHref === href)
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (
@@ -57,7 +72,13 @@ export function AdminNavLink({ href, className, title, children, onNavigate }: A
       prefetch
       onClick={handleClick}
       aria-current={active ? 'page' : undefined}
-      className={cn('admin-nav-item', active && 'admin-nav-item--active', className)}
+      aria-busy={pending || undefined}
+      className={cn(
+        'admin-nav-item',
+        active && 'admin-nav-item--active',
+        pending && 'admin-nav-item--pending',
+        className,
+      )}
     >
       {children}
     </Link>

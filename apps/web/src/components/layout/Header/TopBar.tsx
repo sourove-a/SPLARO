@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Mail, Phone, Truck } from 'lucide-react'
+import { Mail, PackageSearch, Phone, Truck } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 
 const linkClass = 'site-topbar__link'
@@ -45,14 +45,22 @@ export function TopBar() {
           )}
         </div>
 
-        <div className="site-topbar__group">
-          <span className={`${linkClass} cursor-default`}>
+        <div className="site-topbar__group site-topbar__group--icons">
+          <span
+            className={`${linkClass} site-topbar__icon-only cursor-default`}
+            title="Fast delivery"
+            aria-label="Fast delivery"
+          >
             <Truck className="h-4 w-4 shrink-0" strokeWidth={1.85} />
-            Fast delivery
           </span>
           <span className="site-topbar__divider" aria-hidden="true" />
-          <Link href="/track-order" className={linkClass}>
-            Track order
+          <Link
+            href="/track-order"
+            className={`${linkClass} site-topbar__icon-only`}
+            title="Track order"
+            aria-label="Track order"
+          >
+            <PackageSearch className="h-4 w-4 shrink-0" strokeWidth={1.85} />
           </Link>
         </div>
       </div>

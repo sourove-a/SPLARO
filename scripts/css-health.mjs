@@ -3,27 +3,35 @@
  * Probe running dev servers — layout.css must return 200 (catches stale .next / 404 CSS).
  * Usage: pnpm css:health
  */
-import { spawnSync } from 'child_process'
 import { existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { isPortListening } from './port-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const targets = [
-  { name: 'web', url: 'http://localhost:3000', port: 3000 },
-  { name: 'admin', url: 'http://localhost:3001', port: 3001 },
+  { name: 'web', url: 'http://127.0.0.1:3000', port: 3000 },
+  { name: 'admin', url: 'http://127.0.0.1:3001', port: 3001 },
 ]
 
-function curl(path) {
-  const result = spawnSync('curl', ['-sI', path], { encoding: 'utf8', timeout: 8000 })
-  if (result.error) throw result.error
-  return result.stdout ?? ''
+async function headStatus(url) {
+  const res = await fetch(url, {
+    method: 'HEAD',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(8000),
+    cache: 'no-store',
+  })
+  return res.status
 }
 
-function portOpen(port) {
-  const result = spawnSync('lsof', ['-ti', `:${port}`], { encoding: 'utf8', timeout: 5000 })
-  return result.status === 0 && result.stdout?.trim()
+async function fetchHtml(url) {
+  const res = await fetch(url, {
+    redirect: 'manual',
+    signal: AbortSignal.timeout(8000),
+    cache: 'no-store',
+  })
+  return { status: res.status, html: await res.text() }
 }
 
 let failed = 0
@@ -31,16 +39,15 @@ let failed = 0
 console.log('\n🎨 CSS health probe (running dev servers)\n')
 
 for (const t of targets) {
-  if (!portOpen(t.port)) {
+  if (!isPortListening(t.port)) {
     console.log(`  ⏭️  ${t.name} — not running on :${t.port}`)
     continue
   }
 
   try {
-    const home = curl(t.url)
-    const status = home.match(/^HTTP\/[\d.]+ (\d+)/m)?.[1]
-    if (status !== '200' && status !== '307') {
-      throw new Error(`home returned HTTP ${status ?? 'unknown'}`)
+    const { status, html: home } = await fetchHtml(t.url)
+    if (status !== 200 && status !== 307) {
+      throw new Error(`home returned HTTP ${status}`)
     }
 
     const cssMatch = home.match(/href="(\/_next\/static\/css\/[^"]+)"/)
@@ -50,10 +57,9 @@ for (const t of targets) {
     }
 
     const cssPath = cssMatch[1].split('?')[0]
-    const cssHead = curl(`${t.url}${cssPath}`)
-    const cssStatus = cssHead.match(/^HTTP\/[\d.]+ (\d+)/m)?.[1]
-    if (cssStatus !== '200') {
-      throw new Error(`layout.css returned HTTP ${cssStatus ?? 'unknown'} — run pnpm css:fix`)
+    const cssStatus = await headStatus(`${t.url}${cssPath}`)
+    if (cssStatus !== 200) {
+      throw new Error(`layout.css returned HTTP ${cssStatus} — run pnpm css:fix`)
     }
 
     console.log(`  ✅ ${t.name} — layout.css OK (${cssPath})`)
@@ -63,7 +69,6 @@ for (const t of targets) {
   }
 }
 
-// Built CSS artifacts (post-build)
 const webCssDir = resolve(ROOT, 'apps/web/.next/static/css')
 if (existsSync(webCssDir)) {
   console.log(`  ✅ web build has .next/static/css`)

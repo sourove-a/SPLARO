@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { Public } from '../../common/auth/public.decorator'
+import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { canWriteAdmin } from '../../common/auth/admin-session.util'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { GoogleWorkspaceService } from './google-workspace.service'
@@ -99,6 +100,7 @@ export class GoogleWorkspaceController {
     return this.google.oauthService().updateOAuthSettings(storeId, body, userId)
   }
 
+  @RequireFeature('googleSheets')
   @Get('sheets/config')
   sheetsConfig(@Query('storeId') storeId: string) {
     return this.google.sheetsService().getSheetConfigs(storeId)
@@ -110,6 +112,7 @@ export class GoogleWorkspaceController {
     return this.google.serviceAccountService().activateStore(storeId, userId)
   }
 
+  @RequireFeature('googleSheets')
   @Post('sheets/link')
   linkSpreadsheet(
     @Query('storeId') storeId: string,
@@ -123,12 +126,14 @@ export class GoogleWorkspaceController {
     return this.google.sheetsService().linkExistingSpreadsheet(storeId, spreadsheetId, userId)
   }
 
+  @RequireFeature('googleSheets')
   @Post('sheets/create-default')
   createSpreadsheet(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
     return this.google.sheetsService().createDefaultSpreadsheet(storeId, userId)
   }
 
+  @RequireFeature('googleSheets')
   @Put('sheets/auto-sync')
   toggleAutoSync(
     @Query('storeId') storeId: string,
@@ -139,6 +144,7 @@ export class GoogleWorkspaceController {
     return this.google.sheetsService().toggleAutoSync(storeId, body.enabled, userId)
   }
 
+  @RequireFeature('googleSheets')
   @Post('sheets/sync-now')
   async syncNow(
     @Query('storeId') storeId: string,
@@ -157,12 +163,14 @@ export class GoogleWorkspaceController {
     })
   }
 
+  @RequireFeature('googleSheets')
   @Post('sheets/retry-failed')
   retryFailed(@Query('storeId') storeId: string, @Req() req: AdminRequest) {
     const userId = this.assertWrite(req)
     return this.google.retryFailed(storeId, userId)
   }
 
+  @RequireFeature('googleSheets')
   @Get('sync-logs')
   syncLogs(
     @Query('storeId') storeId: string,

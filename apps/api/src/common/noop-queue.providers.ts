@@ -1,6 +1,6 @@
 import { getQueueToken } from '@nestjs/bullmq'
 
-const QUEUE_NAMES = ['courier', 'invoices', 'sheets', 'ai-jobs', 'marketing', 'google-sync'] as const
+const QUEUE_NAMES = ['courier', 'invoices', 'sheets', 'ai-jobs', 'marketing', 'google-sync', 'order-side-effects'] as const
 
 /** In-memory no-op queues when REDIS_ENABLED=false (shared hosting without Redis). */
 export function noopQueueProviders() {

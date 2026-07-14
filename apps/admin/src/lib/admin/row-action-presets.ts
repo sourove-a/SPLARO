@@ -1,4 +1,4 @@
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
 
 const BACKEND_MISSING_TITLE = 'Backend not connected for this action. No data was saved.'
 
@@ -30,10 +30,7 @@ type BuildRowActionsArgs = {
 
 function copyText(text: string, message: string, close: () => void) {
   close()
-  void navigator.clipboard.writeText(text).then(
-    () => toastOk(message, 'clipboard-copy'),
-    () => toastFail('Could not copy to clipboard'),
-  )
+  void copyWithToast(text, message)
 }
 
 /** Contextual row actions for modules without dedicated detail pages. */

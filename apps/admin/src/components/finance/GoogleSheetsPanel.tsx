@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
 import { RefreshCw, Sheet } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { toastFail, toastWarn } from '@/lib/admin/feedback'
 import {
   fetchSheetsDashboard,
   syncAllSheets,
@@ -41,26 +41,34 @@ export function GoogleSheetsPanel() {
   }, [load])
 
   const handleSyncAll = async () => {
+    if (!apiOnline) {
+      toastFail('API offline — cannot sync sheets.', 'sheets-offline')
+      return
+    }
     setBusy(true)
     try {
       await syncAllSheets('admin')
-      toast.success('Google Sheets sync started')
+      toastWarn('Google Sheets sync queued — refresh to confirm completion.', 'sheets-sync-queued')
       load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Sync failed')
+      toastFail(err instanceof Error ? err.message : 'Sync failed', 'sheets-sync-fail')
     } finally {
       setBusy(false)
     }
   }
 
   const handleRetry = async () => {
+    if (!apiOnline) {
+      toastFail('API offline — cannot retry sheet syncs.', 'sheets-offline')
+      return
+    }
     setBusy(true)
     try {
       await retryFailedSheets()
-      toast.success('Retrying failed sheet syncs')
+      toastWarn('Retry queued for failed sheet syncs — refresh to confirm.', 'sheets-retry-queued')
       load()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Retry failed')
+      toastFail(err instanceof Error ? err.message : 'Retry failed', 'sheets-retry-fail')
     } finally {
       setBusy(false)
     }
@@ -77,14 +85,14 @@ export function GoogleSheetsPanel() {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <AdminButton variant="gold" loading={busy} onClick={() => void handleSyncAll()}>
+        <AdminButton variant="gold" loading={busy} disabled={!apiOnline} onClick={() => void handleSyncAll()}>
           <Sheet className="h-3.5 w-3.5" />
           Sync all sheets
         </AdminButton>
         <button
           type="button"
           onClick={() => void handleRetry()}
-          disabled={busy}
+          disabled={busy || !apiOnline}
           className="inline-flex items-center gap-2 rounded-xl border border-[var(--admin-glass-border-subtle)] bg-[var(--admin-glass-strong)] px-4 py-2 text-xs font-black uppercase tracking-wider text-[var(--admin-text-secondary)] disabled:opacity-50"
         >
           <RefreshCw className="h-3.5 w-3.5" />

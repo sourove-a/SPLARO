@@ -13,9 +13,12 @@ export function sanitizeRemoteImageUrl(
   if (!trimmed) return fallback
 
   const resolved = resolveStorefrontAssetUrl(trimmed)
-  // Stock-media hosts are blocked for product imagery, but hero/editorial
-  // backdrops legitimately use Pexels stills (derived from the slide's video).
-  if (!opts?.allowStockMedia && REMOTE_STOCK_MEDIA.test(resolved)) return fallback
+  // Allow Unsplash/Pexels stills for seeded catalog + editorial heroes so
+  // production doesn't replace real product photos with the empty-state tile.
+  // Pass allowStockMedia:false only when you must force a non-stock asset.
+  if (opts?.allowStockMedia === false && REMOTE_STOCK_MEDIA.test(resolved)) {
+    return fallback
+  }
 
   return resolved
 }

@@ -3,7 +3,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { CacheService } from '../../common/cache.service'
 import { EmailService } from '../email/email.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
-import { DEFAULT_CATALOG_CHANNELS } from '@splaro/types'
+import { DEFAULT_CATALOG_CHANNELS, mergeShopFilters } from '@splaro/types'
 import { emptyStorefrontConfig, mergeStorefrontConfig, mergeHeaderNav, mergeCatalogChannels, type StorefrontConfig } from './storefront-config'
 
 @Controller('admin/settings')
@@ -25,7 +25,10 @@ export class SettingsController {
   }
 
   private async purgeStorefrontCache(storeId: string) {
-    await this.cache.invalidateStoreResource(storeId, 'settings')
+    await Promise.all([
+      this.cache.invalidateStoreResource(storeId, 'settings'),
+      this.cache.invalidateStoreResource(storeId, 'nav'),
+    ])
   }
 
   private async revalidateStorefrontWeb() {
@@ -89,20 +92,22 @@ export class SettingsController {
         headerNav: config.headerNav ?? [],
         footerGroups: config.footerGroups ?? [],
       },
+      menuOverrides: config.menuOverrides ?? { autoSync: true, departments: [] },
       marquee: config.marquee ?? { enabled: false, items: [] },
       specialOffer: config.specialOffer ?? { enabled: false, template: 'countdown', title: '', ctaLabel: 'Shop now', ctaHref: '/shop' },
       newsletter: config.newsletter ?? emptyStorefrontConfig().newsletter,
       ourStory: config.ourStory ?? emptyStorefrontConfig().ourStory,
       homepage: config.homepage ?? emptyStorefrontConfig().homepage,
       catalogChannels: mergeCatalogChannels(config.catalogChannels),
+      shopFilters: mergeShopFilters(config.shopFilters),
       catalog: {
         autoGenerateSku: config.catalog?.autoGenerateSku ?? false,
       },
       payments: {
         cod: settings?.codEnabled ?? true,
-        bkash: settings?.bkashEnabled ?? true,
-        sslcommerz: settings?.sslcommerzEnabled ?? true,
-        nagad: settings?.nagadEnabled ?? true,
+        bkash: settings?.bkashEnabled ?? false,
+        sslcommerz: settings?.sslcommerzEnabled ?? false,
+        nagad: settings?.nagadEnabled ?? false,
       },
       shipping: {
         dhakaSameDay: config.shippingZones?.dhakaSameDay ?? true,
@@ -247,12 +252,14 @@ export class SettingsController {
         headerNav?: StorefrontConfig['headerNav']
         footerGroups?: StorefrontConfig['footerGroups']
       }
+      menuOverrides?: StorefrontConfig['menuOverrides']
       marquee?: StorefrontConfig['marquee']
       specialOffer?: StorefrontConfig['specialOffer']
       newsletter?: StorefrontConfig['newsletter']
       ourStory?: StorefrontConfig['ourStory']
       homepage?: StorefrontConfig['homepage']
       catalogChannels?: StorefrontConfig['catalogChannels']
+      shopFilters?: StorefrontConfig['shopFilters']
       catalog?: StorefrontConfig['catalog']
       payments?: {
         cod?: boolean
@@ -273,16 +280,6 @@ export class SettingsController {
         facebookPixelId?: string
         googleAnalyticsId?: string
       }
-      telegram?: {
-        botToken?: string
-        chatId?: string
-        isActive?: boolean
-        notifyOrders?: boolean
-        notifyPayments?: boolean
-        notifyCourier?: boolean
-        notifyStock?: boolean
-        reportDaily?: boolean
-      }
     },
   ) {
     const store = await this.resolveStore(storeId)
@@ -298,6 +295,7 @@ export class SettingsController {
         ? { headerNav: mergeHeaderNav(currentConfig.headerNav, body.navigation.headerNav) }
         : {}),
       ...(body.navigation?.footerGroups ? { footerGroups: body.navigation.footerGroups } : {}),
+      ...(body.menuOverrides ? { menuOverrides: body.menuOverrides } : {}),
       ...(body.marquee ? { marquee: { ...currentConfig.marquee!, ...body.marquee } } : {}),
       ...(body.specialOffer ? { specialOffer: { ...currentConfig.specialOffer!, ...body.specialOffer } } : {}),
       ...(body.newsletter
@@ -333,6 +331,7 @@ export class SettingsController {
       ...(body.catalogChannels
         ? { catalogChannels: mergeCatalogChannels(body.catalogChannels) }
         : {}),
+      ...(body.shopFilters ? { shopFilters: mergeShopFilters(body.shopFilters) } : {}),
       ...(body.catalog ? { catalog: { ...currentConfig.catalog!, ...body.catalog } } : {}),
       ...(body.smtp
         ? {
@@ -385,15 +384,15 @@ export class SettingsController {
     const socialPatch = body.social
     const contactPatch = body.contact
 
-    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.catalog || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing) {
+    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing) {
       await this.prisma.siteSettings.upsert({
         where: { storeId: store.id },
         create: {
           storeId: store.id,
           codEnabled: paymentPatch?.cod ?? true,
-          bkashEnabled: paymentPatch?.bkash ?? true,
-          sslcommerzEnabled: paymentPatch?.sslcommerz ?? true,
-          nagadEnabled: paymentPatch?.nagad ?? true,
+          bkashEnabled: paymentPatch?.bkash ?? false,
+          sslcommerzEnabled: paymentPatch?.sslcommerz ?? false,
+          nagadEnabled: paymentPatch?.nagad ?? false,
           freeDeliveryThreshold: shippingPatch?.freeShippingMin ? Number(shippingPatch.freeShippingMin) : 0,
           dhakaDeliveryCharge: shippingPatch?.dhakaDeliveryCharge ?? 60,
           outsideDhakaCharge: shippingPatch?.outsideDhakaCharge ?? 120,

@@ -201,21 +201,8 @@ export const DEFAULT_LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
   },
   'size-guide': {
     title: 'Size Guide',
-    description: 'Find your perfect SPLARO fit with our measurement charts for Women, Men, and Kids.',
-    sections: [
-      {
-        heading: 'How to measure',
-        body: 'Use a soft measuring tape over light clothing. Chest/Bust: measure around the fullest part. Waist: measure at natural waistline. Hip: measure around the fullest part. For footwear, measure foot length from heel to longest toe while standing.',
-      },
-      {
-        heading: 'Fit notes',
-        body: "SPLARO fits true to size unless noted on the product page. Relaxed and oversized styles intentionally run larger — check the product description. Between sizes? We recommend sizing up for comfort in Bangladesh's warm climate.",
-      },
-      {
-        heading: 'Still unsure?',
-        body: 'Message us on WhatsApp with your measurements and the product you are interested in. Our stylists will recommend the best size within a few hours.',
-      },
-    ],
+    description: 'Women, men & kids — centimetres, true to size.',
+    sections: [],
   },
   'gift-card-policy': {
     title: 'Gift Card Policy',

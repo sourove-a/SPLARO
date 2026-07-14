@@ -1,6 +1,8 @@
 /** Pingable routes for live health monitoring (storeId=splaro substituted at runtime). */
 export type HttpProbeMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
+export type ProbeFeatureFlag = 'loyalty' | 'saas' | 'vendor' | 'ai' | 'chatbot' | 'googleSheets'
+
 export interface ApiRouteProbe {
   id: string
   name: string
@@ -10,6 +12,11 @@ export interface ApiRouteProbe {
   allowNotFound?: boolean
   /** GET routes that require customer/session auth — 401 still means route exists */
   allowUnauthorized?: boolean
+  /**
+   * When this feature flag is OFF, probe is counted healthy (expected 403).
+   * Prevents “Customers 5/11 OK” noise for intentionally disabled SaaS modules.
+   */
+  requiresFeature?: ProbeFeatureFlag
   /** Default GET. POST/PUT/PATCH/DELETE use writeProbe semantics unless overridden. */
   method?: HttpProbeMethod
   /** JSON body for write probes (default `{}`). */
@@ -23,7 +30,11 @@ function p(
   name: string,
   group: string,
   path: string,
-  opts?: { allowNotFound?: boolean; allowUnauthorized?: boolean },
+  opts?: {
+    allowNotFound?: boolean
+    allowUnauthorized?: boolean
+    requiresFeature?: ProbeFeatureFlag
+  },
 ): ApiRouteProbe {
   return { id, name, group, path, ...opts }
 }
@@ -34,8 +45,9 @@ function pw(
   group: string,
   path: string,
   body = '{}',
+  opts?: { requiresFeature?: ProbeFeatureFlag },
 ): ApiRouteProbe {
-  return { id, name, group, path, method: 'POST', body, writeProbe: true }
+  return { id, name, group, path, method: 'POST', body, writeProbe: true, ...opts }
 }
 
 function pwp(
@@ -44,8 +56,9 @@ function pwp(
   group: string,
   path: string,
   body = '{}',
+  opts?: { requiresFeature?: ProbeFeatureFlag },
 ): ApiRouteProbe {
-  return { id, name, group, path, method: 'PATCH', body, writeProbe: true }
+  return { id, name, group, path, method: 'PATCH', body, writeProbe: true, ...opts }
 }
 
 export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
@@ -129,12 +142,12 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
 
     // ── Customers ─────────────────────────────────────────────────────────
     p('customers', 'Customers', 'Customers', q('/admin/customers') + '&limit=5'),
-    p('loyalty-summary', 'Loyalty Program', 'Customers', q('/admin/loyalty/summary')),
-    p('loyalty-referrals', 'Referrals', 'Customers', q('/admin/loyalty/referrals') + '&limit=5'),
-    p('loyalty-history', 'Loyalty History', 'Customers', q('/admin/loyalty/history')),
-    p('loyalty-tiers', 'Loyalty Tiers', 'Customers', q('/admin/loyalty/tiers')),
-    p('loyalty-tier-analytics', 'Tier Analytics', 'Customers', q('/admin/loyalty/tier-analytics')),
-    p('loyalty-referral-stats', 'Referral Stats', 'Customers', q('/admin/loyalty/referrals/stats')),
+    p('loyalty-summary', 'Loyalty Program', 'Customers', q('/admin/loyalty/summary'), { requiresFeature: 'loyalty' }),
+    p('loyalty-referrals', 'Referrals', 'Customers', q('/admin/loyalty/referrals') + '&limit=5', { requiresFeature: 'loyalty' }),
+    p('loyalty-history', 'Loyalty History', 'Customers', q('/admin/loyalty/history'), { requiresFeature: 'loyalty' }),
+    p('loyalty-tiers', 'Loyalty Tiers', 'Customers', q('/admin/loyalty/tiers'), { requiresFeature: 'loyalty' }),
+    p('loyalty-tier-analytics', 'Tier Analytics', 'Customers', q('/admin/loyalty/tier-analytics'), { requiresFeature: 'loyalty' }),
+    p('loyalty-referral-stats', 'Referral Stats', 'Customers', q('/admin/loyalty/referrals/stats'), { requiresFeature: 'loyalty' }),
     p('customers-export', 'Customer Export', 'Customers', q('/admin/customers/export')),
     p('customers-cod-risk', 'COD Risk Stats', 'Customers', q('/admin/customers/cod-risk/stats')),
 
@@ -273,7 +286,9 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('platform-media', 'Media Library', 'Media', q('/admin/platform/media')),
 
     // ── Marketplace ───────────────────────────────────────────────────────
-    p('platform-marketplace', 'Marketplace Overview', 'Marketplace', q('/admin/platform/marketplace')),
+    p('platform-marketplace', 'Marketplace Overview', 'Marketplace', q('/admin/platform/marketplace'), {
+      requiresFeature: 'vendor',
+    }),
 
     // ── Social Commerce ───────────────────────────────────────────────────
     p('marketing-social', 'Social Hub', 'Social Commerce', q('/admin/hub/marketing/overview')),
@@ -302,11 +317,11 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     p('integrations-catalog', 'Integration Catalog', 'Integrations', q('/admin/integrations/catalog')),
 
     // ── SaaS ──────────────────────────────────────────────────────────────
-    p('saas-overview', 'SaaS Platform', 'SaaS', q('/admin/saas')),
-    p('saas-stores', 'Stores', 'SaaS', q('/admin/saas/stores')),
-    p('saas-subscription', 'Subscription', 'SaaS', q('/admin/saas/subscription')),
-    p('saas-stats', 'SaaS Stats', 'SaaS', q('/admin/saas/stats')),
-    p('saas-loyalty-tiers', 'SaaS Loyalty Tiers', 'SaaS', q('/admin/saas/loyalty/tiers')),
+    p('saas-overview', 'SaaS Platform', 'SaaS', q('/admin/saas'), { requiresFeature: 'saas' }),
+    p('saas-stores', 'Stores', 'SaaS', q('/admin/saas/stores'), { requiresFeature: 'saas' }),
+    p('saas-subscription', 'Subscription', 'SaaS', q('/admin/saas/subscription'), { requiresFeature: 'saas' }),
+    p('saas-stats', 'SaaS Stats', 'SaaS', q('/admin/saas/stats'), { requiresFeature: 'saas' }),
+    p('saas-loyalty-tiers', 'SaaS Loyalty Tiers', 'SaaS', q('/admin/saas/loyalty/tiers'), { requiresFeature: 'saas' }),
 
     // ── Security (one probe per admin nav item) ───────────────────────────
     p('security-center', 'Security Center', 'Security', q('/admin/security')),
@@ -357,7 +372,9 @@ export function buildApiRouteProbes(storeId = 'splaro'): ApiRouteProbe[] {
     pw('product-post', 'Create Product (POST)', 'Catalog', q('/admin/products')),
     pw('order-post', 'Create Order (POST)', 'Commerce', q('/admin/orders')),
     pw('customer-note-post', 'Customer Note (POST)', 'Customers', q('/admin/customers/health-probe/notes'), '{"note":"health probe"}'),
-    pw('loyalty-tier-post', 'Upsert Loyalty Tier (POST)', 'Customers', q('/admin/loyalty/tiers'), '{"tier":"BRONZE","minPoints":0,"pointsPerBdt":1}'),
+    pw('loyalty-tier-post', 'Upsert Loyalty Tier (POST)', 'Customers', q('/admin/loyalty/tiers'), '{"tier":"BRONZE","minPoints":0,"pointsPerBdt":1}', {
+      requiresFeature: 'loyalty',
+    }),
     pw('campaign-post', 'Create Campaign (POST)', 'Marketing', q('/marketing/campaigns')),
     pw('coupon-post', 'Create Coupon (POST)', 'Marketing', q('/admin/coupons')),
     pw('blog-post', 'Create Blog Post (POST)', 'Content', q('/admin/hub/content/blog')),

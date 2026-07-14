@@ -1,8 +1,15 @@
 'use client'
 
 import { Fragment, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { refreshWithToast, toastOk, toastFail } from '@/lib/admin/feedback'
+import {
+  confirmBrandSaved,
+  confirmBrandToggled,
+  confirmCollectionSaved,
+  confirmCollectionToggled,
+  confirmProductArchived,
+  confirmVariantSaved,
+} from '@/lib/admin/catalog-save'
 import { copyProductStorefrontUrl, productStorefrontUrl } from '@/lib/admin/product-storefront-url'
 import { downloadCsv, printProductLabel } from '@/lib/admin/admin-actions'
 import { AlertTriangle, Archive, Award, ChevronDown, Download, Layers, Package, Plus, Printer, RefreshCw, Search, Tags } from 'lucide-react'
@@ -222,12 +229,10 @@ function ProductsPanel() {
     })
   }, [query, statusFilter, catalog])
 
-  const handleArchive = (linkId: string, name: string) => {
+  const handleArchive = async (linkId: string, name: string) => {
     if (!window.confirm(`Archive "${name}"? It will be hidden from the storefront.`)) return
-    deleteProduct.mutate(linkId, {
-      onSuccess: () => toast.success(`${name} archived.`),
-      onError: () => toast.error('Could not archive product.'),
-    })
+    const ok = await confirmProductArchived(linkId, name, () => deleteProduct.mutateAsync(linkId))
+    if (ok) void refetch()
   }
 
   const exportProducts = () => {
@@ -361,7 +366,7 @@ function ProductsPanel() {
                                 label: 'Copy storefront URL',
                                 onClick: () => {
                                   if (p.status !== 'active') {
-                                    toast.error('Publish the product first — draft links do not work on the storefront.')
+                                    toastFail('Publish the product first — draft links do not work on the storefront.')
                                     return
                                   }
                                   void copyProductStorefrontUrl(p.slug).then((ok) =>
@@ -373,7 +378,7 @@ function ProductsPanel() {
                                 label: 'View on storefront',
                                 onClick: () => {
                                   if (p.status !== 'active') {
-                                    toast.error('Publish the product first.')
+                                    toastFail('Publish the product first.')
                                     return
                                   }
                                   window.open(productStorefrontUrl(p.slug), '_blank', 'noopener,noreferrer')
@@ -429,14 +434,26 @@ function CollectionsPanel() {
   const published = rows.filter((c) => c.isActive).length
   const linked = rows.reduce((s, c) => s + (c._count?.products ?? 0), 0)
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = window.prompt('Collection name')
     if (!name?.trim()) return
-    createCollection.mutate({ name: name.trim() }, { onSuccess: () => toast.success('Collection created'), onError: (e) => toast.error(e.message) })
+    const trimmed = name.trim()
+    const ok = await confirmCollectionSaved(
+      { name: trimmed, isActive: true },
+      () => createCollection.mutateAsync({ name: trimmed }),
+    )
+    if (ok) void refetch()
   }
 
-  const toggleVisibility = (id: string, name: string, isActive: boolean) => {
-    updateCollection.mutate({ id, isActive: !isActive }, { onSuccess: () => toast.success(`${name} ${isActive ? 'hidden' : 'published'}.`), onError: () => toast.error('Could not update collection.') })
+  const toggleVisibility = async (id: string, name: string, isActive: boolean) => {
+    const next = !isActive
+    const ok = await confirmCollectionToggled(
+      id,
+      next,
+      name,
+      () => updateCollection.mutateAsync({ id, isActive: next }),
+    )
+    if (ok) void refetch()
   }
 
   if (isError) return <ApiOfflineBanner message="API offline — start API on port 4000, then run `pnpm db:push`." />
@@ -500,22 +517,19 @@ function InventoryVariantAdjust({
   const variantId = variant.id
   const label = [variant.size, variant.colorName ?? variant.color].filter(Boolean).join(' / ') || variant.sku || 'Default'
 
-  const save = () => {
+  const save = async () => {
     const next = Number(stock)
     if (Number.isNaN(next) || next < 0) {
       toastFail('Enter a valid stock number.')
       return
     }
-    updateVariant.mutate(
-      { productId, variantId, stock: next },
-      {
-        onSuccess: () => {
-          toastOk(`Stock updated for ${label}.`)
-          onSaved()
-        },
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not update stock.'),
-      },
+    const ok = await confirmVariantSaved(
+      productId,
+      variantId,
+      { stock: next },
+      () => updateVariant.mutateAsync({ productId, variantId, stock: next }),
     )
+    if (ok) onSaved()
   }
 
   return (
@@ -746,15 +760,27 @@ function BrandsPanel() {
   const vendors = new Set(rows.map((b) => b.vendorLabel ?? '—')).size
   const products = rows.reduce((s, b) => s + (b.productCount ?? 0), 0)
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = window.prompt('Brand name')
     if (!name?.trim()) return
     const vendorLabel = window.prompt('Vendor label (e.g. In-house)', 'In-house') ?? 'In-house'
-    createBrand.mutate({ name: name.trim(), vendorLabel }, { onSuccess: () => toast.success('Brand created'), onError: (e) => toast.error(e.message) })
+    const trimmed = name.trim()
+    const ok = await confirmBrandSaved(
+      { name: trimmed },
+      () => createBrand.mutateAsync({ name: trimmed, vendorLabel }),
+    )
+    if (ok) void refetch()
   }
 
-  const toggleActive = (id: string, name: string, isActive: boolean) => {
-    updateBrand.mutate({ id, isActive: !isActive }, { onSuccess: () => toast.success(`${name} ${isActive ? 'deactivated' : 'activated'}.`), onError: () => toast.error('Could not update brand.') })
+  const toggleActive = async (id: string, name: string, isActive: boolean) => {
+    const next = !isActive
+    const ok = await confirmBrandToggled(
+      id,
+      next,
+      name,
+      () => updateBrand.mutateAsync({ id, isActive: next }),
+    )
+    if (ok) void refetch()
   }
 
   if (isError) return <ApiOfflineBanner message="API offline — start API on port 4000, then run `pnpm db:push`." />

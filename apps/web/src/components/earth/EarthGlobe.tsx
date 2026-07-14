@@ -4,6 +4,12 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { cn } from '@/lib/utils/cn'
 
+import {
+  computeFooterEarthLayout,
+  FOOTER_EARTH_ROTATION_SPEED_Y,
+  searchFooterEarthGroupScale,
+  searchFooterEarthGroupY,
+} from '@/lib/earth/footer-framing'
 import { EARTH_TEXTURE_URLS } from '@/lib/earth/textures'
 import { globePixelRatioCap, isLowPowerDevice, isPhoneViewport, acquireEarthWebGLSlot, releaseEarthWebGLSlot } from '@/lib/earth/globe-performance'
 
@@ -26,35 +32,35 @@ const STORY_CONFIG = {
   atmosphereStrength: 0.22,
   sparkleCount: 900,
   sparkleKeep: 0.58,
-  pixelRatioCap: 3,
+  pixelRatioCap: 2,
   orbitMultiplier: 1,
 } as const
 
+/** Cinematic horizon framing + original natural earth palette (no cyan wash). */
 const FOOTER_CONFIG = {
   radius: 1,
-  fov: 40,
-  camera: { x: 0, y: 0.02, z: 2.45 },
-  lookAtY: -0.08,
-  groupScale: 1.34,
-  groupY: -0.1,
-  tiltX: -0.36,
+  fov: 34,
+  camera: { x: 0, y: 0.22, z: 1.62 },
+  lookAtY: -0.22,
+  groupScale: 3.95,
+  groupY: -0.48,
+  tiltX: -0.38,
   /** Middle East / Asia / Africa — natural land-forward (matches footer reference) */
   initialRotationY: 1.28,
-  rotationSpeedY: 0.036,
-  rotationSpeedX: 0.014,
-  roll: 0.012,
-  wobble: 0.008,
+  /** Clouds drift slightly faster than the surface for depth. */
+  cloudDriftY: 0.018,
+  /** Whole-globe slow tumble — z roll (full turn ~4min) + gentle x sway. */
+  tumbleZSpeed: (2 * Math.PI) / 240,
+  tumbleXAmp: 0.14,
+  tumbleXSpeed: 0.045,
   segments: 128,
-  pixelRatioCap: 3,
-  maxWideBoost: 1.28,
-  /** Portrait / mobile — bigger earth, richer colors */
-  compactScaleBoost: 1.2,
-  compactCameraZ: 2.22,
+  pixelRatioCap: 2,
+  compactCameraZ: 1.55,
   compactAtmoStrength: 0.2,
   compactNightOpacity: 0.14,
   compactSunIntensity: 1.28,
-  atmoInner: { color: 0x1a2838, strength: 0.2, topBoost: 0.1, scale: 1.086 },
-  atmoOuter: { color: 0x243040, strength: 0.07, topBoost: 0.12, scale: 1.102 },
+  atmoInner: { color: 0x4aa4f4, strength: 0.32, topBoost: 0.16, scale: 1.045 },
+  atmoOuter: { color: 0x2058a8, strength: 0.12, topBoost: 0.12, scale: 1.1 },
   moon: {
     radius: 0.155,
     x: 2.05,
@@ -174,8 +180,8 @@ function createMuranoGlassShell(radius: number): THREE.Mesh {
           murano = mix(murano, vec3(0.52, 0.44, 0.58), ripple * 0.18);
           vec3 lightDir = normalize(vec3(0.15, 0.92, 0.35));
           float spec = pow(max(dot(reflect(-vView, vNormal), lightDir), 0.0), 18.0);
-          float glass = fresnel * 0.28 + spec * 0.2 + swirl * 0.03;
-          gl_FragColor = vec4(murano, glass * 0.34);
+          float glass = fresnel * 0.22 + spec * 0.14 + swirl * 0.02;
+          gl_FragColor = vec4(murano, glass * 0.22);
         }
       `,
     }),
@@ -389,7 +395,7 @@ export function EarthGlobe({
     }
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ReinhardToneMapping
-    renderer.toneMappingExposure = isFooter && isCompactFooterViewport() ? 1.16 : isFooter ? 1.2 : 1
+    renderer.toneMappingExposure = isFooter && isCompactFooterViewport() ? 1.18 : isFooter ? 1.24 : 1
     renderer.setClearColor(0x000000, 0)
     renderer.setPixelRatio(globePixelRatioCap(config.pixelRatioCap))
     host.appendChild(renderer.domElement)
@@ -415,6 +421,7 @@ export function EarthGlobe({
     let starMaterial: THREE.ShaderMaterial | null = null
     let glassMaterial: THREE.ShaderMaterial | null = null
     let moonGroup: THREE.Group | null = null
+    let cloudMesh: THREE.Mesh | null = null
 
     const renderFrame = () => {
       if (!disposed) renderer.render(scene, camera)
@@ -463,9 +470,10 @@ export function EarthGlobe({
       const dayMat = new THREE.MeshStandardMaterial({
         map: dayMap,
         bumpMap,
-        bumpScale: compact ? 0.048 : 0.042,
+        bumpScale: compact ? 0.052 : 0.048,
         roughness: 0.9,
-        metalness: 0.02,
+        metalness: 0.015,
+        color: 0xe4ecf6,
       })
       root.add(new THREE.Mesh(dayGeo, dayMat))
       disposables.push(dayGeo, dayMat)
@@ -474,19 +482,20 @@ export function EarthGlobe({
       const cloudMat = new THREE.MeshPhongMaterial({
         map: cloudMap,
         transparent: true,
-        opacity: compact ? 0.15 : 0.17,
+        opacity: compact ? 0.2 : 0.24,
         depthWrite: false,
-        specular: new THREE.Color(0x222222),
-        shininess: 4,
+        specular: new THREE.Color(0x333333),
+        shininess: 6,
       })
-      root.add(new THREE.Mesh(cloudGeo, cloudMat))
+      cloudMesh = new THREE.Mesh(cloudGeo, cloudMat)
+      root.add(cloudMesh)
       disposables.push(cloudGeo, cloudMat)
 
       const nightGeo = new THREE.SphereGeometry(FOOTER_CONFIG.radius * 1.006, segments, segments)
       const nightMat = new THREE.MeshBasicMaterial({
         map: nightMap,
         transparent: true,
-        opacity: compact ? FOOTER_CONFIG.compactNightOpacity : 0.17,
+        opacity: compact ? 0.3 : 0.36,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       })
@@ -516,22 +525,24 @@ export function EarthGlobe({
       root.add(glassShell)
       disposables.push(glassShell.geometry, glassShell.material as THREE.Material)
 
-      scene.add(new THREE.AmbientLight(0x2a2530, compact ? 0.38 : 0.34))
-      scene.add(new THREE.HemisphereLight(0xd8ecf8, 0x120e0a, compact ? 0.5 : 0.46))
+      scene.add(new THREE.AmbientLight(0x28303e, compact ? 0.34 : 0.3))
+      scene.add(new THREE.HemisphereLight(0xcfe4f4, 0x0c0a08, compact ? 0.42 : 0.38))
+      // Key sun from upper-left — dramatic day/night terminator across the disc.
       const sun = new THREE.DirectionalLight(
-        0xeaf6ff,
-        compact ? FOOTER_CONFIG.compactSunIntensity : 1.3,
+        0xfff4e2,
+        compact ? FOOTER_CONFIG.compactSunIntensity * 1.25 : 1.72,
       )
-      sun.position.set(2.8, 5.2, 3.4)
+      sun.position.set(-4.2, 3.2, 2.6)
       scene.add(sun)
-      const limb = new THREE.DirectionalLight(0x2a4058, compact ? 0.1 : 0.12)
+      const limb = new THREE.DirectionalLight(0x8ec8f8, compact ? 0.22 : 0.26)
       limb.position.set(0, 7, 1.2)
       scene.add(limb)
-      const fill = new THREE.DirectionalLight(0xc8b8a0, compact ? 0.14 : 0.12)
-      fill.position.set(-2.8, 0.25, 3)
+      // Cool bounce from the shadow side — keeps the dark limb readable, not dead black.
+      const fill = new THREE.DirectionalLight(0x5878a8, compact ? 0.16 : 0.14)
+      fill.position.set(3.4, -0.4, 2.4)
       scene.add(fill)
-      const land = new THREE.DirectionalLight(0xfff8ee, compact ? 0.18 : 0.16)
-      land.position.set(1.5, 0.6, 5)
+      const land = new THREE.DirectionalLight(0xfff8ee, compact ? 0.16 : 0.14)
+      land.position.set(-1.2, 0.6, 5)
       scene.add(land)
 
       moonGroup = new THREE.Group()
@@ -561,6 +572,7 @@ export function EarthGlobe({
       })
       moonGroup.add(new THREE.Mesh(moonGlowGeo, moonGlowMat))
       disposables.push(moonGlowGeo, moonGlowMat)
+      moonGroup.visible = false
       scene.add(moonGroup)
 
       if (
@@ -701,26 +713,88 @@ export function EarthGlobe({
       disposables.push(pointGeom, sparkles.material as THREE.Material)
     }
 
-    const applyFooterFraming = (width: number, height: number) => {
-      const compact = isCompactFooterViewport(width)
-      const aspect = width / height
-      const wideBoost = Math.min(
-        FOOTER_CONFIG.maxWideBoost,
-        1 + Math.max(0, aspect - 1.1) * 0.24,
-      )
-      const portraitBoost =
-        aspect < 1
-          ? Math.min(1.16, 1 + (1 - aspect) * 0.22)
-          : 1
-      const compactBoost = compact ? FOOTER_CONFIG.compactScaleBoost * portraitBoost : 1
-      const scale = FOOTER_CONFIG.groupScale * wideBoost * compactBoost
+    const projectVector = new THREE.Vector3()
+
+    const poseForMeasure = (scale: number, groupY: number, layout: ReturnType<typeof computeFooterEarthLayout>) => {
       root.scale.setScalar(scale)
-      const baseZ = compact ? FOOTER_CONFIG.compactCameraZ : FOOTER_CONFIG.camera.z
-      camera.position.z = baseZ + (scale - FOOTER_CONFIG.groupScale) * 0.62
-      root.position.y = compact ? FOOTER_CONFIG.groupY - 0.06 : FOOTER_CONFIG.groupY
-      camera.position.y = compact ? FOOTER_CONFIG.camera.y + 0.05 : FOOTER_CONFIG.camera.y
-      camera.lookAt(0, FOOTER_CONFIG.lookAtY, 0)
-      renderer.toneMappingExposure = compact ? 1.16 : 1.2
+      root.position.y = groupY
+      root.rotation.x = layout.tiltX
+      root.updateMatrixWorld(true)
+      camera.position.set(0, layout.cameraY, layout.cameraZ)
+      camera.lookAt(0, layout.lookAtY, 0)
+      camera.updateMatrixWorld(true)
+    }
+
+    const measureProjectedSpan = (scale: number, groupY: number, viewW: number, layout: ReturnType<typeof computeFooterEarthLayout>) => {
+      poseForMeasure(scale, groupY, layout)
+
+      let minX = Infinity
+      let maxX = -Infinity
+      const radius = FOOTER_CONFIG.radius
+
+      for (let lat = 0; lat <= 20; lat++) {
+        const phi = Math.PI * 0.4 + (lat / 20) * Math.PI * 0.5
+        for (let lon = 0; lon <= 40; lon++) {
+          const theta = (lon / 40) * Math.PI * 2
+          const x = radius * Math.sin(phi) * Math.cos(theta)
+          const y = radius * Math.cos(phi)
+          const z = radius * Math.sin(phi) * Math.sin(theta)
+          projectVector.set(x, y, z).applyMatrix4(root.matrixWorld)
+          projectVector.project(camera)
+          if (projectVector.z < -1 || projectVector.z > 1) continue
+          const sx = (projectVector.x * 0.5 + 0.5) * viewW
+          minX = Math.min(minX, sx)
+          maxX = Math.max(maxX, sx)
+        }
+      }
+
+      return Number.isFinite(minX) ? maxX - minX : 0
+    }
+
+    const measureProjectedApexY = (scale: number, groupY: number, viewH: number, layout: ReturnType<typeof computeFooterEarthLayout>) => {
+      poseForMeasure(scale, groupY, layout)
+
+      let minY = Infinity
+      const radius = FOOTER_CONFIG.radius
+
+      // Upper hemisphere silhouette — apex is the smallest projected screen y.
+      for (let lat = 0; lat <= 24; lat++) {
+        const phi = (lat / 24) * Math.PI * 0.55
+        for (let lon = 0; lon <= 48; lon++) {
+          const theta = (lon / 48) * Math.PI * 2
+          const x = radius * Math.sin(phi) * Math.cos(theta)
+          const y = radius * Math.cos(phi)
+          const z = radius * Math.sin(phi) * Math.sin(theta)
+          projectVector.set(x, y, z).applyMatrix4(root.matrixWorld)
+          projectVector.project(camera)
+          if (projectVector.z < -1 || projectVector.z > 1) continue
+          const sy = (1 - (projectVector.y * 0.5 + 0.5)) * viewH
+          minY = Math.min(minY, sy)
+        }
+      }
+
+      return Number.isFinite(minY) ? minY : viewH
+    }
+
+    const applyFooterFraming = (width: number, height: number) => {
+      const layout = computeFooterEarthLayout(width, height)
+      camera.fov = layout.fov
+      camera.updateProjectionMatrix()
+      camera.position.set(0, layout.cameraY, layout.cameraZ)
+      camera.lookAt(0, layout.lookAtY, 0)
+
+      const scale = searchFooterEarthGroupScale(layout, width, (candidate) =>
+        measureProjectedSpan(candidate, layout.groupY, width, layout),
+      )
+      const groupY = searchFooterEarthGroupY(
+        layout,
+        (candidate) => measureProjectedApexY(scale, candidate, height, layout),
+        scale,
+      )
+      root.scale.setScalar(scale)
+      root.position.y = groupY
+      root.rotation.x = layout.tiltX
+      renderer.toneMappingExposure = layout.compact ? 1.18 : 1.24
     }
 
     const resize = () => {
@@ -740,85 +814,28 @@ export function EarthGlobe({
     const resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(host)
 
-    const visibilityObserver = new IntersectionObserver(
-      ([entry]) => {
-        inView = entry?.isIntersecting ?? false
-        if (inView && tabVisible && !staticFrameDrawn) renderFrame()
-      },
-      { threshold: 0, rootMargin: '64px' },
-    )
-    visibilityObserver.observe(host)
-
-    const onTabVisibility = () => {
-      tabVisible = !document.hidden
-      if (tabVisible && inView) renderFrame()
-    }
-    document.addEventListener('visibilitychange', onTabVisibility)
-
     let frameId = 0
+    let loopActive = false
     const startedAt = performance.now()
 
-    if (!isFooter) {
-      const rotationSpeedY = STORY_CONFIG.rotationSpeed
-      const wobble = STORY_CONFIG.wobble
-
-      const animate = () => {
-        if (disposed) return
-        frameId = window.requestAnimationFrame(animate)
-        if (!shouldRenderFrame()) return
-
-        if (!shouldAnimate()) {
-          if (!staticFrameDrawn) {
-            renderFrame()
-            staticFrameDrawn = true
-          }
-          return
-        }
-
-        const t = (performance.now() - startedAt) / 1000
-        root.rotation.y = t * rotationSpeedY
-        root.rotation.x = Math.sin(t * 0.14) * wobble
-        if (orbitGroup) {
-          orbitGroup.rotation.y = t * 0.025
-          orbitGroup.children.forEach((child, index) => {
-            const line = child as THREE.Line
-            const mat = line.material as THREE.LineBasicMaterial
-            mat.opacity = 0.1 + Math.sin(t * 0.45 + index * 1.2) * 0.04
-            line.rotation.z = t * (0.035 + index * 0.01) * (index % 2 === 0 ? 1 : -1)
-          })
-        }
-
-        renderFrame()
-        staticFrameDrawn = true
-      }
-
-      animate()
-
-      return () => {
-        disposed = true
+    const stopLoop = () => {
+      loopActive = false
+      if (frameId) {
         window.cancelAnimationFrame(frameId)
-        visibilityObserver.disconnect()
-        document.removeEventListener('visibilitychange', onTabVisibility)
-        resizeObserver.disconnect()
-        textures.forEach((t) => t.dispose())
-        disposables.forEach((d) => d.dispose())
-        renderer.dispose()
-        releaseEarthWebGLSlot(slotToken)
-        if (renderer.domElement.parentNode === host) {
-          host.removeChild(renderer.domElement)
-        }
+        frameId = 0
       }
     }
 
-    const rotationSpeedY = FOOTER_CONFIG.rotationSpeedY
-    const rotationSpeedX = FOOTER_CONFIG.rotationSpeedX
-    const wobble = FOOTER_CONFIG.wobble
-    const roll = FOOTER_CONFIG.roll
+    const scheduleLoop = () => {
+      if (disposed || loopActive || !shouldRenderFrame()) return
+      loopActive = true
+      frameId = window.requestAnimationFrame(tick)
+    }
 
-    const animate = () => {
-      if (disposed) return
-      frameId = window.requestAnimationFrame(animate)
-      if (!shouldRenderFrame()) return
+    const tick = () => {
+      frameId = 0
+      loopActive = false
+      if (disposed || !shouldRenderFrame()) return
 
       if (!shouldAnimate()) {
         if (!staticFrameDrawn) {
@@ -829,43 +846,81 @@ export function EarthGlobe({
       }
 
       const t = (performance.now() - startedAt) / 1000
-      root.rotation.y = FOOTER_CONFIG.initialRotationY + t * rotationSpeedY
-      root.rotation.x =
-        FOOTER_CONFIG.tiltX + t * rotationSpeedX + Math.sin(t * 0.14) * wobble
-      root.rotation.z = Math.sin(t * 0.11) * roll
-      if (starMaterial?.uniforms.uTime) {
-        starMaterial.uniforms.uTime.value = t
-      }
-      if (glassMaterial?.uniforms.uTime) {
-        glassMaterial.uniforms.uTime.value = t
-      }
-      if (moonGroup) {
-        const moon = FOOTER_CONFIG.moon
-        const flow = t * moon.flowSpeed
-        moonGroup.rotation.y = t * moon.rotationSpeed
-        moonGroup.position.set(
-          moon.x + Math.cos(flow) * moon.flowX,
-          moon.y + Math.sin(flow * 1.22) * moon.flowY,
-          moon.z + Math.sin(flow * 0.88) * moon.flowZ,
-        )
+
+      if (!isFooter) {
+        root.rotation.y = t * STORY_CONFIG.rotationSpeed
+        root.rotation.x = Math.sin(t * 0.14) * STORY_CONFIG.wobble
+        if (orbitGroup) {
+          orbitGroup.rotation.y = t * 0.025
+          orbitGroup.children.forEach((child, index) => {
+            const line = child as THREE.Line
+            const mat = line.material as THREE.LineBasicMaterial
+            mat.opacity = 0.1 + Math.sin(t * 0.45 + index * 1.2) * 0.04
+            line.rotation.z = t * (0.035 + index * 0.01) * (index % 2 === 0 ? 1 : -1)
+          })
+        }
+      } else {
+        root.rotation.y = FOOTER_CONFIG.initialRotationY + t * FOOTER_EARTH_ROTATION_SPEED_Y
+        root.rotation.x = FOOTER_CONFIG.tiltX + Math.sin(t * FOOTER_CONFIG.tumbleXSpeed) * FOOTER_CONFIG.tumbleXAmp
+        root.rotation.z = t * FOOTER_CONFIG.tumbleZSpeed
+        if (cloudMesh) {
+          cloudMesh.rotation.y = t * FOOTER_CONFIG.cloudDriftY
+        }
+        if (starMaterial?.uniforms.uTime) {
+          starMaterial.uniforms.uTime.value = t
+        }
+        if (glassMaterial?.uniforms.uTime) {
+          glassMaterial.uniforms.uTime.value = t
+        }
+        if (moonGroup) {
+          const moon = FOOTER_CONFIG.moon
+          const flow = t * moon.flowSpeed
+          moonGroup.rotation.y = t * moon.rotationSpeed
+          moonGroup.position.set(
+            moon.x + Math.cos(flow) * moon.flowX,
+            moon.y + Math.sin(flow * 1.22) * moon.flowY,
+            moon.z + Math.sin(flow * 0.88) * moon.flowZ,
+          )
+        }
       }
 
       renderFrame()
       staticFrameDrawn = true
+      scheduleLoop()
     }
 
-    animate()
+    const visibilityObserver = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry?.isIntersecting ?? false
+        if (inView && tabVisible) {
+          if (!shouldAnimate() && !staticFrameDrawn) renderFrame()
+          scheduleLoop()
+        } else {
+          stopLoop()
+        }
+      },
+      { threshold: 0, rootMargin: '64px' },
+    )
+    visibilityObserver.observe(host)
+
+    const onTabVisibility = () => {
+      tabVisible = !document.hidden
+      if (tabVisible && inView) scheduleLoop()
+      else stopLoop()
+    }
+    document.addEventListener('visibilitychange', onTabVisibility)
+    scheduleLoop()
 
     return () => {
       disposed = true
-      window.cancelAnimationFrame(frameId)
+      stopLoop()
       visibilityObserver.disconnect()
       document.removeEventListener('visibilitychange', onTabVisibility)
       resizeObserver.disconnect()
       textures.forEach((t) => t.dispose())
       disposables.forEach((d) => d.dispose())
       renderer.dispose()
-      releaseSlot()
+      releaseEarthWebGLSlot(slotToken)
       if (renderer.domElement.parentNode === host) {
         host.removeChild(renderer.domElement)
       }

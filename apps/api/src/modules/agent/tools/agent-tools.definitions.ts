@@ -48,8 +48,21 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
     },
   },
   {
+    name: 'get_orders_by_phone',
+    description:
+      'Find customer + orders by Bangladesh phone (shipping phone or customer phone). Use for: ei number er order, COD phone lookup, 017… / 01xxxxxxxxx.',
+    parameters: {
+      type: 'object',
+      properties: {
+        phone: { type: 'string', description: 'Phone e.g. 01712345678 or +88017…' },
+        limit: { type: 'number', description: 'Max orders (default 10)' },
+      },
+      required: ['phone'],
+    },
+  },
+  {
     name: 'create_product_draft',
-    description: 'Create a draft product with name, description, SEO fields',
+    description: 'Create a draft product with name, description, SEO fields (WRITE — no confirm)',
     parameters: {
       type: 'object',
       properties: {
@@ -66,7 +79,8 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   },
   {
     name: 'update_product',
-    description: 'Patch product fields by product id or slug',
+    description:
+      'Patch product by id or slug. Meta/name/description = WRITE. Price, publish, or stock changes require confirm before execute.',
     parameters: {
       type: 'object',
       properties: {
@@ -78,6 +92,8 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
         metaDescription: { type: 'string' },
         price: { type: 'number' },
         isPublished: { type: 'boolean' },
+        stock: { type: 'number', description: 'Set stock on first variant (or variantSku)' },
+        variantSku: { type: 'string', description: 'Optional SKU when updating stock' },
       },
     },
   },
@@ -130,6 +146,66 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: { limit: { type: 'number' } },
+    },
+  },
+  {
+    name: 'get_partner_finance',
+    description:
+      'Partner balances, share %, pending withdrawals/expenses. Use when admin asks: partner hisab, balance, withdrawal pending, finance summary.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_order_detail',
+    description:
+      'Single order by id or invoice number. Use when admin asks about a specific order, tracking, or customer on one order.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Order UUID' },
+        invoiceNumber: { type: 'string', description: 'Human invoice e.g. SPL-1001' },
+      },
+    },
+  },
+  {
+    name: 'update_order_status',
+    description:
+      'Change order status (CONFIRMED, PROCESSING, PACKED, SHIPPED, DELIVERED, CANCELLED). Use when admin says confirm order, cancel, mark delivered.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string' },
+        invoiceNumber: { type: 'string' },
+        status: {
+          type: 'string',
+          enum: ['CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+        },
+        note: { type: 'string', description: 'Optional internal note' },
+      },
+      required: ['status'],
+    },
+  },
+  {
+    name: 'book_order_courier',
+    description:
+      'Book Steadfast (or other) courier for an order. Use when admin says courier book, steadfast book, delivery pathao. Returns real consignmentId or honest error.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string' },
+        invoiceNumber: { type: 'string' },
+        provider: { type: 'string', description: 'STEADFAST default. Also PATHAO, REDX, PAPERFLY' },
+      },
+    },
+  },
+  {
+    name: 'fix_missing_seo_meta',
+    description:
+      'Auto-fill missing metaTitle/metaDescription for published products (batch). Use when admin says shob product er SEO fix, meta missing fix koro.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Max products to fix in one run (default 25)' },
+      },
     },
   },
 ]

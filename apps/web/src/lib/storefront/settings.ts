@@ -3,16 +3,21 @@ import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe
 import { settingsFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 import {
   DEFAULT_CATALOG_CHANNELS,
+  DEFAULT_SHOP_FILTERS,
   filterFooterGroupsByCatalogChannels,
   filterHeaderNavByCatalogChannels,
   mergeCatalogChannels,
+  mergeShopFilters,
   type CatalogChannel,
+  type ShopFiltersConfig,
 } from '@splaro/types'
 import { DEFAULT_STORE_ADDRESS, DEFAULT_STORE_LABEL } from '@/lib/storefront/defaults'
+import { fetchLiveHeaderNav } from '@/lib/catalog/menu-nav'
 import {
   ACCESSORIES_MEGA_CATEGORIES,
   ACCESSORIES_MEGA_HEROES,
 } from '@/lib/storefront/accessories-nav'
+import { EDITORIAL } from '@/lib/assets/editorial-images'
 import {
   DEFAULT_HOMEPAGE_SECTIONS,
   DEFAULT_OUR_STORY,
@@ -139,6 +144,7 @@ export interface StorefrontSettings {
     ourStory?: OurStoryConfig
     homepage?: HomepageSectionsConfig
     catalogChannels?: CatalogChannel[]
+    shopFilters?: ShopFiltersConfig
   }
   marketing?: {
     facebookPixelId?: string
@@ -149,7 +155,7 @@ export interface StorefrontSettings {
 export const FALLBACK_SETTINGS: StorefrontSettings = {
   store: {
     name: 'SPLARO',
-    logo: '/images/logo/splaro-brand-mark-400.webp',
+    logo: '/images/logo/splaro-logo-black-premium.png',
     email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@splaro.co',
     phone: process.env.NEXT_PUBLIC_SUPPORT_PHONE ?? '',
     address: DEFAULT_STORE_ADDRESS,
@@ -200,20 +206,17 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
             {
               label: 'New Arrivals',
               href: '/c/men-new',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.menNew,
             },
             {
               label: 'Best Sellers',
               href: '/c/men-bestsellers',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.menBest,
             },
             {
               label: 'Summer Edit',
               href: '/c/men-summer',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.menSummer,
             },
           ],
         },
@@ -239,20 +242,17 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
             {
               label: 'New Arrivals',
               href: '/c/women-new',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.womenNew,
             },
             {
               label: 'Bestsellers',
               href: '/c/women-bestsellers',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.womenBest,
             },
             {
               label: 'Premium',
               href: '/c/women-premium',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.womenPremium,
             },
           ],
         },
@@ -287,20 +287,17 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
             {
               label: 'Panjabi',
               href: '/c/kids-boys-panjabi',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.kidsPanjabi,
             },
             {
               label: 'Dresses',
               href: '/c/kids-girls-dresses',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.kidsDresses,
             },
             {
               label: 'School Edit',
               href: '/c/kids-school',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.kidsSchool,
             },
           ],
         },
@@ -341,20 +338,17 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
             {
               label: 'Sneakers',
               href: '/c/footwear-sneakers',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.footwearSneakers,
             },
             {
               label: 'Loafers',
               href: '/c/footwear-loafers',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.footwearLoafers,
             },
             {
               label: 'Sandals',
               href: '/c/footwear-sandals',
-              image:
-                '/images/placeholder-product.jpg',
+              image: EDITORIAL.footwearSandals,
             },
           ],
         },
@@ -426,8 +420,29 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
     ourStory: DEFAULT_OUR_STORY,
     homepage: DEFAULT_HOMEPAGE_SECTIONS,
     catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
+    shopFilters: DEFAULT_SHOP_FILTERS,
   },
   marketing: { facebookPixelId: '', googleAnalyticsId: '' },
+}
+
+async function fetchStorefrontNav(): Promise<NavLink[] | null> {
+  if (isCiOrProductionBuild()) return null
+
+  const base = getServerApiBaseUrl()
+  try {
+    const res = await fetchWithTimeout(
+      `${base}/storefront/nav?storeId=${encodeURIComponent(STORE_ID)}`,
+      {
+        next: { revalidate: 60, tags: ['storefront-nav'] },
+        timeoutMs: settingsFetchTimeoutMs(),
+      },
+    )
+    if (!res?.ok) return null
+    const data = (await res.json()) as { headerNav?: NavLink[] }
+    return data.headerNav?.length ? data.headerNav : null
+  } catch {
+    return null
+  }
 }
 
 async function fetchSettingsRaw(): Promise<StorefrontSettings> {
@@ -436,15 +451,44 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
   }
 
   const base = getServerApiBaseUrl()
-  const res = await fetchWithTimeout(
-    `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
-    {
-      next: { revalidate: 10, tags: ['storefront-settings'] },
-      timeoutMs: settingsFetchTimeoutMs(),
-    },
-  )
-  if (!res?.ok) throw new Error(`Settings API ${res?.status ?? 'unavailable'}`)
-  return (await res.json()) as StorefrontSettings
+  const [settingsRes, menuNav, dynamicNav] = await Promise.all([
+    fetchWithTimeout(
+      `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
+      {
+        next: { revalidate: 10, tags: ['storefront-settings'] },
+        timeoutMs: settingsFetchTimeoutMs(),
+      },
+    ),
+    fetchLiveHeaderNav(),
+    fetchStorefrontNav(),
+  ])
+
+  if (!settingsRes?.ok) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[splaro] Storefront settings API unavailable — using bundled defaults. Run: pnpm dev:stack',
+        settingsRes === null ? 'fetch failed' : `HTTP ${settingsRes.status}`,
+      )
+    }
+    return FALLBACK_SETTINGS
+  }
+
+  let settings: StorefrontSettings
+  try {
+    settings = (await settingsRes.json()) as StorefrontSettings
+  } catch {
+    return FALLBACK_SETTINGS
+  }
+
+  if (menuNav?.length) {
+    settings.config.headerNav = menuNav
+  }
+
+  if (dynamicNav?.length) {
+    settings.config.headerNav = mergeDynamicMegaMenus(settings.config.headerNav ?? [], dynamicNav)
+  }
+
+  return settings
 }
 
 const getCachedSettings = fetchSettingsRaw
@@ -452,6 +496,27 @@ const getCachedSettings = fetchSettingsRaw
 function normalizeHref(href: string): string {
   // treat /c/foo and /collections/foo as the same slug
   return href.replace(/^\/(collections|c)\//, '__col__/')
+}
+
+function mergeDynamicMegaMenus(nav: NavLink[], apiNav: NavLink[]): NavLink[] {
+  const apiByHref = new Map(apiNav.map((item) => [normalizeHref(item.href), item]))
+  const apiByLabel = new Map(apiNav.map((item) => [item.label.toLowerCase(), item]))
+
+  return nav.map((item) => {
+    const match =
+      apiByHref.get(normalizeHref(item.href)) ?? apiByLabel.get(item.label.toLowerCase())
+    if (match?.megaMenu) {
+      const merged: NavLink = {
+        ...item,
+        href: match.href || item.href,
+        megaMenu: match.megaMenu,
+      }
+      if (match.hidden !== undefined) merged.hidden = match.hidden
+      return merged
+    }
+    if (item.megaMenu) return item
+    return restoreMegaMenus([item])[0] ?? item
+  })
 }
 
 function restoreMegaMenus(nav: NavLink[]): NavLink[] {
@@ -489,12 +554,18 @@ function ensureFallbackNavItems(nav: NavLink[]): NavLink[] {
   return result
 }
 
+function dynamicNavApplied(nav: NavLink[]): NavLink[] {
+  const hasDynamicMega = nav.some((item) => item.megaMenu?.categories?.length)
+  if (hasDynamicMega) return nav
+  return restoreMegaMenus(nav)
+}
+
 function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
   const fallbackGroups = FALLBACK_SETTINGS.config.footerGroups ?? []
   const headerNav = settings.config.headerNav?.length
     ? settings.config.headerNav
     : FALLBACK_SETTINGS.config.headerNav
-  const normalizedHeaderNav = restoreMegaMenus(
+  const normalizedHeaderNav = dynamicNavApplied(
     ensureFallbackNavItems(
       headerNav?.some((item) => item.href === '/')
         ? (headerNav ?? [])
@@ -528,6 +599,7 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
       footerGroups: filteredFooterGroups,
       headerNav: filteredHeaderNav,
       catalogChannels,
+      shopFilters: mergeShopFilters(settings.config.shopFilters ?? FALLBACK_SETTINGS.config.shopFilters),
       storeLabel: settings.config.storeLabel?.trim() || DEFAULT_STORE_LABEL,
       newsletter: {
         ...FALLBACK_SETTINGS.config.newsletter!,

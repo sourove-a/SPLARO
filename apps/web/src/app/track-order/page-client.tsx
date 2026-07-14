@@ -11,7 +11,6 @@ import {
   FileText,
   Package,
   Phone,
-  RotateCcw,
   Shield,
   Truck,
 } from 'lucide-react'
@@ -24,9 +23,7 @@ import {
   type TrackOrdersResult,
 } from '@/lib/orders'
 import { cn } from '@/lib/utils/cn'
-import { isStorefrontPhoneOtpEnabled } from '@/lib/storefront/phone-otp'
-
-const PHONE_OTP_ENABLED = isStorefrontPhoneOtpEnabled()
+import { useStorefrontAuthConfig } from '@/hooks/useStorefrontAuthConfig'
 
 const TRACK_STAGES = [
   'Confirmed',
@@ -119,7 +116,7 @@ function itemCount(order: StoredOrder) {
 
 function itemSummary(order: StoredOrder) {
   const names = order.items.map((item) => item.name).filter(Boolean)
-  if (!names.length) return 'Items from your order'
+  if (!names.length) return 'Your order'
   if (names.length === 1) return names[0]
   return `${names[0]} +${names.length - 1} more`
 }
@@ -127,8 +124,7 @@ function itemSummary(order: StoredOrder) {
 function statusTone(order: StoredOrder): 'active' | 'delivered' | 'cancelled' | 'neutral' {
   if (isCancelled(order)) return 'cancelled'
   if (isDelivered(order)) return 'delivered'
-  if (!isDelivered(order) && !isCancelled(order)) return 'active'
-  return 'neutral'
+  return 'active'
 }
 
 function ProgressTracker({ order }: { order: StoredOrder }) {
@@ -221,8 +217,8 @@ function ActiveOrderCard({ order }: { order: StoredOrder }) {
     <article className="track-active-card">
       <div className="track-active-card__top">
         <div className="track-active-card__intro">
-          <span className="track-eyebrow-badge">Active order</span>
-          <h2 className="track-active-card__title">Order {orderNumber(order)}</h2>
+          <span className="track-eyebrow-badge">Current</span>
+          <h2 className="track-active-card__title">{orderNumber(order)}</h2>
           <p className="track-active-card__meta">
             {formatOrderDateTime(order.createdAt)}
             <span className="track-dot" />
@@ -233,11 +229,6 @@ function ActiveOrderCard({ order }: { order: StoredOrder }) {
         </div>
         <div className="track-active-card__status-block">
           <StatusPill order={order} />
-          <p className="track-active-card__status-copy">
-            {getStatusLabel(order) === 'Out for Delivery'
-              ? 'Your order is on the way to you.'
-              : 'We are preparing your SPLARO order with care.'}
-          </p>
           <p className="track-active-card__eta">{estimatedDeliveryLabel(order)}</p>
         </div>
       </div>
@@ -255,29 +246,29 @@ function ActiveOrderCard({ order }: { order: StoredOrder }) {
         <div className="track-active-card__actions">
           <button
             type="button"
-            className="track-btn track-btn--primary"
+            className="track-btn track-btn--glass"
             onClick={() => setExpanded((value) => !value)}
           >
-            Track details
+            Details
             <ChevronRight className={cn('h-4 w-4 transition-transform', expanded && 'rotate-90')} />
           </button>
           <button
             type="button"
-            className="track-btn track-btn--secondary"
+            className="track-btn track-btn--glass"
             onClick={() => openOrderInvoice(order)}
           >
             <FileText className="h-4 w-4" />
-            View invoice
+            Invoice
           </button>
           {order.tracking?.url ? (
             <a
               href={order.tracking.url}
               target="_blank"
               rel="noreferrer"
-              className="track-btn track-btn--ghost"
+              className="track-btn track-btn--glass"
             >
               <Truck className="h-4 w-4" />
-              Courier link
+              Courier
             </a>
           ) : null}
         </div>
@@ -287,7 +278,7 @@ function ActiveOrderCard({ order }: { order: StoredOrder }) {
         <div className="track-active-card__details">
           <div className="track-detail-grid">
             <div>
-              <p className="track-detail-label">Customer</p>
+              <p className="track-detail-label">Name</p>
               <p className="track-detail-value">{order.customer.name}</p>
             </div>
             <div>
@@ -295,7 +286,7 @@ function ActiveOrderCard({ order }: { order: StoredOrder }) {
               <p className="track-detail-value">{order.customer.phone}</p>
             </div>
             <div>
-              <p className="track-detail-label">Delivery address</p>
+              <p className="track-detail-label">Address</p>
               <p className="track-detail-value">
                 {order.customer.address}, {order.customer.city}
               </p>
@@ -321,7 +312,7 @@ function HistoryRow({ order }: { order: StoredOrder }) {
         <div className="track-history-row__content">
           <div className="track-history-row__head">
             <div>
-              <p className="track-history-row__id">Order {orderNumber(order)}</p>
+              <p className="track-history-row__id">{orderNumber(order)}</p>
               <p className="track-history-row__date">{formatOrderDateTime(order.createdAt)}</p>
             </div>
             <StatusPill order={order} />
@@ -333,8 +324,6 @@ function HistoryRow({ order }: { order: StoredOrder }) {
               <p className="track-history-row__meta">
                 {itemCount(order)} {itemCount(order) === 1 ? 'item' : 'items'}
                 <span className="track-dot" />
-                {formatPaymentLabel(order.customer.payment)}
-                <span className="track-dot" />
                 {estimatedDeliveryLabel(order)}
               </p>
             </div>
@@ -345,27 +334,21 @@ function HistoryRow({ order }: { order: StoredOrder }) {
       <div className="track-history-row__actions">
         <button
           type="button"
-          className="track-btn track-btn--ghost track-btn--compact"
+          className="track-btn track-btn--glass track-btn--compact"
           onClick={() => openOrderInvoice(order)}
         >
-          View details
+          Invoice
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
-        {!isCancelled(order) ? (
-          <Link href="/shop" className="track-btn track-btn--ghost track-btn--compact">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reorder
-          </Link>
-        ) : null}
       </div>
     </article>
   )
 }
 
 export default function TrackOrderClient() {
+  const { phoneOtpEnabled } = useStorefrontAuthConfig()
   const searchParams = useSearchParams()
   const [phone, setPhone] = useState('')
-  const [orderNumberInput, setOrderNumberInput] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [otpStep, setOtpStep] = useState(false)
   const [otpSending, setOtpSending] = useState(false)
@@ -375,7 +358,7 @@ export default function TrackOrderClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const runSearch = useCallback(async (nextPhone: string, nextOrder?: string) => {
+  const runSearch = useCallback(async (nextPhone: string) => {
     const trimmedPhone = nextPhone.trim()
     if (!trimmedPhone) return
 
@@ -383,25 +366,25 @@ export default function TrackOrderClient() {
     setSearched(true)
     setError(null)
 
-    const payload = await trackOrdersByPhone(trimmedPhone, nextOrder?.trim())
+    const payload = await trackOrdersByPhone(trimmedPhone)
     if (!payload.ok) {
       setResult(null)
-      if (payload.requiresOtp && PHONE_OTP_ENABLED) {
+      if (payload.requiresOtp && phoneOtpEnabled) {
         setOtpStep(true)
-        setError('Verify your phone with the code we send to view orders.')
+        setError('Enter the code sent to your phone.')
       } else {
         setError(payload.error)
       }
     } else if (!payload.data.orders.length) {
       setResult(null)
-      setError('No orders found for this phone number. Check the number and try again.')
+      setError('No orders for this number.')
     } else {
       setOtpStep(false)
       setResult(payload.data)
     }
 
     setLoading(false)
-  }, [])
+  }, [phoneOtpEnabled])
 
   const sendOtp = async () => {
     const trimmedPhone = phone.trim()
@@ -416,13 +399,13 @@ export default function TrackOrderClient() {
       })
       const body = (await res.json()) as { error?: string; devCode?: string }
       if (!res.ok) {
-        setError(body.error ?? 'Could not send verification code')
+        setError(body.error ?? 'Could not send code')
         return
       }
       if (body.devCode) setDevOtpHint(body.devCode)
       setOtpStep(true)
     } catch {
-      setError('Could not send verification code')
+      setError('Could not send code')
     } finally {
       setOtpSending(false)
     }
@@ -442,11 +425,11 @@ export default function TrackOrderClient() {
       })
       const body = (await res.json()) as { error?: string }
       if (!res.ok) {
-        setError(body.error ?? 'Invalid verification code')
+        setError(body.error ?? 'Invalid code')
         setLoading(false)
         return
       }
-      await runSearch(trimmedPhone, orderNumberInput)
+      await runSearch(trimmedPhone)
     } catch {
       setError('Verification failed')
       setLoading(false)
@@ -455,14 +438,10 @@ export default function TrackOrderClient() {
 
   useEffect(() => {
     const queryPhone = searchParams.get('phone') ?? ''
-    const queryOrder =
-      searchParams.get('id') ??
-      searchParams.get('order') ??
-      searchParams.get('invoice') ??
-      ''
-    if (queryPhone) setPhone(queryPhone)
-    if (queryOrder) setOrderNumberInput(queryOrder)
-    if (queryPhone) void runSearch(queryPhone, queryOrder)
+    if (queryPhone) {
+      setPhone(queryPhone)
+      void runSearch(queryPhone)
+    }
   }, [searchParams, runSearch])
 
   const historyOrders = useMemo(() => {
@@ -473,11 +452,11 @@ export default function TrackOrderClient() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (PHONE_OTP_ENABLED && otpStep) {
+    if (phoneOtpEnabled && otpStep) {
       void verifyOtpAndSearch()
       return
     }
-    void runSearch(phone, orderNumberInput)
+    void runSearch(phone)
   }
 
   return (
@@ -486,18 +465,13 @@ export default function TrackOrderClient() {
         <div className="track-glass">
           <header className="track-header">
             <p className="track-eyebrow">Track order</p>
-            <h1 className="track-title font-serif">Find your SPLARO orders</h1>
-            <p className="track-subtitle">
-              {PHONE_OTP_ENABLED
-                ? 'Enter the phone number used at checkout. We will send a verification code to protect your order history.'
-                : 'Enter the phone number used at checkout to view your active and previous orders.'}
-            </p>
+            <h1 className="track-title font-serif">Your orders</h1>
           </header>
 
-          <form className="track-form" onSubmit={handleSubmit}>
+          <form className="track-form track-form--phone-only" onSubmit={handleSubmit}>
             <label className="track-input">
               <Phone className="track-input__icon" />
-              <span className="sr-only">Phone number used at checkout</span>
+              <span className="sr-only">Phone number</span>
               <input
                 required
                 type="tel"
@@ -505,11 +479,12 @@ export default function TrackOrderClient() {
                 autoComplete="tel"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
-                placeholder="Phone number used at checkout"
-                disabled={PHONE_OTP_ENABLED && otpStep}
+                placeholder="Phone number"
+                disabled={phoneOtpEnabled && otpStep}
               />
             </label>
-            {PHONE_OTP_ENABLED && otpStep ? (
+
+            {phoneOtpEnabled && otpStep ? (
               <label className="track-input">
                 <Shield className="track-input__icon" />
                 <span className="sr-only">Verification code</span>
@@ -519,76 +494,52 @@ export default function TrackOrderClient() {
                   autoComplete="one-time-code"
                   value={otpCode}
                   onChange={(event) => setOtpCode(event.target.value)}
-                  placeholder="6-digit verification code"
+                  placeholder="6-digit code"
                   maxLength={6}
                 />
               </label>
-            ) : (
-              <label className="track-input">
-                <FileText className="track-input__icon" />
-                <span className="sr-only">Order number optional</span>
-                <input
-                  value={orderNumberInput}
-                  onChange={(event) => setOrderNumberInput(event.target.value)}
-                  placeholder="Order number (optional) e.g. SPL-1001"
-                />
-              </label>
-            )}
-            <button type="submit" className="track-btn track-btn--primary track-btn--submit" disabled={loading || otpSending}>
+            ) : null}
+
+            <button
+              type="submit"
+              className="track-btn track-btn--primary track-btn--submit"
+              disabled={loading || otpSending}
+            >
               {loading || otpSending
                 ? 'Please wait…'
-                : PHONE_OTP_ENABLED && otpStep
-                  ? 'Verify & track'
-                  : 'Track orders'}
+                : phoneOtpEnabled && otpStep
+                  ? 'Verify'
+                  : 'View orders'}
               {!loading && !otpSending ? <ArrowRight className="h-4 w-4" /> : null}
             </button>
-            {PHONE_OTP_ENABLED ? (
-              otpStep ? (
-                <button
-                  type="button"
-                  className="track-btn track-btn--ghost"
-                  onClick={() => void sendOtp()}
-                  disabled={otpSending}
-                >
-                  Resend code
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="track-btn track-btn--ghost"
-                  onClick={() => void sendOtp()}
-                  disabled={otpSending || !phone.trim()}
-                >
-                  Send verification code
-                </button>
-              )
+
+            {phoneOtpEnabled ? (
+              <button
+                type="button"
+                className="track-btn track-btn--glass track-btn--otp"
+                onClick={() => void sendOtp()}
+                disabled={otpSending || !phone.trim()}
+              >
+                {otpStep ? 'Resend code' : 'Send code'}
+              </button>
             ) : null}
           </form>
 
-          {PHONE_OTP_ENABLED && devOtpHint ? (
-            <p className="track-subtitle text-amber-700">Dev code: {devOtpHint}</p>
+          {phoneOtpEnabled && devOtpHint ? (
+            <p className="track-dev-hint">Dev code: {devOtpHint}</p>
           ) : null}
 
-          <p className="track-trust">
-            <Shield className="h-4 w-4" />
-            {PHONE_OTP_ENABLED
-              ? 'Phone verification keeps your order history private.'
-              : 'All orders linked to this phone number are available here.'}
-          </p>
-
-          {result?.active ? <ActiveOrderCard order={result.active} /> : null}
+          {result?.active ? (
+            <section className="track-section" aria-label="Current order">
+              <ActiveOrderCard order={result.active} />
+            </section>
+          ) : null}
 
           {result && historyOrders.length > 0 ? (
-            <section className="track-history">
+            <section className="track-history" aria-label="Previous orders">
               <div className="track-history__head">
-                <div>
-                  <p className="track-eyebrow">Previous orders</p>
-                  <h2 className="track-history__title">Your saved order history</h2>
-                  <p className="track-history__subtitle">
-                    Showing all orders linked to {phone.trim() || 'your phone number'}
-                  </p>
-                </div>
-                <p className="track-history__count">{historyOrders.length} saved</p>
+                <h2 className="track-history__title">Previous</h2>
+                <p className="track-history__count">{historyOrders.length}</p>
               </div>
               <div className="track-history__list">
                 {historyOrders.map((order) => (
@@ -599,12 +550,10 @@ export default function TrackOrderClient() {
           ) : null}
 
           {result && !result.active && result.orders.length > 0 && historyOrders.length === 0 ? (
-            <section className="track-history">
+            <section className="track-history" aria-label="Orders">
               <div className="track-history__head">
-                <div>
-                  <p className="track-eyebrow">Order history</p>
-                  <h2 className="track-history__title">Your saved orders</h2>
-                </div>
+                <h2 className="track-history__title">Orders</h2>
+                <p className="track-history__count">{result.orders.length}</p>
               </div>
               <div className="track-history__list">
                 {result.orders.map((order) => (
@@ -616,17 +565,12 @@ export default function TrackOrderClient() {
 
           {searched && !loading && error ? (
             <div className="track-empty">
-              <p className="track-empty__title">No orders found</p>
-              <p className="track-empty__text">{error}</p>
+              <p className="track-empty__title">{error}</p>
             </div>
           ) : null}
 
           <footer className="track-footer">
-            <p>
-              <Shield className="h-4 w-4" />
-              Your data is protected. We never share your information.
-            </p>
-            <Link href="/contact">Need help? Contact support</Link>
+            <Link href="/contact">Need help?</Link>
           </footer>
         </div>
       </section>

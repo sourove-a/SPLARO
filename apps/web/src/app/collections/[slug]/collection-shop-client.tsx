@@ -19,9 +19,7 @@ export function CollectionShopClient({
     <ShopExperience
       initialCategory={context.initialCategory}
       showCollections={false}
-      pageEyebrow="Collection"
       pageTitle={context.title}
-      pageDescription={`Browse ${context.title} with size, colour, and price filters.`}
       collectionSlug={slug}
       {...(context.categorySlug ? { categorySlug: context.categorySlug } : {})}
       listingMode="scoped"

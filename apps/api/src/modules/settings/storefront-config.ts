@@ -26,6 +26,27 @@ export interface MegaMenuConfig {
   heroes: MegaMenuHero[]
 }
 
+export interface MenuHeroOverride {
+  label: string
+  href: string
+  image: string
+}
+
+export interface DepartmentMenuOverride {
+  departmentSlug: string
+  hidden?: boolean
+  forceVisible?: boolean
+  hiddenCategoryIds?: string[]
+  pinnedCategoryIds?: string[]
+  categoryOrder?: string[]
+  heroes?: MenuHeroOverride[]
+}
+
+export interface MenuOverridesConfig {
+  autoSync?: boolean
+  departments?: DepartmentMenuOverride[]
+}
+
 export interface FooterLink {
   label: string
   href: string
@@ -163,6 +184,9 @@ export interface StorefrontConfig {
   catalogChannels?: CatalogChannel[]
   shippingZones?: ShippingZonesConfig
   catalog?: CatalogPolicyConfig
+  shopFilters?: ShopFiltersConfig
+  footwear?: Record<string, unknown>
+  menuOverrides?: MenuOverridesConfig
 }
 
 export type { CatalogChannel }
@@ -176,6 +200,8 @@ import {
   type CatalogChannel,
   DEFAULT_CATALOG_CHANNELS,
   mergeCatalogChannels,
+  mergeShopFilters,
+  type ShopFiltersConfig,
 } from '@splaro/types'
 
 export const DEFAULT_HEADER_NAV: NavLink[] = [
@@ -293,6 +319,7 @@ export function emptyStorefrontConfig(): StorefrontConfig {
     ourStory: DEFAULT_OUR_STORY,
     homepage: DEFAULT_HOMEPAGE_SECTIONS,
     catalogChannels: DEFAULT_CATALOG_CHANNELS.map((channel) => ({ ...channel })),
+    shopFilters: mergeShopFilters(undefined),
     shippingZones: { dhakaSameDay: true, outsideDhaka: true },
     catalog: { autoGenerateSku: false },
     smtp: {
@@ -340,8 +367,10 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
     homepage: { ...base.homepage!, ...input.homepage },
     smtp: { ...base.smtp!, ...input.smtp },
     catalogChannels: mergeCatalogChannels(input.catalogChannels ?? base.catalogChannels),
+    shopFilters: mergeShopFilters(input.shopFilters ?? base.shopFilters),
     shippingZones: { ...base.shippingZones!, ...input.shippingZones },
     catalog: { ...base.catalog!, ...input.catalog },
+    menuOverrides: input.menuOverrides ?? base.menuOverrides,
     headerNav: mergeHeaderNav(
       base.headerNav,
       input.headerNav?.length ? input.headerNav : base.headerNav ?? DEFAULT_HEADER_NAV,

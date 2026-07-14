@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { FootwearPage, type FootwearConfig } from '@/components/footwear/FootwearPage'
 import { fetchFootwearRowProducts } from '@/lib/catalog/server'
-import configJson from '@/data/footwear-page-config.json'
+import { getFootwearPageConfig } from '@/lib/content/get-footwear-config'
 
 export const metadata: Metadata = {
   title: 'Footwear',
@@ -65,6 +65,7 @@ async function hydrateFootwearConfig(base: FootwearConfig): Promise<FootwearConf
 }
 
 export default async function FootwearRoute() {
-  const config = await hydrateFootwearConfig(configJson as unknown as FootwearConfig)
+  const base = await getFootwearPageConfig()
+  const config = await hydrateFootwearConfig(base)
   return <FootwearPage config={config} />
 }

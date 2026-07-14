@@ -39,7 +39,6 @@ import { formatBdPhoneInput, isValidBdMobile, normalizeBdPhone } from '@/lib/che
 import { clearStagedCheckoutItems, consumeStagedCheckoutItems } from '@/lib/cart/checkout-intent'
 import { saveOrderLocally, type StoredOrder } from '@/lib/orders'
 import { buildOrderConfirmationPath } from '@/lib/invoice-url'
-import { products } from '@/data/storefront'
 import {
   DIGITAL_PAYMENT_DISCOUNT_RATE,
 } from '@/lib/utils/currency'
@@ -51,6 +50,8 @@ import { notifyOrderPaymentEvent } from '@/lib/api/order-events'
 import { fetchAccountProfile } from '@/lib/api/account'
 import { startBkashCheckout, startNagadCheckout, startSslCommerzCheckout } from '@/lib/api/payments'
 import { trackInitiateCheckout, trackPurchase } from '@/lib/analytics/meta-pixel'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
+import { CHECKOUT_SIGNUP_PATH } from '@/lib/checkout/checkout-auth'
 import {
   CheckoutField,
   CheckoutHeader,
@@ -198,6 +199,12 @@ export default function CheckoutPageClient() {
   }
 
   useEffect(() => {
+    if (!authHydrated) return
+    if (!user) {
+      safeClientNavigate(router, CHECKOUT_SIGNUP_PATH, 'replace')
+      return
+    }
+    // Empty-bag redirect only for signed-in users — never race guest → signup.
     if (!cartHydrated || items.length > 0) return
     const staged = consumeStagedCheckoutItems()
     if (staged?.length) {
@@ -211,8 +218,8 @@ export default function CheckoutPageClient() {
         return
       }
     }
-    router.replace('/cart')
-  }, [cartHydrated, items.length, replaceItems, router])
+    safeClientNavigate(router, '/cart', 'replace')
+  }, [authHydrated, user, cartHydrated, items.length, replaceItems, router])
 
   useEffect(() => {
     fetchPromoAvailability()
@@ -420,7 +427,6 @@ export default function CheckoutPageClient() {
     setSubmitError('')
 
     const orderItems: CartItem[] = items.map((item) => {
-      const product = products.find((entry) => entry.id === item.productId)
       const next: CartItem = {
         productId: item.productId,
         quantity: item.quantity,
@@ -428,10 +434,10 @@ export default function CheckoutPageClient() {
         price: item.price,
         image: item.image,
         slug: item.slug,
-        size: item.size ?? product?.sizes[0] ?? 'M',
-        color: item.color ?? product?.colors[0] ?? '#111111',
       }
       if (item.variantId) next.variantId = item.variantId
+      if (item.size) next.size = item.size
+      if (item.color) next.color = item.color
       return next
     })
 
@@ -554,7 +560,7 @@ export default function CheckoutPageClient() {
             })
           }
           setRecentOrderLock(saved.id)
-          router.replace(`${buildOrderConfirmationPath(saved)}?payment=pending`)
+          safeClientNavigate(router, `${buildOrderConfirmationPath(saved)}?payment=pending`, 'replace')
           return
         }
       }
@@ -599,7 +605,7 @@ export default function CheckoutPageClient() {
             })
           }
           setRecentOrderLock(saved.id)
-          router.replace(`${buildOrderConfirmationPath(saved)}?payment=pending`)
+          safeClientNavigate(router, `${buildOrderConfirmationPath(saved)}?payment=pending`, 'replace')
           return
         }
       }
@@ -610,13 +616,28 @@ export default function CheckoutPageClient() {
 
       clearStagedCheckoutItems()
       clearCart()
-      router.replace(buildOrderConfirmationPath(saved))
+      safeClientNavigate(router, buildOrderConfirmationPath(saved), 'replace')
       return
     } catch {
       setSubmitError('Network error. Please try again.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (!authHydrated || !user) {
+    return (
+      <CheckoutShell>
+        <section className="checkout-container">
+          <div className="checkout-glass-panel checkout-glass-panel--center checkout-auth-gate">
+            <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />
+            <p className="mt-4 text-sm font-black text-black/55">
+              {!authHydrated ? 'Loading checkout…' : 'Redirecting to create your account…'}
+            </p>
+          </div>
+        </section>
+      </CheckoutShell>
+    )
   }
 
   return (
@@ -650,7 +671,7 @@ export default function CheckoutPageClient() {
                 onClick={() => {
                   clearRecentOrderLock()
                   setPendingOrderId(null)
-                  router.replace('/shop')
+                  safeClientNavigate(router, '/shop', 'replace')
                 }}
               >
                 Start a new order
@@ -690,12 +711,7 @@ export default function CheckoutPageClient() {
             <CheckoutSection className="checkout-section checkout-section-card" delay={0}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">1</span>
-                <div>
-                  <h2>Delivery details</h2>
-                  <p className="checkout-section__sub checkout-section__sub--inline">
-                    Where should we send your order?
-                  </p>
-                </div>
+                <h2>Delivery details</h2>
               </div>
               <div className="checkout-fields">
                 <CheckoutField
@@ -717,7 +733,7 @@ export default function CheckoutPageClient() {
                   />
                 </CheckoutField>
                 <CheckoutField
-                  label="Email address (optional)"
+                  label="Email (optional)"
                   icon={Mail}
                   clientReady={clientReady}
                   filled={Boolean(email.trim())}
@@ -731,7 +747,7 @@ export default function CheckoutPageClient() {
                     data-checkout-field="email"
                     data-invalid={errors.email ? 'true' : undefined}
                     className={`checkout-input ${errors.email ? 'checkout-input--invalid' : ''}`}
-                    placeholder="you@example.com (optional)"
+                    placeholder="you@example.com"
                     autoComplete="email"
                   />
                 </CheckoutField>
@@ -741,9 +757,7 @@ export default function CheckoutPageClient() {
                   clientReady={clientReady}
                   filled={isValidBdMobile(phone)}
                   fieldId="checkout-phone"
-                  {...(errors.phone?.message
-                    ? { error: errors.phone.message }
-                    : { hint: 'Local format — starts with 01' })}
+                  {...(errors.phone?.message ? { error: errors.phone.message } : {})}
                 >
                   <div data-checkout-field="phone" data-invalid={errors.phone ? 'true' : undefined}>
                     <Controller
@@ -779,10 +793,8 @@ export default function CheckoutPageClient() {
                     <select
                       id="checkout-city"
                       {...register('city', {
-                        onChange: (event) => {
-                          const nextCity = event.target.value
-                          const thanas = getThanasForDistrict(nextCity)
-                          setValue('thana', thanas[0] ?? '', { shouldValidate: true })
+                        onChange: () => {
+                          setValue('thana', '', { shouldValidate: true })
                           clearSubmitError()
                         },
                       })}
@@ -791,6 +803,7 @@ export default function CheckoutPageClient() {
                       className={`checkout-input checkout-input--select ${errors.city ? 'checkout-input--invalid' : ''}`}
                       autoComplete="address-level2"
                     >
+                      <option value="">Select district</option>
                       {BD_DISTRICTS.map((district) => (
                         <option key={district} value={district}>
                           {district}
@@ -813,7 +826,11 @@ export default function CheckoutPageClient() {
                       data-invalid={errors.thana ? 'true' : undefined}
                       className={`checkout-input checkout-input--select ${errors.thana ? 'checkout-input--invalid' : ''}`}
                       autoComplete="address-level3"
+                      disabled={!city}
                     >
+                      <option value="">
+                        {city ? 'Select thana' : 'Select district first'}
+                      </option>
                       {thanaOptions.map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -826,7 +843,6 @@ export default function CheckoutPageClient() {
                   label="Delivery address"
                   icon={MapPin}
                   full
-                  hint="House, road, area, landmark"
                   clientReady={clientReady}
                   filled={Boolean(address.trim())}
                   fieldId="checkout-address"
@@ -849,12 +865,7 @@ export default function CheckoutPageClient() {
               <CheckoutSection className="checkout-section checkout-section-card" delay={0.06}>
                 <div className="checkout-section__head">
                   <span className="checkout-section__badge">2</span>
-                  <div>
-                    <h2>Promo code</h2>
-                    <p className="checkout-section__sub checkout-section__sub--inline">
-                      Optional — apply before placing your order.
-                    </p>
-                  </div>
+                  <h2>Promo code</h2>
                 </div>
                 <div className="checkout-coupon">
                   <div className="checkout-coupon__field">
@@ -897,12 +908,7 @@ export default function CheckoutPageClient() {
             <CheckoutSection className="checkout-section checkout-section-card" delay={0.08}>
               <div className="checkout-section__head">
                 <span className="checkout-section__badge">{showPromoStep ? '3' : '2'}</span>
-                <div>
-                  <h2>Payment method</h2>
-                  <p className="checkout-section__sub checkout-section__sub--inline">
-                    Choose how you&apos;d like to pay.
-                  </p>
-                </div>
+                <h2>Payment method</h2>
               </div>
               <div className="checkout-payments">
                 {paymentOptions.map((option) => {

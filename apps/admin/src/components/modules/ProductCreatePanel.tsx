@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import toast from 'react-hot-toast'
 import { Save, Sparkles, Wand2 } from 'lucide-react'
 import { AdminButton, AdminLinkButton } from '@/components/ui/AdminButton'
 import { AdminSwitchRow } from '@/components/ui/AdminSwitch'
-import { toastApiSaved, toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastOk, toastFail, toastInfo, toastWarn } from '@/lib/admin/feedback'
+import { confirmProductCreated } from '@/lib/admin/catalog-save'
 import { buildCategoryPicker } from '@/lib/admin/category-picker'
 import {
   mergeFitAndProductType,
@@ -20,7 +20,7 @@ import {
   splitBilingualDescription,
 } from '@/lib/admin/product-description-draft'
 import { isAiJobFailed, parseAiProductOutput } from '@/lib/admin/parse-ai-product'
-import { useCategories, useCollections, useCreateProduct, usePermission } from '@/lib/api/hooks'
+import { useCategoryTree, useCollections, useCreateProduct, usePermission } from '@/lib/api/hooks'
 import { PERMISSION_DENIED_TITLE } from '@/lib/auth/permissions'
 import { ProductCreateTabbedForm, type ProductCreateTab } from '@/components/modules/product-form/ProductCreateTabbedForm'
 import { ProductFormStatusBar } from '@/components/modules/product-form/ProductFormStatusBar'
@@ -73,7 +73,8 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const apiOffline = api.pulse === 'offline'
   const createProduct = useCreateProduct()
   const canCreateProducts = usePermission('products', 'create')
-  const { data: categories = [], isLoading: catsLoading } = useCategories()
+  const { data: categoryTreeData, isLoading: catsLoading } = useCategoryTree()
+  const categories = categoryTreeData?.categories ?? []
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
   const [aiLoading, setAiLoading] = useState(false)
@@ -173,7 +174,10 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     [categories, form.categoryId],
   )
 
-  const categoryPicker = useMemo(() => buildCategoryPicker(categories), [categories])
+  const categoryPicker = useMemo(
+    () => buildCategoryPicker(categories, categoryTreeData?.tree),
+    [categories, categoryTreeData?.tree],
+  )
 
   const subcategories = useMemo(
     () => (departmentId ? categoryPicker.subcategoriesForDepartment(departmentId) : []),
@@ -205,7 +209,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const applyDescriptionDraft = useCallback(
     (silent = false) => {
       if (!form.name.trim() && !form.descriptionNotes.trim()) {
-        if (!silent) toast.error('Product name বা short notes লিখুন — তারপর draft হবে।')
+        if (!silent) toastFail('Product name বা short notes লিখুন — তারপর draft হবে।')
         return
       }
       const description = buildDescriptionDraft({
@@ -248,7 +252,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const assignImageToActiveColor = (url: string) => {
     if (!activeColorRow) return
     updateColorRow(activeColorRow.id, { imageUrl: url })
-    toast.success(`Assigned to ${activeColorRow.name.trim() || 'colour'}`)
+    toastInfo(`Assigned to ${activeColorRow.name.trim() || 'colour'} — save product to persist.`)
   }
 
   const applyCategorySizes = (categoryId: string) => {
@@ -315,7 +319,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const applyBanglaPolish = () => {
     if (!form.name.trim() && !form.descriptionBn.trim()) {
-      toast.error('Product name বা কিছু বাংলা লিখুন — তারপর polish হবে।')
+      toastFail('Product name বা কিছু বাংলা লিখুন — তারপর polish হবে।')
       return
     }
     const bn = polishBanglaDescription({
@@ -332,7 +336,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const handleAIGenerate = async () => {
     if (!form.name.trim() && !form.fabricContent.trim()) {
-      toast.error('Enter at least a product name or fabric for AI to work with.')
+      toastFail('Enter at least a product name or fabric for AI to work with.')
       return
     }
     setAiLoading(true)
@@ -380,23 +384,39 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      toast.error('Product name is required.')
+      toastFail('Product name is required.')
       return
     }
     if (!form.categoryId) {
-      toast.error('Category is required.')
+      toastFail('Category is required.')
       return
     }
     const { sellingPrice, compareAt } = resolveSellingPrices(form.basePrice, form.compareAtPrice)
     if (!sellingPrice || sellingPrice <= 0) {
-      toast.error('Enter a valid regular price in BDT.')
+      toastFail('Enter a valid regular price in BDT.')
       setActiveTab('basic')
       return
     }
     const costPrice = form.costPrice.trim() ? Number(form.costPrice) : undefined
     if (!sizeList.length) {
-      toast.error('Select at least one size.')
+      toastFail('Select at least one size.')
       return
+    }
+
+    if (activeColors.length > 1) {
+      const colourImages = activeColors.map(
+        (row) => (row.imageUrl || form.imageUrls[0] || '').trim(),
+      )
+      const missing = colourImages.some((url) => !url)
+      const unique = new Set(colourImages.filter(Boolean))
+      if (missing || unique.size < activeColors.length) {
+        toastWarn(
+          'Assign a different gallery image to each colour (media → select colour → click photo). Otherwise colour click won’t change the main image on the store.',
+        )
+        setColorsOpen(true)
+        setActiveTab('basic')
+        return
+      }
     }
 
     let description = fullDescription.trim()
@@ -434,7 +454,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       const tags = parseTagsInput(form.tags)
       const fitType = mergeFitAndProductType(form.productType, form.fitType)
 
-      const product = await createProduct.mutateAsync({
+      const payload = {
         name: form.name.trim(),
         ...(form.nameBn.trim() ? { nameBn: form.nameBn.trim() } : {}),
         basePrice: sellingPrice,
@@ -473,11 +493,20 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
         ...(form.videoUrl.trim() ? { videoUrl: form.videoUrl.trim() } : {}),
         ...(colorsPayload ? { colors: colorsPayload } : {}),
         ...(form.defaultStock ? { defaultStock: Number(form.defaultStock) || 10 } : {}),
-      })
-      toastApiSaved('Product')
-      navigate(`${moduleHref}/${product.id}/edit`)
+      }
+      const productId = await confirmProductCreated(
+        {
+          name: form.name.trim(),
+          basePrice: sellingPrice,
+          isPublished: form.isPublished,
+          categoryId: form.categoryId,
+          status: form.status,
+        },
+        () => createProduct.mutateAsync(payload),
+      )
+      if (productId) navigate(`${moduleHref}/${productId}/edit`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create product. Is API running on :4000?')
+      toastFail(err instanceof Error ? err.message : 'Failed to create product. Is API running on :4000?')
     }
   }
 
@@ -492,7 +521,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
     )
 
   return (
-    <div className="product-page mx-auto max-w-6xl space-y-4">
+    <div className="product-page product-page--create mx-auto max-w-6xl space-y-4">
       <section className="product-create-hero">
         <div>
           <p className="product-create-hero__eyebrow">SPLARO · Catalog</p>
@@ -532,7 +561,7 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
       />
 
       <div className="product-create-shell">
-        <div className="admin-module-card admin-module-card--accent product-create-form product-form-shell">
+        <div className="admin-module-card product-create-form product-form-shell">
           <ProductCreateTabbedForm
             tab={activeTab}
             onTabChange={setActiveTab}

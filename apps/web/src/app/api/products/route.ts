@@ -1,10 +1,50 @@
 import { NextResponse } from 'next/server'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
-import { fetchStorefrontProductListing } from '@/lib/catalog/live'
+import { fetchProductsByIds, fetchStorefrontProductListing } from '@/lib/catalog/live'
 import { LISTING_PAGE_SIZE } from '@/lib/catalog/listing'
+import { getStaleCatalog } from '@/lib/catalog/catalog-stale'
+
+function staleListingFallback() {
+  const stale = getStaleCatalog()
+  if (!stale?.products.length) return null
+  return {
+    products: stale.products,
+    total: stale.total ?? stale.products.length,
+    totalPages: stale.totalPages ?? 1,
+    page: stale.page ?? 1,
+    source: 'stale-cache' as const,
+  }
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
+  const idsParam = searchParams.get('ids')
+  const ids = (idsParam ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+
+  if (ids.length) {
+    try {
+      const products = await fetchProductsByIds(ids)
+      return NextResponse.json(
+        { products, total: products.length, source: products.length ? 'api' : 'empty' },
+        { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
+      )
+    } catch {
+      const stale = staleListingFallback()
+      if (stale) {
+        return NextResponse.json(stale, {
+          headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' },
+        })
+      }
+      return NextResponse.json(
+        { products: [], total: 0, source: 'api-unavailable' },
+        { status: 503 },
+      )
+    }
+  }
+
   const collectionSlug = searchParams.get('collectionSlug') ?? undefined
   const categorySlug = searchParams.get('categorySlug') ?? undefined
   const parentCategorySlug = searchParams.get('parentCategorySlug') ?? undefined
@@ -38,6 +78,12 @@ export async function GET(request: Request) {
         },
       )
     } catch {
+      const stale = staleListingFallback()
+      if (stale) {
+        return NextResponse.json(stale, {
+          headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' },
+        })
+      }
       return NextResponse.json(
         { products: [], total: 0, totalPages: 0, page: 1, source: 'api-unavailable' },
         { status: 503 },

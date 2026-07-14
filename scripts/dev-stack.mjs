@@ -3,24 +3,23 @@
  * Start API first, wait until healthy, then admin + web.
  * Avoids the "admin up before API" race that causes offline spam.
  */
-import { spawn, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
-import { checkApiHealth, cleanupOrphanApiProcesses, getApiPort, reclaimPort } from './api-port.mjs'
+import { cliSpawnOpts, killProcessTree, loopbackUrl, spawnCli } from './spawn-utils.mjs'
+import { checkApiHealth, cleanupOrphanApiProcesses, getApiPort, getNextDevPorts, reclaimNextDevPorts, reclaimPort, waitForPortFree } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const port = getApiPort()
-const base = (process.env.API_URL ?? `http://localhost:${port}`).replace(/\/+$/, '')
+const base = (process.env.API_URL ?? loopbackUrl(port)).replace(/\/+$/, '')
 const health = base.endsWith('/api/v1') ? `${base}/health` : `${base}/api/v1/health`
 
 const children = []
 
 function run(cmd, args, opts = {}) {
-  const child = spawn(cmd, args, {
+  const child = spawnCli(cmd, args, {
     cwd: ROOT,
-    stdio: 'inherit',
     env: { ...process.env, ...opts.env },
-    shell: process.platform === 'win32',
   })
   children.push(child)
   return child
@@ -47,13 +46,14 @@ async function waitForApi(maxMs = 90_000) {
 
 function shutdown(code = 0) {
   for (const child of children) {
-    try {
-      child.kill('SIGTERM')
-    } catch {
-      /* ignore */
-    }
+    killProcessTree(child, 'SIGTERM')
   }
-  setTimeout(() => process.exit(code), 300)
+  setTimeout(() => {
+    for (const child of children) {
+      killProcessTree(child, 'SIGKILL')
+    }
+    process.exit(code)
+  }, 400)
 }
 
 process.on('SIGINT', () => shutdown(0))
@@ -63,8 +63,8 @@ console.log('\n🚀 SPLARO dev stack — API → Admin → Web\n')
 
 cleanupOrphanApiProcesses(port)
 
-console.log('📦 Ensuring Redis (brew/docker)…')
-spawnSync('pnpm', ['infra:redis'], { cwd: ROOT, stdio: 'inherit' })
+console.log('📦 Ensuring Redis…')
+spawnSync('pnpm', ['infra:redis'], { cwd: ROOT, stdio: 'inherit', ...cliSpawnOpts() })
 
 run('node', ['scripts/api-preflight.mjs'])
 
@@ -81,8 +81,14 @@ if (alreadyHealthy) {
   }
 }
 
+console.log('🔍 Stopping stale Next dev before cache reset…')
+await reclaimNextDevPorts()
+for (const port of getNextDevPorts()) {
+  await waitForPortFree(port, 3000)
+}
+
 console.log('🔍 Fresh Next.js caches for dev stack…')
-run('node', ['scripts/ensure-next-cache.mjs', '--fresh'])
+run('node', ['scripts/ensure-next-cache.mjs', '--fresh', '--ports-cleared'])
 
 run('pnpm', ['exec', 'turbo', 'run', 'dev', '--parallel', '--filter=@splaro/admin', '--filter=@splaro/web'])
 

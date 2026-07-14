@@ -12,13 +12,21 @@ const config: Config = {
       },
       colors: {
         gold: {
-          DEFAULT: '#111111',
-          dim: 'rgba(17,17,17,0.06)',
+          DEFAULT: 'rgb(var(--admin-brand-gold-rgb) / <alpha-value>)',
+          dim: 'var(--admin-brand-gold-muted)',
+          border: 'var(--admin-brand-gold-border)',
+        },
+        splaro: {
+          gold: 'var(--admin-gold)',
+          'gold-muted': 'var(--admin-gold-muted)',
         },
         admin: {
-          bg: '#F4F4F5',
-          text: '#111111',
-          secondary: '#71717A',
+          bg: 'var(--admin-bg)',
+          text: 'var(--admin-text)',
+          secondary: 'var(--admin-text-secondary)',
+          muted: 'var(--admin-text-muted)',
+          strong: 'var(--admin-text-strong)',
+          surface: 'var(--admin-surface)',
         },
       },
       boxShadow: {

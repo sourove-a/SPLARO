@@ -2,7 +2,7 @@ import type { AgentMessage, AgentToolCall, AgentToolDefinition, ModelChatResult 
 import { callOpenAiChat, formatOpenAiMessages } from './openai-models'
 
 export interface ModelProviderOptions {
-  /** OpenAI model id (e.g. gpt-4o-mini). Ignored by non-OpenAI providers. */
+  /** Model id override (difficulty routing). */
   model?: string
   claude?: {
     authMode?: 'api_key' | 'antigravity_proxy'
@@ -165,7 +165,7 @@ export class ClaudeProvider implements ModelProvider {
     apiKey: string,
     options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = process.env['ANTHROPIC_MODEL'] ?? 'claude-sonnet-4-20250514'
+    const model = options?.model ?? process.env['ANTHROPIC_MODEL'] ?? 'claude-sonnet-4-20250514'
     const system = messages.find((m) => m.role === 'system')?.content ?? ''
     const chatMessages = messages
       .filter((m) => m.role !== 'system')
@@ -226,9 +226,9 @@ export class GeminiProvider implements ModelProvider {
     messages: AgentMessage[],
     tools: AgentToolDefinition[],
     apiKey: string,
-    _options?: ModelProviderOptions,
+    options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = process.env['GEMINI_MODEL'] ?? 'gemini-1.5-pro'
+    const model = options?.model ?? process.env['GEMINI_MODEL'] ?? 'gemini-1.5-pro'
     const contents = messages
       .filter((m) => m.role !== 'system')
       .map((m) => ({
@@ -281,9 +281,9 @@ export class GrokProvider implements ModelProvider {
     messages: AgentMessage[],
     tools: AgentToolDefinition[],
     apiKey: string,
-    _options?: ModelProviderOptions,
+    options?: ModelProviderOptions,
   ): Promise<ModelChatResult> {
-    const model = process.env['GROK_MODEL'] ?? 'grok-beta'
+    const model = options?.model ?? process.env['GROK_MODEL'] ?? 'grok-beta'
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {

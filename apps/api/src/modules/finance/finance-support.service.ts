@@ -350,7 +350,6 @@ export class FinanceReportsService {
 
   async partnerHub(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    await this.partners.ensureDefaultPartners(storeId)
 
     const [
       partners,
@@ -502,7 +501,6 @@ export class FinanceReportsService {
 
   async dashboard(storeIdOrSlug: string) {
     const storeId = await resolveStoreId(this.prisma, storeIdOrSlug)
-    await this.partners.ensureDefaultPartners(storeId)
     const [partners, pendingTx, pendingExpenses, dailyProfit, monthlyProfit] =
       await Promise.all([
         this.prisma.partner.findMany({

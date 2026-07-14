@@ -1,7 +1,31 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
+import { applyScrollProfileAttributes, detectScrollProfile } from '@/lib/motion/scroll'
+import { isLowPowerDevice } from '@/lib/earth/globe-performance'
+
+/**
+ * Desktop Windows should match Mac: same scroll profile + full glass/motion unless truly low-power.
+ */
+export function DesktopPerfParity() {
+  useLayoutEffect(() => {
+    const html = document.documentElement
+    const profile = detectScrollProfile()
+    applyScrollProfileAttributes(profile)
+
+    const saveData =
+      (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
+
+    if (isLowPowerDevice() || saveData) {
+      html.setAttribute('data-perf', 'lite')
+    } else {
+      html.removeAttribute('data-perf')
+    }
+  }, [])
+
+  return null
+}
 
 /**
  * Maps vertical mouse wheel → horizontal scroll for any overflow-x container under the cursor.
@@ -14,28 +38,21 @@ export function GlobalHorizontalWheelScroll() {
       if (event.defaultPrevented) return
       if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
 
-      let node = event.target as HTMLElement | null
-      while (node && node !== document.documentElement) {
-        if (node.getAttribute('data-h-scroll') === 'true') return
+      const target = event.target as HTMLElement | null
+      // Only explicit horizontal rails — never steal Lenis vertical wheel
+      const rail = target?.closest('[data-h-scroll="true"]') as HTMLElement | null
+      if (!rail) return
+      if (target?.closest('[data-lenis-prevent]')) return
 
-        const style = getComputedStyle(node)
-        const overflowX = style.overflowX
-        if (
-          (overflowX === 'auto' || overflowX === 'scroll' || overflowX === 'overlay') &&
-          node.scrollWidth > node.clientWidth + 1
-        ) {
-          const max = node.scrollWidth - node.clientWidth
-          const goingRight = event.deltaY > 0
-          if ((goingRight && node.scrollLeft >= max - 1) || (!goingRight && node.scrollLeft <= 1)) {
-            return
-          }
-
-          event.preventDefault()
-          node.scrollLeft += event.deltaY
-          return
-        }
-        node = node.parentElement
+      const max = rail.scrollWidth - rail.clientWidth
+      if (max <= 1) return
+      const goingRight = event.deltaY > 0
+      if ((goingRight && rail.scrollLeft >= max - 1) || (!goingRight && rail.scrollLeft <= 1)) {
+        return
       }
+
+      event.preventDefault()
+      rail.scrollLeft += event.deltaY
     }
 
     document.addEventListener('wheel', onWheel, { passive: false, capture: true })
@@ -47,6 +64,10 @@ export function GlobalHorizontalWheelScroll() {
 
 /** Safety net — never leave the storefront unclickable after Lenis / overlay glitches. */
 export function GlobalPointerSafety() {
+  useLayoutEffect(() => {
+    unlockLenisPointer()
+  }, [])
+
   useEffect(() => {
     const unlock = () => unlockLenisPointer()
 

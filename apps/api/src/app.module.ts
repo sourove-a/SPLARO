@@ -5,9 +5,14 @@ import { BullModule } from '@nestjs/bullmq'
 import { noopQueueProviders, redisQueuesEnabled } from './common/noop-queue.providers'
 import { ScheduleModule } from '@nestjs/schedule'
 import { ThrottlerModule } from '@nestjs/throttler'
-import { APP_GUARD } from '@nestjs/core'
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
 import { AppThrottlerGuard } from './common/app-throttler.guard'
 import { AdminAuthGuard } from './common/auth/admin-auth.guard'
+import { FeatureFlagGuard } from './common/auth/feature-flag.guard'
+import { AdminSessionResolver } from './common/auth/admin-session.resolver'
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor'
+import { validateEnv } from './common/config/env.validation'
 import { PrismaService } from './common/prisma.service'
 import { FinanceAuditService } from './common/finance-audit.service'
 import { RedisService } from './common/redis.service'
@@ -19,6 +24,7 @@ import { TelegramService } from './modules/telegram/telegram.service'
 import { AutomationService } from './modules/automation/automation.service'
 import { CourierService } from './modules/courier/courier.service'
 import { CourierProcessor } from './modules/courier/courier.processor'
+import { OrderSideEffectsProcessor } from './modules/orders/order-side-effects.processor'
 import { SteadfastService } from './modules/courier/providers/steadfast.service'
 import { RedxService } from './modules/courier/providers/redx.service'
 import { PathaoService } from './modules/courier/providers/pathao.service'
@@ -38,6 +44,8 @@ import { NotificationsService } from './modules/notifications/notifications.serv
 import { AdminTelegramHubService } from './modules/notifications/admin-telegram-hub.service'
 import { OrderNotificationsService } from './modules/notifications/order-notifications.service'
 import { OrderEventsService } from './modules/orders/order-events.service'
+import { OrderStatusService } from './modules/orders/order-status.service'
+import { OrderSideEffectsQueueService } from './modules/orders/order-side-effects-queue.service'
 import { SmsService } from './modules/notifications/sms.service'
 import { EmailService } from './modules/email/email.service'
 import { InvoiceService } from './modules/invoices/invoice.service'
@@ -84,9 +92,11 @@ import {
   TelegramFinanceController,
 } from './modules/telegram/telegram.controller'
 import { SettingsController } from './modules/settings/settings.controller'
+import { NavBuilderService } from './modules/settings/nav-builder.service'
 import { StorefrontController } from './modules/storefront/storefront.controller'
 import { StorefrontOrdersService } from './modules/storefront/storefront-orders.service'
 import { StorefrontAuthService } from './modules/storefront/storefront-auth.service'
+import { GoogleIdTokenService } from './modules/storefront/google-id-token.service'
 import { StorefrontWishlistService } from './modules/storefront/storefront-wishlist.service'
 import { StorefrontOtpService } from './modules/storefront/storefront-otp.service'
 import { CategoriesController } from './modules/categories/categories.controller'
@@ -109,7 +119,7 @@ import { AiExecutiveController, AiProductAgentController, AiService } from './mo
 import { AuthController, AuthService, AdminLoginTokenService } from './modules/auth'
 import { PurgeDemoCatalogService } from './modules/catalog/purge-demo-catalog.service'
 import { SeedDemoCatalogService } from './modules/catalog/seed-demo-catalog.service'
-import { ContentController, ContentService, LegalPagesService } from './modules/content'
+import { ContentController, ContentService, FootwearConfigService, LegalPagesService } from './modules/content'
 import { GoogleSheetsController, GoogleSheetsService } from './modules/google-sheets'
 import { ReportsController, ReportsService } from './modules/reports'
 import { RmaController, RmaService } from './modules/rma'
@@ -128,6 +138,10 @@ import {
 } from './modules/agent'
 import { AgentToolsService } from './modules/agent/tools/agent-tools.service'
 import { AgentDiagnosticsService } from './modules/agent/diagnostics/agent-diagnostics.service'
+import { AgentLoopService } from './modules/agent/agent-loop.service'
+import { AgentAuditService } from './modules/agent/agent-audit.service'
+import { AgentConfirmationsService } from './modules/agent/agent-confirmations.service'
+import { AgentCostService } from './modules/agent/agent-cost.service'
 import { PromptManager } from './modules/agent/prompts/prompt.manager'
 import { ConversationStore } from './modules/agent/memory/conversation.store'
 import { ModelRouter } from './modules/agent/providers/model-router'
@@ -180,16 +194,20 @@ const queueImports = redisQueuesEnabled()
         { name: 'ai-jobs' },
         { name: 'marketing' },
         { name: 'google-sync' },
+        { name: 'order-side-effects' },
       ),
     ]
   : []
 
-const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyncProcessor] : noopQueueProviders()
+const queueWorkerProviders = redisQueuesEnabled()
+  ? [CourierProcessor, GoogleSyncProcessor, OrderSideEffectsProcessor]
+  : noopQueueProviders()
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
       envFilePath: [
         resolve(process.cwd(), '.env'),
         resolve(process.cwd(), '.env.local'),
@@ -262,11 +280,16 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
   ],
   providers: [
     { provide: APP_GUARD, useClass: AppThrottlerGuard },
+    // Feature flags before auth — disabled modules return 403 without requiring login
+    { provide: APP_GUARD, useClass: FeatureFlagGuard },
     { provide: APP_GUARD, useClass: AdminAuthGuard },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     PrismaService,
     FinanceAuditService,
     RedisService,
     CacheService,
+    AdminSessionResolver,
     MetaCapiService,
     DashboardService,
     CommerceFinanceService,
@@ -293,6 +316,8 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     AdminTelegramHubService,
     OrderNotificationsService,
     OrderEventsService,
+    OrderStatusService,
+    OrderSideEffectsQueueService,
     SmsService,
     EmailService,
     InvoiceService,
@@ -311,8 +336,10 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     AdminLoginTokenService,
     ContentService,
     LegalPagesService,
+    FootwearConfigService,
     PurgeDemoCatalogService,
     SeedDemoCatalogService,
+    NavBuilderService,
     GoogleSheetsService,
     ReportsService,
     RmaService,
@@ -325,12 +352,17 @@ const queueWorkerProviders = redisQueuesEnabled() ? [CourierProcessor, GoogleSyn
     PlatformService,
     StorefrontOrdersService,
     StorefrontAuthService,
+    GoogleIdTokenService,
     StorefrontWishlistService,
     StorefrontOtpService,
     CustomersService,
     AdminHubService,
     AgentService,
     AgentToolsService,
+    AgentLoopService,
+    AgentAuditService,
+    AgentConfirmationsService,
+    AgentCostService,
     PromptManager,
     ConversationStore,
     AgentDiagnosticsService,

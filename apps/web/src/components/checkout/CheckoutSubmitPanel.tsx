@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertCircle, Lock, Loader2 } from 'lucide-react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from '@/lib/motion/react'
 import { formatBDT } from '@/lib/utils/currency'
 import { checkoutMotionTransition, checkoutTapSpring } from '@/lib/checkout/checkout-motion'
 

@@ -1,10 +1,31 @@
 import { apiFetch } from './client'
-import type { CatalogChannel } from '@splaro/types'
+import type { CatalogChannel, ShopFiltersConfig } from '@splaro/types'
 
 export interface NavLink {
   label: string
   href: string
   hidden?: boolean
+}
+
+export interface MenuHeroOverride {
+  label: string
+  href: string
+  image: string
+}
+
+export interface DepartmentMenuOverride {
+  departmentSlug: string
+  hidden?: boolean
+  forceVisible?: boolean
+  hiddenCategoryIds?: string[]
+  pinnedCategoryIds?: string[]
+  categoryOrder?: string[]
+  heroes?: MenuHeroOverride[]
+}
+
+export interface MenuOverridesConfig {
+  autoSync?: boolean
+  departments?: DepartmentMenuOverride[]
 }
 
 export interface FooterLink {
@@ -155,12 +176,14 @@ export interface AdminSettingsData {
     headerNav: NavLink[]
     footerGroups: FooterGroup[]
   }
+  menuOverrides?: MenuOverridesConfig
   marquee: MarqueeConfig
   specialOffer: SpecialOfferConfig
   newsletter: NewsletterConfig
   ourStory: OurStoryConfig
   homepage: HomepageSectionsConfig
   catalogChannels: CatalogChannel[]
+  shopFilters: ShopFiltersConfig
   catalog: {
     autoGenerateSku: boolean
   }

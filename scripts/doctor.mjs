@@ -7,6 +7,7 @@ import { spawnSync } from 'child_process'
 import { existsSync, readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { cliSpawnOpts } from './spawn-utils.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -46,7 +47,12 @@ function check(label, fn) {
 
 function run(args, opts = {}) {
   const [cmd, ...rest] = args
-  const result = spawnSync(cmd, rest, { cwd: ROOT, stdio: 'pipe', timeout: opts.timeout ?? 120000 })
+  const result = spawnSync(cmd, rest, {
+    cwd: ROOT,
+    stdio: 'pipe',
+    timeout: opts.timeout ?? 120000,
+    ...cliSpawnOpts(),
+  })
   if (result.error) throw result.error
   if (result.status !== 0) {
     const stderr = result.stderr?.toString().trim() ?? ''
@@ -188,8 +194,12 @@ try {
     console.log(`  ⚠️  API offline on :${port} — run: pnpm dev:stack`)
   }
 
-  const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
-  const redisPing = spawnSync('redis-cli', ['-u', redisUrl, 'ping'], { encoding: 'utf8', timeout: 3000 })
+  const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
+  const redisPing = spawnSync('redis-cli', ['-u', redisUrl, 'ping'], {
+    encoding: 'utf8',
+    timeout: 3000,
+    ...cliSpawnOpts(),
+  })
   if (redisPing.stdout?.trim() === 'PONG') {
     console.log('  ✅ Redis reachable')
   } else {

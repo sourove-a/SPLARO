@@ -7,6 +7,7 @@ import { runApiRouteProbes } from '../../../common/route-probe-runner'
 import { resolveStoreId } from '../../../common/store.util'
 import { IntegrationsService } from '../../integrations/integrations.service'
 import { PlatformService } from '../../platform/platform.service'
+import { SteadfastService } from '../../courier/providers/steadfast.service'
 import { ModelRouter } from '../providers/model-router'
 import type { AgentHealthSnapshot } from '../agent.types'
 
@@ -26,6 +27,7 @@ export class AgentDiagnosticsService {
     private readonly integrations: IntegrationsService,
     private readonly platform: PlatformService,
     private readonly router: ModelRouter,
+    private readonly steadfast: SteadfastService,
   ) {}
 
   async getInfrastructureHealth() {
@@ -105,6 +107,8 @@ export class AgentDiagnosticsService {
       'google_analytics',
     ]
 
+    const agentConfig = await this.prisma.agentConfig.findUnique({ where: { storeId } })
+
     const items = await Promise.all(
       providers.map(async (provider) => {
         const meta = await this.integrations.getProviderMeta(storeId, provider)
@@ -112,6 +116,11 @@ export class AgentDiagnosticsService {
 
         if (provider === 'telegram') {
           connected = Boolean(store?.telegramConfig?.botToken && store.telegramConfig.chatId && store.telegramConfig.isActive)
+        } else if (provider === 'openai') {
+          connected =
+            connected ||
+            Boolean(agentConfig?.openaiKey) ||
+            (await this.integrations.hasSecret(storeId, 'openai', 'apiKey'))
         } else if (provider === 'bkash') {
           connected = store?.settings?.bkashEnabled ?? false
         } else if (provider === 'nagad') {
@@ -128,6 +137,8 @@ export class AgentDiagnosticsService {
           connected = Boolean(store?.settings?.googleAnalyticsId)
         } else if (provider === 'smtp') {
           connected = store?.settings?.emailEnabled ?? false
+        } else if (provider === 'steadfast') {
+          connected = await this.steadfast.hasRealCredentials(storeId)
         }
 
         return {

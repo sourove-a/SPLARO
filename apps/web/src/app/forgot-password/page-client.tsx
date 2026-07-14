@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { Mail } from 'lucide-react'
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
 import { AuthField } from '@/components/auth/AuthField'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { AuthSubmitButton } from '@/components/auth/AuthSubmitButton'

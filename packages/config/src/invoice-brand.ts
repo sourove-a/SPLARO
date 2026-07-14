@@ -1,10 +1,11 @@
-import { SPLARO_INVOICE_BRAND, resolveInvoiceLogoUrl } from './splaro-invoice-brand'
+import { SPLARO_INVOICE_BRAND } from './splaro-invoice-brand'
 
 const DEFAULT_SITE_URL = SPLARO_INVOICE_BRAND.website
 
-/** Shared SPLARO invoice / PDF / email brand header markup (absolute logo URL for API/PDF) */
+/** Light-surface shared header (web memo / print wrappers) — black wordmark. */
 export function buildInvoiceBrandHeader(siteUrl: string = DEFAULT_SITE_URL): string {
-  const logoUrl = resolveInvoiceLogoUrl(siteUrl)
+  const base = siteUrl.replace(/\/$/, '')
+  const logoUrl = `${base}/images/logo/splaro-logo-black-premium.png`
 
   return `
   <div class="invoice-brand">

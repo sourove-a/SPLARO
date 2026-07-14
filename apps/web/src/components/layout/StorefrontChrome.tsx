@@ -11,6 +11,14 @@ import { FloatingSystem } from '@/components/layout/FloatingSystem'
 const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
 const HEADER_ONLY_PATHS = ['/design/header']
 const CHROMELESS_PATHS = ['/maintenance']
+/** Focused flows — earth footer intrudes on short utility pages (cart, checkout). */
+const FOOTERLESS_PATHS = ['/cart', '/checkout']
+
+function isFooterlessPath(pathname: string): boolean {
+  return FOOTERLESS_PATHS.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
 
 function isAuthPath(pathname: string): boolean {
   return AUTH_PATH_PREFIXES.some(
@@ -27,6 +35,7 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
   const isAuth = isAuthPath(pathname)
   const isHeaderOnly = isHeaderOnlyPath(pathname)
   const isChromeless = CHROMELESS_PATHS.includes(pathname)
+  const hideFooter = isFooterlessPath(pathname)
 
   if (isChromeless) {
     return <>{children}</>
@@ -53,10 +62,14 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
   return (
     <SmoothScroll>
       <Header />
-      <main id="main-content" className="main-with-mobile-nav" tabIndex={-1}>
+      <main
+        id="main-content"
+        className={hideFooter ? 'main-with-mobile-nav main-utility-page' : 'main-with-mobile-nav'}
+        tabIndex={-1}
+      >
         {children}
       </main>
-      <Footer />
+      {hideFooter ? null : <Footer />}
       <Suspense fallback={null}>
         <MobileBottomNav />
       </Suspense>
@@ -65,21 +78,22 @@ function StorefrontChromeInner({ children }: { children: ReactNode }) {
   )
 }
 
+/** Static chrome only — never mount a second Lenis in Suspense fallback. */
+function StorefrontChromeFallback({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <Header />
+      <main id="main-content" className="main-with-mobile-nav" tabIndex={-1}>
+        {children}
+      </main>
+      <Footer />
+    </>
+  )
+}
+
 export function StorefrontChrome({ children }: { children: ReactNode }) {
   return (
-    <Suspense
-      fallback={
-        <>
-          <Header />
-          <main id="main-content" className="main-with-mobile-nav" tabIndex={-1}>{children}</main>
-          <Footer />
-          <Suspense fallback={null}>
-            <MobileBottomNav />
-          </Suspense>
-          <FloatingSystem />
-        </>
-      }
-    >
+    <Suspense fallback={<StorefrontChromeFallback>{children}</StorefrontChromeFallback>}>
       <StorefrontChromeInner>{children}</StorefrontChromeInner>
     </Suspense>
   )

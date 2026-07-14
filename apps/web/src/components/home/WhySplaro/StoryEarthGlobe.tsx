@@ -1,31 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
-import {
-  earthIntersectionRootMargin,
-  isNearViewport,
-  scheduleEarthWebGLActivation,
-  shouldUseWebGLEarth,
-} from '@/lib/earth/globe-performance'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { EarthGlobe } from '@/components/earth/EarthGlobe'
+import { shouldUseWebGLEarth } from '@/lib/earth/globe-performance'
 import { preloadEarthTextures } from '@/lib/earth/textures'
-import { importWithChunkRetry } from '@/lib/loadable-retry'
 
-const EarthGlobe = dynamic(
-  importWithChunkRetry(() =>
-    import('@/components/earth/EarthGlobe').then((m) => m.EarthGlobe),
-  ),
-  { ssr: false },
-)
-
-type EarthMode = 'css' | 'webgl'
-
-function StoryEarthPlaceholder({ flow = false, hidden = false }: { flow?: boolean; hidden?: boolean }) {
+/** CSS-only fallback — shows instantly while WebGL boots or when WebGL is unavailable. */
+function StoryEarthCssFallback({ flow = true }: { flow?: boolean }) {
   return (
-    <div
-      className={`story-earth-panel__placeholder story-earth-panel__placeholder--flow${hidden ? ' story-earth-panel__placeholder--hidden' : ''}`}
-      aria-hidden
-    >
+    <div className="story-earth-panel__placeholder story-earth-panel__placeholder--flow" aria-hidden>
       <div className="story-earth-panel__placeholder-bg" />
       <div className="story-earth-panel__globe">
         <div
@@ -42,57 +25,17 @@ function StoryEarthPlaceholder({ flow = false, hidden = false }: { flow?: boolea
 
 export function StoryEarthGlobe() {
   const hostRef = useRef<HTMLDivElement>(null)
-  const [mode, setMode] = useState<EarthMode>('css')
+  const [webglCapable, setWebglCapable] = useState<boolean | null>(null)
   const [webglReady, setWebglReady] = useState(false)
 
-  useEffect(() => {
-    const host = hostRef.current
-    if (!host || mode !== 'css') return
-
-    let cancelScheduled: (() => void) | undefined
-
-    const activate = () => {
-      if (!shouldUseWebGLEarth({ decorative: true })) return
-      void preloadEarthTextures()
-      setMode('webgl')
-    }
-
-    const scheduleActivate = () => {
-      cancelScheduled?.()
-      cancelScheduled = scheduleEarthWebGLActivation(activate)
-    }
-
-    if (isNearViewport(host, 240)) {
-      scheduleActivate()
-    } else {
-      const margin = earthIntersectionRootMargin(true)
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry?.isIntersecting) scheduleActivate()
-        },
-        { rootMargin: margin, threshold: 0.01 },
-      )
-      observer.observe(host)
-
-      const onScroll = () => {
-        if (isNearViewport(host, 240)) scheduleActivate()
-      }
-      window.addEventListener('scroll', onScroll, { passive: true })
-
-      return () => {
-        cancelScheduled?.()
-        observer.disconnect()
-        window.removeEventListener('scroll', onScroll)
-      }
-    }
-
-    return () => {
-      cancelScheduled?.()
-    }
-  }, [mode])
+  useLayoutEffect(() => {
+    const capable = shouldUseWebGLEarth({ decorative: true })
+    setWebglCapable(capable)
+    void preloadEarthTextures()
+  }, [])
 
   useEffect(() => {
-    if (mode !== 'webgl') return
+    if (webglCapable !== true) return
     const host = hostRef.current
     if (!host) return
 
@@ -109,23 +52,30 @@ export function StoryEarthGlobe() {
     })
 
     return () => observer.disconnect()
-  }, [mode])
-
-  const showCss = mode === 'css' || !webglReady
+  }, [webglCapable])
 
   const handleUnavailable = useCallback(() => {
     setWebglReady(false)
-    setMode('css')
+    setWebglCapable(false)
   }, [])
 
+  const mountWebgl = webglCapable === true
+  const showCssFallback = !mountWebgl || !webglReady
+
   return (
-    <div ref={hostRef} className="absolute inset-0">
-      {showCss ? <StoryEarthPlaceholder flow hidden={webglReady} /> : null}
-      {mode === 'webgl' ? (
+    <div
+      ref={hostRef}
+      className="absolute inset-0"
+      data-earth-phase={
+        webglCapable === false ? 'css' : webglReady ? 'ready' : mountWebgl ? 'loading' : 'pending'
+      }
+    >
+      {showCssFallback ? <StoryEarthCssFallback flow /> : null}
+      {mountWebgl ? (
         <EarthGlobe
           variant="story"
           ignoreReducedMotion
-          className="absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
+          className="story-earth-panel__canvas absolute inset-0 [&>canvas]:!h-full [&>canvas]:!w-full"
           onUnavailable={handleUnavailable}
         />
       ) : null}

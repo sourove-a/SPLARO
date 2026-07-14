@@ -51,7 +51,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   experimental: {
-    optimizePackageImports: ['lucide-react', 'framer-motion', 'date-fns'],
+    optimizePackageImports: ['lucide-react', 'motion/react', 'date-fns'],
     // CloudLinux NPROC counts threads — parallel build workers get the process killed
     ...(onHostinger ? { cpus: 1, workerThreads: false } : {}),
   },

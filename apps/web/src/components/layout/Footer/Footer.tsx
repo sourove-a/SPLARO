@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import {
   ChevronDown,
   Mail,
@@ -17,8 +17,7 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { DEFAULT_STORE_ADDRESS, DEFAULT_STORE_LABEL } from '@/lib/storefront/defaults'
 import { getStorefrontSocialLinks } from '@/lib/storefront/social-links'
 import { cn } from '@/lib/utils/cn'
-import { LazyFooterEarthGlobe } from '@/components/earth/LazyFooterEarthGlobe'
-import { ScrollReveal } from '@/components/motion/ScrollReveal'
+import { EarthBackdrop } from '@/components/footer/EarthBackdrop'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -131,11 +130,10 @@ export function Footer() {
   return (
     <footer data-site-chrome className="site-footer site-footer--luxury" aria-label="Site footer">
       <div className="site-footer__stage">
-        <LazyFooterEarthGlobe />
+        <EarthBackdrop />
         <div className="site-footer__ambient" aria-hidden="true" />
 
         <div className="container-luxury site-footer__wrap">
-          <ScrollReveal variant="fadeUp">
           <div className="footer-lux__panel">
             <div className="footer-lux__glass-surface" aria-hidden="true" />
             <div className="footer-lux__sheen" aria-hidden="true" />
@@ -147,7 +145,6 @@ export function Footer() {
                     href="/"
                     size="footerLuxury"
                     tone="dark"
-                    logoUrl="/images/logo/splaro-logo-white.png"
                     className="footer-lux__logo"
                   />
                   {tagline ? <p className="footer-lux__tagline">{tagline}</p> : null}
@@ -263,7 +260,6 @@ export function Footer() {
             </div>
             </div>
           </div>
-          </ScrollReveal>
         </div>
       </div>
     </footer>

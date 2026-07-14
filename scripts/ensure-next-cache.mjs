@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'fs'
 import { dirname, join, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { getListeningPids, getNextDevPorts } from './api-port.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LOCKFILE = resolve(ROOT, 'pnpm-lock.yaml')
@@ -17,6 +18,22 @@ const STATIC_REL_RE = /require\(["']\.\/([^"']+\.js)["']\)/g
 const WEBPACK_CHUNK_RE = /\.X\(\d+,?\[([^\]]+)\]/g
 
 const forceFresh = process.argv.includes('--fresh')
+const portsCleared = process.argv.includes('--ports-cleared')
+
+function refuseFreshPurgeWithLiveNextDev() {
+  if (!forceFresh || portsCleared) return
+
+  const occupied = getNextDevPorts().filter((port) => getListeningPids(port).length > 0)
+  if (!occupied.length) return
+
+  console.error(
+    `\n❌ Refusing to clear .next while Next dev is still running on port(s): ${occupied.join(', ')}`,
+  )
+  console.error('   Clearing cache with a live server causes broken CSS / vendor-chunk 500 errors.')
+  console.error('   Fix: pnpm dev:reset')
+  console.error('   Or stop the old terminal (Ctrl+C), then run pnpm dev:stack again.\n')
+  process.exit(1)
+}
 
 function purge(appDir, reason) {
   const nextDir = resolve(ROOT, appDir, '.next')
@@ -124,6 +141,8 @@ function ensureApp(appDir) {
 
 const filter = process.argv.filter((arg) => !arg.startsWith('--'))
 const apps = filter.length > 2 ? filter.slice(2).map((p) => p.replace(/^\/+/, '')) : APPS
+
+if (forceFresh) refuseFreshPurgeWithLiveNextDev()
 
 let purged = false
 for (const app of apps) {

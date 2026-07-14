@@ -1,9 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
 import { KeyRound, Plus, RefreshCw, ScrollText, Search, Send, Shield, ShieldCheck, Trash2, UserX, X } from 'lucide-react'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import {
+  confirmAdminInvited,
+  confirmRolePermissionsSaved,
+  confirmSessionRevoked,
+  confirmStaffActiveUpdated,
+  confirmStaffRemoved,
+  confirmStaffRoleUpdated,
+  confirmTelegramLinkTokenGenerated,
+  confirmTelegramReset,
+} from '@/lib/admin/security-save'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
 import {
   useAdminSession,
@@ -148,27 +157,23 @@ function InviteAdminModal({ open, onClose, actorRole }: { open: boolean; onClose
 
   if (!open) return null
 
-  const submit = () => {
+  const submit = async () => {
     if (!email.trim() || !firstName.trim() || password.length < 8) {
       toastFail('Email, first name, and password (min 8 chars) are required.')
       return
     }
-    invite.mutate(
-      {
-        email: email.trim(),
-        firstName: firstName.trim(),
-        ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
-        role,
-        password,
-      },
-      {
-        onSuccess: (res) => {
-          toastApiSaved(`Admin ${res.email} invited`)
-          onClose()
-        },
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not invite admin.'),
-      },
+    const ok = await confirmAdminInvited(
+      { email: email.trim(), role },
+      () =>
+        invite.mutateAsync({
+          email: email.trim(),
+          firstName: firstName.trim(),
+          ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
+          role,
+          password,
+        }),
     )
+    if (ok) onClose()
   }
 
   return (
@@ -248,64 +253,42 @@ function AdminUsersView({
     r.name.toLowerCase().includes(query.toLowerCase()) || r.email.includes(query),
   )
 
-  const handleRoleChange = (userId: string, email: string, roleValue: string) => {
+  const handleRoleChange = async (userId: string, email: string, roleValue: string) => {
     if (email.toLowerCase() === CEO_EMAIL) {
-      toast.error('CEO role cannot be changed')
+      toastFail('CEO role cannot be changed')
       return
     }
-    updateRole.mutate(
-      { userId, role: roleValue },
-      {
-        onSuccess: () => toastApiSaved('Role updated'),
-        onError: (e) => toastFail(e.message),
-      },
+    await confirmStaffRoleUpdated(userId, roleValue, () =>
+      updateRole.mutateAsync({ userId, role: roleValue }),
     )
   }
 
-  const handleToggleActive = (userId: string, email: string, isActive: boolean) => {
+  const handleToggleActive = async (userId: string, email: string, isActive: boolean) => {
     if (email.toLowerCase() === CEO_EMAIL) {
       toastFail('CEO account cannot be deactivated')
       return
     }
-    updateRole.mutate(
-      { userId, isActive },
-      {
-        onSuccess: () => toastApiSaved(isActive ? 'Admin reactivated' : 'Admin deactivated'),
-        onError: (e) => toastFail(e.message),
-      },
+    await confirmStaffActiveUpdated(userId, isActive, () =>
+      updateRole.mutateAsync({ userId, isActive }),
     )
   }
 
-  const handleRemove = (userId: string, email: string, name: string) => {
+  const handleRemove = async (userId: string, email: string, name: string) => {
     if (email.toLowerCase() === CEO_EMAIL) {
       toastFail('CEO account cannot be removed')
       return
     }
     if (!window.confirm(`Remove admin access for ${name}? They will no longer be able to log in.`)) return
-    removeStaff.mutate(userId, {
-      onSuccess: () => toastApiSaved(`Removed ${email}`),
-      onError: (e) => toastFail(e.message),
-    })
+    await confirmStaffRemoved(userId, email, () => removeStaff.mutateAsync(userId))
   }
 
-  const handleLinkMyTelegram = () => {
-    linkTelegram.mutate(undefined, {
-      onSuccess: (res) => {
-        toast.success(
-          `${res.hint}\n\nCode: ${res.code} (expires in ${Math.round(res.expiresInSeconds / 60)} min)`,
-          { duration: 20_000 },
-        )
-      },
-      onError: (e) => toastFail(e instanceof Error ? e.message : 'Could not create link code.'),
-    })
+  const handleLinkMyTelegram = async () => {
+    await confirmTelegramLinkTokenGenerated(() => linkTelegram.mutateAsync(undefined), 'tg-staff-link')
   }
 
-  const handleResetTelegram = (userId: string, name: string) => {
+  const handleResetTelegram = async (userId: string, name: string) => {
     if (!window.confirm(`Reset Telegram for ${name}? They must link again before login codes work.`)) return
-    resetTelegram.mutate(userId, {
-      onSuccess: () => toastApiSaved(`Telegram reset for ${name}`),
-      onError: (e) => toastFail(e instanceof Error ? e.message : 'Could not reset Telegram.'),
-    })
+    await confirmTelegramReset(userId, name, () => resetTelegram.mutateAsync(userId))
   }
 
   const currentRow = currentUser
@@ -480,27 +463,27 @@ function AdminUsersView({
 
 function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['data']; isLoading: boolean }) {
   const kpis = data?.kpis
-  const roleCards = (data?.roles.length ?? 0) > 0
-    ? data!.roles
-    : [
-        { id: 'SUPER_ADMIN', name: 'Super Admin', users: 0, permissions: 'Full platform access', status: 'active' },
-        { id: 'ADMIN', name: 'Admin', users: 0, permissions: 'Catalog, orders, customers', status: 'active' },
-        { id: 'MANAGER', name: 'Manager', users: 0, permissions: 'Operations & fulfillment', status: 'active' },
-        { id: 'STAFF', name: 'Editor', users: 0, permissions: 'Content & product edits', status: 'active' },
-      ]
+  const roleCards = data?.roles ?? []
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
         <PanelHeader icon={ShieldCheck} title="Roles" />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          <KpiCard label="Roles"          value={isLoading ? '…' : data?.roles.length ?? 0} />
+          <KpiCard label="Roles"          value={isLoading ? '…' : roleCards.length} />
           <KpiCard label="Assigned users" value={isLoading ? '…' : kpis?.totalAdmins ?? 0} accent="success" />
           <KpiCard label="Custom roles"   value="0" accent="gold" />
           <KpiCard label="Locked"         value="0" accent="warning" />
         </div>
       </div>
 
+      {roleCards.length === 0 && !isLoading ? (
+        <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-muted)', margin: 0 }}>
+            No roles returned from API yet — refresh after API is connected.
+          </p>
+        </div>
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {roleCards.map((r) => (
           <div key={r.id} className="settings-card admin-panel-glass" style={{ padding: 20 }}>
@@ -518,6 +501,7 @@ function RolesView({ data, isLoading }: { data: ReturnType<typeof useSecurity>['
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }
@@ -532,20 +516,21 @@ function PermissionsView({ actorRole }: { actorRole?: string | undefined }) {
 
   useEffect(() => {
     const fromApi = data?.roles.find((r) => r.role === roleApiKey)?.permissions
-    setPermRows(fromApi?.length ? fromApi : DEFAULT_PERMISSIONS)
+    if (fromApi?.length) setPermRows(fromApi)
   }, [data, role, roleApiKey])
+
+  const hasApiPermissions = Boolean(data?.roles.find((r) => r.role === roleApiKey)?.permissions?.length)
 
   const togglePerm = (module: string, key: keyof Omit<PermissionRow, 'module'>) => {
     setPermRows((prev) => prev.map((row) => (row.module === module ? { ...row, [key]: !row[key] } : row)))
   }
 
-  const handleSave = () => {
-    savePermissions.mutate(
-      { role: roleApiKey, permissions: permRows },
-      {
-        onSuccess: () => toastApiSaved(`${role} permissions saved to server`),
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not save permissions.'),
-      },
+  const handleSave = async () => {
+    await confirmRolePermissionsSaved(
+      roleApiKey,
+      permRows,
+      role,
+      () => savePermissions.mutateAsync({ role: roleApiKey, permissions: permRows }),
     )
   }
 
@@ -583,6 +568,14 @@ function PermissionsView({ actorRole }: { actorRole?: string | undefined }) {
         ))}
       </div>
 
+      {!hasApiPermissions && !isLoading ? (
+        <div className="settings-card admin-panel-glass" style={{ padding: 24 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-muted)', margin: 0 }}>
+            Permissions for {role} not loaded from API — cannot edit until data is available.
+          </p>
+        </div>
+      ) : (
+      <>
       <div className="settings-card admin-panel-glass" style={{ padding: 0, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -608,10 +601,12 @@ function PermissionsView({ actorRole }: { actorRole?: string | undefined }) {
       </div>
 
       <div>
-        <GoldBtn onClick={handleSave} disabled={savePermissions.isPending || isLoading || !isSuperAdmin(actorRole)}>
+        <GoldBtn onClick={handleSave} disabled={savePermissions.isPending || isLoading || !isSuperAdmin(actorRole) || !hasApiPermissions}>
           {savePermissions.isPending ? 'Saving…' : isSuperAdmin(actorRole) ? 'Save permissions' : 'Super Admin required to save'}
         </GoldBtn>
       </div>
+      </>
+      )}
     </div>
   )
 }
@@ -708,9 +703,18 @@ function DatabaseConnectionCard() {
     try {
       const res = await saveDatabaseConnection(payload())
       setResult(res)
-      toastApiSaved('Database credentials saved')
+      if (!res.ok) {
+        toastFail(res.message || 'Database credentials save failed')
+        return
+      }
+      const fresh = await fetchDatabaseConnection()
+      if (!fresh.savedInDatabase) {
+        toastFail('Save did not persist to database — check API connection.')
+        return
+      }
+      toastApiSaved('Database credentials')
+      setInfo(fresh)
       setForm((p) => ({ ...p, password: '' }))
-      setInfo(await fetchDatabaseConnection())
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
       setResult({ ok: false, message })
@@ -739,9 +743,14 @@ function DatabaseConnectionCard() {
         )}
       </div>
       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--admin-text-muted)', margin: '0 0 16px' }}>
-        Changed the PostgreSQL password in hPanel? Enter it here — Test verifies the connection, Save writes it to the
-        server .env and the watchdog backup so restarts and redeploys keep working.
+        Changed the PostgreSQL password in hPanel? Test verifies the connection; Save stores the URL encrypted in the
+        database. Restart the API after save so all connections use the new credentials.
       </p>
+      {info?.requiresRestart ? (
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#B45309', margin: '0 0 12px' }}>
+          Saved credentials differ from the running API — restart required to apply.
+        </p>
+      ) : null}
 
       {loadError ? (
         <p style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C', margin: 0 }}>{loadError}</p>
@@ -890,10 +899,7 @@ function SecurityCenterView({
                   <GoldBtn
                     disabled={revokeSession.isPending}
                     onClick={() =>
-                      revokeSession.mutate(session.id, {
-                        onSuccess: () => toastApiSaved('Session revoked'),
-                        onError: (e) => toastFail(e.message),
-                      })
+                      void confirmSessionRevoked(session.id, () => revokeSession.mutateAsync(session.id))
                     }
                   >
                     Revoke

@@ -8,13 +8,16 @@ import { generateOrderCode } from '../../common/order-code.util'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { assertCouponForOrder } from '../coupons/coupon-validate.util'
+import { resolveCheckoutVariant, type CheckoutVariantRow } from '../../common/cart-line.util'
 import {
   assertPaymentMethodEnabled,
   loadStorePaymentFlags,
 } from '../../common/payment-flags.util'
-import { MetaCapiService } from '../marketing/meta-capi.service'
-import { OrderNotificationsService } from '../notifications/order-notifications.service'
-import { OrderEventsService } from '../orders/order-events.service'
+import {
+  computeExpectedDeliveryChargeBdt,
+  resolveOrderDistrict,
+} from '../../common/delivery-charge.util'
+import { OrderSideEffectsQueueService } from '../orders/order-side-effects-queue.service'
 import type { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client'
 
 export interface OrderAttributionInput {
@@ -43,6 +46,8 @@ export interface StorefrontOrderItemInput {
 
 export interface CreateStorefrontOrderInput {
   storeId?: string
+  /** Linked Customer row for signed-in storefront users. */
+  customerId?: string
   userId?: string
   customer: {
     name: string
@@ -68,8 +73,6 @@ export interface CreateStorefrontOrderInput {
 
 /** Must match the storefront checkout's prepaid discount (apps/web lib/utils/currency.ts). */
 const DIGITAL_PAYMENT_DISCOUNT_RATE = 0.05
-/** Legacy flat delivery fee the web checkout still sends. */
-const LEGACY_FLAT_DELIVERY_BDT = 120
 /** Rounding tolerance when comparing client-displayed total to server total. */
 const TOTAL_TOLERANCE_BDT = 5
 
@@ -93,48 +96,9 @@ export class StorefrontOrdersService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly metaCapi: MetaCapiService,
-    private readonly orderNotifications: OrderNotificationsService,
-    @Optional() private readonly orderEvents: OrderEventsService,
+    private readonly sideEffects: OrderSideEffectsQueueService,
     @Optional() private readonly redis: RedisService,
   ) {}
-
-  /**
-   * Resolve the database variant for an order line. Storefront clients may
-   * send a real variantId, or size/color hints (color can be a hex code or a
-   * name), or nothing at all — degrade gracefully instead of rejecting orders.
-   */
-  private async findVariantForItem(
-    db: Prisma.TransactionClient,
-    sid: string,
-    item: StorefrontOrderItemInput,
-  ) {
-    // Only visible, published products with active variants are sellable.
-    const productWhere = storefrontVisibleProductWhere({ storeId: sid, id: item.productId })
-    const base = { productId: item.productId, isActive: true, product: productWhere }
-    const include = { product: { select: { basePrice: true } } } as const
-
-    if (item.variantId) {
-      const byId = await db.productVariant.findFirst({
-        where: { id: item.variantId, ...base },
-        include,
-      })
-      if (byId) return byId
-    }
-
-    const color = item.color?.trim()
-    const colorWhere = color
-      ? { OR: [{ color }, { colorHex: color.toLowerCase() }, { colorName: color }] }
-      : {}
-    const sizeWhere = item.size ? { size: item.size } : {}
-
-    return (
-      (await db.productVariant.findFirst({ where: { ...base, ...sizeWhere, ...colorWhere }, include })) ??
-      (await db.productVariant.findFirst({ where: { ...base, ...sizeWhere }, include })) ??
-      (await db.productVariant.findFirst({ where: { ...base, stock: { gte: 1 } }, include })) ??
-      (await db.productVariant.findFirst({ where: base, include }))
-    )
-  }
 
   private lineFingerprint(
     lines: { item: StorefrontOrderItemInput; variant: { id: string } }[],
@@ -203,7 +167,7 @@ export class StorefrontOrdersService {
     // database — client-sent prices are never trusted for money math.
     const lines: {
       item: StorefrontOrderItemInput
-      variant: NonNullable<Awaited<ReturnType<StorefrontOrdersService['findVariantForItem']>>>
+      variant: CheckoutVariantRow
       unitPrice: number
     }[] = []
 
@@ -212,12 +176,12 @@ export class StorefrontOrdersService {
         throw new BadRequestException(`${item.name}: invalid quantity`)
       }
 
-      const variant = await this.findVariantForItem(this.prisma, sid, item)
-
-      if (!variant) {
-        errors.push(`${item.name}: variant not found`)
+      const resolved = await resolveCheckoutVariant(this.prisma, sid, item)
+      if (!resolved.ok) {
+        errors.push(resolved.error)
         continue
       }
+      const variant = resolved.variant
 
       if (variant.stock < item.quantity) {
         errors.push(`${item.name}: only ${variant.stock} left in stock`)
@@ -262,20 +226,28 @@ export class StorefrontOrdersService {
 
     let delivery = 0
     if (!freeDelivery) {
-      const allowedCharges = new Set(
-        [
-          Number(settings?.dhakaDeliveryCharge ?? 60),
-          Number(settings?.outsideDhakaCharge ?? 120),
-          LEGACY_FLAT_DELIVERY_BDT,
-        ].map((value) => Math.round(value)),
+      const district = resolveOrderDistrict(input.customer)
+      if (!district) {
+        throw new BadRequestException('Delivery district is required')
+      }
+
+      const expectedDelivery = computeExpectedDeliveryChargeBdt(
+        district,
+        {
+          dhakaDeliveryCharge: Number(settings?.dhakaDeliveryCharge ?? 60),
+          outsideDhakaCharge: Number(settings?.outsideDhakaCharge ?? 120),
+          freeDeliveryThreshold: freeThreshold,
+        },
+        { subtotal: serverSubtotal },
       )
+
       const clientDelivery = Math.round(Number(input.delivery ?? 0))
-      if (!allowedCharges.has(clientDelivery)) {
+      if (clientDelivery !== expectedDelivery) {
         throw new BadRequestException(
-          'Delivery charge is out of date — refresh the page and try again',
+          'Delivery charge does not match your district — refresh the page and try again',
         )
       }
-      delivery = clientDelivery
+      delivery = expectedDelivery
     }
 
     const serverTotal = Math.max(0, Math.round(serverSubtotal + delivery - serverDiscount))
@@ -373,6 +345,7 @@ export class StorefrontOrdersService {
         data: {
           storeId: sid,
           invoiceNumber,
+          ...(input.customerId ? { customerId: input.customerId } : {}),
           status,
           paymentStatus,
           paymentMethod,
@@ -451,10 +424,11 @@ export class StorefrontOrdersService {
       await this.redis.setJson(`splaro:order-idem:${sid}:${idemKey}`, { orderId: order.id }, 600)
     }
 
-    void this.metaCapi
-      .trackPurchase({
-        storeId: sid,
-        orderId: order.id,
+    void this.sideEffects.enqueueOrderPlaced({
+      storeId: sid,
+      orderId: order.id,
+      customerEmail: input.customer.email,
+      meta: {
         total: Number(order.total),
         email: input.customer.email,
         phone: input.customer.phone,
@@ -462,15 +436,8 @@ export class StorefrontOrdersService {
         clientIp: input.clientIp ?? null,
         userAgent: input.userAgent ?? null,
         eventSourceUrl: attr?.landingPage ?? null,
-      })
-      .catch((err: unknown) => this.logger.error(`trackPurchase failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
-
-    void this.orderNotifications
-      .onOrderPlaced(sid, order.id, input.customer.email)
-      .catch((err: unknown) => this.logger.error(`Order confirmation notification failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
-    void this.orderEvents
-      ?.onOrderPlaced(sid, order.id)
-      .catch((err: unknown) => this.logger.error(`onOrderPlaced automation hook failed for order ${order.id}: ${err instanceof Error ? err.message : err}`))
+      },
+    })
 
     return order
   }

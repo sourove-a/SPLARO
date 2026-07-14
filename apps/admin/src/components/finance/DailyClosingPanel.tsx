@@ -1,9 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
 import { CalendarCheck, RefreshCw } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
+import { toastOk, toastFail } from '@/lib/admin/feedback'
 import { fetchDailyClosings, runDailyClosing } from '@/lib/api/finance'
 import { formatBDT } from '@/lib/format/currency'
 
@@ -43,13 +43,25 @@ export function DailyClosingPanel() {
   }, [load])
 
   const handleRun = async () => {
+    if (!apiOnline) {
+      toastFail('API offline — cannot run daily closing.', 'closing-offline')
+      return
+    }
     setRunning(true)
     try {
       await runDailyClosing('admin')
-      toast.success('Daily closing recorded for today')
-      await load()
+      const res = await fetchDailyClosings(1, 30)
+      const rows = (res.items ?? []) as DailyClosingRow[]
+      setItems(rows)
+      const today = new Date().toISOString().slice(0, 10)
+      const hasToday = rows.some((row) => String(row.closingDate).slice(0, 10) === today)
+      if (!hasToday) {
+        toastFail('Daily closing API responded but today\'s record not found — refresh and retry.')
+        return
+      }
+      toastOk('Daily closing recorded for today', 'closing-ok')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not run daily closing')
+      toastFail(err instanceof Error ? err.message : 'Could not run daily closing', 'closing-fail')
     } finally {
       setRunning(false)
     }
@@ -70,7 +82,7 @@ export function DailyClosingPanel() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <AdminButton variant="gold" loading={running} onClick={() => void handleRun()}>
+        <AdminButton variant="gold" loading={running} disabled={!apiOnline} onClick={() => void handleRun()}>
           <CalendarCheck className="h-4 w-4" />
           Run today&apos;s closing
         </AdminButton>

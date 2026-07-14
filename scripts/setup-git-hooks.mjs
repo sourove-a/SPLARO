@@ -7,6 +7,7 @@ import { spawnSync } from 'child_process'
 import { chmodSync, existsSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { cliSpawnOpts, IS_WIN } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const HOOKS = resolve(ROOT, '.githooks')
@@ -17,11 +18,14 @@ if (!existsSync(PRE_PUSH)) {
   process.exit(1)
 }
 
-chmodSync(PRE_PUSH, 0o755)
+if (!IS_WIN) {
+  chmodSync(PRE_PUSH, 0o755)
+}
 
 const setPath = spawnSync('git', ['config', 'core.hooksPath', '.githooks'], {
   cwd: ROOT,
   stdio: 'inherit',
+  ...cliSpawnOpts(),
 })
 
 if (setPath.status !== 0) process.exit(setPath.status ?? 1)
@@ -29,6 +33,7 @@ if (setPath.status !== 0) process.exit(setPath.status ?? 1)
 const current = spawnSync('git', ['config', '--get', 'core.hooksPath'], {
   cwd: ROOT,
   encoding: 'utf8',
+  ...cliSpawnOpts(),
 })
 
 console.log('\n✅ Git hooks enabled')

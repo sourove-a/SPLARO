@@ -9,7 +9,8 @@ import {
 import { AdminButton } from '@/components/ui/AdminButton'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { printInvoice } from '@/lib/admin/admin-actions'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastFail, toastApiSaved, toastOk } from '@/lib/admin/feedback'
+import { verifyNumberEquals, verifyPersisted } from '@/lib/admin/mutation-verify'
 import {
   createPosSale,
   fetchPosCatalog,
@@ -221,6 +222,8 @@ export function PosPanel() {
         ...(discountAmount > 0 ? { discount: discountAmount } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       })
+      if (!verifyPersisted(Boolean(result.order?.id && result.order?.invoiceNumber), 'POS sale did not return a valid order')) return
+      if (!verifyNumberEquals(result.order.total, total, 'Sale total')) return
       setLastSale({
         id: result.order.id,
         invoiceNumber: result.order.invoiceNumber,
@@ -231,7 +234,7 @@ export function PosPanel() {
       setNotes('')
       void refreshToday()
       void loadCatalog(query.trim() || undefined)
-      toastOk(`Sale complete — ${result.order.invoiceNumber}`)
+      toastApiSaved(`Sale ${result.order.invoiceNumber}`)
       printInvoice(result.order.id)
     } catch (e) {
       toastFail(e instanceof Error ? e.message : 'Sale failed')
@@ -244,7 +247,7 @@ export function PosPanel() {
     <div className="pos-shell">
       <header className="pos-header">
         <div className="pos-header__brand">
-          <SplaroAdminLogo variant="sidebar" priority className="!max-w-[150px]" />
+          <SplaroAdminLogo variant="pos" priority className="!max-w-[150px]" />
           <div>
             <h1 className="pos-header__title">SPLARO POS</h1>
             <p className="pos-header__sub">Showroom counter · in-store sales</p>

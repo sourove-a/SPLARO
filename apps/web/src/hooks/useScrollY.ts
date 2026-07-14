@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLenis } from 'lenis/react'
 import { SCROLL_TO_TOP } from '@/lib/motion/scroll'
 
-function subscribeScroll(lenis: ReturnType<typeof useLenis>, onScroll: (y: number) => void) {
+export function subscribeScroll(lenis: ReturnType<typeof useLenis>, onScroll: (y: number) => void) {
   let rafId = 0
   let pendingY = 0
 

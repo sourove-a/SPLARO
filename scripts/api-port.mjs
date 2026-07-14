@@ -2,21 +2,20 @@
 /**
  * Shared port helpers for SPLARO API dev (preflight, dev-stack, api-dev).
  */
-import { spawnSync } from 'child_process'
+import { getListeningPids, getProcessTable, killPid } from './port-utils.mjs'
 
 export function getApiPort() {
   return Number(process.env.API_PORT ?? process.env.PORT_API ?? 4000)
 }
 
-export function getListeningPids(port) {
-  const result = spawnSync('lsof', ['-tiTCP:' + port, '-sTCP:LISTEN'], { encoding: 'utf8' })
-  if (result.status !== 0 || !result.stdout?.trim()) return []
-  return result.stdout
-    .trim()
-    .split('\n')
-    .map((value) => Number(value))
-    .filter((pid) => Number.isFinite(pid) && pid > 0)
+export const WEB_DEV_PORT = Number(process.env.WEB_PORT ?? process.env.PORT_WEB ?? 3000)
+export const ADMIN_DEV_PORT = Number(process.env.ADMIN_PORT ?? process.env.PORT_ADMIN ?? 3001)
+
+export function getNextDevPorts() {
+  return [WEB_DEV_PORT, ADMIN_DEV_PORT]
 }
+
+export { getListeningPids }
 
 export async function checkApiHealth(port = getApiPort()) {
   const url = `http://127.0.0.1:${port}/api/v1/health`
@@ -47,39 +46,18 @@ export async function reclaimPort(port = getApiPort(), { force = false } = {}) {
   }
 
   for (const pid of pids) {
-    try {
-      process.kill(pid, 'SIGTERM')
-    } catch {
-      /* ignore */
-    }
+    killPid(pid, 'SIGTERM')
   }
 
   await sleep(450)
 
   for (const pid of getListeningPids(port)) {
-    try {
-      process.kill(pid, 'SIGKILL')
-    } catch {
-      /* ignore */
-    }
+    killPid(pid, 'SIGKILL')
   }
 
   await sleep(250)
 
   return { reclaimed: true, reason: healthy ? 'forced' : 'stale', pids }
-}
-
-function getProcessTable() {
-  const result = spawnSync('ps', ['-axo', 'pid=,ppid=,command='], { encoding: 'utf8' })
-  if (result.status !== 0 || !result.stdout) return []
-  return result.stdout
-    .trim()
-    .split('\n')
-    .map((line) => {
-      const m = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/)
-      return m ? { pid: Number(m[1]), ppid: Number(m[2]), command: m[3] } : null
-    })
-    .filter(Boolean)
 }
 
 function buildParentIndex(table) {
@@ -132,10 +110,14 @@ export function cleanupOrphanApiProcesses(port = getApiPort()) {
   const table = getProcessTable()
   const keepers = collectTree([...getListeningPids(port), process.pid], table)
 
-  const isApiDevProcess = (cmd) =>
-    cmd.includes('scripts/api-dev.mjs') ||
-    (cmd.includes('ts-node-dev') && cmd.includes('SPLARO-BRAND')) ||
-    (cmd.includes('ts-node-dev') && cmd.includes('src/main.ts'))
+  const isApiDevProcess = (cmd) => {
+    const normalized = String(cmd).replace(/\\/g, '/')
+    return (
+      normalized.includes('scripts/api-dev.mjs') ||
+      (normalized.includes('ts-node-dev') && normalized.includes('SPLARO-BRAND')) ||
+      (normalized.includes('ts-node-dev') && normalized.includes('src/main.ts'))
+    )
+  }
 
   const roots = table.filter((row) => isApiDevProcess(row.command) && !keepers.has(row.pid))
   if (!roots.length) return { killed: [] }
@@ -144,21 +126,13 @@ export function cleanupOrphanApiProcesses(port = getApiPort()) {
   const killed = []
   for (const pid of doomed) {
     if (keepers.has(pid) || pid === process.pid || pid <= 1) continue
-    try {
-      process.kill(pid, 'SIGTERM')
-      killed.push(pid)
-    } catch {
-      /* already gone */
-    }
+    killPid(pid, 'SIGTERM')
+    killed.push(pid)
   }
   if (killed.length) {
     setTimeout(() => {
       for (const pid of killed) {
-        try {
-          process.kill(pid, 'SIGKILL')
-        } catch {
-          /* exited cleanly */
-        }
+        killPid(pid, 'SIGKILL')
       }
     }, 600)
     console.log(`🧹 Cleaned ${killed.length} orphaned API dev process(es): ${killed.join(', ')}`)
@@ -173,4 +147,22 @@ export async function waitForPortFree(port = getApiPort(), maxMs = 5000) {
     await sleep(150)
   }
   return !getListeningPids(port).length
+}
+
+/** Stop web/admin next dev before clearing .next — prevents corrupt vendor-chunks. */
+export async function reclaimNextDevPorts({ label = 'stale Next dev' } = {}) {
+  const results = []
+  for (const port of getNextDevPorts()) {
+    const pids = getListeningPids(port)
+    if (!pids.length) {
+      results.push({ port, reclaimed: false, reason: 'free', pids: [] })
+      continue
+    }
+    const result = await reclaimPort(port, { force: true })
+    results.push({ port, ...result })
+    if (result.reclaimed) {
+      console.log(`  ↳ :${port} reclaimed (${label}; was pid ${result.pids.join(', ')})`)
+    }
+  }
+  return results
 }

@@ -1,18 +1,26 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { SlidersHorizontal } from 'lucide-react'
+import { AnimatePresence, LayoutGroup, m, useReducedMotion } from '@/lib/motion/react'
 import { cn } from '@/lib/utils/cn'
 import { HorizontalScrollRail } from '@/components/ui/HorizontalScrollRail'
 import { ShopFilterDropdown } from '@/components/shop/ShopFilterDropdown'
 import { MobileFilterDrawer } from '@/components/shop/MobileFilterDrawer'
 import {
   isMobilePriceRangeActive,
+  isDefaultSort,
   type CatalogSortOption,
 } from '@/lib/shop/mobile-filter'
 import {
-  priceFilters,
-  sortOptions,
+  getDefaultPriceLabel,
+  getDefaultSortLabel,
+  getEnabledPriceLabels,
+  getEnabledSortLabels,
+} from '@/lib/shop/filter-config'
+import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import {
   type Category,
 } from '@/data/storefront'
 
@@ -65,8 +73,15 @@ export function ShopFilterBar({
   onSortChange,
   onClearFilters,
 }: ShopFilterBarProps) {
+  const { config } = useStorefrontSettings()
+  const shopFilters = config.shopFilters!
+  const sortOptions = getEnabledSortLabels(shopFilters)
+  const priceFilters = getEnabledPriceLabels(shopFilters)
+  const defaultSortLabel = getDefaultSortLabel(shopFilters)
+  const defaultPriceLabel = getDefaultPriceLabel(shopFilters)
+  const reducedMotion = useReducedMotion()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const sortDisplay = sortBy === 'Best Selling' ? 'Default' : sortBy
+  const sortDisplay = isDefaultSort(sortBy, shopFilters) ? defaultSortLabel : sortBy
   const mobilePriceRangeActive = isMobilePriceRangeActive(priceMin, priceMax, priceBounds)
 
   useEffect(() => {
@@ -81,30 +96,49 @@ export function ShopFilterBar({
 
   const activeFilterCount = useMemo(() => {
     let count = 0
-    if (activeCategory !== 'All') count += 1
     if (selectedColor !== 'All') count += 1
     if (selectedSize !== 'All') count += 1
-    if (mobilePriceRangeActive || selectedPrice !== 'All') count += 1
-    if (sortBy !== 'Default') count += 1
+    if (mobilePriceRangeActive || selectedPrice !== defaultPriceLabel) count += 1
+    if (!isDefaultSort(sortBy, shopFilters)) count += 1
     return count
   }, [
-    activeCategory,
     mobilePriceRangeActive,
     selectedColor,
     selectedPrice,
     selectedSize,
+    defaultPriceLabel,
+    shopFilters,
     sortBy,
   ])
 
-  const closeOpenFilter = useCallback(() => onOpenFilterChange(null), [onOpenFilterChange])
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
 
   return (
     <div className="shop-filter-bar">
+      {typeof document !== 'undefined'
+        ? createPortal(
+            <AnimatePresence initial={false}>
+              {openFilter && !drawerOpen ? (
+                <m.button
+                  type="button"
+                  className="shop-filter-dropdown__backdrop"
+                  aria-label="Close filters"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: reducedMotion ? 0.06 : 0.28, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={() => onOpenFilterChange(null)}
+                />
+              ) : null}
+            </AnimatePresence>,
+            document.body,
+          )
+        : null}
+
       <div className="shop-filter-bar__sticky">
         <div className="shop-filter-bar__inner">
           <nav
-            className="shop-category-pill shop-filter-bar__categories shop-filter-bar__categories--desktop"
+            className="shop-category-pill shop-filter-bar__categories"
             aria-label="Shop categories"
           >
             <HorizontalScrollRail
@@ -113,47 +147,35 @@ export function ShopFilterBar({
               variant="pill"
               ariaLabel="Shop categories"
             >
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className={cn(
-                    'shop-category-pill__item',
-                    activeCategory === category && 'shop-category-pill__item--active',
-                  )}
-                  onClick={() => onCategoryChange(category)}
-                  aria-current={activeCategory === category ? 'page' : undefined}
-                >
-                  {category}
-                </button>
-              ))}
-            </HorizontalScrollRail>
-          </nav>
-
-          <nav
-            className="shop-category-pill shop-filter-bar__categories shop-filter-bar__categories--mobile"
-            aria-label="Shop categories"
-          >
-            <HorizontalScrollRail
-              className="shop-category-pill__rail"
-              trackClassName="shop-category-pill__track"
-              variant="pill"
-              ariaLabel="Shop categories"
-            >
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className={cn(
-                    'shop-category-pill__item',
-                    activeCategory === category && 'shop-category-pill__item--active',
-                  )}
-                  onClick={() => onCategoryChange(category)}
-                  aria-current={activeCategory === category ? 'page' : undefined}
-                >
-                  {category}
-                </button>
-              ))}
+              <LayoutGroup id="shop-category-pills">
+                {categories.map((category) => {
+                  const isActive = activeCategory === category
+                  return (
+                    <m.button
+                      key={category}
+                      type="button"
+                      data-no-press=""
+                      className={cn(
+                        'shop-category-pill__item',
+                        isActive && 'shop-category-pill__item--active',
+                      )}
+                      onClick={() => onCategoryChange(category)}
+                      aria-current={isActive ? 'page' : undefined}
+                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      {isActive ? (
+                        <m.span
+                          layoutId="shop-category-pill-active"
+                          className="shop-category-pill__active-fill"
+                          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                          aria-hidden
+                        />
+                      ) : null}
+                      <span className="shop-category-pill__label">{category}</span>
+                    </m.button>
+                  )
+                })}
+              </LayoutGroup>
             </HorizontalScrollRail>
           </nav>
 
@@ -180,48 +202,56 @@ export function ShopFilterBar({
           </div>
 
           <div className="shop-filter-bar__controls">
+            {shopFilters.showColorFilter ? (
             <ShopFilterDropdown
-              label="Color"
-              panelTitle="Select Color"
+              label={shopFilters.labels.color}
+              panelTitle={`Select ${shopFilters.labels.color}`}
               value={selectedColor}
               options={colorOptions}
               open={openFilter === 'color'}
-              onToggle={() => onOpenFilterChange(openFilter === 'color' ? null : 'color')}
-              onClose={closeOpenFilter}
+              onToggle={() => onOpenFilterChange('color')}
+              onClose={() => onOpenFilterChange(null)}
               onChange={onColorChange}
             />
+            ) : null}
+            {shopFilters.showSizeFilter ? (
             <ShopFilterDropdown
-              label="Size"
-              panelTitle="Select Size"
+              label={shopFilters.labels.size}
+              panelTitle={`Select ${shopFilters.labels.size}`}
               value={selectedSize}
               options={sizeOptions}
               open={openFilter === 'size'}
-              onToggle={() => onOpenFilterChange(openFilter === 'size' ? null : 'size')}
-              onClose={closeOpenFilter}
+              onToggle={() => onOpenFilterChange('size')}
+              onClose={() => onOpenFilterChange(null)}
               onChange={onSizeChange}
             />
+            ) : null}
+            {shopFilters.showPriceFilter ? (
             <ShopFilterDropdown
-              label="Price"
-              panelTitle="Select Price"
+              label={shopFilters.labels.price}
+              panelTitle={`Select ${shopFilters.labels.price}`}
               value={selectedPrice}
               options={priceFilters}
               open={openFilter === 'price'}
-              onToggle={() => onOpenFilterChange(openFilter === 'price' ? null : 'price')}
-              onClose={closeOpenFilter}
+              onToggle={() => onOpenFilterChange('price')}
+              onClose={() => onOpenFilterChange(null)}
               onChange={onPriceChange}
             />
+            ) : null}
+            {shopFilters.showSortFilter ? (
             <ShopFilterDropdown
-              label="Sort"
+              label={shopFilters.labels.sort}
               labelVariant="sort"
               sortDisplay={sortDisplay}
               panelTitle="Sort Products"
-              value={sortBy === 'Best Selling' ? 'Default' : sortBy}
+              value={isDefaultSort(sortBy, shopFilters) ? defaultSortLabel : sortBy}
               options={sortOptions}
               open={openFilter === 'sort'}
-              onToggle={() => onOpenFilterChange(openFilter === 'sort' ? null : 'sort')}
-              onClose={closeOpenFilter}
+              onToggle={() => onOpenFilterChange('sort')}
+              onClose={() => onOpenFilterChange(null)}
               onChange={(value) => onSortChange(value as CatalogSortOption)}
             />
+            ) : null}
           </div>
         </div>
       </div>
@@ -230,9 +260,7 @@ export function ShopFilterBar({
         open={drawerOpen}
         onClose={closeDrawer}
         resultCount={resultCount}
-        categories={categories}
         activeCategory={activeCategory}
-        onCategoryChange={onCategoryChange}
         colorOptions={colorOptions}
         sizeOptions={sizeOptions}
         selectedColor={selectedColor}

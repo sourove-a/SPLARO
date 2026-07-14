@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { ArrowLeft, ChevronDown, HelpCircle } from 'lucide-react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 
 import { AccountGlass } from '@/components/account/AccountGlass'
 import type { SitePageSection } from '@/lib/content/site-pages'

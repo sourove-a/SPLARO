@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { Heart, Home, ShoppingBag, Store, User } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useAuthStore } from '@/store/authStore'
@@ -63,13 +63,13 @@ const items = [
 ]
 
 const dockMotion = {
-  hidden: { y: 28, opacity: 0 },
+  hidden: { y: 12, opacity: 0 },
   show: {
     y: 0,
     opacity: 1,
-    transition: { type: 'spring', damping: 26, stiffness: 280, mass: 0.82 },
+    transition: { type: 'spring' as const, damping: 28, stiffness: 320, mass: 0.78 },
   },
-  exit: { y: 20, opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } },
+  exit: { y: 8, opacity: 0, transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const } },
 }
 
 export function MobileBottomNav() {
@@ -83,7 +83,11 @@ export function MobileBottomNav() {
   const authHydrated = useAuthStore((state) => state._hydrated)
   const user = useAuthStore((state) => state.user)
   const overlayOpen = useUiStore(
-    (state) => state.isMobileMenuOpen || state.isSearchOpen || state.isCartOpen,
+    (state) =>
+      state.isMobileMenuOpen ||
+      state.isSearchOpen ||
+      state.isCartOpen ||
+      state.scrollLockCount > 0,
   )
   const [mounted, setMounted] = useState(false)
 

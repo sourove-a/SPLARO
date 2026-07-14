@@ -25,7 +25,8 @@ import {
   downloadInvoicePdf,
   printInvoice,
 } from '@/lib/admin/admin-actions'
-import { toastFail, toastOk } from '@/lib/admin/feedback'
+import { toastFail } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
 import { cn } from '@/lib/utils/cn'
 
 type PreviewTab = 'items' | 'delivery' | 'docs'
@@ -75,7 +76,18 @@ function formatBDT(n: number) {
   return `৳${n.toLocaleString('en-BD')}`
 }
 
+/** Internal DB id (cuid) — status / courier mutations */
 function orderApiId(order: OrderPreviewData) {
+  return order.linkId ?? order.id
+}
+
+/**
+ * Human invoice ref for print/PDF URLs (e.g. SPL-1002).
+ * API resolves by invoiceNumber OR cuid — prefer readable number in the address bar.
+ */
+function orderInvoiceRef(order: OrderPreviewData) {
+  const invoice = order.id?.trim()
+  if (invoice && /^SPL[-_]?\d+/i.test(invoice)) return invoice
   return order.linkId ?? order.id
 }
 
@@ -100,6 +112,7 @@ export function OrderPreviewCard({
   const [tab, setTab] = useState<PreviewTab>('items')
   const [invoiceAction, setInvoiceAction] = useState<InvoiceAction>(null)
   const apiId = orderApiId(order)
+  const invoiceRef = orderInvoiceRef(order)
   const parsedLines = order.items.split(',').map((s) => s.trim()).filter(Boolean)
   const displayItems: OrderLineItem[] =
     order.lineItems?.length
@@ -118,22 +131,20 @@ export function OrderPreviewCard({
     async (action: Exclude<InvoiceAction, null>) => {
       setInvoiceAction(action)
       try {
-        if (action === 'view') await downloadInvoice(apiId)
-        else if (action === 'pdf') await downloadInvoicePdf(apiId, order.id)
-        else await printInvoice(apiId)
+        if (action === 'view') await downloadInvoice(invoiceRef)
+        else if (action === 'pdf') await downloadInvoicePdf(invoiceRef, order.id)
+        else await printInvoice(invoiceRef)
       } catch {
         toastFail('Invoice request failed — check API connection.')
       } finally {
         setInvoiceAction(null)
       }
     },
-    [apiId, order.id],
+    [invoiceRef, order.id],
   )
 
   const copyInvoiceNumber = () => {
-    void navigator.clipboard.writeText(order.id).then(() => {
-      toastOk(`Copied ${order.id}`)
-    })
+    void copyWithToast(order.id, `Copied ${order.id}`)
   }
 
   const fullAddress = [order.address, order.district, order.city].filter(Boolean).join(', ')

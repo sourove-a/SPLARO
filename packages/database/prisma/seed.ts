@@ -1,13 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import { randomBytes, scryptSync } from 'crypto'
+import { CATEGORY_DEPARTMENTS, CATEGORY_SUBCATEGORIES } from '@splaro/config'
 
 const prisma = new PrismaClient()
-
-const PARTNERS = [
-  { name: 'SOUROVE', slug: 'sourove', sharePercent: 33.33 },
-  { name: 'RAJU', slug: 'raju', sharePercent: 33.33 },
-  { name: 'HRIDOY', slug: 'hridoy', sharePercent: 33.34 },
-]
 
 const ADMIN_EMAIL = process.env['ADMIN_EMAIL'] ?? process.env['CEO_EMAIL'] ?? 'splaro.bd@gmail.com'
 const ADMIN_PASSWORD = process.env['ADMIN_PASSWORD']
@@ -35,7 +30,8 @@ const STORE_WHATSAPP =
   process.env['NEXT_PUBLIC_SUPPORT_PHONE'] ??
   STORE_CONTACT_PHONE
 
-const DEMO_PRODUCT_IMAGE = '/images/placeholder-product.jpg'
+const DEMO_PRODUCT_IMAGE =
+  'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&q=80&auto=format'
 
 type DemoProductSeed = {
   name: string
@@ -155,7 +151,7 @@ async function main() {
         slug: 'splaro',
         domain: 'splaro.co',
         email: STORE_CONTACT_EMAIL,
-        logo: '/images/logo/splaro-brand-mark-400.webp',
+        logo: '/images/logo/splaro-logo-black-premium.png',
         ownerId: admin.id,
       },
     })
@@ -187,34 +183,7 @@ async function main() {
     update: { role: 'SUPER_ADMIN' },
   })
   console.log(`Staff role assigned: ${ADMIN_EMAIL} → SUPER_ADMIN (CEO)`)
-
-  for (const p of PARTNERS) {
-    const existing = await prisma.partner.findUnique({
-      where: { storeId_slug: { storeId: store.id, slug: p.slug } },
-    })
-    if (existing) continue
-
-    const partner = await prisma.partner.create({
-      data: {
-        storeId: store.id,
-        name: p.name,
-        slug: p.slug,
-        sharePercent: p.sharePercent,
-        createdBy: 'seed',
-      },
-    })
-
-    await prisma.partnerShareSetting.create({
-      data: {
-        storeId: store.id,
-        partnerId: partner.id,
-        sharePercent: p.sharePercent,
-        createdBy: 'seed',
-      },
-    })
-
-    console.log(`Seeded partner: ${p.name}`)
-  }
+  console.log('Partners: add via Admin → Finance → Partner Hub (no default seed)')
 
   const wh = await prisma.warehouse.findFirst({ where: { storeId: store.id, code: 'DHK-01' } })
   if (!wh) {
@@ -230,59 +199,39 @@ async function main() {
     console.log('Seeded default warehouse')
   }
 
-  const categoryDefs = [
-    { name: 'Women', slug: 'women', sortOrder: 1 },
-    { name: 'Men', slug: 'men', sortOrder: 2 },
-    { name: 'Kids', slug: 'kids', sortOrder: 3 },
-    { name: 'Footwear', slug: 'footwear', sortOrder: 4 },
-    { name: 'Accessories', slug: 'accessories', sortOrder: 5 },
-    { name: 'New Arrivals', slug: 'new-arrivals', sortOrder: 6 },
-  ]
-
   const categories: Record<string, string> = {}
-  for (const cat of categoryDefs) {
+  for (const dept of CATEGORY_DEPARTMENTS) {
     const row = await prisma.category.upsert({
-      where: { storeId_slug: { storeId: store.id, slug: cat.slug } },
-      create: { storeId: store.id, name: cat.name, slug: cat.slug, sortOrder: cat.sortOrder },
-      update: { name: cat.name, sortOrder: cat.sortOrder, isActive: true },
-    })
-    categories[cat.slug] = row.id
-  }
-
-  const subcategoryDefs: { parent: string; name: string; slug: string; sortOrder: number }[] = [
-    { parent: 'kids', name: 'Girls Wear', slug: 'girls-wear', sortOrder: 1 },
-    { parent: 'kids', name: 'Boys Wear', slug: 'boys-wear', sortOrder: 2 },
-    { parent: 'kids', name: 'Baby & Toddler', slug: 'baby-toddler', sortOrder: 3 },
-    { parent: 'kids', name: 'Ethnic Kids', slug: 'ethnic-kids', sortOrder: 4 },
-    { parent: 'kids', name: 'Ghagra & Lehenga', slug: 'kids-ghagra-lehenga', sortOrder: 5 },
-    { parent: 'kids', name: 'Party Wear', slug: 'kids-party-wear', sortOrder: 6 },
-    { parent: 'kids', name: 'School Wear', slug: 'school-wear', sortOrder: 7 },
-    { parent: 'women', name: 'Sarees', slug: 'sarees', sortOrder: 1 },
-    { parent: 'women', name: 'Ethnic Wear', slug: 'ethnic-wear', sortOrder: 2 },
-    { parent: 'women', name: 'Kurti & Tunics', slug: 'kurti-tunics', sortOrder: 3 },
-    { parent: 'women', name: 'Dresses', slug: 'dresses', sortOrder: 4 },
-    { parent: 'women', name: 'Western Wear', slug: 'western-wear', sortOrder: 5 },
-    { parent: 'women', name: 'Bridal', slug: 'bridal', sortOrder: 6 },
-    { parent: 'men', name: 'Panjabi', slug: 'panjabi', sortOrder: 1 },
-    { parent: 'men', name: 'T-Shirts', slug: 't-shirts', sortOrder: 2 },
-    { parent: 'men', name: 'Polo Shirts', slug: 'polo-shirts', sortOrder: 3 },
-  ]
-
-  for (const sub of subcategoryDefs) {
-    const parentId = categories[sub.parent]
-    if (!parentId) continue
-    const row = await prisma.category.upsert({
-      where: { storeId_slug: { storeId: store.id, slug: sub.slug } },
+      where: { storeId_slug: { storeId: store.id, slug: dept.slug } },
       create: {
         storeId: store.id,
-        parentId,
-        name: sub.name,
-        slug: sub.slug,
-        sortOrder: sub.sortOrder,
+        name: dept.name,
+        slug: dept.slug,
+        sortOrder: dept.sortOrder,
+        parentId: null,
       },
-      update: { parentId, name: sub.name, sortOrder: sub.sortOrder, isActive: true },
+      update: { name: dept.name, sortOrder: dept.sortOrder, isActive: true, parentId: null },
     })
-    categories[sub.slug] = row.id
+    categories[dept.slug] = row.id
+  }
+
+  for (const [parentSlug, items] of Object.entries(CATEGORY_SUBCATEGORIES)) {
+    const parentId = categories[parentSlug]
+    if (!parentId) continue
+    for (const [index, item] of items.entries()) {
+      const row = await prisma.category.upsert({
+        where: { storeId_slug: { storeId: store.id, slug: item.slug } },
+        create: {
+          storeId: store.id,
+          parentId,
+          name: item.name,
+          slug: item.slug,
+          sortOrder: index + 1,
+        },
+        update: { parentId, name: item.name, sortOrder: index + 1, isActive: true },
+      })
+      categories[item.slug] = row.id
+    }
   }
 
   await prisma.category.updateMany({

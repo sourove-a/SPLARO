@@ -130,6 +130,26 @@ for (const flag of ['PAYMENT_DEV_STUB', 'COURIER_DEV_STUB']) {
   }
 }
 
+// Redis required on VPS for OTP rate-limits + courier retry queues
+if (process.env.REDIS_ENABLED?.trim() === 'false') {
+  errors.push(
+    'REDIS_ENABLED=false — production needs Redis (OTP limits, courier retry queue). Set REDIS_URL and REDIS_ENABLED=true',
+  )
+}
+
+// Half-built multi-tenant / loyalty must stay off for single-store launch
+for (const [envKey, label] of [
+  ['FEATURE_SAAS_ENABLED', 'SaaS multi-tenant'],
+  ['FEATURE_VENDOR_ENABLED', 'marketplace vendor'],
+  ['FEATURE_LOYALTY_ENABLED', 'loyalty / VIP'],
+]) {
+  if (process.env[envKey]?.trim() === 'true') {
+    warnings.push(
+      `${envKey}=true — ${label} UI is incomplete for launch; keep false unless you finished that product`,
+    )
+  }
+}
+
 // Optional integrations — warn only
 for (const [label, keys] of Object.entries(OPTIONAL_GROUPS)) {
   const present = keys.filter((k) => process.env[k]?.trim())

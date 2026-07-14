@@ -32,6 +32,16 @@ export interface RolePermissionsResponse {
   }>
 }
 
+export function fetchStaffList() {
+  return apiFetch<
+    Array<{
+      userId: string
+      role: string
+      user: { id: string; email: string | null; isActive: boolean }
+    }>
+  >('/admin/security/staff')
+}
+
 export function fetchRolePermissions() {
   return apiFetch<RolePermissionsResponse>('/admin/security/permissions')
 }
@@ -121,8 +131,9 @@ export interface DatabaseConnectionInfo {
   user: string
   passwordSet: boolean
   connected: boolean
-  envFile: string | null
-  backupFile: string | null
+  source: 'environment' | 'database'
+  savedInDatabase: boolean
+  requiresRestart: boolean
 }
 
 export interface DatabaseCredentialsInput {
@@ -146,7 +157,7 @@ export function testDatabaseConnection(input: DatabaseCredentialsInput) {
 }
 
 export function saveDatabaseConnection(input: DatabaseCredentialsInput) {
-  return apiFetch<{ ok: boolean; message: string; files: string[] }>('/admin/security/database', {
+  return apiFetch<{ ok: boolean; message: string; savedToDatabase?: boolean }>('/admin/security/database', {
     method: 'POST',
     body: JSON.stringify(input),
   })

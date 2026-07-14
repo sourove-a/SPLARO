@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from '@/lib/motion/react'
 import { checkoutMotionTransition, checkoutSectionMotion } from '@/lib/checkout/checkout-motion'
 
 interface CheckoutSectionProps {

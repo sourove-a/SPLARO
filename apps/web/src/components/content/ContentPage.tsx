@@ -5,6 +5,7 @@ import { AccountGlass } from '@/components/account/AccountGlass'
 import { ContentPremiumAbout } from '@/components/content/ContentPremiumAbout'
 import { ContentPremiumFaq } from '@/components/content/ContentPremiumFaq'
 import { ContentPremiumLegal } from '@/components/content/ContentPremiumLegal'
+import { ContentPremiumSizeGuide } from '@/components/content/ContentPremiumSizeGuide'
 import { ContentSectionGrid } from '@/components/content/ContentSectionGrid'
 import type { SitePageSection } from '@/lib/content/site-pages'
 
@@ -13,7 +14,7 @@ interface ContentPageProps {
   description: string
   sections: SitePageSection[]
   children?: ReactNode
-  variant?: 'default' | 'boxed' | 'premium' | 'about' | 'faq'
+  variant?: 'default' | 'boxed' | 'premium' | 'about' | 'faq' | 'size-guide'
   premiumBadge?: string
 }
 
@@ -53,6 +54,16 @@ export function ContentPage({
         title={title}
         description={description}
         sections={sections}
+        {...(premiumBadge ? { badge: premiumBadge } : {})}
+      />
+    )
+  }
+
+  if (variant === 'size-guide') {
+    return (
+      <ContentPremiumSizeGuide
+        title={title}
+        description={description}
         {...(premiumBadge ? { badge: premiumBadge } : {})}
       />
     )

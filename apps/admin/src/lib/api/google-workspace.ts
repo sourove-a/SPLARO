@@ -129,7 +129,10 @@ export function fetchGmailConfig() {
 }
 
 export function updateGmailConfig(body: { senderName?: string }) {
-  return apiFetch('/admin/google/gmail/config', { method: 'PUT', body: JSON.stringify(body) })
+  return apiFetch<{ senderName: string; senderEmail: string | null; connected: boolean }>(
+    '/admin/google/gmail/config',
+    { method: 'PUT', body: JSON.stringify(body) },
+  )
 }
 
 export function testGmail(to: string) {

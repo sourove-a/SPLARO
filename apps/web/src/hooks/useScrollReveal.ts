@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useInView, useReducedMotion } from 'framer-motion'
+import { useInView, useReducedMotion } from '@/lib/motion/react'
 
 /** If IntersectionObserver never fires (RDP, broken IO), reveal after this delay. */
 const IO_FALLBACK_MS = 2500

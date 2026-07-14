@@ -1,42 +1,37 @@
-import type { sortOptions } from '@/data/storefront'
+import {
+  catalogSortFromMobile as catalogSortFromMobileConfig,
+  getDefaultSortLabel,
+  getMobileSortOptions,
+  mobileSortFromCatalog as mobileSortFromCatalogConfig,
+  type CatalogSortOption,
+} from '@/lib/shop/filter-config'
+import { DEFAULT_SHOP_FILTERS } from '@splaro/types'
 
-export const mobileSortOptions = [
-  'Recommended',
-  'Newest',
-  'Price: Low to High',
-  'Price: High to Low',
-  'Best Selling',
-] as const
+export type { CatalogSortOption }
 
-export type MobileSortOption = (typeof mobileSortOptions)[number]
+export const mobileSortOptions = getMobileSortOptions(DEFAULT_SHOP_FILTERS)
 
-export type CatalogSortOption = (typeof sortOptions)[number] | 'Best Selling'
+export type MobileSortOption = string
 
-export const mobilePriceQuickChips = [
-  { id: 'under-1k', label: 'Under ৳1,000', min: 0, max: 1000 },
-  { id: '1k-3k', label: '৳1,000 – ৳3,000', min: 1000, max: 3000 },
-  { id: '3k-5k', label: '৳3,000 – ৳5,000', min: 3000, max: 5000 },
-  { id: '5k-plus', label: '৳5,000+', min: 5000, max: null as number | null },
-] as const
+export const mobilePriceQuickChips = DEFAULT_SHOP_FILTERS.mobilePriceChips
+  .filter((chip) => chip.enabled)
+  .map((chip) => ({
+    id: chip.id,
+    label: chip.label,
+    min: chip.min ?? 0,
+    max: chip.max,
+  }))
 
 export function formatMobileBdt(amount: number) {
   return `৳${amount.toLocaleString('en-BD', { maximumFractionDigits: 0 })}`
 }
 
 export function mobileSortFromCatalog(sort: CatalogSortOption): MobileSortOption {
-  if (sort === 'Newest') return 'Newest'
-  if (sort === 'Price low to high') return 'Price: Low to High'
-  if (sort === 'Price high to low') return 'Price: High to Low'
-  if (sort === 'Best Selling') return 'Best Selling'
-  return 'Recommended'
+  return mobileSortFromCatalogConfig(sort, DEFAULT_SHOP_FILTERS)
 }
 
 export function catalogSortFromMobile(sort: MobileSortOption): CatalogSortOption {
-  if (sort === 'Newest') return 'Newest'
-  if (sort === 'Price: Low to High') return 'Price low to high'
-  if (sort === 'Price: High to Low') return 'Price high to low'
-  if (sort === 'Best Selling') return 'Best Selling'
-  return 'Default'
+  return catalogSortFromMobileConfig(sort, DEFAULT_SHOP_FILTERS)
 }
 
 export function isMobilePriceRangeActive(
@@ -46,4 +41,8 @@ export function isMobilePriceRangeActive(
 ) {
   if (min === null || max === null) return false
   return min > bounds.min || max < bounds.max
+}
+
+export function isDefaultSort(sort: CatalogSortOption, config = DEFAULT_SHOP_FILTERS) {
+  return sort === getDefaultSortLabel(config)
 }

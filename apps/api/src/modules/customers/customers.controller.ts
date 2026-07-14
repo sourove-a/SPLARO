@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Query, Body, NotFoundExcep
 import { PrismaService } from '../../common/prisma.service'
 import { deleteOrderWithRelations } from '../../common/order-cleanup'
 import { resolveStoreId } from '../../common/store.util'
+import { resolveAdminPagination } from '../../common/admin-pagination.util'
 import { LoyaltyService } from '../loyalty/loyalty.service'
 import type { LoyaltyTier, Prisma } from '@prisma/client'
 
@@ -36,7 +37,7 @@ export class CustomersController {
     @Query('tier') tier?: string,
   ) {
     const sid = await this.sid(storeId)
-    const skip = (Number(page) - 1) * Number(limit)
+    const { page: pageNum, limit: take, skip } = resolveAdminPagination(page, limit)
     const where: Prisma.CustomerWhereInput = {
       storeId: sid,
       ...(tier ? { loyaltyTier: tier as LoyaltyTier } : {}),
@@ -57,11 +58,19 @@ export class CustomersController {
           id: true, firstName: true, lastName: true, phone: true, email: true,
           loyaltyTier: true, loyaltyPoints: true, totalOrders: true, totalSpent: true,
           codRiskScore: true, tags: true, createdAt: true, lastOrderDate: true,
-          user: { select: { isActive: true } },
+          user: {
+            select: {
+              isActive: true,
+              authProvider: true,
+              googleId: true,
+              emailVerified: true,
+              avatar: true,
+            },
+          },
         },
         orderBy: { totalSpent: 'desc' },
         skip,
-        take: Number(limit),
+        take,
       }),
       this.prisma.customer.count({ where }),
     ])
@@ -69,9 +78,13 @@ export class CustomersController {
     const customers = rows.map(({ user, ...c }) => ({
       ...c,
       isBlocked: user ? !user.isActive : false,
+      authProvider: user?.authProvider ?? 'password',
+      googleLinked: Boolean(user?.googleId),
+      emailVerified: user?.emailVerified ?? false,
+      ...(user?.avatar ? { avatar: user.avatar } : {}),
     }))
 
-    return { customers, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) }
+    return { customers, total, page: pageNum, totalPages: Math.ceil(total / take) }
   }
 
   /** Export customers CSV — static segment before :id */
@@ -128,12 +141,31 @@ export class CustomersController {
           },
         },
         customerNotes: { orderBy: { createdAt: 'desc' } },
-        user: { select: { isActive: true } },
+        user: {
+          select: {
+            isActive: true,
+            authProvider: true,
+            googleId: true,
+            emailVerified: true,
+            avatar: true,
+            lastLoginAt: true,
+            lastLoginDevice: true,
+          },
+        },
       },
     })
     if (!customer) throw new NotFoundException('Customer not found')
     const { user, ...rest } = customer
-    return { ...rest, isBlocked: user ? !user.isActive : false }
+    return {
+      ...rest,
+      isBlocked: user ? !user.isActive : false,
+      authProvider: user?.authProvider ?? 'password',
+      googleLinked: Boolean(user?.googleId),
+      emailVerified: user?.emailVerified ?? false,
+      ...(user?.avatar ? { avatar: user.avatar } : {}),
+      ...(user?.lastLoginAt ? { lastLogin: user.lastLoginAt.toISOString() } : {}),
+      ...(user?.lastLoginDevice ? { lastDevice: user.lastLoginDevice } : {}),
+    }
   }
 
   @Post(':id/notes')

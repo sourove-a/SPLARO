@@ -1,14 +1,14 @@
-import type { Transition, Variants } from 'framer-motion'
+import type { Transition, Variants } from '@/lib/motion/react'
 import { EASE_EXPO_OUT, REVEAL_ENTER, fadeUpSoft, pageEnter } from './config'
 
 export { pageEnter, fadeUpSoft }
 
-export const SPRING = { type: 'spring' as const, stiffness: 400, damping: 30 }
+export const SPRING = { type: 'tween' as const, duration: 0.22, ease: EASE_EXPO_OUT }
 
 export const EXPO_OUT: Transition = { ease: EASE_EXPO_OUT, duration: 0.6 }
 
 export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 22 },
+  hidden: { opacity: 0, y: 24 },
   visible: { opacity: 1, y: 0, transition: REVEAL_ENTER },
 }
 
@@ -30,7 +30,7 @@ export const slideLeft: Variants = {
 export const staggerContainer: Variants = {
   hidden: {},
   visible: {
-    transition: { staggerChildren: 0.07, delayChildren: 0.06 },
+    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
   },
 }
 
@@ -40,10 +40,17 @@ export const fadeUpPage = {
   exit: { opacity: 0, y: -10, transition: { duration: 0.18, ease: EASE_EXPO_OUT } },
 }
 
-/** Hover/tap — transform only, no layout */
+/** Enter/exit pop — AnimatePresence swaps (add-to-bag, cart lines, status chips) */
+export const exitPop: Variants = {
+  initial: { opacity: 0, scale: 0.88 },
+  animate: { opacity: 1, scale: 1, transition: { duration: 0.24, ease: EASE_EXPO_OUT } },
+  exit: { opacity: 0, scale: 0.88, transition: { duration: 0.2, ease: EASE_EXPO_OUT } },
+}
+
+/** Hover/tap — transform only, no layout, no bounce */
 export const cardHover = {
-  whileHover: { y: -4, scale: 1.008, transition: { duration: 0.28, ease: EASE_EXPO_OUT } },
-  whileTap: { scale: 0.98, transition: { duration: 0.08 } },
+  whileHover: { y: -3, transition: { duration: 0.28, ease: EASE_EXPO_OUT } },
+  whileTap: { scale: 0.992, transition: { duration: 0.1, ease: EASE_EXPO_OUT } },
 }
 
 export const revealVariants = {

@@ -2,6 +2,7 @@ import type { NextResponse } from 'next/server'
 import { getServerApiBaseUrl } from '@splaro/config'
 import { cookies } from 'next/headers'
 import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
+import { upstreamFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -17,6 +18,7 @@ export interface ApiAuthUser {
   avatar?: string | null
   phoneVerified?: boolean
   loyaltyTier?: string
+  needsPhone?: boolean
 }
 
 function apiUrl(path: string): string {
@@ -48,7 +50,7 @@ export async function apiAuthSignup(input: {
   email: string
   phone: string
   password: string
-}): Promise<{ sessionToken: string; user: ApiAuthUser } | null> {
+}): Promise<{ sessionToken: string; user: ApiAuthUser } | { error: string; status?: number }> {
   const res = await fetchWithTimeout(
     apiUrl(`/storefront/auth/signup?storeId=${encodeURIComponent(STORE_ID)}`),
     {
@@ -56,15 +58,89 @@ export async function apiAuthSignup(input: {
       headers: sessionHeaders(),
       body: JSON.stringify(input),
       cache: 'no-store',
+      timeoutMs: upstreamFetchTimeoutMs(),
     },
   )
-  if (!res || !res.ok) return null
+  if (!res) {
+    return { error: 'Signup service timed out — try again.', status: 503 }
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Could not create account', status: res.status }
+  }
   const payload = (await res.json()) as {
     sessionToken?: string
     user?: ApiAuthUser
   }
-  if (!payload.sessionToken || !payload.user) return null
+  if (!payload.sessionToken || !payload.user) {
+    return { error: 'Signup failed — invalid server response', status: 502 }
+  }
   return { sessionToken: payload.sessionToken, user: payload.user }
+}
+
+export async function apiAuthGoogle(
+  credential: string,
+): Promise<
+  | { sessionToken: string; user: ApiAuthUser; needsPhone: boolean }
+  | { error: string }
+> {
+  const res = await fetchWithTimeout(
+    apiUrl(`/storefront/auth/google?storeId=${encodeURIComponent(STORE_ID)}`),
+    {
+      method: 'POST',
+      headers: sessionHeaders(),
+      body: JSON.stringify({ credential }),
+      cache: 'no-store',
+      timeoutMs: upstreamFetchTimeoutMs(),
+    },
+  )
+  if (!res) {
+    return { error: 'Google sign-in timed out — try again.' }
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Google sign-in failed' }
+  }
+  const payload = (await res.json()) as {
+    sessionToken?: string
+    user?: ApiAuthUser
+    needsPhone?: boolean
+  }
+  if (!payload.sessionToken || !payload.user) {
+    return { error: 'Google sign-in failed' }
+  }
+  return {
+    sessionToken: payload.sessionToken,
+    user: payload.user,
+    needsPhone: Boolean(payload.needsPhone),
+  }
+}
+
+export async function apiCompletePhone(
+  sessionToken: string,
+  input: { phone: string; code?: string },
+): Promise<{ user: ApiAuthUser } | { error: string }> {
+  const res = await fetchWithTimeout(
+    apiUrl(`/storefront/auth/complete-phone?storeId=${encodeURIComponent(STORE_ID)}`),
+    {
+      method: 'POST',
+      headers: sessionHeaders(sessionToken),
+      body: JSON.stringify(input),
+      cache: 'no-store',
+    },
+  )
+  if (!res) {
+    return { error: 'Could not save phone — try again.' }
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Could not complete signup' }
+  }
+  const payload = (await res.json()) as { user?: ApiAuthUser }
+  if (!payload.user) {
+    return { error: 'Could not complete signup' }
+  }
+  return { user: payload.user }
 }
 
 export async function apiAuthLogin(input: {
@@ -78,6 +154,7 @@ export async function apiAuthLogin(input: {
       headers: sessionHeaders(),
       body: JSON.stringify(input),
       cache: 'no-store',
+      timeoutMs: upstreamFetchTimeoutMs(),
     },
   )
   if (!res) {
@@ -220,7 +297,10 @@ export async function apiVerifyOtp(
 export async function apiTrackOrders(
   phone: string,
   opts?: { sessionToken?: string; phoneAccessToken?: string },
-): Promise<Record<string, unknown>[] | null> {
+): Promise<
+  | { orders: Record<string, unknown>[] }
+  | { error: string; status: number; requiresOtp?: boolean }
+> {
   const headers = sessionHeaders(opts?.sessionToken)
   if (opts?.phoneAccessToken) {
     headers['x-splaro-phone-access'] = opts.phoneAccessToken
@@ -230,11 +310,21 @@ export async function apiTrackOrders(
     apiUrl(
       `/storefront/orders/track?storeId=${encodeURIComponent(STORE_ID)}&phone=${encodeURIComponent(phone)}`,
     ),
-    { headers, cache: 'no-store' },
+    { headers, cache: 'no-store', timeoutMs: upstreamFetchTimeoutMs() },
   )
-  if (!res || !res.ok) return null
+  if (!res) {
+    return { error: 'Order lookup timed out — try again.', status: 503 }
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return {
+      error: body.message ?? 'Could not load orders',
+      status: res.status,
+      requiresOtp: res.status === 401,
+    }
+  }
   const payload = (await res.json()) as { orders?: Record<string, unknown>[] }
-  return payload.orders ?? []
+  return { orders: payload.orders ?? [] }
 }
 
 export async function apiSearchProducts(

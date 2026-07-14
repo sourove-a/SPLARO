@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { formatBDT } from '@/lib/utils/currency'
 import { getCheckoutEntryPath } from '@/lib/checkout/checkout-auth'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import { useAuthStore } from '@/store/authStore'
 import { CartTrustSignals } from './CartTrustSignals'
 
@@ -15,17 +16,18 @@ interface CartSummaryProps {
   continueHref?: string
 }
 
-export function CartSummary({ subtotal, onClose, continueHref = '/collections' }: CartSummaryProps) {
+export function CartSummary({ subtotal, onClose, continueHref = '/shop' }: CartSummaryProps) {
   const router = useRouter()
   const user = useAuthStore((state) => state.user)
+  const authHydrated = useAuthStore((state) => state._hydrated)
   const [navigating, setNavigating] = useState(false)
 
   const handleCheckout = () => {
-    if (navigating) return
+    if (navigating || !authHydrated) return
     setNavigating(true)
     onClose?.()
     window.setTimeout(() => {
-      router.push(getCheckoutEntryPath(Boolean(user)))
+      safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
     }, 300)
   }
 
@@ -46,13 +48,13 @@ export function CartSummary({ subtotal, onClose, continueHref = '/collections' }
       <button
         type="button"
         onClick={handleCheckout}
-        disabled={navigating}
+        disabled={navigating || !authHydrated}
         className="glass-action glass-action-dark cart-checkout-btn flex w-full justify-center"
       >
-        {navigating ? (
+        {navigating || !authHydrated ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-            Opening checkout…
+            {authHydrated ? 'Opening checkout…' : 'Loading…'}
           </>
         ) : (
           'Proceed to Checkout'

@@ -8,7 +8,7 @@ export const SPLARO_INVOICE_BRAND = {
   website: 'https://www.splaro.co',
   websiteDisplay: 'www.splaro.co',
   office: 'Uttara Sector 13, Dhaka — 1230',
-  arabicLogoPath: '/images/logo/splaro-brand-mark-transparent.png',
+  arabicLogoPath: '/images/logo/splaro-logo-white-premium.png',
   thankYouNote:
     'Thank you for choosing SPLARO. Your order has been carefully prepared with premium quality, modest elegance, and care.',
 } as const

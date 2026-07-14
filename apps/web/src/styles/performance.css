@@ -1,7 +1,7 @@
 /**
  * SPLARO storefront — GPU / scroll performance layer.
  * Caps desktop glass blur; disables backdrop-filter on touch/mobile;
- * keeps video/hero zones blur-free at all breakpoints.
+ * Low-memory / save-data / software-GL only → lite paint profile (not Windows-by-default).
  */
 
 /* Hero / video — never stack live media + backdrop-filter */
@@ -15,9 +15,13 @@
   -webkit-backdrop-filter: none !important;
 }
 
-/* Scroll-driven motion — promote to compositor layer */
+/* Scroll-driven motion — promote to compositor layer while animating */
 .scroll-reveal-gpu {
   will-change: transform, opacity;
+}
+
+.scroll-reveal-gpu--revealed {
+  will-change: auto;
 }
 
 /* Product card → PDP shared image morph (View Transitions API) */
@@ -25,12 +29,12 @@
   @media (prefers-reduced-motion: no-preference) {
     ::view-transition-old(root),
     ::view-transition-new(root) {
-      animation-duration: 0.3s;
+      animation-duration: 0.28s;
       animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     ::view-transition-group(*) {
-      animation-duration: 0.45s;
+      animation-duration: 0.48s;
       animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
     }
 
@@ -44,7 +48,58 @@
   position: relative;
   width: 100%;
   height: 100%;
-  contain: layout;
+  /* No contain:* here — breaks view-transition-name (card → PDP image morph). */
+}
+
+.product-transition-link__hit {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .product-transition-link__hit {
+    transition:
+      transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  a:hover .product-transition-link__hit .shop-product-card__media,
+  a:hover .product-transition-link__hit .splaro-card__media,
+  a:hover .product-transition-link__hit .ilyn-card__media,
+  a:hover .product-transition-link__hit .pc-media {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 36px rgba(16, 17, 20, 0.1);
+  }
+
+  a:hover .product-transition-link__hit .shop-product-card__media,
+  a:hover .product-transition-link__hit .splaro-card__media,
+  a:hover .product-transition-link__hit .ilyn-card__media,
+  a:hover .product-transition-link__hit .pc-media {
+    transition:
+      transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+.product-transition-link__hit:active {
+  transform: scale(0.992);
+}
+
+a:active .product-transition-link__hit .shop-product-card__media,
+a:active .product-transition-link__hit .splaro-card__media,
+a:active .product-transition-link__hit .ilyn-card__media,
+a:active .product-transition-link__hit .pc-media {
+  transform: scale(0.995);
+  transition-duration: 0.12s;
+}
+
+.shop-product-card__media-wrap {
+  display: block;
+  width: 100%;
+  transform-origin: center center;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -101,4 +156,143 @@
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
+}
+
+/**
+ * Lite paint profile — only true low-power (save-data, software GL; or ≤2GB RAM
+ * on non-Windows-desktop). Desktop Windows never gets lite from RAM alone —
+ * that false positive froze slider / story-earth / hero video.
+ */
+html[data-perf='lite'] {
+  --glass-blur: none;
+  --header-glass-blur: none;
+  --header-glass-blur-scrolled: none;
+  --header-glass-bg: rgba(255, 255, 255, 0.96);
+  --header-glass-bg-scrolled: rgba(255, 255, 255, 0.98);
+  --glass-white: rgba(255, 255, 255, 0.94);
+  --glass-white-strong: rgba(255, 255, 255, 0.97);
+  --glass-ivory: rgba(255, 255, 255, 0.95);
+  --glass-dark: rgba(17, 17, 17, 0.92);
+  scroll-behavior: auto;
+}
+
+html[data-perf='lite'] *,
+html[data-perf='lite'] *::before,
+html[data-perf='lite'] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-perf='lite'] .scroll-reveal-gpu {
+  will-change: auto;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Lite: keep cheap CSS earth scroll — freezing looked broken (esp. Windows soft-GL). */
+html[data-perf='lite'] .story-earth-panel__placeholder--flow .story-earth-panel__globe-map {
+  animation: story-earth-map-scroll 28s linear infinite !important;
+  will-change: background-position;
+}
+
+html[data-perf='lite'] .story-earth-panel__placeholder-glow {
+  animation: story-earth-glow-pulse 8s ease-in-out infinite !important;
+}
+
+html[data-perf='lite'] .site-footer__earth-fallback-spin:not(.site-footer__earth-fallback-spin--static) {
+  animation: footer-earth-map-scroll 84s linear infinite !important;
+  will-change: transform !important;
+}
+
+html[data-perf='lite'] .site-footer__earth-fallback-cloud-spin:not(.site-footer__earth-fallback-spin--static) {
+  animation: footer-earth-map-scroll 92s linear infinite !important;
+  will-change: transform !important;
+}
+
+html[data-perf='lite'] .site-footer__earth-fallback-map--day {
+  filter: none;
+}
+
+html[data-perf='lite'] .site-footer__earth-fallback-map--night {
+  opacity: 0.48;
+}
+
+html[data-perf='lite'] .site-footer__earth-fallback-clouds {
+  opacity: 0.22;
+}
+
+html[data-perf='lite'] .site-footer__earth-stars--twinkle,
+html[data-perf='lite'] .site-footer__earth-stars--twinkle::before,
+html[data-perf='lite'] .site-footer__earth-stars--twinkle::after,
+html[data-perf='lite'] .site-footer__earth-fallback-glow,
+html[data-perf='lite'] .auth-shell__earth-stars--twinkle,
+html[data-perf='lite'] .auth-shell__earth-stars--twinkle::before,
+html[data-perf='lite'] .auth-shell__earth-stars--twinkle::after {
+  animation: none !important;
+}
+
+html[data-perf='lite'] .site-footer__earth-stars--twinkle {
+  opacity: 0.42;
+}
+
+html[data-perf='lite'] .footer-lux__glass-surface {
+  background:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 30%,
+      rgba(8, 14, 24, 0.72) 65%,
+      rgba(4, 8, 14, 0.82) 100%
+    ) !important;
+}
+
+html[data-perf='lite'] .trust-bar__panel,
+html[data-perf='lite'] .reels-shell,
+html[data-perf='lite'] .splaro-nav-btn--glass-dark,
+html[data-perf='lite'] .splaro-nav-btn--overlay {
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+html[data-perf='lite'] .splaro-nav-btn--glass-dark {
+  background: rgba(17, 17, 17, 0.78) !important;
+}
+
+/* PDP solid premium glass — intentional opaque panels when blur is disabled */
+html[data-perf='lite'] .pp-view .pp-info__ctas {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(16, 17, 20, 0.08) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 14px 36px rgba(16, 17, 20, 0.08) !important;
+}
+
+html[data-perf='lite'] .pp-view .pp-info__ctas::before {
+  opacity: 0.35 !important;
+}
+
+html[data-perf='lite'] .pp-view .pp-gallery__zoom,
+html[data-perf='lite'] .pp-view .pp-gallery__nav,
+html[data-perf='lite'] .pp-lightbox__close,
+html[data-perf='lite'] .pp-lightbox__nav {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border: 1px solid rgba(16, 17, 20, 0.1) !important;
+  box-shadow: 0 8px 22px rgba(16, 17, 20, 0.1) !important;
+}
+
+html[data-perf='lite'] .pp-mobile-sticky-bar {
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 -10px 28px rgba(16, 17, 20, 0.1) !important;
+}
+
+html[data-perf='lite'] .pp-qty {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(16, 17, 20, 0.08);
+  box-shadow: 0 6px 18px rgba(16, 17, 20, 0.05);
+}
+
+html[data-perf='lite'] .product-card-actions button,
+html[data-perf='lite'] .product-card-quickview {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border: 1px solid rgba(16, 17, 20, 0.08);
+  box-shadow: 0 8px 20px rgba(16, 17, 20, 0.1);
 }

@@ -66,18 +66,21 @@ export function prefersReducedMotion(): boolean {
 }
 
 /** False on RDP / software GL / blocked WebGL — story earth uses CSS fallback instead. */
+let canUseWebGLCache: boolean | null = null
 export function canUseWebGL(): boolean {
   if (typeof window === 'undefined') return false
+  if (canUseWebGLCache !== null) return canUseWebGLCache
   try {
     const canvas = document.createElement('canvas')
     const ctx =
       canvas.getContext('webgl2') ??
       canvas.getContext('webgl') ??
       canvas.getContext('experimental-webgl')
-    return Boolean(ctx)
+    canUseWebGLCache = Boolean(ctx)
   } catch {
-    return false
+    canUseWebGLCache = false
   }
+  return canUseWebGLCache
 }
 
 const SOFTWARE_RENDERER_MARKERS = [
@@ -90,30 +93,56 @@ const SOFTWARE_RENDERER_MARKERS = [
 ]
 
 /** True on RDP / software GL — use CSS earth, skip WebGL attempt. */
+let softwareRendererCache: boolean | null = null
 export function isSoftwareRenderer(): boolean {
-  if (!canUseWebGL()) return true
+  if (softwareRendererCache !== null) return softwareRendererCache
+  if (!canUseWebGL()) {
+    softwareRendererCache = true
+    return true
+  }
   try {
     const canvas = document.createElement('canvas')
     const gl =
       canvas.getContext('webgl') ??
       (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null)
-    if (!gl) return true
+    if (!gl) {
+      softwareRendererCache = true
+      return true
+    }
 
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
-    if (!debugInfo) return false
+    if (!debugInfo) {
+      softwareRendererCache = false
+      return false
+    }
 
     const renderer = String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)).toLowerCase()
-    return SOFTWARE_RENDERER_MARKERS.some((marker) => renderer.includes(marker))
+    softwareRendererCache = SOFTWARE_RENDERER_MARKERS.some((marker) => renderer.includes(marker))
   } catch {
-    return true
+    softwareRendererCache = true
   }
+  return softwareRendererCache
 }
 
 export function isLowPowerDevice(): boolean {
-  if (typeof navigator === 'undefined') return false
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false
+
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+  if (conn?.saveData) return true
+
+  // Windows desktop Mac-parity: never lite from soft-GL / low RAM alone.
+  // HA-off → "Microsoft Basic Render" used to force lite and freeze earth/slider.
+  // Soft GL still skips WebGL via isSoftwareRenderer() → CSS earth fallback.
+  const isWin = /Windows/i.test(navigator.userAgent || '')
+  const fine = window.matchMedia('(pointer: fine)').matches
+  const desktop = window.innerWidth > 1023
+  if (isWin && fine && desktop) return false
+
+  if (isSoftwareRenderer()) return true
+
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
-  if (memory !== undefined && memory <= 4) return true
-  return isSoftwareRenderer()
+  if (memory !== undefined && memory <= 2) return true
+  return false
 }
 
 export type EarthMotionOptions = { decorative?: boolean }

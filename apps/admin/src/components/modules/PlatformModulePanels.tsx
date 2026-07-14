@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Activity, Code2, Store, Search, Plus } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { BACKEND_NOT_CONNECTED_TITLE } from '@/lib/admin/feedback'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
@@ -147,7 +147,7 @@ export function MarketplaceModulePanel(_props: ModuleContextProps) {
             className="flex-1 bg-transparent text-sm font-semibold outline-none"
           />
         </div>
-        <AdminButton variant="gold" onClick={() => toast('Vendor onboarding opens when marketplace is enabled.')}>
+        <AdminButton variant="gold" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
           <Plus className="h-4 w-4" />
           Add vendor
         </AdminButton>
@@ -228,7 +228,7 @@ export function DeveloperModulePanel(_props: ModuleContextProps) {
             ))}
           </div>
         )}
-        <AdminButton className="mt-3" variant="gold" onClick={() => toast('API key generation — configure in .env first.')}>
+        <AdminButton className="mt-3" variant="gold" disabled title={BACKEND_NOT_CONNECTED_TITLE}>
           Generate API key
         </AdminButton>
       </section>

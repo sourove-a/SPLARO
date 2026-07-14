@@ -7,6 +7,7 @@ import { existsSync, readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { checkApiHealth, getApiPort, getListeningPids, reclaimPort } from './api-port.mjs'
+import { cliSpawnOpts } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_PKG = resolve(ROOT, 'apps/api/package.json')
@@ -48,11 +49,11 @@ if (listeners.length) {
   }
 }
 
-const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379'
+const redisUrl = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
 const redisPing = spawnSync(
   'redis-cli',
   ['-u', redisUrl, 'ping'],
-  { encoding: 'utf8', timeout: 5000 },
+  { encoding: 'utf8', timeout: 5000, ...cliSpawnOpts() },
 )
 if (redisPing.stdout?.trim() === 'PONG') {
   console.log('✅ Redis reachable')

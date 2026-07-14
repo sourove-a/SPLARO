@@ -215,7 +215,6 @@ export function generateInvoiceHTML(
       width: auto;
       max-width: 148px;
       object-fit: contain;
-      filter: brightness(0) invert(1);
       opacity: 0.96;
       flex-shrink: 0;
     }

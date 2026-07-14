@@ -1,12 +1,14 @@
 import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, Req } from '@nestjs/common'
 import type { Request } from 'express'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
+import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { LoyaltyService } from './loyalty.service'
 
 type AdminRequest = Request & { adminUser?: AdminSessionPayload }
 
+@RequireFeature('loyalty')
 @Controller('admin/loyalty')
 export class LoyaltyController {
   constructor(

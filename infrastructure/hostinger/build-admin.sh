@@ -17,8 +17,9 @@ export NEXT_PUBLIC_WEB_URL="${NEXT_PUBLIC_WEB_URL:-https://splaro.co}"
 
 log() { echo "[build-admin $(date '+%H:%M:%S')] $*"; }
 
-if [ -f "$ROOT/apps/admin/next.config.mjs" ] && [ -f "$ROOT/apps/admin/next.config.ts" ]; then
+if [ -f "$ROOT/apps/admin/next.config.hostinger.mjs" ] && [ -f "$ROOT/apps/admin/next.config.ts" ]; then
   mv "$ROOT/apps/admin/next.config.ts" "$ROOT/apps/admin/next.config.ts.hostinger-bak"
+  cp "$ROOT/apps/admin/next.config.hostinger.mjs" "$ROOT/apps/admin/next.config.mjs"
 fi
 
 NEXT_BIN=$(find "$ROOT/node_modules" -path '*/next/dist/bin/next' 2>/dev/null | head -1)

@@ -16,8 +16,11 @@ export class TelegramWebhookController {
     @Body() body: unknown,
     @Headers('x-telegram-bot-api-secret-token') secret?: string,
   ) {
-    const expected = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')
-    if (expected && secret !== expected) {
+    const expected = this.config.get<string>('TELEGRAM_WEBHOOK_SECRET')?.trim()
+    if (!expected) {
+      throw new UnauthorizedException('Telegram webhook secret is not configured')
+    }
+    if (secret !== expected) {
       throw new UnauthorizedException('Invalid webhook secret')
     }
     await this.telegram.handleWebhookUpdate(body)

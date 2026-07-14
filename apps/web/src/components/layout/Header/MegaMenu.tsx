@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutGroup, motion, useReducedMotion } from 'framer-motion'
+import { LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -46,15 +46,17 @@ interface MegaMenuProps {
 function MegaMenuHeroCard({
   hero,
   onClose,
+  priority = false,
 }: {
   hero: MegaMenuHero
   onClose?: () => void
+  priority?: boolean
 }) {
   return (
     <Link
       href={hero.href}
       scroll={false}
-      className="mega-menu-hero-card group"
+      className="mega-menu-hero-card"
       onClick={() => onClose?.()}
     >
       {hero.image ? (
@@ -62,8 +64,10 @@ function MegaMenuHeroCard({
           src={hero.image}
           alt={hero.label}
           fill
-          sizes="(min-width: 1280px) 320px, 25vw"
-          className="object-cover object-top transition-transform duration-500 ease-out group-hover:scale-[1.035]"
+          sizes="(min-width: 1280px) 320px, 28vw"
+          quality={88}
+          priority={priority}
+          className="object-cover object-top"
         />
       ) : (
         <div className="mega-menu-hero-fallback mega-menu-hero-fallback--text">
@@ -154,9 +158,13 @@ function MegaMenuHeroSlider({
         <ChevronLeft size={16} strokeWidth={2} />
       </button>
       <div ref={trackRef} className="mega-menu-heroes-slider__track" data-h-scroll="true" data-lenis-prevent>
-        {heroes.map((hero) => (
+        {heroes.map((hero, index) => (
           <div key={hero.href} className="mega-menu-heroes-slider__slide">
-            <MegaMenuHeroCard hero={hero} {...(onClose ? { onClose } : {})} />
+            <MegaMenuHeroCard
+              hero={hero}
+              priority={index < 3}
+              {...(onClose ? { onClose } : {})}
+            />
           </div>
         ))}
       </div>
@@ -227,10 +235,8 @@ export function MegaMenu({ config, isOpen, menuKey, onClose }: MegaMenuProps) {
                               layoutId="mega-menu-cat-pill"
                               className="mega-menu-cat-pill"
                               transition={{
-                                type: 'spring',
-                                stiffness: 320,
-                                damping: 38,
-                                mass: 0.82,
+                                duration: 0.28,
+                                ease: [0.16, 1, 0.3, 1],
                               }}
                               aria-hidden
                             />

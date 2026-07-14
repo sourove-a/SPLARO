@@ -42,6 +42,7 @@ export default async function DashboardModulePage({ params }: DashboardModulePag
     { label: 'Dashboard', href: '/dashboard' },
     { label: navItem.group },
     { label: navItem.label, href: moduleHref },
+    // Detail/edit crumbs use the friendly pageTitle — never the raw DB id from the URL.
     ...(action ? [{ label: pageTitle }] : []),
   ]
 

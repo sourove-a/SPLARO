@@ -5,6 +5,7 @@ import './globals.css'
 import { Providers } from '@/components/layout/Providers'
 import { StorefrontChrome } from '@/components/layout/StorefrontChrome'
 import { Toaster } from '@/components/ui/Toast/Toaster'
+import { GlobalPressFeedback } from '@/components/ui/GlobalPressFeedback'
 import { StorefrontSettingsProvider } from '@/components/providers/StorefrontSettingsProvider'
 import { AnalyticsScripts } from '@/components/analytics/AnalyticsScripts'
 import { GoogleAnalyticsHead, GA_ENV_ID } from '@/components/analytics/GoogleAnalyticsHead'
@@ -113,7 +114,13 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#FAF8F5',
+  /** Lock storefront to light — phone OS dark mode must not autodarken UI. */
+  colorScheme: 'only light',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#ffffff' },
+  ],
+  viewportFit: 'cover',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -125,7 +132,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     rawFavicon.includes('brand-mark-transparent') ||
     rawFavicon.includes('splaro-brand-mark-tab') ||
     rawFavicon.includes('favicon.svg')
-      ? SPLARO_TAB_ICONS.icon48
+      ? SPLARO_TAB_ICONS.faviconIco
       : rawFavicon
   const appleIconUrl =
     !rawFavicon ||
@@ -136,20 +143,33 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       : rawFavicon
 
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${cormorant.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${cormorant.variable}`}
+      data-color-scheme="light"
+      style={{ colorScheme: 'light only' }}
+    >
       <head>
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
+        {/* Phone OS dark mode — keep SPLARO white/light on every device */}
+        <meta name="color-scheme" content="only light" />
+        <meta name="supported-color-schemes" content="light" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="splaro-build" content={buildId} />
         <GoogleAnalyticsHead />
         <link rel="preconnect" href={cdnOrigin} />
         <link rel="dns-prefetch" href={cdnOrigin} />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
+        <link rel="icon" href={SPLARO_TAB_ICONS.faviconIco} sizes="any" />
+        <link rel="icon" href={SPLARO_TAB_ICONS.icon16} sizes="16x16" type="image/png" />
         <link rel="icon" href={SPLARO_TAB_ICONS.icon32} sizes="32x32" type="image/png" />
         <link rel="icon" href={SPLARO_TAB_ICONS.icon48} sizes="48x48" type="image/png" />
-        <link rel="shortcut icon" href={faviconUrl} />
+        <link rel="shortcut icon" href={faviconUrl || SPLARO_TAB_ICONS.faviconIco} />
         <link rel="apple-touch-icon" href={appleIconUrl} sizes="180x180" />
+        <link rel="manifest" href="/icons/site.webmanifest" />
         {/* Structured Data — Organization
             Safe: content is fully static, no user-controlled input ever reaches here */}
         <script
@@ -160,7 +180,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               '@type': 'Organization',
               name: 'SPLARO',
               url: siteUrl,
-              logo: `${siteUrl}/images/logo/splaro-brand.svg`,
+              logo: `${siteUrl}/images/logo/splaro-logo-black-premium.png`,
               description: 'Luxury fashion and lifestyle — designed for the world, rooted in heritage.',
               contactPoint: {
                 '@type': 'ContactPoint',
@@ -204,7 +224,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   '@id': `${siteUrl}/#store`,
                   name: 'SPLARO',
                   url: siteUrl,
-                  image: `${siteUrl}/images/logo/splaro-brand.svg`,
+                  image: `${siteUrl}/images/logo/splaro-logo-black-premium.png`,
                   description:
                     'Premium Bangladeshi fashion store — luxury women’s wear, ethnic & modest fashion, footwear, bags and accessories with nationwide delivery.',
                   priceRange: '৳৳',
@@ -266,6 +286,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <AttributionCapture />
             <StorefrontChrome>{children}</StorefrontChrome>
             <Toaster />
+            <GlobalPressFeedback />
           </StorefrontSettingsProvider>
         </Providers>
       </body>

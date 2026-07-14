@@ -4,7 +4,7 @@ import TrackOrderClient from './page-client'
 
 export const metadata: Metadata = {
   title: 'Track Order',
-  description: 'Track your SPLARO orders by phone number and view your complete order history.',
+  description: 'Track your SPLARO orders with the phone number used at checkout.',
 }
 
 export default function TrackOrderPage() {

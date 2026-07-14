@@ -13,6 +13,7 @@ export interface AuthUser {
   avatar?: string | null
   phoneVerified?: boolean
   loyaltyTier?: string
+  needsPhone?: boolean
 }
 
 interface AuthState {

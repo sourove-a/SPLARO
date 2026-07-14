@@ -21,10 +21,12 @@ import { apiOfflineMessage } from '@/lib/admin/offline-copy'
 import { isNetworkOrServerError } from '@/lib/api/offline-defaults'
 import { useLegalPage, useLegalPages, usePermission, useSaveLegalPage } from '@/lib/api/hooks'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
+import { deepEqual } from '@/lib/admin/settings-save'
+import { revalidateWebCache } from '@/lib/api/revalidate'
 import { DEFAULT_LEGAL_PAGES, LEGAL_PAGE_CATALOG, type LegalPageContent, type LegalPageSlug } from '@splaro/types'
 import { cn } from '@/lib/utils/cn'
 
-const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'
+const WEB_BASE = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://127.0.0.1:3000'
 
 function newSectionId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -34,6 +36,20 @@ function newSectionId() {
 }
 
 type DraftSection = { id: string; heading: string; body: string }
+
+/** Comparable shape — ignore client-only section ids. */
+function normalizeLegalContent(content: LegalPageContent) {
+  return {
+    title: content.title.trim(),
+    description: content.description.trim(),
+    metaTitle: (content.metaTitle ?? content.title).trim(),
+    metaDescription: (content.metaDescription ?? content.description).trim(),
+    sections: content.sections.map((section) => ({
+      heading: section.heading.trim(),
+      body: section.body.trim(),
+    })),
+  }
+}
 
 function toDraft(content: LegalPageContent): {
   title: string
@@ -109,10 +125,12 @@ export function LegalPagesPanel() {
       }
 
       const saved = await saveMutation.mutateAsync({ slug: activeSlug, body: payload })
-      if (saved.title !== payload.title || saved.sections.length !== payload.sections.length) {
-        toastFail('Save failed verification — please retry.')
+      if (!deepEqual(normalizeLegalContent(payload), normalizeLegalContent(saved))) {
+        toastFail('Save failed verification — server content does not match what was sent.')
         return
       }
+      await refetch()
+      await revalidateWebCache(['storefront-settings'])
       toastApiSaved(activeMeta?.label ?? 'Legal page')
     } catch (error) {
       toastFail(error instanceof Error ? error.message : 'Could not save legal page.')

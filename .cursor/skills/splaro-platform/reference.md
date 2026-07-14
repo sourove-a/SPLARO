@@ -6,9 +6,9 @@ Detailed map for agents working on SPLARO-BRAND. Keep in sync with `platform-kno
 
 | Service | Dev | Production |
 |---------|-----|------------|
-| Web | localhost:3000 | splaro.com.bd |
-| Admin | localhost:3001 | admin.splaro.com.bd |
-| API | localhost:4000/api/v1 | api.splaro.com.bd/api/v1 |
+| Web | localhost:3000 | splaro.co |
+| Admin | localhost:3001 | admin.splaro.co |
+| API | localhost:4000/api/v1 | api.splaro.co/api/v1 |
 
 Env: `.env.example` — never commit real secrets.
 
@@ -46,6 +46,20 @@ pnpm css:fix        # Clear Next cache if CSS breaks
 `PENDING` → `CONFIRMED` → `PROCESSING` → `PACKED` → `COURIER_BOOKED` → `SHIPPED` → `DELIVERED`
 
 Also: `CANCELLED`, `RETURNED`, `REFUNDED`
+
+**Mutations:** always `OrderStatusService.applyStatusChange` (admin + AI). Transitions in `common/order-status.util.ts`. Race-safe via `updateMany` matching previous status.
+
+## Invoice Print / PDF
+
+| Item | Path / rule |
+|------|-------------|
+| Admin actions | `apps/admin/src/lib/admin/admin-actions.ts` |
+| BFF proxy | `apps/admin/src/lib/api/proxy-invoice.ts` → `/api/orders/:ref/invoice(/print\|/pdf)` |
+| API | `GET admin/orders/:id/invoice*` — `:id` = cuid **or** `SPL-####` |
+| Brand constants | `packages/config/src/splaro-invoice-brand.ts` — never localhost in footer |
+| Puppeteer PDF | `invoice.service.ts` — Mac/Linux/Windows Chrome|Edge paths; missing Chrome → 503 + Print fallback |
+
+Do not: `window.open(..., 'noopener')` for blank docs; await-then-open; put cuid in invoice URLs when `SPL-` number exists.
 
 ## Agent tools
 
@@ -94,6 +108,10 @@ Also: `CANCELLED`, `RETURNED`, `REFUNDED`
 | Agent system prompt | `apps/api/src/modules/agent/prompts/` |
 | Admin toasts | `apps/admin/src/lib/admin/feedback.ts` |
 | Dev stack script | `scripts/dev-stack.mjs` |
+| Process kill / ports | `scripts/port-utils.mjs`, `spawn-utils.mjs` (`killProcessTree`) |
+| Order status shared | `apps/api/src/modules/orders/order-status.service.ts` |
+| Invoice brand | `packages/config/src/splaro-invoice-brand.ts` |
+| Prod env gate | `scripts/validate-production-env.mjs` |
 
 ## Integration env vars (names only)
 
@@ -116,3 +134,15 @@ Also: `CANCELLED`, `RETURNED`, `REFUNDED`
 | OpenAI 403 model | Use `gpt-4o-mini`; check project model access |
 | Agent doesn't understand Banglish | Platform knowledge is in `platform-knowledge.prompt.ts` — restart API |
 | CSS broken in admin | `pnpm css:fix` + restart |
+| Windows `db:*` / `doctor` fails | Use cross-platform scripts (`db-run.mjs`, `spawn-utils.mjs`) — no bash needed |
+| Windows port stuck / Ctrl+C zombies | `pnpm dev:reset` + `taskkill /T` via `killProcessTree` — do not remove `/T` |
+| Windows scroll hang | `windows-native-scroll-script.ts` clears Lenis lock at boot |
+| Print/PDF “does nothing” | Popup blocked or `noopener` null — sync `window.open` first; see SKILL invoice rules |
+| Invoice footer `www.localhost` | Brand host sanitizer in `splaro-invoice-brand.ts` — restart API after fix |
+| Simulated courier shows BOOKED | Must not persist — check `courier.service.ts` simulated gate |
+| Double Steadfast booking | Redis lock fallthrough — never local-lock when Redis ready |
+| PDP sticky covers footer | Hide floating buy bar when `footer.site-footer` enters viewport — do **not** edit footer files |
+| Click miss while scrolling | `LenisPointerGuard` freezes inertia only on interactive targets — do not remove |
+| Overlay still scrolls / dead click after modal | Use `uiStore.acquireScrollLock` / `releaseScrollLock` (not only `body.overflow=hidden`); Size Guide must not depend on unstable `onClose` identity |
+| Size Guide leaves wrong chart | Modal is category-aware via `resolveSizeGuideKey` — footwear vs apparel |
+| Native scrollIntoView + Lenis | Use `lenis.scrollTo(element)` on PDP — `scrollIntoView` desyncs virtual scroll |

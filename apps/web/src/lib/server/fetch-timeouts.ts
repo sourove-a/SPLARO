@@ -14,14 +14,14 @@ function envMs(key: string, devDefault: number, prodDefault: number): number {
 }
 
 export function catalogFetchTimeoutMs(): number {
-  return envMs('SPLARO_CATALOG_FETCH_TIMEOUT_MS', 2500, 8000)
+  return envMs('SPLARO_CATALOG_FETCH_TIMEOUT_MS', 5000, 8000)
 }
 
 export function catalogFetchAttempts(): number {
   if (isCiOrProductionBuild()) return 1
   const raw = Number(process.env.SPLARO_CATALOG_FETCH_ATTEMPTS)
   if (Number.isFinite(raw) && raw >= 1) return Math.floor(raw)
-  return isLocalDevRuntime() ? 1 : 2
+  return isLocalDevRuntime() ? 3 : 2
 }
 
 export function settingsFetchTimeoutMs(): number {

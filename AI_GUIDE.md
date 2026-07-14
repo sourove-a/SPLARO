@@ -14,9 +14,9 @@ SPLARO is a luxury women's fashion eCommerce + SaaS platform for Bangladesh.
 Monorepo: Turborepo + PNPM workspaces.
 
 **Live URLs (production target):**
-- Web storefront: `splaro.com.bd`
-- Admin dashboard: `admin.splaro.com.bd`
-- API: `api.splaro.com.bd`
+- Web storefront: `splaro.co`
+- Admin dashboard: `admin.splaro.co`
+- API: `api.splaro.co`
 
 ---
 
@@ -38,7 +38,7 @@ Monorepo: Turborepo + PNPM workspaces.
 | Telegram | node-telegram-bot-api |
 | Invoices | Puppeteer PDF + node-thermal-printer (ESC/POS) |
 | Sheets | googleapis sync |
-| Deploy | Hostinger VPS, PM2, Nginx, Let's Encrypt |
+| Deploy | Linux VPS, PM2, Nginx, Let's Encrypt |
 
 ---
 
@@ -96,6 +96,12 @@ Glass:        rgba(255,255,255,0.72) + backdrop-filter: blur(20px)
 - `.heading-xl`, `.heading-lg` — section headings
 - `.label-luxury` — uppercase tracking label (11px Inter)
 - `.divider-gold` — decorative gold line divider
+
+**PDP / scroll locks (do not regress):**
+- Size Guide opens as modal (`SizeGuideModal`) with `uiStore.acquireScrollLock` — Lenis must stop
+- Mid-scroll clicks: `LenisPointerGuard` freezes Lenis inertia on `pointerdown`
+- PDP: no trust strip, no favorite heart; size pills = liquid glass + black text only
+- Sticky buy bar never covers footer — full rules in `.cursor/skills/splaro-platform/SKILL.md`
 
 ---
 

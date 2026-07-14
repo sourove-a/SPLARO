@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, Req } from '@nestjs/common'
 import type { Request } from 'express'
 import { ConfigService } from '@nestjs/config'
+import { RequireFeature } from '../../common/auth/require-feature.decorator'
 import { canWriteAdmin } from '../../common/auth/admin-session.util'
 import type { AdminSessionPayload } from '../../common/auth/admin-session.util'
 import { PrismaService } from '../../common/prisma.service'
@@ -444,6 +445,7 @@ export class IntegrationsController {
 
   /* ─── Google Sheets sync status ──────────────────────────── */
 
+  @RequireFeature('googleSheets')
   @Get('google-sheets/status')
   async googleSheetsStatus(@Query('storeId') storeId: string) {
     const sid = await this.integrations.resolveStore(storeId)
@@ -460,6 +462,7 @@ export class IntegrationsController {
     return { pending, failed, recent }
   }
 
+  @RequireFeature('googleSheets')
   @Get('google-sheets/syncs')
   async googleSheetsSyncs(
     @Query('storeId') storeId: string,

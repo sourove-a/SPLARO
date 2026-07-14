@@ -1,7 +1,10 @@
 'use client'
 
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
-import { toastOk, toastFail } from '@/lib/admin/feedback'
+import { toastFail, toastApiSaved } from '@/lib/admin/feedback'
+import { copyWithToast } from '@/lib/admin/clipboard'
+import { verifyReturnStatus } from '@/lib/admin/mutation-verify'
+import { confirmOrderPaymentSaved } from '@/lib/admin/payment-save'
 import {
   RotateCcw, FileText, CreditCard, ChevronDown, Printer, CheckCircle2,
   AlertTriangle, Repeat, Calendar, Download, Search, Filter, RefreshCw,
@@ -147,6 +150,13 @@ function OfflineBanner() {
 
 type RmaStatus = 'pending' | 'approved' | 'received' | 'refunded' | 'rejected'
 
+const RMA_UI_FROM_API: Record<string, RmaStatus> = {
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  ITEM_RECEIVED: 'received',
+  REFUNDED: 'refunded',
+}
+
 interface RmaRow {
   id: string
   rmaNumber: string
@@ -180,23 +190,27 @@ function ReturnsRmaPanel() {
     updated: r.updated,
   }))
 
-  const applyStatus = (
+  const applyStatus = async (
     row: RmaRow,
     status: 'APPROVED' | 'REJECTED' | 'ITEM_RECEIVED' | 'REFUNDED',
     note: string,
     refundAmount?: number,
   ) => {
-    updateReturn.mutate(
-      { id: row.id, status, note, ...(refundAmount !== undefined ? { refundAmount } : {}) },
-      {
-        onSuccess: () => {
-          toastOk(`RMA ${row.rmaNumber} updated.`)
-          void refetch()
-          setExpandedId(null)
-        },
-        onError: (err) => toastFail(err instanceof Error ? err.message : 'Could not update RMA.'),
-      },
-    )
+    try {
+      const saved = await updateReturn.mutateAsync({
+        id: row.id,
+        status,
+        note,
+        ...(refundAmount !== undefined ? { refundAmount } : {}),
+      })
+      const expectedUi = RMA_UI_FROM_API[status]
+      if (!expectedUi || !verifyReturnStatus(saved, expectedUi)) return
+      toastApiSaved(`RMA ${row.rmaNumber}`)
+      void refetch()
+      setExpandedId(null)
+    } catch (err) {
+      toastFail(err instanceof Error ? err.message : 'Could not update RMA.')
+    }
   }
 
   const filtered = useMemo(() => {
@@ -467,19 +481,14 @@ function InvoicesPanel() {
     issued: r.issued,
   }))
 
-  const markRowPaid = (row: (typeof rows)[number]) => {
+  const markRowPaid = async (row: (typeof rows)[number]) => {
     if (row.status === 'paid') return
-    updatePayment.mutate(
-      { id: row.orderId, paymentStatus: 'PAID' },
-      {
-        onSuccess: (res) => {
-          toastOk(`Invoice ${res.invoiceNumber} marked as paid.`)
-          void refetch()
-        },
-        onError: (err) =>
-          toastFail(err instanceof Error ? err.message : 'Could not mark invoice as paid.'),
-      },
+    const ok = await confirmOrderPaymentSaved(
+      row.orderId,
+      () => updatePayment.mutateAsync({ id: row.orderId, paymentStatus: 'PAID' }),
+      `Invoice ${row.id}`,
     )
+    if (ok) void refetch()
   }
 
   const filtered = useMemo(() => {
@@ -738,19 +747,16 @@ function TransactionsPanel() {
     status: r.status as TxnStatus, ref: r.ref, time: formatRelativeTime(r.time),
   }))
 
-  const markCodPaid = (row: (typeof rows)[number]) => {
-    updatePayment.mutate(
-      { id: row.orderId, paymentStatus: 'PAID' },
-      {
-        onSuccess: () => {
-          toastOk(`Payment confirmed for ${row.orderNumber}.`)
-          void refetch()
-          setExpandedId(null)
-        },
-        onError: (err) =>
-          toastFail(err instanceof Error ? err.message : 'Could not confirm payment.'),
-      },
+  const markCodPaid = async (row: (typeof rows)[number]) => {
+    const ok = await confirmOrderPaymentSaved(
+      row.orderId,
+      () => updatePayment.mutateAsync({ id: row.orderId, paymentStatus: 'PAID' }),
+      `Payment ${row.orderNumber}`,
     )
+    if (ok) {
+      void refetch()
+      setExpandedId(null)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -929,10 +935,7 @@ function TransactionsPanel() {
                           {
                             label: 'Copy reference',
                             onClick: () => {
-                              void navigator.clipboard.writeText(row.ref).then(
-                                () => toastOk('Reference copied.'),
-                                () => toastFail('Could not copy.'),
-                              )
+                              void copyWithToast(row.ref, 'Reference copied.')
                             },
                           },
                           ...(row.status === 'pending' && row.gateway === 'COD'

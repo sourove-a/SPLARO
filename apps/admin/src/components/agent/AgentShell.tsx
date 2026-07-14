@@ -2,8 +2,10 @@
 
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAdminUiStore } from '@/store/uiStore'
 import { fetchAgentStatus } from '@/lib/api/agent'
+import { useFeatureEnabled } from '@/lib/feature-flags'
 
 const AgentChatPanel = dynamic(
   () => import('@/components/agent/AgentChatPanel').then((m) => m.AgentChatPanel),
@@ -16,6 +18,9 @@ const AgentChatFab = dynamic(
 )
 
 export function AgentShell() {
+  const aiEnabled = useFeatureEnabled('ai')
+  const pathname = usePathname()
+  const onAiSetupPage = pathname === '/dashboard/ai-agent'
   const open = useAdminUiStore((s) => s.agentChatOpen)
   const seed = useAdminUiStore((s) => s.agentChatSeed)
   const context = useAdminUiStore((s) => s.agentChatContext)
@@ -27,6 +32,10 @@ export function AgentShell() {
   const handleSeedConsumed = useCallback(() => setSeed(null), [setSeed])
 
   useEffect(() => {
+    if (!aiEnabled) {
+      setOpen(false)
+      return
+    }
     fetchAgentStatus()
       .then((s) => setOnline(s.activeModelReady))
       .catch(() => setOnline(false))
@@ -36,17 +45,20 @@ export function AgentShell() {
         .catch(() => setOnline(false))
     }, 30_000)
     return () => clearInterval(timer)
-  }, [])
+  }, [aiEnabled, setOpen])
+
+  if (!aiEnabled) return null
 
   return (
     <>
-      {!open ? <AgentChatFab onClick={() => setOpen(true)} online={online} /> : null}
+      {!open && !onAiSetupPage ? <AgentChatFab onClick={() => setOpen(true)} online={online} /> : null}
       <AgentChatPanel
         open={open}
         onClose={handleClose}
         seedMessage={seed}
         {...(context ? { context } : {})}
         onSeedConsumed={handleSeedConsumed}
+        setupPage={onAiSetupPage}
       />
     </>
   )

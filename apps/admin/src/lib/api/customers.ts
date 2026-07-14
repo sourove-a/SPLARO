@@ -18,6 +18,10 @@ export interface ApiCustomer {
   createdAt: string
   lastOrderDate?: string | null
   isBlocked?: boolean
+  authProvider?: string
+  googleLinked?: boolean
+  emailVerified?: boolean
+  avatar?: string | null
 }
 
 export interface ApiCustomerDetail extends ApiCustomer {
@@ -38,6 +42,12 @@ export interface ApiCustomerDetail extends ApiCustomer {
   }>
   customerNotes: Array<{ id: string; body: string; createdAt: string }>
   isBlocked?: boolean
+  authProvider?: string
+  googleLinked?: boolean
+  emailVerified?: boolean
+  avatar?: string | null
+  lastLogin?: string
+  lastDevice?: string
 }
 
 export function fetchCustomers(params?: { search?: string; limit?: number }) {
@@ -69,7 +79,7 @@ export function updateCustomerTags(id: string, tags: string[]) {
 }
 
 export function blockCustomer(id: string, blocked: boolean) {
-  return apiFetch<{ success: boolean }>(`/admin/customers/${id}/block`, {
+  return apiFetch<{ success: boolean; blocked: boolean }>(`/admin/customers/${id}/block`, {
     method: 'PATCH',
     body: JSON.stringify({ blocked }),
   })
