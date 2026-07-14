@@ -353,8 +353,11 @@ export function EarthGlobe({
     let tabVisible = !document.hidden
     let staticFrameDrawn = false
 
-    const shouldAnimate = () => inView && tabVisible && (!reducedMotion || ignoreReducedMotion)
-    const shouldRenderFrame = () => inView && tabVisible
+    /** Search/cart/menu set data-scroll-lock — IO still thinks globe is visible under the modal. */
+    const overlayOpen = () => document.documentElement.getAttribute('data-scroll-lock') === 'overlay'
+    const shouldAnimate = () =>
+      inView && tabVisible && !overlayOpen() && (!reducedMotion || ignoreReducedMotion)
+    const shouldRenderFrame = () => inView && tabVisible && !overlayOpen()
 
     const scene = new THREE.Scene()
     const config = isFooter ? FOOTER_CONFIG : STORY_CONFIG
@@ -905,16 +908,27 @@ export function EarthGlobe({
 
     const onTabVisibility = () => {
       tabVisible = !document.hidden
-      if (tabVisible && inView) scheduleLoop()
+      if (tabVisible && inView && !overlayOpen()) scheduleLoop()
       else stopLoop()
     }
     document.addEventListener('visibilitychange', onTabVisibility)
+
+    const overlayObserver = new MutationObserver(() => {
+      if (shouldRenderFrame()) scheduleLoop()
+      else stopLoop()
+    })
+    overlayObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-scroll-lock'],
+    })
+
     scheduleLoop()
 
     return () => {
       disposed = true
       stopLoop()
       visibilityObserver.disconnect()
+      overlayObserver.disconnect()
       document.removeEventListener('visibilitychange', onTabVisibility)
       resizeObserver.disconnect()
       textures.forEach((t) => t.dispose())

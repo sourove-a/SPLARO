@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect } from 'react'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import { applyScrollProfileAttributes, detectScrollProfile } from '@/lib/motion/scroll'
 import { isLowPowerDevice } from '@/lib/earth/globe-performance'
+import { useUiStore } from '@/store/uiStore'
 
 /**
  * Desktop Windows should match Mac: same scroll profile + full glass/motion unless truly low-power.
@@ -23,6 +24,24 @@ export function DesktopPerfParity() {
       html.removeAttribute('data-perf')
     }
   }, [])
+
+  return null
+}
+
+/**
+ * Always mark overlay scroll-lock (even when Lenis is off / native scroll).
+ * Earth globe + footer video pause when Search/Cart cover the page.
+ */
+export function OverlayScrollLockAttr() {
+  const locked = useUiStore(
+    (s) => s.isMobileMenuOpen || s.isSearchOpen || s.isCartOpen || s.scrollLockCount > 0,
+  )
+
+  useLayoutEffect(() => {
+    const html = document.documentElement
+    if (locked) html.setAttribute('data-scroll-lock', 'overlay')
+    else html.removeAttribute('data-scroll-lock')
+  }, [locked])
 
   return null
 }

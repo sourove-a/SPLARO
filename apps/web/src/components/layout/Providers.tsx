@@ -7,7 +7,7 @@ import { CartSyncHydrator } from '@/components/cart/CartSyncHydrator'
 import { PersistHydrator } from '@/components/layout/PersistHydrator'
 import { CssHealthGuard } from '@/components/layout/CssHealthGuard'
 import { ChunkReloadGuard } from '@/components/layout/ChunkReloadGuard'
-import { GlobalHorizontalWheelScroll, GlobalPointerSafety, DesktopPerfParity } from '@/components/layout/GlobalDeviceUx'
+import { GlobalHorizontalWheelScroll, GlobalPointerSafety, DesktopPerfParity, OverlayScrollLockAttr } from '@/components/layout/GlobalDeviceUx'
 import { MotionNavClickGate } from '@/hooks/useMotionReady'
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -15,6 +15,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <MotionProvider>
       <MotionNavClickGate />
       <DesktopPerfParity />
+      <OverlayScrollLockAttr />
       <GlobalPointerSafety />
       <GlobalHorizontalWheelScroll />
       <CssHealthGuard />

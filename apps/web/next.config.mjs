@@ -2,7 +2,10 @@
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, '') ?? 'http://localhost:4000'
 const isProd = process.env.NODE_ENV === 'production'
 const cdnOrigin = process.env.NEXT_PUBLIC_CDN_URL?.replace(/\/$/, '')
-const onHostinger = process.env.SPLARO_HOSTINGER === '1'
+/** Same-box Contabo/Hostinger — skip sharp image optimizer (CPU killer on 8GB VPS). */
+const onSameBoxVps =
+  process.env.SPLARO_HOSTINGER === '1' || process.env.SPLARO_VPS === '1'
+const onHostinger = onSameBoxVps
 
 const connectSrc = [
   "'self'",
@@ -63,7 +66,9 @@ const nextConfig = {
   },
 
   images: {
-    unoptimized: !isProd || onHostinger,
+    // Dev always unoptimized. Prod same-box VPS: unoptimized (sharp would peg CPU).
+    // Only enable optimizer when deliberately on a CDN/edge worker without SPLARO_VPS.
+    unoptimized: !isProd || onSameBoxVps,
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.splaro.co' },
       { protocol: 'https', hostname: 'splaro.co' },
