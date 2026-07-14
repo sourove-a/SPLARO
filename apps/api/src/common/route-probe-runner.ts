@@ -101,8 +101,11 @@ export async function runApiRouteProbes(options: RouteProbeOptions): Promise<Rou
     }
     try {
       const res = await fetch(url, init)
-      // 429 = route exists but rate-limited (health spam) — not a real outage
-      const writeOk = [200, 201, 204, 400, 401, 403, 404, 422, 429]
+      // Write probes only assert the route is registered — not that optional
+      // providers (Telegram/email SMTP) are wired. 503 = "deps unavailable"
+      // (e.g. contact form in CI); 500 = real crash → still hard-down.
+      // 429 = route exists but rate-limited (health spam) — not a real outage.
+      const writeOk = [200, 201, 204, 400, 401, 403, 404, 422, 429, 503]
       const ok = isWrite
         ? writeOk.includes(res.status)
         : res.ok ||
