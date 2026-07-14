@@ -66,12 +66,18 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+export function isWindowsOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Windows/i.test(navigator.userAgent || '')
+}
+
+/** Fine-pointer + wide viewport Windows — used for RAM lite bypass only. */
 export function isWindowsDesktop(): boolean {
-  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false
-  const isWin = /Windows/i.test(navigator.userAgent || '')
+  if (typeof window === 'undefined') return false
+  if (!isWindowsOS()) return false
   const fine = window.matchMedia('(pointer: fine)').matches
   const desktop = window.innerWidth > 1023
-  return isWin && fine && desktop
+  return fine && desktop
 }
 
 /** False on RDP / software GL / blocked WebGL — story earth uses CSS fallback instead. */
@@ -164,8 +170,9 @@ export function shouldUseWebGLEarth(options?: EarthMotionOptions): boolean {
   if (!options?.decorative && prefersReducedMotion()) return false
   if (!canUseWebGL()) return false
   if (isSoftwareRenderer()) return false
-  // Decorative story/footer WebGL fights Lenis/search on Windows ANGLE — CSS/video instead.
-  if (options?.decorative && isWindowsDesktop()) return false
+  // Decorative story/footer WebGL — hard-off on ANY Windows (incl. touch / narrow).
+  // Width/pointer gates used to re-enable WebGL on Surface / resized windows → GPU stall.
+  if (options?.decorative && isWindowsOS()) return false
   return true
 }
 
@@ -178,10 +185,11 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
   return true
 }
 
-/** Soft-GL / lite: skip Lenis RAF so search/slider aren't starved by scroll+GPU work. */
+/** Soft-GL / lite / Windows: skip Lenis RAF so Search/slider aren't starved. */
 export function shouldUseNativeScroll(): boolean {
   if (typeof window === 'undefined') return false
   if (prefersReducedMotion()) return true
+  if (isWindowsOS()) return true
   if (isLowPowerDevice()) return true
   if (document.documentElement.getAttribute('data-perf') === 'lite') return true
   return false

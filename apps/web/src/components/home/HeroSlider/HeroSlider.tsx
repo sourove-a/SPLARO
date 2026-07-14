@@ -203,12 +203,9 @@ function useAllowHeroVideo(): boolean {
       const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
       /** Low-power / save-data lite profile — images only. Re-check when data-perf flips. */
       const lite = document.documentElement.getAttribute('data-perf') === 'lite'
-      // Windows desktop: poster/images only — heavy Pexels + soft-GL/ANGLE starved slider RAF.
+      // Any Windows UA: images only — never decode Pexels next to slider RAF (incl. touch / narrow).
       const isWin = /Windows/i.test(navigator.userAgent || '')
-      const fine = window.matchMedia('(pointer: fine)').matches
-      const desktop = window.innerWidth > 1023
-      const winDesktop = isWin && fine && desktop
-      setAllow(!saveData && !slowLink && !lite && !winDesktop)
+      setAllow(!saveData && !slowLink && !lite && !isWin)
     }
 
     sync()
@@ -311,14 +308,12 @@ function HeroBackground({
   playbackActive = isActive,
   priority,
   allowVideo,
-  preloadVideo,
 }: {
   slide: HeroSlide
   isActive: boolean
   playbackActive?: boolean
   priority: boolean
   allowVideo: boolean
-  preloadVideo: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoFailed, setVideoFailed] = useState(false)
@@ -339,7 +334,8 @@ function HeroBackground({
       videoSrc &&
       !videoFailed &&
       allowVideo &&
-      (isActive || (!isMobile && preloadVideo)),
+      // Only the active slide mounts <video> — never decode current+next HD clips together.
+      isActive,
   )
 
   useEffect(() => {
@@ -674,11 +670,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
         {slides.map((item, slideIndex) => {
           const isActive = slideIndex === index
           const isExiting = slideIndex === exitIndex
-          const slideCount = slides.length
-          const preloadVideo =
-            isActive ||
-            slideIndex === (index + 1) % slideCount ||
-            slideIndex === (index - 1 + slideCount) % slideCount
 
           return (
             <article
@@ -697,7 +688,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
                     playbackActive={isActive && sliderActive}
                     priority={slideIndex === 0}
                     allowVideo={allowVideo}
-                    preloadVideo={preloadVideo}
                   />
                 </div>
               </div>

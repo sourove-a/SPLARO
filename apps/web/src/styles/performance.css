@@ -183,6 +183,43 @@ html[data-perf='lite'] *::after {
   -webkit-backdrop-filter: none !important;
 }
 
+/**
+ * Windows (any width / touch) — solid glass, no backdrop-filter.
+ * Chromium ANGLE already fights video/WebGL; full-screen Search blur was a stutter killer.
+ * Boot script sets data-os=windows before paint.
+ */
+html[data-os='windows'] {
+  --glass-blur: none;
+  --header-glass-blur: none;
+  --header-glass-blur-scrolled: none;
+  --header-glass-bg: rgba(255, 255, 255, 0.96);
+  --header-glass-bg-scrolled: rgba(255, 255, 255, 0.98);
+  --glass-white: rgba(255, 255, 255, 0.94);
+  --glass-white-strong: rgba(255, 255, 255, 0.97);
+  --glass-ivory: rgba(255, 255, 255, 0.95);
+  --glass-dark: rgba(17, 17, 17, 0.92);
+  scroll-behavior: auto;
+}
+
+html[data-os='windows'] *,
+html[data-os='windows'] *::before,
+html[data-os='windows'] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html[data-os='windows'] .site-header-glass,
+html[data-os='windows'] .search-modal,
+html[data-os='windows'] .spl-radix-dialog--search,
+html[data-os='windows'] .search-modal__bar {
+  background: rgba(255, 255, 255, 0.97) !important;
+}
+
+html[data-os='windows'] .search-modal.spl-radix-dialog--search,
+html[data-os='windows'] [data-radix-dialog-overlay] {
+  background: rgba(8, 10, 14, 0.72) !important;
+}
+
 html[data-perf='lite'] .scroll-reveal-gpu {
   will-change: auto;
   opacity: 1 !important;
