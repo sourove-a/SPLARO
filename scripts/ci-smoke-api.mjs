@@ -136,8 +136,10 @@ try {
 console.log('✅ API root redirect')
 
 try {
+  const internalSecret = env.INTERNAL_HEALTH_SECRET
   const res = await fetch(`http://127.0.0.1:${port}/api/v1/health/routes?storeId=splaro`, {
     signal: AbortSignal.timeout(120_000),
+    headers: internalSecret ? { 'x-splaro-internal': internalSecret } : {},
   })
   const body = await res.text()
   if (!res.ok) fail(`health/routes HTTP ${res.status}: ${body.slice(0, 500)}`, stderr)
