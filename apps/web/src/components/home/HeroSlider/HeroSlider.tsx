@@ -203,7 +203,12 @@ function useAllowHeroVideo(): boolean {
       const slowLink = conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g'
       /** Low-power / save-data lite profile — images only. Re-check when data-perf flips. */
       const lite = document.documentElement.getAttribute('data-perf') === 'lite'
-      setAllow(!saveData && !slowLink && !lite)
+      // Windows desktop: poster/images only — heavy Pexels + soft-GL/ANGLE starved slider RAF.
+      const isWin = /Windows/i.test(navigator.userAgent || '')
+      const fine = window.matchMedia('(pointer: fine)').matches
+      const desktop = window.innerWidth > 1023
+      const winDesktop = isWin && fine && desktop
+      setAllow(!saveData && !slowLink && !lite && !winDesktop)
     }
 
     sync()
