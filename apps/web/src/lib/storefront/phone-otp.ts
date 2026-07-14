@@ -6,26 +6,37 @@ export function isStorefrontPhoneOtpEnabled(): boolean {
   return process.env.NEXT_PUBLIC_STOREFRONT_PHONE_OTP_ENABLED === 'true'
 }
 
-/** Client-only: fetch BFF config so UI matches API flags. */
-export async function fetchStorefrontAuthConfig(): Promise<{
+export type StorefrontAuthConfigPayload = {
   phoneOtpEnabled: boolean
   googleSignInEnabled: boolean
-}> {
+  googleClientId: string
+}
+
+/** Client-only: fetch BFF config so UI matches API flags. */
+export async function fetchStorefrontAuthConfig(): Promise<StorefrontAuthConfigPayload> {
+  const bakedGoogle =
+    process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||
+    ''
   try {
     const res = await fetch('/api/auth/config', { cache: 'no-store' })
     if (!res.ok) throw new Error('config unavailable')
     const payload = (await res.json()) as {
       phoneOtpEnabled?: boolean
       googleSignInEnabled?: boolean
+      googleClientId?: string
     }
+    const googleClientId = (payload.googleClientId ?? bakedGoogle).trim()
     return {
       phoneOtpEnabled: Boolean(payload.phoneOtpEnabled),
-      googleSignInEnabled: Boolean(payload.googleSignInEnabled),
+      googleClientId,
+      googleSignInEnabled: Boolean(payload.googleSignInEnabled) || Boolean(googleClientId),
     }
   } catch {
     return {
       phoneOtpEnabled: isStorefrontPhoneOtpEnabled(),
-      googleSignInEnabled: Boolean(process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID),
+      googleClientId: bakedGoogle,
+      googleSignInEnabled: Boolean(bakedGoogle),
     }
   }
 }

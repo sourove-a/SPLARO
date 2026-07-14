@@ -19,10 +19,44 @@ Read this skill **before** answering or editing anything in SPLARO-BRAND.
 |------|-------|
 | Brand | SPLARO — luxury women's fashion, Bangladesh |
 | Domain | splaro.co |
+| Production | Contabo VPS `147.93.171.45` → https://splaro.co |
 | Monorepo | Turborepo + pnpm |
 | Dev command | `pnpm dev:stack` (web :3000, admin :3001, api :4000) |
 | DB | PostgreSQL + Prisma → `packages/database/prisma/schema.prisma` |
 | Owner language | Bangla / Banglish / English — match user's style |
+
+## Production VPS (never ask owner for root password)
+
+**Do not ask the owner for the VPS password.** Mac→VPS uses SSH key. Never write root passwords into this skill, git, or chat replies.
+
+| Item | Value |
+|------|-------|
+| Host / IP | `147.93.171.45` (also `splaro.co` A record) |
+| SSH user | `root` |
+| Mac private key | `~/.ssh/splaro_vps` |
+| SSH alias | Prefer `ssh -i ~/.ssh/splaro_vps -o BatchMode=yes root@147.93.171.45` |
+| App dir | `/var/www/splaro` |
+| Deploy entry | `/opt/splaro/deploy.sh` (thin wrapper → repo `infrastructure/vps/deploy.sh`) |
+| PM2 apps | `splaro-web`, `splaro-admin`, `splaro-api`, `splaro-worker`, `splaro-print` |
+| GitHub Actions | **Deploy VPS** after CI green on `main` |
+| Actions secrets | `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ aliases `VPS_SSH_*`) |
+| Repo deploy key | GitHub → Deploy keys → `splaro-vps-read` (read-only; VPS git pull) |
+| Re-sync secrets | `pnpm setup:github-deploy:sync` (uses Mac key; uploads Actions secrets + deploy key) |
+| Hostinger | Legacy only — not primary. Do not treat Hostinger workflows as production. |
+
+```bash
+# Connect (no password prompt if key works)
+ssh -i ~/.ssh/splaro_vps -o BatchMode=yes root@147.93.171.45
+
+# Live health
+curl -sf https://splaro.co/api/v1/health
+curl -sf https://admin.splaro.co/api/ping
+
+# Manual deploy on VPS (GitHub Actions normally does this)
+bash /opt/splaro/deploy.sh
+```
+
+If Mac key SSH fails: run `infrastructure/vps/hpanel-bootstrap-github.sh` once on VPS console, then `pnpm setup:github-deploy:sync` — still never store passwords in repo docs.
 
 ## Apps
 
@@ -151,10 +185,10 @@ Auth pages may use `EarthBackdrop` via `AuthEarthBackground.tsx` — only touch 
 Working setup (do not break):
 - Button UI: `apps/web/src/components/auth/AuthGoogleGlassFooter.tsx` — used on login + signup via `AuthExperience.tsx`
 - Provider: `AuthGoogleProvider.tsx` (`GoogleOAuthProvider`), bridge: `auth-google-bridge.tsx`
-- Feature flags: `apps/web/src/app/api/auth/config/route.ts` — `googleSignInEnabled` depends **only** on `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` (web env). Never re-add a server-side `GOOGLE_OAUTH_CLIENT_ID` requirement here — the web Next process does not read root `.env`, so that check made the button flash then vanish after config load.
-- Env: `apps/web/.env.local` → `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; root `.env` → `GOOGLE_OAUTH_CLIENT_ID` (+ secret) for the Nest API credential verify.
-- Credential verify happens in Nest API via BFF `POST /api/auth/google`.
-- Rule: the Google button must **never unmount after initial render** when a client id is baked into the bundle.
+- Feature flags: `apps/web/src/app/api/auth/config/route.ts` returns public `googleClientId` + `googleSignInEnabled`. Prefer `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; fall back to `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_CLIENT_ID` from the web process env so VPS doesn’t flash-then-hide Google.
+- Env: root `.env` on VPS must set `GOOGLE_OAUTH_CLIENT_ID` **and** `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` (same public client id). Nest verifies ID tokens; web bakes NEXT_PUBLIC at build — rebuild web after changing NEXT_PUBLIC.
+- Credential verify: Nest `GoogleIdTokenService` via BFF `POST /api/auth/google`.
+- Rule: Google button must **never unmount** while a client id is available (baked or via `/api/auth/config`).
 | Currency | `lib/utils/currency.ts` → `formatBDT()` |
 | Delivery zones | `packages/config/src/delivery-zones.ts` |
 
@@ -216,6 +250,7 @@ Code: `apps/api/src/modules/courier/`, `orders/order-status.service.ts`, `common
 | problem ki | Full health diagnostic |
 | thik koro | Fix with real diagnosis, not guess |
 | agent bujhe na | Improve prompt/tools — check platform-knowledge.prompt.ts |
+| vps / deploy / slow site | Production VPS section above — SSH via `~/.ssh/splaro_vps`, never ask for root password |
 
 ## Windows dev (parity — do not regress)
 

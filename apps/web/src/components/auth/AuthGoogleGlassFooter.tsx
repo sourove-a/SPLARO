@@ -9,7 +9,7 @@ import { authMotionTransition, authTapSpring, useAuthShowMotion } from '@/lib/au
 import { useAuthGoogleBridge } from '@/components/auth/auth-google-bridge'
 import { useStorefrontAuthConfig } from '@/hooks/useStorefrontAuthConfig'
 
-const GOOGLE_CLIENT_ID =
+const BAKED_GOOGLE =
   process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||
   ''
@@ -39,18 +39,23 @@ function GoogleMarkIcon() {
 
 export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: 'in-card' }) {
   const hiddenHostRef = useRef<HTMLDivElement>(null)
-  const { googleSignInEnabled, loaded: configLoaded } = useStorefrontAuthConfig()
+  const {
+    googleSignInEnabled,
+    googleClientId: runtimeGoogleClientId,
+    loaded: configLoaded,
+  } = useStorefrontAuthConfig()
   const { step, googleLoading, googleError, setGoogleError, runGoogleSignIn } = useAuthGoogleBridge()
   const showMotion = useAuthShowMotion()
   const tapTransition = authMotionTransition(!showMotion, 0.16)
   const pressMotion = showMotion && !googleLoading ? { whileTap: authTapSpring, whileHover: { opacity: 0.92 } } : {}
+  const googleClientId = runtimeGoogleClientId || BAKED_GOOGLE
 
   if (step === 'google-phone') return null
-  // Hide ONLY when config confirms disabled AND no client id is baked in.
-  // Never unmount a button the user can see working — client id present = keep it.
-  if (configLoaded && !googleSignInEnabled && !GOOGLE_CLIENT_ID) return null
+  // Hide ONLY when config confirms disabled AND no client id exists (baked or runtime).
+  // Never unmount a visible button — flash-then-vanish is worse than a brief loading state.
+  if (configLoaded && !googleSignInEnabled && !googleClientId) return null
 
-  const configured = Boolean(GOOGLE_CLIENT_ID)
+  const configured = Boolean(googleClientId)
 
   const handleCredential = (response: CredentialResponse) => {
     if (!response.credential) {
