@@ -13,6 +13,9 @@ const connectSrc = [
   'https://splaro.co',
   'https://api.splaro.co',
   'https://www.google-analytics.com',
+  'https://accounts.google.com',
+  'https://oauth2.googleapis.com',
+  'https://www.googleapis.com',
   'https://www.facebook.com',
   'https://connect.facebook.net',
 ]
@@ -129,8 +132,8 @@ const nextConfig = {
               // production, so 'unsafe-eval' is dropped. 'unsafe-inline' stays — GTM/FB
               // pixel and Next.js hydration inline scripts need a nonce-based CSP to
               // remove safely, which needs its own dedicated rollout/testing pass.
-              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
-              "style-src 'self' 'unsafe-inline'",
+              "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://accounts.google.com https://apis.google.com https://connect.facebook.net",
+              "style-src 'self' 'unsafe-inline' https://accounts.google.com",
               `img-src ${cspImgSrc}`,
               `media-src ${cspMediaSrc}`,
               "font-src 'self' data: https://fonts.gstatic.com",
@@ -138,7 +141,8 @@ const nextConfig = {
               // youtube-nocookie: Instagram/social reels embed on the homepage story
               // section (SocialReelsDropdown → ReelCard iframe) — 'none' silently
               // blocked every reel video with no visible error, just a dead player.
-              "frame-src 'self' https://www.youtube-nocookie.com",
+              // accounts.google.com: Google Identity Services button iframe (login/signup).
+              "frame-src 'self' https://www.youtube-nocookie.com https://accounts.google.com",
             ].join('; '),
           },
         ],

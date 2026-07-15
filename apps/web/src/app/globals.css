@@ -1501,14 +1501,17 @@ body.auth-page #main-content {
 }
 
 .auth-google-glass__hidden {
+  /* Keep GSI iframe renderable — 1×1 clipped + pointer-events:none prevented
+     the Google button from mounting, so custom click always showed "loading". */
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 44px;
+  height: 44px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.02;
+  left: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: auto;
 }
 
 .auth-field__icon-chip {

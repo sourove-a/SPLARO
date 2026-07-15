@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { Loader2 } from 'lucide-react'
 import { motion } from '@/lib/motion/react'
@@ -13,6 +13,28 @@ const BAKED_GOOGLE =
   process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID?.trim() ||
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ||
   ''
+
+function findGoogleHostButton(host: HTMLElement | null): HTMLElement | null {
+  if (!host) return null
+  return (
+    host.querySelector<HTMLElement>('div[role="button"]') ??
+    host.querySelector<HTMLElement>('iframe') ??
+    host.querySelector<HTMLElement>('div[id^="container-"]')
+  )
+}
+
+async function waitForGoogleHostButton(
+  host: HTMLElement | null,
+  attempts = 12,
+  delayMs = 150,
+): Promise<HTMLElement | null> {
+  for (let i = 0; i < attempts; i += 1) {
+    const btn = findGoogleHostButton(host)
+    if (btn) return btn
+    await new Promise((resolve) => window.setTimeout(resolve, delayMs))
+  }
+  return null
+}
 
 function GoogleMarkIcon() {
   return (
@@ -39,6 +61,7 @@ function GoogleMarkIcon() {
 
 export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: 'in-card' }) {
   const hiddenHostRef = useRef<HTMLDivElement>(null)
+  const openingRef = useRef(false)
   const {
     googleSignInEnabled,
     googleClientId: runtimeGoogleClientId,
@@ -49,37 +72,47 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const tapTransition = authMotionTransition(!showMotion, 0.16)
   const pressMotion = showMotion && !googleLoading ? { whileTap: authTapSpring, whileHover: { opacity: 0.92 } } : {}
   const googleClientId = runtimeGoogleClientId || BAKED_GOOGLE
+  const configured = Boolean(googleClientId)
+
+  const handleCredential = useCallback(
+    (response: CredentialResponse) => {
+      if (!response.credential) {
+        setGoogleError('Google sign-in was cancelled or failed.')
+        return
+      }
+      void runGoogleSignIn(response.credential)
+    },
+    [runGoogleSignIn, setGoogleError],
+  )
+
+  const openGoogle = useCallback(() => {
+    if (openingRef.current || googleLoading) return
+    if (!configured) {
+      setGoogleError('Google sign-in is not configured on the server yet. Use email or phone above.')
+      return
+    }
+    setGoogleError('')
+    openingRef.current = true
+    void (async () => {
+      try {
+        const googleBtn = await waitForGoogleHostButton(hiddenHostRef.current)
+        if (googleBtn) {
+          googleBtn.click()
+          return
+        }
+        setGoogleError(
+          'Google sign-in could not load. Check your connection, disable ad blockers for splaro.co, then refresh.',
+        )
+      } finally {
+        openingRef.current = false
+      }
+    })()
+  }, [configured, googleLoading, setGoogleError])
 
   if (step === 'google-phone') return null
   // Hide ONLY when config confirms disabled AND no client id exists (baked or runtime).
   // Never unmount a visible button — flash-then-vanish is worse than a brief loading state.
   if (configLoaded && !googleSignInEnabled && !googleClientId) return null
-
-  const configured = Boolean(googleClientId)
-
-  const handleCredential = (response: CredentialResponse) => {
-    if (!response.credential) {
-      setGoogleError('Google sign-in was cancelled or failed.')
-      return
-    }
-    void runGoogleSignIn(response.credential)
-  }
-
-  const openGoogle = () => {
-    if (!configured) {
-      setGoogleError('Google sign-in is not configured on the server yet. Use email or phone above.')
-      return
-    }
-    const host = hiddenHostRef.current
-    const googleBtn =
-      host?.querySelector<HTMLElement>('div[role="button"]') ??
-      host?.querySelector<HTMLElement>('iframe')
-    if (googleBtn) {
-      googleBtn.click()
-      return
-    }
-    setGoogleError('Google sign-in is loading. Please try again in a moment.')
-  }
 
   return (
     <div className={cn('auth-google-glass-footer', placement === 'in-card' && 'auth-google-glass-footer--in-card')}>
