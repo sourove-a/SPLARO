@@ -8,6 +8,7 @@ import { LiquidGlassNavButton } from '@/components/ui/LiquidGlass/LiquidGlassNav
 import { cn } from '@/lib/utils/cn'
 import { HERO_DEFAULT_SLIDES, HERO_DEFAULT_VIDEO } from '@splaro/config'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
+import { preferLocalHeroSrc, resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
 import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
@@ -48,13 +49,13 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|ogg)(\?|$)/i.test(url.trim())
 }
 
+/** Same-origin WebP when available; else Unsplash/CDN at sane width (never force 1920). */
 function heroImageSrc(url: string): string {
   const trimmed = url.trim()
   if (!trimmed || isVideoUrl(trimmed)) return trimmed
-  if (trimmed.startsWith('/')) return trimmed
-  if (!trimmed.includes('images.unsplash.com')) return trimmed
-  const base = trimmed.split('?')[0]!
-  return `${base}?w=1920&h=1080&fit=crop&crop=center&q=90&auto=format`
+  const local = preferLocalHeroSrc(trimmed)
+  if (local.startsWith('/')) return local
+  return optimizeImageSrc(local, 'hero', local, { allowStockMedia: true })
 }
 
 function videoMimeType(url: string): string {
@@ -291,6 +292,25 @@ function HeroStaticBackdrop({
 }) {
   if (!src.trim() || isBrandLogoPoster(src)) {
     return <div className="hero-bg-fallback" aria-hidden />
+  }
+
+  const local = resolveLocalHeroVariants(src)
+  if (local) {
+    return (
+      <picture>
+        <source media="(max-width: 768px)" srcSet={local.mobile} type="image/webp" />
+        <img
+          src={local.desktop}
+          alt=""
+          className="hero-bg-image"
+          fetchPriority={priority ? 'high' : 'auto'}
+          loading={priority || eager ? 'eager' : 'lazy'}
+          decoding="async"
+          draggable={false}
+          style={HERO_MEDIA_STYLE}
+        />
+      </picture>
+    )
   }
 
   return (

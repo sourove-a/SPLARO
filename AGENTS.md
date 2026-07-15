@@ -66,7 +66,7 @@ curl http://127.0.0.1:4000/api/v1/health
 - **Honest feedback** — red for real errors; green only for verified success.
 - **Telegram** = primary mobile ops channel.
 - **Agent owns dev restarts** — after web/admin/api/CSS/config changes, run `pnpm dev:reset` or verify ports; never tell owner “terminal এ restart করুন”.
-- **Ship order (mandatory):** finish **all** code fixes first → local verify → **then** one push/deploy. Never deploy mid-fix; never stop the live VPS for each small tweak.
+- **Ship order (mandatory):** finish **all** code fixes first → local verify → **ask owner for push/deploy permission** → only then one push/deploy. Never deploy mid-fix; never ship production without explicit yes (`push koro` / `deploy koro`).
 - Banglish intent:
 
 | Owner says | Do |
@@ -136,12 +136,27 @@ Unless the owner **explicitly** asks to change the footer in that message, agent
 
 No swaps (e.g. `LazyFooterEarthGlobe` ↔ `EarthBackdrop`), no overlay/blur/reload tweaks, no drive-by “fixes”. Current: `EarthBackdrop` video in `Footer.tsx`.
 
+### Performance / CDN (owner — 2026-07-15)
+
+| Rule | Detail |
+|------|--------|
+| Default heroes | Self-hosted WebP `/images/hero/*-1600.webp` + `*-828.webp` (`packages/config` `HERO_DEFAULT_SLIDES`). Never hotlink Unsplash `@1920` for defaults. |
+| Hero LCP | `HeroSlider` uses `<picture>` mobile/desktop via `lib/assets/hero-cdn.ts`. Do not reintroduce `heroImageSrc` forced `w=1920`. |
+| Logos | Prefer `/images/logo/splaro-logo-*-premium.webp` (~10KB) over 500KB+ PNG wordmarks. |
+| Dead CDN hosts | `cdn.splaro.co` / `cdn.splaro.com.bd` have **no DNS** — `resolve-asset-url.ts` + `layout.tsx` skip them and use `splaro.co`. Do not set `NEXT_PUBLIC_CDN_URL` to a dead host on VPS. |
+| VPS Next optimizer | `SPLARO_VPS=1` → `images.unoptimized` — size must be in the URL/file itself (WebP / Unsplash `w=`). |
+| Windows header | Never force solid white glass on `.site-header-glass--over-hero` — white nav/logo go invisible (`performance.css`). Over-hero = transparent; scrolled = white + dark text. Native scroll on Windows (`shouldUseNativeScroll`). |
+
+After web image changes: rebuild/deploy web so `public/images/hero` ships.
+
 ### Auth / Google sign-in — locked (owner verified)
 
 Login/signup Google button works and must stay. Do not edit without explicit owner request:
 - `apps/web/src/components/auth/AuthGoogleGlassFooter.tsx`, `AuthGoogleProvider.tsx`, `auth-google-bridge.tsx`, `AuthExperience.tsx`
 - `apps/web/src/app/api/auth/config/route.ts` — `googleSignInEnabled` must depend **only** on `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; the web process can't see root `.env` server vars, so requiring them hides the button after config loads (flash-then-vanish bug).
 - Env: `apps/web/.env.local` holds `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; Nest API verifies credentials with `GOOGLE_OAUTH_CLIENT_ID` from root `.env`.
+
+**Google button UI (owner lock — 2026-07-15):** Custom glass shows **one** SVG `GoogleMarkIcon` only. Real GIS (`GoogleLogin type="icon"`) lives in `.auth-google-glass__hidden` — **off-screen** (`fixed; left/top: -240px; opacity: 0; pointer-events: none`). Never park the hidden GIS under the custom button at low opacity (causes visible **double-G** ghost). Do not add a second mark via CSS `::before` / background-image / `drop-shadow` on `.auth-google-glass__mark`. Programmatic `element.click()` still opens Google.
 
 ### Key web routes
 

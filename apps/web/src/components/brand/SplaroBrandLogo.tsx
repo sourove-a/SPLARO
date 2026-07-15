@@ -5,19 +5,19 @@ import { cn } from '@/lib/utils/cn'
 const logoAssets = {
   /** Black wordmark for light surfaces. */
   light: {
-    src: '/images/logo/splaro-logo-black-premium.png',
+    src: '/images/logo/splaro-logo-black-premium.webp',
     width: 220,
     height: 117,
   },
   /** White wordmark for dark surfaces. */
   dark: {
-    src: '/images/logo/splaro-logo-white-premium.png',
+    src: '/images/logo/splaro-logo-white-premium.webp',
     width: 220,
     height: 117,
   },
   /** Auth / login pages (light wordmark when size=auth) */
   brand: {
-    src: '/images/logo/splaro-logo-black-premium.png',
+    src: '/images/logo/splaro-logo-black-premium.webp',
     width: 220,
     height: 117,
   },
@@ -79,7 +79,7 @@ export function SplaroBrandLogo({
       width={asset.width}
       height={asset.height}
       priority={priority}
-      quality={100}
+      quality={82}
       sizes="(max-width: 1023px) 168px, 200px"
       unoptimized
       className={cn(

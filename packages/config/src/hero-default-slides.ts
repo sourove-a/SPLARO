@@ -13,19 +13,17 @@ export interface HeroDefaultSlide {
   secondaryLinkUrl: string
 }
 
-/** Soft ivory empty-state for last-resort missing assets. */
-const HERO_PLACEHOLDER = '/images/placeholder-product.svg'
-
-// Curated editorial photos shown when the admin hasn't added real hero banners
-// yet (empty/fresh catalog) — a plain dark gradient here reads as "the site is
-// broken" to a first-time visitor, so these stand in until real ones exist.
+/**
+ * Self-hosted WebP heroes (`apps/web/public/images/hero/*`) — same-origin / CDN cache,
+ * ~50–60KB desktop / ~18KB mobile. Do not point defaults at Unsplash @1920 (slow LCP).
+ */
 export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
   {
     key: 'women-collection',
     eyebrow: 'SPLARO',
     title: 'Elegance That Moves With You.',
     subtitle: 'Premium fashion crafted for timeless everyday luxury.',
-    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d',
+    image: '/images/hero/women-collection-1600.webp',
     linkUrl: '/shop',
     secondaryLinkUrl: '/collections',
   },
@@ -34,7 +32,7 @@ export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
     eyebrow: 'SPLARO',
     title: 'Dress the warmth.',
     subtitle: 'Light fabrics, golden hours, effortless grace.',
-    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b',
+    image: '/images/hero/summer-1600.webp',
     linkUrl: '/c/summer-edition',
     secondaryLinkUrl: '/new-arrivals',
   },
@@ -43,7 +41,7 @@ export const HERO_DEFAULT_SLIDES: HeroDefaultSlide[] = [
     eyebrow: 'SPLARO',
     title: 'Refined silhouettes.',
     subtitle: 'Editorial pieces for every occasion.',
-    image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b',
+    image: '/images/hero/new-season-1600.webp',
     linkUrl: '/c/women',
     secondaryLinkUrl: '/collections',
   },

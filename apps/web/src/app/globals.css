@@ -1480,7 +1480,8 @@ body.auth-page #main-content {
   flex: 0 0 auto;
   width: 1.15rem;
   height: 1.15rem;
-  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.35));
+  /* No drop-shadow — shadows on the G look like a second ghost logo on glass. */
+  filter: none;
 }
 
 .auth-google-glass__btn-label {
@@ -1512,17 +1513,21 @@ body.auth-page #main-content {
 }
 
 .auth-google-glass__hidden {
-  /* Keep GSI iframe renderable — 1×1 clipped + pointer-events:none prevented
-     the Google button from mounting, so custom click always showed "loading". */
-  position: absolute;
+  /*
+   * Real GIS icon must stay mounted (size ≥ ~40px) so custom glass click can
+   * programmatically trigger it. Never leave it under the custom button at
+   * opacity 0.02 — that double-G ghost is visible on dark glass (esp. Windows).
+   * Off-screen + opacity 0 + pointer-events none; element.click() still works.
+   */
+  position: fixed;
   width: 44px;
   height: 44px;
+  left: -240px;
+  top: -240px;
   overflow: hidden;
-  opacity: 0.02;
-  left: 0;
-  bottom: 0;
-  z-index: 0;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .auth-field__icon-chip {
@@ -8326,21 +8331,27 @@ html[data-home-hero='top'] #main-content {
 
 .story-earth-panel {
   position: relative;
-  aspect-ratio: 5 / 4;
-  max-height: 250px;
+  /* Taller phone card so the CSS sphere can sit fully round (not clipped oval). */
+  aspect-ratio: 1 / 1;
+  max-height: 320px;
   overflow: hidden;
   border-radius: 1.35rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: #05080c;
   box-shadow: 0 24px 70px rgba(8, 12, 18, 0.28);
+  container-type: size;
 }
 
 @media (min-width: 640px) {
-  .story-earth-panel { max-height: 290px; }
+  .story-earth-panel {
+    aspect-ratio: 5 / 4;
+    max-height: 300px;
+  }
 }
 
 @media (min-width: 1024px) {
   .story-earth-panel {
+    aspect-ratio: 5 / 4;
     max-height: 330px;
     border-radius: 1.6rem;
   }
@@ -8368,12 +8379,16 @@ html[data-home-hero='top'] #main-content {
     radial-gradient(circle at 52% 48%, rgba(70, 110, 150, 0.35), rgba(5, 8, 12, 0.92) 68%);
 }
 
-/* CSS globe — equirectangular map scrolls inside a shaded sphere (RDP / no WebGL). */
+/* CSS globe — equirectangular map scrolls inside a shaded sphere (phone / RDP / no WebGL).
+ * Size from panel HEIGHT first — width-based 88% used to overflow max-height cards
+ * and clip into a flat oval (“broken earth”) on mobile. */
 .story-earth-panel__globe {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(88%, 20rem);
+  height: 78%;
+  width: auto;
+  max-width: 86%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   border-radius: 50%;
@@ -8384,14 +8399,22 @@ html[data-home-hero='top'] #main-content {
     0 0 2.5rem rgba(80, 130, 180, 0.28);
 }
 
+@supports (height: 1cqmin) {
+  .story-earth-panel__globe {
+    height: min(78cqmin, 16rem);
+    max-width: none;
+  }
+}
+
 .story-earth-panel__globe-map {
   position: absolute;
   inset: -2%;
   background-image: url('/images/earth/earth-day.webp');
-  background-size: 200% 100%;
+  /* Slight vertical crop hides jagged arctic ice blowout at the sphere rim */
+  background-size: 200% 108%;
   background-repeat: repeat-x;
-  background-position: 22% center;
-  filter: saturate(1.08) brightness(1.03);
+  background-position: 22% 46%;
+  filter: saturate(1.06) brightness(0.98) contrast(1.02);
 }
 
 .story-earth-panel__placeholder--flow .story-earth-panel__globe-map {
@@ -28557,7 +28580,9 @@ html[data-perf='lite'] .glass-nav-pair .splaro-nav-btn {
 
 /* Next.js Image fill wrapper must stretch on all breakpoints */
 .home-hero-slider .hero-slide__media > span:has(.hero-bg-image),
-.home-hero-slider .hero-slide__media-shell > span:has(.hero-bg-image) {
+.home-hero-slider .hero-slide__media-shell > span:has(.hero-bg-image),
+.home-hero-slider .hero-slide__media > picture:has(.hero-bg-image),
+.home-hero-slider .hero-slide__media-shell > picture:has(.hero-bg-image) {
   position: absolute !important;
   inset: 0 !important;
   display: block !important;

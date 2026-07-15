@@ -76,13 +76,15 @@ If Mac key SSH fails: run `infrastructure/vps/hpanel-bootstrap-github.sh` once o
 
 ### Ship order (owner lock — 2026-07-15)
 
-**Fix all code first → then ONE push + deploy. Never mid-fix deploy.**
+**Fix all code first → ask owner → only then ONE push/deploy. Never mid-fix deploy.**
 
 1. Diagnose + edit locally until the request is complete
 2. `tsc` / lint on touched apps
-3. Only then `git push` (CI → Deploy VPS) or one careful VPS rebuild
-4. Do **not** push/deploy after each small tweak; do **not** stop PM2 / redeploy while still fixing
-5. If owner says “age deploy korbe na / fix then push” — obey; keep changes local until the batch is done
+3. **STOP and ask owner** (“push/deploy korbo?”) — wait for explicit yes (`push koro` / `deploy koro` / `ship koro`)
+4. Only after yes: `git push` (CI → Deploy VPS) or one careful VPS rebuild
+5. Do **not** push/deploy after each small tweak; do **not** stop PM2 / redeploy while still fixing
+6. If owner says “age deploy korbe na / permission nibi” — **never ship without asking**, even when the batch looks complete
+7. Local verify (`pnpm check:web`, curl localhost) is fine without asking; **production push/VPS = permission required**
 
 ## Admin routing
 
@@ -173,6 +175,8 @@ If owner says “double” / “footer er niche buy” on PDP → check these ru
 | Cart store | `apps/web/src/store/cartStore.ts` |
 | Layout chrome | `components/layout/StorefrontChrome.tsx`, `Header/`, `Footer/` |
 | Footer earth | `components/footer/EarthBackdrop.tsx` + `styles/earth-backdrop.css` — **frozen, do not edit** |
+| Currency | `lib/utils/currency.ts` → `formatBDT()` |
+| Delivery zones | `packages/config/src/delivery-zones.ts` |
 
 ### Footer — frozen (owner lock)
 
@@ -188,6 +192,13 @@ Current implementation: video `EarthBackdrop` in `Footer.tsx`. Do **not** swap t
 
 Auth pages may use `EarthBackdrop` via `AuthEarthBackground.tsx` — only touch if owner asks about auth, not footer.
 
+### Performance / CDN heroes (2026-07-15)
+
+- Defaults: `/images/hero/{key}-1600.webp` + `-828.webp` — ILYN-style same-origin static (not Unsplash 1920).
+- Resolver: `apps/web/src/lib/assets/hero-cdn.ts`; `HeroSlider` `<picture>`.
+- Logos: `splaro-logo-*-premium.webp` (~10KB).
+- Dead: never route to `cdn.splaro.co` until DNS exists (`resolve-asset-url.ts`).
+
 ### Auth / Google sign-in — locked (owner verified)
 
 **Do not change auth login/signup UI or Google sign-in wiring** unless the owner explicitly asks.
@@ -199,8 +210,8 @@ Working setup (do not break):
 - Env: root `.env` on VPS must set `GOOGLE_OAUTH_CLIENT_ID` **and** `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` (same public client id). Nest verifies ID tokens; web bakes NEXT_PUBLIC at build — rebuild web after changing NEXT_PUBLIC.
 - Credential verify: Nest `GoogleIdTokenService` via BFF `POST /api/auth/google`.
 - Rule: Google button must **never unmount** while a client id is available (baked or via `/api/auth/config`).
-| Currency | `lib/utils/currency.ts` → `formatBDT()` |
-| Delivery zones | `packages/config/src/delivery-zones.ts` |
+
+**One Google mark only (owner lock — 2026-07-15):** Visible mark = SVG in `AuthGoogleGlassFooter` (`GoogleMarkIcon`). Hidden GIS trigger = `.auth-google-glass__hidden` → **off-screen**, `opacity: 0`, `pointer-events: none` (still ≥44×44 so GIS mounts; `click()` works). Never stack GIS icon under the glass at low opacity — that was the **double-G** bug on `/login`. No `drop-shadow` / pseudo / background logo on `.auth-google-glass__mark`.
 
 ### Main customer routes
 

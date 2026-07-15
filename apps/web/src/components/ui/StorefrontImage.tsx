@@ -37,8 +37,9 @@ export function StorefrontImage({
 }: StorefrontImageProps) {
   const isMobile = useMobileViewport()
   const mounted = useMounted()
+  // Mobile-first until mount proves desktop — ILYN-style LCP (never start at 1920/900).
   const effectiveProfile =
-    mounted && isMobile ? mobileImageProfile(profile) : profile
+    !mounted || isMobile ? mobileImageProfile(profile) : profile
   const optimizedSrc = optimizeImageSrc(
     src,
     effectiveProfile,

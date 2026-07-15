@@ -15,9 +15,9 @@ import { StoryReadMore } from './StoryReadMore'
 import { StoryEarthGlobe } from './StoryEarthGlobe'
 
 /** Same premium PNG wordmarks as header/footer. */
-const SPLARO_LOGO_BLACK = '/images/logo/splaro-logo-black-premium.png'
-const SPLARO_LOGO_WHITE = '/images/logo/splaro-logo-white-premium.png'
-const SPLARO_MARK = '/images/logo/splaro-logo-white-premium.png'
+const SPLARO_LOGO_BLACK = '/images/logo/splaro-logo-black-premium.webp'
+const SPLARO_LOGO_WHITE = '/images/logo/splaro-logo-white-premium.webp'
+const SPLARO_MARK = '/images/logo/splaro-logo-white-mark.webp'
 const MARK_SIZE = 64
 const LOGO_W = 220
 const LOGO_H = 117

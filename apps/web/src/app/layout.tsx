@@ -36,13 +36,23 @@ export const revalidate = 60
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
 const cdnOrigin = (() => {
-  const raw = process.env.NEXT_PUBLIC_CDN_URL?.trim()
-  if (!raw) return 'https://cdn.splaro.co'
-  try {
-    return new URL(raw).origin
-  } catch {
-    return 'https://cdn.splaro.co'
+  const candidates = [
+    process.env.NEXT_PUBLIC_CDN_URL?.trim(),
+    process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.trim(),
+    siteUrl,
+  ]
+  const broken = new Set(['cdn.splaro.co', 'cdn.splaro.com.bd'])
+  for (const raw of candidates) {
+    if (!raw) continue
+    try {
+      const origin = new URL(raw).origin
+      if (broken.has(new URL(origin).hostname.toLowerCase())) continue
+      return origin
+    } catch {
+      /* try next */
+    }
   }
+  return 'https://splaro.co'
 })()
 
 export const metadata: Metadata = {
@@ -151,8 +161,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       style={{ colorScheme: 'light only' }}
     >
       <head>
-        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
         {/* Phone OS dark mode — keep SPLARO white/light on every device */}
         <meta name="color-scheme" content="only light" />
         <meta name="supported-color-schemes" content="light" />
@@ -161,8 +169,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <GoogleAnalyticsHead />
         <link rel="preconnect" href={cdnOrigin} />
         <link rel="dns-prefetch" href={cdnOrigin} />
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
         <link rel="icon" href={SPLARO_TAB_ICONS.faviconIco} sizes="any" />
         <link rel="icon" href={SPLARO_TAB_ICONS.icon16} sizes="16x16" type="image/png" />
         <link rel="icon" href={SPLARO_TAB_ICONS.icon32} sizes="32x32" type="image/png" />

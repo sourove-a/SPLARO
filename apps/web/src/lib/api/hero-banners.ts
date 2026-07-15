@@ -2,6 +2,7 @@ import type { HeroBanner } from '@/lib/api/banners'
 import { productSlug } from '@/lib/catalog/index'
 import type { StorefrontProduct } from '@/data/storefront'
 import { HERO_DEFAULT_SLIDES } from '@splaro/config'
+import { preferLocalHeroSrc } from '@/lib/assets/hero-cdn'
 
 /**
  * Curated landscape hero slides — the fallback when admin hasn't configured any
@@ -48,11 +49,35 @@ export function heroBannersFromCatalog(
   }))
 }
 
+function isHeroVideoUrl(url: string): boolean {
+  return /\.(mp4|webm|ogg)(\?|$)/i.test(url) || /videos\.pexels\.com\/video-files/i.test(url)
+}
+
+/**
+ * Force ILYN-style light heroes: local WebP when known; never LCP on Pexels UHD
+ * video-as-image (DB often stores mp4 in `image`).
+ */
+function sanitizeHeroBanner(banner: HeroBanner, index: number): HeroBanner {
+  const image = banner.image?.trim() || ''
+  if (!image) return banner
+
+  if (isHeroVideoUrl(image)) {
+    const local =
+      HERO_DEFAULT_SLIDES[index % HERO_DEFAULT_SLIDES.length]?.image ??
+      HERO_DEFAULT_SLIDES[0]?.image
+    return local ? { ...banner, image: local } : banner
+  }
+
+  return { ...banner, image: preferLocalHeroSrc(image) }
+}
+
 export function resolveHeroBanners(
   apiBanners: HeroBanner[],
   products: (StorefrontProduct & { slug?: string })[],
 ): HeroBanner[] {
-  const fromApi = apiBanners.filter((banner) => banner.image?.trim())
+  const fromApi = apiBanners
+    .filter((banner) => banner.image?.trim())
+    .map((banner, index) => sanitizeHeroBanner(banner, index))
   if (fromApi.length) return fromApi
   // Prefer the curated landscape defaults over cropping portrait product shots
   // into the wide hero — only fall to catalog if defaults somehow yield nothing.

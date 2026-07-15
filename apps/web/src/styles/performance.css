@@ -215,6 +215,28 @@ html[data-os='windows'] .search-modal__bar {
   background: rgba(255, 255, 255, 0.97) !important;
 }
 
+/*
+ * Over-hero uses white logo/nav (Mac glass is transparent over the dark hero).
+ * The solid white Windows override above made those invisible — keep transparent
+ * while pinned over the hero; scrolled / search stay solid white.
+ * Also kill ::before/::after white wash layers (they can flash opaque on ANGLE).
+ */
+html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled),
+html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)::before,
+html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)::after {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-bottom-color: transparent !important;
+  opacity: 1;
+}
+
+html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)::before,
+html[data-os='windows'] .site-header-glass.site-header-glass--over-hero:not(.site-header-glass--scrolled)::after {
+  display: none !important;
+  opacity: 0 !important;
+}
+
 html[data-os='windows'] .search-modal.spl-radix-dialog--search,
 html[data-os='windows'] [data-radix-dialog-overlay] {
   background: rgba(8, 10, 14, 0.72) !important;

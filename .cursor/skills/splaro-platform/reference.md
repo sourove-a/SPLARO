@@ -14,7 +14,7 @@ Env: `.env.example` — never commit real secrets.
 
 ## Ship order (owner — 2026-07-15)
 
-**Code fix complete first → then ONE push/deploy.** Never mid-fix Deploy VPS / stop PM2 for each tweak. Mobile perf especially: finish the batch locally (`tsc`/`lint`), then ship once.
+**Code fix complete → ask owner → ONE push/deploy only after yes.** Never mid-fix Deploy VPS. Never ship because “batch looks done” — wait for `push koro` / `deploy koro`. Local `tsc`/lint/dev OK without asking.
 
 ## Package scripts (root)
 
@@ -150,3 +150,5 @@ Do not: `window.open(..., 'noopener')` for blank docs; await-then-open; put cuid
 | Overlay still scrolls / dead click after modal | Use `uiStore.acquireScrollLock` / `releaseScrollLock` (not only `body.overflow=hidden`); Size Guide must not depend on unstable `onClose` identity |
 | Size Guide leaves wrong chart | Modal is category-aware via `resolveSizeGuideKey` — footwear vs apparel |
 | Native scrollIntoView + Lenis | Use `lenis.scrollTo(element)` on PDP — `scrollIntoView` desyncs virtual scroll |
+| Google Continue = double G | Hidden GIS was under glass at `opacity: 0.02` — keep `.auth-google-glass__hidden` off-screen; one SVG mark only |
+| Homepage slow vs ILYN | Logo PNG 500KB+ / Unsplash @1920 / dead `cdn.splaro.co` — use WebP heroes+logos; skip dead CDN hosts |

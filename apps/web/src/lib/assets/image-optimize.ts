@@ -10,8 +10,9 @@ export const IMAGE_QUALITY = {
   cardMobile: 82,
   gallery: 90,
   galleryMobile: 86,
-  hero: 92,
-  heroMobile: 85,
+  /** Was 92 @1920 — LCP killer on Contabo (Next image optimizer off). */
+  hero: 80,
+  heroMobile: 72,
   thumb: 82,
   lightbox: 92,
 } as const
@@ -35,7 +36,7 @@ const REMOTE_WIDTH: Record<ImageProfile, number> = {
   cardMobile: 480,
   gallery: 1200,
   galleryMobile: 828,
-  hero: 1920,
+  hero: 1280,
   heroMobile: 828,
   thumb: 160,
   lightbox: 1600,
