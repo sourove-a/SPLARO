@@ -22,10 +22,15 @@ export default function SearchPageClient() {
     }
 
     let cancelled = false
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 12000)
     setLoading(true)
     setSearchError(null)
 
-    fetch(`/api/search?q=${encodeURIComponent(query)}`, { cache: 'no-store' })
+    fetch(`/api/search?q=${encodeURIComponent(query)}&limit=24`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then(async (res) => {
         const payload = (await res.json()) as {
           products?: ProductCardData[]
@@ -42,17 +47,27 @@ export default function SearchPageClient() {
       .catch((err: unknown) => {
         if (!cancelled) {
           setResults([])
+          const aborted =
+            (err instanceof DOMException && err.name === 'AbortError') ||
+            (err instanceof Error && err.name === 'AbortError')
           setSearchError(
-            err instanceof Error ? err.message : 'Search is temporarily offline — try again shortly.',
+            aborted
+              ? 'Search timed out — check connection and try again.'
+              : err instanceof Error
+                ? err.message
+                : 'Search is temporarily offline — try again shortly.',
           )
         }
       })
       .finally(() => {
+        window.clearTimeout(timeout)
         if (!cancelled) setLoading(false)
       })
 
     return () => {
       cancelled = true
+      controller.abort()
+      window.clearTimeout(timeout)
     }
   }, [query])
 

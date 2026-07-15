@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useFooterEarthActive } from '@/components/footer/earth-live/useFooterEarthActive'
 import { isLowPowerDevice, isSoftwareRenderer } from '@/lib/earth/globe-performance'
+import { isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const FOOTER_GLOBE_VIDEO = '/videos/footer-globe.mp4'
 /** Same frame as video — no PNG → video jump on load */
@@ -16,7 +17,7 @@ const FOOTER_GLOBE_POSTER = '/videos/footer-globe-poster.jpg'
  *
  * Decorative ambient motion — keep playing even when Windows has
  * "Animation effects" OFF (prefers-reduced-motion). Only pause when off-screen.
- * Soft-GL / lite: poster only — video decode was starving Search on weak Windows GPUs.
+ * Soft-GL / lite / phone: poster only — video decode starves Search + taps on weak GPUs.
  */
 export function EarthBackdrop() {
   const { ref, active } = useFooterEarthActive()
@@ -26,9 +27,8 @@ export function EarthBackdrop() {
   const [posterOnly, setPosterOnly] = useState(false)
 
   useLayoutEffect(() => {
-    setPosterOnly(isSoftwareRenderer() || isLowPowerDevice())
+    setPosterOnly(isSoftwareRenderer() || isLowPowerDevice() || isMobileViewport())
   }, [])
-
   useEffect(() => {
     const video = videoRef.current
     if (!video || videoFailed || posterOnly) return

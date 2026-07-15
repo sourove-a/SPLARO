@@ -58,8 +58,12 @@ export function Header() {
 
   // Warm search category thumbs while idle — first Search click feels instant.
   useEffect(() => {
+    const controller = new AbortController()
     const warm = () => {
-      void fetch('/api/products?limit=48', { cache: 'force-cache' }).catch(() => {})
+      void fetch('/api/products?limit=48', {
+        cache: 'force-cache',
+        signal: controller.signal,
+      }).catch(() => {})
     }
     const win = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
@@ -67,10 +71,16 @@ export function Header() {
     }
     if (win.requestIdleCallback) {
       const id = win.requestIdleCallback(warm, { timeout: 2500 })
-      return () => win.cancelIdleCallback?.(id)
+      return () => {
+        win.cancelIdleCallback?.(id)
+        controller.abort()
+      }
     }
     const t = window.setTimeout(warm, 1200)
-    return () => window.clearTimeout(t)
+    return () => {
+      window.clearTimeout(t)
+      controller.abort()
+    }
   }, [])
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])

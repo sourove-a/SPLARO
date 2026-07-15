@@ -92,8 +92,11 @@ export async function GET(request: Request) {
   }
 
   const { products, source } = await getStorefrontCatalog()
+  // Honor ?limit= even without scoped filters — Search warm used limit=48 but got the full dump.
+  const capped =
+    searchParams.has('limit') && products.length > limit ? products.slice(0, limit) : products
   return NextResponse.json(
-    { products, total: products.length, source },
+    { products: capped, total: capped.length, source },
     {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',

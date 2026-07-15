@@ -65,16 +65,21 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   useEffect(() => {
     if (!isOpen) return
     let cancelled = false
-    // Cached + capped listing — category thumbs only. no-store made every open wait on API.
-    void fetch('/api/products?limit=48', { cache: 'force-cache' })
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 8000)
+    // Cached + capped — thumbs are optional; never block typing / Enter.
+    void fetch('/api/products?limit=48', { cache: 'force-cache', signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((payload: { products?: StorefrontProduct[] } | null) => {
         if (cancelled || !payload?.products?.length) return
         setCategoryImages(pickCategoryImages(payload.products))
       })
       .catch(() => {})
+      .finally(() => window.clearTimeout(timeout))
     return () => {
       cancelled = true
+      controller.abort()
+      window.clearTimeout(timeout)
     }
   }, [isOpen])
 
