@@ -56,7 +56,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 80)
+      // preventScroll — without it, browsers can scroll the underlying page to the input.
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 80)
     } else {
       setQuery('')
     }
