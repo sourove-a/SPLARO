@@ -197,7 +197,6 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
 export function shouldUseNativeScroll(): boolean {
   if (typeof window === 'undefined') return false
   if (prefersReducedMotion()) return true
-  if (isWindowsOS()) return true
   if (isLowPowerDevice()) return true
   // Match detectScrollProfile('mobile'): ≤1023 OR coarse — landscape phones used
   // to miss the old 768 gate, keep Lenis+syncTouch, and jump/lag on scroll.
