@@ -51,7 +51,7 @@ export interface CreateStorefrontOrderInput {
   userId?: string
   customer: {
     name: string
-    email: string
+    email?: string
     phone: string
     address: string
     city: string
