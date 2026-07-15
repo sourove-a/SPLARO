@@ -1,16 +1,14 @@
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import path from 'path'
 
-const DATA_DIR = path.join(process.cwd(), '.data/splaro')
+/**
+ * Legacy file helpers — DEV ONLY when SPLARO_DEV_FILE_ORDER_CACHE=1.
+ * Production auth/orders use Nest + Prisma via BFF (`api-auth`, `api-orders`).
+ * Types below are shared by the BFF order/invoice shapeshape — keep them.
+ */
 
-const FILES = {
-  users: 'users.json',
-  orders: 'orders.json',
-  reviews: 'reviews.json',
-  resetTokens: 'reset-tokens.json',
-  sessions: 'sessions.json',
-  stock: 'stock.json',
-} as const
+const DATA_DIR = path.join(process.cwd(), '.data/splaro')
+const ORDERS_FILE = 'orders.json'
 
 let initialized = false
 
@@ -36,15 +34,6 @@ async function writeJsonFile<T>(filename: string, data: T): Promise<void> {
   await ensureDataDir()
   const filePath = path.join(DATA_DIR, filename)
   await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
-}
-
-export interface StoredUser {
-  id: string
-  name: string
-  email: string
-  phone: string
-  passwordHash: string
-  createdAt: string
 }
 
 export type OrderStatus =
@@ -107,79 +96,11 @@ export interface StoredOrder {
   }
 }
 
-export interface StoredReview {
-  id: string
-  productId: string
-  userId?: string
-  authorName: string
-  rating: number
-  title?: string
-  body: string
-  createdAt: string
-  verified?: boolean
-}
-
-export interface ResetToken {
-  token: string
-  userId: string
-  email: string
-  expiresAt: string
-  usedAt?: string
-}
-
-export interface StoredSession {
-  id: string
-  userId: string
-  createdAt: string
-  expiresAt: string
-}
-
-export type StockOverlay = Record<string, number>
-
-export async function readUsers(): Promise<StoredUser[]> {
-  return readJsonFile<StoredUser[]>(FILES.users, [])
-}
-
-export async function writeUsers(users: StoredUser[]): Promise<void> {
-  await writeJsonFile(FILES.users, users)
-}
-
+/** Dev-only order mirror — no-op callers must gate via SPLARO_DEV_FILE_ORDER_CACHE. */
 export async function readOrders(): Promise<StoredOrder[]> {
-  return readJsonFile<StoredOrder[]>(FILES.orders, [])
+  return readJsonFile<StoredOrder[]>(ORDERS_FILE, [])
 }
 
 export async function writeOrders(orders: StoredOrder[]): Promise<void> {
-  await writeJsonFile(FILES.orders, orders)
-}
-
-export async function readReviews(): Promise<StoredReview[]> {
-  return readJsonFile<StoredReview[]>(FILES.reviews, [])
-}
-
-export async function writeReviews(reviews: StoredReview[]): Promise<void> {
-  await writeJsonFile(FILES.reviews, reviews)
-}
-
-export async function readResetTokens(): Promise<ResetToken[]> {
-  return readJsonFile<ResetToken[]>(FILES.resetTokens, [])
-}
-
-export async function writeResetTokens(tokens: ResetToken[]): Promise<void> {
-  await writeJsonFile(FILES.resetTokens, tokens)
-}
-
-export async function readSessions(): Promise<StoredSession[]> {
-  return readJsonFile<StoredSession[]>(FILES.sessions, [])
-}
-
-export async function writeSessions(sessions: StoredSession[]): Promise<void> {
-  await writeJsonFile(FILES.sessions, sessions)
-}
-
-export async function readStock(): Promise<StockOverlay> {
-  return readJsonFile<StockOverlay>(FILES.stock, {})
-}
-
-export async function writeStock(stock: StockOverlay): Promise<void> {
-  await writeJsonFile(FILES.stock, stock)
+  await writeJsonFile(ORDERS_FILE, orders)
 }
