@@ -35,8 +35,9 @@ export class StorefrontCustomerDto {
   @MinLength(2)
   name!: string
 
+  @IsOptional()
   @IsEmail()
-  email!: string
+  email?: string
 
   @IsString()
   @MinLength(6)
@@ -96,6 +97,48 @@ export class StorefrontOrderItemDto {
   slug?: string
 }
 
+export class StorefrontOrderAttributionDto {
+  @IsOptional()
+  @IsString()
+  utmSource?: string
+
+  @IsOptional()
+  @IsString()
+  utmMedium?: string
+
+  @IsOptional()
+  @IsString()
+  utmCampaign?: string
+
+  @IsOptional()
+  @IsString()
+  utmContent?: string
+
+  @IsOptional()
+  @IsString()
+  utmTerm?: string
+
+  @IsOptional()
+  @IsString()
+  fbclid?: string
+
+  @IsOptional()
+  @IsString()
+  referrer?: string
+
+  @IsOptional()
+  @IsString()
+  trafficSource?: string
+
+  @IsOptional()
+  @IsString()
+  landingPage?: string
+
+  @IsOptional()
+  @IsString()
+  capturedAt?: string
+}
+
 export class CreateStorefrontOrderDto {
   @IsOptional()
   @IsString()
@@ -142,6 +185,12 @@ export class CreateStorefrontOrderDto {
   @IsOptional()
   @IsString()
   idempotencyKey?: string
+
+  /** Marketing attribution from storefront (UTM / fbclid / referrer). */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StorefrontOrderAttributionDto)
+  attribution?: StorefrontOrderAttributionDto
 }
 
 export class NewsletterSubscribeDto {
