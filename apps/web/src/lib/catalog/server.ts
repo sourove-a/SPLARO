@@ -62,6 +62,62 @@ const getCachedLiveCatalog = unstable_cache(
   { revalidate: 30, tags: ['storefront-products'] },
 )
 
+export const HOMEPAGE_CATALOG_LIMIT = 8
+
+async function fetchHomeCatalogPreviewDirect(limit = HOMEPAGE_CATALOG_LIMIT): Promise<CachedCatalog> {
+  if (isCiOrProductionBuild()) return BUILD_CATALOG
+
+  try {
+    const listing = await fetchStorefrontProductListing({ page: 1, limit })
+    if (!listing.products.length) {
+      return { products: [], source: 'empty' }
+    }
+    const catalog: CachedCatalog = {
+      products: listing.products.map(sanitizeStorefrontProduct),
+      source: 'api',
+      total: listing.total,
+      totalPages: listing.totalPages,
+      page: listing.page,
+    }
+    rememberGoodCatalog(catalog)
+    return catalog
+  } catch {
+    const full = await fetchLiveCatalogDirect()
+    return {
+      ...full,
+      products: full.products.slice(0, limit),
+    }
+  }
+}
+
+const getCachedHomeCatalogPreview = unstable_cache(
+  async (): Promise<CachedCatalog> => fetchHomeCatalogPreviewDirect(),
+  ['splaro-home-catalog-preview', 'v1'],
+  { revalidate: 30, tags: ['storefront-products'] },
+)
+
+/** Homepage only — 8 products, not the full catalog dump. */
+export async function getStorefrontCatalogPreview(
+  limit = HOMEPAGE_CATALOG_LIMIT,
+): Promise<CachedCatalog> {
+  try {
+    const catalog =
+      process.env.NODE_ENV === 'development'
+        ? await fetchHomeCatalogPreviewDirect(limit)
+        : await getCachedHomeCatalogPreview()
+    if (catalog.source === 'api' && catalog.products.length) {
+      rememberGoodCatalog(catalog)
+    }
+    return catalog
+  } catch {
+    const fallback = resolveCatalogFailure(EMPTY_CATALOG)
+    if (fallback.products.length) {
+      return { ...fallback, products: fallback.products.slice(0, limit) }
+    }
+    return EMPTY_CATALOG
+  }
+}
+
 export async function getStorefrontCatalog(): Promise<CachedCatalog> {
   try {
     const catalog =

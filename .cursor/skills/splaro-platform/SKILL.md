@@ -183,20 +183,54 @@ Verified on `/products/[slug]` (`product-page-client.tsx` + `ProductPurchaseStic
 
 ### Scroll + click (owner lock — do not regress)
 
-Verified 2026-07-14 on PDP. Dead clicks / scroll ghosts come from Lenis inertia + overlays.
+**Default 2026-07-16: native OS scroll everywhere** (`shouldUseNativeScroll()` always `true`). Lenis chunk stays lazy (`LenisSmoothScrollInner`) but is not mounted. Instagram/Windows wheel must work without virtual scroll.
+
+#### Dual-scrollport wheel bug (fixed — never reintroduce)
+
+| Bad | Why | Good |
+|-----|-----|------|
+| `body { overflow-x: hidden }` | CSS computes `overflow-y` → `auto` when the other axis is not `visible` | `overflow-x: clip` + `overflow-y: visible` on `body` |
+| `html` **and** `body` both `overflow-y: auto` | Dual scrollports — Chromium/Windows mouse wheel + trackpad **stop scrolling** (events fire, `scrollY` stays 0) | **Only `<html>`** is the vertical scrollport |
+| `html:not(.lenis) body { overflow-y: auto !important }` | Same dual-port bug under native engine | `body { overflow-y: visible !important }` when native |
+
+Files: `apps/web/src/app/globals.css` (body + `data-scroll-engine=native` rules). Diagnose: `getComputedStyle(body).overflow` must be `clip visible` / `visible`, not `hidden auto`.
+
+#### Overlay lock (Search / Cart / SizeGuide)
 
 | Rule | Detail |
 |------|--------|
-| Overlay scroll lock | Shared `uiStore.scrollLockCount` via `acquireScrollLock` / `releaseScrollLock`. `SmoothScroll` `LenisScrollLock` stops Lenis when count > 0 **or** cart/search/menu. Do not only set `body.overflow=hidden` — Lenis keeps moving. |
-| Click freezes inertia | `LenisPointerGuard` on `pointerdown` **only for interactive targets** (button/link/size/CTA) → `lenis.scrollTo(animatedScroll, { immediate: true })` while `lenis.isScrolling`. Never freeze bare page touch-pan. |
-| Mobile dock | `MobileBottomNav` hides when `scrollLockCount > 0` (same as cart/search/menu). |
-| Pointer recovery | Keep `unlockLenisPointer()` + `windows-native-scroll-script` — never reintroduce `pointer-events: none` on body during scroll. |
-| PDP press | Opacity-only press (`--press-scale: 1`). Size buttons: no scale / no hover lift. |
-| No native scrollIntoView with Lenis | PDP validation scroll must use `lenis.scrollTo(el, …)` — native `scrollIntoView` desyncs Lenis and causes miss-clicks. |
+| Attribute | `OverlayScrollLockAttr` sets `html[data-scroll-lock=overlay]` when menu/search/cart/`scrollLockCount` |
+| Native CSS | `html[data-scroll-engine=native][data-scroll-lock=overlay] { overflow: hidden }` — **Lenis-only** lock selectors are not enough now |
+| Unlock | `unlockLenisPointer()` must **not** clear overflow while overlay locked (`GlobalPointerSafety` runs on every `pointerdown`) |
+| Horizontal rails | `GlobalHorizontalWheelScroll` only for `[data-h-scroll=true]`; skip when overlay locked; never `preventDefault` on page vertical wheel |
 
-If owner says “click lagge na / scroll click bug” → check LenisPointerGuard + scrollLockCount first.
+#### Other scroll/click rules
 
-If owner says “double” / “footer er niche buy” on PDP → check these rules before redesigning.
+| Rule | Detail |
+|------|--------|
+| Lenis (legacy) | If Lenis remounted: `LenisScrollLock` + `LenisPointerGuard` (freeze inertia only on interactive targets) |
+| Mobile dock | `MobileBottomNav` hides when `scrollLockCount > 0` |
+| Boot script | `windows-native-scroll-script.ts` — clear stale Lenis classes; never set `overflow:hidden` on html/body at boot |
+| PDP press | Opacity-only (`--press-scale: 1`) |
+| ScrollTo | Prefer native `window`/`scrollingElement` while engine=`native`; Lenis `scrollTo` only if Lenis context exists |
+
+If owner says **“wheel scroll kore na / trackpad kaj kore na”** → check dual scrollport CSS first (`body` overflow-x:hidden), then overlay lock, then Lenis remount.
+
+If owner says **“scroll click jump / miss click”** → keep **native scroll** + opacity-only press (`--press-scale: 1`); never `scrollIntoView({ behavior:'smooth' })` on PDP while clicking; never Lenis + native `scrollIntoView` mix.
+
+If owner says “click lagge na” → pointer unlock + scrollLockCount.
+
+### Speed / perf (owner lock — 2026-07-16)
+
+| Rule | Detail |
+|------|--------|
+| Footer earth video | **Removed from live `Footer.tsx`** — no `<EarthBackdrop />` / no `/videos/footer-globe.mp4` on critical path. Footer markup/CSS chrome still owner-locked; do not re-add video without explicit ask |
+| Auth earth | `AuthEarthBackground` no-op; login/signup light glow only — Google glass **untouched** |
+| Home story | WhySplaro / WebGL earth off by default (`homepage.ourStory: false`) |
+| Homepage catalog | `getStorefrontCatalogPreview()` — SSR **8 products**, not full catalog |
+| Scroll engine | Native everywhere — do not re-enable Lenis on Mac “for luxury” without measuring Windows wheel |
+| First paint | Prefer local WebP heroes; skip blocking banner API on home first byte when defaults exist |
+| Session/cart | Defer hydrators past first paint (`requestIdleCallback`) |
 
 ### Key paths
 
@@ -205,10 +239,11 @@ If owner says “double” / “footer er niche buy” on PDP → check these ru
 | Pages | `apps/web/src/app/` |
 | BFF API routes | `apps/web/src/app/api/` |
 | Checkout + districts | `apps/web/src/lib/checkout/` |
-| Catalog SSR | `apps/web/src/lib/catalog/` |
+| Catalog SSR | `apps/web/src/lib/catalog/` (`getStorefrontCatalogPreview` for home) |
 | Cart store | `apps/web/src/store/cartStore.ts` |
 | Layout chrome | `components/layout/StorefrontChrome.tsx`, `Header/`, `Footer/` |
-| Footer earth | `components/footer/EarthBackdrop.tsx` + `styles/earth-backdrop.css` — **frozen, do not edit** |
+| Scroll engine | `SmoothScroll.tsx`, `globe-performance.ts` `shouldUseNativeScroll`, `globals.css` native rules |
+| Footer earth (unused) | `components/footer/EarthBackdrop.tsx` + `styles/earth-backdrop.css` — keep frozen; **not mounted** |
 | Currency | `lib/utils/currency.ts` → `formatBDT()` |
 | Delivery zones | `packages/config/src/delivery-zones.ts` |
 
@@ -222,9 +257,9 @@ Locked scope (no drive-by edits, no “improvements”, no swaps):
 - `apps/web/src/styles/earth-backdrop.css`
 - Footer-related rules in `globals.css` (`.site-footer*`, `.footer-lux*`)
 
-Current implementation: video `EarthBackdrop` in `Footer.tsx`. Do **not** swap to `LazyFooterEarthGlobe`, change earth overlays, glass blur, `ScrollReveal`, or sticky-bar fixes “for footer” without explicit owner request.
+**Current (2026-07-16):** glass footer panel **without** earth video (`EarthBackdrop` unmounted for speed). Do **not** re-mount video / WebGL globe / swap `LazyFooterEarthGlobe` without explicit owner request.
 
-Auth pages may use `EarthBackdrop` via `AuthEarthBackground.tsx` — only touch if owner asks about auth, not footer.
+Auth: do not re-add earth video to login without owner ask. Google sign-in stays locked separately.
 
 ### Performance / CDN heroes (2026-07-15)
 

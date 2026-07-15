@@ -193,22 +193,10 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
   return true
 }
 
-/** Soft-GL / lite / Windows / phone+tablet: skip Lenis RAF so Search/taps aren't starved. */
+/** Native OS scroll everywhere — Instagram-level responsiveness (2026-07-16). */
 export function shouldUseNativeScroll(): boolean {
-  if (typeof window === 'undefined') return false
-  if (prefersReducedMotion()) return true
-  if (isWindowsOS()) return true
-  if (isLowPowerDevice()) return true
-  // Match detectScrollProfile('mobile'): ≤1023 OR coarse — landscape phones used
-  // to miss the old 768 gate, keep Lenis+syncTouch, and jump/lag on scroll.
-  if (
-    window.matchMedia('(max-width: 1023px)').matches ||
-    window.matchMedia('(pointer: coarse)').matches
-  ) {
-    return true
-  }
-  if (document.documentElement.getAttribute('data-perf') === 'lite') return true
-  return false
+  if (typeof window === 'undefined') return true
+  return true
 }
 
 export function earthIntersectionRootMargin(compact = false): string {

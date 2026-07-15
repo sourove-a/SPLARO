@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import dynamic from 'next/dynamic'
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
 import { useMotionReady } from '@/hooks/useMotionReady'
 import { ShopFilterBar } from '@/components/shop/ShopFilterBar'
 import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
-import { ProductQuickView } from '@/components/product/ProductQuickView/ProductQuickView'
 import { buildQuickViewProduct } from '@/lib/catalog/quick-view-product'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
@@ -46,6 +46,12 @@ import { useCatalogChannels } from '@/lib/storefront/catalog-channels'
 import { deriveShopFilterCategories } from '@/lib/catalog/shop-categories'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
+
+const ProductQuickView = dynamic(
+  () =>
+    import('@/components/product/ProductQuickView/ProductQuickView').then((m) => m.ProductQuickView),
+  { ssr: false },
+)
 
 const PAGE_SIZE = LISTING_PAGE_SIZE
 const HOMEPAGE_PRODUCT_LIMIT = 8
@@ -185,6 +191,13 @@ export function ShopCatalog({
     const hasSsrCatalog =
       initialCatalog?.source === 'api' && (initialCatalog.products?.length ?? 0) > 0
 
+    // Homepage preview is fixed at 8 — skip idle full-catalog refresh (Instagram-style).
+    if (isHomepage && hasSsrCatalog) {
+      return () => {
+        cancelled = true
+      }
+    }
+
     if (hasSsrCatalog) {
       // Stale-while-revalidate — keep SSR paint fast; refresh after idle
       const win = window as Window & {
@@ -212,7 +225,7 @@ export function ShopCatalog({
     return () => {
       cancelled = true
     }
-  }, [initialCatalog?.source, initialCatalog?.products.length])
+  }, [initialCatalog?.source, initialCatalog?.products.length, isHomepage])
 
   useEffect(() => {
     if (!initialCatalog) return
@@ -677,15 +690,16 @@ export function ShopCatalog({
           </div>
         )}
 
-        <ProductQuickView
-          product={quickViewProduct ? buildQuickViewProduct(quickViewProduct) : null}
-          open={Boolean(quickViewProduct)}
-          onClose={() => setQuickViewProduct(null)}
-          onAddToBag={(size, color) => {
-            if (!quickViewProduct) return
-            addProductToBag(quickViewProduct, size, color, true)
-          }}
-        />
+        {quickViewProduct ? (
+          <ProductQuickView
+            product={buildQuickViewProduct(quickViewProduct)}
+            open
+            onClose={() => setQuickViewProduct(null)}
+            onAddToBag={(size, color) => {
+              addProductToBag(quickViewProduct, size, color, true)
+            }}
+          />
+        ) : null}
 
         <AnimatePresence initial={false}>
           {!isHomepage && filteredProducts.length > 0 ? (

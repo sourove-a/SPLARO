@@ -11,6 +11,10 @@ import { RelatedProducts } from './related-products'
 import { ProductRelatedSkeleton } from './product-related-section'
 import { optimizeImageSrc } from '@/lib/assets/image-optimize'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
+import {
+  sanitizeStorefrontDescription,
+  sanitizeStorefrontShortDescription,
+} from '@/lib/catalog/storefront-sanitize'
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
@@ -42,10 +46,20 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   const { product } = result
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
+  const safeDescription = sanitizeStorefrontDescription(
+    product.metaDescription ?? product.description,
+    `${product.name} — premium piece from SPLARO.`,
+  )
+  const safeOgDescription =
+    sanitizeStorefrontShortDescription(product.shortDescription, safeDescription) ??
+    safeDescription
+  const ogImage = product.images[0]
+    ? [{ url: product.images[0], alt: product.name }]
+    : [{ url: `${siteUrl}/og-image.jpg`, alt: product.name }]
 
   return {
     title: pageTitleSegment(product.metaTitle) || product.name,
-    description: product.metaDescription ?? product.description,
+    description: safeDescription,
     robots: {
       index: true,
       follow: true,
@@ -56,10 +70,16 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     },
     openGraph: {
       title: product.name,
-      description: product.shortDescription ?? product.description,
-      images: product.images[0] ? [{ url: product.images[0], alt: product.name }] : [],
+      description: safeOgDescription,
+      images: ogImage,
       url: `${siteUrl}/products/${product.slug}`,
       type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.name,
+      description: safeOgDescription,
+      images: ogImage.map((image) => image.url),
     },
   }
 }
@@ -97,7 +117,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {
         '@type': 'Product',
         name: product.name,
-        description: product.description,
+        description: sanitizeStorefrontDescription(
+          product.description,
+          `${product.name} — premium piece from SPLARO.`,
+        ),
         sku: product.sku,
         image: product.images,
         url: `${siteUrl}/products/${product.slug}`,

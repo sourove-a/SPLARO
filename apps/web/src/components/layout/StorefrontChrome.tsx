@@ -1,12 +1,17 @@
 'use client'
 
 import { Suspense, type ReactNode } from 'react'
+import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { SmoothScroll } from '@/components/layout/SmoothScroll'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
-import { FloatingSystem } from '@/components/layout/FloatingSystem'
+
+const FloatingSystem = dynamic(
+  () => import('@/components/layout/FloatingSystem').then((m) => m.FloatingSystem),
+  { ssr: false },
+)
 
 const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
 const HEADER_ONLY_PATHS = ['/design/header']

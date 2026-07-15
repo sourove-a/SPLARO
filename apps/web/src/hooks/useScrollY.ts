@@ -1,10 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useLenis } from 'lenis/react'
-import { SCROLL_TO_TOP } from '@/lib/motion/scroll'
 
-export function subscribeScroll(lenis: ReturnType<typeof useLenis>, onScroll: (y: number) => void) {
+type ScrollSource = {
+  scroll: number
+  on: (event: 'scroll', handler: (instance: { scroll: number }) => void) => void
+  off: (event: 'scroll', handler: (instance: { scroll: number }) => void) => void
+} | null | undefined
+
+export function subscribeScroll(lenis: ScrollSource, onScroll: (y: number) => void) {
   let rafId = 0
   let pendingY = 0
 
@@ -39,7 +43,6 @@ function isMobileViewport() {
 }
 
 export function useScrollY(threshold = 0) {
-  const lenis = useLenis()
   const [pastThreshold, setPastThreshold] = useState(false)
 
   useEffect(() => {
@@ -52,8 +55,8 @@ export function useScrollY(threshold = 0) {
       setPastThreshold(next)
     }
 
-    return subscribeScroll(lenis, check)
-  }, [lenis, threshold])
+    return subscribeScroll(null, check)
+  }, [threshold])
 
   return pastThreshold
 }
@@ -78,7 +81,6 @@ export function useHeaderScroll(
   threshold = 24,
   pinned = false,
 ): { isScrolled: boolean; isHidden: boolean } {
-  const lenis = useLenis()
   const [state, setState] = useState({ isScrolled: false, isHidden: false })
   const stateRef = useRef(state)
 
@@ -118,7 +120,6 @@ export function useHeaderScroll(
       }
 
       if (isMobileViewport()) {
-        /* Mobile: keep header pinned — bottom nav + chrome must not scroll away. */
         showHeader(y)
         return
       }
@@ -145,15 +146,13 @@ export function useHeaderScroll(
       commit(nextScrolled, nextHidden)
     }
 
-    const unsubscribe = subscribeScroll(lenis, update)
-    return unsubscribe
-  }, [lenis, threshold, pinned])
+    return subscribeScroll(null, update)
+  }, [threshold, pinned])
 
   return pinned ? { ...state, isHidden: false } : state
 }
 
 export function useScrollPastViewport(ratio = 0.55) {
-  const lenis = useLenis()
   const [pastThreshold, setPastThreshold] = useState(false)
 
   useEffect(() => {
@@ -166,27 +165,21 @@ export function useScrollPastViewport(ratio = 0.55) {
       setPastThreshold(next)
     }
 
-    const unsubscribe = subscribeScroll(lenis, check)
-    const onResize = () => check(lenis ? lenis.scroll : window.scrollY)
+    const unsubscribe = subscribeScroll(null, check)
+    const onResize = () => check(window.scrollY)
 
     window.addEventListener('resize', onResize, { passive: true })
     return () => {
       unsubscribe()
       window.removeEventListener('resize', onResize)
     }
-  }, [lenis, ratio])
+  }, [ratio])
 
   return pastThreshold
 }
 
 export function useScrollToTop() {
-  const lenis = useLenis()
-
   return () => {
-    if (lenis) {
-      lenis.scrollTo(0, SCROLL_TO_TOP)
-      return
-    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }

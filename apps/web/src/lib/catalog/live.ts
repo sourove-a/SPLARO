@@ -4,7 +4,13 @@ import type { ColorOption, StorefrontProduct } from '@/data/storefront'
 import type { ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
-import { sanitizeStorefrontDescription, sanitizeStorefrontProductCode } from '@/lib/catalog/storefront-sanitize'
+import {
+  isDemoCatalogCopy,
+  isDemoCatalogSku,
+  sanitizeStorefrontDescription,
+  sanitizeStorefrontProductCode,
+  sanitizeStorefrontShortDescription,
+} from '@/lib/catalog/storefront-sanitize'
 import {
   LISTING_PAGE_SIZE,
   type StorefrontListingQuery,
@@ -234,6 +240,11 @@ function buildVariants(p: LiveProduct, basePrice: number, fallbackImg: string): 
   })
 }
 
+/** Seed/demo rows stay out of production cards and listings. */
+export function isLiveDemoProduct(p: Pick<LiveProduct, 'sku' | 'description' | 'shortDescription'>): boolean {
+  return isDemoCatalogSku(p.sku) || isDemoCatalogCopy(p.description, p.shortDescription)
+}
+
 export function mapLiveProduct(
   p: LiveProduct,
 ): StorefrontProduct & { slug: string; categorySlug?: string; categoryName?: string } {
@@ -351,7 +362,10 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
       p.description,
       `${p.name} is crafted with ${(p.fabricContent ?? 'premium fabric').toLowerCase()} and a ${(p.fitType ?? 'regular').toLowerCase()} fit.`,
     ),
-    ...(p.shortDescription ? { shortDescription: p.shortDescription } : {}),
+    ...(() => {
+      const short = sanitizeStorefrontShortDescription(p.shortDescription)
+      return short ? { shortDescription: short } : {}
+    })(),
     ...(publicSku ? { sku: publicSku } : {}),
     ...(p.fabricContent ? { fabricContent: p.fabricContent } : {}),
     ...(weavingType ? { weavingType } : {}),
@@ -383,7 +397,7 @@ export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slu
       const res = await liveFetch(url, { cache: 'no-store' })
       if (!res?.ok) throw new Error(`Storefront API ${res?.status ?? 'unavailable'}`)
       const data = (await res.json()) as { products: LiveProduct[] }
-      return (data.products ?? []).map(mapLiveProduct)
+      return (data.products ?? []).filter((p) => !isLiveDemoProduct(p)).map(mapLiveProduct)
     } catch (err) {
       if (attempt === attempts - 1) throw err
     }
@@ -405,7 +419,7 @@ export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProd
   const res = await liveFetch(url, { cache: 'no-store' })
   if (!res?.ok) return []
   const data = (await res.json()) as { products: LiveProduct[] }
-  return (data.products ?? []).map(mapLiveProduct)
+  return (data.products ?? []).filter((p) => !isLiveDemoProduct(p)).map(mapLiveProduct)
 }
 
 export async function fetchLiveProductDetailBySlug(
@@ -437,9 +451,11 @@ interface ProductsApiResponse {
 }
 
 function mapProductsResponse(data: ProductsApiResponse) {
+  const products = (data.products ?? []).filter((p) => !isLiveDemoProduct(p)).map(mapLiveProduct)
   return {
-    products: (data.products ?? []).map(mapLiveProduct),
-    total: data.total ?? 0,
+    products,
+    // Keep API totals for pagination — filtering demo is temporary until DB purge.
+    total: data.total ?? products.length,
     totalPages: data.totalPages ?? 1,
     page: data.page ?? 1,
   }

@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 @import '../styles/performance.css';
-@import '../styles/earth-backdrop.css';
 
 /* Fonts loaded via next/font/google in layout.tsx */
 /* ── CSS VARIABLES ────────────────────────────────────────────── */
@@ -154,7 +153,8 @@ a:active > .product-transition-link__hit {
 
 html {
   color-scheme: only light;
-  scroll-behavior: auto;
+  /* ILYN-style CSS-only smooth scrolling — native engine only; no Lenis (locked). */
+  scroll-behavior: smooth;
   /* Windows classic scrollbars: reserve gutter so modal scroll-locks don't shift layout */
   scrollbar-gutter: stable;
   scroll-padding-top: var(--site-content-pad);
@@ -240,7 +240,10 @@ body {
   font-size: 1rem;
   line-height: 1.6;
   min-height: 100dvh;
-  overflow-x: hidden;
+  /* clip NOT hidden — overflow-x:hidden forces overflow-y:auto and dual scrollports
+     (html+body) which breaks mouse-wheel / trackpad on Windows + Chromium. */
+  overflow-x: clip;
+  overflow-y: visible;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -304,10 +307,13 @@ html.lenis.lenis-smooth body {
   }
 }
 
-/* Native phone/tablet scroll — no CSS smooth (causes jump), no layout-shift anchoring */
+/* Native phone/tablet scroll — ILYN-parity CSS smooth; no JS scroll library.
+   (Lenis remains off via shouldUseNativeScroll — do not re-enable on Windows.) */
 html[data-scroll-engine='native'] {
-  scroll-behavior: auto !important;
+  scroll-behavior: smooth;
   overflow-anchor: none;
+  overflow-x: clip !important;
+  overflow-y: auto !important;
 }
 
 html[data-scroll-engine='native'] body {
@@ -324,10 +330,27 @@ html.lenis.lenis-stopped[data-scroll-lock='overlay'] {
   overflow: hidden;
 }
 
-/* Native fallback when reduced-motion or Lenis not mounted */
+/* Native scroll (default 2026-07-16) — lock page under Search/Cart/SizeGuide.
+   Lenis-only rules above never applied when data-scroll-engine=native. */
+html[data-scroll-engine='native'][data-scroll-lock='overlay'],
+html:not(.lenis)[data-scroll-lock='overlay'] {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+html[data-scroll-engine='native'][data-scroll-lock='overlay'] body,
+html:not(.lenis)[data-scroll-lock='overlay'] body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+/* Native fallback when reduced-motion or Lenis not mounted.
+   Single scrollport on <html> only — body must stay overflow:visible.
+   Dual html+body overflow-y:auto kills wheel/trackpad scroll (Windows). */
 html[data-scroll-engine='native'],
 html:not(.lenis),
 html.lenis:not([data-lenis-ready='1']) {
+  overflow-x: clip !important;
   overflow-y: auto !important;
   height: auto !important;
 }
@@ -335,7 +358,8 @@ html.lenis:not([data-lenis-ready='1']) {
 html[data-scroll-engine='native'] body,
 html:not(.lenis) body,
 html.lenis:not([data-lenis-ready='1']) body {
-  overflow-y: auto !important;
+  overflow-x: clip !important;
+  overflow-y: visible !important;
   height: auto !important;
   pointer-events: auto !important;
 }
@@ -2816,12 +2840,12 @@ body.auth-page #main-content {
   position: relative;
   padding: 2rem 0 1.5rem;
   overflow: hidden;
-  min-height: 26rem;
+  min-height: 0;
 }
 
 @media (max-width: 1023px) {
   .site-footer__stage {
-    min-height: 34rem;
+    min-height: 0;
     padding: 2.25rem 0 1.75rem;
   }
 
@@ -2863,7 +2887,7 @@ body.auth-page #main-content {
 
 @media (min-width: 1024px) {
   .site-footer__stage {
-    min-height: 30rem;
+    min-height: 0;
   }
 }
 
@@ -6026,7 +6050,7 @@ body.auth-page #main-content {
   max-width: none;
   background: #ffffff;
   color: #101114;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 #main-content:has(> .home-hero-slider) {

@@ -6,6 +6,7 @@ export function unlockLenisPointer(): void {
   const lenisActive =
     html.classList.contains('lenis') ||
     html.getAttribute('data-scroll-engine') === 'lenis'
+  const overlayLocked = html.getAttribute('data-scroll-lock') === 'overlay'
 
   if (body.style.pointerEvents === 'none') {
     body.style.pointerEvents = ''
@@ -13,6 +14,10 @@ export function unlockLenisPointer(): void {
   if (html.style.pointerEvents === 'none') {
     html.style.pointerEvents = ''
   }
+
+  // Never clear overflow while Search/Cart/SizeGuide holds scroll-lock —
+  // GlobalPointerSafety runs on every pointerdown and would unlock the page under the modal.
+  if (overlayLocked) return
 
   if (!lenisActive) {
     if (html.style.overflowY === 'hidden') html.style.overflowY = ''

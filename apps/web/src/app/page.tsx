@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import { GlassStorefront } from '@/components/home/GlassStorefront'
-import { fetchHeroBanners } from '@/lib/api/banners'
 import { resolveHeroBanners } from '@/lib/api/hero-banners'
 import { resolveLocalHeroVariants } from '@/lib/assets/hero-cdn'
-import { getStorefrontCatalog } from '@/lib/catalog/server'
+import { getStorefrontCatalogPreview } from '@/lib/catalog/server'
 
 export const metadata: Metadata = {
   title: 'Home',
@@ -14,8 +13,9 @@ export const metadata: Metadata = {
 export const revalidate = 60
 
 export default async function HomePage() {
-  const [catalog, apiBanners] = await Promise.all([getStorefrontCatalog(), fetchHeroBanners()])
-  const heroBanners = resolveHeroBanners(apiBanners, catalog.products)
+  const catalog = await getStorefrontCatalogPreview()
+  // Curated local WebP defaults — skip blocking banner API on first byte.
+  const heroBanners = resolveHeroBanners([], catalog.products)
   const lcp = resolveLocalHeroVariants(heroBanners[0]?.image)
 
   return (

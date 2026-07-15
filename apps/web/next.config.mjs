@@ -56,7 +56,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   experimental: {
-    optimizePackageImports: ['lucide-react', 'motion/react', 'date-fns'],
+    optimizePackageImports: ['lucide-react', 'motion/react', 'date-fns', '@radix-ui/react-dialog'],
     // CloudLinux NPROC counts threads — parallel build workers get the process killed
     ...(onSameBoxVps ? { cpus: 1, workerThreads: false } : {}),
   },
@@ -101,8 +101,8 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     formats: ['image/avif', 'image/webp'],
-    deviceSizes: [375, 640, 750, 828, 1080, 1200, 1440, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384, 512, 640],
+    deviceSizes: [375, 390, 640, 750, 828, 1080, 1200, 1440, 1920, 2048, 2560],
+    imageSizes: [16, 32, 48, 64, 72, 96, 128, 256, 384, 512, 640],
     minimumCacheTTL: 60 * 60 * 24 * 30,
   },
 
@@ -161,7 +161,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, max-age=0',
+            value: 'public, s-maxage=60, stale-while-revalidate=300',
           },
         ],
       },

@@ -25,7 +25,7 @@ export function catalogFetchAttempts(): number {
 }
 
 export function settingsFetchTimeoutMs(): number {
-  return envMs('SPLARO_SETTINGS_FETCH_TIMEOUT_MS', 2500, 8000)
+  return envMs('SPLARO_SETTINGS_FETCH_TIMEOUT_MS', 600, 4000)
 }
 
 export function upstreamFetchTimeoutMs(): number {

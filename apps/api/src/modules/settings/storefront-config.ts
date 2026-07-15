@@ -249,7 +249,8 @@ export const DEFAULT_FOOTER_GROUPS: FooterGroup[] = [
     id: 'shop',
     title: 'Shop',
     links: [
-      { label: 'New Arrivals', href: '/shop' },
+      { label: 'New Arrivals', href: '/new-arrivals' },
+      { label: 'Best Sellers', href: '/best-sellers' },
       { label: 'Women', href: '/c/women' },
       { label: 'Men', href: '/c/men' },
       { label: 'Footwear', href: '/c/footwear' },

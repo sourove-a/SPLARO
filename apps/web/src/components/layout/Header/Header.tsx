@@ -57,9 +57,9 @@ export function Header() {
     return () => root.removeAttribute('data-home-hero')
   }, [isHome, isOverHero])
 
-  // Desktop only: warm search thumbs while idle. Phones skip — steals bandwidth from LCP.
+  // Desktop only: warm search thumbs while idle. Skip homepage — SSR preview already loaded.
   useEffect(() => {
-    if (isTouchUiViewport()) return
+    if (isHome || isTouchUiViewport()) return
     const controller = new AbortController()
     const warm = () => {
       void fetch('/api/products?limit=48', {
@@ -83,7 +83,7 @@ export function Header() {
       window.clearTimeout(t)
       controller.abort()
     }
-  }, [])
+  }, [isHome])
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
   const closeSearch = useCallback(() => setSearchOpen(false), [setSearchOpen])

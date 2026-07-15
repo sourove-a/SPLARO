@@ -270,7 +270,9 @@ export default function ProductPageClient({
   }, [product.variants, selectedSize, selectedColor])
 
   const selectedColorName =
-    colors.find(([hex]) => hex === selectedColor)?.[1] ?? '—'
+    colors.find(([hex]) => hex.toLowerCase() === (selectedColor ?? '').toLowerCase())?.[1] ??
+    activeColorOption?.name ??
+    '—'
 
   const productHasStock = product.variants.some(
     (v) => v.isActive !== false && v.stock > 0,
@@ -543,14 +545,15 @@ export default function ProductPageClient({
     return true
   }
 
-  /** Prefer Lenis — native scrollIntoView desyncs virtual scroll and breaks follow-up clicks. */
+  /** Native engine: instant offset scroll — smooth scrollIntoView causes mid-click jump/miss on Windows. */
   const scrollElIntoView = (el: HTMLElement | null) => {
     if (!el) return
     if (lenis) {
       lenis.scrollTo(el, { offset: -96, duration: 0.65 })
       return
     }
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const top = el.getBoundingClientRect().top + window.scrollY - 96
+    window.scrollTo({ top: Math.max(0, top), behavior: 'auto' })
   }
 
   const validatePurchaseSelection = (): boolean => {

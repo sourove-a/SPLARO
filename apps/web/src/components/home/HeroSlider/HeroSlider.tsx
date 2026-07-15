@@ -12,6 +12,8 @@ import { preferLocalHeroSrc, resolveLocalHeroVariants } from '@/lib/assets/hero-
 import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
+/** Manual swipe/dots only — autoplay steals main thread on every device. */
+const HERO_AUTOPLAY_ENABLED = false
 // Must match --hero-swipe in globals.css — this is the lock window that blocks
 // re-triggering a transition mid-animation. Kept snappy (was 2000ms, felt janky).
 const SWIPE_MS = 850
@@ -303,6 +305,9 @@ function HeroStaticBackdrop({
           src={local.desktop}
           alt=""
           className="hero-bg-image"
+          width={1600}
+          height={900}
+          sizes="100vw"
           fetchPriority={priority ? 'high' : 'auto'}
           loading={priority || eager ? 'eager' : 'lazy'}
           decoding="async"
@@ -500,7 +505,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   const resetAutoplayTimer = useCallback(() => {
     clearAutoplayTimer()
-    if (paused || !sliderActive || slides.length <= 1) return
+    if (!HERO_AUTOPLAY_ENABLED || paused || !sliderActive || slides.length <= 1) return
     autoplayIntervalRef.current = window.setInterval(() => {
       transitionToRef.current((indexRef.current + 1) % slides.length)
     }, SLIDE_DURATION_MS)

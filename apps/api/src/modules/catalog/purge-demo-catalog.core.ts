@@ -8,9 +8,22 @@ const DEMO_SUPPLIER_NAMES = ['Bangla Fabrics Ltd', 'Dhaka Packaging Co']
 const STOCK_MEDIA = /unsplash\.com|pexels\.com/i
 
 function productUsesStockMedia(product: {
+  sku: string | null
+  slug: string
+  description: string | null
+  shortDescription: string | null
   images: { url: string }[]
   variants: { image: string | null }[]
 }): boolean {
+  if (/^DEMO-/i.test(product.sku?.trim() ?? '')) return true
+  if (product.slug === 'heritage-jamdani-saree') return true
+  if (
+    /seeded demo product|demo catalog for (?:checkout testing|local development)/i.test(
+      `${product.description ?? ''} ${product.shortDescription ?? ''}`,
+    )
+  ) {
+    return true
+  }
   const urls = [
     ...product.images.map((image) => image.url),
     ...product.variants.map((variant) => variant.image).filter((url): url is string => Boolean(url)),
@@ -118,7 +131,7 @@ export async function purgeDemoCatalogCore(
   })
 
   const demoProductIds = products
-    .filter((product) => productUsesStockMedia(product) || product.slug === 'heritage-jamdani-saree')
+    .filter((product) => productUsesStockMedia(product))
     .map((product) => product.id)
 
   result.demoProductsFound = demoProductIds.length

@@ -17,7 +17,6 @@ import { useStorefrontSettings } from '@/components/providers/StorefrontSettings
 import { DEFAULT_STORE_ADDRESS, DEFAULT_STORE_LABEL } from '@/lib/storefront/defaults'
 import { getStorefrontSocialLinks } from '@/lib/storefront/social-links'
 import { cn } from '@/lib/utils/cn'
-import { EarthBackdrop } from '@/components/footer/EarthBackdrop'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -130,7 +129,6 @@ export function Footer() {
   return (
     <footer data-site-chrome className="site-footer site-footer--luxury" aria-label="Site footer">
       <div className="site-footer__stage">
-        <EarthBackdrop />
         <div className="site-footer__ambient" aria-hidden="true" />
 
         <div className="container-luxury site-footer__wrap">

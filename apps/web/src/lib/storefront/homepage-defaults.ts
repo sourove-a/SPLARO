@@ -82,7 +82,7 @@ export const DEFAULT_STORY_PILLARS: StoryPillarConfig[] = [
 export const DEFAULT_CUSTOMER_STORY_ITEMS: CustomerStoryItem[] = []
 
 export const DEFAULT_OUR_STORY: OurStoryConfig = {
-  enabled: true,
+  enabled: false,
   eyebrow: 'OUR STORY',
   title: 'Crafted for the modern wardrobe.',
   body1:
@@ -111,8 +111,8 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionsConfig = {
   trustBar: true,
   catalog: true,
   specialOffer: true,
-  ourStory: true,
-  instagram: true,
+  ourStory: false,
+  instagram: false,
   newsletter: true,
 }
 

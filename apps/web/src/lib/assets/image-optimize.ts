@@ -10,7 +10,8 @@ export const IMAGE_QUALITY = {
   cardMobile: 82,
   gallery: 90,
   galleryMobile: 86,
-  /** Was 92 @1920 — LCP killer on Contabo (Next image optimizer off). */
+  /** Was 92 @1920 — LCP killer on Contabo (Next image optimizer off).
+   *  Keep ILYN-range q=65–80 for heroes; cards stay sharper (86). */
   hero: 80,
   heroMobile: 72,
   thumb: 82,
@@ -36,7 +37,7 @@ const REMOTE_WIDTH: Record<ImageProfile, number> = {
   cardMobile: 480,
   gallery: 1200,
   galleryMobile: 828,
-  hero: 1280,
+  hero: 1600,
   heroMobile: 828,
   thumb: 160,
   lightbox: 1600,

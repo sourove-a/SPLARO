@@ -34,7 +34,8 @@ export function DesktopPerfParity() {
 
 /**
  * Always mark overlay scroll-lock (even when Lenis is off / native scroll).
- * Earth globe + footer video pause when Search/Cart cover the page.
+ * CSS: html[data-scroll-engine=native][data-scroll-lock=overlay] { overflow:hidden }
+ * — Search/Cart/SizeGuide must freeze background wheel on Windows.
  */
 export function OverlayScrollLockAttr() {
   const locked = useUiStore(
@@ -43,8 +44,11 @@ export function OverlayScrollLockAttr() {
 
   useLayoutEffect(() => {
     const html = document.documentElement
-    if (locked) html.setAttribute('data-scroll-lock', 'overlay')
-    else html.removeAttribute('data-scroll-lock')
+    if (locked) {
+      html.setAttribute('data-scroll-lock', 'overlay')
+    } else {
+      html.removeAttribute('data-scroll-lock')
+    }
   }, [locked])
 
   return null
@@ -53,6 +57,7 @@ export function OverlayScrollLockAttr() {
 /**
  * Maps vertical mouse wheel → horizontal scroll for any overflow-x container under the cursor.
  * Covers legacy tracks without HorizontalScrollRail (Windows mouse UX).
+ * Never steal vertical page scroll — only [data-h-scroll="true"] rails.
  */
 export function GlobalHorizontalWheelScroll() {
   useEffect(() => {
@@ -60,9 +65,10 @@ export function GlobalHorizontalWheelScroll() {
       if (event.ctrlKey) return
       if (event.defaultPrevented) return
       if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+      // Background page must keep wheel while Search/Cart is closed
+      if (document.documentElement.getAttribute('data-scroll-lock') === 'overlay') return
 
       const target = event.target as HTMLElement | null
-      // Only explicit horizontal rails — never steal Lenis vertical wheel
       const rail = target?.closest('[data-h-scroll="true"]') as HTMLElement | null
       if (!rail) return
       if (target?.closest('[data-lenis-prevent]')) return

@@ -221,7 +221,7 @@ After prompt edits: restart API (`pnpm dev:api` or `pnpm dev:reset`). Tools must
 | OTP / rate-limit flaky | Redis down | `REDIS_URL`, `pnpm infra:redis` (Docker on Windows) |
 | Windows port stuck | Old listener / duplicate dev | `pnpm dev:reset` (`taskkill /T` tree kill via `killProcessTree`) |
 | `db:*` fails on Windows | Was bash-only | Now `node scripts/db-run.mjs` — cross-platform |
-| Windows scroll hang / dead click | Stale Lenis lock | `windows-native-scroll-script.ts` + `data-os=windows` profile |
+| Windows scroll hang / dead click | Stale Lenis lock **or** dual scrollport (`body overflow-x:hidden` → `overflow-y:auto` with html also auto) | Native scroll + `overflow-x: clip` on body; `windows-native-scroll-script`; never dual `overflow-y:auto` on html+body |
 | Windows SSR slow to API | `localhost` → IPv6 | `getServerApiBaseUrl()` uses `127.0.0.1` in dev |
 | Print/PDF does nothing | `noopener` / await-then-open popup block | Sync `window.open` first; invoice URL use `SPL-####` |
 | Invoice footer `www.localhost` | Brand derived from local SITE_URL | `splaro-invoice-brand.ts` sanitizer — restart API |

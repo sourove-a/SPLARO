@@ -1,5 +1,6 @@
 import { getServerApiBaseUrl } from '@splaro/config'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
+import { upstreamFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
@@ -26,7 +27,7 @@ export async function fetchHeroBanners(): Promise<HeroBanner[]> {
     try {
       const res = await fetchWithTimeout(url, {
         next: { revalidate: 30, tags: ['hero-banners'] },
-        timeoutMs: 12_000,
+        timeoutMs: upstreamFetchTimeoutMs(),
       })
       if (!res?.ok) continue
       const data = (await res.json()) as { banners?: HeroBanner[] }

@@ -37,6 +37,20 @@ const staticDest = join(target, '.next/static')
 mkdirSync(join(target, '.next'), { recursive: true })
 if (existsSync(staticSrc)) {
   cpSync(staticSrc, staticDest, { recursive: true })
+} else if (existsSync(staticDest)) {
+  // Nginx aliases apps/web/.next/static — restore from standalone after a wiped build dir.
+  mkdirSync(join(appDir, '.next'), { recursive: true })
+  cpSync(staticDest, staticSrc, { recursive: true })
+}
+
+const buildIdSrc = join(appDir, '.next/BUILD_ID')
+const buildIdDest = join(target, '.next/BUILD_ID')
+if (existsSync(buildIdSrc) && !existsSync(buildIdDest)) {
+  cpSync(buildIdSrc, buildIdDest)
+} else if (existsSync(buildIdDest) && !existsSync(buildIdSrc)) {
+  mkdirSync(join(appDir, '.next'), { recursive: true })
+  cpSync(buildIdDest, buildIdSrc)
 }
 
 console.log(`[prepare-next-standalone] OK — ${target}`)
+

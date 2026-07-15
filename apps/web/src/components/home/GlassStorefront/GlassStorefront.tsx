@@ -14,11 +14,6 @@ import type { HeroBanner } from '@/lib/api/banners'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
 import { ScrollReveal } from '@/components/motion/ScrollReveal'
 
-const WhySplaro = dynamic(
-  () => import('@/components/home/WhySplaro').then((m) => m.WhySplaro),
-  { ssr: false },
-)
-
 const ShopCatalog = dynamic(
   () => import('@/components/shop/ShopCatalog').then((m) => m.ShopCatalog),
   {
@@ -105,8 +100,6 @@ export function GlassStorefront({
             </div>
           </section>
         ) : null}
-
-        {homepage.ourStory ? <WhySplaro /> : null}
 
         {showNewsletter ? <NewsletterSection /> : null}
       </div>

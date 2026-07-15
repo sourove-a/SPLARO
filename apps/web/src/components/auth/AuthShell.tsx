@@ -4,15 +4,13 @@ import { useLayoutEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, X } from 'lucide-react'
-import { motion } from '@/lib/motion/react'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
-import { AuthEarthBackground } from '@/components/earth/AuthEarthBackground'
 import {
   captureAuthReturnPath,
   clearAuthReturnPath,
   getAuthReturnPath,
+  isAuthPath,
 } from '@/lib/auth/auth-return'
-import { authMotionTransition, authTapSpring, useAuthShowMotion } from '@/lib/auth/auth-motion'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 interface AuthShellProps {
@@ -22,10 +20,6 @@ interface AuthShellProps {
 
 export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
   const router = useRouter()
-  const showMotion = useAuthShowMotion()
-  const tapTransition = authMotionTransition(!showMotion, 0.16)
-  const pressMotion = showMotion ? { whileTap: authTapSpring, whileHover: { opacity: 0.82 } } : {}
-  const iconPressMotion = showMotion ? { whileTap: authTapSpring } : {}
   const [skipCheckoutLink, setSkipCheckoutLink] = useState(hideSkipLink)
   const [returnPath, setReturnPath] = useState('/')
 
@@ -45,69 +39,61 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
     setSkipCheckoutLink(next === '/checkout')
   }, [hideSkipLink])
 
-  const handleExit = () => {
+  /** Always leave auth to a real destination — never rely on motion-wrapped Links. */
+  const leaveAuth = () => {
+    const dest = returnPath || '/'
     clearAuthReturnPath()
+    safeClientNavigate(router, dest)
   }
 
   const handleBack = () => {
-    clearAuthReturnPath()
-    if (window.history.length > 1) {
-      router.back()
-      return
+    // Prefer browser back only when referrer is same-origin and not another auth page.
+    try {
+      const ref = typeof document !== 'undefined' ? document.referrer : ''
+      if (ref) {
+        const url = new URL(ref)
+        if (url.origin === window.location.origin && !isAuthPath(url.pathname)) {
+          clearAuthReturnPath()
+          router.back()
+          // If history.back stalls on this page (common after direct /login open),
+          // hard-leave after a short beat.
+          window.setTimeout(() => {
+            if (isAuthPath(window.location.pathname)) {
+              safeClientNavigate(router, returnPath || '/', 'replace')
+            }
+          }, 350)
+          return
+        }
+      }
+    } catch {
+      /* fall through */
     }
-    safeClientNavigate(router, returnPath)
+    leaveAuth()
   }
 
   return (
     <div className="auth-shell">
       <div className="auth-shell__glow" aria-hidden="true" />
-      <AuthEarthBackground />
 
+      {/* Plain buttons — framer motion wrappers were swallowing Close Link clicks. */}
       <header className="auth-topbar">
-        {showMotion ? (
-          <motion.button
-            type="button"
-            onClick={handleBack}
-            className="auth-topbar__back"
-            aria-label={`Back to ${returnPath === '/' ? 'home' : 'previous page'}`}
-            {...pressMotion}
-            transition={tapTransition}
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
-            Back
-          </motion.button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleBack}
-            className="auth-topbar__back"
-            aria-label={`Back to ${returnPath === '/' ? 'home' : 'previous page'}`}
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
-            Back
-          </button>
-        )}
-        {showMotion ? (
-          <motion.div {...iconPressMotion} transition={tapTransition}>
-            <Link
-              href={returnPath}
-              onClick={handleExit}
-              className="auth-topbar__close lux-icon-btn lux-icon-btn--round"
-              aria-label="Close and return"
-            >
-              <X className="h-4 w-4" strokeWidth={2.2} />
-            </Link>
-          </motion.div>
-        ) : (
-          <Link
-            href={returnPath}
-            onClick={handleExit}
-            className="auth-topbar__close lux-icon-btn lux-icon-btn--round"
-            aria-label="Close and return"
-          >
-            <X className="h-4 w-4" strokeWidth={2.2} />
-          </Link>
-        )}
+        <button
+          type="button"
+          onClick={handleBack}
+          className="auth-topbar__back"
+          aria-label={`Back to ${returnPath === '/' ? 'home' : 'previous page'}`}
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={leaveAuth}
+          className="auth-topbar__close lux-icon-btn lux-icon-btn--round"
+          aria-label="Close and return"
+        >
+          <X className="h-4 w-4" strokeWidth={2.2} />
+        </button>
       </header>
 
       <div className="auth-shell__inner">

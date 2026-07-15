@@ -1,21 +1,29 @@
 /** Internal demo-catalog markers — must not appear on the public storefront. */
 const DEMO_SKU_PREFIX = /^DEMO-/i
 const SEED_DESCRIPTION_PATTERN =
-  /seeded demo product|replace with real inventory via admin when ready/i
+  /seeded demo product|replace with real inventory via admin when ready|demo catalog for (?:checkout testing|local development)/i
 
 export function isDemoCatalogSku(sku?: string | null): boolean {
   return DEMO_SKU_PREFIX.test(sku?.trim() ?? '')
 }
 
+/** True when copy/SKU scream seed/demo — never ship to OG tags or storefront cards. */
+export function isDemoCatalogCopy(...parts: Array<string | null | undefined>): boolean {
+  return parts.some((part) => SEED_DESCRIPTION_PATTERN.test(part?.trim() ?? ''))
+}
+
+/**
+ * Public product code for cards/PDP.
+ * Only real SKUs — never invent from truncated slug (was showing "HERITAGE BLO").
+ */
 export function sanitizeStorefrontProductCode(
   sku?: string | null,
-  slug?: string,
+  _slug?: string,
 ): string | undefined {
   if (isDemoCatalogSku(sku)) return undefined
   const trimmed = sku?.trim()
-  if (trimmed) return trimmed
-  if (slug) return slug.replace(/-/g, ' ').slice(0, 12).toUpperCase()
-  return undefined
+  if (!trimmed) return undefined
+  return trimmed
 }
 
 export function sanitizeStorefrontDescription(
@@ -24,5 +32,16 @@ export function sanitizeStorefrontDescription(
 ): string {
   const trimmed = description?.trim() ?? ''
   if (!trimmed || SEED_DESCRIPTION_PATTERN.test(trimmed)) return fallback
+  return trimmed
+}
+
+export function sanitizeStorefrontShortDescription(
+  shortDescription: string | null | undefined,
+  fallback?: string,
+): string | undefined {
+  const trimmed = shortDescription?.trim() ?? ''
+  if (!trimmed || SEED_DESCRIPTION_PATTERN.test(trimmed)) {
+    return fallback?.trim() || undefined
+  }
   return trimmed
 }

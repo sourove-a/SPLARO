@@ -1,3 +1,5 @@
+import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
 import { getServerApiBaseUrl } from '@splaro/config'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
 import { settingsFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
@@ -445,23 +447,30 @@ async function fetchStorefrontNav(): Promise<NavLink[] | null> {
   }
 }
 
+async function fetchNavQuick(): Promise<[NavLink[] | null, NavLink[] | null]> {
+  const cap = Math.min(settingsFetchTimeoutMs(), 700)
+  const withCap = (fn: () => Promise<NavLink[] | null>) =>
+    Promise.race([
+      fn(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), cap)),
+    ]).catch(() => null)
+
+  return Promise.all([withCap(fetchLiveHeaderNav), withCap(fetchStorefrontNav)])
+}
+
 async function fetchSettingsRaw(): Promise<StorefrontSettings> {
   if (isCiOrProductionBuild()) {
     return FALLBACK_SETTINGS
   }
 
   const base = getServerApiBaseUrl()
-  const [settingsRes, menuNav, dynamicNav] = await Promise.all([
-    fetchWithTimeout(
-      `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
-      {
-        next: { revalidate: 10, tags: ['storefront-settings'] },
-        timeoutMs: settingsFetchTimeoutMs(),
-      },
-    ),
-    fetchLiveHeaderNav(),
-    fetchStorefrontNav(),
-  ])
+  const settingsRes = await fetchWithTimeout(
+    `${base}/storefront/settings?storeId=${encodeURIComponent(STORE_ID)}`,
+    {
+      next: { revalidate: 10, tags: ['storefront-settings'] },
+      timeoutMs: settingsFetchTimeoutMs(),
+    },
+  )
 
   if (!settingsRes?.ok) {
     if (process.env.NODE_ENV === 'development') {
@@ -480,6 +489,13 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
     return FALLBACK_SETTINGS
   }
 
+  // Dev: skip blocking nav API — bundled nav is enough for first byte.
+  if (process.env.NODE_ENV === 'development') {
+    return settings
+  }
+
+  const [menuNav, dynamicNav] = await fetchNavQuick()
+
   if (menuNav?.length) {
     settings.config.headerNav = menuNav
   }
@@ -491,7 +507,11 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
   return settings
 }
 
-const getCachedSettings = fetchSettingsRaw
+const getCachedSettingsProd = unstable_cache(
+  fetchSettingsRaw,
+  ['splaro-storefront-settings', 'v4-fast-nav-cap'],
+  { revalidate: 30, tags: ['storefront-settings', 'storefront-nav'] },
+)
 
 function normalizeHref(href: string): string {
   // treat /c/foo and /collections/foo as the same slug
@@ -615,9 +635,13 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
   }
 }
 
-export async function getStorefrontSettings(): Promise<StorefrontSettings> {
+export const getStorefrontSettings = cache(async (): Promise<StorefrontSettings> => {
   try {
-    return applyStoreDefaults(await getCachedSettings())
+    const raw =
+      process.env.NODE_ENV === 'development'
+        ? await fetchSettingsRaw()
+        : await getCachedSettingsProd()
+    return applyStoreDefaults(raw)
   } catch (err) {
     if (process.env.NODE_ENV === 'development') {
       console.warn(
@@ -627,4 +651,4 @@ export async function getStorefrontSettings(): Promise<StorefrontSettings> {
     }
     return FALLBACK_SETTINGS
   }
-}
+})

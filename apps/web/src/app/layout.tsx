@@ -23,13 +23,16 @@ const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
+  preload: true,
+  adjustFontFallback: true,
 })
 
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['400', '500'],
   variable: '--font-cormorant',
   display: 'swap',
+  preload: false,
 })
 
 export const revalidate = 60
@@ -115,9 +118,14 @@ export const metadata: Metadata = {
     canonical: siteUrl,
   },
   icons: splaroMetadataIcons,
-  other: {
-    'facebook-domain-verification': 'your-facebook-domain-verification-code',
-  },
+  ...(process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
+    ? {
+        other: {
+          'facebook-domain-verification':
+            process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION.trim(),
+        },
+      }
+    : {}),
 }
 
 export const viewport: Viewport = {

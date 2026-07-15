@@ -27,13 +27,13 @@ const EDITORIAL_HEROES: Record<string, MegaMenuHero[]> = {
   men: [
     {
       label: 'New Arrivals',
-      href: '/c/men',
+      href: '/new-arrivals?dept=men',
       image:
         'https://images.unsplash.com/photo-1617137968427-85924c800a22?w=900&q=80&auto=format',
     },
     {
       label: 'Best Sellers',
-      href: '/shop?dept=men',
+      href: '/best-sellers?dept=men',
       image:
         'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=900&q=80&auto=format',
     },
@@ -47,13 +47,13 @@ const EDITORIAL_HEROES: Record<string, MegaMenuHero[]> = {
   women: [
     {
       label: 'New Arrivals',
-      href: '/c/women',
+      href: '/new-arrivals?dept=women',
       image:
         'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format',
     },
     {
-      label: 'Bestsellers',
-      href: '/shop?dept=women',
+      label: 'Best Sellers',
+      href: '/best-sellers?dept=women',
       image:
         'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&q=80&auto=format',
     },
@@ -110,6 +110,33 @@ function isBlankHeroImage(url: string | undefined): boolean {
   const value = url?.trim() ?? ''
   if (!value) return true
   return /placeholder-product|placehold\.co/i.test(value)
+}
+
+/** Normalize mislabeled mega-menu hero links (seed defaults pointed at department roots). */
+function normalizeHeroHref(label: string, href: string, deptSlug: string): string {
+  const clean = href.trim()
+  const lower = label.trim().toLowerCase()
+  if (lower === 'new arrivals' || lower === 'new arrival') {
+    if (
+      clean === `/c/${deptSlug}` ||
+      clean === `/shop?dept=${deptSlug}` ||
+      clean === `/c/${deptSlug}-new` ||
+      clean.startsWith(`/c/${deptSlug}-new`)
+    ) {
+      return `/new-arrivals?dept=${deptSlug}`
+    }
+  }
+  if (lower === 'best sellers' || lower === 'bestsellers' || lower === 'best seller') {
+    if (
+      clean === `/c/${deptSlug}` ||
+      clean === `/shop?dept=${deptSlug}` ||
+      clean === `/c/${deptSlug}-bestsellers` ||
+      clean.startsWith(`/c/${deptSlug}-best`)
+    ) {
+      return `/best-sellers?dept=${deptSlug}`
+    }
+  }
+  return clean
 }
 
 function collectCategoryIds(node: CategoryTreeNode<CategoryRow>): string[] {
@@ -238,6 +265,7 @@ export class NavBuilderService {
 
     const heroes: MegaMenuHero[] = baseHeroes.map((hero, index) => ({
       ...hero,
+      href: normalizeHeroHref(hero.label, hero.href, dept.slug),
       image:
         (!isBlankHeroImage(hero.image) ? hero.image : undefined) ||
         liveImages[index] ||
