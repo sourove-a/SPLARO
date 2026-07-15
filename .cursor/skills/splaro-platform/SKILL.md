@@ -58,6 +58,40 @@ bash /opt/splaro/deploy.sh
 
 If Mac key SSH fails: run `infrastructure/vps/hpanel-bootstrap-github.sh` once on VPS console, then `pnpm setup:github-deploy:sync` — still never store passwords in repo docs.
 
+### Reliable deploy checklist (do this every time — verified 2026-07-15)
+
+The 8GB VPS build is flaky under load. Skipping any step here has caused a live 500 more than once.
+
+1. **Commit only your own files.** `git status` first — never `git add -A`. Other agents (Claude, Cursor) may have unrelated uncommitted WIP in the same working tree; only stage files you actually changed.
+2. **Push, then watch both workflows to completion — don't fire-and-forget:**
+   ```bash
+   git push origin main
+   gh run list --limit 3                       # find the new "CI" run id
+   gh run watch <ci-run-id> --exit-status       # wait for CI green
+   gh run list --limit 3                       # find the "Deploy VPS" run id it triggered
+   gh run watch <deploy-run-id> --exit-status   # wait for deploy to finish
+   ```
+3. **If "Deploy VPS" fails, do not just re-push and hope.** Read the actual log first:
+   ```bash
+   gh run view <deploy-run-id> --log-failed | tail -80
+   ```
+   Known recurring failure: `ENOENT .../.next/server/pages-manifest.json` or `Cannot find module .../middleware-manifest.json` — a partially-written `.next` from an earlier interrupted/OOM-killed build corrupts the next build's cache. `deploy.sh` only clears `.next/cache`, not the full `.next` dir, so this doesn't self-heal.
+   **Fix:** SSH in and force a clean rebuild:
+   ```bash
+   ssh -i ~/.ssh/splaro_vps root@147.93.171.45 \
+     "cd /var/www/splaro && rm -rf apps/web/.next apps/admin/.next && bash infrastructure/vps/deploy.sh"
+   ```
+4. **Verify live after every deploy — GitHub Actions "success" is not enough**, PM2 can be online while serving a stale/broken build:
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}\n" https://splaro.co
+   curl -s -o /dev/null -w "%{http_code}\n" https://splaro.co/shop
+   curl -s https://splaro.co/api/build-id          # confirm it changed vs before deploy
+   ssh -i ~/.ssh/splaro_vps root@147.93.171.45 "pm2 list | grep splaro-web"   # "online" + fresh uptime
+   ```
+   If homepage returns 500 or `build-id` didn't change, treat it as **not deployed** — go back to step 3, don't tell the owner it shipped.
+5. **One agent deploys at a time.** If Claude and Cursor both push/deploy against this repo close together, the VPS build queue and PM2 restarts race and produce exactly the corrupted-`.next` failure in step 3. Check `git log --oneline -3` on the VPS before you deploy — if HEAD was touched in the last few minutes by a run you didn't trigger, wait.
+6. **Never re-enable Lenis smooth scroll on Windows.** `shouldUseNativeScroll()` in `apps/web/src/lib/earth/globe-performance.ts` force-returns `true` for any Windows UA — this is intentional, not a TODO. Lenis's JS-driven wheel handling hangs/dead-locks over RDP (input batching breaks its RAF timing). Tried removing this bypass on 2026-07-16, shipped, owner reported scroll broken within minutes, reverted immediately. Don't retry without owner sign-off and real Windows/RDP testing before shipping.
+
 ## Apps
 
 | App | Path | Role |
