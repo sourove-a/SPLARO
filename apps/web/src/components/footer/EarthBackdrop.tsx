@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useFooterEarthActive } from '@/components/footer/earth-live/useFooterEarthActive'
 import { isLowPowerDevice, isSoftwareRenderer } from '@/lib/earth/globe-performance'
-import { isMobileViewport } from '@/lib/hooks/use-mobile-viewport'
+import { isTouchUiViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const FOOTER_GLOBE_VIDEO = '/videos/footer-globe.mp4'
 /** Same frame as video — no PNG → video jump on load */
@@ -27,7 +27,7 @@ export function EarthBackdrop() {
   const [posterOnly, setPosterOnly] = useState(false)
 
   useLayoutEffect(() => {
-    setPosterOnly(isSoftwareRenderer() || isLowPowerDevice() || isMobileViewport())
+    setPosterOnly(isSoftwareRenderer() || isLowPowerDevice() || isTouchUiViewport())
   }, [])
   useEffect(() => {
     const video = videoRef.current

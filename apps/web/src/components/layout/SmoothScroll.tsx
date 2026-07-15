@@ -254,9 +254,16 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
   const [nativeScroll, setNativeScroll] = useState(false)
 
   useLayoutEffect(() => {
-    // Soft-GL / lite: native scroll — Lenis autoRaf + CPU WebGL starved Search/slider.
-    setNativeScroll(shouldUseNativeScroll())
-  }, [])
+    // Soft-GL / lite / touch UI: native scroll — Lenis+syncTouch fought OS momentum.
+    const update = () => setNativeScroll(shouldUseNativeScroll())
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+    }
+  }, [profile])
 
   const useNative = reducedMotion || nativeScroll
 

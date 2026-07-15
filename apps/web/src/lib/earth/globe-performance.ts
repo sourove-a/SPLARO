@@ -185,14 +185,20 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
   return true
 }
 
-/** Soft-GL / lite / Windows / phone: skip Lenis RAF so Search/taps aren't starved. */
+/** Soft-GL / lite / Windows / phone+tablet: skip Lenis RAF so Search/taps aren't starved. */
 export function shouldUseNativeScroll(): boolean {
   if (typeof window === 'undefined') return false
   if (prefersReducedMotion()) return true
   if (isWindowsOS()) return true
   if (isLowPowerDevice()) return true
-  // Phones: Lenis intercepts touch → intermittent dead clicks + Search lag.
-  if (window.matchMedia('(max-width: 768px)').matches) return true
+  // Match detectScrollProfile('mobile'): ≤1023 OR coarse — landscape phones used
+  // to miss the old 768 gate, keep Lenis+syncTouch, and jump/lag on scroll.
+  if (
+    window.matchMedia('(max-width: 1023px)').matches ||
+    window.matchMedia('(pointer: coarse)').matches
+  ) {
+    return true
+  }
   if (document.documentElement.getAttribute('data-perf') === 'lite') return true
   return false
 }

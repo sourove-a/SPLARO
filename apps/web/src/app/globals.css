@@ -296,12 +296,23 @@ html.lenis.lenis-smooth body {
   html:not(.lenis),
   html:not(.lenis) body {
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: auto;
+    overscroll-behavior-y: none;
   }
 
   html.lenis body {
     overscroll-behavior-y: none;
   }
+}
+
+/* Native phone/tablet scroll — no CSS smooth (causes jump), no layout-shift anchoring */
+html[data-scroll-engine='native'] {
+  scroll-behavior: auto !important;
+  overflow-anchor: none;
+}
+
+html[data-scroll-engine='native'] body {
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 html.lenis.lenis-scrolling body {
@@ -351,7 +362,7 @@ html.lenis.lenis-smooth iframe {
   pointer-events: none;
 }
 
-/* Mobile Lenis — syncTouch inertia; nested drawers stay native */
+/* Mobile profile — if Lenis mounts (edge), do not steal touch; drawers stay native */
 html[data-scroll-profile='mobile'].lenis {
   touch-action: pan-x pan-y;
 }

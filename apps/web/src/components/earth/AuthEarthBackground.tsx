@@ -1,7 +1,7 @@
 'use client'
 
 import { EarthBackdrop } from '@/components/footer/EarthBackdrop'
-import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
+import { useMounted, useTouchUiViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const AUTH_EARTH_POSTER = '/videos/footer-globe-poster.jpg'
 
@@ -25,14 +25,14 @@ function AuthEarthStatic() {
 }
 
 /**
- * Auth backdrop. Desktop: cinematic globe video.
- * Mobile (≤768): static poster only — no video/flow (keeps login taps responsive).
+ * Auth backdrop. Desktop fine-pointer only: cinematic globe video.
+ * Phone/tablet/landscape (touch UI): static poster — 1080p video was starving taps.
  */
 export function AuthEarthBackground() {
   const mounted = useMounted()
-  const isMobile = useMobileViewport()
+  const isTouchUi = useTouchUiViewport()
   // Default static until we know viewport — avoids phone video flash on hydrate.
-  const useLiveVideo = mounted && !isMobile
+  const useLiveVideo = mounted && !isTouchUi
 
   return (
     <div

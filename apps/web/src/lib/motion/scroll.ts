@@ -65,17 +65,20 @@ const LENIS_WINDOWS: LenisOptions = {
   autoToggle: false,
 }
 
-/** Phone / tablet — syncTouch inertia (iOS + Android) */
+/**
+ * Phone / tablet profile — syncTouch MUST stay false.
+ * syncTouch:true fought native iOS/Android momentum → jump + dead taps.
+ * Touch stays OS-native; this profile only matters if Lenis mounts (edge cases).
+ */
 const LENIS_MOBILE: LenisOptions = {
   ...LENIS_SHARED,
-  lerp: 0.108,
+  lerp: 0.12,
   smoothWheel: false,
-  syncTouch: true,
-  syncTouchLerp: 0.088,
-  touchInertiaExponent: 1.65,
-  touchMultiplier: 1.08,
+  syncTouch: false,
+  touchMultiplier: 1,
   wheelMultiplier: 1,
-  autoToggle: true,
+  autoToggle: false,
+  overscroll: false,
 }
 
 function getScrollMedia() {

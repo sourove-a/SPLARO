@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react'
 
+/** Layout phone (cards / bottom nav). */
 const MOBILE_MQ = '(max-width: 768px)'
+/**
+ * Touch UI — phones, landscape phones, and tablets.
+ * Must match detectScrollProfile('mobile') (≤1023 OR coarse) so Auth/Lenis/earth
+ * don't treat a landscape phone as desktop.
+ */
+const TOUCH_UI_MQ = '(max-width: 1023px), (pointer: coarse)'
 
 /**
  * Phone viewport (≤768px). Always `false` on SSR and during hydration — updates after mount.
@@ -24,6 +31,26 @@ export function useMobileViewport(): boolean {
 export function isMobileViewport(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia(MOBILE_MQ).matches
+}
+
+/** Phone / tablet / coarse pointer — Lenis, auth earth, footer video gates. */
+export function isTouchUiViewport(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia(TOUCH_UI_MQ).matches
+}
+
+export function useTouchUiViewport(): boolean {
+  const [isTouchUi, setIsTouchUi] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia(TOUCH_UI_MQ)
+    const update = () => setIsTouchUi(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  return isTouchUi
 }
 
 /** True at `minWidth` and above. Always `false` on SSR and during hydration. */
