@@ -5,8 +5,6 @@ import type { ProductDetailData, ProductVariantData } from '@splaro/types'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import {
-  isDemoCatalogCopy,
-  isDemoCatalogSku,
   sanitizeStorefrontDescription,
   sanitizeStorefrontProductCode,
   sanitizeStorefrontShortDescription,
@@ -240,11 +238,6 @@ function buildVariants(p: LiveProduct, basePrice: number, fallbackImg: string): 
   })
 }
 
-/** Seed/demo rows stay out of production cards and listings. */
-export function isLiveDemoProduct(p: Pick<LiveProduct, 'sku' | 'description' | 'shortDescription'>): boolean {
-  return isDemoCatalogSku(p.sku) || isDemoCatalogCopy(p.description, p.shortDescription)
-}
-
 export function mapLiveProduct(
   p: LiveProduct,
 ): StorefrontProduct & { slug: string; categorySlug?: string; categoryName?: string } {
@@ -397,7 +390,9 @@ export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slu
       const res = await liveFetch(url, { cache: 'no-store' })
       if (!res?.ok) throw new Error(`Storefront API ${res?.status ?? 'unavailable'}`)
       const data = (await res.json()) as { products: LiveProduct[] }
-      return (data.products ?? []).filter((p) => !isLiveDemoProduct(p)).map(mapLiveProduct)
+      // Show all published API rows — DEMO SKU/copy is sanitized in mapLiveProduct.
+      // Hard-filtering demos emptied production when the DB only had seed inventory.
+      return (data.products ?? []).map(mapLiveProduct)
     } catch (err) {
       if (attempt === attempts - 1) throw err
     }
@@ -419,7 +414,7 @@ export async function fetchProductsByIds(ids: string[]): Promise<(StorefrontProd
   const res = await liveFetch(url, { cache: 'no-store' })
   if (!res?.ok) return []
   const data = (await res.json()) as { products: LiveProduct[] }
-  return (data.products ?? []).filter((p) => !isLiveDemoProduct(p)).map(mapLiveProduct)
+  return (data.products ?? []).map(mapLiveProduct)
 }
 
 export async function fetchLiveProductDetailBySlug(
@@ -451,10 +446,9 @@ interface ProductsApiResponse {
 }
 
 function mapProductsResponse(data: ProductsApiResponse) {
-  const products = (data.products ?? []).filter((p) => !isLiveDemoProduct(p)).map(mapLiveProduct)
+  const products = (data.products ?? []).map(mapLiveProduct)
   return {
     products,
-    // Keep API totals for pagination — filtering demo is temporary until DB purge.
     total: data.total ?? products.length,
     totalPages: data.totalPages ?? 1,
     page: data.page ?? 1,

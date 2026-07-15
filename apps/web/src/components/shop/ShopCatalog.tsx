@@ -173,8 +173,11 @@ export function ShopCatalog({
           await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
           return load(attempt + 1)
         }
+        // Honest empty vs offline — never label a successful empty catalog as API down.
         if (!catalogProductsRef.current.length) {
-          setCatalogSource('api-unavailable')
+          setCatalogSource(
+            !res.ok || data.source === 'api-unavailable' ? 'api-unavailable' : data.source ?? 'empty',
+          )
         }
       } catch {
         if (cancelled) return
