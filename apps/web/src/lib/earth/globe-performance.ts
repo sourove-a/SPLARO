@@ -71,6 +71,15 @@ export function isWindowsOS(): boolean {
   return /Windows/i.test(navigator.userAgent || '')
 }
 
+/** Fine-pointer + wide viewport Windows — used for RAM lite bypass only. */
+export function isWindowsDesktop(): boolean {
+  if (typeof window === 'undefined') return false
+  if (!isWindowsOS()) return false
+  const fine = window.matchMedia('(pointer: fine)').matches
+  const desktop = window.innerWidth > 1023
+  return fine && desktop
+}
+
 /** False on RDP / software GL / blocked WebGL — story earth uses CSS fallback instead. */
 let canUseWebGLCache: boolean | null = null
 export function canUseWebGL(): boolean {
@@ -131,18 +140,25 @@ export function isSoftwareRenderer(): boolean {
   return softwareRendererCache
 }
 
-/** Lite paint / scroll profile — save-data, software GL, or ≤2GB RAM on any OS. */
+/**
+ * Lite paint / scroll profile.
+ * Soft-GL MUST win over the Windows desktop bypass — previously Win desktop
+ * returned false before soft-GL was checked, forcing WebGL+Lenis+blur on CPU.
+ */
 export function isLowPowerDevice(): boolean {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return false
 
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
   if (conn?.saveData) return true
 
-  // RDP / HA-off / SwiftShader — always lite.
+  // RDP / HA-off / SwiftShader — always lite (check BEFORE Windows bypass).
   if (isSoftwareRenderer()) return true
 
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
-  if (memory !== undefined && memory <= 2) return true
+  if (memory !== undefined && memory <= 2) {
+    // Chromium often under-reports RAM on Windows; only trust ≤2GB on non-Win-desktop.
+    if (!isWindowsDesktop()) return true
+  }
 
   return false
 }
