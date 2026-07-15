@@ -17,8 +17,12 @@ export function DesktopPerfParity() {
 
     const saveData =
       (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true
+    const touchUi =
+      window.matchMedia('(max-width: 1023px)').matches ||
+      window.matchMedia('(pointer: coarse)').matches
 
-    if (isLowPowerDevice() || saveData) {
+    // Phones/tablets: lite paint (no glass blur animations fighting LCP).
+    if (isLowPowerDevice() || saveData || touchUi) {
       html.setAttribute('data-perf', 'lite')
     } else {
       html.removeAttribute('data-perf')

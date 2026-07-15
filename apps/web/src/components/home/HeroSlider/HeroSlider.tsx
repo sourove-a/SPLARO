@@ -193,7 +193,8 @@ const HERO_MEDIA_STYLE = {
 }
 
 function useAllowHeroVideo(): boolean {
-  const [allow, setAllow] = useState(true)
+  // Default false — phones must not flash a <video> before the touch gate resolves.
+  const [allow, setAllow] = useState(false)
 
   useEffect(() => {
     const sync = () => {
@@ -205,7 +206,11 @@ function useAllowHeroVideo(): boolean {
       const lite = document.documentElement.getAttribute('data-perf') === 'lite'
       // Any Windows UA: images only — never decode Pexels next to slider RAF (incl. touch / narrow).
       const isWin = /Windows/i.test(navigator.userAgent || '')
-      setAllow(!saveData && !slowLink && !lite && !isWin)
+      // Phones/tablets/landscape: poster only — 1080p hero video tanks TTI.
+      const isTouchUi =
+        window.matchMedia('(max-width: 1023px)').matches ||
+        window.matchMedia('(pointer: coarse)').matches
+      setAllow(!saveData && !slowLink && !lite && !isWin && !isTouchUi)
     }
 
     sync()
@@ -214,7 +219,11 @@ function useAllowHeroVideo(): boolean {
       if (records.some((r) => r.type === 'attributes' && r.attributeName === 'data-perf')) sync()
     })
     observer.observe(html, { attributes: true, attributeFilter: ['data-perf'] })
-    return () => observer.disconnect()
+    window.addEventListener('orientationchange', sync)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('orientationchange', sync)
+    }
   }, [])
 
   return allow

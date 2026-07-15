@@ -80,8 +80,8 @@ export function EarthBackdrop() {
           alt=""
           width={1920}
           height={1080}
-          loading="eager"
-          fetchPriority="high"
+          loading={posterOnly ? 'lazy' : 'eager'}
+          fetchPriority={posterOnly ? 'low' : 'high'}
           decoding="async"
           draggable={false}
         />

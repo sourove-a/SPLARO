@@ -9,16 +9,17 @@ import { AnimatePresence, motion } from '@/lib/motion/react'
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
 import { Navigation } from './Navigation'
-import { SearchModal } from './SearchModal'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { useUiStore } from '@/store/uiStore'
 import { useHeaderScroll } from '@/hooks/useScrollY'
 import { cn } from '@/lib/utils/cn'
+import { isTouchUiViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
+const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 
 export function Header() {
   const pathname = usePathname()
@@ -56,8 +57,9 @@ export function Header() {
     return () => root.removeAttribute('data-home-hero')
   }, [isHome, isOverHero])
 
-  // Warm search category thumbs while idle — first Search click feels instant.
+  // Desktop only: warm search thumbs while idle. Phones skip — steals bandwidth from LCP.
   useEffect(() => {
+    if (isTouchUiViewport()) return
     const controller = new AbortController()
     const warm = () => {
       void fetch('/api/products?limit=48', {

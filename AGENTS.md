@@ -66,6 +66,7 @@ curl http://127.0.0.1:4000/api/v1/health
 - **Honest feedback** — red for real errors; green only for verified success.
 - **Telegram** = primary mobile ops channel.
 - **Agent owns dev restarts** — after web/admin/api/CSS/config changes, run `pnpm dev:reset` or verify ports; never tell owner “terminal এ restart করুন”.
+- **Ship order (mandatory):** finish **all** code fixes first → local verify → **then** one push/deploy. Never deploy mid-fix; never stop the live VPS for each small tweak.
 - Banglish intent:
 
 | Owner says | Do |

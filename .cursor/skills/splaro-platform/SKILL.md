@@ -74,6 +74,16 @@ If Mac key SSH fails: run `infrastructure/vps/hpanel-bootstrap-github.sh` once o
 3. Run `pnpm check:web` / `pnpm check:admin` / `pnpm check:api` after changes
 4. Minimal diff — don't refactor unrelated code
 
+### Ship order (owner lock — 2026-07-15)
+
+**Fix all code first → then ONE push + deploy. Never mid-fix deploy.**
+
+1. Diagnose + edit locally until the request is complete
+2. `tsc` / lint on touched apps
+3. Only then `git push` (CI → Deploy VPS) or one careful VPS rebuild
+4. Do **not** push/deploy after each small tweak; do **not** stop PM2 / redeploy while still fixing
+5. If owner says “age deploy korbe na / fix then push” — obey; keep changes local until the batch is done
+
 ## Admin routing
 
 - Catch-all: `apps/admin/src/app/dashboard/[...slug]/page.tsx`

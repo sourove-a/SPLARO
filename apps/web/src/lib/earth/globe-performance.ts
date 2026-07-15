@@ -173,6 +173,14 @@ export function shouldUseWebGLEarth(options?: EarthMotionOptions): boolean {
   // Decorative story/footer WebGL — hard-off on ANY Windows (incl. touch / narrow).
   // Width/pointer gates used to re-enable WebGL on Surface / resized windows → GPU stall.
   if (options?.decorative && isWindowsOS()) return false
+  // Phones/tablets: three.js story earth stalls first paint — CSS globe only.
+  if (
+    options?.decorative &&
+    (window.matchMedia('(max-width: 1023px)').matches ||
+      window.matchMedia('(pointer: coarse)').matches)
+  ) {
+    return false
+  }
   return true
 }
 

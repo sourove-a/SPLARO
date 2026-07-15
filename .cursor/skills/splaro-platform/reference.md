@@ -12,6 +12,10 @@ Detailed map for agents working on SPLARO-BRAND. Keep in sync with `platform-kno
 
 Env: `.env.example` — never commit real secrets.
 
+## Ship order (owner — 2026-07-15)
+
+**Code fix complete first → then ONE push/deploy.** Never mid-fix Deploy VPS / stop PM2 for each tweak. Mobile perf especially: finish the batch locally (`tsc`/`lint`), then ship once.
+
 ## Package scripts (root)
 
 ```bash

@@ -1,9 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { EarthGlobe } from '@/components/earth/EarthGlobe'
+import dynamic from 'next/dynamic'
 import { shouldUseWebGLEarth } from '@/lib/earth/globe-performance'
 import { preloadEarthTextures } from '@/lib/earth/textures'
+
+/** Lazy three.js — never ship EarthGlobe in the home critical chunk on touch. */
+const EarthGlobe = dynamic(
+  () => import('@/components/earth/EarthGlobe').then((m) => m.EarthGlobe),
+  { ssr: false },
+)
 
 /** CSS-only globe — always under WebGL so soft-GL / failed canvas never leaves a black hole. */
 function StoryEarthCssFallback({
@@ -40,7 +46,7 @@ export function StoryEarthGlobe() {
   const [webglReady, setWebglReady] = useState(false)
 
   useLayoutEffect(() => {
-    // shouldUseWebGLEarth skips Windows desktop + soft-GL → CSS map scroll only.
+    // Touch/Windows/soft-GL → CSS map only (no three.js cost).
     const capable = shouldUseWebGLEarth({ decorative: true })
     setWebglCapable(capable)
     if (capable) void preloadEarthTextures()
@@ -63,7 +69,6 @@ export function StoryEarthGlobe() {
       attributeFilter: ['data-earth-ready'],
     })
 
-    // If WebGL never marks ready, keep CSS visible forever (already mounted).
     const failSafe = window.setTimeout(() => {
       if (!host.querySelector('[data-earth-ready="true"]')) {
         setWebglCapable(false)

@@ -7,14 +7,26 @@ import { ArrowRight } from 'lucide-react'
 import { HeroSlider } from '@/components/home/HeroSlider'
 import { MarqueeStrip } from '@/components/home/MarqueeStrip'
 import { TrustBar } from '@/components/home/TrustBar'
-import { WhySplaro } from '@/components/home/WhySplaro'
-import { ShopCatalog } from '@/components/shop/ShopCatalog'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { type Category } from '@/data/storefront'
 import type { CachedCatalog } from '@/lib/catalog/server'
 import type { HeroBanner } from '@/lib/api/banners'
 import { resolveHomepageSections } from '@/lib/storefront/homepage-defaults'
 import { ScrollReveal } from '@/components/motion/ScrollReveal'
+
+const WhySplaro = dynamic(
+  () => import('@/components/home/WhySplaro').then((m) => m.WhySplaro),
+  { ssr: false },
+)
+
+const ShopCatalog = dynamic(
+  () => import('@/components/shop/ShopCatalog').then((m) => m.ShopCatalog),
+  {
+    loading: () => (
+      <div className="ed-catalog__loading" aria-hidden style={{ minHeight: 320 }} />
+    ),
+  },
+)
 
 const SpecialOffer = dynamic(
   () => import('@/components/home/SpecialOffer').then((m) => m.SpecialOffer),
