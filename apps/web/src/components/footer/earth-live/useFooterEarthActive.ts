@@ -12,7 +12,7 @@ import { useUiStore } from '@/store/uiStore'
  */
 export function useFooterEarthActive() {
   const ref = useRef<HTMLDivElement>(null)
-  const [nearViewport, setNearViewport] = useState(true)
+  const [nearViewport, setNearViewport] = useState(false)
   const overlayOpen = useUiStore(
     (s) => s.isSearchOpen || s.isCartOpen || s.isMobileMenuOpen || s.scrollLockCount > 0,
   )
