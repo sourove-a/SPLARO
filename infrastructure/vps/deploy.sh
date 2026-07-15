@@ -17,6 +17,33 @@ TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
 log() { echo "[$TIMESTAMP] $*" | tee -a "$LOG_FILE"; }
 die() { log "ERROR: $*"; exit 1; }
 
+# Safety net — if this script dies AFTER web/admin were stopped for the build
+# (to free RAM) but BEFORE the new build finishes and PM2 reloads, the site
+# is left down until someone notices and fixes it by hand. Restart whatever
+# PM2 already has on any non-zero exit so a failed deploy never means an
+# extended outage — worst case it serves the last good build.
+on_exit() {
+  local code=$?
+  if [ "$code" -ne 0 ]; then
+    log "Deploy failed (exit $code) — rolling back so the site stays up."
+    # New build didn't finish — restore the last good .next if we moved it aside.
+    if [ -d "${APP_DIR}/apps/web/.next.prev" ] && [ ! -f "${APP_DIR}/apps/web/.next/standalone/apps/web/server.js" ]; then
+      rm -rf "${APP_DIR}/apps/web/.next"
+      mv "${APP_DIR}/apps/web/.next.prev" "${APP_DIR}/apps/web/.next"
+      log "Restored previous apps/web/.next"
+    fi
+    if [ -d "${APP_DIR}/apps/admin/.next.prev" ] && [ ! -f "${APP_DIR}/apps/admin/.next/standalone/apps/admin/server.js" ]; then
+      rm -rf "${APP_DIR}/apps/admin/.next"
+      mv "${APP_DIR}/apps/admin/.next.prev" "${APP_DIR}/apps/admin/.next"
+      log "Restored previous apps/admin/.next"
+    fi
+    if command -v pm2 >/dev/null 2>&1; then
+      pm2 resurrect 2>/dev/null || pm2 restart splaro-web splaro-admin 2>/dev/null || true
+    fi
+  fi
+}
+trap on_exit EXIT
+
 log "========== VPS DEPLOY START =========="
 
 mkdir -p "$APP_DIR"
@@ -95,9 +122,16 @@ if ! swapon --show 2>/dev/null | grep -q .; then
   swapon /swapfile 2>/dev/null || true
   grep -q '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
-# Stale .next/cache has caused dead interactivity after deploy (Windows/RDP).
-# Safe to drop — Next rebuilds fetch/cache entries during `next build`.
-rm -rf apps/web/.next/cache apps/admin/.next/cache 2>/dev/null || true
+# Move .next aside instead of deleting it — a build killed mid-write (OOM,
+# this script erroring out) can leave .next/server with a partial manifest
+# set; the next build then silently reuses that stale dir and crashes at
+# "Collecting page data" with ENOENT on pages-manifest.json / middleware-
+# manifest.json. Renaming forces a fully fresh build while keeping the last
+# good build around as .next.prev — on_exit restores it if this build fails,
+# so a broken deploy still serves the last working site instead of a 500.
+rm -rf apps/web/.next.prev apps/admin/.next.prev 2>/dev/null || true
+if [ -d apps/web/.next ]; then mv apps/web/.next apps/web/.next.prev; fi
+if [ -d apps/admin/.next ]; then mv apps/admin/.next apps/admin/.next.prev; fi
 export TURBO_CONCURRENCY="${TURBO_CONCURRENCY:-1}"
 export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
 log "Building sequentially (TURBO_CONCURRENCY=$TURBO_CONCURRENCY)…"
@@ -129,6 +163,9 @@ PM2_CONFIG="infrastructure/pm2/ecosystem.config.js"
 log "PM2 reload..."
 pm2 startOrReload "$PM2_CONFIG" --update-env
 pm2 save
+
+# Build succeeded and PM2 is up on the new code — drop the rollback copies.
+rm -rf apps/web/.next.prev apps/admin/.next.prev 2>/dev/null || true
 
 # ── Meilisearch + Nginx performance (idempotent, safe reload) ─
 if [ -f infrastructure/vps/setup-meilisearch.sh ]; then
