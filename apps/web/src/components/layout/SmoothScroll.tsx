@@ -1,44 +1,52 @@
 'use client'
 
-import { useLayoutEffect, useState, type ReactNode } from 'react'
-import dynamic from 'next/dynamic'
+import { useLayoutEffect, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
-import { shouldUseNativeScroll } from '@/lib/earth/globe-performance'
 
-const LenisSmoothScrollInner = dynamic(
-  () =>
-    import('@/components/layout/LenisSmoothScrollInner').then((m) => m.LenisSmoothScrollInner),
-  { ssr: false },
-)
-
-export function SmoothScroll({ children }: { children: ReactNode }) {
-  const [mounted, setMounted] = useState(false)
-  const [useNative, setUseNative] = useState(true)
+/** Snap to top on every client route change (replaces LenisRouteSync). */
+function RouteScrollTop() {
+  const pathname = usePathname()
 
   useLayoutEffect(() => {
-    setMounted(true)
-    const update = () => setUseNative(shouldUseNativeScroll())
-    update()
-    window.addEventListener('resize', update)
-    window.addEventListener('orientationchange', update)
-    return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('orientationchange', update)
+    const snap = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
     }
-  }, [])
+    // Layout + dual rAF + macrotask — Next soft-nav can restore scroll after first paint.
+    snap()
+    const raf1 = requestAnimationFrame(() => {
+      snap()
+      requestAnimationFrame(snap)
+    })
+    const t = window.setTimeout(snap, 50)
+    return () => {
+      cancelAnimationFrame(raf1)
+      window.clearTimeout(t)
+    }
+  }, [pathname])
 
+  return null
+}
+
+/** Native document scroll only — Lenis graph removed (always-native since 2026-07-16). */
+export function SmoothScroll({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
-    if (!mounted || !useNative) return
     const html = document.documentElement
     html.setAttribute('data-scroll-engine', 'native')
     html.removeAttribute('data-lenis-ready')
     html.setAttribute('data-splaro-booted', '1')
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
     unlockLenisPointer()
-  }, [mounted, useNative])
+  }, [])
 
-  if (!mounted || useNative) {
-    return <>{children}</>
-  }
-
-  return <LenisSmoothScrollInner>{children}</LenisSmoothScrollInner>
+  return (
+    <>
+      <RouteScrollTop />
+      {children}
+    </>
+  )
 }
