@@ -2,13 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-type ScrollSource = {
-  scroll: number
-  on: (event: 'scroll', handler: (instance: { scroll: number }) => void) => void
-  off: (event: 'scroll', handler: (instance: { scroll: number }) => void) => void
-} | null | undefined
-
-export function subscribeScroll(lenis: ScrollSource, onScroll: (y: number) => void) {
+export function subscribeScroll(onScroll: (y: number) => void) {
   let rafId = 0
   let pendingY = 0
 
@@ -20,13 +14,6 @@ export function subscribeScroll(lenis: ScrollSource, onScroll: (y: number) => vo
   const schedule = (y: number) => {
     pendingY = y
     if (rafId === 0) rafId = window.requestAnimationFrame(flush)
-  }
-
-  if (lenis) {
-    schedule(lenis.scroll)
-    const handler = (instance: { scroll: number }) => schedule(instance.scroll)
-    lenis.on('scroll', handler)
-    return () => lenis.off('scroll', handler)
   }
 
   schedule(window.scrollY)
@@ -55,7 +42,7 @@ export function useScrollY(threshold = 0) {
       setPastThreshold(next)
     }
 
-    return subscribeScroll(null, check)
+    return subscribeScroll(check)
   }, [threshold])
 
   return pastThreshold
@@ -146,7 +133,7 @@ export function useHeaderScroll(
       commit(nextScrolled, nextHidden)
     }
 
-    return subscribeScroll(null, update)
+    return subscribeScroll(update)
   }, [threshold, pinned])
 
   return pinned ? { ...state, isHidden: false } : state
@@ -165,7 +152,7 @@ export function useScrollPastViewport(ratio = 0.55) {
       setPastThreshold(next)
     }
 
-    const unsubscribe = subscribeScroll(null, check)
+    const unsubscribe = subscribeScroll(check)
     const onResize = () => check(window.scrollY)
 
     window.addEventListener('resize', onResize, { passive: true })

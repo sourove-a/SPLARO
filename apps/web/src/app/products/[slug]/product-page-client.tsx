@@ -15,7 +15,6 @@ import {
   Ruler,
   Star,
 } from 'lucide-react'
-import { useLenis } from 'lenis/react'
 import { subscribeScroll } from '@/hooks/useScrollY'
 import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
 import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
@@ -128,7 +127,6 @@ export default function ProductPageClient({
   const swipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const [showFloatingCta, setShowFloatingCta] = useState(false)
   const { shipping } = useStorefrontSettings()
-  const lenis = useLenis()
 
   const fullDescription = product.description?.trim() ?? ''
   const shortDesc =
@@ -372,7 +370,7 @@ export default function ProductPageClient({
       return true
     }
 
-    // Retry attach a few times if ProductReveal delays the CTA — no permanent poll (kills Lenis feel).
+    // Retry attach a few times if ProductReveal delays the CTA — no permanent poll.
     const tryAttach = () => {
       if (attach() || !alive) return
       attachTries += 1
@@ -382,7 +380,7 @@ export default function ProductPageClient({
     }
     tryAttach()
 
-    unsubScroll = subscribeScroll(lenis, updateFloatingCta)
+    unsubScroll = subscribeScroll(updateFloatingCta)
     window.addEventListener('resize', updateFloatingCta, { passive: true })
 
     return () => {
@@ -393,7 +391,7 @@ export default function ProductPageClient({
       unsubScroll?.()
       window.removeEventListener('resize', updateFloatingCta)
     }
-  }, [product.id, lenis])
+  }, [product.id])
 
   useEffect(() => {
     trackRecentlyViewed(product.id)
@@ -545,13 +543,9 @@ export default function ProductPageClient({
     return true
   }
 
-  /** Native engine: instant offset scroll — smooth scrollIntoView causes mid-click jump/miss on Windows. */
+  /** Instant offset scroll — smooth scrollIntoView causes mid-click jump/miss on Windows. */
   const scrollElIntoView = (el: HTMLElement | null) => {
     if (!el) return
-    if (lenis) {
-      lenis.scrollTo(el, { offset: -96, duration: 0.65 })
-      return
-    }
     const top = el.getBoundingClientRect().top + window.scrollY - 96
     window.scrollTo({ top: Math.max(0, top), behavior: 'auto' })
   }
