@@ -39,9 +39,10 @@ export class SearchController {
     @Query('sort') sort?: 'price_asc' | 'price_desc' | 'newest' | 'relevance',
     @Query('inStock') inStock?: string,
   ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
     return this.searchService.search({
       query: query ?? '',
-      storeId,
+      storeId: sid,
       page: Number(page),
       limit: Number(limit),
       sort,
@@ -103,7 +104,8 @@ export class SearchController {
 
   @Post('index/:storeId')
   async indexProducts(@Param('storeId') storeId: string) {
-    return this.searchService.indexProducts(storeId)
+    const sid = await resolveStoreId(this.prisma, storeId)
+    return this.searchService.indexProducts(sid)
   }
 
   /** Deploy hook — reindex when Meilisearch is healthy (requires INTERNAL_HEALTH_SECRET). */
@@ -118,7 +120,7 @@ export class SearchController {
     if (!process.env['MEILISEARCH_HOST']) {
       return { skipped: true, reason: 'MEILISEARCH_HOST not set' }
     }
-    const sid = (storeId?.trim() || process.env['NEXT_PUBLIC_STORE_ID'] || 'splaro').trim()
+    const sid = await resolveStoreId(this.prisma, storeId)
     return this.searchService.indexProducts(sid)
   }
 
