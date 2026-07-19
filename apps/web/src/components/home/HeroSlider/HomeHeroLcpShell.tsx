@@ -25,40 +25,41 @@ export function HomeHeroLcpShell({ banners = [] }: { banners?: HeroBanner[] }) {
     >
       <div className="home-hero-slider__stage">
         <article className="hero-slide" data-active="true">
-          <div className="hero-slide__media">
-            <div className="hero-slide__media-shell">
-              {variants ? (
-                <picture>
-                  <source
-                    media="(max-width: 768px)"
-                    srcSet={variants.mobile}
-                    type="image/webp"
-                  />
-                  <img
-                    className="hero-bg-image"
-                    src={variants.desktop}
-                    alt=""
-                    width={1600}
-                    height={900}
-                    sizes="100vw"
-                    decoding="async"
-                    fetchPriority="high"
-                  />
-                </picture>
-              ) : null}
+          <Link
+            href={href}
+            className="hero-slide__link"
+            aria-label={`${title} — explore collection`}
+          >
+            <div className="hero-slide__media">
+              <div className="hero-slide__media-shell">
+                {variants ? (
+                  <picture>
+                    <source
+                      media="(max-width: 768px)"
+                      srcSet={variants.mobile}
+                      type="image/webp"
+                    />
+                    <img
+                      className="hero-bg-image"
+                      src={variants.desktop}
+                      alt=""
+                      width={1600}
+                      height={900}
+                      sizes="100vw"
+                      decoding="async"
+                      fetchPriority="high"
+                    />
+                  </picture>
+                ) : null}
+              </div>
             </div>
-          </div>
-          <div className="hero-overlay" aria-hidden />
-          <div className="hero-content">
-            <p className="hero-eyebrow">SPLARO</p>
-            <h1>{title}</h1>
-            <p className="hero-subtitle">{subtitle}</p>
-            <div className="hero-actions">
-              <Link href={href} className="hero-btn hero-btn-primary">
-                Shop Now
-              </Link>
+            <div className="hero-overlay" aria-hidden />
+            <div className="hero-content">
+              <p className="hero-eyebrow">SPLARO</p>
+              <h1>{title}</h1>
+              <p className="hero-subtitle">{subtitle}</p>
             </div>
-          </div>
+          </Link>
         </article>
       </div>
     </section>

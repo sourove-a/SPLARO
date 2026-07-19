@@ -1785,6 +1785,21 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   pointer-events: none;
 }
 
+.home-hero-slider .hero-slide__link {
+  position: absolute;
+  inset: 0;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-hero-slider .hero-slide__link:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.95);
+  outline-offset: -6px;
+}
+
 .home-hero-slider[data-transitioning='true'][data-direction='forward'] .hero-slide[data-active='true'] {
   z-index: 2;
   animation: hero-swipe-enter-forward var(--hero-swipe) var(--hero-ease-luxury) forwards;
@@ -1918,8 +1933,8 @@ html[data-os='windows'] .home-dept-tile:hover .home-dept-tile__img {
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(circle at center, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.42)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.48));
+    radial-gradient(circle at 50% 42%, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.4)),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.52));
 }
 
 .home-hero-slider .hero-content {

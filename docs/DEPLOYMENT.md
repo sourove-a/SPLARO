@@ -1,151 +1,87 @@
-# SPLARO — Hostinger VPS Deployment Guide
+# SPLARO — Production Deployment Guide
 
-> **Bangla quick start:** [VPS-GO-LIVE-BN.md](./VPS-GO-LIVE-BN.md)  
-> **Mac prep:** `pnpm prep:vps` → **VPS go-live:** `bash infrastructure/vps/go-live.sh`
+This is the source of truth for humans and AI coding agents deploying SPLARO.
+Production runs on the Contabo VPS at `147.93.171.45`; Hostinger is email/legacy infrastructure only.
 
-## Prerequisites
+## Safe release contract
 
-- Hostinger KVM VPS (minimum: 4 vCPU, 8GB RAM, 100GB NVMe)
-- Ubuntu 22.04 LTS
-- Domain: splaro.co (DNS pointed to VPS IP)
-- GitHub repository with SPLARO codebase
+1. Finish all fixes locally before shipping.
+2. Run the checks for every changed app. For storefront changes: `pnpm check:web`.
+3. Never stage with `git add -A`; stage only files changed for the release.
+4. Never commit `.env`, credentials, backups, local launch files, or unrelated worktree changes.
+5. Push `main` only with owner approval. CI must pass before the VPS workflow starts.
+6. Watch both GitHub workflows to completion, then verify the live site yourself.
+7. Green means verified HTTP/API success. A running PM2 process alone is not proof.
 
 ---
 
-## Step 1 — Server Setup
+## Standard automatic deploy
 
 ```bash
-# SSH into VPS
-ssh root@YOUR_VPS_IP
+git status --short
+pnpm check:web
+git add <only-the-files-you-changed>
+git commit -m "type(scope): concise summary"
+git push origin main
 
-# Run setup script (installs Node, PostgreSQL, Redis, Nginx, PM2, SSL tools)
-bash <(curl -fsSL https://raw.githubusercontent.com/your-org/splaro-brand/main/infrastructure/scripts/setup-server.sh)
+gh run list --limit 5
+gh run watch <ci-run-id> --exit-status
+gh run list --limit 5
+gh run watch <deploy-run-id> --exit-status
 ```
 
 ---
 
-## Step 2 — Clone Repository
+`main` push runs `CI`. A successful CI run triggers `Deploy VPS` with that exact approved commit SHA. Deploy runs are queued and must not be cancelled midway.
+
+## Live verification
 
 ```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://splaro.co
+curl -s -o /dev/null -w "%{http_code}\n" https://splaro.co/shop
+curl -sf https://splaro.co/api/v1/health
+curl -sf https://admin.splaro.co/api/ping
+curl -sf https://splaro.co/api/build-id
+
+ssh -i ~/.ssh/splaro_vps -o BatchMode=yes root@147.93.171.45 \
+  "cd /var/www/splaro && git rev-parse HEAD && pm2 status"
+```
+
+---
+
+The live Git SHA must match the pushed SHA. Storefront, shop, API, admin ping, and required PM2 apps must all be healthy before reporting success.
+
+## VPS recovery
+
+Normal entry point:
+
+```bash
+ssh -i ~/.ssh/splaro_vps -o BatchMode=yes root@147.93.171.45
 cd /var/www/splaro
-git clone https://github.com/your-org/splaro-brand.git .
+bash /opt/splaro/deploy.sh
+```
+
+If deploy logs show missing or corrupted Next manifests, clean only the generated Next directories, then run the repository deploy script:
+
+```bash
+ssh -i ~/.ssh/splaro_vps root@147.93.171.45 \
+  "cd /var/www/splaro && rm -rf apps/web/.next apps/admin/.next && bash infrastructure/vps/deploy.sh"
+```
+
+Read failed workflow logs before recovery:
+
+```bash
+gh run view <deploy-run-id> --log-failed
 ```
 
 ---
 
-## Step 3 — Environment Variables
+## AI agent boundaries
 
-```bash
-cp .env.example .env.local
-nano .env.local  # Fill in all values
-```
-
-**Critical values to set first:**
-- `DATABASE_URL` — point to your local PostgreSQL
-- `REDIS_URL` — local Redis
-- `JWT_SECRET` — generate: `openssl rand -base64 64`
-- `NEXT_PUBLIC_SITE_URL` — `https://splaro.co`
-
----
-
-## Step 4 — Configure Nginx
-
-```bash
-cp infrastructure/nginx/nginx.conf /etc/nginx/nginx.conf
-cp infrastructure/nginx/splaro-web.conf /etc/nginx/sites-available/splaro.conf
-ln -s /etc/nginx/sites-available/splaro.conf /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
-
----
-
-## Step 5 — SSL Certificate
-
-```bash
-certbot --nginx \
-  -d splaro.co \
-  -d www.splaro.co \
-  -d api.splaro.co \
-  -d admin.splaro.co \
-  --email info@splaro.co \
-  --agree-tos \
-  --non-interactive
-```
-
----
-
-## Step 6 — Deploy Application
-
-```bash
-chmod +x infrastructure/scripts/deploy.sh
-bash infrastructure/scripts/deploy.sh
-```
-
-This script:
-1. Pulls latest code
-2. Installs dependencies
-3. Generates Prisma client
-4. Runs database migrations
-5. Builds all apps
-6. Restarts PM2 processes
-7. Reloads Nginx
-8. Runs health checks
-
----
-
-## Step 7 — Verify
-
-```bash
-# Check all processes
-pm2 status
-
-# Check logs
-pm2 logs splaro-web
-pm2 logs splaro-api
-
-# Test URLs
-curl -I https://splaro.co
-curl -I https://api.splaro.co/api/v1/health
-curl -I https://admin.splaro.co
-```
-
----
-
-## Automated Backups
-
-```bash
-# Add to crontab (runs at 2AM daily)
-crontab -e
-# Add:
-0 2 * * * bash /var/www/splaro/infrastructure/scripts/backup-db.sh
-```
-
----
-
-## SSL Auto-Renewal
-
-Certbot installs a cron job automatically. Verify:
-```bash
-certbot renew --dry-run
-```
-
----
-
-## Useful Commands
-
-```bash
-# Restart all
-pm2 restart all
-
-# View real-time logs
-pm2 logs
-
-# Monitor resources
-pm2 monit
-
-# Database migrations (production)
-cd /var/www/splaro && pnpm db:migrate:prod
-
-# Force rebuild
-pnpm build:all && pm2 reload ecosystem.config.js
-```
+- Read `AGENTS.md`, `.cursor/skills/splaro-platform/SKILL.md`, and `AI_GUIDE.md` before changing production behavior.
+- Do not deploy unrelated local changes.
+- Do not edit locked footer or Google auth code unless the owner explicitly asks.
+- Keep storefront browser requests behind same-origin BFF routes.
+- Keep native scroll on Windows/mobile and never introduce dual page scrollports.
+- Never expose secrets in output, commits, docs, or workflow logs.
+- Never report deployment success until CI, Deploy VPS, live HTTP checks, build ID, and PM2 state are verified.

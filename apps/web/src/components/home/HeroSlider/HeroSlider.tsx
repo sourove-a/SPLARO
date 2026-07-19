@@ -507,6 +507,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const transitioningRef = useRef(false)
   const pendingIndexRef = useRef<number | null>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const suppressSlideClickRef = useRef(false)
   const prefersHoverPauseRef = useRef(true)
   const slide = slides[Math.min(index, Math.max(slides.length - 1, 0))]
   const isTransitioning = exitIndex !== null
@@ -655,6 +656,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   }, [resetAutoplayTimer, clearAutoplayTimer, index])
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
+    suppressSlideClickRef.current = false
     setPaused(true)
     setInteracted(true)
     const touch = event.touches[0]
@@ -680,6 +682,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
       const deltaY = touch.clientY - start.y
       if (Math.abs(deltaX) < 36 || Math.abs(deltaX) < Math.abs(deltaY) * 1.05) return
 
+      // A completed swipe must never also activate the slide link.
+      suppressSlideClickRef.current = true
+      window.setTimeout(() => {
+        suppressSlideClickRef.current = false
+      }, 500)
       setInteracted(true)
       if (deltaX < 0) goNext()
       else goPrev()
@@ -703,11 +710,6 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
             <p className="hero-eyebrow">SPLARO</p>
             <h1>Premium Everyday Luxury.</h1>
             <p className="hero-subtitle">Discover curated fashion for Bangladesh.</p>
-            <div className="hero-actions">
-              <Link href="/shop" className="hero-btn hero-btn-primary">
-                Shop Now
-              </Link>
-            </div>
           </div>
         </div>
       </section>
@@ -752,36 +754,41 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
               aria-hidden={!isActive}
               style={{ pointerEvents: isActive && !isTransitioning ? 'auto' : 'none' }}
             >
-              <div className="hero-slide__media">
-                <div className="hero-slide__media-shell">
-                  <HeroBackground
-                    slide={item}
-                    isActive={isActive}
-                    playbackActive={isActive && sliderActive}
-                    priority={slideIndex === 0}
-                    allowVideo={allowVideo}
-                  />
+              <Link
+                href={item.primaryHref}
+                className="hero-slide__link"
+                aria-label={`${item.title} — explore collection`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={(event) => {
+                  if (!suppressSlideClickRef.current) return
+                  event.preventDefault()
+                }}
+              >
+                <div className="hero-slide__media">
+                  <div className="hero-slide__media-shell">
+                    <HeroBackground
+                      slide={item}
+                      isActive={isActive}
+                      playbackActive={isActive && sliderActive}
+                      priority={slideIndex === 0}
+                      allowVideo={allowVideo}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="hero-overlay" aria-hidden />
+                <div className="hero-overlay" aria-hidden />
 
-              <div className="hero-content">
-                <p className="hero-eyebrow">{item.eyebrow}</p>
-                {isActive ? (
-                  <h1>{item.title}</h1>
-                ) : (
-                  <p className="hero-title" aria-hidden="true">
-                    {item.title}
-                  </p>
-                )}
-                <p className="hero-subtitle">{item.subtitle}</p>
-
-                <div className="hero-actions">
-                  <Link href={item.primaryHref} className="hero-btn hero-btn-primary">
-                    {item.primaryLabel}
-                  </Link>
+                <div className="hero-content">
+                  <p className="hero-eyebrow">{item.eyebrow}</p>
+                  {isActive ? (
+                    <h1>{item.title}</h1>
+                  ) : (
+                    <p className="hero-title" aria-hidden="true">
+                      {item.title}
+                    </p>
+                  )}
+                  <p className="hero-subtitle">{item.subtitle}</p>
                 </div>
-              </div>
+              </Link>
             </article>
           )
         })}
