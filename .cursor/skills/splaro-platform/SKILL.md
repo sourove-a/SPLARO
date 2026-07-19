@@ -290,7 +290,7 @@ Working setup (do not break):
 - Credential verify: Nest `GoogleIdTokenService` via BFF `POST /api/auth/google`.
 - Rule: Google button must **never unmount** while a client id is available (baked or via `/api/auth/config`).
 
-**One Google mark only (owner lock — 2026-07-15):** Visible mark = SVG in `AuthGoogleGlassFooter` (`GoogleMarkIcon`). Hidden GIS trigger = `.auth-google-glass__hidden` → **off-screen**, `opacity: 0`, `pointer-events: none` (still ≥44×44 so GIS mounts; `click()` works). Never stack GIS icon under the glass at low opacity — that was the **double-G** bug on `/login`. No `drop-shadow` / pseudo / background logo on `.auth-google-glass__mark`.
+**Real Google control (owner verified — 2026-07-19):** `AuthGoogleGlassFooter` renders visible, responsive, official `GoogleLogin type="standard"` inside `.auth-google-glass__native`. Customer click must land directly on Google GIS iframe. Never restore off-screen GIS + programmatic `iframe.click()`—cross-origin iframe clicks are not trusted user gestures and silently do nothing in Chromium. Never overlay transparent GIS or add a second Google mark; both create deceptive/double-G UI.
 
 ### Optional customer email verification
 

@@ -345,22 +345,43 @@ html[data-os='windows'] .auth-google-glass__backdrop {
   text-shadow: none;
 }
 
-.auth-google-glass__hidden {
-  /*
-   * Real GIS icon must stay mounted (size ≥ ~40px) so custom glass click can
-   * programmatically trigger it. Never leave it under the custom button at
-   * opacity 0.02 — that double-G ghost is visible on dark glass (esp. Windows).
-   * Off-screen + opacity 0 + pointer-events none; element.click() still works.
-   */
-  position: fixed;
-  width: 44px;
-  height: 44px;
-  left: -240px;
-  top: -240px;
+.auth-google-glass__native {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 999px;
   overflow: hidden;
-  opacity: 0;
+  box-shadow:
+    0 10px 26px rgba(16, 17, 20, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.auth-google-glass__native > div,
+.auth-google-glass__native iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.auth-google-glass__native--loading {
   pointer-events: none;
-  z-index: -1;
+}
+
+.auth-google-glass__loading-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--auth-ink);
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 
 .auth-field__icon-chip {
@@ -376,7 +397,10 @@ html[data-os='windows'] .auth-google-glass__backdrop {
     linear-gradient(160deg, rgba(248, 248, 249, 0.95), rgba(255, 255, 255, 0.7));
   color: rgba(16, 17, 20, 0.55);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease;
 }
 
 .auth-field__wrap:focus-within .auth-field__icon-chip {
@@ -496,7 +520,8 @@ html[data-os='windows'] .auth-google-glass__backdrop {
 }
 
 /* Real globe ready — fade the CSS placeholder out underneath it. */
-.auth-shell__earth-frame:has(.auth-shell__earth-canvas[data-earth-ready='true']) .site-footer__earth-fallback {
+.auth-shell__earth-frame:has(.auth-shell__earth-canvas[data-earth-ready='true'])
+  .site-footer__earth-fallback {
   opacity: 0;
   transition: opacity 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -517,7 +542,12 @@ html[data-os='windows'] .auth-google-glass__backdrop {
   position: absolute;
   inset: 0;
   z-index: 2;
-  -webkit-mask-image: radial-gradient(ellipse 62% 46% at 50% 47%, #000 0%, #000 64%, transparent 86%);
+  -webkit-mask-image: radial-gradient(
+    ellipse 62% 46% at 50% 47%,
+    #000 0%,
+    #000 64%,
+    transparent 86%
+  );
   mask-image: radial-gradient(ellipse 62% 46% at 50% 47%, #000 0%, #000 64%, transparent 86%);
   background:
     radial-gradient(ellipse 72% 52% at 34% 30%, rgba(255, 255, 255, 0.1), transparent 54%),
@@ -595,7 +625,8 @@ html[data-os='windows'] .auth-google-glass__backdrop {
 }
 
 @keyframes auth-earth-float {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1.04) translateY(0);
   }
   50% {
@@ -661,8 +692,12 @@ html[data-os='windows'] .auth-google-glass__backdrop {
 }
 
 @keyframes auth-shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .auth-card__heading {

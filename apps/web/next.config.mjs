@@ -104,6 +104,7 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     formats: ['image/avif', 'image/webp'],
+    qualities: [75, 82, 88, 100],
     deviceSizes: [375, 390, 640, 750, 828, 1080, 1200, 1440, 1920, 2048, 2560],
     imageSizes: [16, 32, 48, 64, 72, 96, 128, 256, 384, 512, 640],
     minimumCacheTTL: 60 * 60 * 24 * 30,

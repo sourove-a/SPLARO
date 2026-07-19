@@ -156,7 +156,7 @@ Login/signup Google button works and must stay. Do not edit without explicit own
 - `apps/web/src/app/api/auth/config/route.ts` — `googleSignInEnabled` must depend **only** on `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; the web process can't see root `.env` server vars, so requiring them hides the button after config loads (flash-then-vanish bug).
 - Env: `apps/web/.env.local` holds `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`; Nest API verifies credentials with `GOOGLE_OAUTH_CLIENT_ID` from root `.env`.
 
-**Google button UI (owner lock — 2026-07-15):** Custom glass shows **one** SVG `GoogleMarkIcon` only. Real GIS (`GoogleLogin type="icon"`) lives in `.auth-google-glass__hidden` — **off-screen** (`fixed; left/top: -240px; opacity: 0; pointer-events: none`). Never park the hidden GIS under the custom button at low opacity (causes visible **double-G** ghost). Do not add a second mark via CSS `::before` / background-image / `drop-shadow` on `.auth-google-glass__mark`. Programmatic `element.click()` still opens Google.
+**Google button UI (owner verified — 2026-07-19):** Use visible, responsive, official `GoogleLogin type="standard"` inside `.auth-google-glass__native`. Customer click must land on Google GIS iframe itself. Never restore off-screen GIS + programmatic `iframe.click()`—cross-origin iframe clicks are not trusted user gestures and silently do nothing in Chromium. Never overlay a transparent GIS button or add a second Google mark; both create deceptive/double-G UI.
 
 ### Key web routes
 
