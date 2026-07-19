@@ -28,6 +28,20 @@ export interface CustomerStoriesConfig {
   stories: CustomerStoryItem[]
 }
 
+export type {
+  StoryDeckCardConfig,
+  StoryDeckCardIcon,
+  StoryDeckCardId,
+} from './story-deck-defaults'
+
+import {
+  DEFAULT_STORY_DECK_CARDS,
+  mergeStoryDeckCards,
+  type StoryDeckCardConfig,
+} from './story-deck-defaults'
+
+export { DEFAULT_STORY_DECK_CARDS, mergeStoryDeckCards }
+
 export interface OurStoryConfig {
   enabled: boolean
   eyebrow: string
@@ -40,6 +54,7 @@ export interface OurStoryConfig {
   earthTagline2: string
   showEarthLogo: boolean
   pillars: StoryPillarConfig[]
+  storyDeckCards: StoryDeckCardConfig[]
   customerStories: CustomerStoriesConfig
 }
 
@@ -95,6 +110,7 @@ export const DEFAULT_OUR_STORY: OurStoryConfig = {
   earthTagline2: 'Rooted in heritage.',
   showEarthLogo: true,
   pillars: DEFAULT_STORY_PILLARS,
+  storyDeckCards: DEFAULT_STORY_DECK_CARDS.map((card) => ({ ...card })),
   customerStories: {
     enabled: true,
     label: 'Verified Reviews',
@@ -121,6 +137,7 @@ export function resolveOurStory(input?: Partial<OurStoryConfig>): OurStoryConfig
     ...DEFAULT_OUR_STORY,
     ...input,
     pillars: input?.pillars?.length ? input.pillars : DEFAULT_OUR_STORY.pillars,
+    storyDeckCards: mergeStoryDeckCards(input?.storyDeckCards),
     customerStories: {
       ...DEFAULT_OUR_STORY.customerStories,
       ...input?.customerStories,

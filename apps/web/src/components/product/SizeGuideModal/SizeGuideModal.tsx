@@ -1,18 +1,21 @@
 'use client'
 
+import '@/styles/pages/pdp.css'
+
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils/cn'
-import { useUiStore } from '@/store/uiStore'
 import {
   formatMeasure,
   getSizeGuideChart,
   resolveSizeGuideTitle,
   type SizeGuideUnit,
 } from '@/lib/content/size-guide'
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
+import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 
 type SizeGuideModalProps = {
   open: boolean
@@ -36,8 +39,9 @@ export function SizeGuideModal({
   const [unit, setUnit] = useState<SizeGuideUnit>('cm')
   const [mounted, setMounted] = useState(false)
   const onCloseRef = useRef(onClose)
-  const acquireScrollLock = useUiStore((s) => s.acquireScrollLock)
-  const releaseScrollLock = useUiStore((s) => s.releaseScrollLock)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogFocusTrap(open, panelRef, onClose)
+  useOverlayScrollLock(open)
 
   useEffect(() => {
     onCloseRef.current = onClose
@@ -46,26 +50,6 @@ export function SizeGuideModal({
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  // Lock only tracks `open` — inline onClose from parent must not re-trigger acquire/release.
-  useEffect(() => {
-    if (!open) return
-
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current()
-    }
-
-    acquireScrollLock()
-    document.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-      releaseScrollLock()
-    }
-  }, [open, acquireScrollLock, releaseScrollLock])
 
   useEffect(() => {
     if (open) setUnit('cm')
@@ -91,6 +75,7 @@ export function SizeGuideModal({
             onClick={() => onCloseRef.current()}
           />
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}

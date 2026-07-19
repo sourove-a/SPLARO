@@ -1,4 +1,5 @@
 const AUTH_PATH_PREFIXES = ['/login', '/signup', '/forgot-password', '/reset-password']
+const AUTH_REQUIRED_PREFIXES = ['/account', '/checkout']
 
 const STORAGE_KEY = 'splaro-auth-return'
 
@@ -26,19 +27,33 @@ function explicitNextPath(next: string | null): string | null {
   return next
 }
 
+function isAuthRequiredPath(pathname: string): boolean {
+  return AUTH_REQUIRED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
+}
+
+function isSafeAuthExitPath(path: string | null): path is string {
+  if (!path?.startsWith('/')) return false
+  const pathname = path.split(/[?#]/, 1)[0] || '/'
+  return !isAuthPath(pathname) && !isAuthRequiredPath(pathname)
+}
+
 /** Remember where the shopper was before opening sign-in / sign-up. */
 export function captureAuthReturnPath(): void {
   const existing = sessionStorage.getItem(STORAGE_KEY)
-  if (existing && !isAuthPath(existing)) return
+  if (isSafeAuthExitPath(existing)) return
 
   let returnPath = '/'
 
-  const next = explicitNextPath(new URLSearchParams(window.location.search).get('next'))
-  if (next) {
-    returnPath = next
-  } else if (document.referrer) {
+  if (document.referrer) {
     const fromReferrer = safeSameOriginPath(document.referrer)
-    if (fromReferrer) returnPath = fromReferrer
+    if (isSafeAuthExitPath(fromReferrer)) returnPath = fromReferrer
+  }
+
+  const next = explicitNextPath(new URLSearchParams(window.location.search).get('next'))
+  if (returnPath === '/' && isSafeAuthExitPath(next)) {
+    returnPath = next
   }
 
   sessionStorage.setItem(STORAGE_KEY, returnPath)
@@ -46,14 +61,16 @@ export function captureAuthReturnPath(): void {
 
 export function getAuthReturnPath(): string {
   const stored = sessionStorage.getItem(STORAGE_KEY)
-  if (stored && stored.startsWith('/') && !isAuthPath(stored)) return stored
-
-  const next = explicitNextPath(new URLSearchParams(window.location.search).get('next'))
-  if (next) return next
+  if (isSafeAuthExitPath(stored)) return stored
 
   if (document.referrer) {
     const fromReferrer = safeSameOriginPath(document.referrer)
-    if (fromReferrer) return fromReferrer
+    if (isSafeAuthExitPath(fromReferrer)) return fromReferrer
+  }
+
+  const next = explicitNextPath(new URLSearchParams(window.location.search).get('next'))
+  if (isSafeAuthExitPath(next)) {
+    return next
   }
 
   return '/'

@@ -1,4 +1,3 @@
-import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, ArrowRight, ArrowUpRight } from 'lucide-react'
@@ -7,10 +6,13 @@ import { getVisibleCollectionCards } from '@/lib/catalog/collection-cards'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { collectionHref } from '@/lib/storefront/collection-paths'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
-export const metadata: Metadata = {
+export const metadata = createRouteMetadata({
   title: 'Collections',
-}
+  description: 'Explore SPLARO collections curated by category, season, and style.',
+  path: '/collections',
+})
 
 export default async function CollectionsPage() {
   const [settings, catalog] = await Promise.all([

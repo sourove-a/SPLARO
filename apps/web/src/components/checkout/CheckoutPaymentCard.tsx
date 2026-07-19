@@ -32,7 +32,9 @@ export function CheckoutPaymentCard({
       disabled={disabled}
       className={`checkout-payment ${option.priority ? 'checkout-payment--featured' : ''} ${isActive ? 'checkout-payment--active' : ''} ${disabled ? 'checkout-payment--disabled' : ''}`}
       onClick={() => {
-        if (!disabled) onSelect(option.id)
+        if (!disabled) {
+          onSelect(option.id)
+        }
       }}
       aria-pressed={isActive}
       aria-disabled={disabled}

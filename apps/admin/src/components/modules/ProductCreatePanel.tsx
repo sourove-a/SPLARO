@@ -74,7 +74,10 @@ export function ProductCreatePanel({ moduleHref }: ProductCreatePanelProps) {
   const createProduct = useCreateProduct()
   const canCreateProducts = usePermission('products', 'create')
   const { data: categoryTreeData, isLoading: catsLoading } = useCategoryTree()
-  const categories = categoryTreeData?.categories ?? []
+  const categories = useMemo(
+    () => categoryTreeData?.categories ?? [],
+    [categoryTreeData?.categories],
+  )
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
   const [aiLoading, setAiLoading] = useState(false)

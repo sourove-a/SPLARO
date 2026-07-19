@@ -45,9 +45,9 @@ import { formatRelativeTime } from '@/lib/api/orders'
 import { formatBDT } from '@/lib/utils/currency'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#c8a97e'
-const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
-const GOLD_BORDER = 'rgba(200,169,126,0.32)'
+const GOLD = '#16181d'
+const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
+const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
 
 const TH: React.CSSProperties = { padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }
@@ -227,7 +227,7 @@ function LiveChatPanel() {
             <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>Conversation</p>
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, textAlign: 'center' }}>
-            <Headphones style={{ width: 40, height: 40, color: 'rgba(200,169,126,0.40)' }} />
+            <Headphones style={{ width: 40, height: 40, color: 'rgba(16, 17, 20, 0.40)' }} />
             <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-secondary)', margin: 0 }}>
               {tgLive
                 ? 'Telegram bot is connected — order alerts route to your chat.'
@@ -351,7 +351,7 @@ function HelpdeskPanel() {
                     key={t.id}
                     type="button"
                     className="settings-card admin-panel-glass-subtle w-full text-left"
-                    style={{ padding: '10px 12px', marginBottom: 8, borderLeft: '3px solid rgba(200,169,126,0.4)', cursor: 'pointer' }}
+                    style={{ padding: '10px 12px', marginBottom: 8, borderLeft: '3px solid rgba(16, 17, 20, 0.4)', cursor: 'pointer' }}
                     onClick={() => handleReply(t.id, t.subject)}
                   >
                     <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--admin-text-primary)', margin: 0 }}>{t.subject}</p>

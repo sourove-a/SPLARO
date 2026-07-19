@@ -8,15 +8,13 @@ const signals = [
 
 export function CartTrustSignals() {
   return (
-    <div className="mb-5 flex items-center justify-between rounded-2xl border border-white/70 bg-white/65 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+    <ul className="cart-trust" aria-label="Purchase assurances">
       {signals.map(({ icon: Icon, label }) => (
-        <div key={label} className="flex flex-col items-center gap-1">
-          <Icon className="h-3.5 w-3.5 text-gold" strokeWidth={1.5} />
-          <span className="text-[0.45rem] font-semibold uppercase tracking-[0.15em] text-luxury-gray">
-            {label}
-          </span>
-        </div>
+        <li key={label} className="cart-trust__item">
+          <Icon className="cart-trust__icon" strokeWidth={1.5} aria-hidden />
+          <span className="cart-trust__label">{label}</span>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }

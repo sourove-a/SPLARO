@@ -2,7 +2,7 @@
 
 import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   AlertCircle,
@@ -12,7 +12,6 @@ import {
   Loader2,
   Lock,
   Mail,
-  Send,
   ShieldCheck,
 } from 'lucide-react'
 import { AdminLoginShell } from '@/components/login/AdminLoginShell'
@@ -33,8 +32,10 @@ function formatTokenDisplay(value: string): string {
 }
 
 export default function AdminLoginPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') ?? '/dashboard'
+  const requestedNext = searchParams.get('next')
+  const next = requestedNext?.startsWith('/dashboard') ? requestedNext : '/dashboard'
   const tokenInputRef = useRef<HTMLInputElement>(null)
   const prefersReducedMotion = useReducedMotion()
   const [motionReady, setMotionReady] = useState(false)
@@ -45,7 +46,6 @@ export default function AdminLoginPage() {
   const [token, setToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tokenHint, setTokenHint] = useState<string | null>(null)
 
   const panelMotion = {
     initial: { opacity: 0, y: 10 },
@@ -75,7 +75,6 @@ export default function AdminLoginPage() {
     if (!res.ok) {
       throw new Error(data.error ?? 'No admin account found for this email')
     }
-    setTokenHint('Login token sent to your Telegram. Tap Copy Token, then paste below.')
     return data
   }
 
@@ -83,8 +82,6 @@ export default function AdminLoginPage() {
     event.preventDefault()
     setLoading(true)
     setError(null)
-    setTokenHint(null)
-
     try {
       await requestLoginToken(email)
       setStep('token')
@@ -129,7 +126,7 @@ export default function AdminLoginPage() {
         return
       }
       if (data.apiToken) setAdminApiToken(data.apiToken)
-      window.location.assign(next)
+      router.replace(next)
     } catch {
       setError('Unable to connect. Please try again.')
       setLoading(false)
@@ -165,14 +162,14 @@ export default function AdminLoginPage() {
           subtitle: 'Orders · Products · Finance · Courier · AI',
         }
       : {
-          title: 'Verify with Telegram',
-          subtitle: 'Secure one-time token via Telegram',
+          title: 'Enter login token',
+          subtitle: 'Use your secure one-time token',
         }
 
   const emailFields = (
     <>
       <label className="admin-auth-field">
-        <span className="admin-auth-label">Admin email</span>
+        <span className="admin-auth-label">Admin Gmail</span>
         <div className="admin-auth-field__wrap">
           <span className="admin-auth-field__icon-chip" aria-hidden>
             <Mail className="h-4 w-4" strokeWidth={2} />
@@ -202,37 +199,20 @@ export default function AdminLoginPage() {
         ) : (
           <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
         )}
-        {loading ? 'Checking…' : 'Continue'}
+        {loading ? 'Checking…' : 'Login with Gmail'}
       </button>
     </>
   )
 
   const tokenFields = (
     <>
-      <div className="admin-auth-telegram">
-        <p className="admin-auth-telegram__title">Check Telegram</p>
-        <p className="admin-auth-telegram__text">
-          {tokenHint ??
-            'Your one-time login token was sent to your linked SPLARO Telegram chat. Tap Copy Token in the bot message, then paste below.'}
-        </p>
-        <button
-          type="button"
-          onClick={() => void handleResendToken()}
-          disabled={loading}
-          className="admin-auth-telegram__btn"
-        >
-          <Send className="h-3 w-3" />
-          {loading ? 'Sending…' : 'Resend token'}
-        </button>
-      </div>
-
       <div className="admin-auth-email-chip">
         <Mail className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{email}</span>
       </div>
 
       <label className="admin-auth-field">
-        <span className="admin-auth-label">Paste token</span>
+        <span className="admin-auth-label">Login token</span>
         <div className="admin-auth-field__wrap">
           <span className="admin-auth-field__icon-chip" aria-hidden>
             <ClipboardPaste className="h-4 w-4" strokeWidth={2} />
@@ -251,8 +231,17 @@ export default function AdminLoginPage() {
             className="admin-auth-input admin-auth-input--token"
           />
         </div>
-        <p className="admin-auth-hint">Paste from Telegram — auto-login when complete</p>
+        <p className="admin-auth-hint">Paste 8-character token — auto-login when complete</p>
       </label>
+
+      <button
+        type="button"
+        onClick={() => void handleResendToken()}
+        disabled={loading}
+        className="admin-auth-back"
+      >
+        {loading ? 'Sending…' : 'Resend token'}
+      </button>
 
       {error ? (
         <div className="admin-auth-error" role="alert">
@@ -344,7 +333,7 @@ export default function AdminLoginPage() {
 
       <div className="admin-auth-footer">
         <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />
-        Telegram 2FA · One-time token · Audit logged
+        Secure token login · Audit logged
       </div>
     </AdminLoginShell>
   )

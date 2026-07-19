@@ -199,7 +199,12 @@ export class SslCommerzService {
     type: 'success' | 'fail' | 'cancel' | 'ipn',
   ): Promise<{ ok: boolean; invoiceNumber: string; status: string }> {
     const invoiceNumber = body.tran_id
-    const paymentStatus = type === 'success' ? 'PAID' : type === 'fail' ? 'FAILED' : 'CANCELLED'
+    const paymentStatus =
+      type === 'success' || type === 'ipn'
+        ? 'PAID'
+        : type === 'fail'
+          ? 'FAILED'
+          : 'CANCELLED'
 
     if (type === 'success' || type === 'ipn') {
       const valid = await this.validateIpn(body, invoiceNumber)
@@ -209,7 +214,9 @@ export class SslCommerzService {
       }
     }
 
-    await this.updateOrderPayment(invoiceNumber, paymentStatus, body)
+    if (paymentStatus !== 'PAID') {
+      await this.updateOrderPayment(invoiceNumber, paymentStatus, body)
+    }
     return { ok: true, invoiceNumber, status: paymentStatus }
   }
 

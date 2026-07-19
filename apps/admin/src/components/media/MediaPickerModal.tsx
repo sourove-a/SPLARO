@@ -138,7 +138,7 @@ export function MediaPickerModal({
                     type="button"
                     className={cn(
                       'group relative aspect-square overflow-hidden rounded-[12px] border-2 bg-[#f7f7f7]',
-                      isSelected ? 'border-[#c8a97e]' : 'border-transparent hover:border-black/10',
+                      isSelected ? 'border-[#16181d]' : 'border-transparent hover:border-black/10',
                     )}
                     onClick={() => toggle(asset.url)}
                   >

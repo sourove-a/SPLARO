@@ -9,8 +9,8 @@ const SECTIONS: { key: keyof AdminSettingsData['homepage']; label: string; hint:
   { key: 'trustBar', label: 'Trust bar', hint: 'Delivery / payment badges' },
   { key: 'catalog', label: 'Product catalog', hint: 'Full shop grid on homepage' },
   { key: 'specialOffer', label: 'Special offer', hint: 'Promo / countdown block' },
-  { key: 'ourStory', label: 'Our Story', hint: 'Brand story + earth panel' },
-  { key: 'instagram', label: 'Instagram grid', hint: 'Social gallery section' },
+  { key: 'ourStory', label: 'Our Story', hint: 'Brand story deck, pillars, verified reviews' },
+  { key: 'instagram', label: 'Instagram grid', hint: 'Off for now — section not mounted' },
   { key: 'newsletter', label: 'Newsletter', hint: 'Email signup above footer' },
 ]
 
@@ -23,10 +23,16 @@ interface HomepageVisibilityPanelProps {
 
 export function HomepageVisibilityPanel({ draft, setDraft, onSave, saving }: HomepageVisibilityPanelProps) {
   const toggle = (key: keyof AdminSettingsData['homepage']) => {
-    setDraft((prev) => ({
-      ...prev,
-      homepage: { ...prev.homepage, [key]: !prev.homepage[key] },
-    }))
+    setDraft((prev) => {
+      const nextValue = !prev.homepage[key]
+      return {
+        ...prev,
+        homepage: { ...prev.homepage, [key]: nextValue },
+        ...(key === 'ourStory'
+          ? { ourStory: { ...prev.ourStory, enabled: nextValue } }
+          : {}),
+      }
+    })
   }
 
   return (
@@ -60,7 +66,15 @@ export function HomepageVisibilityPanel({ draft, setDraft, onSave, saving }: Hom
         variant="gold"
         className="mt-4"
         loading={saving}
-        onClick={() => onSave({ homepage: draft.homepage }, 'Homepage visibility')}
+        onClick={() =>
+          onSave(
+            {
+              homepage: draft.homepage,
+              ourStory: { ...draft.ourStory, enabled: draft.homepage.ourStory },
+            },
+            'Homepage visibility',
+          )
+        }
       >
         Save visibility
       </AdminButton>

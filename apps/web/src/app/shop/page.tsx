@@ -1,23 +1,26 @@
-import type { Metadata } from 'next'
 import { ShopExperience } from '@/components/shop/ShopExperience'
-import { getStorefrontCatalog } from '@/lib/catalog/server'
+import { LISTING_PAGE_SIZE } from '@/lib/catalog/listing'
+import { getStorefrontCatalogPage } from '@/lib/catalog/server'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
-export const metadata: Metadata = {
+export const metadata = createRouteMetadata({
   title: 'Shop',
   description:
     'Browse SPLARO Summer Edition, Men, Women, Kids, and Footwear. Filter by size and colour.',
-}
+  path: '/shop',
+})
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function ShopPage() {
-  const catalog = await getStorefrontCatalog()
+  const catalog = await getStorefrontCatalogPage(1, LISTING_PAGE_SIZE)
 
   return (
     <ShopExperience
       initialCatalog={catalog}
-      listingMode="full"
+      listingMode="paged"
       showCollections={false}
+      pageTitle="Shop"
     />
   )
 }

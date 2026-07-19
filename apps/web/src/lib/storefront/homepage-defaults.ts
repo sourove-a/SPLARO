@@ -28,6 +28,22 @@ export interface CustomerStoriesConfig {
   stories: CustomerStoryItem[]
 }
 
+import {
+  DEFAULT_STORY_DECK_CARDS,
+  mergeStoryDeckCards,
+  type StoryDeckCardConfig,
+} from './story-deck-defaults'
+
+export {
+  DEFAULT_STORY_DECK_CARDS,
+  mergeStoryDeckCards,
+}
+export type {
+  StoryDeckCardConfig,
+  StoryDeckCardIcon,
+  StoryDeckCardId,
+} from './story-deck-defaults'
+
 export interface OurStoryConfig {
   enabled: boolean
   eyebrow: string
@@ -40,6 +56,7 @@ export interface OurStoryConfig {
   earthTagline2: string
   showEarthLogo: boolean
   pillars: StoryPillarConfig[]
+  storyDeckCards: StoryDeckCardConfig[]
   customerStories: CustomerStoriesConfig
 }
 
@@ -82,7 +99,7 @@ export const DEFAULT_STORY_PILLARS: StoryPillarConfig[] = [
 export const DEFAULT_CUSTOMER_STORY_ITEMS: CustomerStoryItem[] = []
 
 export const DEFAULT_OUR_STORY: OurStoryConfig = {
-  enabled: false,
+  enabled: true,
   eyebrow: 'OUR STORY',
   title: 'Crafted for the modern wardrobe.',
   body1:
@@ -95,6 +112,7 @@ export const DEFAULT_OUR_STORY: OurStoryConfig = {
   earthTagline2: 'Rooted in heritage.',
   showEarthLogo: true,
   pillars: DEFAULT_STORY_PILLARS,
+  storyDeckCards: DEFAULT_STORY_DECK_CARDS.map((card) => ({ ...card })),
   customerStories: {
     enabled: true,
     label: 'Verified Reviews',
@@ -107,11 +125,11 @@ export const DEFAULT_OUR_STORY: OurStoryConfig = {
 export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionsConfig = {
   hero: true,
   marquee: true,
-  collections: false,
+  collections: true,
   trustBar: true,
   catalog: true,
   specialOffer: true,
-  ourStory: false,
+  ourStory: true,
   instagram: false,
   newsletter: true,
 }
@@ -121,6 +139,7 @@ export function resolveOurStory(input?: Partial<OurStoryConfig>): OurStoryConfig
     ...DEFAULT_OUR_STORY,
     ...input,
     pillars: input?.pillars?.length ? input.pillars : DEFAULT_OUR_STORY.pillars,
+    storyDeckCards: mergeStoryDeckCards(input?.storyDeckCards),
     customerStories: {
       ...DEFAULT_OUR_STORY.customerStories,
       ...input?.customerStories,
@@ -141,4 +160,8 @@ export function visibleCustomerStories(_config: OurStoryConfig) {
 
 export function visiblePillars(config: OurStoryConfig) {
   return config.pillars.filter((pillar) => pillar.enabled)
+}
+
+export function visibleStoryDeckCards(config: OurStoryConfig) {
+  return mergeStoryDeckCards(config.storyDeckCards).filter((card) => card.enabled)
 }

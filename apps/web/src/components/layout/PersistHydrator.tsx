@@ -5,16 +5,16 @@ import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 
-function rehydrateStores() {
-  void Promise.all([
-    useCartStore.persist.rehydrate(),
-    useAuthStore.persist.rehydrate(),
-    useWishlistStore.persist.rehydrate(),
-  ])
-}
-
+/**
+ * Rehydrate persisted stores ASAP.
+ * Cart/auth must not wait on requestIdleCallback — that delayed /cart
+ * "Loading your bag…" by up to ~1.2s on every visit.
+ */
 export function PersistHydrator() {
   useEffect(() => {
+    void useCartStore.persist.rehydrate()
+    void useAuthStore.persist.rehydrate()
+
     const win = window as Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
       cancelIdleCallback?: (id: number) => void
@@ -22,13 +22,14 @@ export function PersistHydrator() {
 
     let idleId: number | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
-
-    const run = () => rehydrateStores()
+    const runWishlist = () => {
+      void useWishlistStore.persist.rehydrate()
+    }
 
     if (win.requestIdleCallback) {
-      idleId = win.requestIdleCallback(run, { timeout: 1200 })
+      idleId = win.requestIdleCallback(runWishlist, { timeout: 400 })
     } else {
-      timer = setTimeout(run, 0)
+      timer = setTimeout(runWishlist, 0)
     }
 
     return () => {

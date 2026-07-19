@@ -17,6 +17,7 @@ export interface ApiAuthUser {
   customerId?: string
   avatar?: string | null
   phoneVerified?: boolean
+  emailVerified: boolean
   loyaltyTier?: string
   needsPhone?: boolean
 }
@@ -186,6 +187,42 @@ export async function apiAuthMe(
   return payload.user ?? null
 }
 
+export async function apiSendEmailVerification(
+  sessionToken: string,
+): Promise<{ success: true; message: string; expiresIn: number } | { error: string; status: number }> {
+  const res = await fetchWithTimeout(
+    apiUrl(`/storefront/auth/email-verification/send?storeId=${encodeURIComponent(STORE_ID)}`),
+    { method: 'POST', headers: sessionHeaders(sessionToken), cache: 'no-store' },
+  )
+  if (!res) return { error: 'Verification email timed out — try again.', status: 503 }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Could not send verification email', status: res.status }
+  }
+  return (await res.json()) as { success: true; message: string; expiresIn: number }
+}
+
+export async function apiVerifyEmail(
+  sessionToken: string,
+  code: string,
+): Promise<{ success: true; user: ApiAuthUser } | { error: string; status: number }> {
+  const res = await fetchWithTimeout(
+    apiUrl(`/storefront/auth/email-verification/verify?storeId=${encodeURIComponent(STORE_ID)}`),
+    {
+      method: 'POST',
+      headers: sessionHeaders(sessionToken),
+      body: JSON.stringify({ code }),
+      cache: 'no-store',
+    },
+  )
+  if (!res) return { error: 'Email verification timed out — try again.', status: 503 }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string }
+    return { error: body.message ?? 'Could not verify email', status: res.status }
+  }
+  return (await res.json()) as { success: true; user: ApiAuthUser }
+}
+
 export async function apiAuthLogout(sessionToken: string): Promise<void> {
   await fetchWithTimeout(apiUrl('/storefront/auth/logout'), {
     method: 'POST',
@@ -345,6 +382,33 @@ export async function apiSearchProducts(
   }
   const payload = (await res.json()) as { products?: Record<string, unknown>[] }
   return payload.products ?? []
+}
+
+/** Autocomplete — Nest `GET /search/suggest` (Prisma name match + popular terms). */
+export async function apiSearchSuggest(
+  q: string,
+  limit = 8,
+): Promise<{ products: Array<{ id: string; name: string; slug: string }>; popularTerms: string[] }> {
+  const res = await fetchWithTimeout(
+    apiUrl(
+      `/search/suggest?storeId=${encodeURIComponent(STORE_ID)}&q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
+    { headers: { Accept: 'application/json' }, cache: 'no-store' },
+  )
+  if (!res) {
+    throw new Error('Suggest API timed out')
+  }
+  if (!res.ok) {
+    throw new Error(`Suggest API ${res.status}`)
+  }
+  const payload = (await res.json()) as {
+    products?: Array<{ id: string; name: string; slug: string }>
+    popularTerms?: string[]
+  }
+  return {
+    products: payload.products ?? [],
+    popularTerms: payload.popularTerms ?? [],
+  }
 }
 
 export function attachSessionCookie(

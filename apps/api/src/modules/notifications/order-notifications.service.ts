@@ -85,7 +85,7 @@ export class OrderNotificationsService {
     const emailed = await this.email.sendForStore({
       storeId,
       to: emailTo,
-      subject: `Your SPLARO order ${order.invoiceNumber}`,
+      subject: `Order confirmed — ${order.invoiceNumber} | SPLARO`,
       html: generateInvoiceEmailHTML({
         customerName: order.shippingName,
         invoiceNumber: order.invoiceNumber,
@@ -94,8 +94,7 @@ export class OrderNotificationsService {
         siteUrl,
         storeName: store?.name ?? 'SPLARO',
       }),
-      text: `Thank you for your order ${order.invoiceNumber}. Total: ৳${Number(order.total).toLocaleString()}`,
-      transactional: true,
+      text: `Your SPLARO order ${order.invoiceNumber} is confirmed. Total: ৳${Number(order.total).toLocaleString()}. Track your order at ${siteUrl.replace(/\/$/, '')}/track-order.`,
     })
 
     if (emailed) {

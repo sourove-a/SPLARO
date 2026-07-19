@@ -1,5 +1,7 @@
 'use client'
 
+import '@/styles/pages/pdp.css'
+
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
 import { MotionPressable } from '@/components/ui/MotionPressable'

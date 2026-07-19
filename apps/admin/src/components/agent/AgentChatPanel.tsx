@@ -407,14 +407,14 @@ export function AgentChatPanel({
           Start API — no fake replies
         </div>
       ) : !ready ? (
-        <div className="border-b border-[var(--admin-border)] bg-[rgba(200,169,126,0.08)] px-4 py-3 text-[11px] leading-relaxed text-[var(--admin-text-secondary)]">
+        <div className="border-b border-[var(--admin-border)] bg-[rgba(16, 17, 20, 0.08)] px-4 py-3 text-[11px] leading-relaxed text-[var(--admin-text-secondary)]">
           <p className="font-bold text-[var(--admin-text)]">API key লাগবে chat চালাতে</p>
           <p className="mt-1">
             Sidebar → <strong>AI Command Brain</strong> → API key save করুন।
           </p>
           <Link
             href="/dashboard/ai-agent"
-            className="mt-2 inline-flex items-center gap-1 font-black text-[#9a7b52] hover:underline"
+            className="mt-2 inline-flex items-center gap-1 font-black text-[#3f3f46] hover:underline"
           >
             AI Command Brain
             <ExternalLink className="h-3 w-3" />
@@ -479,7 +479,7 @@ export function AgentChatPanel({
                     'rounded-full px-3 py-1 text-[10px] font-bold',
                     warn
                       ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                      : 'bg-[rgba(200,169,126,0.12)] text-[#9a7b52]',
+                      : 'bg-[rgba(16, 17, 20, 0.12)] text-[#3f3f46]',
                   )}
                 >
                   {msg.pending ? <Loader2 className="mr-1 inline h-3 w-3 animate-spin" /> : warn ? '⚠ ' : '🔧 '}
@@ -544,7 +544,7 @@ export function AgentChatPanel({
         })}
         {activeTool ? (
           <div className="flex justify-center">
-            <span className="rounded-full border border-dashed border-[#5E7CFF]/40 px-3 py-1 text-[10px] font-bold text-[#9a7b52]">
+            <span className="rounded-full border border-dashed border-[#5E7CFF]/40 px-3 py-1 text-[10px] font-bold text-[#3f3f46]">
               {activeTool.replace(/_/g, ' ')}…
             </span>
           </div>

@@ -27,10 +27,11 @@
 /* Product card → PDP shared image morph (View Transitions API) */
 @supports (view-transition-name: none) {
   @media (prefers-reduced-motion: no-preference) {
+    /* Keep product media morph; never crossfade the whole root through white. */
     ::view-transition-old(root),
     ::view-transition-new(root) {
-      animation-duration: 0.28s;
-      animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+      animation: none;
+      mix-blend-mode: normal;
     }
 
     ::view-transition-group(*) {
@@ -55,45 +56,23 @@
   display: block;
   width: 100%;
   height: 100%;
-  transform-origin: center center;
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.18s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .product-transition-link__hit {
-    transition:
-      transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  a:hover .product-transition-link__hit .shop-product-card__media,
-  a:hover .product-transition-link__hit .splaro-card__media,
-  a:hover .product-transition-link__hit .ilyn-card__media,
-  a:hover .product-transition-link__hit .pc-media {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 36px rgba(16, 17, 20, 0.1);
-  }
-
-  a:hover .product-transition-link__hit .shop-product-card__media,
-  a:hover .product-transition-link__hit .splaro-card__media,
-  a:hover .product-transition-link__hit .ilyn-card__media,
-  a:hover .product-transition-link__hit .pc-media {
-    transition:
-      transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  a:hover .product-transition-link__hit {
+    opacity: 0.92;
   }
 }
 
 .product-transition-link__hit:active {
-  transform: scale(0.992);
+  opacity: 0.86;
 }
 
 a:active .product-transition-link__hit .shop-product-card__media,
 a:active .product-transition-link__hit .splaro-card__media,
-a:active .product-transition-link__hit .ilyn-card__media,
 a:active .product-transition-link__hit .pc-media {
-  transform: scale(0.995);
-  transition-duration: 0.12s;
+  opacity: 0.94;
 }
 
 .shop-product-card__media-wrap {
@@ -120,12 +99,15 @@ a:active .product-transition-link__hit .pc-media {
 @media (max-width: 1023px), (pointer: coarse) {
   :root {
     --glass-blur: none;
+    --glass-blur-strong: none;
     --header-glass-blur: none;
     --header-glass-blur-scrolled: none;
     --header-glass-bg: rgba(255, 255, 255, 0.94);
     --header-glass-bg-scrolled: rgba(255, 255, 255, 0.98);
     --glass-white: rgba(255, 255, 255, 0.92);
     --glass-white-strong: rgba(255, 255, 255, 0.96);
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-bg-strong: rgba(255, 255, 255, 0.96);
     --glass-ivory: rgba(255, 255, 255, 0.94);
     --glass-dark: rgba(17, 17, 17, 0.9);
   }
@@ -165,12 +147,15 @@ a:active .product-transition-link__hit .pc-media {
  */
 html[data-perf='lite'] {
   --glass-blur: none;
+  --glass-blur-strong: none;
   --header-glass-blur: none;
   --header-glass-blur-scrolled: none;
   --header-glass-bg: rgba(255, 255, 255, 0.96);
   --header-glass-bg-scrolled: rgba(255, 255, 255, 0.98);
   --glass-white: rgba(255, 255, 255, 0.94);
   --glass-white-strong: rgba(255, 255, 255, 0.97);
+  --glass-bg: rgba(255, 255, 255, 0.97);
+  --glass-bg-strong: rgba(255, 255, 255, 0.97);
   --glass-ivory: rgba(255, 255, 255, 0.95);
   --glass-dark: rgba(17, 17, 17, 0.92);
   scroll-behavior: auto;
@@ -190,15 +175,19 @@ html[data-perf='lite'] *::after {
  */
 html[data-os='windows'] {
   --glass-blur: none;
+  --glass-blur-strong: none;
   --header-glass-blur: none;
   --header-glass-blur-scrolled: none;
   --header-glass-bg: rgba(255, 255, 255, 0.96);
   --header-glass-bg-scrolled: rgba(255, 255, 255, 0.98);
   --glass-white: rgba(255, 255, 255, 0.94);
   --glass-white-strong: rgba(255, 255, 255, 0.97);
+  --glass-bg: rgba(255, 255, 255, 0.97);
+  --glass-bg-strong: rgba(255, 255, 255, 0.97);
   --glass-ivory: rgba(255, 255, 255, 0.95);
   --glass-dark: rgba(17, 17, 17, 0.92);
-  scroll-behavior: auto;
+  /* Beat globals `html { scroll-behavior: smooth }` — native scroll feels sticky otherwise. */
+  scroll-behavior: auto !important;
 }
 
 html[data-os='windows'] *,
@@ -214,6 +203,8 @@ html[data-os='windows'] .spl-radix-dialog--search,
 html[data-os='windows'] .search-modal__bar {
   background: rgba(255, 255, 255, 0.97) !important;
 }
+
+/* Shared .spl-glass-* solid fills live in glass-tokens.css (after base shells). */
 
 /*
  * Over-hero uses white logo/nav (Mac glass is transparent over the dark hero).
@@ -349,9 +340,262 @@ html[data-perf='lite'] .pp-qty {
   box-shadow: 0 6px 18px rgba(16, 17, 20, 0.05);
 }
 
+/* Size pills — keep ILYN neumorphic look when blur is off */
+html[data-perf='lite'] .pp-view .pp-size-row,
+html[data-os='windows'] .pp-view .pp-size-row,
+html[data-perf='lite'] .pdp-size-row,
+html[data-os='windows'] .pdp-size-row {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-perf='lite'] .pp-view .pp-size-btn,
+html[data-os='windows'] .pp-view .pp-size-btn,
+html[data-perf='lite'] .pdp-size-btn,
+html[data-os='windows'] .pdp-size-btn {
+  background: #ffffff !important;
+  border: 0 !important;
+  color: #121212 !important;
+  box-shadow:
+    inset 6px 6px 8px rgba(217, 218, 222, 0.3),
+    inset -6px -6px 8px #ffffff,
+    6px 6px 10px rgba(235, 235, 235, 0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+
+html[data-perf='lite'] .pp-view .pp-size-btn--active,
+html[data-os='windows'] .pp-view .pp-size-btn--active,
+html[data-perf='lite'] .pdp-size-btn--active,
+html[data-os='windows'] .pdp-size-btn--active {
+  background: #121212 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
 html[data-perf='lite'] .product-card-actions button,
 html[data-perf='lite'] .product-card-quickview {
   background: rgba(255, 255, 255, 0.97) !important;
   border: 1px solid rgba(16, 17, 20, 0.08);
   box-shadow: 0 8px 20px rgba(16, 17, 20, 0.1);
+}
+
+/*
+ * sharp (all platforms): catalog + mega — fixed box, opacity-only interaction.
+ * Windows/lite still get extra GPU cuts below.
+ */
+.shop-product-grid .splaro-card:hover .splaro-card__media,
+.shop-product-grid .splaro-card:active .splaro-card__media,
+.shop-product-grid .splaro-card--shop:active .splaro-card__media,
+.splaro-card--pressed .splaro-card__media,
+.shop-product-card:hover .shop-product-card__img--primary,
+.shop-product-card:hover .shop-product-card__img--hover {
+  transform: none !important;
+}
+
+.mega-menu-hero-card,
+.mega-menu-hero-card:hover,
+.mega-menu-heroes-slider__btn:hover:not(:disabled) {
+  transform: none !important;
+}
+
+.mega-menu-heroes-slider__slide,
+.mega-menu-hero-card {
+  height: 22rem;
+  min-height: 22rem;
+  max-height: 22rem;
+}
+
+.shop-product-card__media,
+.shop-product-grid .splaro-card--shop .splaro-card__media,
+.shop-product-grid .splaro-card__media {
+  aspect-ratio: 4 / 5;
+}
+
+/*
+ * Windows + lite — cut GPU pressure: multi-layer shadows, hover image crossfade,
+ * below-fold reveal transforms. Hero stays transform/opacity only (home.css).
+ */
+html[data-os='windows'],
+html[data-perf='lite'] {
+  --press-scale: 1;
+  --press-translate-y: 0px;
+  --glass-blur: none;
+}
+
+html[data-os='windows'] .home-hero-slider .hero-slide-arrows .splaro-nav-btn,
+html[data-os='windows'] .home-hero-slider .hero-dot,
+html[data-os='windows'] .home-hero-slider .hero-btn,
+html[data-perf='lite'] .home-hero-slider .hero-slide-arrows .splaro-nav-btn,
+html[data-perf='lite'] .home-hero-slider .hero-dot,
+html[data-perf='lite'] .home-hero-slider .hero-btn {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset !important;
+}
+
+html[data-os='windows'] .shop-product-card:hover .shop-product-card__img--primary,
+html[data-perf='lite'] .shop-product-card:hover .shop-product-card__img--primary {
+  opacity: 1 !important;
+}
+
+html[data-os='windows'] .shop-product-card__img--hover,
+html[data-os='windows'] .shop-product-card:hover .shop-product-card__img--hover,
+html[data-perf='lite'] .shop-product-card__img--hover,
+html[data-perf='lite'] .shop-product-card:hover .shop-product-card__img--hover {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+html[data-os='windows'] .scroll-reveal-gpu,
+html[data-os='windows'] [data-reveal],
+html[data-perf='lite'] .scroll-reveal-gpu,
+html[data-perf='lite'] [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+  will-change: auto !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+/* No jump: kill scale/lift on cards + PDP controls */
+html[data-os='windows'] .shop-product-grid .splaro-card__media,
+html[data-os='windows'] .shop-product-card__img,
+html[data-os='windows'] .shop-product-grid .splaro-card:hover .splaro-card__media,
+html[data-os='windows'] .shop-product-grid .splaro-card:active .splaro-card__media,
+html[data-os='windows'] .shop-product-grid .splaro-card--shop:active .splaro-card__media,
+html[data-os='windows'] .splaro-card--pressed .splaro-card__media,
+html[data-perf='lite'] .shop-product-grid .splaro-card__media,
+html[data-perf='lite'] .shop-product-card__img,
+html[data-perf='lite'] .shop-product-grid .splaro-card:hover .splaro-card__media,
+html[data-perf='lite'] .shop-product-grid .splaro-card:active .splaro-card__media,
+html[data-perf='lite'] .shop-product-grid .splaro-card--shop:active .splaro-card__media,
+html[data-perf='lite'] .splaro-card--pressed .splaro-card__media {
+  transform: none !important;
+  /* Hairline only — keep card edges readable without multi-layer GPU shadows */
+  box-shadow: inset 0 0 0 1px rgba(16, 17, 20, 0.06) !important;
+}
+
+html[data-os='windows'] .pp-color-btn:hover,
+html[data-os='windows'] .pp-size-btn:hover,
+html[data-os='windows'] .pp-cta-primary:hover,
+html[data-os='windows'] .pp-cta-primary:active,
+html[data-os='windows'] .pp-cta-icon:hover,
+html[data-perf='lite'] .pp-color-btn:hover,
+html[data-perf='lite'] .pp-size-btn:hover,
+html[data-perf='lite'] .pp-cta-primary:hover,
+html[data-perf='lite'] .pp-cta-primary:active,
+html[data-perf='lite'] .pp-cta-icon:hover {
+  transform: none !important;
+}
+
+html[data-os='windows'] .trust-bar__panel,
+html[data-perf='lite'] .trust-bar__panel {
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 8px 24px rgba(16, 17, 20, 0.06) !important;
+}
+
+html[data-os='windows'] .ed-newsletter__orb,
+html[data-perf='lite'] .ed-newsletter__orb {
+  filter: none !important;
+  opacity: 0.28;
+}
+
+/* Solid luxury glass — opaque panels still read premium without backdrop-filter */
+html[data-os='windows'] .splaro-card__info,
+html[data-perf='lite'] .splaro-card__info {
+  background: transparent;
+}
+
+html[data-os='windows'] .shop-filter-dropdown__panel--glass,
+html[data-os='windows'] .shop-toolbar,
+html[data-perf='lite'] .shop-filter-dropdown__panel--glass,
+html[data-perf='lite'] .shop-toolbar {
+  background: rgba(255, 255, 255, 0.97) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 10px 28px rgba(16, 17, 20, 0.06) !important;
+}
+
+/*
+ * Public no-jump guard.
+ * Keep luxury feel through color/opacity/border only; never move the box on press.
+ * Scoped away from locked footer CSS.
+ */
+.home-hero-slider a:active,
+.home-hero-slider button:active,
+.shop-catalog a:active,
+.shop-catalog button:active,
+.pp-view a:active,
+.pp-view button:active,
+.auth-page a:active,
+.auth-page button:active,
+.checkout-shell a:active,
+.checkout-shell button:active,
+.content-page a:active,
+.content-page button:active,
+.shop-catalog a:hover,
+.shop-catalog button:hover,
+.pp-view a:hover,
+.pp-view button:hover {
+  transform: none !important;
+}
+
+.shop-product-grid__cell,
+.shop-product-grid .splaro-card,
+.shop-product-grid .splaro-card__media {
+  contain: layout paint style;
+}
+
+.shop-product-grid .product-shared-media,
+.shop-product-grid .splaro-card__img-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.shop-product-grid .sf-image,
+.shop-product-grid .splaro-card__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.shop-product-grid .splaro-card__name,
+.shop-product-grid .splaro-card__title-row,
+.shop-product-grid .splaro-card__price-row {
+  min-height: 1.35rem;
+}
+
+.shop-product-grid .splaro-card__media,
+.shop-product-grid .pc-media,
+.shop-product-grid .shop-product-card__media {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+}
+
+html[data-os='windows'] .shop-product-grid .splaro-card__gallery-nav,
+html[data-perf='lite'] .shop-product-grid .splaro-card__gallery-nav,
+html[data-os='windows'] .home-hero-slider .hero-slide__media-shell,
+html[data-perf='lite'] .home-hero-slider .hero-slide__media-shell {
+  will-change: auto !important;
+}
+
+html[data-os='windows'] .shop-product-grid .splaro-card,
+html[data-os='windows'] .shop-product-grid .splaro-card__media,
+html[data-os='windows'] .shop-product-grid .splaro-card__info,
+html[data-perf='lite'] .shop-product-grid .splaro-card,
+html[data-perf='lite'] .shop-product-grid .splaro-card__media,
+html[data-perf='lite'] .shop-product-grid .splaro-card__info {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+html[data-os='windows'] .shop-product-grid .splaro-card__img-frame,
+html[data-perf='lite'] .shop-product-grid .splaro-card__img-frame {
+  transform: none !important;
+  transition-property: opacity !important;
 }

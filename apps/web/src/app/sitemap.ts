@@ -29,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/footwear',
     '/about',
     '/contact',
+    '/stores',
     '/size-guide',
     '/shipping',
     '/privacy',

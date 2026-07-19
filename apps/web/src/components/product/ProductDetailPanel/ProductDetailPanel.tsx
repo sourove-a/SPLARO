@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, LayoutGroup, motion } from '@/lib/motion/react'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import {
   ChevronLeft, ChevronRight,
   Maximize2, Minus, Plus, Ruler, Share2, X,
@@ -95,6 +95,7 @@ export function ProductDetailPanel({
 }: ProductDetailPanelProps) {
   const router = useRouter()
   const user = useAuthStore((state) => state.user)
+  const authHydrated = useAuthStore((state) => state._hydrated)
   const [activeImage, setActiveImage] = useState(0)
   const [recentIds, setRecentIds] = useState<string[]>([])
   const [addedPulse, setAddedPulse] = useState(false)
@@ -220,6 +221,7 @@ export function ProductDetailPanel({
   }
 
   const handleCheckout = () => {
+    if (!authHydrated) return
     if (onCheckout) { onCheckout(); return }
     onAddToBag(quantity)
     safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
@@ -474,13 +476,12 @@ export function ProductDetailPanel({
                       Size Guide
                     </MotionPressable>
                   </div>
-                  <LayoutGroup id="pdp-size-select">
                   <div className="pdp-size-row">
                     {product.sizes.map((size) => {
                       const unavailable = product.unavailableSizes?.includes(size) ?? false
                       const active = modalSize === size && !unavailable
                       return (
-                        <MotionPressable
+                        <button
                           key={size}
                           type="button"
                           onClick={() => !unavailable && onSizeChange(size)}
@@ -492,22 +493,12 @@ export function ProductDetailPanel({
                             active && 'pdp-size-btn--active',
                             unavailable && 'pdp-size-btn--unavailable',
                           )}
-                          variant="chip"
                         >
-                          {active && (
-                            <motion.span
-                              layoutId="pdp-size-pill"
-                              className="pdp-size-btn__pill"
-                              transition={{ type: 'spring', stiffness: 500, damping: 36 }}
-                              aria-hidden
-                            />
-                          )}
                           <span className="pdp-size-btn__label">{size}</span>
-                        </MotionPressable>
+                        </button>
                       )
                     })}
                   </div>
-                  </LayoutGroup>
                 </div>
               )}
 

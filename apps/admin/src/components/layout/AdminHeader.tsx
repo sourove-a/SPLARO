@@ -17,40 +17,23 @@ import { AdminHeaderSearch } from '@/components/layout/AdminHeaderSearch'
 import { AdminApiStatus } from '@/components/layout/AdminApiStatus'
 import { NotificationDropdown } from '@/components/layout/NotificationDropdown'
 import { MessagesDropdown } from '@/components/layout/MessagesDropdown'
-import { LanguageDropdown } from '@/components/layout/LanguageDropdown'
 import { markAdminLinkNavigation } from '@/lib/navigation/client-nav'
-import { clearAdminApiToken, setAdminApiToken } from '@/lib/auth/api-token'
+import { clearAdminApiToken } from '@/lib/auth/api-token'
+import { useAdminSession } from '@/lib/api/hooks'
 import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
-
-interface SessionUser {
-  name: string
-  email: string
-  role: string
-}
 
 export function AdminHeader() {
   const [quickOpen, setQuickOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { setTheme, resolvedTheme } = useTheme()
-  const [user, setUser] = useState<SessionUser>({ name: 'Super Admin', email: 'splaro.bd@gmail.com', role: 'admin' })
+  const { data: sessionUser } = useAdminSession()
+  const user = sessionUser
+    ? { name: sessionUser.name, email: sessionUser.email, role: sessionUser.role }
+    : { name: 'Super Admin', email: 'splaro.bd@gmail.com', role: 'admin' }
 
   useEffect(() => {
     setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.user) {
-          setUser({ name: data.user.name, email: data.user.email, role: data.user.role })
-        }
-        if (data?.apiToken) {
-          setAdminApiToken(data.apiToken)
-        }
-      })
-      .catch(() => undefined)
   }, [])
 
   return (
@@ -86,8 +69,6 @@ export function AdminHeader() {
 
           <NotificationDropdown />
           <MessagesDropdown />
-
-          <LanguageDropdown />
 
           <div className="relative">
             <button

@@ -5,17 +5,40 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, X } from 'lucide-react'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
+import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 import {
   captureAuthReturnPath,
   clearAuthReturnPath,
   getAuthReturnPath,
   isAuthPath,
 } from '@/lib/auth/auth-return'
-import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
 
 interface AuthShellProps {
   children: ReactNode
   hideSkipLink?: boolean
+}
+
+function isAuthRequiredExit(pathname: string) {
+  return (
+    pathname === '/account' ||
+    pathname.startsWith('/account/') ||
+    pathname === '/checkout' ||
+    pathname.startsWith('/checkout/')
+  )
+}
+
+function sameOriginNonAuthReferrer(): string | null {
+  try {
+    const ref = typeof document !== 'undefined' ? document.referrer : ''
+    if (!ref) return null
+    const url = new URL(ref)
+    if (url.origin !== window.location.origin) return null
+    if (isAuthPath(url.pathname)) return null
+    if (isAuthRequiredExit(url.pathname)) return null
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return null
+  }
 }
 
 export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
@@ -39,40 +62,25 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
     setSkipCheckoutLink(next === '/checkout')
   }, [hideSkipLink])
 
-  /** Always leave auth to a real destination — never rely on motion-wrapped Links. */
+  /** Leave auth with SPA navigation; hard reload creates visible flash. */
   const leaveAuth = () => {
     const dest = returnPath || '/'
     clearAuthReturnPath()
-    safeClientNavigate(router, dest)
+    safeClientNavigate(router, dest, 'replace')
   }
 
   const handleBack = () => {
-    // Prefer browser back only when referrer is same-origin and not another auth page.
-    try {
-      const ref = typeof document !== 'undefined' ? document.referrer : ''
-      if (ref) {
-        const url = new URL(ref)
-        if (url.origin === window.location.origin && !isAuthPath(url.pathname)) {
-          clearAuthReturnPath()
-          router.back()
-          // If history.back stalls on this page (common after direct /login open),
-          // hard-leave after a short beat.
-          window.setTimeout(() => {
-            if (isAuthPath(window.location.pathname)) {
-              safeClientNavigate(router, returnPath || '/', 'replace')
-            }
-          }, 350)
-          return
-        }
-      }
-    } catch {
-      /* fall through */
+    const referrer = sameOriginNonAuthReferrer()
+    if (referrer) {
+      clearAuthReturnPath()
+      safeClientNavigate(router, referrer, 'replace')
+      return
     }
     leaveAuth()
   }
 
   return (
-    <div className="auth-shell">
+    <main id="main-content" className="auth-shell auth-template-enter" tabIndex={-1}>
       <div className="auth-shell__glow" aria-hidden="true" />
 
       {/* Plain buttons — framer motion wrappers were swallowing Close Link clicks. */}
@@ -98,7 +106,7 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
 
       <div className="auth-shell__inner">
         <div className="auth-shell__logo">
-          <SplaroBrandLogo href="/" tone="dark" size="footerLuxury" />
+          <SplaroBrandLogo href="/" tone="light" size="footerLuxury" priority />
         </div>
 
         <div className="auth-glass-panel">
@@ -112,6 +120,6 @@ export function AuthShell({ children, hideSkipLink = false }: AuthShellProps) {
           </Link>
         )}
       </div>
-    </div>
+    </main>
   )
 }

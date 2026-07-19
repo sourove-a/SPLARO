@@ -17,6 +17,10 @@ const STATUS_EMOJI: Record<string, string> = {
   REFUNDED: '💸',
 }
 
+function escapeTelegramHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 @Injectable()
 export class AdminTelegramHubService {
   private readonly logger = new Logger(AdminTelegramHubService.name)
@@ -86,6 +90,26 @@ Phone: <code>${input.phone}</code>
 Source: ${input.source ?? 'Website signup'}
 
 <i>Customer registered — you can manage them from admin panel.</i>
+`.trim()
+
+    await this.safeSend(storeId, msg)
+  }
+
+  async notifyCustomerEmailVerification(
+    storeId: string,
+    input: { name: string; email: string; status: 'REQUESTED' | 'VERIFIED' },
+  ): Promise<void> {
+    if (!(await this.flag(storeId, 'notifyCustomers'))) return
+
+    const requested = input.status === 'REQUESTED'
+    const msg = `
+${requested ? '📨' : '🛡'} <b>Email Verification ${requested ? 'Requested' : 'Completed'}</b>
+
+Customer: ${escapeTelegramHtml(input.name)}
+Email: <code>${escapeTelegramHtml(input.email)}</code>
+Status: <b>${requested ? 'Code sent' : 'Verified'}</b>
+
+<i>${requested ? 'Verification code stays private and is never sent to Telegram.' : 'Verified email is now locked on customer account.'}</i>
 `.trim()
 
     await this.safeSend(storeId, msg)

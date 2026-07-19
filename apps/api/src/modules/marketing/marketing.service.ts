@@ -3,6 +3,9 @@ import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import { PrismaService } from '../../common/prisma.service'
 import { ConfigService } from '@nestjs/config'
+import { BadRequestException } from '@nestjs/common'
+import { EmailService } from '../email/email.service'
+import { generateCampaignEmailHTML } from './campaign-email.template'
 
 type OpenAIClient = {
   chat: {
@@ -32,6 +35,7 @@ export class MarketingService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     @InjectQueue('marketing') private readonly marketingQueue: Queue,
+    private readonly email: EmailService,
   ) {
     this.openai = null
   }
@@ -67,13 +71,41 @@ export class MarketingService {
     const campaign = await this.prisma.campaign.findUnique({ where: { id: campaignId } })
     if (!campaign) throw new Error(`Campaign ${campaignId} not found`)
 
+    if (campaign.type !== 'EMAIL') {
+      throw new BadRequestException(`${campaign.type} delivery is not connected. Nothing was sent.`)
+    }
     const recipients = await this.getRecipients(campaign.storeId, campaign.recipientType, campaign.recipientTags[0])
     this.logger.log(`Sending campaign "${campaign.name}" to ${recipients.length} recipients`)
 
     await this.prisma.campaign.update({ where: { id: campaignId }, data: { status: 'SENDING' } })
-    await this.marketingQueue.add('send-campaign', { campaignId, recipientIds: recipients.map(r => r.id) })
+    let sent = 0
+    for (const recipient of recipients) {
+      if (!recipient.email) continue
+      const accepted = await this.email.sendForStore({
+        storeId: campaign.storeId,
+        to: recipient.email,
+        subject: campaign.subject?.trim() || campaign.name,
+        html: generateCampaignEmailHTML({
+          subject: campaign.subject?.trim() || campaign.name,
+          body: campaign.body,
+          customerName: `${recipient.firstName} ${recipient.lastName}`.trim(),
+          siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL,
+        }),
+        text: campaign.body,
+      })
+      if (accepted) sent += 1
+    }
 
-    return { sent: recipients.length }
+    await this.prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        status: sent > 0 ? 'SENT' : 'FAILED',
+        sentAt: sent > 0 ? new Date() : null,
+        totalSent: sent,
+        totalDelivered: sent,
+      },
+    })
+    return { sent }
   }
 
   // ── ABANDONED CART FLOW ───────────────────────────────────
@@ -181,7 +213,7 @@ Return JSON with: { subject, body, smsText }
   // ── HELPERS ───────────────────────────────────────────────
 
   private async getRecipients(storeId: string, audience: string, tag?: string) {
-    const where: Record<string, unknown> = { storeId }
+    const where: Record<string, unknown> = { storeId, acceptMarketing: true, email: { not: null } }
 
     if (audience === 'LOYAL') {
       where['loyaltyTier'] = { in: ['GOLD', 'PLATINUM', 'DIAMOND'] }
@@ -195,7 +227,7 @@ Return JSON with: { subject, body, smsText }
       where['tags'] = { has: tag }
     }
 
-    return this.prisma.customer.findMany({ where, select: { id: true, phone: true, email: true } })
+    return this.prisma.customer.findMany({ where, select: { id: true, phone: true, email: true, firstName: true, lastName: true } })
   }
 
   async getCampaigns(storeId: string) {

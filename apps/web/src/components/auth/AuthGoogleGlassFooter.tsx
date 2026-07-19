@@ -70,7 +70,7 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
   const { step, googleLoading, googleError, setGoogleError, runGoogleSignIn } = useAuthGoogleBridge()
   const showMotion = useAuthShowMotion()
   const tapTransition = authMotionTransition(!showMotion, 0.16)
-  const pressMotion = showMotion && !googleLoading ? { whileTap: authTapSpring, whileHover: { opacity: 0.92 } } : {}
+  const pressMotion = showMotion && !googleLoading ? { whileTap: authTapSpring, whileHover: { opacity: 0.97 } } : {}
   const googleClientId = runtimeGoogleClientId || BAKED_GOOGLE
   const configured = Boolean(googleClientId)
 
@@ -100,8 +100,12 @@ export function AuthGoogleGlassFooter({ placement = 'in-card' }: { placement?: '
           googleBtn.click()
           return
         }
+        const host = typeof window !== 'undefined' ? window.location.hostname : ''
+        const isLocalDev = host === 'localhost' || host === '127.0.0.1'
         setGoogleError(
-          'Google sign-in could not load. Check your connection, disable ad blockers for splaro.co, then refresh.',
+          isLocalDev
+            ? 'Google could not start. In Google Cloud Console → OAuth client → Authorized JavaScript origins, add both http://localhost:3000 and http://127.0.0.1:3000, then refresh.'
+            : 'Google sign-in could not load. Check your connection, disable ad blockers for this site, then refresh.',
         )
       } finally {
         openingRef.current = false

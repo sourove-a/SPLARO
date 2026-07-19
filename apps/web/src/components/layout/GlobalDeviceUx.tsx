@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { unlockLenisPointer } from '@/lib/motion/unlock-lenis-pointer'
 import { applyScrollProfileAttributes, detectScrollProfile } from '@/lib/motion/scroll'
-import { isLowPowerDevice } from '@/lib/earth/globe-performance'
+import { isLowPowerDevice, isWindowsOS } from '@/lib/earth/globe-performance'
 import { useUiStore } from '@/store/uiStore'
 
 /**
@@ -55,33 +55,37 @@ export function OverlayScrollLockAttr() {
 }
 
 /**
- * Maps vertical mouse wheel → horizontal scroll for any overflow-x container under the cursor.
- * Covers legacy tracks without HorizontalScrollRail (Windows mouse UX).
- * Never steal vertical page scroll — only [data-h-scroll="true"] rails.
+ * Maps intentional horizontal wheel input onto overflow-x rails.
+ * Plain vertical wheel must keep page scrolling, especially on Windows.
  */
 export function GlobalHorizontalWheelScroll() {
   useEffect(() => {
+    if (!isWindowsOS()) return
+
     const onWheel = (event: WheelEvent) => {
       if (event.ctrlKey) return
       if (event.defaultPrevented) return
-      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
-      // Background page must keep wheel while Search/Cart is closed
+      const wantsHorizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+      const shiftWheel = event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)
+      if (!wantsHorizontal && !shiftWheel) return
       if (document.documentElement.getAttribute('data-scroll-lock') === 'overlay') return
 
       const target = event.target as HTMLElement | null
       const rail = target?.closest('[data-h-scroll="true"]') as HTMLElement | null
       if (!rail) return
-      if (target?.closest('[data-lenis-prevent]')) return
+      const preventZone = target?.closest('[data-lenis-prevent]') as HTMLElement | null
+      if (preventZone && preventZone !== rail) return
 
       const max = rail.scrollWidth - rail.clientWidth
       if (max <= 1) return
-      const goingRight = event.deltaY > 0
+      const delta = wantsHorizontal ? event.deltaX : event.deltaY
+      const goingRight = delta > 0
       if ((goingRight && rail.scrollLeft >= max - 1) || (!goingRight && rail.scrollLeft <= 1)) {
         return
       }
 
       event.preventDefault()
-      rail.scrollLeft += event.deltaY
+      rail.scrollLeft += delta
     }
 
     document.addEventListener('wheel', onWheel, { passive: false, capture: true })

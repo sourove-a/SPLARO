@@ -28,8 +28,9 @@ if (reclaim.reason === 'healthy') {
 }
 
 const child = spawnCli(
-  'pnpm',
+  'corepack',
   [
+    'pnpm',
     'exec',
     'ts-node-dev',
     '--respawn',

@@ -1,10 +1,13 @@
 /** Internal demo-catalog markers — must not appear on the public storefront. */
 const DEMO_SKU_PREFIX = /^DEMO-/i
+/** Seed/QA SKUs like "SPL-QA-30-WEEKENDCROS" — internal test codes, never customer-facing. */
+const QA_SEED_SKU_PATTERN = /(?:^|[-_])QA(?:[-_]|\d)/i
 const SEED_DESCRIPTION_PATTERN =
-  /seeded demo product|replace with real inventory via admin when ready|demo catalog for (?:checkout testing|local development)/i
+  /seeded demo product|seeded for storefront QA|SPLARO QA catalog|checkout QA coverage|replace with real inventory via admin when ready|demo catalog for (?:checkout testing|local development)/i
 
 export function isDemoCatalogSku(sku?: string | null): boolean {
-  return DEMO_SKU_PREFIX.test(sku?.trim() ?? '')
+  const trimmed = sku?.trim() ?? ''
+  return DEMO_SKU_PREFIX.test(trimmed) || QA_SEED_SKU_PATTERN.test(trimmed)
 }
 
 /** True when copy/SKU scream seed/demo — never ship to OG tags or storefront cards. */

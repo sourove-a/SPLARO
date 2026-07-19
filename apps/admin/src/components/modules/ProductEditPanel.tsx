@@ -69,7 +69,7 @@ function toDatetimeLocalValue(value: string | Date | null | undefined): string {
 
 function SectionNumber({ n }: { n: number }) {
   return (
-    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(200,169,126,0.18)] text-[10px] font-black text-[#9a7b52]">
+    <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(16, 17, 20, 0.18)] text-[10px] font-black text-[#3f3f46]">
       {n}
     </span>
   )
@@ -112,7 +112,10 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   const { navigate } = useAdminNavigate()
   const { data: product, isLoading, isError, refetch } = useProduct(productId)
   const { data: categoryTreeData } = useCategoryTree()
-  const categories = categoryTreeData?.categories ?? []
+  const categories = useMemo(
+    () => categoryTreeData?.categories ?? [],
+    [categoryTreeData?.categories],
+  )
   const { data: collectionsData } = useCollections()
   const collections = collectionsData?.collections ?? []
   const updateProduct = useUpdateProduct()
@@ -604,7 +607,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(200,169,126,0.1)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(16, 17, 20, 0.1)]">
           <Loader2 className="h-5 w-5 animate-spin text-[var(--admin-brand-gold)]" />
         </div>
         <p className="text-sm font-bold text-[#6B6B6B]">Loading product…</p>
@@ -891,7 +894,7 @@ export function ProductEditPanel({ productId, moduleHref }: ProductEditPanelProp
                           if (ok) void refetch()
                         })()
                       }}
-                      className="rounded-lg bg-[rgba(200,169,126,0.12)] px-2.5 py-1 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50"
+                      className="rounded-lg bg-[rgba(16, 17, 20, 0.12)] px-2.5 py-1 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.22)] disabled:opacity-50"
                     >
                       Restore
                     </button>

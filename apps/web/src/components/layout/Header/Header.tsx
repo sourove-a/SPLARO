@@ -1,37 +1,40 @@
 'use client'
 
+import '@/styles/pages/cart.css'
+
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { MotionLink, MotionPressable } from '@/components/ui/MotionPressable'
 import { AnimatePresence, motion } from '@/lib/motion/react'
-import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react'
+import { Menu, Search, ShoppingBag, User, X } from 'lucide-react'
 import { TopBar } from './TopBar'
 import { Navigation } from './Navigation'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
-import { useWishlistStore } from '@/store/wishlistStore'
 import { useUiStore } from '@/store/uiStore'
 import { useHeaderScroll } from '@/hooks/useScrollY'
 import { cn } from '@/lib/utils/cn'
-import { isTouchUiViewport } from '@/lib/hooks/use-mobile-viewport'
 
 const MobileMenu = dynamic(() => import('./MobileMenu').then((m) => m.MobileMenu))
 const CartDrawer = dynamic(() => import('@/components/cart').then((m) => m.CartDrawer))
 const SearchModal = dynamic(() => import('./SearchModal').then((m) => m.SearchModal))
 
+const DESKTOP_MQ = '(min-width: 1024px)'
+
 export function Header() {
   const pathname = usePathname()
+  const router = useRouter()
   const isHome = pathname === '/'
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
 
   const cartHydrated = useCartStore((s) => s._hydrated)
   const cartCount = useCartStore((s) => s.itemCount)
-  const wishlistHydrated = useWishlistStore((s) => s._hydrated)
-  const wishlistCount = useWishlistStore((s) => s.productIds.length)
-  const authHydrated = useAuthStore((s) => s._hydrated)
   const user = useAuthStore((s) => s.user)
+  // Prefer cached user (persist) so guests never wait on /api/auth/me before /login.
+  const accountHref = user ? '/account' : '/login'
   const {
     isMobileMenuOpen,
     isSearchOpen,
@@ -41,11 +44,26 @@ export function Header() {
     setCartOpen,
   } = useUiStore()
 
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_MQ)
+    const sync = () => setIsDesktop(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  useEffect(() => {
+    if (accountHref !== '/login') return
+    router.prefetch('/login')
+  }, [accountHref, router])
+
   const headerPinned =
     isMobileMenuOpen || isSearchOpen || isCartOpen || isMegaMenuOpen
 
   const { isScrolled } = useHeaderScroll(isHome ? 60 : 24, headerPinned)
-  const isOverHero = isHome && !isScrolled
+  // Mobile search needs solid chrome; desktop can stay over-hero with glass field
+  const forceSolidForSearch = isSearchOpen && !isDesktop
+  const isOverHero = isHome && !isScrolled && !forceSolidForSearch
 
   useEffect(() => {
     const root = document.documentElement
@@ -57,39 +75,18 @@ export function Header() {
     return () => root.removeAttribute('data-home-hero')
   }, [isHome, isOverHero])
 
-  // Desktop only: warm search thumbs while idle. Skip homepage — SSR preview already loaded.
+  // Route change must clear search overlay — otherwise mobile dock stays hidden.
   useEffect(() => {
-    if (isHome || isTouchUiViewport()) return
-    const controller = new AbortController()
-    const warm = () => {
-      void fetch('/api/products?limit=48', {
-        cache: 'force-cache',
-        signal: controller.signal,
-      }).catch(() => {})
-    }
-    const win = window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
-      cancelIdleCallback?: (id: number) => void
-    }
-    if (win.requestIdleCallback) {
-      const id = win.requestIdleCallback(warm, { timeout: 2500 })
-      return () => {
-        win.cancelIdleCallback?.(id)
-        controller.abort()
-      }
-    }
-    const t = window.setTimeout(warm, 1200)
-    return () => {
-      window.clearTimeout(t)
-      controller.abort()
-    }
-  }, [isHome])
+    setSearchOpen(false)
+  }, [pathname, setSearchOpen])
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [setMobileMenuOpen])
   const closeSearch = useCallback(() => setSearchOpen(false), [setSearchOpen])
   const closeCart = useCallback(() => setCartOpen(false), [setCartOpen])
 
   const iconBtnClass = 'site-header-glass__icon-btn'
+  const mobileSearchActive = isSearchOpen && !isDesktop
+  const desktopSearchActive = isSearchOpen && isDesktop
 
   return (
     <>
@@ -101,7 +98,10 @@ export function Header() {
         className={cn(
           'site-header-glass z-chrome-header fixed inset-x-0 bottom-auto pt-[env(safe-area-inset-top)]',
           isOverHero && 'site-header-glass--over-hero',
-          isScrolled && 'site-header-glass--scrolled',
+          (isScrolled || forceSolidForSearch) && 'site-header-glass--scrolled',
+          isSearchOpen && 'site-header-glass--search-open',
+          desktopSearchActive && 'site-header-glass--search-desktop',
+          mobileSearchActive && 'site-header-glass--search-mobile',
         )}
         role="banner"
       >
@@ -112,34 +112,21 @@ export function Header() {
               aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMobileMenuOpen}
               variant="nav"
-              className={cn(iconBtnClass, 'site-header-glass__menu-btn lg:hidden')}
+              className={cn(
+                iconBtnClass,
+                'site-header-glass__menu-btn lg:hidden',
+                mobileSearchActive && 'site-header-glass__chrome-hide',
+              )}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                {isMobileMenuOpen ? (
-                  <motion.span
-                    key="close"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <X strokeWidth={1.35} />
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="menu"
-                    initial={{ rotate: 90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: -90, opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    <Menu strokeWidth={1.35} />
-                  </motion.span>
-                )}
-              </AnimatePresence>
+              {isMobileMenuOpen ? <X strokeWidth={1.35} /> : <Menu strokeWidth={1.35} />}
             </MotionPressable>
 
-            <div className="site-header-glass__brand site-header-glass__logo--center-mobile">
+            <div
+              className={cn(
+                'site-header-glass__brand site-header-glass__logo--center-mobile',
+                mobileSearchActive && 'site-header-glass__chrome-hide',
+              )}
+            >
               <SplaroBrandLogo
                 href="/"
                 size="header"
@@ -149,48 +136,66 @@ export function Header() {
               />
             </div>
 
-            <div className="site-header-glass__nav hidden lg:block">
+            <div
+              className={cn(
+                'site-header-glass__nav hidden lg:block',
+                mobileSearchActive && 'site-header-glass__chrome-hide',
+              )}
+            >
               <Navigation onMegaMenuChange={setIsMegaMenuOpen} />
             </div>
 
-            <div className="site-header-glass__actions">
-              <MotionPressable
-                onClick={() => setSearchOpen(true)}
-                aria-label="Search"
-                variant="icon"
-                className={cn(iconBtnClass, 'site-header-glass__action-search')}
-              >
-                <Search strokeWidth={1.35} />
-              </MotionPressable>
+            <div
+              className={cn(
+                'site-header-glass__actions',
+                isSearchOpen && 'site-header-glass__actions--search',
+              )}
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
+                {isSearchOpen ? (
+                  <SearchModal
+                    key="search-field"
+                    isOpen={isSearchOpen}
+                    onClose={closeSearch}
+                    variant={isDesktop ? 'desktop' : 'mobile'}
+                  />
+                ) : (
+                  <motion.div key="search-btn" initial={false} animate={{ opacity: 1 }}>
+                    <MotionPressable
+                      onClick={() => setSearchOpen(true)}
+                      aria-label="Search"
+                      variant="icon"
+                      className={cn(iconBtnClass, 'site-header-glass__action-search')}
+                    >
+                      <Search strokeWidth={1.35} />
+                    </MotionPressable>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <MotionLink
-                href={authHydrated && user ? '/account' : '/login'}
+                href={accountHref}
+                prefetch
                 aria-label="Account"
                 variant="icon"
-                className={cn(iconBtnClass, 'site-header-glass__action-desktop')}
+                className={cn(
+                  iconBtnClass,
+                  'site-header-glass__action-desktop',
+                  mobileSearchActive && 'site-header-glass__chrome-hide',
+                )}
               >
                 <User strokeWidth={1.55} />
-              </MotionLink>
-
-              <MotionLink
-                href="/account?tab=wishlist"
-                aria-label="Wishlist"
-                variant="icon"
-                className={cn(iconBtnClass, 'site-header-glass__action-desktop')}
-              >
-                <Heart strokeWidth={1.55} />
-                {wishlistHydrated && wishlistCount > 0 ? (
-                  <span className="site-header-glass__count-badge">
-                    {wishlistCount > 99 ? '99+' : wishlistCount}
-                  </span>
-                ) : null}
               </MotionLink>
 
               <MotionPressable
                 onClick={() => setCartOpen(true)}
                 aria-label={`Cart (${cartCount} items)`}
                 variant="icon"
-                className={cn(iconBtnClass, 'site-header-glass__action-cart relative hidden lg:inline-flex')}
+                className={cn(
+                  iconBtnClass,
+                  'site-header-glass__action-cart relative hidden lg:inline-flex',
+                  mobileSearchActive && 'site-header-glass__chrome-hide',
+                )}
               >
                 <ShoppingBag strokeWidth={1.55} />
                 {cartHydrated && cartCount > 0 ? (
@@ -207,7 +212,6 @@ export function Header() {
       {isMobileMenuOpen ? (
         <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       ) : null}
-      {isSearchOpen ? <SearchModal isOpen={isSearchOpen} onClose={closeSearch} /> : null}
       {isCartOpen ? <CartDrawer isOpen={isCartOpen} onClose={closeCart} /> : null}
     </>
   )

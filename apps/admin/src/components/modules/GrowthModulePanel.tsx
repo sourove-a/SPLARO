@@ -11,16 +11,16 @@ import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#c8a97e'
-const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
-const GOLD_BORDER = 'rgba(200,169,126,0.32)'
+const GOLD = '#16181d'
+const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
+const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
 
 // ─── Tier config ───────────────────────────────────────────────────────────────
 const TIER_COLOR: Record<string, { bg: string; text: string; border: string }> = {
   BRONZE:   { bg: 'rgba(205,127,50,0.10)',  text: '#9A5A1A', border: 'rgba(205,127,50,0.30)' },
   SILVER:   { bg: 'rgba(154,154,154,0.10)', text: '#5A5A5A', border: 'rgba(154,154,154,0.30)' },
-  GOLD:     { bg: 'rgba(200,169,126,0.12)', text: '#8B6914', border: 'rgba(200,169,126,0.36)' },
+  GOLD:     { bg: 'rgba(16, 17, 20, 0.12)', text: '#8B6914', border: 'rgba(16, 17, 20, 0.36)' },
   PLATINUM: { bg: 'rgba(123,143,161,0.10)', text: '#3D5A73', border: 'rgba(123,143,161,0.30)' },
   DIAMOND:  { bg: 'rgba(91,164,207,0.10)',  text: '#1A6A9A', border: 'rgba(91,164,207,0.30)' },
 }

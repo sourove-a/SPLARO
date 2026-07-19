@@ -39,6 +39,7 @@ const cspImgSrc = [
   'https://raw.githubusercontent.com',
   'https://www.solarsystemscope.com',
   'https://www.facebook.com',
+  'https://*.googleusercontent.com',
 ].join(' ')
 
 const cspMediaSrc = [
@@ -60,11 +61,12 @@ const nextConfig = {
     // CloudLinux NPROC counts threads — parallel build workers get the process killed
     ...(onSameBoxVps ? { cpus: 1, workerThreads: false } : {}),
   },
+  // Fail the VPS build on type/lint errors — CI already gates; hiding here ships broken JS.
   eslint: {
-    ignoreDuringBuilds: onSameBoxVps,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: onSameBoxVps,
+    ignoreBuildErrors: false,
   },
 
   images: {
@@ -80,6 +82,7 @@ const nextConfig = {
       { protocol: 'https', hostname: 'placehold.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'images.pexels.com' },
+      { protocol: 'https', hostname: '**.googleusercontent.com' },
       {
         protocol: 'https',
         hostname: 'media.aarong.com',
@@ -156,12 +159,23 @@ const nextConfig = {
           },
         ],
       },
+      // Marketing / ISR pages only — never CDN-cache account, cart, checkout, auth.
       {
-        source: '/((?!_next/static|_next/image|fonts|images|favicon).*)',
+        source:
+          '/((?!_next/static|_next/image|fonts|images|favicon|api|account|cart|checkout|login|signup|forgot-password|reset-password).*)',
         headers: [
           {
             key: 'Cache-Control',
             value: 'public, s-maxage=60, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/(account|cart|checkout|login|signup|forgot-password|reset-password)(/.*)?',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, no-cache, must-revalidate, max-age=0',
           },
         ],
       },

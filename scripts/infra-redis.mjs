@@ -11,8 +11,17 @@ import { IS_WIN, cliSpawnOpts } from './spawn-utils.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-function tryDocker() {
-  const result = spawnSync('docker', ['compose', 'up', '-d', 'redis'], {
+function tryDockerCompose() {
+  // Docker Desktop (modern): `docker compose`
+  let result = spawnSync('docker', ['compose', 'up', '-d', 'redis'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    ...cliSpawnOpts(),
+  })
+  if (result.status === 0) return true
+
+  // Older installs / some Windows PATH setups: `docker-compose`
+  result = spawnSync('docker-compose', ['up', '-d', 'redis'], {
     cwd: ROOT,
     stdio: 'inherit',
     ...cliSpawnOpts(),
@@ -32,13 +41,14 @@ function tryBrew() {
 
 if (IS_WIN) {
   console.log('📦 Windows — starting Redis via Docker Compose…')
-  if (!tryDocker()) {
+  if (!tryDockerCompose()) {
     console.warn('⚠️  Redis not started — install Docker Desktop or run Redis manually.')
+    console.warn('   Prefer REDIS_URL=redis://127.0.0.1:6379 (not localhost).')
     console.warn('   Dev stack continues; cache/queues fall back until Redis is up.')
   }
 } else if (!tryBrew()) {
   console.log('📦 Homebrew Redis unavailable — trying Docker Compose…')
-  if (!tryDocker()) {
+  if (!tryDockerCompose()) {
     console.warn('⚠️  Redis not started — run: pnpm infra:up')
   }
 }

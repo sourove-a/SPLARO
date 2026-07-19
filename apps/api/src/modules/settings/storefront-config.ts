@@ -126,6 +126,8 @@ export interface OurStoryConfig {
   earthTagline2: string
   showEarthLogo: boolean
   pillars: StoryPillarConfig[]
+  /** Homepage platinum story-deck cards (coverflow). */
+  storyDeckCards: StoryDeckCardConfig[]
   customerStories: CustomerStoriesConfig
 }
 
@@ -158,6 +160,15 @@ export interface SmtpConfig {
   replyTo?: string
 }
 
+export interface SmtpAccountConfig extends SmtpConfig {
+  id: string
+  label: string
+  priority: number
+  lastTestStatus?: 'success' | 'failed'
+  lastTestMessage?: string
+  lastTestedAt?: string
+}
+
 export interface ShippingZonesConfig {
   dhakaSameDay: boolean
   outsideDhaka: boolean
@@ -181,6 +192,7 @@ export interface StorefrontConfig {
   ourStory?: OurStoryConfig
   homepage?: HomepageSectionsConfig
   smtp?: SmtpConfig
+  smtpAccounts?: SmtpAccountConfig[]
   catalogChannels?: CatalogChannel[]
   shippingZones?: ShippingZonesConfig
   catalog?: CatalogPolicyConfig
@@ -196,6 +208,8 @@ import {
   DEFAULT_HOMEPAGE_SECTIONS,
   DEFAULT_OUR_STORY,
 } from './homepage-defaults'
+import { mergeStoryDeckCards, type StoryDeckCardConfig } from './story-deck-defaults'
+export type { StoryDeckCardConfig, StoryDeckCardId, StoryDeckCardIcon } from './story-deck-defaults'
 import {
   type CatalogChannel,
   DEFAULT_CATALOG_CHANNELS,
@@ -357,6 +371,7 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
       ...base.ourStory!,
       ...input.ourStory,
       pillars: input.ourStory?.pillars?.length ? input.ourStory.pillars : base.ourStory!.pillars,
+      storyDeckCards: mergeStoryDeckCards(input.ourStory?.storyDeckCards),
       customerStories: {
         ...base.ourStory!.customerStories,
         ...input.ourStory?.customerStories,
@@ -367,6 +382,7 @@ export function mergeStorefrontConfig(raw: unknown): StorefrontConfig {
     },
     homepage: { ...base.homepage!, ...input.homepage },
     smtp: { ...base.smtp!, ...input.smtp },
+    smtpAccounts: Array.isArray(input.smtpAccounts) ? input.smtpAccounts : [],
     catalogChannels: mergeCatalogChannels(input.catalogChannels ?? base.catalogChannels),
     shopFilters: mergeShopFilters(input.shopFilters ?? base.shopFilters),
     shippingZones: { ...base.shippingZones!, ...input.shippingZones },

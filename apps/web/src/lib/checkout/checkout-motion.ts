@@ -16,5 +16,5 @@ export function checkoutMotionTransition(reduced: boolean | null, ms = 0.24): Tr
   return reduced ? { duration: 0 } : { duration: ms, ease: checkoutEase }
 }
 
-export const checkoutTapSpring = { scale: 0.992 }
+export const checkoutTapSpring = { opacity: 0.9 }
 export const checkoutHoverLift = { opacity: 0.92 }

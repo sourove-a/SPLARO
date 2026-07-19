@@ -13,6 +13,8 @@ export interface CollectionShopContext {
   title: string
   initialCategory: Category
   collectionSlug: string
+  /** Always the route slug — API walks the category tree under this node. */
+  parentCategorySlug: string
   categorySlug?: string
 }
 
@@ -31,6 +33,7 @@ export function resolveCollectionContext(
     title: channel?.label ?? (fromSlug ?? titleFromCollectionSlug(slug)),
     initialCategory,
     collectionSlug: slug,
+    parentCategorySlug: slug,
     ...(fromSlug ? { categorySlug: slugFromCategory(fromSlug) } : {}),
   }
 }

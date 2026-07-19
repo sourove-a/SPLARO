@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import { SplaroBrandLogo } from '@/components/brand/SplaroBrandLogo'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
+import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 import { cn } from '@/lib/utils/cn'
 
 interface MobileMenuProps {
@@ -60,33 +62,18 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const reduceMotion = useReducedMotion()
   const drawerRef = useRef<HTMLElement>(null)
   const touchStartX = useRef(0)
+  useDialogFocusTrap(isOpen, drawerRef, onClose)
+  useOverlayScrollLock(isOpen)
 
   useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (!isOpen) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     document.body.dataset.menuOpen = 'true'
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-
-    const raf = requestAnimationFrame(() => {
-      drawerRef.current
-        ?.querySelector<HTMLElement>('button, a[href]')
-        ?.focus({ preventScroll: true })
-    })
-
     return () => {
-      cancelAnimationFrame(raf)
-      document.body.style.overflow = prev
       delete document.body.dataset.menuOpen
-      document.removeEventListener('keydown', onKey)
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) setOpenLabel(null)
@@ -201,6 +188,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
+            tabIndex={-1}
             variants={drawer}
             initial="hidden"
             animate="show"
@@ -235,7 +223,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 onClick={onClose}
                 aria-label="Close menu"
                 className="mm-drawer__close"
-                {...(reduceMotion ? {} : { whileTap: { scale: 0.992 } })}
+                {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
                 transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />
@@ -269,7 +257,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             )}
                             onClick={() => setOpenLabel(expanded ? null : navItem.label)}
                             aria-expanded={expanded}
-                            {...(reduceMotion ? {} : { whileTap: { scale: 0.992 } })}
+                            {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
                             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                           >
                             <GlassNavIcon label={navItem.label} href={navItem.href} />
@@ -333,7 +321,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                         </>
                       ) : (
                         <motion.div
-                          {...(reduceMotion ? {} : { whileTap: { scale: 0.992 } })}
+                          {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}
                           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         >
                           <Link href={navItem.href} onClick={onClose} className="mm-drawer__glass">
@@ -360,7 +348,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               }
             >
               <div className="mm-drawer__foot-glass">
-                <motion.div {...(reduceMotion ? {} : { whileTap: { scale: 0.992 } })}>
+                <motion.div {...(reduceMotion ? {} : { whileTap: { opacity: 0.96 } })}>
                   <Link href="/login" onClick={onClose} className="mm-drawer__signin">
                     <span className="mm-drawer__signin-icon" aria-hidden>
                       <UserRound className="h-[1.05rem] w-[1.05rem]" strokeWidth={1.75} />

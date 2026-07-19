@@ -69,7 +69,7 @@ function TreeRow({
             ) : null}
             {node.name}
             {DEPARTMENT_SLUGS.includes(node.slug as (typeof DEPARTMENT_SLUGS)[number]) && depth === 0 ? (
-              <span className="ml-1 rounded bg-[rgba(200,169,126,0.15)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#8a6d45]">
+              <span className="ml-1 rounded bg-[rgba(16, 17, 20, 0.15)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#3f3f46]">
                 dept
               </span>
             ) : null}
@@ -139,8 +139,8 @@ function flattenVisible(tree: CategoryTreeNode[], expanded: Set<string>): Catego
 
 export function LiveCategoriesPanel() {
   const { data, isLoading, isError, refetch } = useCategoryTree()
-  const tree = data?.tree ?? []
-  const flat = data?.categories ?? []
+  const tree = useMemo(() => data?.tree ?? [], [data?.tree])
+  const flat = useMemo(() => data?.categories ?? [], [data?.categories])
   const createCategory = useCreateCategory()
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()

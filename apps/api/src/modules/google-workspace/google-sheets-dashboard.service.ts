@@ -82,7 +82,7 @@ export interface DashboardMetrics {
   courierCost: string
   marketingCost: string
   topProducts: DashboardProductRow[]
-  monthlyTrend: Array<{ month: string; orders: number; revenue: number }>
+  monthlyTrend: Array<{ month: string; orders: number; revenue: number; customers: number }>
   integrations: DashboardIntegration[]
   recentOrders: DashboardRecentOrder[]
   recentCustomers: DashboardRecentCustomer[]
@@ -146,7 +146,7 @@ export function buildDashboardLayout(m: DashboardMetrics): DashboardLayout {
     topP.push({ name: '—', stock: 0, sold: 0, revenue: '৳0', status: '—' })
   }
 
-  const trend = m.monthlyTrend.length ? m.monthlyTrend : [{ month: '—', orders: 0, revenue: 0 }]
+  const trend = m.monthlyTrend.length ? m.monthlyTrend : [{ month: '—', orders: 0, revenue: 0, customers: 0 }]
 
   const values: (string | number)[][] = []
 
@@ -312,7 +312,7 @@ export function buildDashboardLayout(m: DashboardMetrics): DashboardLayout {
   // ── HIDDEN CHART DATA ──
   while (values.length < DATA_ROW_START) values.push(blankRow())
 
-  const trendStart = values.length + 1
+  const trendStart = values.length
   values.push(pad(['Month', 'Orders', 'Revenue (BDT)']))
   for (const t of trend) {
     values.push(pad([t.month, t.orders, t.revenue]))
@@ -320,15 +320,15 @@ export function buildDashboardLayout(m: DashboardMetrics): DashboardLayout {
   const trendEnd = values.length
 
   values.push(blankRow())
-  const customerStart = values.length + 1
+  const customerStart = values.length
   values.push(pad(['Month', 'New Customers']))
   for (const t of trend) {
-    values.push(pad([t.month, Math.round(t.orders * 0.3)]))
+    values.push(pad([t.month, t.customers]))
   }
   const customerEnd = values.length
 
   values.push(blankRow())
-  const productStart = values.length + 1
+  const productStart = values.length
   values.push(pad(['Product', 'Stock']))
   for (const p of topP) {
     values.push(pad([p.name, p.stock]))
@@ -336,7 +336,7 @@ export function buildDashboardLayout(m: DashboardMetrics): DashboardLayout {
   const productEnd = values.length
 
   values.push(blankRow())
-  const categoryStart = values.length + 1
+  const categoryStart = values.length
   values.push(pad(['Category', 'Products']))
   values.push(pad(['Catalog', m.products]))
   values.push(pad(['In Stock', topP.filter((p) => p.stock > 0).length]))
@@ -778,14 +778,6 @@ export function buildDashboardDesignRequests(sheetId: number, layout: DashboardL
       padding: { top: 5, bottom: 5, left: 8 },
       borders: { bottom: { style: 'SOLID', color: SPLARO.border, width: 1 } },
     }),
-    // Hide chart data
-    {
-      updateDimensionProperties: {
-        range: { sheetId, dimension: 'ROWS', startIndex: DATA_ROW_START, endIndex: values.length },
-        properties: { hiddenByUser: true },
-        fields: 'hiddenByUser',
-      },
-    },
   ]
 
   const softAxis = { axis: [{ position: 'BOTTOM_AXIS' }, { position: 'LEFT_AXIS' }] }
@@ -817,8 +809,6 @@ export function buildDashboardDesignRequests(sheetId: number, layout: DashboardL
                       sources: [{ sheetId, startRowIndex: chartData.trendStart, endRowIndex: chartData.trendEnd, startColumnIndex: 1, endColumnIndex: 2 }],
                     },
                   },
-                  color: SPLARO.accent,
-                  targetAxis: 'LEFT_AXIS',
                 },
                 {
                   series: {
@@ -826,8 +816,6 @@ export function buildDashboardDesignRequests(sheetId: number, layout: DashboardL
                       sources: [{ sheetId, startRowIndex: chartData.trendStart, endRowIndex: chartData.trendEnd, startColumnIndex: 2, endColumnIndex: 3 }],
                     },
                   },
-                  color: SPLARO.primary,
-                  targetAxis: 'RIGHT_AXIS',
                 },
               ],
               ...softAxis,
@@ -871,8 +859,6 @@ export function buildDashboardDesignRequests(sheetId: number, layout: DashboardL
                     sources: [{ sheetId, startRowIndex: chartData.customerStart, endRowIndex: chartData.customerEnd, startColumnIndex: 1, endColumnIndex: 2 }],
                   },
                 },
-                color: SPLARO.accent,
-                targetAxis: 'LEFT_AXIS',
               }],
               ...softAxis,
             },
@@ -915,8 +901,6 @@ export function buildDashboardDesignRequests(sheetId: number, layout: DashboardL
                     sources: [{ sheetId, startRowIndex: chartData.productStart, endRowIndex: chartData.productEnd, startColumnIndex: 1, endColumnIndex: 2 }],
                   },
                 },
-                color: SPLARO.accent,
-                targetAxis: 'LEFT_AXIS',
               }],
               ...softAxis,
             },
@@ -1001,6 +985,15 @@ export async function prepareDashboardSheet(
         range: { sheetId, startRowIndex: 0, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: DASH_COLS },
       },
     })
+    if (rowCount > DATA_ROW_START) {
+      deleteRequests.push({
+        updateDimensionProperties: {
+          range: { sheetId, dimension: 'ROWS', startIndex: DATA_ROW_START, endIndex: rowCount },
+          properties: { hiddenByUser: false },
+          fields: 'hiddenByUser',
+        },
+      })
+    }
     break
   }
 

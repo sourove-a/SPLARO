@@ -11,8 +11,8 @@ const SECTION_LABELS: { key: keyof HomepageSectionsConfig; label: string; desc: 
   { key: 'trustBar', label: 'Trust bar', desc: 'Delivery / returns / authenticity badges.' },
   { key: 'catalog', label: 'Product catalog', desc: 'Paginated product grid with filters.' },
   { key: 'specialOffer', label: 'Special offer', desc: 'Countdown / promo banner.' },
-  { key: 'ourStory', label: 'Our story', desc: 'Brand story, pillars, and verified reviews dropdown.' },
-  { key: 'instagram', label: 'Instagram feed', desc: 'UGC / social grid section.' },
+  { key: 'ourStory', label: 'Our story', desc: 'Story deck cards, brand copy, pillars, and approved reviews.' },
+  { key: 'instagram', label: 'Instagram feed', desc: 'Reserved — storefront section not mounted yet.' },
   { key: 'newsletter', label: 'Newsletter signup', desc: 'Email capture section at bottom.' },
 ]
 

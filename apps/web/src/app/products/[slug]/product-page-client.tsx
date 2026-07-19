@@ -1,11 +1,11 @@
 'use client'
 
 /** Product detail client — purchase flow + gallery (no PDP wishlist). */
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type SVGProps } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent, type SVGProps } from 'react'
 import { StorefrontImage } from '@/components/ui/StorefrontImage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from '@/lib/motion/react'
+import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,6 +16,7 @@ import {
   Star,
 } from 'lucide-react'
 import { subscribeScroll } from '@/hooks/useScrollY'
+import { snapDocumentScrollToTop } from '@/lib/navigation/snap-scroll-top'
 import { AddToBagIconBadge } from '@/components/product/AddToBagIcon'
 import { MotionAnchor, MotionPressable } from '@/components/ui/MotionPressable'
 import { MotionSwapLabel } from '@/components/ui/MotionSwapLabel/MotionSwapLabel'
@@ -111,6 +112,8 @@ export default function ProductPageClient({
   const setCartOpen = useUiStore((state) => state.setCartOpen)
 
   const [activeImage, setActiveImage] = useState(0)
+  const swipeRef = useRef<{ x: number; y: number; moved: boolean; axis?: 'x' | 'y' } | null>(null)
+  const swipeConsumedUntilRef = useRef(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
@@ -124,9 +127,25 @@ export default function ProductPageClient({
   const sizeRowRef = useRef<HTMLDivElement>(null)
   const optionsRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)
-  const swipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const galleryStageRef = useRef<HTMLDivElement>(null)
   const [showFloatingCta, setShowFloatingCta] = useState(false)
   const { shipping } = useStorefrontSettings()
+
+  // Product open must never inherit shop scrollY (footer landing).
+  useLayoutEffect(() => {
+    snapDocumentScrollToTop()
+    const raf = requestAnimationFrame(() => {
+      snapDocumentScrollToTop()
+      requestAnimationFrame(snapDocumentScrollToTop)
+    })
+    const timers = [50, 150, 300, 600, 1000].map((delay) =>
+      window.setTimeout(snapDocumentScrollToTop, delay),
+    )
+    return () => {
+      cancelAnimationFrame(raf)
+      timers.forEach((timer) => window.clearTimeout(timer))
+    }
+  }, [product.id])
 
   const fullDescription = product.description?.trim() ?? ''
   const shortDesc =
@@ -331,11 +350,15 @@ export default function ProductPageClient({
         }
       }
 
+      // Require scroll intent before floating — the bar used to be prominent
+      // on first paint (inline CTA below the fold on mobile) and crammed the
+      // page together with the bottom nav + chat bubble.
       const topInset = 72
       const bottomInset = 28
       const visible =
         rect.bottom > topInset && rect.top < window.innerHeight - bottomInset
-      const next = !visible
+      const hasScrolled = window.scrollY > 120
+      const next = !visible && hasScrolled
       setShowFloatingCta((prev) => (prev === next ? prev : next))
     }
 
@@ -393,9 +416,29 @@ export default function ProductPageClient({
     }
   }, [product.id])
 
+  // Mobile sticky purchase bar sits above the floating chat/back-to-top —
+  // flag it so those widgets lift clear instead of covering Buy Now.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    if (showFloatingCta) {
+      document.body.setAttribute('data-pdp-sticky-cta', 'true')
+    } else {
+      document.body.removeAttribute('data-pdp-sticky-cta')
+    }
+    return () => {
+      document.body.removeAttribute('data-pdp-sticky-cta')
+    }
+  }, [showFloatingCta])
+
   useEffect(() => {
     trackRecentlyViewed(product.id)
-    trackViewContent({ id: product.id, name: product.name, price: product.price })
+    trackViewContent({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      brand: 'SPLARO',
+    })
     setSelectedSize(sizes[0] ?? null)
     setSelectedColor(colorOptions[0]?.hex ?? null)
     setActiveImage(0)
@@ -412,7 +455,10 @@ export default function ProductPageClient({
     }
   }, [selectedColor, selectedSize, sizeStock, sizes])
 
-  // Warm gallery cache: thumbs immediately, full gallery on idle.
+  // Warm thumb cache only — full-res gallery images are already rendered by
+  // <StorefrontImage> (priority on slide 0, lazy on the rest) via next/image.
+  // A manual full-res prefetch here bypassed the Next image optimizer and
+  // double-fetched every gallery photo (raw Unsplash URL + optimized URL).
   useEffect(() => {
     if (typeof window === 'undefined' || !media.length) return
 
@@ -422,38 +468,7 @@ export default function ProductPageClient({
       thumb.decoding = 'async'
       thumb.src = optimizeImageSrc(item.url, 'thumb')
     }
-
-    const preloadGallery = () => {
-      for (const item of media) {
-        if (item?.type !== 'image' || !item.url) continue
-        const img = new window.Image()
-        img.decoding = 'async'
-        img.src = optimizeImageSrc(item.url, 'gallery')
-      }
-    }
-
-    if (typeof window.requestIdleCallback === 'function') {
-      const idleId = window.requestIdleCallback(preloadGallery, { timeout: 2200 })
-      return () => window.cancelIdleCallback(idleId)
-    }
-
-    const timeoutId = globalThis.setTimeout(preloadGallery, 600)
-    return () => globalThis.clearTimeout(timeoutId)
   }, [media])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !media.length) return
-    const neighbours = [
-      media[(activeImage + 1) % media.length],
-      media[(activeImage - 1 + media.length) % media.length],
-    ]
-    for (const item of neighbours) {
-      if (item?.type !== 'image' || !item.url) continue
-      const img = new window.Image()
-      img.decoding = 'async'
-      img.src = optimizeImageSrc(item.url, 'gallery')
-    }
-  }, [activeImage, media])
 
   useEffect(() => {
     setQuantity((q) => Math.min(Math.max(1, q), Math.max(1, stock)))
@@ -539,7 +554,16 @@ export default function ProductPageClient({
     const item = buildSelectedCartItem()
     if (!item) return false
     addItem(item)
-    trackAddToCart({ id: product.id, name: product.name, price: unitPrice })
+    trackAddToCart({
+      id: item.variantId ?? item.productId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      brand: 'SPLARO',
+      ...(item.size || item.color
+        ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
+        : {}),
+    })
     return true
   }
 
@@ -609,13 +633,23 @@ export default function ProductPageClient({
 
   const handleBuyNow = () => {
     if (isLightboxOpen) closeLightbox()
+    if (!authHydrated) return
     if (!validatePurchaseSelection()) return
     const item = buildSelectedCartItem()
     if (!item) return
     // Merge into cart — never wipe existing lines (Buy Now used to replaceItems).
     addItem(item)
     stageCheckoutItems(useCartStore.getState().items)
-    trackAddToCart({ id: product.id, name: product.name, price: unitPrice })
+    trackAddToCart({
+      id: item.variantId ?? item.productId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      brand: 'SPLARO',
+      ...(item.size || item.color
+        ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
+        : {}),
+    })
     safeClientNavigate(router, getCheckoutEntryPath(Boolean(user)))
   }
 
@@ -633,6 +667,7 @@ export default function ProductPageClient({
   }
   const openGalleryZoom = () => {
     if (media[activeImage]?.type === 'video') return
+    if (Date.now() < swipeConsumedUntilRef.current) return
     if (swipeRef.current?.moved) return
     // Tap cycles photos; expand button / double-click opens fullscreen zoom
     if (media.length > 1) {
@@ -642,40 +677,98 @@ export default function ProductPageClient({
     openLightbox()
   }
 
-  const onGalleryPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const beginGallerySwipe = (x: number, y: number) => {
     if (media[activeImage]?.type === 'video' || media.length < 2) return
-    swipeRef.current = { x: event.clientX, y: event.clientY, moved: false }
+    swipeRef.current = { x, y, moved: false }
+  }
+
+  const trackGallerySwipe = (x: number, y: number) => {
+    const start = swipeRef.current
+    if (!start) return
+    const dx = x - start.x
+    const dy = y - start.y
+    if (!start.axis && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+      start.axis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y'
+    }
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) start.moved = true
+  }
+
+  const endGallerySwipe = (x: number, y: number) => {
+    const start = swipeRef.current
+    if (!start) return
+    const dx = x - start.x
+    const dy = y - start.y
+    const threshold = 32
+    const horizontal =
+      start.axis !== 'y' &&
+      start.moved &&
+      Math.abs(dx) >= threshold &&
+      Math.abs(dx) > Math.abs(dy) * 1.05
+    swipeRef.current = null
+    if (!horizontal) return
+    swipeConsumedUntilRef.current = Date.now() + 350
+    if (dx < 0) nextImage()
+    else prevImage()
+  }
+
+  const onGalleryPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    beginGallerySwipe(event.clientX, event.clientY)
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      /* older browsers */
+    }
   }
 
   const onGalleryPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const start = swipeRef.current
-    if (!start) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) start.moved = true
+    trackGallerySwipe(event.clientX, event.clientY)
   }
 
   const onGalleryPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const start = swipeRef.current
-    if (!start) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    const swiped = start.moved && Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)
-    swipeRef.current = swiped ? { ...start, moved: true } : null
-    if (!swiped) {
-      swipeRef.current = null
-      return
-    }
-    if (dx < 0) nextImage()
-    else prevImage()
-    window.setTimeout(() => {
-      swipeRef.current = null
-    }, 0)
+    endGallerySwipe(event.clientX, event.clientY)
   }
 
   const onGalleryPointerCancel = () => {
     swipeRef.current = null
   }
+
+  const onGalleryTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0]
+    if (!touch) return
+    beginGallerySwipe(touch.clientX, touch.clientY)
+  }
+
+  const onGalleryTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0]
+    const start = swipeRef.current
+    if (!touch || !start) return
+    trackGallerySwipe(touch.clientX, touch.clientY)
+  }
+
+  const onGalleryTouchEnd = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0]
+    if (!touch) {
+      swipeRef.current = null
+      return
+    }
+    endGallerySwipe(touch.clientX, touch.clientY)
+  }
+
+  // Native non-passive touchmove — only lock when swipe axis is horizontal.
+  useEffect(() => {
+    const el = galleryStageRef.current
+    if (!el) return
+    const onMove = (event: TouchEvent) => {
+      const start = swipeRef.current
+      const touch = event.touches[0]
+      if (!start || !touch) return
+      trackGallerySwipe(touch.clientX, touch.clientY)
+      if (start.axis === 'x') event.preventDefault()
+    }
+    el.addEventListener('touchmove', onMove, { passive: false })
+    return () => el.removeEventListener('touchmove', onMove)
+  }, [media.length, activeImage])
 
   const heroMediaTransition =
     activeImage === 0 && media[0]?.type !== 'video'
@@ -731,6 +824,7 @@ export default function ProductPageClient({
           <div className="pp-gallery">
             <div className="pp-gallery__main">
               <div
+                ref={galleryStageRef}
                 className={cn(
                   'pp-gallery__stage pp-gallery__stage--stack',
                   media[activeImage]?.type !== 'video' && 'pp-gallery__stage--zoomable',
@@ -739,6 +833,10 @@ export default function ProductPageClient({
                 onPointerMove={onGalleryPointerMove}
                 onPointerUp={onGalleryPointerUp}
                 onPointerCancel={onGalleryPointerCancel}
+                onTouchStart={onGalleryTouchStart}
+                onTouchMove={onGalleryTouchMove}
+                onTouchEnd={onGalleryTouchEnd}
+                onTouchCancel={onGalleryPointerCancel}
                 onClick={openGalleryZoom}
                 onDoubleClick={(event) => {
                   event.stopPropagation()
@@ -760,23 +858,27 @@ export default function ProductPageClient({
                     : undefined
                 }
               >
-                {galleryAnimated
-                  ? media.map((item, i) => (
-                      <motion.div
-                        key={`${selectedColor ?? 'default'}-${item.type}-${item.url}-${i}`}
-                        className="pp-gallery__slide"
-                        animate={{ opacity: i === activeImage ? 1 : 0 }}
-                        transition={{ duration: PRODUCT_GALLERY_MS, ease: productGalleryEase }}
-                        style={{
-                          pointerEvents: i === activeImage ? 'auto' : 'none',
-                          zIndex: i === activeImage ? 2 : 1,
-                        }}
-                        aria-hidden={i !== activeImage}
-                      >
-                        {renderGallerySlide(item, i)}
-                      </motion.div>
-                    ))
-                  : renderGallerySlide(media[activeImage]!, activeImage)}
+                {/* Always render the same stacked structure — switching between an
+                    animated stack and a bare slide on hydration remounted the hero
+                    <img> and caused a blank gallery flash on first paint. */}
+                {media.map((item, i) => (
+                  <motion.div
+                    key={`${selectedColor ?? 'default'}-${item.type}-${item.url}-${i}`}
+                    className="pp-gallery__slide"
+                    initial={false}
+                    animate={{ opacity: i === activeImage ? 1 : 0 }}
+                    transition={{
+                      duration: galleryAnimated ? PRODUCT_GALLERY_MS : 0,
+                      ease: productGalleryEase,
+                    }}
+                    style={{
+                      zIndex: i === activeImage ? 2 : 1,
+                    }}
+                    aria-hidden={i !== activeImage}
+                  >
+                    {renderGallerySlide(item, i)}
+                  </motion.div>
+                ))}
               </div>
 
               <MotionPressable
@@ -824,9 +926,24 @@ export default function ProductPageClient({
 
             {/* Colour thumbs choose look; arrows / stage click cycle gallery — no second thumb strip. */}
             {media.length > 1 ? (
-              <span className="sr-only" aria-live="polite">
-                Image {activeImage + 1} of {media.length}
-              </span>
+              <>
+                <span className="sr-only" aria-live="polite">
+                  Image {activeImage + 1} of {media.length}
+                </span>
+                <div className="pp-gallery__progress" aria-hidden>
+                  <span className="pp-gallery__progress-label">
+                    {activeImage + 1} / {media.length}
+                  </span>
+                  <span className="pp-gallery__progress-track">
+                    <span
+                      className="pp-gallery__progress-fill"
+                      style={{
+                        width: `${((activeImage + 1) / media.length) * 100}%`,
+                      }}
+                    />
+                  </span>
+                </div>
+              </>
             ) : null}
           </div>
 
@@ -890,7 +1007,6 @@ export default function ProductPageClient({
                 )}
               </div>
               <ProductPurchaseExtras product={product} price={unitPrice} variant="highlights" />
-              <ProductPurchaseExtras product={product} price={unitPrice} variant="delivery" />
             </ProductReveal>
 
             <AnimatePresence mode="wait">
@@ -966,12 +1082,15 @@ export default function ProductPageClient({
                         )}
                         variant="chip"
                       >
+                        {/* 76×90 matches the CSS-rendered 4.75×5.65rem ratio —
+                            square intrinsics triggered the next/image aspect-ratio
+                            console warning. */}
                         <StorefrontImage
                           src={opt.image}
                           alt=""
                           profile="thumb"
-                          width={56}
-                          height={56}
+                          width={76}
+                          height={90}
                           className="pp-color-thumb__img"
                         />
                       </MotionPressable>
@@ -990,14 +1109,15 @@ export default function ProductPageClient({
                       variant="subtle"
                       onClick={() => setSizeGuideOpen(true)}
                     >
-                      <Ruler className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Size Guide
+                      <Ruler className="h-4 w-4" strokeWidth={1.75} />
+                      <span className="pp-size-guide__label">Size Guide</span>
                     </MotionPressable>
                   </div>
-                  <LayoutGroup id="pp-size-select">
                   <motion.div
                     ref={sizeRowRef}
                     className="pp-size-row"
+                    role="group"
+                    aria-label="Select size"
                     variants={productShake}
                     animate={sizeShake && showMotion ? 'shake' : 'idle'}
                   >
@@ -1006,33 +1126,24 @@ export default function ProductPageClient({
                       const disabled = qty === 0
                       const active = selectedSize === size && !disabled
                       return (
-                        <MotionPressable
+                        <button
                           key={size}
                           type="button"
                           onClick={() => !disabled && setSelectedSize(size)}
                           aria-pressed={active}
+                          aria-label={disabled ? `Size ${size}, out of stock` : `Size ${size}`}
                           disabled={disabled}
                           className={cn(
-                            'pp-size-btn pp-pressable',
-                            active && 'pp-size-btn--active pp-size-btn--sliding',
+                            'pp-size-btn',
+                            active && 'pp-size-btn--active',
                             disabled && 'pp-size-btn--unavailable',
                           )}
-                          variant="chip"
                         >
-                          {active && (
-                            <motion.span
-                              layoutId="pp-size-pill"
-                              className="pp-size-btn__pill"
-                              transition={{ type: 'spring', stiffness: 500, damping: 36 }}
-                              aria-hidden
-                            />
-                          )}
                           <span className="pp-size-btn__label">{size}</span>
-                        </MotionPressable>
+                        </button>
                       )
                     })}
                   </motion.div>
-                  </LayoutGroup>
                 </div>
               )}
             </div>

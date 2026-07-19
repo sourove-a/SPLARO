@@ -40,12 +40,15 @@ import { MetaCapiService } from './modules/marketing/meta-capi.service'
 import { BkashService } from './modules/payments/bkash.service'
 import { NagadService } from './modules/payments/nagad.service'
 import { SslCommerzService } from './modules/payments/sslcommerz.service'
+import { PaymentConfirmationService } from './modules/payments/payment-confirmation.service'
+import { StockReservationService } from './modules/payments/stock-reservation.service'
 import { NotificationsService } from './modules/notifications/notifications.service'
 import { AdminTelegramHubService } from './modules/notifications/admin-telegram-hub.service'
 import { OrderNotificationsService } from './modules/notifications/order-notifications.service'
 import { OrderEventsService } from './modules/orders/order-events.service'
 import { OrderStatusService } from './modules/orders/order-status.service'
 import { OrderSideEffectsQueueService } from './modules/orders/order-side-effects-queue.service'
+import { CommerceEventOutboxService } from './modules/orders/commerce-event-outbox.service'
 import { SmsService } from './modules/notifications/sms.service'
 import { EmailService } from './modules/email/email.service'
 import { InvoiceService } from './modules/invoices/invoice.service'
@@ -310,6 +313,8 @@ const queueWorkerProviders = redisQueuesEnabled()
     BkashService,
     NagadService,
     SslCommerzService,
+    PaymentConfirmationService,
+    StockReservationService,
     ProductAdvancedService,
     ProductPublishCron,
     NotificationsService,
@@ -318,6 +323,7 @@ const queueWorkerProviders = redisQueuesEnabled()
     OrderEventsService,
     OrderStatusService,
     OrderSideEffectsQueueService,
+    CommerceEventOutboxService,
     SmsService,
     EmailService,
     InvoiceService,

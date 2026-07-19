@@ -18,21 +18,44 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { AdminButton } from '@/components/ui/AdminButton'
-import { CatalogVisibilityPanel } from '@/components/modules/CatalogVisibilityPanel'
-import { MenuBuilderPanel } from '@/components/modules/MenuBuilderPanel'
-import { ShopFiltersPanel } from '@/components/modules/ShopFiltersPanel'
-import { HomepageVisibilityPanel } from '@/components/modules/HomepageVisibilityPanel'
-import { NewsletterAdminPreview } from '@/components/modules/NewsletterAdminPreview'
-import { OurStoryAdminPanel } from '@/components/modules/OurStoryAdminPanel'
 import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
-import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY } from '@/lib/storefront/homepage-defaults'
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY, mergeStoryDeckCards } from '@/lib/storefront/homepage-defaults'
 import { DEFAULT_CATALOG_CHANNELS, DEFAULT_SHOP_FILTERS, mergeShopFilters } from '@splaro/types'
 import { SPLARO_DOMAINS } from '@splaro/config'
 import { useNewsletterSubscribers, useSettings, useUpdateSettings } from '@/lib/api/hooks'
 import type { AdminSettingsData, FooterGroup, NavLink } from '@/lib/api/settings'
 import { cn } from '@/lib/utils/cn'
+
+const panelLoading = () => <p className="text-sm font-semibold text-[#6B6B6B]">Loading panel…</p>
+
+// Heavy tab panels are code-split so the first tab paints instantly.
+const CatalogVisibilityPanel = dynamic(
+  () => import('@/components/modules/CatalogVisibilityPanel').then((m) => m.CatalogVisibilityPanel),
+  { loading: panelLoading },
+)
+const MenuBuilderPanel = dynamic(
+  () => import('@/components/modules/MenuBuilderPanel').then((m) => m.MenuBuilderPanel),
+  { loading: panelLoading },
+)
+const ShopFiltersPanel = dynamic(
+  () => import('@/components/modules/ShopFiltersPanel').then((m) => m.ShopFiltersPanel),
+  { loading: panelLoading },
+)
+const HomepageVisibilityPanel = dynamic(
+  () => import('@/components/modules/HomepageVisibilityPanel').then((m) => m.HomepageVisibilityPanel),
+  { loading: panelLoading },
+)
+const NewsletterAdminPreview = dynamic(
+  () => import('@/components/modules/NewsletterAdminPreview').then((m) => m.NewsletterAdminPreview),
+  { loading: panelLoading },
+)
+const OurStoryAdminPanel = dynamic(
+  () => import('@/components/modules/OurStoryAdminPanel').then((m) => m.OurStoryAdminPanel),
+  { loading: panelLoading },
+)
 
 type TabId = 'brand' | 'location' | 'navigation' | 'catalog' | 'shopFilters' | 'footer' | 'homepage' | 'marquee' | 'offers' | 'story' | 'newsletter' | 'shipping' | 'smtp'
 
@@ -85,6 +108,7 @@ const EMPTY_SETTINGS: AdminSettingsData = {
   payments: { cod: true, bkash: true, sslcommerz: true, nagad: true },
   shipping: { dhakaSameDay: true, outsideDhaka: true, freeShippingMin: '0', dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
   smtp: { enabled: false, host: '', port: 587, secure: false, user: '', password: '', fromName: 'SPLARO', fromEmail: '', replyTo: '' },
+  smtpAccounts: [],
   emailEnabled: true,
   marketing: { facebookPixelId: '', googleAnalyticsId: '' },
 }
@@ -108,7 +132,19 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
         ...apiData,
         smtp: { ...EMPTY_SETTINGS.smtp, ...(apiData.smtp ?? {}) },
         newsletter: { ...EMPTY_SETTINGS.newsletter, ...(apiData.newsletter ?? {}) },
-        ourStory: { ...DEFAULT_OUR_STORY, ...(apiData.ourStory ?? {}), customerStories: { ...DEFAULT_OUR_STORY.customerStories, ...(apiData.ourStory?.customerStories ?? {}), stories: apiData.ourStory?.customerStories?.stories?.length ? apiData.ourStory.customerStories.stories : DEFAULT_OUR_STORY.customerStories.stories }, pillars: apiData.ourStory?.pillars?.length ? apiData.ourStory.pillars : DEFAULT_OUR_STORY.pillars },
+        ourStory: {
+          ...DEFAULT_OUR_STORY,
+          ...(apiData.ourStory ?? {}),
+          customerStories: {
+            ...DEFAULT_OUR_STORY.customerStories,
+            ...(apiData.ourStory?.customerStories ?? {}),
+            stories: apiData.ourStory?.customerStories?.stories?.length
+              ? apiData.ourStory.customerStories.stories
+              : DEFAULT_OUR_STORY.customerStories.stories,
+          },
+          pillars: apiData.ourStory?.pillars?.length ? apiData.ourStory.pillars : DEFAULT_OUR_STORY.pillars,
+          storyDeckCards: mergeStoryDeckCards(apiData.ourStory?.storyDeckCards),
+        },
         homepage: { ...DEFAULT_HOMEPAGE_SECTIONS, ...(apiData.homepage ?? {}) },
         catalogChannels: apiData.catalogChannels?.length
           ? apiData.catalogChannels
@@ -183,6 +219,20 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
             ? 'Live control — logo, menu, footer, offers, SMTP & location save to your store.'
             : 'Start API + database to control the live storefront.'}
         </p>
+        <span className="flex items-center gap-2">
+          <span className={cn('admin-conn-strip__pulse', !apiOnline && 'admin-conn-strip__pulse--warn')}>
+            <span className="admin-conn-strip__pulse-dot" />
+            {apiOnline ? 'Connected' : 'Offline'}
+          </span>
+          <a
+            href={SPLARO_DOMAINS.site}
+            target="_blank"
+            rel="noreferrer"
+            className="admin-conn-strip__refresh no-underline"
+          >
+            View store
+          </a>
+        </span>
       </div>
 
       <div className="admin-tab-row flex flex-wrap gap-2">
@@ -199,6 +249,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
         ))}
       </div>
 
+      <div key={tab} className="settings-section-enter space-y-5">
       {tab === 'brand' ? (
         <section className="admin-module-card admin-module-card--accent">
           <h3 className="admin-module-card__title">Brand & logo</h3>
@@ -685,6 +736,7 @@ export function StorefrontControlPanel({ initialTab = 'brand' }: StorefrontContr
           </AdminButton>
         </section>
       ) : null}
+      </div>
     </div>
   )
 }
@@ -699,4 +751,9 @@ export function MenuControlPanel() {
 
 export function HomePageControlPanel() {
   return <StorefrontControlPanel initialTab="offers" />
+}
+
+/** Homepage Our Story / platinum story-deck CMS */
+export function OurStoryControlPanel() {
+  return <StorefrontControlPanel initialTab="story" />
 }

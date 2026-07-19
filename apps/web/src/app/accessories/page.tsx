@@ -1,13 +1,14 @@
-import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { AccessoriesClient } from '@/components/accessories/AccessoriesClient'
 import { fetchAllAccessories } from '@/lib/catalog/live'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
-export const metadata: Metadata = {
+export const metadata = createRouteMetadata({
   title: 'Accessories',
   description:
     'Premium handcrafted accessories — eyewear, bags, jewelry, scarves and more from curated manufacturers.',
-}
+  path: '/accessories',
+})
 
 export const revalidate = 60
 

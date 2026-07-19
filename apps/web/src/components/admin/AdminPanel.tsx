@@ -33,10 +33,10 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
       onClick={onToggle}
       role="switch"
       aria-checked={on}
-      className="relative h-6 w-10 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C8A97E] focus-visible:ring-offset-2"
+      className="relative h-6 w-10 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#a1a1aa] focus-visible:ring-offset-2"
       style={{
         background: on
-          ? 'linear-gradient(135deg, #C8A97E 0%, #A8895E 100%)'
+          ? 'linear-gradient(135deg, #f4f4f5 0%, #d4d4d8 100%)'
           : 'rgba(17,17,17,0.15)',
       }}
     >
@@ -111,7 +111,7 @@ function AdminPanel() {
             background: 'rgba(17,17,17,0.94)',
             backdropFilter: 'blur(32px)',
             WebkitBackdropFilter: 'blur(32px)',
-            border: '1px solid rgba(200,169,126,0.25)',
+            border: '1px solid rgba(255,255,255,0.18)',
             borderRadius: '20px',
             boxShadow: '0 32px 80px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.20), inset 0 1.5px 0 rgba(255,255,255,0.08)',
           }}
@@ -119,7 +119,7 @@ function AdminPanel() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
             <div>
-              <p className="text-[0.6rem] font-bold uppercase tracking-[0.22em] text-[#C8A97E]">
+              <p className="text-[0.6rem] font-bold uppercase tracking-[0.22em] text-white/80">
                 Admin Panel
               </p>
               <p className="mt-0.5 text-[0.5rem] text-white/40">
@@ -145,7 +145,7 @@ function AdminPanel() {
                 >
                   <div className="flex items-center gap-2.5">
                     {isOn ? (
-                      <Eye className="h-3.5 w-3.5 text-[#C8A97E]" strokeWidth={2} />
+                      <Eye className="h-3.5 w-3.5 text-white/80" strokeWidth={2} />
                     ) : (
                       <EyeOff className="h-3.5 w-3.5 text-white/30" strokeWidth={2} />
                     )}
@@ -164,7 +164,7 @@ function AdminPanel() {
 
           {/* Payment method toggles */}
           <div className="border-t border-white/10 px-3 py-3">
-            <p className="px-2.5 pb-2 text-[0.58rem] font-bold uppercase tracking-[0.18em] text-[#C8A97E]">
+            <p className="px-2.5 pb-2 text-[0.58rem] font-bold uppercase tracking-[0.18em] text-white/80">
               Checkout payments
             </p>
             {(
@@ -181,7 +181,7 @@ function AdminPanel() {
                 >
                   <div className="flex items-center gap-2.5">
                     {isOn ? (
-                      <Eye className="h-3.5 w-3.5 text-[#C8A97E]" strokeWidth={2} />
+                      <Eye className="h-3.5 w-3.5 text-white/80" strokeWidth={2} />
                     ) : (
                       <EyeOff className="h-3.5 w-3.5 text-white/30" strokeWidth={2} />
                     )}

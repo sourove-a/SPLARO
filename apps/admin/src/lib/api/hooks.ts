@@ -36,6 +36,7 @@ import { fetchInvoices, fetchInvoiceHealth, fetchInvoiceStats, fetchTransactions
 import { fetchSettings, updateSettings, fetchNewsletterSubscribers, fetchCatalogChannelStats, type AdminSettingsData } from './settings'
 import { revalidateWebCache } from './revalidate'
 import { hasPermission, type PermissionAction, type PermissionModule } from '@/lib/auth/permissions'
+import { setAdminApiToken } from '@/lib/auth/api-token'
 import {
   fetchSaaS,
   fetchSecurity,
@@ -1407,7 +1408,10 @@ export function useAdminSession() {
           storeId?: string
           permissions?: string[]
         }
+        apiToken?: string
       }
+      // Shared session query also hydrates the API token once — avoids duplicate /api/auth/me.
+      if (data.apiToken) setAdminApiToken(data.apiToken)
       return data.user ?? null
     },
     staleTime: 60_000,

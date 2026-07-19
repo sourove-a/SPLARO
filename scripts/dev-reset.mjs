@@ -38,7 +38,7 @@ console.log('\nStarting pnpm dev:stack …')
 const refreshHint = IS_WIN ? 'Ctrl+Shift+R' : 'Cmd+Shift+R'
 console.log(`Tip: hard-refresh browser (${refreshHint}) after Ready.\n`)
 
-const child = spawnCli('pnpm', ['dev:stack'], {
+const child = spawnCli('corepack', ['pnpm', 'dev:stack'], {
   cwd: ROOT,
   env: process.env,
 })

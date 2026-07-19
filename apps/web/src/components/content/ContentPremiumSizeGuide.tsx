@@ -83,9 +83,9 @@ export function ContentPremiumSizeGuide({
                     animate: {
                       scale: [1, 1.035, 1],
                       filter: [
-                        'drop-shadow(0 0 0 rgba(201,184,150,0))',
-                        'drop-shadow(0 0 18px rgba(201,184,150,0.45))',
-                        'drop-shadow(0 0 0 rgba(201,184,150,0))',
+                        'drop-shadow(0 0 0 rgba(244,244,245,0))',
+                        'drop-shadow(0 0 18px rgba(244,244,245,0.5))',
+                        'drop-shadow(0 0 0 rgba(244,244,245,0))',
                       ],
                     },
                     transition: {

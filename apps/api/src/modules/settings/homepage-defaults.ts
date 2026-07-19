@@ -4,6 +4,14 @@ import type {
   OurStoryConfig,
   StoryPillarConfig,
 } from './storefront-config'
+import { DEFAULT_STORY_DECK_CARDS } from './story-deck-defaults'
+
+export { DEFAULT_STORY_DECK_CARDS, mergeStoryDeckCards } from './story-deck-defaults'
+export type {
+  StoryDeckCardConfig,
+  StoryDeckCardIcon,
+  StoryDeckCardId,
+} from './story-deck-defaults'
 
 export const DEFAULT_STORY_PILLARS: StoryPillarConfig[] = [
   {
@@ -45,6 +53,7 @@ export const DEFAULT_OUR_STORY: OurStoryConfig = {
   earthTagline2: 'Rooted in heritage.',
   showEarthLogo: true,
   pillars: DEFAULT_STORY_PILLARS,
+  storyDeckCards: DEFAULT_STORY_DECK_CARDS.map((card) => ({ ...card })),
   customerStories: {
     enabled: true,
     label: 'Verified Reviews',
@@ -62,6 +71,6 @@ export const DEFAULT_HOMEPAGE_SECTIONS: HomepageSectionsConfig = {
   catalog: true,
   specialOffer: true,
   ourStory: true,
-  instagram: true,
+  instagram: false,
   newsletter: true,
 }

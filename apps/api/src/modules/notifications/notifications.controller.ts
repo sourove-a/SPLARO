@@ -3,6 +3,11 @@ import { PrismaService } from '../../common/prisma.service'
 import { resolveStoreId } from '../../common/store.util'
 import { NotificationsService } from './notifications.service'
 import { EmailService } from '../email/email.service'
+import { mergeStorefrontConfig } from '../settings/storefront-config'
+import {
+  generateSmtpTestEmailHTML,
+  generateSmtpTestEmailText,
+} from '../email/smtp-test-email.template'
 
 @Controller('admin/notifications')
 export class NotificationsController {
@@ -65,18 +70,48 @@ export class NotificationsController {
     const sent = await this.email.sendForStore({
       storeId: sid,
       to,
-      subject: 'SPLARO test email ✓',
-      html: '<h2>Test email from SPLARO</h2><p>Your SMTP configuration is working correctly.</p>',
+      subject: 'SPLARO email connection confirmed',
+      html: generateSmtpTestEmailHTML({
+        recipient: to,
+        siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL,
+      }),
+      text: generateSmtpTestEmailText({ recipient: to }),
       transactional: true,
     })
-    return { ok: sent }
+    return {
+      ok: sent,
+      message: sent
+        ? `SMTP accepted the test email for ${to}.`
+        : 'SMTP did not accept the test email. Check credentials and sender settings.',
+    }
   }
 
   /** Verify SMTP configuration */
   @Post('verify/smtp')
-  async verifySmtp(@Body('storeId') storeId: string) {
-    const sid = await resolveStoreId(this.prisma, storeId)
-    return this.email.verifySmtp(sid)
+  async verifySmtp(@Body() body: { storeId: string; accountId?: string }) {
+    const sid = await resolveStoreId(this.prisma, body.storeId)
+    const result = await this.email.verifySmtp(sid, body.accountId)
+    if (body.accountId) {
+      const settings = await this.prisma.siteSettings.findUnique({ where: { storeId: sid } })
+      const config = mergeStorefrontConfig(settings?.storefrontConfig)
+      const smtpAccounts = (config.smtpAccounts ?? []).map((account) =>
+        account.id === body.accountId
+          ? {
+              ...account,
+              lastTestStatus: result.ok ? ('success' as const) : ('failed' as const),
+              lastTestMessage: result.message,
+              lastTestedAt: new Date().toISOString(),
+            }
+          : account,
+      )
+      if (settings) {
+        await this.prisma.siteSettings.update({
+          where: { storeId: sid },
+          data: { storefrontConfig: { ...config, smtpAccounts } as object },
+        })
+      }
+    }
+    return result
   }
 
   /** Notification preferences for the store */

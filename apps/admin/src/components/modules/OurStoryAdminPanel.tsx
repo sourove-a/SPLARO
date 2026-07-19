@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Plus, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import type { AdminSettingsData, StoryPillarIcon } from '@/lib/api/settings'
+import type { StoryDeckCardConfig, StoryDeckCardIcon } from '@/lib/storefront/story-deck-defaults'
+import { DEFAULT_STORY_DECK_CARDS, mergeStoryDeckCards } from '@/lib/storefront/story-deck-defaults'
 
 const PILLAR_ICONS: { id: StoryPillarIcon; label: string }[] = [
   { id: 'sprout', label: 'Sprout' },
@@ -12,6 +14,17 @@ const PILLAR_ICONS: { id: StoryPillarIcon; label: string }[] = [
   { id: 'star', label: 'Star' },
   { id: 'heart', label: 'Heart' },
   { id: 'sparkles', label: 'Sparkles' },
+]
+
+const DECK_ICONS: { id: StoryDeckCardIcon; label: string }[] = [
+  { id: 'leaf', label: 'Leaf' },
+  { id: 'gem', label: 'Gem' },
+  { id: 'scissors', label: 'Scissors' },
+  { id: 'feather', label: 'Feather' },
+  { id: 'shirt', label: 'Shirt' },
+  { id: 'sparkles', label: 'Sparkles' },
+  { id: 'people', label: 'People' },
+  { id: 'crown', label: 'Crown' },
 ]
 
 function newPillarId() {
@@ -30,9 +43,27 @@ interface OurStoryAdminPanelProps {
 
 export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStoryAdminPanelProps) {
   const story = draft.ourStory
+  const deckCards = mergeStoryDeckCards(story.storyDeckCards)
 
   const updateStory = (patch: Partial<AdminSettingsData['ourStory']>) => {
-    setDraft((prev) => ({ ...prev, ourStory: { ...prev.ourStory, ...patch } }))
+    setDraft((prev) => ({
+      ...prev,
+      ourStory: { ...prev.ourStory, ...patch },
+      // Keep homepage section toggle in sync with the story master switch.
+      ...(typeof patch.enabled === 'boolean'
+        ? { homepage: { ...prev.homepage, ourStory: patch.enabled } }
+        : {}),
+    }))
+  }
+
+  const saveStoryCopy = () => {
+    onSave(
+      {
+        ourStory: draft.ourStory,
+        homepage: { ...draft.homepage, ourStory: draft.ourStory.enabled },
+      },
+      'Our Story',
+    )
   }
 
   const updateCustomerStories = (patch: Partial<AdminSettingsData['ourStory']['customerStories']>) => {
@@ -76,6 +107,30 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
     updateStory({ pillars: story.pillars.filter((pillar) => pillar.id !== id) })
   }
 
+  const updateDeckCard = (id: StoryDeckCardConfig['id'], patch: Partial<StoryDeckCardConfig>) => {
+    updateStory({
+      storyDeckCards: deckCards.map((card) => (card.id === id ? { ...card, ...patch } : card)),
+    })
+  }
+
+  const resetDeckCards = () => {
+    updateStory({
+      storyDeckCards: DEFAULT_STORY_DECK_CARDS.map((card) => ({ ...card })),
+    })
+  }
+
+  const saveStoryDeck = () => {
+    onSave(
+      {
+        ourStory: {
+          ...draft.ourStory,
+          storyDeckCards: mergeStoryDeckCards(draft.ourStory.storyDeckCards),
+        },
+      },
+      'Story deck cards',
+    )
+  }
+
   const saveVerifiedReviewsSection = () => {
     onSave(
       {
@@ -99,7 +154,9 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="admin-module-card__title">Our Story section</p>
-            <p className="admin-module-card__text mt-1">Headline, pillars, quote, and earth panel copy.</p>
+            <p className="admin-module-card__text mt-1">
+              Homepage brand story header, quote, and section visibility.
+            </p>
           </div>
           <label className="admin-check-row shrink-0">
             <span className="text-sm font-semibold">Show on homepage</span>
@@ -137,28 +194,114 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
             <span className="admin-kpi__label">Quote attribution</span>
             <input className="admin-input" value={story.quoteAttribution} onChange={(e) => updateStory({ quoteAttribution: e.target.value })} />
           </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Earth tagline line 1</span>
-            <input className="admin-input" value={story.earthTagline1} onChange={(e) => updateStory({ earthTagline1: e.target.value })} />
-          </label>
-          <label className="admin-field">
-            <span className="admin-kpi__label">Earth tagline line 2</span>
-            <input className="admin-input" value={story.earthTagline2} onChange={(e) => updateStory({ earthTagline2: e.target.value })} />
-          </label>
         </div>
 
-        <label className="admin-check-row mt-4">
-          <span className="text-sm font-semibold">Show logo on earth panel</span>
-          <input
-            type="checkbox"
-            checked={story.showEarthLogo}
-            onChange={() => updateStory({ showEarthLogo: !story.showEarthLogo })}
-            className="h-4 w-4 accent-[#5E7CFF]"
-          />
-        </label>
-
-        <AdminButton variant="gold" className="mt-4" loading={saving} onClick={() => onSave({ ourStory: draft.ourStory }, 'Our Story')}>
+        <AdminButton variant="gold" className="mt-4" loading={saving} onClick={saveStoryCopy}>
           Save story copy
+        </AdminButton>
+      </section>
+
+      <section className="admin-module-card">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="admin-module-card__title">Story deck cards</p>
+            <p className="admin-module-card__text mt-1">
+              Homepage coverflow cards (Origin → Legacy). Edit eyebrow, title, statement, body, detail, and CTA.
+              Voices body can use <code className="text-xs">{'{{reviewCount}}'}</code> for live review count.
+            </p>
+          </div>
+          <AdminButton variant="ghost" onClick={resetDeckCards}>
+            Reset to defaults
+          </AdminButton>
+        </div>
+
+        <div className="grid gap-3">
+          {deckCards.map((card, index) => (
+            <div key={card.id} className="rounded-[16px] border border-black/8 bg-white/70 p-3">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-bold tracking-wide text-[#1a1a1a]">
+                  {String(index + 1).padStart(2, '0')} · {card.title || card.id}
+                </p>
+                <label className="admin-check-row">
+                  <span className="text-xs font-bold">Visible</span>
+                  <input
+                    type="checkbox"
+                    checked={card.enabled}
+                    onChange={() => updateDeckCard(card.id, { enabled: !card.enabled })}
+                    className="h-4 w-4 accent-[#5E7CFF]"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Icon</span>
+                  <select
+                    className="admin-input"
+                    value={card.icon}
+                    onChange={(e) => updateDeckCard(card.id, { icon: e.target.value as StoryDeckCardIcon })}
+                  >
+                    {DECK_ICONS.map((icon) => (
+                      <option key={icon.id} value={icon.id}>
+                        {icon.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Eyebrow</span>
+                  <input
+                    className="admin-input"
+                    value={card.eyebrow}
+                    onChange={(e) => updateDeckCard(card.id, { eyebrow: e.target.value })}
+                  />
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Title</span>
+                  <input
+                    className="admin-input"
+                    value={card.title}
+                    onChange={(e) => updateDeckCard(card.id, { title: e.target.value })}
+                  />
+                </label>
+                <label className="admin-field">
+                  <span className="admin-kpi__label">Statement</span>
+                  <input
+                    className="admin-input"
+                    value={card.statement}
+                    onChange={(e) => updateDeckCard(card.id, { statement: e.target.value })}
+                  />
+                </label>
+                <label className="admin-field md:col-span-2">
+                  <span className="admin-kpi__label">Body (card face)</span>
+                  <textarea
+                    className="admin-input min-h-[72px] resize-none"
+                    value={card.body}
+                    onChange={(e) => updateDeckCard(card.id, { body: e.target.value })}
+                  />
+                </label>
+                <label className="admin-field md:col-span-2">
+                  <span className="admin-kpi__label">Detail (expand panel)</span>
+                  <textarea
+                    className="admin-input min-h-[88px] resize-none"
+                    value={card.detail}
+                    onChange={(e) => updateDeckCard(card.id, { detail: e.target.value })}
+                  />
+                </label>
+                <label className="admin-field md:col-span-2">
+                  <span className="admin-kpi__label">CTA label</span>
+                  <input
+                    className="admin-input"
+                    value={card.cta}
+                    onChange={(e) => updateDeckCard(card.id, { cta: e.target.value })}
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <AdminButton variant="gold" className="mt-4" loading={saving} onClick={saveStoryDeck}>
+          Save story deck cards
         </AdminButton>
       </section>
 
@@ -225,7 +368,7 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
       <section className="admin-module-card">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="admin-module-card__title">Verified reviews dropdown</p>
+            <p className="admin-module-card__title">Approved customer reviews</p>
             <p className="admin-module-card__text mt-1">
               Homepage reviews come from approved product reviews only. Moderate submissions in{' '}
               <Link href="/dashboard/product-reviews" className="font-semibold text-[#5E7CFF] hover:underline">
@@ -235,7 +378,7 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
             </p>
           </div>
           <label className="admin-check-row shrink-0">
-            <span className="text-sm font-semibold">Show dropdown</span>
+            <span className="text-sm font-semibold">Show reviews</span>
             <input
               type="checkbox"
               checked={story.customerStories.enabled}
@@ -246,7 +389,7 @@ export function OurStoryAdminPanel({ draft, setDraft, onSave, saving }: OurStory
         </div>
 
         <label className="admin-field max-w-md">
-          <span className="admin-kpi__label">Dropdown label</span>
+          <span className="admin-kpi__label">Section label</span>
           <input
             className="admin-input"
             value={story.customerStories.label}

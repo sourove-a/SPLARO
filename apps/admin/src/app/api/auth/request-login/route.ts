@@ -17,6 +17,8 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, storeId }),
       cache: 'no-store',
+      // Telegram delivery is awaited upstream — fail cleanly instead of hanging the login UI.
+      signal: AbortSignal.timeout(12_000),
     })
 
     const data = (await res.json()) as { message?: string; error?: string; email?: string; tokenSent?: boolean }
@@ -28,7 +30,13 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true, email: data.email ?? email, tokenSent: data.tokenSent ?? true })
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      return NextResponse.json(
+        { error: 'Login token request timed out. Try again.' },
+        { status: 504 },
+      )
+    }
     return NextResponse.json({ error: 'Unable to reach API. Is pnpm dev:stack running?' }, { status: 503 })
   }
 }

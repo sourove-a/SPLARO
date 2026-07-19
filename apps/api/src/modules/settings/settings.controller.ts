@@ -5,6 +5,7 @@ import { EmailService } from '../email/email.service'
 import { OrderNotificationsService } from '../notifications/order-notifications.service'
 import { DEFAULT_CATALOG_CHANNELS, mergeShopFilters } from '@splaro/types'
 import { emptyStorefrontConfig, mergeStorefrontConfig, mergeHeaderNav, mergeCatalogChannels, type StorefrontConfig } from './storefront-config'
+import { mergeStoryDeckCards } from './story-deck-defaults'
 
 @Controller('admin/settings')
 export class SettingsController {
@@ -119,6 +120,7 @@ export class SettingsController {
       smtp: config.smtp
         ? { ...config.smtp, password: '' }
         : emptyStorefrontConfig().smtp,
+      smtpAccounts: (config.smtpAccounts ?? []).map((account) => ({ ...account, password: '' })),
       emailEnabled: settings?.emailEnabled ?? true,
       marketing: {
         facebookPixelId: settings?.facebookPixelId ?? '',
@@ -275,6 +277,7 @@ export class SettingsController {
         outsideDhakaCharge?: number
       }
       smtp?: StorefrontConfig['smtp']
+      smtpAccounts?: StorefrontConfig['smtpAccounts']
       emailEnabled?: boolean
       marketing?: {
         facebookPixelId?: string
@@ -317,6 +320,11 @@ export class SettingsController {
               pillars: body.ourStory.pillars?.length
                 ? body.ourStory.pillars
                 : currentConfig.ourStory!.pillars,
+              storyDeckCards: mergeStoryDeckCards(
+                body.ourStory.storyDeckCards?.length
+                  ? body.ourStory.storyDeckCards
+                  : currentConfig.ourStory!.storyDeckCards,
+              ),
               customerStories: {
                 ...currentConfig.ourStory!.customerStories,
                 ...body.ourStory.customerStories,
@@ -342,6 +350,18 @@ export class SettingsController {
                 ? body.smtp.password
                 : (currentConfig.smtp?.password ?? ''),
             },
+          }
+        : {}),
+      ...(body.smtpAccounts
+        ? {
+            smtpAccounts: body.smtpAccounts.map((account) => {
+              const existing = currentConfig.smtpAccounts?.find((item) => item.id === account.id)
+              return {
+                ...existing,
+                ...account,
+                password: account.password?.trim() ? account.password : (existing?.password ?? ''),
+              }
+            }),
           }
         : {}),
       ...(body.shipping &&
@@ -384,7 +404,7 @@ export class SettingsController {
     const socialPatch = body.social
     const contactPatch = body.contact
 
-    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.emailEnabled !== undefined || body.marketing) {
+    if (paymentPatch || shippingPatch || socialPatch || contactPatch || body.marquee || body.specialOffer || body.newsletter || body.ourStory || body.homepage || body.catalogChannels || body.shopFilters || body.catalog || body.navigation || body.branding || body.smtp || body.smtpAccounts || body.emailEnabled !== undefined || body.marketing) {
       await this.prisma.siteSettings.upsert({
         where: { storeId: store.id },
         create: {
@@ -456,9 +476,9 @@ export class SettingsController {
   }
 
   @Post('smtp/test')
-  async testSmtp(@Query('storeId') storeId: string) {
+  async testSmtp(@Query('storeId') storeId: string, @Query('accountId') accountId?: string) {
     const store = await this.resolveStore(storeId)
-    const result = await this.emailService.verifySmtp(store.id)
+    const result = await this.emailService.verifySmtp(store.id, accountId)
     return result
   }
 }

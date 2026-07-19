@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { apiAuthMe, getSessionToken } from '@/lib/server/api-auth'
 import { validateCoupon } from '@/lib/server/coupons'
-import { createOrderViaApi, fetchOrdersViaApi } from '@/lib/server/api-orders'
+import { createOrderViaApi, fetchCustomerOrdersViaApi } from '@/lib/server/api-orders'
 import { cacheOrderInFile } from '@/lib/server/orders'
 import { getStorefrontSettings } from '@/lib/storefront/settings'
 import { getClientKey, rateLimit } from '@/lib/server/rate-limit'
@@ -52,6 +52,7 @@ function toClientOrder(order: ServerStoredOrder): ClientStoredOrder {
 }
 
 interface CreateOrderBody {
+  idempotencyKey?: string
   items?: StoredOrderItem[]
   customer?: {
     name?: string
@@ -84,42 +85,27 @@ function isPaymentMethod(value: string): value is PaymentMethod {
 }
 
 export async function GET() {
-  // Validate against the backend session (matches /api/auth/me) so a logged-in
-  // customer's real orders load instead of always 401-ing on the legacy store.
   const sessionToken = await getSessionToken()
-  const sessionUser = sessionToken ? await apiAuthMe(sessionToken) : null
-  if (!sessionUser) {
+  if (!sessionToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const apiOrders = await fetchOrdersViaApi(sessionUser.phone)
-  const orders = apiOrders.map(toClientOrder)
-
-  return NextResponse.json({ orders })
+  try {
+    const apiOrders = await fetchCustomerOrdersViaApi(sessionToken)
+    const orders = apiOrders.map(toClientOrder)
+    return NextResponse.json({ orders })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to load order history'
+    return NextResponse.json({ error: message }, { status: 503 })
+  }
 }
 
 export async function POST(request: Request) {
-  const limit = await rateLimit(getClientKey(request, 'orders-create'), 20, 60_000)
+  const limit = await rateLimit(getClientKey(request, 'orders-create'), 8, 60_000)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many requests', retryAfter: limit.retryAfter },
       { status: 429 },
-    )
-  }
-
-  // Signup / sign-in required — guest checkout is disabled.
-  const sessionToken = await getSessionToken()
-  if (!sessionToken) {
-    return NextResponse.json(
-      { error: 'Create an account or sign in to place an order' },
-      { status: 401 },
-    )
-  }
-  const sessionUser = await apiAuthMe(sessionToken)
-  if (!sessionUser) {
-    return NextResponse.json(
-      { error: 'Create an account or sign in to place an order' },
-      { status: 401 },
     )
   }
 
@@ -130,8 +116,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
+  const paymentMethod = body.payment ?? 'Cash on Delivery'
+  if (!isPaymentMethod(paymentMethod)) {
+    return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 })
+  }
+
+  // Guest COD is allowed — only digital payments require a signed-in customer.
+  const sessionToken = await getSessionToken()
+  const sessionUser = sessionToken ? await apiAuthMe(sessionToken) : null
+  if (isDigitalPayment(paymentMethod)) {
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: 'Sign in is required for online payment. Cash on Delivery works without an account.' },
+        { status: 401 },
+      )
+    }
+    if (process.env.NEXT_PUBLIC_DIGITAL_PAYMENTS_ENABLED !== 'true') {
+      return NextResponse.json(
+        { error: 'Online payment is not available yet. Please choose Cash on Delivery.' },
+        { status: 400 },
+      )
+    }
+  }
+
   const items = body.items ?? []
   const customer = body.customer
+  const idempotencyKey = body.idempotencyKey?.trim()
+
+  if (
+    !idempotencyKey ||
+    idempotencyKey.length < 16 ||
+    idempotencyKey.length > 80 ||
+    !/^[A-Za-z0-9_-]+$/.test(idempotencyKey)
+  ) {
+    return NextResponse.json({ error: 'A valid checkout idempotency key is required' }, { status: 400 })
+  }
 
   if (!items.length) {
     return NextResponse.json({ error: 'Order must include at least one item' }, { status: 400 })
@@ -161,11 +180,6 @@ export async function POST(request: Request) {
     phone: normalizeBdPhone(customer.phone),
     address: customer.address.trim(),
     city: customer.city.trim(),
-  }
-
-  const paymentMethod = body.payment ?? 'Cash on Delivery'
-  if (!isPaymentMethod(paymentMethod)) {
-    return NextResponse.json({ error: 'Invalid payment method' }, { status: 400 })
   }
 
   const subtotal =
@@ -202,9 +216,9 @@ export async function POST(request: Request) {
   try {
     const order = await createOrderViaApi({
       customer: {
-        name: normalizedCustomer.name || sessionUser.name,
-        email: normalizedCustomer.email || sessionUser.email,
-        phone: normalizedCustomer.phone || sessionUser.phone,
+        name: normalizedCustomer.name || sessionUser?.name || '',
+        email: normalizedCustomer.email || sessionUser?.email || '',
+        phone: normalizedCustomer.phone || sessionUser?.phone || '',
         address: normalizedCustomer.address,
         city: normalizedCustomer.city,
       },
@@ -218,7 +232,8 @@ export async function POST(request: Request) {
       ...(body.attribution ? { attribution: body.attribution } : {}),
       ...(clientIp !== 'local' ? { clientIp } : {}),
       ...(userAgent ? { userAgent } : {}),
-      sessionToken,
+      idempotencyKey,
+      ...(sessionToken ? { sessionToken } : {}),
     })
 
     if (!order) {

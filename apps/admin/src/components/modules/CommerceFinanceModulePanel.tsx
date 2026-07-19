@@ -26,7 +26,7 @@ import { useAdminNavigate } from '@/lib/navigation/client-nav'
 
 /* ── Design tokens ────────────────────────────────────────── */
 
-const GOLD = '#c8a97e'
+const GOLD = '#16181d'
 
 type KpiTone = 'gold' | 'warn' | 'success' | 'danger' | 'neutral'
 
@@ -293,7 +293,7 @@ function ReturnsRmaPanel() {
                   </tr>
                   {expandedId === row.id && (
                     <tr>
-                      <td colSpan={9} style={{ background: 'rgba(200,169,126,0.08)', paddingTop: 12, paddingBottom: 12 }}>
+                      <td colSpan={9} style={{ background: 'rgba(16, 17, 20, 0.08)', paddingTop: 12, paddingBottom: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600, marginRight: 4 }}>Items: {row.items}</span>
                           {row.status === 'pending' && (
@@ -950,7 +950,7 @@ function TransactionsPanel() {
                   </tr>
                   {expandedId === row.id && (
                     <tr>
-                      <td colSpan={9} style={{ background: 'rgba(200,169,126,0.08)', paddingTop: 12, paddingBottom: 12 }}>
+                      <td colSpan={9} style={{ background: 'rgba(16, 17, 20, 0.08)', paddingTop: 12, paddingBottom: 12 }}>
                         <TransactionExpandDetail
                           txnId={row.id}
                           orderId={row.orderId}

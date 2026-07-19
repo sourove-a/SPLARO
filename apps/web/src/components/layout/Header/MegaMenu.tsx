@@ -157,7 +157,7 @@ function MegaMenuHeroSlider({
       >
         <ChevronLeft size={16} strokeWidth={2} />
       </button>
-      <div ref={trackRef} className="mega-menu-heroes-slider__track" data-h-scroll="true" data-lenis-prevent>
+      <div ref={trackRef} className="mega-menu-heroes-slider__track" data-h-scroll="true">
         {heroes.map((hero, index) => (
           <div key={hero.href} className="mega-menu-heroes-slider__slide">
             <MegaMenuHeroCard

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail } from 'lucide-react'
+import { CheckCircle2, Mail, Plus, Power, Server, Trash2, XCircle } from 'lucide-react'
 import { TelegramBotConfigPanel } from '@/components/modules/TelegramBotConfigPanel'
 import { sendSmtpTestEmail, verifySmtpConnection } from '@/lib/api/settings'
 import { toastFail, toastOk } from '@/lib/admin/feedback'
@@ -34,6 +34,7 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
   const [showPass, setShowPass] = useState(false)
   const [testing, setTesting] = useState<'verify' | 'send' | null>(null)
   const [testEmailTo, setTestEmailTo] = useState('')
+  const [accountHealth, setAccountHealth] = useState<Record<string, { ok: boolean; message: string }>>({})
 
   const applyHostingerPreset = () => {
     setDraft((p) => ({
@@ -71,6 +72,48 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
     }
   }
 
+  const addSmtpAccount = () => {
+    if (!draft.smtp.host.trim() || !draft.smtp.user.trim() || !draft.smtp.fromEmail.trim()) {
+      toastFail('Host, username, and From email are required.')
+      return
+    }
+    if (!draft.smtp.password.trim()) {
+      toastFail('Enter app password for new SMTP account.')
+      return
+    }
+    const account = {
+      ...draft.smtp,
+      id: `smtp-${Date.now()}`,
+      label: draft.smtp.fromEmail.trim(),
+      priority: draft.smtpAccounts.length + 1,
+      enabled: true,
+    }
+    const smtpAccounts = [...draft.smtpAccounts, account]
+    setDraft((p) => ({ ...p, smtpAccounts }))
+    save({ smtpAccounts }, 'SMTP account', () => toastOk(`${account.label} added to delivery pool.`))
+  }
+
+  const testSmtpAccount = async (id: string) => {
+    setTesting('verify')
+    try {
+      const result = await verifySmtpConnection(id)
+      setAccountHealth((p) => ({ ...p, [id]: result }))
+      if (result.ok) toastOk(result.message)
+      else toastFail(result.message)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'SMTP verification failed'
+      setAccountHealth((p) => ({ ...p, [id]: { ok: false, message } }))
+      toastFail(message)
+    } finally {
+      setTesting(null)
+    }
+  }
+
+  const updateSmtpAccounts = (smtpAccounts: typeof draft.smtpAccounts, label: string) => {
+    setDraft((p) => ({ ...p, smtpAccounts }))
+    save({ smtpAccounts }, label)
+  }
+
   const handleSendTest = async () => {
     const to = testEmailTo.trim() || draft.store.email.trim()
     if (!to) {
@@ -80,8 +123,8 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
     setTesting('send')
     try {
       const result = await sendSmtpTestEmail(to)
-      if (result.ok) toastOk(`Test email sent to ${to}`)
-      else toastFail('Test email failed — check SMTP host, user, and password.')
+      if (result.ok) toastOk(result.message)
+      else toastFail(result.message)
     } catch (err) {
       toastFail(err instanceof Error ? err.message : 'Test email failed')
     } finally {
@@ -104,11 +147,56 @@ export function NotificationsSection({ draft, setDraft, save, saving, apiOnline,
       >
         <div style={{ marginBottom: '1rem' }}>
           <Toggle
-            label="Enable email notifications"
-            desc="Order confirmations, password reset, shipping updates."
+            label="Send automatic customer emails"
+            desc="ON: new orders receive confirmation and invoice. OFF: no automatic order email. Password recovery and manual test remain available."
             checked={draft.emailEnabled}
             onChange={() => setDraft((p) => ({ ...p, emailEnabled: !p.emailEnabled, smtp: { ...p.smtp, enabled: !p.emailEnabled } }))}
           />
+        </div>
+
+        <div style={{ marginBottom: '1.25rem', padding: '1rem', borderRadius: 18, border: '1px solid rgba(17,17,17,.1)', background: 'linear-gradient(135deg,rgba(255,255,255,.92),rgba(248,245,239,.78))' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: draft.smtpAccounts.length ? 12 : 0 }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: 'var(--admin-text-strong)' }}>SMTP delivery pool</p>
+              <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--admin-text-muted)' }}>{draft.smtpAccounts.length} saved account{draft.smtpAccounts.length === 1 ? '' : 's'} · priority failover enabled</p>
+            </div>
+            <button type="button" className="admin-button admin-button--dark" onClick={addSmtpAccount} disabled={saving || !apiOnline} style={{ borderRadius: 999, padding: '10px 16px' }}>
+              <Plus size={14} /> Add SMTP account
+            </button>
+          </div>
+          {draft.smtpAccounts.length === 0 ? (
+            <div style={{ marginTop: 12, padding: '18px', borderRadius: 14, border: '1px dashed rgba(17,17,17,.16)', textAlign: 'center', color: 'var(--admin-text-muted)', fontSize: 12 }}>
+              No saved pool accounts. Fill form below, enter app password, then click Add SMTP account.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {draft.smtpAccounts.map((account, index) => {
+                const persistedHealth = account.lastTestStatus
+                  ? { ok: account.lastTestStatus === 'success', message: account.lastTestMessage || '' }
+                  : undefined
+                const health = accountHealth[account.id] ?? persistedHealth
+                return (
+                  <div key={account.id} style={{ padding: '14px 15px', borderRadius: 15, border: `1px solid ${health ? (health.ok ? 'rgba(22,163,74,.35)' : 'rgba(220,38,38,.42)') : 'rgba(17,17,17,.1)'}`, borderLeft: `4px solid ${health ? (health.ok ? '#16a34a' : '#dc2626') : '#d3a95f'}`, background: health && !health.ok ? 'rgba(254,242,242,.8)' : 'rgba(255,255,255,.8)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 12, background: '#111', color: '#fff', display: 'grid', placeItems: 'center' }}><Server size={17} /></div>
+                      <div style={{ flex: 1, minWidth: 180 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 900 }}>{account.label || account.fromEmail}</p>
+                        <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--admin-text-muted)' }}>#{index + 1} · {account.host}:{account.port} · {account.user}</p>
+                      </div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 800, color: health ? (health.ok ? '#15803d' : '#b91c1c') : '#9a6b18' }}>
+                        {health ? (health.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />) : <Power size={14} />}
+                        {health ? (health.ok ? 'Connected' : 'Failed') : 'Not tested'}
+                      </span>
+                      <button type="button" className="settings-text-link" disabled={testing !== null} onClick={() => void testSmtpAccount(account.id)}>Test</button>
+                      <button type="button" className="settings-text-link" onClick={() => updateSmtpAccounts(draft.smtpAccounts.map((item) => item.id === account.id ? { ...item, enabled: !item.enabled } : item), 'SMTP account status')}>{account.enabled ? 'Disable' : 'Enable'}</button>
+                      <button type="button" aria-label={`Delete ${account.label}`} onClick={() => updateSmtpAccounts(draft.smtpAccounts.filter((item) => item.id !== account.id).map((item, i) => ({ ...item, priority: i + 1 })), 'SMTP account removed')} style={{ border: 0, background: 'rgba(220,38,38,.08)', color: '#b91c1c', width: 32, height: 32, borderRadius: 10, display: 'grid', placeItems: 'center', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                    </div>
+                    {health && !health.ok ? <p style={{ margin: '9px 0 0 50px', fontSize: 11, color: '#b91c1c', fontWeight: 700 }}>{health.message}</p> : null}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>

@@ -15,10 +15,10 @@ const config: Config = {
           300: '#EEEEEE',
         },
         gold: {
-          DEFAULT: '#C8A97E',
-          light: '#D4BA96',
-          dark: '#A8895E',
-          muted: '#E8D5B7',
+          DEFAULT: '#101114',
+          light: '#3f3f46',
+          dark: '#09090b',
+          muted: '#e4e4e7',
         },
         luxury: {
           black: '#111111',
@@ -158,7 +158,7 @@ const config: Config = {
         'luxury-lg': '0 8px 60px rgba(0,0,0,0.10)',
         'luxury-hover': '0 12px 60px rgba(0,0,0,0.14)',
         glass: '0 8px 32px rgba(17,17,17,0.04)',
-        gold: '0 4px 24px rgba(200,169,126,0.20)',
+        gold: '0 4px 24px rgba(16,17,20,0.16)',
       },
     },
   },

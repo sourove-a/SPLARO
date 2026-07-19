@@ -114,7 +114,7 @@ function SpecialOfferContent({ offer }: { offer: SpecialOfferConfig }) {
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage: 'repeating-linear-gradient(45deg, #C8A97E 0, #C8A97E 1px, transparent 0, transparent 50%)',
+          backgroundImage: 'repeating-linear-gradient(45deg, #101114 0, #101114 1px, transparent 0, transparent 50%)',
           backgroundSize: '24px 24px',
         }}
         aria-hidden="true"

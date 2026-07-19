@@ -28,7 +28,7 @@ const STATUS_TABS: { key: ReviewStatus | 'ALL'; label: string }[] = [
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5 text-[#C8A97E]">
+    <span className="inline-flex items-center gap-0.5 text-[#16181d]">
       {Array.from({ length: 5 }).map((_, i) => (
         <Star
           key={i}
@@ -177,7 +177,7 @@ export function ProductReviewsPanel() {
             className={cn(
               'rounded-full border px-3 py-1.5 text-xs font-black transition',
               status === tab.key
-                ? 'border-[#C8A97E] bg-[#C8A97E]/15 text-[#C8A97E]'
+                ? 'border-[#16181d] bg-[#16181d]/15 text-[#16181d]'
                 : 'border-white/10 text-[var(--admin-text-secondary)] hover:border-white/20',
             )}
           >
@@ -259,7 +259,7 @@ export function ProductReviewsPanel() {
                       {row.title && <p className="text-xs font-black">{row.title}</p>}
                       <p className="line-clamp-3 text-xs text-[var(--admin-text-secondary)]">{row.body}</p>
                       {row.adminReply && (
-                        <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[#C8A97E]">
+                        <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-[#16181d]">
                           Reply: {row.adminReply}
                         </p>
                       )}
@@ -300,7 +300,7 @@ export function ProductReviewsPanel() {
                   </tr>
                   {replyId === row.id && (
                     <tr key={`${row.id}-reply`}>
-                      <td colSpan={7} className="bg-[rgba(200,169,126,0.06)] p-4">
+                      <td colSpan={7} className="bg-[rgba(16, 17, 20, 0.06)] p-4">
                         <p className="mb-2 text-xs font-black text-[var(--admin-text-primary)]">
                           Official SPLARO reply (Bangla or English)
                         </p>

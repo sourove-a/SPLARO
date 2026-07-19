@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import '@/styles/pages/shop.css'
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
@@ -16,6 +18,8 @@ import { sortSizes } from '@/lib/catalog/live'
 import { formatBDT } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils/cn'
 import toast from 'react-hot-toast'
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
+import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 
 interface ProductQuickViewProps {
   product: QuickViewProduct | null
@@ -32,6 +36,8 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [sizeShake, setSizeShake] = useState(false)
+  const panelRef = useRef<HTMLElement>(null)
+  useDialogFocusTrap(open, panelRef, onClose)
 
   useEffect(() => {
     if (!open || !product) return
@@ -39,21 +45,9 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
     setSelectedSize(null)
     setSelectedColor(product.colors[0] ?? product.colorOptions[0]?.hex ?? null)
     setSizeShake(false)
-  }, [open, product?.id])
+  }, [open, product])
 
-  useEffect(() => {
-    if (!open) return
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.body.style.overflow = prevOverflow
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open, onClose])
+  useOverlayScrollLock(open)
 
   const galleryImages = useMemo(
     () => (product ? quickViewImagesForColor(product, selectedColor ?? undefined) : []),
@@ -129,6 +123,7 @@ export function ProductQuickView({ product, open, onClose, onAddToBag }: Product
           />
 
           <motion.aside
+            ref={panelRef}
             {...panelMotion}
             className="pqv-panel fixed right-0 top-0 z-[59] flex h-full w-full max-w-[min(100vw,28rem)] flex-col border-l border-white/70 bg-white/[0.94] shadow-[-20px_0_72px_rgba(16,17,20,0.14)]"
             role="dialog"

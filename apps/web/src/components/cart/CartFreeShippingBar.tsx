@@ -15,19 +15,19 @@ export function CartFreeShippingBar({ subtotal, threshold }: CartFreeShippingBar
   const unlocked = remaining <= 0
 
   return (
-    <div className="border-b border-black/5 bg-white/55 px-6 py-3 backdrop-blur-2xl">
-      <div className="mb-2 flex justify-between text-[0.625rem] uppercase tracking-[0.1em] text-luxury-gray">
+    <div className="cart-ship-bar">
+      <div className="cart-ship-bar__row">
         <MotionSwapLabel id={unlocked ? 'unlocked' : 'remaining'}>
           {unlocked ? 'Free shipping unlocked' : `Add ${formatBDT(remaining)} for free delivery`}
         </MotionSwapLabel>
-        <span>{formatBDT(threshold)}</span>
+        <span className="cart-ship-bar__threshold">{formatBDT(threshold)}</span>
       </div>
-      <div className="h-0.5 overflow-hidden rounded-full bg-ivory-300">
+      <div className="cart-ship-bar__track">
         <motion.div
-          className="h-full bg-gold"
+          className="cart-ship-bar__fill"
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
         />
       </div>
     </div>

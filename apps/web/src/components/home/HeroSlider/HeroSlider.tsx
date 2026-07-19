@@ -12,8 +12,10 @@ import { preferLocalHeroSrc, resolveLocalHeroVariants } from '@/lib/assets/hero-
 import { useMobileViewport, isMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 
 const SLIDE_DURATION_MS = 7500
-/** Manual swipe/dots only — autoplay steals main thread on every device. */
-const HERO_AUTOPLAY_ENABLED = false
+/** Opt-out: NEXT_PUBLIC_HERO_AUTOPLAY=0 — default on for premium auto-advance. */
+const HERO_AUTOPLAY_ENABLED =
+  process.env.NEXT_PUBLIC_HERO_AUTOPLAY?.trim() !== '0' &&
+  process.env.NEXT_PUBLIC_HERO_AUTOPLAY?.trim().toLowerCase() !== 'false'
 // Must match --hero-swipe in globals.css — this is the lock window that blocks
 // re-triggering a transition mid-animation. Kept snappy (was 2000ms, felt janky).
 const SWIPE_MS = 850
@@ -180,9 +182,9 @@ function mapBannerToSlide(banner: HeroBanner, index: number): HeroSlide {
     title,
     subtitle,
     primaryHref: href,
-    primaryLabel: 'Shop Now',
-    secondaryHref: '/collections',
-    secondaryLabel: 'View Collection',
+    primaryLabel: 'Shop women',
+    secondaryHref: '/c/women',
+    secondaryLabel: 'Women\'s edit',
   }
 }
 
@@ -234,12 +236,14 @@ function useAllowHeroVideo(): boolean {
 
 function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
   if (typeof window === 'undefined') return
+  const mobile = isMobileViewport()
 
   const warmImage = (slide: HeroSlide) => {
     if (slide.image.trim() && !isBrandLogoPoster(slide.image)) {
+      const local = resolveLocalHeroVariants(slide.image)
       const img = new window.Image()
       img.decoding = 'async'
-      img.src = optimizeImageSrc(slide.image, 'hero')
+      img.src = local ? (mobile ? local.mobile : local.desktop) : optimizeImageSrc(slide.image, 'hero')
     }
   }
 
@@ -255,6 +259,11 @@ function warmHeroSlideMedia(slides: HeroSlide[], eagerOnly?: Set<number>) {
       const slide = slides[i]
       if (slide) warmImage(slide)
     }
+    // Windows / lite: skip warming every remaining hero — ANGLE + decode stutters scroll.
+    const isWin = /Windows/i.test(navigator.userAgent || '')
+    const lite = document.documentElement.getAttribute('data-perf') === 'lite'
+    if (mobile || isWin || lite) return
+
     const schedule =
       typeof window.requestIdleCallback === 'function'
         ? window.requestIdleCallback
@@ -292,7 +301,13 @@ function HeroStaticBackdrop({
   priority: boolean
   eager?: boolean
 }) {
-  if (!src.trim() || isBrandLogoPoster(src)) {
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
+
+  if (!src.trim() || isBrandLogoPoster(src) || failed) {
     return <div className="hero-bg-fallback" aria-hidden />
   }
 
@@ -313,6 +328,7 @@ function HeroStaticBackdrop({
           decoding="async"
           draggable={false}
           style={HERO_MEDIA_STYLE}
+          onError={() => setFailed(true)}
         />
       </picture>
     )
@@ -332,6 +348,7 @@ function HeroStaticBackdrop({
       style={HERO_MEDIA_STYLE}
       draggable={false}
       allowStockMedia
+      onError={() => setFailed(true)}
     />
   )
 }
@@ -486,7 +503,7 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const sliderActive = inViewport && tabVisible
   const indexRef = useRef(index)
   const exitTimerRef = useRef<number | undefined>(undefined)
-  const autoplayIntervalRef = useRef<number | undefined>(undefined)
+  const autoplayTimeoutRef = useRef<number | undefined>(undefined)
   const transitioningRef = useRef(false)
   const pendingIndexRef = useRef<number | null>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -497,8 +514,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   indexRef.current = index
 
   const clearAutoplayTimer = useCallback(() => {
-    window.clearInterval(autoplayIntervalRef.current)
-    autoplayIntervalRef.current = undefined
+    window.clearTimeout(autoplayTimeoutRef.current)
+    autoplayTimeoutRef.current = undefined
   }, [])
 
   const transitionToRef = useRef<(next: number) => void>(() => {})
@@ -506,7 +523,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
   const resetAutoplayTimer = useCallback(() => {
     clearAutoplayTimer()
     if (!HERO_AUTOPLAY_ENABLED || paused || !sliderActive || slides.length <= 1) return
-    autoplayIntervalRef.current = window.setInterval(() => {
+    // Single timeout (not interval) — restarts cleanly after manual next/prev/dot.
+    autoplayTimeoutRef.current = window.setTimeout(() => {
       transitionToRef.current((indexRef.current + 1) % slides.length)
     }, SLIDE_DURATION_MS)
   }, [clearAutoplayTimer, paused, sliderActive, slides.length])
@@ -591,12 +609,10 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   useEffect(() => {
     if (!slides.length) return
-    const isMobile = isMobileViewport()
-    const eager = isMobile
-      ? new Set([0])
-      : new Set([0, slides.length > 1 ? 1 : 0])
+    // Eager: slide 0 + next only. Windows/lite skip idle-warm of the rest (see warmHeroSlideMedia).
+    const eager = new Set([0, slides.length > 1 ? 1 : 0])
     warmHeroSlideMedia(slides, eager)
-    if (isMobileViewport()) return
+    if (isMobileViewport() || /Windows/i.test(navigator.userAgent || '')) return
     const first = slides[0]
     if (!first) return
     const firstVideo = first.video ?? ''
@@ -605,8 +621,12 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
 
   useEffect(() => {
     if (!slides.length) return
-    if (isMobileViewport()) return
     const nextIndex = (index + 1) % slides.length
+    // Windows / mobile: keep only current + next decoded — no full-deck warm.
+    if (isMobileViewport() || /Windows/i.test(navigator.userAgent || '')) {
+      warmHeroSlideMedia(slides, new Set([index, nextIndex]))
+      return
+    }
     const nextSlide = slides[nextIndex]
     if (!nextSlide) return
     const nextVideo = nextSlide.video ?? ''
@@ -628,10 +648,11 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     }
   }, [clearAutoplayTimer])
 
+  // `index` in deps: one-shot timeout must reschedule after every advance (auto or manual).
   useEffect(() => {
     resetAutoplayTimer()
     return clearAutoplayTimer
-  }, [resetAutoplayTimer, clearAutoplayTimer])
+  }, [resetAutoplayTimer, clearAutoplayTimer, index])
 
   const onTouchStart = useCallback((event: React.TouchEvent) => {
     setPaused(true)
@@ -641,16 +662,23 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
   }, [])
 
+  const resumeAfterTouch = useCallback(() => {
+    touchStartRef.current = null
+    setPaused(false)
+  }, [])
+
   const onTouchEnd = useCallback(
     (event: React.TouchEvent) => {
       const start = touchStartRef.current
       const touch = event.changedTouches[0]
       touchStartRef.current = null
+      // Resume autoplay after swipe/tap — must not stay paused forever.
+      setPaused(false)
       if (!start || !touch || slides.length <= 1) return
 
       const deltaX = touch.clientX - start.x
       const deltaY = touch.clientY - start.y
-      if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
+      if (Math.abs(deltaX) < 36 || Math.abs(deltaX) < Math.abs(deltaY) * 1.05) return
 
       setInteracted(true)
       if (deltaX < 0) goNext()
@@ -658,6 +686,14 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
     },
     [goNext, goPrev, slides.length],
   )
+
+  const onTouchCancel = useCallback(() => {
+    resumeAfterTouch()
+  }, [resumeAfterTouch])
+
+  const onPointerCancel = useCallback(() => {
+    resumeAfterTouch()
+  }, [resumeAfterTouch])
 
   if (!slides.length || !slide) {
     return (
@@ -693,6 +729,8 @@ export function HeroSlider({ initialBanners = [] }: HeroSliderProps) {
       aria-roledescription="carousel"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+      onPointerCancel={onPointerCancel}
       onMouseEnter={() => {
         if (prefersHoverPauseRef.current) setPaused(true)
       }}

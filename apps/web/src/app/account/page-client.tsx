@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Building2,
+  Camera,
   ChevronRight,
   Download,
   Headphones,
@@ -25,6 +26,7 @@ import {
   Phone,
   RotateCcw,
   Shield,
+  ShieldCheck,
   ShoppingBag,
   Truck,
   UserRound,
@@ -51,7 +53,9 @@ import {
   ApiError,
   fetchAccountProfile,
   fetchWishlistProducts,
+  sendAccountEmailVerification,
   updateAccountProfile,
+  verifyAccountEmail,
 } from '@/lib/api/account'
 import { displayOrderCode, isFeatureEnabled } from '@splaro/config'
 import { cn } from '@/lib/utils/cn'
@@ -296,6 +300,12 @@ export default function AccountDashboard() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [connectionError, setConnectionError] = useState('')
+  const [verificationOpen, setVerificationOpen] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [verificationBusy, setVerificationBusy] = useState(false)
+  const [verificationError, setVerificationError] = useState('')
+  const [verificationMessage, setVerificationMessage] = useState('')
+  const [verificationCooldown, setVerificationCooldown] = useState(0)
 
   const welcome = searchParams.get('welcome') === '1'
 
@@ -326,6 +336,7 @@ export default function AccountDashboard() {
       if (current) {
         setUser({
           ...current,
+          emailVerified: Boolean(data.user.emailVerified),
           ...(data.user.avatar ? { avatar: data.user.avatar } : {}),
           ...(data.user.phoneVerified ? { phoneVerified: true } : {}),
           ...(data.user.loyaltyTier ? { loyaltyTier: data.user.loyaltyTier } : {}),
@@ -418,6 +429,14 @@ export default function AccountDashboard() {
     if (!authHydrated || !user?.id) return
     void loadAccountProfile()
   }, [authHydrated, user?.id, loadAccountProfile])
+
+  useEffect(() => {
+    if (verificationCooldown <= 0) return
+    const timer = window.setInterval(() => {
+      setVerificationCooldown((value) => Math.max(0, value - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [verificationCooldown])
 
   useEffect(() => {
     if (!wishlistIds.length) {
@@ -528,6 +547,53 @@ export default function AccountDashboard() {
     }
   }
 
+  const handleSendVerification = async () => {
+    if (verificationBusy || verificationCooldown > 0) return
+    setVerificationBusy(true)
+    setVerificationError('')
+    setVerificationMessage('')
+    try {
+      const result = await sendAccountEmailVerification()
+      setVerificationOpen(true)
+      setVerificationMessage(result.message)
+      setVerificationCooldown(result.expiresIn > 0 ? 60 : 0)
+    } catch (error) {
+      if (error instanceof ApiError && error.isAuthError) {
+        await handleSessionExpired()
+        return
+      }
+      setVerificationError(error instanceof Error ? error.message : 'Could not send verification email.')
+    } finally {
+      setVerificationBusy(false)
+    }
+  }
+
+  const handleVerifyEmail = async () => {
+    if (verificationBusy) return
+    const code = verificationCode.replace(/\D/g, '')
+    if (code.length !== 6) {
+      setVerificationError('Enter the 6-digit code from your email.')
+      return
+    }
+    setVerificationBusy(true)
+    setVerificationError('')
+    try {
+      const result = await verifyAccountEmail(code)
+      setUser(result.user)
+      setVerificationCode('')
+      setVerificationOpen(false)
+      setVerificationMessage('Email verified successfully.')
+    } catch (error) {
+      if (error instanceof ApiError && error.isAuthError) {
+        await handleSessionExpired()
+        return
+      }
+      setVerificationError(error instanceof Error ? error.message : 'Could not verify email.')
+    } finally {
+      setVerificationBusy(false)
+    }
+  }
+
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !user) return
@@ -626,11 +692,16 @@ export default function AccountDashboard() {
                 aria-label="Upload profile photo"
                 onChange={handleAvatarChange}
               />
+              <span className="account-avatar-edit" aria-hidden="true">
+                <Camera className="h-3.5 w-3.5" strokeWidth={2.2} />
+              </span>
             </div>
             <div>
               <p className="account-sidebar__name">
                 {user.name}
-                <BadgeCheck className="account-verified-badge h-4 w-4" strokeWidth={2.2} aria-label="Verified member" />
+                {user.emailVerified ? (
+                  <BadgeCheck className="account-verified-badge h-4 w-4" strokeWidth={2.2} aria-label="Verified email" />
+                ) : null}
               </p>
               {loyaltyEnabled ? (
                 <>
@@ -998,7 +1069,8 @@ export default function AccountDashboard() {
                       <AccountIconField
                         label="Email"
                         icon={Mail}
-                        hint="Verified account email"
+                        hint={user.emailVerified ? 'Verified email · secured and locked' : 'Optional verification · account access is not restricted'}
+                        className="account-field--email"
                       >
                         <input
                           readOnly
@@ -1009,7 +1081,52 @@ export default function AccountDashboard() {
                         <span className="account-input-wrap__lock" aria-hidden="true">
                           <Lock className="h-3.5 w-3.5" strokeWidth={2} />
                         </span>
+                        <span className={cn('account-email-status', user.emailVerified ? 'account-email-status--verified' : 'account-email-status--unverified')}>
+                          {user.emailVerified ? <ShieldCheck className="h-3.5 w-3.5" /> : null}
+                          {user.emailVerified ? 'Verified' : 'Unverified'}
+                        </span>
                       </AccountIconField>
+                      {!user.emailVerified ? (
+                        <div className="account-email-verify account-field--full">
+                          <div className="account-email-verify__intro">
+                            <div className="account-email-verify__mark"><Mail className="h-5 w-5" strokeWidth={1.8} /></div>
+                            <div>
+                              <p className="account-email-verify__title">Protect your order updates</p>
+                              <p className="account-email-verify__text">Optional: verify {profile.email} with a private 6-digit code.</p>
+                            </div>
+                            <button
+                              type="button"
+                              className="account-btn account-btn--verify"
+                              onClick={() => void handleSendVerification()}
+                              disabled={verificationBusy || verificationCooldown > 0}
+                            >
+                              {verificationBusy && !verificationOpen ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                              {verificationCooldown > 0 ? `Resend in ${verificationCooldown}s` : verificationOpen ? 'Send again' : 'Verify email'}
+                            </button>
+                          </div>
+                          {verificationOpen ? (
+                            <div className="account-email-verify__form">
+                              <input
+                                value={verificationCode}
+                                onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                                className="account-email-code"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                aria-label="Six digit email verification code"
+                                placeholder="000000"
+                                maxLength={6}
+                                autoFocus
+                              />
+                              <button type="button" className="account-btn account-btn--primary" onClick={() => void handleVerifyEmail()} disabled={verificationBusy || verificationCode.length !== 6}>
+                                {verificationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                Confirm code
+                              </button>
+                            </div>
+                          ) : null}
+                          {verificationMessage ? <p className="account-email-verify__success" role="status">{verificationMessage}</p> : null}
+                          {verificationError ? <p className="account-email-verify__error" role="alert">{verificationError}</p> : null}
+                        </div>
+                      ) : null}
                       <AccountIconField
                         label="Phone"
                         icon={Phone}

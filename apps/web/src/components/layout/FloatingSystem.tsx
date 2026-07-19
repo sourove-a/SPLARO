@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useScrollPastViewport, useScrollToTop } from '@/hooks/useScrollY'
 import { motion, AnimatePresence } from '@/lib/motion/react'
 import { ChevronUp } from 'lucide-react'
@@ -13,7 +14,14 @@ import { resolveWhatsAppNumber, whatsAppHref } from '@/lib/storefront/contact'
 const EASE = [0.16, 1, 0.3, 1] as const
 
 export function FloatingSystem() {
-  const showTop = useScrollPastViewport(0.55)
+  const pathname = usePathname()
+  const isHome = pathname === '/'
+  const isPdp = pathname.startsWith('/products/')
+  // Home + PDP: wait until the visitor scrolls before showing chat — the
+  // bubble was covering the product description / CTA area on first paint.
+  const pastHero = useScrollPastViewport(isPdp ? 0.35 : 0.7)
+  const showTop = useScrollPastViewport(isHome ? 1.15 : 0.55)
+  const showChat = (!isHome && !isPdp) || pastHero
   const scrollToTop = useScrollToTop()
   const isMobileMenuOpen = useUiStore((s) => s.isMobileMenuOpen)
   const settings = useStorefrontSettings()
@@ -29,6 +37,7 @@ export function FloatingSystem() {
 
   const whatsappUrl = whatsAppHref(resolveWhatsAppNumber(settings))
   const hasWhatsApp = whatsappUrl !== '#'
+  const chatVisible = hasWhatsApp && showChat
 
   if (isMobileMenuOpen || filterOpen) return null
 
@@ -44,7 +53,7 @@ export function FloatingSystem() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.9 }}
             whileHover={{ opacity: 0.9 }}
-            whileTap={{ scale: 0.992 }}
+            whileTap={{ opacity: 0.9 }}
             transition={{ duration: 0.2, ease: EASE }}
             className="support-glass-btn support-glass-btn--circle support-glass-btn--scroll"
           >
@@ -54,21 +63,24 @@ export function FloatingSystem() {
         ) : null}
       </AnimatePresence>
 
-      {hasWhatsApp ? (
-      <motion.a
-        href={whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Chat on WhatsApp"
-        whileHover={{ opacity: 0.92 }}
-        whileTap={{ scale: 0.992 }}
-        className={cn('support-glass-btn support-glass-btn--main support-glass-btn--pulse')}
-      >
-        <span className="support-glass-btn__shine" aria-hidden="true" />
-        <span className="support-glass-btn__icon">
-          <SupportBubbleIcon />
-        </span>
-      </motion.a>
+      {chatVisible ? (
+        <motion.a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Chat on WhatsApp"
+          initial={isHome || isPdp ? { opacity: 0, y: 8 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ opacity: 0.92 }}
+          whileTap={{ opacity: 0.9 }}
+          transition={{ duration: 0.2, ease: EASE }}
+          className={cn('support-glass-btn support-glass-btn--main support-glass-btn--pulse')}
+        >
+          <span className="support-glass-btn__shine" aria-hidden="true" />
+          <span className="support-glass-btn__icon">
+            <SupportBubbleIcon />
+          </span>
+        </motion.a>
       ) : null}
     </div>
   )

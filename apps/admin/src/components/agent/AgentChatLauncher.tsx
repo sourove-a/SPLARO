@@ -39,7 +39,7 @@ export function AgentChatLauncher({ online = true, className, size = 'fab' }: Ag
         <MessageCircle
           className={cn(compact ? 'h-4 w-4' : 'h-5 w-5', 'text-[#5E7CFF]')}
           strokeWidth={2}
-          fill="rgba(200,169,126,0.12)"
+          fill="rgba(16, 17, 20, 0.12)"
         />
       </span>
       {online ? (

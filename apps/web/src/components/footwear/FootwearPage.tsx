@@ -65,7 +65,7 @@ export interface FootwearConfig {
 
 // ─── Shoe placeholder SVGs ────────────────────────────────────────────────────
 
-const SHOE_COLORS = ['#C8A97E', '#6B6B6B', '#4A7FA5', '#D4617A', '#2D6A4F']
+const SHOE_COLORS = ['#71717a', '#6B6B6B', '#4A7FA5', '#D4617A', '#2D6A4F']
 
 function ShoePlaceholder({ color, index }: { color?: string; index: number }) {
   const c = color ?? SHOE_COLORS[index % SHOE_COLORS.length]
@@ -119,7 +119,16 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
           ? { color: item.colorsHex[0] }
           : {}),
     })
-    trackAddToCart({ id: item.id, name: item.name, price: item.price })
+    const size = variant?.size ?? item.sizes?.[0]
+    const color = variant?.colorHex ?? item.colorsHex?.[0]
+    trackAddToCart({
+      id: variant?.id ?? item.id,
+      name: item.name,
+      price: item.price,
+      quantity: 1,
+      brand: 'SPLARO',
+      ...(size || color ? { variant: [size, color].filter(Boolean).join(' / ') } : {}),
+    })
   }
 
   const canAddToBag = Boolean(item.slug)
@@ -142,10 +151,9 @@ function ProductCard({ item, index }: { item: FootwearProduct; index: number }) 
           boxShadow: hovered
             ? '0 18px 40px -18px rgba(17,17,17,0.22)'
             : '0 1px 2px rgba(17,17,17,0.03)',
-          transform: hovered ? 'translateY(-3px)' : 'translateY(0)',
         }}
       >
-        {/* Collection / brand tag — top-right (ILYN style) */}
+        {/* Collection / brand tag — top-right (premium style) */}
         <span className="absolute top-2.5 right-2.5 z-10 select-none rounded-full border border-[#111]/10 bg-white/75 px-2.5 py-1 text-[0.5rem] font-semibold uppercase tracking-[0.16em] text-[#4A4A4A] backdrop-blur-sm">
           SPLARO
         </span>
@@ -312,13 +320,13 @@ export function FootwearPage({ config }: { config: FootwearConfig }) {
           ) : (
             /* Placeholder gradient when no real image */
             <div className="absolute inset-0 flex items-end"
-              style={{ background: 'linear-gradient(135deg,#1a1a1a 0%,#3d2b1a 50%,#6b4c2a 100%)' }}
+              style={{ background: 'linear-gradient(135deg,#1a1a1a 0%,#2a2a2e 50%,#3f3f46 100%)' }}
             >
               {/* decorative stone / platform shapes */}
               <div className="absolute bottom-0 left-0 right-0 h-2/3 flex items-end justify-center gap-4 pb-8 select-none pointer-events-none">
-                <div className="w-48 h-32 rounded-t-3xl" style={{ background: 'rgba(200,169,126,0.30)' }} />
-                <div className="w-64 h-44 rounded-t-3xl" style={{ background: 'rgba(200,169,126,0.20)' }} />
-                <div className="w-40 h-24 rounded-t-3xl" style={{ background: 'rgba(200,169,126,0.25)' }} />
+                <div className="w-48 h-32 rounded-t-3xl" style={{ background: 'rgba(16,17,20,0.10)' }} />
+                <div className="w-64 h-44 rounded-t-3xl" style={{ background: 'rgba(16,17,20,0.06)' }} />
+                <div className="w-40 h-24 rounded-t-3xl" style={{ background: 'rgba(16,17,20,0.08)' }} />
               </div>
             </div>
           )}
@@ -386,7 +394,7 @@ export function FootwearPage({ config }: { config: FootwearConfig }) {
                         </div>
                       )}
                     </div>
-                    <span className="text-sm font-medium text-[#111] group-hover:text-[#C8A97E] transition-colors">
+                    <span className="text-sm font-medium text-[#111] group-hover:text-[#101114] transition-colors">
                       {cat.label}
                     </span>
                   </Link>

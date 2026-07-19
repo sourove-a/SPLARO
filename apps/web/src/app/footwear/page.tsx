@@ -1,12 +1,13 @@
-import type { Metadata } from 'next'
 import { FootwearPage, type FootwearConfig } from '@/components/footwear/FootwearPage'
 import { fetchFootwearRowProducts } from '@/lib/catalog/server'
 import { getFootwearPageConfig } from '@/lib/content/get-footwear-config'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
-export const metadata: Metadata = {
+export const metadata = createRouteMetadata({
   title: 'Footwear',
   description: 'Luxury handcrafted footwear — loafers, sandals, heels and more.',
-}
+  path: '/footwear',
+})
 
 export const revalidate = 60
 

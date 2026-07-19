@@ -18,6 +18,7 @@ type CartVariantRow = { id: string; stock: number }
 type CheckoutVariantRow = {
   id: string
   stock: number
+  reservedStock: number
   sku: string | null
   image: string | null
   price: { toString(): string }

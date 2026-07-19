@@ -30,8 +30,7 @@ const STORE_WHATSAPP =
   process.env['NEXT_PUBLIC_SUPPORT_PHONE'] ??
   STORE_CONTACT_PHONE
 
-const DEMO_PRODUCT_IMAGE =
-  'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&q=80&auto=format'
+const DEMO_PRODUCT_IMAGE = '/images/placeholder-product.jpg'
 
 type DemoProductSeed = {
   name: string

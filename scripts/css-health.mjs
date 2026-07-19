@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Probe running dev servers — layout.css must return 200 (catches stale .next / 404 CSS).
+ * Probe running dev servers — emitted CSS must return 200 (catches stale .next / 404 CSS).
  * Usage: pnpm css:health
  */
 import { existsSync } from 'fs'
@@ -12,7 +12,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const targets = [
   { name: 'web', url: 'http://127.0.0.1:3000', port: 3000 },
-  { name: 'admin', url: 'http://127.0.0.1:3001', port: 3001 },
+  { name: 'admin', url: 'http://127.0.0.1:3001/login', port: 3001 },
 ]
 
 async function headStatus(url) {
@@ -50,19 +50,19 @@ for (const t of targets) {
       throw new Error(`home returned HTTP ${status}`)
     }
 
-    const cssMatch = home.match(/href="(\/_next\/static\/css\/[^"]+)"/)
+    const cssMatch = home.match(/href="(\/_next\/static\/(?:css|chunks)\/[^"]+\.css(?:\?[^"]*)?)"/)
     if (!cssMatch) {
-      console.log(`  ⚠️  ${t.name} — no layout.css link in HTML (may still be compiling)`)
+      console.log(`  ⚠️  ${t.name} — no emitted CSS link in HTML (may still be compiling)`)
       continue
     }
 
     const cssPath = cssMatch[1].split('?')[0]
-    const cssStatus = await headStatus(`${t.url}${cssPath}`)
+    const cssStatus = await headStatus(new URL(cssPath, t.url).toString())
     if (cssStatus !== 200) {
-      throw new Error(`layout.css returned HTTP ${cssStatus} — run pnpm css:fix`)
+      throw new Error(`emitted CSS returned HTTP ${cssStatus} — run pnpm css:fix`)
     }
 
-    console.log(`  ✅ ${t.name} — layout.css OK (${cssPath})`)
+    console.log(`  ✅ ${t.name} — emitted CSS OK (${cssPath})`)
   } catch (e) {
     console.log(`  ❌ ${t.name}: ${e.message}`)
     failed++

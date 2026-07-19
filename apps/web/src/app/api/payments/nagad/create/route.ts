@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
   const phone = body.phone?.trim() || order.customer.phone
   const result = await createPayment({
-    orderId: order.id,
+    invoiceNumber: order.invoiceNumber,
     amount: order.total,
     phone,
   })

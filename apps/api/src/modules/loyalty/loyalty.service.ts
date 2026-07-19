@@ -49,12 +49,16 @@ export class LoyaltyService {
     const tierConfigs = await this.prisma.loyaltyTierConfig.findMany({ where: { storeId } })
 
     const currentTier = await this.getTierForPoints(storeId, customer.loyaltyPoints)
-    const multiplier = Number(tierConfigs.find(c => c.tier === currentTier)?.pointsPerBdt)
-      ?? DEFAULT_TIERS.find(t => t.tier === currentTier)?.multiplier
-      ?? 1
+    // Number(undefined) is NaN and NaN ?? x never falls through — resolve the
+    // configured rate first, only then coerce, so DEFAULT_TIERS actually applies
+    // when no loyaltyTierConfig rows exist (fresh store).
+    const configuredRate = tierConfigs.find(c => c.tier === currentTier)?.pointsPerBdt
+    const multiplier = configuredRate != null && Number.isFinite(Number(configuredRate))
+      ? Number(configuredRate)
+      : DEFAULT_TIERS.find(t => t.tier === currentTier)?.multiplier ?? 1
 
     // 1 point per ৳10, multiplied by tier
-    const pointsEarned = Math.floor((orderTotal / 10) * (multiplier as number))
+    const pointsEarned = Math.floor((orderTotal / 10) * multiplier)
 
     const newTotal = customer.loyaltyPoints + pointsEarned
     const newTier = await this.getTierForPoints(storeId, newTotal)

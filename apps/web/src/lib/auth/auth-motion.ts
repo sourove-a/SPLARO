@@ -12,9 +12,9 @@ export function authFadeSlide(reduced: boolean | null) {
   return reduced
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 1 } }
     : {
-        initial: { opacity: 0, y: 8 },
+        initial: { opacity: 1, y: 0 },
         animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -6 },
+        exit: { opacity: 1, y: 0 },
       }
 }
 
@@ -22,9 +22,9 @@ export function authFormMotion(reduced: boolean | null) {
   return reduced
     ? { initial: false as const, animate: { opacity: 1 }, exit: { opacity: 1 } }
     : {
-        initial: { opacity: 0, y: 10 },
+        initial: { opacity: 1, y: 0 },
         animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -8 },
+        exit: { opacity: 1, y: 0 },
       }
 }
 
@@ -32,5 +32,5 @@ export function authMotionTransition(reduced: boolean | null, ms = 0.22): Transi
   return reduced ? { duration: 0 } : { duration: ms, ease: authMotionEase }
 }
 
-export const authTapSpring = { scale: 0.992 }
-export const authHoverLift = { opacity: 0.92 }
+export const authTapSpring = { opacity: 0.96 }
+export const authHoverLift = { opacity: 0.97 }

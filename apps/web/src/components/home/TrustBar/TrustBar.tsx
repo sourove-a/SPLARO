@@ -9,24 +9,24 @@ const items = [
 
 export function TrustBar() {
   return (
-    <div className="trust-bar" aria-label="Delivery and trust assurances">
+    <section className="trust-bar" aria-label="Delivery and trust assurances">
       <div className="container-luxury trust-bar__container">
         <div className="trust-bar__panel">
           <div className="trust-bar__accent" aria-hidden />
           <div className="trust-bar__shine" aria-hidden />
-          <div className="trust-bar__grid">
+          <ul className="trust-bar__grid">
             {items.map(({ icon: Icon, text, short }) => (
-              <div key={text} className="trust-bar__cell">
+              <li key={text} className="trust-bar__cell">
                 <span className="trust-bar__icon">
                   <Icon className="trust-bar__icon-svg" strokeWidth={2} aria-hidden="true" />
                 </span>
                 <span className="trust-bar__label trust-bar__label--full">{text}</span>
-                <span className="trust-bar__label trust-bar__label--short">{short}</span>
-              </div>
+                <span className="trust-bar__label trust-bar__label--short" aria-hidden="true">{short}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
-    </div>
+    </section>
   )
 }

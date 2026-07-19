@@ -329,6 +329,12 @@ export class GoogleSheetsSyncService {
     ])
 
     const productRows: (string | number)[][] = []
+    const configuredStorefrontUrl = (
+      process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co'
+    ).replace(/\/$/, '')
+    const storefrontUrl = /\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(configuredStorefrontUrl)
+      ? 'https://splaro.co'
+      : configuredStorefrontUrl
     let totalStock = 0
     const stockByProduct = new Map<string, { name: string; stock: number }>()
     for (const product of products) {
@@ -368,6 +374,7 @@ export class GoogleSheetsSyncService {
           formatDateTimeBD(v.updatedAt ?? product.updatedAt),
           product.id,
           v.id,
+          `=HYPERLINK("${storefrontUrl}/products/${product.slug.replace(/"/g, '""')}","View Product")`,
         ])
       }
       stockByProduct.set(product.id, { name: product.name, stock: productStock })
@@ -424,12 +431,12 @@ export class GoogleSheetsSyncService {
       month: 'short',
       year: '2-digit',
     })
-    const monthlyBuckets = new Map<string, { orders: number; revenue: number }>()
+    const monthlyBuckets = new Map<string, { orders: number; revenue: number; customers: number }>()
     for (let i = 5; i >= 0; i--) {
       const d = new Date()
       d.setDate(1)
       d.setMonth(d.getMonth() - i)
-      monthlyBuckets.set(monthFmt.format(d), { orders: 0, revenue: 0 })
+      monthlyBuckets.set(monthFmt.format(d), { orders: 0, revenue: 0, customers: 0 })
     }
     for (const o of orders) {
       const key = monthFmt.format(o.createdAt)
@@ -439,10 +446,15 @@ export class GoogleSheetsSyncService {
         bucket.revenue += Number(o.total)
       }
     }
+    for (const customer of customers) {
+      const bucket = monthlyBuckets.get(monthFmt.format(customer.createdAt))
+      if (bucket) bucket.customers += 1
+    }
     const monthlyTrend = [...monthlyBuckets.entries()].map(([month, v]) => ({
       month,
       orders: v.orders,
       revenue: v.revenue,
+      customers: v.customers,
     }))
 
     const conn = await this.prisma.googleWorkspaceConnection.findUnique({ where: { storeId } })

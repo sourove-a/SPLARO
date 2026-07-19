@@ -142,6 +142,20 @@ export async function updateAccountProfile(
   })
 }
 
+export async function sendAccountEmailVerification() {
+  return accountFetch<{ success: true; message: string; expiresIn: number }>(
+    '/api/auth/email-verification/send',
+    { method: 'POST' },
+  )
+}
+
+export async function verifyAccountEmail(code: string) {
+  return accountFetch<{ success: true; user: AuthUser }>(
+    '/api/auth/email-verification/verify',
+    { method: 'POST', body: JSON.stringify({ code }) },
+  )
+}
+
 export async function fetchWishlistProducts(ids: string[]): Promise<ProductCardData[]> {
   if (!ids.length) return []
 

@@ -16,7 +16,7 @@ const PRESS_SELECTOR = [
 ].join(', ')
 
 /** Soft press — opacity only, never scale (no click “jump”). */
-const PRESS_DOWN_OPACITY = 0.88
+const PRESS_DOWN_OPACITY = 0.95
 const PRESS_REST_OPACITY = 1
 const DOWN_MS = 100
 const RELEASE_MS = 200
@@ -26,16 +26,17 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
 function shouldSkip(el: Element): boolean {
   if ((el as HTMLButtonElement).disabled) return true
   if (el.closest('[data-no-press]')) return true
+  if (el.closest('.mm-drawer, .mobile-bottom-nav, .site-header-glass')) return true
 
   // Product cards — Motion / CSS hit-layer handles tap
   if (
     el.classList.contains('splaro-card__link') ||
-    el.classList.contains('ilyn-card__link') ||
+    el.classList.contains('splaro-card__link') ||
     el.classList.contains('shop-product-card__link') ||
     el.classList.contains('pc-media__link') ||
     el.classList.contains('pc-info') ||
     el.closest(
-      '.splaro-card__link, .ilyn-card__link, .shop-product-card__link, .pc-media__link, .pc-info, .product-transition-link__hit',
+      '.splaro-card__link, .splaro-card__link, .shop-product-card__link, .pc-media__link, .pc-info, .product-transition-link__hit',
     )
   ) {
     return true
@@ -45,10 +46,15 @@ function shouldSkip(el: Element): boolean {
     el.classList.contains('shop-bag-btn') ||
     el.classList.contains('shop-wishlist-btn') ||
     el.classList.contains('splaro-card__wish') ||
-    el.classList.contains('ilyn-card__wish') ||
+    el.classList.contains('splaro-card__wish') ||
     el.classList.contains('pc-cart-btn') ||
     el.classList.contains('pc-wish-btn')
   ) {
+    return true
+  }
+
+  // Size pills — CSS bg/color fade only; opacity flash reads as a jump
+  if (el.classList.contains('pp-size-btn') || el.classList.contains('pdp-size-btn')) {
     return true
   }
 
@@ -68,7 +74,6 @@ function shouldSkip(el: Element): boolean {
 export function GlobalPressFeedback() {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    if (document.documentElement.getAttribute('data-perf') === 'lite') return
 
     let pressedEl: Element | null = null
     let pressAnim: Animation | null = null

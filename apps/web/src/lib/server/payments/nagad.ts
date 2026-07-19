@@ -1,7 +1,7 @@
 import { initNagadViaApi } from '@/lib/server/payment-api-proxy'
 
 export interface MobilePaymentInput {
-  orderId: string
+  invoiceNumber: string
   amount: number
   phone: string
 }
@@ -16,7 +16,7 @@ export interface MobilePaymentResult {
 export async function createPayment(input: MobilePaymentInput): Promise<MobilePaymentResult> {
   try {
     const result = await initNagadViaApi({
-      orderId: input.orderId,
+      invoiceNumber: input.invoiceNumber,
       amount: input.amount,
     })
     return {

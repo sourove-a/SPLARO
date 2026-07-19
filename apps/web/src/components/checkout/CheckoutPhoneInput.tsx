@@ -12,6 +12,8 @@ interface CheckoutPhoneInputProps {
   onBlur?: () => void
   invalid?: boolean
   clientReady?: boolean
+  id?: string
+  describedBy?: string
 }
 
 export function CheckoutPhoneInput({
@@ -20,6 +22,8 @@ export function CheckoutPhoneInput({
   onBlur,
   invalid = false,
   clientReady = true,
+  id,
+  describedBy,
 }: CheckoutPhoneInputProps) {
   if (!clientReady) {
     return <div className="checkout-input checkout-phone-input" aria-hidden />
@@ -31,6 +35,7 @@ export function CheckoutPhoneInput({
         +88
       </span>
       <input
+        id={id}
         required
         type="tel"
         inputMode="numeric"
@@ -42,6 +47,8 @@ export function CheckoutPhoneInput({
         autoComplete="tel-national"
         maxLength={13}
         aria-label="Phone number"
+        aria-invalid={invalid}
+        aria-describedby={describedBy}
       />
     </div>
   )

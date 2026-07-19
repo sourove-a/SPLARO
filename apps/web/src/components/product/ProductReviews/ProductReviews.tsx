@@ -197,7 +197,7 @@ export function ProductReviews({
             <span className="pp-reviews__trigger-hint">
               {displayCount > 0
                 ? `${displayRating.toFixed(1)} · ${displayCount} review${displayCount === 1 ? '' : 's'}`
-                : 'No reviews yet — tap to share yours'}
+                : 'Fresh in the collection — be the first to review'}
             </span>
           </div>
           {displayCount > 0 ? (
@@ -305,8 +305,10 @@ export function ProductReviews({
                 ) : (
                   <div className="pp-reviews__empty">
                     <MessageSquareQuote strokeWidth={1.5} />
-                    <p>এখনো কোনো রিভিউ নেই — প্রথম রিভিউ দিন</p>
-                    <p className="pp-reviews__empty-sub">No reviews yet — be the first to share</p>
+                    <p>নতুন কালেকশনের পিস — আপনার রিভিউই প্রথম হতে পারে</p>
+                    <p className="pp-reviews__empty-sub">
+                      Fresh in the collection — your review could be the first
+                    </p>
                   </div>
                 )}
 

@@ -23,9 +23,9 @@ export async function loadStorePaymentFlags(
   })
   return {
     cod: settings?.codEnabled ?? true,
-    bkash: settings?.bkashEnabled ?? true,
-    nagad: settings?.nagadEnabled ?? true,
-    sslcommerz: settings?.sslcommerzEnabled ?? true,
+    bkash: settings?.bkashEnabled ?? false,
+    nagad: settings?.nagadEnabled ?? false,
+    sslcommerz: settings?.sslcommerzEnabled ?? false,
   }
 }
 

@@ -1,0 +1,72 @@
+/**
+ * SPLARO Apple-style liquid glass — shared tokens + shell utilities.
+ * Aliases onto the existing iOS glass system in globals.css.
+ * Do not invent per-page glass; use these shells or existing component classes.
+ * See apps/web/docs/UI_RULES.md
+ */
+
+:root {
+  /* Plan tokens — same computed values as legacy --glass-white* */
+  --glass-bg: var(--glass-white);
+  --glass-bg-strong: var(--glass-white-strong);
+  --glass-saturate: 1.2;
+  --glass-radius: var(--r-xl);
+  --glass-radius-pill: var(--r-full);
+  /* Stronger frost for dock / pills (existing surfaces keep their blur) */
+  --glass-blur-strong: blur(28px) saturate(1.65);
+  --glass-ink: #101114;
+}
+
+/* Sticky / header strips — light frosted bar */
+.spl-glass-bar {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    var(--glass-highlight),
+    0 4px 30px rgba(17, 17, 17, 0.04),
+    0 1px 0 rgba(17, 17, 17, 0.03);
+  color: var(--glass-ink);
+}
+
+/* Elevated panels — filters, story rows, commerce cards */
+.spl-glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+  color: var(--glass-ink);
+}
+
+/* Drawers / modals / bottom sheets */
+.spl-glass-sheet {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    -18px 0 70px rgba(20, 24, 32, 0.16),
+    var(--glass-highlight);
+  color: var(--glass-ink);
+}
+
+/* Solid premium fill when blur is disabled (lite / Windows / mobile) */
+@media (max-width: 1023px), (pointer: coarse) {
+  .spl-glass-bar,
+  .spl-glass-card,
+  .spl-glass-sheet {
+    background: rgba(255, 255, 255, 0.97);
+  }
+}
+
+html[data-perf='lite'] .spl-glass-bar,
+html[data-perf='lite'] .spl-glass-card,
+html[data-perf='lite'] .spl-glass-sheet,
+html[data-os='windows'] .spl-glass-bar,
+html[data-os='windows'] .spl-glass-card,
+html[data-os='windows'] .spl-glass-sheet {
+  background: rgba(255, 255, 255, 0.97);
+}

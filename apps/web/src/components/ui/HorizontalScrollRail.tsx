@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useHorizontalWheelScroll } from '@/hooks/useHorizontalWheelScroll'
+import { smoothScrollByX } from '@/lib/motion/smooth-scroll-x'
 import { cn } from '@/lib/utils/cn'
 
 interface HorizontalScrollRailProps {
@@ -76,7 +77,7 @@ export function HorizontalScrollRail({
     const el = trackRef.current
     if (!el) return
     const step = scrollStep ?? Math.max(220, Math.round(el.clientWidth * 0.72))
-    el.scrollBy({ left: direction * step, behavior: 'smooth' })
+    smoothScrollByX(el, direction * step, 0.4)
   }
 
   const showControls = hasOverflow && !hideArrows
@@ -109,7 +110,6 @@ export function HorizontalScrollRail({
       <div
         ref={trackRef}
         className={cn('h-scroll-rail__track', trackClassName)}
-        data-lenis-prevent
         data-h-scroll="true"
         {...(hasOverflow ? { tabIndex: 0 } : {})}
         {...(trackRole ? { role: trackRole } : ariaLabel ? { role: 'region' } : {})}

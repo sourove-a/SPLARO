@@ -82,7 +82,7 @@ export default function MobilePaymentPageClient({
       <section className="checkout-container">
         <div className="checkout-glass-panel max-w-xl mx-auto">
           <div className="flex items-center gap-3">
-            <Smartphone className="h-6 w-6 text-[#C8A97E]" strokeWidth={2} />
+            <Smartphone className="h-6 w-6 text-[#101114]" strokeWidth={2} />
             <p className="checkout-eyebrow">Mobile payment</p>
           </div>
           <h1 className="checkout-title mt-2">Pay with {providerLabel}</h1>

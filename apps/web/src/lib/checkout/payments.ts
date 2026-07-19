@@ -31,6 +31,20 @@ export const DEFAULT_PAYMENT_VISIBILITY: PaymentVisibility = {
   sslcommerz: false,
 }
 
+/**
+ * COD-first launch gate. Admin visibility alone must never expose a digital
+ * gateway before credentials and callback smoke tests are explicitly approved.
+ */
+export function effectivePaymentVisibility(visibility: PaymentVisibility): PaymentVisibility {
+  const digitalEnabled = process.env.NEXT_PUBLIC_DIGITAL_PAYMENTS_ENABLED === 'true'
+  return {
+    cod: visibility.cod,
+    bkash: digitalEnabled && visibility.bkash,
+    nagad: digitalEnabled && visibility.nagad,
+    sslcommerz: digitalEnabled && visibility.sslcommerz,
+  }
+}
+
 export function buildPaymentOptions(visibility: PaymentVisibility): PaymentOption[] {
   const options: PaymentOption[] = []
 

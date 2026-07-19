@@ -143,26 +143,10 @@ export function Field({
   children: React.ReactNode
 }) {
   return (
-    <label style={{ display: 'block', gridColumn: span2 ? '1 / -1' : undefined }}>
-      <span
-        style={{
-          display: 'block',
-          marginBottom: '0.375rem',
-          fontSize: '0.72rem',
-          fontWeight: 800,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: 'var(--admin-text-secondary)',
-        }}
-      >
-        {label}
-      </span>
+    <label className={cn('settings-field', span2 && 'settings-field--span2')}>
+      <span className="settings-field__label">{label}</span>
       {children}
-      {hint ? (
-        <span style={{ display: 'block', marginTop: '0.3rem', fontSize: '0.72rem', color: 'var(--admin-text-muted)' }}>
-          {hint}
-        </span>
-      ) : null}
+      {hint ? <span className="settings-field__hint">{hint}</span> : null}
     </label>
   )
 }

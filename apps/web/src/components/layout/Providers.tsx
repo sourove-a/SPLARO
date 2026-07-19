@@ -9,11 +9,13 @@ import { CssHealthGuard } from '@/components/layout/CssHealthGuard'
 import { ChunkReloadGuard } from '@/components/layout/ChunkReloadGuard'
 import { GlobalHorizontalWheelScroll, GlobalPointerSafety, DesktopPerfParity, OverlayScrollLockAttr } from '@/components/layout/GlobalDeviceUx'
 import { MotionNavClickGate } from '@/hooks/useMotionReady'
+import { NavigationFeedback } from '@/components/layout/NavigationFeedback'
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <MotionProvider>
       <MotionNavClickGate />
+      <NavigationFeedback />
       <DesktopPerfParity />
       <OverlayScrollLockAttr />
       <GlobalPointerSafety />

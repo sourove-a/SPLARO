@@ -66,12 +66,11 @@ export function ContactExtras() {
           : null,
         {
           key: 'studio',
-          href: undefined,
+          href: '/stores',
           external: false,
           icon: MapPin,
           label: 'Studio',
           value: address,
-          static: true,
         },
       ].filter(Boolean) as Array<{
         key: string

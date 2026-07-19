@@ -719,7 +719,7 @@ function InventoryPanel() {
                 </tr>
                 {expandedId === i.linkId && (
                   <tr>
-                    <td colSpan={7} style={{ background: 'rgba(200,169,126,0.08)', padding: '12px 16px' }}>
+                    <td colSpan={7} style={{ background: 'rgba(16, 17, 20, 0.08)', padding: '12px 16px' }}>
                       {i.variants.length === 0 ? (
                         <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>No variants — add variants on the product edit page.</p>
                       ) : (

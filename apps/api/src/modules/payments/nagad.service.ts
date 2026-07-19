@@ -52,8 +52,8 @@ export class NagadService {
   private async resolveStoreId(storeIdOrSlug?: string, orderId?: string): Promise<string> {
     if (storeIdOrSlug) return resolveStoreId(this.prisma, storeIdOrSlug)
     if (orderId) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
+      const order = await this.prisma.order.findFirst({
+        where: { OR: [{ id: orderId }, { invoiceNumber: orderId }] },
         select: { storeId: true },
       })
       if (order) return order.storeId
@@ -156,7 +156,7 @@ export class NagadService {
       },
     )
 
-    this.logger.log(`Nagad payment initiated for order ${data.orderId}`)
+    this.logger.log(`Nagad payment initiated for reference ${data.orderId}`)
     return {
       url: completeResponse.data.callBackUrl,
       paymentRefId: completeResponse.data.paymentReferenceId,

@@ -64,6 +64,7 @@ function confirmCardMotion(index: number, reduced: boolean | null) {
 export default function OrderConfirmationPageClient({ orderId }: OrderConfirmationPageClientProps) {
   const searchParams = useSearchParams()
   const paymentPending = searchParams.get('payment') === 'pending'
+  const accessKey = searchParams.get('key')?.trim() || undefined
   const [order, setOrder] = useState<StoredOrder | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -73,7 +74,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
     let cancelled = false
 
     async function resolveOrder() {
-      const fromApi = await fetchOrderById(orderId)
+      const fromApi = await fetchOrderById(orderId, accessKey)
       if (cancelled) return
       if (fromApi) {
         setOrder(fromApi)
@@ -129,7 +130,7 @@ export default function OrderConfirmationPageClient({ orderId }: OrderConfirmati
     return () => {
       cancelled = true
     }
-  }, [orderId, paymentPending])
+  }, [accessKey, orderId, paymentPending])
 
   const orderCode = order ? displayOrderCode(order.invoiceNumber, order.id) : orderId
   const deliveryStage = useMemo(() => {

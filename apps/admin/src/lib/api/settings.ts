@@ -95,6 +95,14 @@ export interface CustomerStoriesConfig {
   stories: CustomerStoryItem[]
 }
 
+export type {
+  StoryDeckCardConfig,
+  StoryDeckCardIcon,
+  StoryDeckCardId,
+} from '@/lib/storefront/story-deck-defaults'
+
+import type { StoryDeckCardConfig } from '@/lib/storefront/story-deck-defaults'
+
 export interface OurStoryConfig {
   enabled: boolean
   eyebrow: string
@@ -107,6 +115,7 @@ export interface OurStoryConfig {
   earthTagline2: string
   showEarthLogo: boolean
   pillars: StoryPillarConfig[]
+  storyDeckCards: StoryDeckCardConfig[]
   customerStories: CustomerStoriesConfig
 }
 
@@ -137,6 +146,15 @@ export interface SmtpConfig {
   fromName: string
   fromEmail: string
   replyTo?: string
+}
+
+export interface SmtpAccountConfig extends SmtpConfig {
+  id: string
+  label: string
+  priority: number
+  lastTestStatus?: 'success' | 'failed'
+  lastTestMessage?: string
+  lastTestedAt?: string
 }
 
 export interface AdminSettingsData {
@@ -201,6 +219,7 @@ export interface AdminSettingsData {
     outsideDhakaCharge?: number
   }
   smtp: SmtpConfig
+  smtpAccounts: SmtpAccountConfig[]
   emailEnabled: boolean
   marketing: {
     facebookPixelId: string
@@ -231,15 +250,15 @@ export function updateSettings(data: Partial<AdminSettingsData>) {
 
 const STORE_ID = process.env.NEXT_PUBLIC_STORE_ID ?? 'splaro'
 
-export function verifySmtpConnection() {
+export function verifySmtpConnection(accountId?: string) {
   return apiFetch<{ ok: boolean; message: string }>('/admin/notifications/verify/smtp', {
     method: 'POST',
-    body: JSON.stringify({ storeId: STORE_ID }),
+    body: JSON.stringify({ storeId: STORE_ID, ...(accountId ? { accountId } : {}) }),
   })
 }
 
 export function sendSmtpTestEmail(to: string) {
-  return apiFetch<{ ok: boolean }>('/admin/notifications/test/email', {
+  return apiFetch<{ ok: boolean; message: string }>('/admin/notifications/test/email', {
     method: 'POST',
     body: JSON.stringify({ storeId: STORE_ID, to }),
   })

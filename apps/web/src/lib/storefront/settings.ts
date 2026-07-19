@@ -182,42 +182,29 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         label: 'Men',
         href: '/c/men',
         megaMenu: {
+          // Slugs must match packages/config category-tree-defaults (NavBuilder)
           categories: [
-            {
-              label: 'Panjabi',
-              href: '/c/men-panjabi',
-              subcategories: [
-                { label: 'Premium', href: '/c/men-panjabi-premium' },
-                { label: 'Luxury', href: '/c/men-panjabi-luxury' },
-                { label: 'Platinum', href: '/c/men-panjabi-platinum' },
-              ],
-            },
-            {
-              label: 'Shirts',
-              href: '/c/men-shirts',
-              subcategories: [
-                { label: 'Formal', href: '/c/men-shirts-formal' },
-                { label: 'Casual', href: '/c/men-shirts-casual' },
-              ],
-            },
-            { label: 'T-Shirts & Polos', href: '/c/men-tshirts' },
-            { label: 'Trousers', href: '/c/men-trousers' },
-            { label: 'Jeans', href: '/c/men-jeans' },
+            { label: 'Panjabi', href: '/c/panjabi' },
+            { label: 'T-Shirts', href: '/c/t-shirts' },
+            { label: 'Polo Shirts', href: '/c/polo-shirts' },
+            { label: 'Formal Shirts', href: '/c/formal-shirts' },
+            { label: 'Casual Wear', href: '/c/men-casual' },
+            { label: 'Trousers', href: '/c/trousers' },
           ],
           heroes: [
             {
               label: 'New Arrivals',
-              href: '/c/men-new',
+              href: '/new-arrivals?dept=men',
               image: EDITORIAL.menNew,
             },
             {
               label: 'Best Sellers',
-              href: '/c/men-bestsellers',
+              href: '/best-sellers?dept=men',
               image: EDITORIAL.menBest,
             },
             {
-              label: 'Summer Edit',
-              href: '/c/men-summer',
+              label: 'Panjabi',
+              href: '/c/panjabi',
               image: EDITORIAL.menSummer,
             },
           ],
@@ -228,32 +215,27 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         href: '/c/women',
         megaMenu: {
           categories: [
-            {
-              label: 'Tops',
-              href: '/c/women-tops',
-              subcategories: [
-                { label: 'Casual', href: '/c/women-tops-casual' },
-                { label: 'Formal', href: '/c/women-tops-formal' },
-              ],
-            },
-            { label: 'Dresses', href: '/c/women-dresses' },
-            { label: 'Co-ords', href: '/c/women-coords' },
-            { label: 'Bottoms', href: '/c/women-bottoms' },
+            { label: 'Sarees', href: '/c/sarees' },
+            { label: 'Ethnic Wear', href: '/c/ethnic-wear' },
+            { label: 'Kurti & Tunics', href: '/c/kurti-tunics' },
+            { label: 'Dresses', href: '/c/dresses' },
+            { label: 'Western Wear', href: '/c/western-wear' },
+            { label: 'Tops & Tees', href: '/c/tops-tees' },
           ],
           heroes: [
             {
               label: 'New Arrivals',
-              href: '/c/women-new',
+              href: '/new-arrivals?dept=women',
               image: EDITORIAL.womenNew,
             },
             {
-              label: 'Bestsellers',
-              href: '/c/women-bestsellers',
+              label: 'Best Sellers',
+              href: '/best-sellers?dept=women',
               image: EDITORIAL.womenBest,
             },
             {
-              label: 'Premium',
-              href: '/c/women-premium',
+              label: 'Sarees',
+              href: '/c/sarees',
               image: EDITORIAL.womenPremium,
             },
           ],
@@ -264,41 +246,25 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         href: '/c/kids',
         megaMenu: {
           categories: [
-            {
-              label: 'Boys',
-              href: '/c/kids-boys',
-              subcategories: [
-                { label: 'Panjabi', href: '/c/kids-boys-panjabi' },
-                { label: 'T-Shirts', href: '/c/kids-boys-tshirts' },
-                { label: 'Bottoms', href: '/c/kids-boys-bottoms' },
-              ],
-            },
-            {
-              label: 'Girls',
-              href: '/c/kids-girls',
-              subcategories: [
-                { label: 'Dresses', href: '/c/kids-girls-dresses' },
-                { label: 'Tops', href: '/c/kids-girls-tops' },
-                { label: 'Co-ords', href: '/c/kids-girls-coords' },
-              ],
-            },
-            { label: 'Newborn', href: '/c/kids-newborn' },
-            { label: 'School Edit', href: '/c/kids-school' },
+            { label: 'Girls Wear', href: '/c/girls-wear' },
+            { label: 'Boys Wear', href: '/c/boys-wear' },
+            { label: 'Party Wear', href: '/c/kids-party-wear' },
+            { label: 'School Wear', href: '/c/school-wear' },
           ],
           heroes: [
             {
-              label: 'Panjabi',
-              href: '/c/kids-boys-panjabi',
-              image: EDITORIAL.kidsPanjabi,
-            },
-            {
-              label: 'Dresses',
-              href: '/c/kids-girls-dresses',
+              label: 'Girls Wear',
+              href: '/c/girls-wear',
               image: EDITORIAL.kidsDresses,
             },
             {
-              label: 'School Edit',
-              href: '/c/kids-school',
+              label: 'Boys Wear',
+              href: '/c/boys-wear',
+              image: EDITORIAL.kidsPanjabi,
+            },
+            {
+              label: 'Party Wear',
+              href: '/c/kids-party-wear',
               image: EDITORIAL.kidsSchool,
             },
           ],
@@ -309,48 +275,27 @@ export const FALLBACK_SETTINGS: StorefrontSettings = {
         href: '/c/footwear',
         megaMenu: {
           categories: [
-            {
-              label: 'Men',
-              href: '/c/footwear-men',
-              subcategories: [
-                { label: 'Shoes', href: '/c/footwear-men-shoes' },
-                { label: 'Loafers', href: '/c/footwear-men-loafers' },
-                { label: 'Sneakers', href: '/c/footwear-men-sneakers' },
-                { label: 'Sandals', href: '/c/footwear-men-sandals' },
-              ],
-            },
-            {
-              label: 'Women',
-              href: '/c/footwear-women',
-              subcategories: [
-                { label: 'Sandals', href: '/c/footwear-women-sandals' },
-                { label: 'Sneakers', href: '/c/footwear-women-sneakers' },
-                { label: 'Loafers', href: '/c/footwear-women-loafers' },
-                { label: 'Heels', href: '/c/footwear-women-heels' },
-                { label: 'Flats', href: '/c/footwear-women-flats' },
-              ],
-            },
-            {
-              label: 'Girls',
-              href: '/c/footwear-kids',
-              subcategories: [{ label: 'Sandals', href: '/c/footwear-kids-sandals' }],
-            },
+            { label: 'Women Footwear', href: '/c/women-footwear' },
+            { label: 'Men Footwear', href: '/c/men-footwear' },
+            { label: 'Kids Footwear', href: '/c/kids-footwear' },
+            { label: 'Sneakers', href: '/c/sneakers' },
+            { label: 'Sandals', href: '/c/sandals' },
           ],
           heroes: [
             {
               label: 'Sneakers',
-              href: '/c/footwear-sneakers',
+              href: '/c/sneakers',
               image: EDITORIAL.footwearSneakers,
             },
             {
-              label: 'Loafers',
-              href: '/c/footwear-loafers',
-              image: EDITORIAL.footwearLoafers,
+              label: 'Sandals',
+              href: '/c/sandals',
+              image: EDITORIAL.footwearSandals,
             },
             {
-              label: 'Sandals',
-              href: '/c/footwear-sandals',
-              image: EDITORIAL.footwearSandals,
+              label: 'Shop all',
+              href: '/c/footwear',
+              image: EDITORIAL.footwearLoafers,
             },
           ],
         },
@@ -435,7 +380,9 @@ async function fetchStorefrontNav(): Promise<NavLink[] | null> {
     const res = await fetchWithTimeout(
       `${base}/storefront/nav?storeId=${encodeURIComponent(STORE_ID)}`,
       {
-        next: { revalidate: 60, tags: ['storefront-nav'] },
+        ...(process.env.NODE_ENV === 'development'
+          ? { cache: 'no-store' as const }
+          : { next: { revalidate: 60, tags: ['storefront-nav'] } }),
         timeoutMs: settingsFetchTimeoutMs(),
       },
     )
@@ -448,7 +395,12 @@ async function fetchStorefrontNav(): Promise<NavLink[] | null> {
 }
 
 async function fetchNavQuick(): Promise<[NavLink[] | null, NavLink[] | null]> {
-  const cap = Math.min(settingsFetchTimeoutMs(), 700)
+  // Dev: allow full settings timeout so Men/Women megas aren't dropped for Accessories FALLBACK.
+  // Prod: keep a short cap so homepage TTFB stays fast; fillMissing still covers gaps.
+  const cap =
+    process.env.NODE_ENV === 'development'
+      ? settingsFetchTimeoutMs()
+      : Math.min(settingsFetchTimeoutMs(), 1200)
   const withCap = (fn: () => Promise<NavLink[] | null>) =>
     Promise.race([
       fn(),
@@ -489,11 +441,8 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
     return FALLBACK_SETTINGS
   }
 
-  // Dev: skip blocking nav API — bundled nav is enough for first byte.
-  if (process.env.NODE_ENV === 'development') {
-    return settings
-  }
-
+  // Always merge live department megas (Men/Women/Kids…) — skipping this left
+  // Accessories-only FALLBACK megas and wrong Men/Women links in local + timeout paths.
   const [menuNav, dynamicNav] = await fetchNavQuick()
 
   if (menuNav?.length) {
@@ -509,7 +458,7 @@ async function fetchSettingsRaw(): Promise<StorefrontSettings> {
 
 const getCachedSettingsProd = unstable_cache(
   fetchSettingsRaw,
-  ['splaro-storefront-settings', 'v4-fast-nav-cap'],
+  ['splaro-storefront-settings', 'v5-dept-mega-live'],
   { revalidate: 30, tags: ['storefront-settings', 'storefront-nav'] },
 )
 
@@ -539,20 +488,23 @@ function mergeDynamicMegaMenus(nav: NavLink[], apiNav: NavLink[]): NavLink[] {
   })
 }
 
+/** Fill only missing megas — never overwrite live NavBuilder Men/Women trees. */
 function restoreMegaMenus(nav: NavLink[]): NavLink[] {
   const fallback = FALLBACK_SETTINGS.config.headerNav ?? []
   return nav.map((item) => {
+    if (item.megaMenu?.categories?.length) return item
     const byLabel = fallback.find(
       (entry) => entry.label.toLowerCase() === item.label.toLowerCase(),
     )
-    if (byLabel?.megaMenu) {
-      return { ...item, href: byLabel.href, megaMenu: byLabel.megaMenu }
+    if (byLabel?.megaMenu?.categories?.length) {
+      return { ...item, megaMenu: byLabel.megaMenu }
     }
-    if (item.megaMenu) return item
     const byHref = fallback.find(
       (entry) => normalizeHref(entry.href) === normalizeHref(item.href),
     )
-    return byHref?.megaMenu ? { ...item, href: byHref.href, megaMenu: byHref.megaMenu } : item
+    return byHref?.megaMenu?.categories?.length
+      ? { ...item, megaMenu: byHref.megaMenu }
+      : item
   })
 }
 
@@ -574,9 +526,53 @@ function ensureFallbackNavItems(nav: NavLink[]): NavLink[] {
   return result
 }
 
+/** Men → Women → Kids → Footwear → Accessories among department links only. */
+const DEPARTMENT_NAV_RANK: Record<string, number> = {
+  men: 0,
+  women: 1,
+  kids: 2,
+  footwear: 3,
+  accessories: 4,
+}
+
+function departmentNavRank(href: string, label: string): number | null {
+  const normalized = normalizeHref(href)
+  const labelKey = label.trim().toLowerCase()
+  for (const [slug, rank] of Object.entries(DEPARTMENT_NAV_RANK)) {
+    if (labelKey === slug) return rank
+    if (slug === 'accessories' && (normalized === '/accessories' || normalized.endsWith('/accessories'))) {
+      return rank
+    }
+    if (
+      normalized === `/c/${slug}` ||
+      normalized === `/collections/${slug}` ||
+      normalized.endsWith(`/c/${slug}`) ||
+      normalized.endsWith(`/collections/${slug}`)
+    ) {
+      return rank
+    }
+  }
+  return null
+}
+
+function orderDepartmentNavLinks(nav: NavLink[]): NavLink[] {
+  const tagged = nav.map((item, index) => ({
+    item,
+    index,
+    rank: departmentNavRank(item.href, item.label),
+  }))
+  const departments = tagged
+    .filter((entry) => entry.rank !== null)
+    .sort((a, b) => (a.rank! - b.rank!) || a.index - b.index)
+  let deptCursor = 0
+  return tagged.map((entry) => {
+    if (entry.rank === null) return entry.item
+    return departments[deptCursor++]!.item
+  })
+}
+
 function dynamicNavApplied(nav: NavLink[]): NavLink[] {
-  const hasDynamicMega = nav.some((item) => item.megaMenu?.categories?.length)
-  if (hasDynamicMega) return nav
+  // Per-item fill: Accessories having a mega must NOT skip Men/Women restore.
   return restoreMegaMenus(nav)
 }
 
@@ -585,11 +581,13 @@ function applyStoreDefaults(settings: StorefrontSettings): StorefrontSettings {
   const headerNav = settings.config.headerNav?.length
     ? settings.config.headerNav
     : FALLBACK_SETTINGS.config.headerNav
-  const normalizedHeaderNav = dynamicNavApplied(
-    ensureFallbackNavItems(
-      headerNav?.some((item) => item.href === '/')
-        ? (headerNav ?? [])
-        : [{ label: 'Home', href: '/' }, ...(headerNav ?? [])],
+  const normalizedHeaderNav = orderDepartmentNavLinks(
+    dynamicNavApplied(
+      ensureFallbackNavItems(
+        headerNav?.some((item) => item.href === '/')
+          ? (headerNav ?? [])
+          : [{ label: 'Home', href: '/' }, ...(headerNav ?? [])],
+      ),
     ),
   )
 

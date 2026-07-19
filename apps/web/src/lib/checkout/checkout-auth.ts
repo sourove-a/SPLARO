@@ -1,13 +1,17 @@
-/** Checkout requires a customer account — no guest orders. */
+/** Checkout is open to guests (COD). Sign-in is optional — digital payments require it. */
 export const CHECKOUT_PATH = '/checkout'
 
-/** Existing accounts can switch to login from the signup panel. */
+/** Optional sign-in from checkout — returns to checkout after login. */
 export const CHECKOUT_LOGIN_PATH = '/login?next=/checkout'
 
 export const CHECKOUT_SIGNUP_PATH = '/signup?next=/checkout'
 
-export function getCheckoutEntryPath(isSignedIn?: boolean): string {
-  return isSignedIn ? CHECKOUT_PATH : CHECKOUT_SIGNUP_PATH
+/**
+ * Where Buy Now / Proceed to Checkout should navigate.
+ * Always /checkout — guests can order with Cash on Delivery without an account.
+ */
+export function getCheckoutEntryPath(_isSignedIn?: boolean): string {
+  return CHECKOUT_PATH
 }
 
 export function getCheckoutAuthPath(isSignedIn?: boolean): string {

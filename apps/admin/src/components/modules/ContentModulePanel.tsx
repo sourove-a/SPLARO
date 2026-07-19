@@ -20,18 +20,18 @@ import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
 import {
   BlogPanelLive, LookbooksPanelLive, ReelsPanelLive, CmsPanelLive,
-  LandingPagesPanelLive, HomePagePanelLive, ThemeBuilderPanelLive,
+  LandingPagesPanelLive, ThemeBuilderPanelLive,
 } from '@/components/modules/ContentLivePanels'
 import { LegalPagesPanel } from '@/components/modules/LegalPagesPanel'
 import { FootwearPagePanel } from '@/components/content/FootwearPagePanel'
 import { HeroSlideEditorModal, type HeroSlideFormValues } from '@/components/content/HeroSlideEditorModal'
-import { MenuControlPanel } from '@/components/modules/SettingsPanel'
+import { MenuControlPanel, OurStoryControlPanel } from '@/components/modules/SettingsPanel'
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
 // ─── Design tokens ───────────────────────────────────────────────────────────
-const GOLD = '#c8a97e'
-const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
-const GOLD_BORDER = 'rgba(200,169,126,0.32)'
+const GOLD = '#16181d'
+const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
+const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
 
 const TH: React.CSSProperties = { padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--admin-table-row-border)', whiteSpace: 'nowrap' }
@@ -345,7 +345,7 @@ function HeroSliderPanel() {
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading banners…</p>
         ) : filtered.length === 0 && !usingFallback ? (
           <div style={{ padding: '40px 32px', textAlign: 'center' }}>
-            <ImageIcon style={{ width: 32, height: 32, color: 'rgba(200,169,126,0.4)', margin: '0 auto 12px' }} />
+            <ImageIcon style={{ width: 32, height: 32, color: 'rgba(16, 17, 20, 0.4)', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--admin-text-muted)', margin: 0 }}>No hero banners yet. Click &quot;Add slide&quot; or upload in Media Library.</p>
           </div>
         ) : (
@@ -403,7 +403,7 @@ function HeroSliderPanel() {
 }
 
 const PANELS: Record<string, () => React.ReactNode> = {
-  '/dashboard/home-page': HomePagePanelLive,
+  '/dashboard/home-page': OurStoryControlPanel,
   '/dashboard/footwear-page': FootwearPagePanel,
   '/dashboard/theme-builder': ThemeBuilderPanelLive,
   '/dashboard/menu-control': MenuControlPanel,

@@ -10,6 +10,12 @@
       "require": "./dist/index.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./domains": {
+      "types": "./dist/domains.d.ts",
+      "require": "./dist/domains.js",
+      "import": "./dist/domains.js",
+      "default": "./dist/domains.js"
     }
   },
   "scripts": {

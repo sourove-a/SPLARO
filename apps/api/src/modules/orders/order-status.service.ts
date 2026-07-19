@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma.service'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
 import { OrderEventsService } from './order-events.service'
+import { StockReservationService } from '../payments/stock-reservation.service'
 
 /**
  * Shared order status mutations — admin UI + AI agent must use the same path
@@ -13,6 +14,7 @@ export class OrderStatusService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderEvents: OrderEventsService,
+    private readonly reservations: StockReservationService,
   ) {}
 
   async applyStatusChange(
@@ -53,7 +55,15 @@ export class OrderStatusService {
       const updated = await tx.order.findUniqueOrThrow({ where: { id } })
 
       if (shouldRestoreStock) {
-        await restoreOrderStock(tx, id, `Stock restored — order ${status.toLowerCase()}`)
+        const reservation = await tx.stockReservation.findUnique({
+          where: { orderId: id },
+          select: { status: true },
+        })
+        if (reservation?.status === 'ACTIVE') {
+          await this.reservations.releaseForOrder(tx, id)
+        } else if (!reservation || reservation.status === 'CONSUMED') {
+          await restoreOrderStock(tx, id, `Stock restored — order ${status.toLowerCase()}`)
+        }
       }
 
       await tx.orderStatusHistory.create({

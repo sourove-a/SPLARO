@@ -14,7 +14,7 @@ import {
   type StorefrontListingQuery,
 } from '@/lib/catalog/listing'
 import { fetchWithTimeout, isCiOrProductionBuild } from '@/lib/server/build-safe-fetch'
-import { catalogFetchAttempts, catalogFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
+import { catalogFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 import { resolveShopCategory } from '@/lib/catalog/shop-category'
 import { pageTitleSegment } from '@/lib/seo/page-title'
 
@@ -87,7 +87,11 @@ interface LiveProduct {
   isBestSeller?: boolean
   schemaMarkup?: Record<string, unknown> | null
   isOnSale?: boolean
-  category?: { name: string; slug?: string } | null
+  category?: {
+    name: string
+    slug?: string
+    parent?: { name?: string; slug?: string } | null
+  } | null
   images?: { url: string; altText?: string | null; position?: number | null }[]
   variants?: LiveVariant[]
   reviews?: LiveReview[]
@@ -246,7 +250,11 @@ export function mapLiveProduct(
   const imageMedia = media.filter((item) => item.type === 'image')
   const img = sanitizeRemoteImageUrl(imageMedia[0]?.url, PRODUCT_IMAGE_PLACEHOLDER)
   const hover = sanitizeRemoteImageUrl(imageMedia[1]?.url, img)
-  const category = resolveShopCategory(p.category?.name, p.category?.slug)
+  const category = resolveShopCategory(
+    p.category?.name,
+    p.category?.slug,
+    p.category?.parent?.slug,
+  )
   const colorOptions = buildColorOptions(variants, img)
   const colors = colorOptions.map((option) => option.hex)
   const rawSizes = [...new Set(variants.map((v) => v.size).filter(Boolean))] as string[]
@@ -314,7 +322,11 @@ export function mapLiveProductDetail(p: LiveProduct): { product: ProductDetailDa
       ? imageMedia.map((image) => sanitizeRemoteImageUrl(image.url))
       : [img, hover]
   ).filter(Boolean)
-  const category = resolveShopCategory(p.category?.name, p.category?.slug)
+  const category = resolveShopCategory(
+    p.category?.name,
+    p.category?.slug,
+    p.category?.parent?.slug,
+  )
   const colorOptions = buildColorOptions(p.variants ?? [], img).map(({ hex, name }) => ({ hex, name }))
   const reviews = mapReviews(p.reviews)
   const apiRating = Number(p.rating ?? 0)
@@ -383,22 +395,14 @@ export async function fetchLiveProductsRaw(): Promise<(StorefrontProduct & { slu
 
   const base = getServerApiBaseUrl()
   const url = `${base}/storefront/products?storeId=${encodeURIComponent(STORE_ID)}`
-  const attempts = catalogFetchAttempts()
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      const res = await liveFetch(url, { cache: 'no-store' })
-      if (!res?.ok) throw new Error(`Storefront API ${res?.status ?? 'unavailable'}`)
-      const data = (await res.json()) as { products: LiveProduct[] }
-      // Show all published API rows — DEMO SKU/copy is sanitized in mapLiveProduct.
-      // Hard-filtering demos emptied production when the DB only had seed inventory.
-      return (data.products ?? []).map(mapLiveProduct)
-    } catch (err) {
-      if (attempt === attempts - 1) throw err
-    }
-  }
-
-  return []
+  // Single attempt here — callers (server.ts) own retries. Nested loops used to
+  // multiply into 9 Nest calls on a cold/offline API and felt like "connection lag".
+  const res = await liveFetch(url, { cache: 'no-store' })
+  if (!res?.ok) throw new Error(`Storefront API ${res?.status ?? 'unavailable'}`)
+  const data = (await res.json()) as { products: LiveProduct[] }
+  // Show all published API rows — DEMO SKU/copy is sanitized in mapLiveProduct.
+  // Hard-filtering demos emptied production when the DB only had seed inventory.
+  return (data.products ?? []).map(mapLiveProduct)
 }
 
 export async function fetchLiveProducts(): Promise<(StorefrontProduct & { slug: string })[]> {

@@ -15,9 +15,10 @@ on:
     branches: [main]
 
 concurrency:
-  # One deploy at a time. Cancel queued/older runs — stacked builds OOM the 8GB VPS.
+  # One deploy at a time. Never cancel an active build: interruption can leave
+  # partial .next output and race the next SSH job on the same checkout.
   group: deploy-vps-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -55,19 +56,22 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST || secrets.VPS_SSH_HOST }}
           VPS_USER: ${{ secrets.VPS_USER || secrets.VPS_SSH_USER || 'root' }}
           VPS_PORT: ${{ secrets.VPS_PORT || secrets.VPS_SSH_PORT || 22 }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         with:
           host: ${{ env.VPS_HOST }}
           username: ${{ env.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY || secrets.VPS_SSH_PRIVATE_KEY }}
           port: ${{ env.VPS_PORT }}
           command_timeout: 30m
+          envs: DEPLOY_SHA
           script: |
             set -euo pipefail
-            echo "Deploy commit: ${{ github.sha }}"
+            echo "CI-approved deploy commit: $DEPLOY_SHA"
             if [ ! -x /opt/splaro/deploy.sh ]; then
               echo "Missing /opt/splaro/deploy.sh — run hpanel-bootstrap-github.sh on VPS once"
               exit 1
             fi
+            export SPLARO_DEPLOY_SHA="$DEPLOY_SHA"
             bash /opt/splaro/deploy.sh
 
       - name: Smoke test

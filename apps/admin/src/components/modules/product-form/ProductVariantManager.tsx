@@ -392,7 +392,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
                         type="button"
                         onClick={() => void saveRow(v)}
                         disabled={busy}
-                        className="rounded-lg bg-[rgba(200,169,126,0.12)] px-2.5 py-1 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.22)] disabled:opacity-50"
+                        className="rounded-lg bg-[rgba(16, 17, 20, 0.12)] px-2.5 py-1 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.22)] disabled:opacity-50"
                       >
                         {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
                       </button>
@@ -419,8 +419,8 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
       </p>
 
       {addOpen ? (
-        <div className="rounded-xl border border-dashed border-[rgba(200,169,126,0.4)] p-3">
-          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9a7b52]">Add variant</p>
+        <div className="rounded-xl border border-dashed border-[rgba(16, 17, 20, 0.4)] p-3">
+          <p className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#3f3f46]">Add variant</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <input className="admin-input text-[11px]" placeholder="Size (e.g. M)" value={addDraft.size} onChange={(e) => setAddDraft((p) => ({ ...p, size: e.target.value }))} />
             <input className="admin-input text-[11px]" placeholder="Color name" value={addDraft.colorName} onChange={(e) => setAddDraft((p) => ({ ...p, colorName: e.target.value, color: e.target.value }))} />
@@ -459,7 +459,7 @@ export function ProductVariantManager({ productId, variants, productImages }: Pr
         <button
           type="button"
           onClick={() => setAddOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-dashed border-[rgba(200,169,126,0.4)] px-3 py-2 text-[11px] font-black text-[#9a7b52] transition-colors hover:bg-[rgba(200,169,126,0.06)]"
+          className="flex items-center gap-1.5 rounded-lg border border-dashed border-[rgba(16, 17, 20, 0.4)] px-3 py-2 text-[11px] font-black text-[#3f3f46] transition-colors hover:bg-[rgba(16, 17, 20, 0.06)]"
         >
           <Plus className="h-3.5 w-3.5" /> Add variant
         </button>

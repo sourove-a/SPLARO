@@ -130,7 +130,7 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     group: 'Content',
     items: [
-      item('Home Page', 'home-page', 'Home', 'Homepage sections and layout control'),
+      item('Home Page', 'home-page', 'Home', 'Our Story deck cards, homepage sections, and storefront controls'),
       item('Footwear Page', 'footwear-page', 'Footprints', 'Footwear page sections, banners, and visibility'),
       item('Hero Slider', 'hero-slider', 'SlidersHorizontal', 'Hero banners and carousel slides'),
       item('Media Library', 'media-library', 'Image', 'Upload, delete, and manage images'),
@@ -436,7 +436,6 @@ export const NAV_HIDDEN_HREFS = new Set<string>([
   '/dashboard/ai-customer-insights',
   '/dashboard/ai-product-generator',
   // Marketing — enable when campaigns/channels are live
-  '/dashboard/campaigns',
   '/dashboard/email-sms',
   '/dashboard/whatsapp',
   '/dashboard/influencers',

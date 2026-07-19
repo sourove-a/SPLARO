@@ -11,45 +11,45 @@ const PLACEHOLDER_MARKERS = ['placeholder-product', 'placehold.co']
 
 const DEMO_IMAGES: Record<string, string[]> = {
   footwear: [
-    'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   sarees: [
-    'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   'kurti-tunics': [
-    'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   panjabi: [
-    'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   'polo-shirts': [
-    'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   accessories: [
-    'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   glasses: [
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   'kids-party-wear': [
-    'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   'ethnic-wear': [
-    'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
   default: [
-    'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&q=80&auto=format',
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
+    '/images/placeholder-product.jpg',
   ],
 }
 

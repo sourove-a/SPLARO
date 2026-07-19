@@ -11,7 +11,7 @@ export const IMAGE_QUALITY = {
   gallery: 90,
   galleryMobile: 86,
   /** Was 92 @1920 — LCP killer on Contabo (Next image optimizer off).
-   *  Keep ILYN-range q=65–80 for heroes; cards stay sharper (86). */
+   *  Keep preferred q=65–80 for heroes; cards stay sharper (86). */
   hero: 80,
   heroMobile: 72,
   thumb: 82,
@@ -33,7 +33,9 @@ export const IMAGE_SIZES = {
 export type ImageProfile = keyof typeof IMAGE_QUALITY
 
 const REMOTE_WIDTH: Record<ImageProfile, number> = {
-  card: 900,
+  // Shop grid renders cards ~286-396px (4-col, max-width 1720px) — 720 covers
+  // 2x DPI at typical widths without re-fetching a near-full 900-1000px photo.
+  card: 720,
   cardMobile: 480,
   gallery: 1200,
   galleryMobile: 828,

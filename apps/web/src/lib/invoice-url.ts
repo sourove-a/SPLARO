@@ -31,5 +31,7 @@ export function buildInvoiceUrl(order: InvoiceOrderRef): string {
 }
 
 export function buildOrderConfirmationPath(order: InvoiceOrderRef): string {
-  return `/order-confirmation/${encodeURIComponent(orderPublicRef(order))}`
+  const slug = encodeURIComponent(orderPublicRef(order))
+  const key = order.invoiceAccessKey?.trim()
+  return `/order-confirmation/${slug}${key ? `?key=${encodeURIComponent(key)}` : ''}`
 }

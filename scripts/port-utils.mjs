@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
  * Cross-platform port helpers — macOS/Linux (lsof) + Windows (netstat/taskkill).
+ *
+ * Windows notes (owner lock — do not regress):
+ * - Always `taskkill /T /F` — soft kill without /F leaves Node/Next zombies holding ports.
+ * - Prefer 127.0.0.1 health checks (see spawn-utils / api-port) — localhost → ::1 stalls.
+ * - Process command lookup uses PowerShell CIM; falls back per-PID if the bulk table is empty.
  */
 import { spawnSync } from 'child_process'
 
@@ -39,15 +44,37 @@ export function isPortListening(port) {
   return getListeningPids(port).length > 0
 }
 
+/**
+ * Resolve command line for a PID (Windows: CIM; Unix: ps).
+ * Used when the bulk process table miss-filters a live Next/API listener.
+ */
+export function getCommandLineForPid(pid) {
+  if (!Number.isFinite(pid) || pid <= 0) return ''
+  if (IS_WIN) {
+    const result = spawnSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-Command',
+        `try { (Get-CimInstance Win32_Process -Filter "ProcessId=${pid}").CommandLine } catch { '' }`,
+      ],
+      { encoding: 'utf8', windowsHide: true, timeout: 5000 },
+    )
+    return (result.stdout ?? '').replace(/^\uFEFF/, '').trim()
+  }
+  const result = spawnSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8' })
+  if (result.status !== 0) return ''
+  return (result.stdout ?? '').trim()
+}
+
 export function killPid(pid, signal = 'SIGTERM') {
   if (!Number.isFinite(pid) || pid <= 0) return
   if (IS_WIN) {
-    // Always /T — kill process tree so shell:true cmd.exe wrappers don't orphan Node.
-    const force = signal === 'SIGKILL'
-    const args = force
-      ? ['/PID', String(pid), '/T', '/F']
-      : ['/PID', String(pid), '/T']
-    spawnSync('taskkill', args, { stdio: 'ignore', windowsHide: true })
+    // Always /T /F — without /F, Node/Next often ignore WM_CLOSE and keep the port.
+    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
     return
   }
   try {
@@ -90,8 +117,9 @@ export function getProcessTable() {
 }
 
 function getProcessTableWindows() {
+  // Path-agnostic — folder may not be named SPLARO-BRAND on every Windows clone.
   const filter =
-    "SPLARO-BRAND|ts-node-dev|api-dev|next dev|nest|pnpm.*dev|turbo.*dev"
+    'next dev|ts-node-dev|api-dev\\.mjs|@splaro/|SPLARO|splaro-brand|nest start'
   const result = spawnSync(
     'powershell.exe',
     [
@@ -99,7 +127,7 @@ function getProcessTableWindows() {
       '-Command',
       `$f='${filter}'; Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match $f } | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress`,
     ],
-    { encoding: 'utf8', windowsHide: true, timeout: 8000 },
+    { encoding: 'utf8', windowsHide: true, timeout: 12000 },
   )
   if (result.status !== 0 || !result.stdout?.trim()) return []
   try {

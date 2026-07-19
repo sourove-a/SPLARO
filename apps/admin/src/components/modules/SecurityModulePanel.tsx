@@ -39,9 +39,9 @@ import { SecuritySubNav } from '@/components/security/SecuritySubNav'
 import { ApiOfflineBanner } from '@/components/modules/PlatformUi'
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
-const GOLD = '#c8a97e'
-const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
-const GOLD_BORDER = 'rgba(200,169,126,0.32)'
+const GOLD = '#16181d'
+const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
+const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

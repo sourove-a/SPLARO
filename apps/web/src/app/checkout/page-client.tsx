@@ -22,6 +22,7 @@ import { useAuthStore } from '@/store/authStore'
 import {
   buildPaymentOptions,
   DEFAULT_PAYMENT_VISIBILITY,
+  effectivePaymentVisibility,
   isDigitalPayment,
   isPaymentAvailable,
 } from '@/lib/checkout/payments'
@@ -49,9 +50,12 @@ import { getStoredAttribution } from '@/lib/analytics/attribution'
 import { notifyOrderPaymentEvent } from '@/lib/api/order-events'
 import { fetchAccountProfile } from '@/lib/api/account'
 import { startBkashCheckout, startNagadCheckout, startSslCommerzCheckout } from '@/lib/api/payments'
-import { trackInitiateCheckout, trackPurchase } from '@/lib/analytics/meta-pixel'
+import {
+  trackInitiateCheckout,
+  trackPurchase,
+  trackSelectPayment,
+} from '@/lib/analytics/meta-pixel'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
-import { CHECKOUT_SIGNUP_PATH } from '@/lib/checkout/checkout-auth'
 import {
   CheckoutField,
   CheckoutHeader,
@@ -79,8 +83,28 @@ function buildDeliveryAddress(address: string, thana: string, city: string): str
   return parts.join(', ')
 }
 
+function withPendingPayment(path: string): string {
+  return `${path}${path.includes('?') ? '&' : '?'}payment=pending`
+}
+
 const ORDER_LOCK_KEY = 'splaro-last-order-id'
 const ORDER_LOCK_TTL_MS = 60_000
+const CHECKOUT_IDEMPOTENCY_KEY = 'splaro-checkout-idempotency'
+
+function getCheckoutIdempotencyKey(): string {
+  const existing = window.sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_KEY)?.trim()
+  if (existing) return existing
+  const key =
+    typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  window.sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_KEY, key)
+  return key
+}
+
+function clearCheckoutIdempotencyKey() {
+  window.sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_KEY)
+}
 
 function readRecentOrderLock(): { id: string; ts: number } | null {
   if (typeof window === 'undefined') return null
@@ -121,7 +145,9 @@ export default function CheckoutPageClient() {
   const user = useAuthStore((state) => state.user)
   const authHydrated = useAuthStore((state) => state._hydrated)
   const storefrontSettings = useStorefrontSettings()
-  const paymentSettings = storefrontSettings.payments ?? DEFAULT_PAYMENT_VISIBILITY
+  const paymentSettings = effectivePaymentVisibility(
+    storefrontSettings.payments ?? DEFAULT_PAYMENT_VISIBILITY,
+  )
   const { items, subtotal, clearCart, replaceItems } = useCartStore()
   const cartHydrated = useCartStore((state) => state._hydrated)
   const { shipping } = storefrontSettings
@@ -199,12 +225,6 @@ export default function CheckoutPageClient() {
   }
 
   useEffect(() => {
-    if (!authHydrated) return
-    if (!user) {
-      safeClientNavigate(router, CHECKOUT_SIGNUP_PATH, 'replace')
-      return
-    }
-    // Empty-bag redirect only for signed-in users — never race guest → signup.
     if (!cartHydrated || items.length > 0) return
     const staged = consumeStagedCheckoutItems()
     if (staged?.length) {
@@ -219,7 +239,7 @@ export default function CheckoutPageClient() {
       }
     }
     safeClientNavigate(router, '/cart', 'replace')
-  }, [authHydrated, user, cartHydrated, items.length, replaceItems, router])
+  }, [cartHydrated, items.length, replaceItems, router])
 
   useEffect(() => {
     fetchPromoAvailability()
@@ -256,11 +276,24 @@ export default function CheckoutPageClient() {
     () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items],
   )
+  const analyticsItems = useMemo(
+    () =>
+      items.map((item) => ({
+        id: item.variantId ?? item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        ...(item.size || item.color
+          ? { variant: [item.size, item.color].filter(Boolean).join(' / ') }
+          : {}),
+      })),
+    [items],
+  )
 
   useEffect(() => {
     if (items.length === 0) return
-    trackInitiateCheckout({ value: totalBdt, numItems: itemCount })
-  }, [items.length, totalBdt, itemCount])
+    trackInitiateCheckout({ value: totalBdt, numItems: itemCount, items: analyticsItems })
+  }, [items.length, totalBdt, itemCount, analyticsItems])
 
   useEffect(() => {
     reset({ ...getCheckoutFormDefaults(), ...loadCheckoutCustomerDraft() })
@@ -327,11 +360,19 @@ export default function CheckoutPageClient() {
     }
   }, [authHydrated, user, reset])
 
+  const isGuest = authHydrated && !user
+
   useEffect(() => {
-    if (isPaymentAvailable(payment, paymentSettings)) return
-    const fallback = paymentOptions[0]?.id ?? 'Cash on Delivery'
+    const guestDigital = isGuest && isDigitalPayment(payment)
+    if (!guestDigital && isPaymentAvailable(payment, paymentSettings)) return
+    const fallback =
+      paymentOptions.find(
+        (option) =>
+          isPaymentAvailable(option.id, paymentSettings) &&
+          !(isGuest && isDigitalPayment(option.id)),
+      )?.id ?? 'Cash on Delivery'
     setValue('payment', fallback)
-  }, [payment, paymentSettings, paymentOptions, setValue])
+  }, [payment, paymentSettings, paymentOptions, setValue, isGuest])
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return
@@ -384,10 +425,12 @@ export default function CheckoutPageClient() {
   const scrollToFirstInvalidField = () => {
     const formEl = formRef.current
     if (!formEl) return
+    const scrollBehavior: ScrollBehavior =
+      document.documentElement.getAttribute('data-os') === 'windows' ? 'auto' : 'smooth'
 
     const phoneField = formEl.querySelector<HTMLElement>('[data-checkout-field="phone"]')
     if (errors.phone && phoneField) {
-      phoneField.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      phoneField.scrollIntoView({ behavior: scrollBehavior, block: 'center' })
       phoneField.querySelector<HTMLElement>('input')?.focus({ preventScroll: true })
       return
     }
@@ -395,7 +438,7 @@ export default function CheckoutPageClient() {
     const firstInvalid = formEl.querySelector<HTMLElement>(
       '[data-checkout-field][data-invalid="true"], input:invalid, select:invalid, textarea:invalid',
     )
-    firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    firstInvalid?.scrollIntoView({ behavior: scrollBehavior, block: 'center' })
     const focusable = firstInvalid?.querySelector<HTMLElement>('input, select, textarea')
     if (focusable) {
       focusable.focus({ preventScroll: true })
@@ -443,11 +486,13 @@ export default function CheckoutPageClient() {
 
     try {
       const attribution = getStoredAttribution()
+      const idempotencyKey = getCheckoutIdempotencyKey()
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          idempotencyKey,
           items: orderItems,
           customer: {
             name: form.name,
@@ -510,7 +555,17 @@ export default function CheckoutPageClient() {
       }
 
       saveOrderLocally(saved)
-      trackPurchase({ orderId: saved.id, value: totalBdt, numItems: itemCount })
+      if (form.payment === 'Cash on Delivery') {
+        trackPurchase({
+          transactionId: saved.invoiceNumber ?? saved.id,
+          verified: true,
+          value: totalBdt,
+          numItems: itemCount,
+          shipping: delivery,
+          items: analyticsItems,
+          ...(couponApplied && couponCode.trim() ? { coupon: couponCode.trim() } : {}),
+        })
+      }
       window.localStorage.setItem(
         'splaro-customer',
         JSON.stringify({
@@ -549,6 +604,7 @@ export default function CheckoutPageClient() {
           })
           clearStagedCheckoutItems()
           clearCart()
+          clearCheckoutIdempotencyKey()
           window.location.href = ssl.gatewayUrl
           return
         } catch {
@@ -560,14 +616,16 @@ export default function CheckoutPageClient() {
             })
           }
           setRecentOrderLock(saved.id)
-          safeClientNavigate(router, `${buildOrderConfirmationPath(saved)}?payment=pending`, 'replace')
+          safeClientNavigate(router, withPendingPayment(buildOrderConfirmationPath(saved)), 'replace')
           return
         }
       }
 
       if (form.payment === 'bKash' || form.payment === 'Nagad') {
-        if (form.payment === 'bKash' && !saved.invoiceNumber) {
-          setSubmitError('Order invoice missing — cannot start bKash. Retry or contact support.')
+        if (!saved.invoiceNumber) {
+          setSubmitError(
+            `Order invoice missing — cannot start ${form.payment}. Retry or contact support.`,
+          )
           return
         }
         if (saved.invoiceNumber) {
@@ -588,12 +646,13 @@ export default function CheckoutPageClient() {
                 ).redirectUrl
               : (
                   await startNagadCheckout({
-                    orderId: saved.id,
+                    invoiceNumber: saved.invoiceNumber!,
                     amount: totalBdt,
                   })
                 ).redirectUrl
           clearStagedCheckoutItems()
           clearCart()
+          clearCheckoutIdempotencyKey()
           window.location.href = redirectUrl
           return
         } catch {
@@ -605,7 +664,7 @@ export default function CheckoutPageClient() {
             })
           }
           setRecentOrderLock(saved.id)
-          safeClientNavigate(router, `${buildOrderConfirmationPath(saved)}?payment=pending`, 'replace')
+          safeClientNavigate(router, withPendingPayment(buildOrderConfirmationPath(saved)), 'replace')
           return
         }
       }
@@ -616,6 +675,7 @@ export default function CheckoutPageClient() {
 
       clearStagedCheckoutItems()
       clearCart()
+      clearCheckoutIdempotencyKey()
       safeClientNavigate(router, buildOrderConfirmationPath(saved), 'replace')
       return
     } catch {
@@ -625,24 +685,9 @@ export default function CheckoutPageClient() {
     }
   }
 
-  if (!authHydrated || !user) {
-    return (
-      <CheckoutShell>
-        <section className="checkout-container">
-          <div className="checkout-glass-panel checkout-glass-panel--center checkout-auth-gate">
-            <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />
-            <p className="mt-4 text-sm font-black text-black/55">
-              {!authHydrated ? 'Loading checkout…' : 'Redirecting to create your account…'}
-            </p>
-          </div>
-        </section>
-      </CheckoutShell>
-    )
-  }
-
   return (
     <CheckoutShell>
-      {!cartHydrated ? (
+      {!cartHydrated || !authHydrated ? (
         <section className="checkout-container">
           <div className="checkout-glass-panel checkout-glass-panel--center">
             <RefreshCw className="mx-auto h-8 w-8 animate-spin text-black/35" strokeWidth={2} />
@@ -670,6 +715,7 @@ export default function CheckoutPageClient() {
                 className="checkout-btn checkout-btn--ghost"
                 onClick={() => {
                   clearRecentOrderLock()
+                  clearCheckoutIdempotencyKey()
                   setPendingOrderId(null)
                   safeClientNavigate(router, '/shop', 'replace')
                 }}
@@ -718,44 +764,58 @@ export default function CheckoutPageClient() {
                   label="Full name"
                   icon={UserRound}
                   clientReady={clientReady}
-                  filled={Boolean(name.trim())}
+                  filled={Boolean(name.trim()) && !errors.name}
                   fieldId="checkout-name"
                   {...(errors.name?.message ? { error: errors.name.message } : {})}
                 >
                   <input
                     id="checkout-name"
-                    {...register('name', { onChange: clearSubmitError })}
+                    {...register('name', {
+                      onChange: clearSubmitError,
+                      onBlur: () => {
+                        if (name.trim()) void trigger('name')
+                      },
+                    })}
                     data-checkout-field="name"
                     data-invalid={errors.name ? 'true' : undefined}
                     className={`checkout-input ${errors.name ? 'checkout-input--invalid' : ''}`}
                     placeholder="Your full name"
                     autoComplete="name"
+                    aria-invalid={Boolean(errors.name)}
+                    aria-describedby={errors.name ? 'checkout-name-error' : undefined}
                   />
                 </CheckoutField>
                 <CheckoutField
                   label="Email (optional)"
                   icon={Mail}
                   clientReady={clientReady}
-                  filled={Boolean(email.trim())}
+                  filled={Boolean(email.trim()) && !errors.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
                   fieldId="checkout-email"
                   {...(errors.email?.message ? { error: errors.email.message } : {})}
                 >
                   <input
                     id="checkout-email"
                     type="email"
-                    {...register('email', { onChange: clearSubmitError })}
+                    {...register('email', {
+                      onChange: clearSubmitError,
+                      onBlur: () => {
+                        if (email.trim()) void trigger('email')
+                      },
+                    })}
                     data-checkout-field="email"
                     data-invalid={errors.email ? 'true' : undefined}
                     className={`checkout-input ${errors.email ? 'checkout-input--invalid' : ''}`}
                     placeholder="you@example.com"
                     autoComplete="email"
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'checkout-email-error' : undefined}
                   />
                 </CheckoutField>
                 <CheckoutField
                   label="Phone number"
                   icon={Phone}
                   clientReady={clientReady}
-                  filled={isValidBdMobile(phone)}
+                  filled={isValidBdMobile(phone) && !errors.phone}
                   fieldId="checkout-phone"
                   {...(errors.phone?.message ? { error: errors.phone.message } : {})}
                 >
@@ -765,8 +825,12 @@ export default function CheckoutPageClient() {
                       control={control}
                       render={({ field }) => (
                         <CheckoutPhoneInput
+                          id="checkout-phone"
                           value={field.value}
                           invalid={Boolean(errors.phone)}
+                          {...(errors.phone
+                            ? { describedBy: 'checkout-phone-error' }
+                            : {})}
                           clientReady={clientReady}
                           onChange={(nextPhone) => {
                             field.onChange(nextPhone)
@@ -786,7 +850,7 @@ export default function CheckoutPageClient() {
                     label="District"
                     icon={Building2}
                     clientReady={clientReady}
-                    filled={Boolean(city)}
+                    filled={Boolean(city) && !errors.city}
                     fieldId="checkout-city"
                     {...(errors.city?.message ? { error: errors.city.message } : {})}
                   >
@@ -802,6 +866,8 @@ export default function CheckoutPageClient() {
                       data-invalid={errors.city ? 'true' : undefined}
                       className={`checkout-input checkout-input--select ${errors.city ? 'checkout-input--invalid' : ''}`}
                       autoComplete="address-level2"
+                      aria-invalid={Boolean(errors.city)}
+                      aria-describedby={errors.city ? 'checkout-city-error' : undefined}
                     >
                       <option value="">Select district</option>
                       {BD_DISTRICTS.map((district) => (
@@ -815,7 +881,7 @@ export default function CheckoutPageClient() {
                     label="Thana / Upazila"
                     icon={Building2}
                     clientReady={clientReady}
-                    filled={Boolean(thana)}
+                    filled={Boolean(thana) && !errors.thana}
                     fieldId="checkout-thana"
                     {...(errors.thana?.message ? { error: errors.thana.message } : {})}
                   >
@@ -827,6 +893,8 @@ export default function CheckoutPageClient() {
                       className={`checkout-input checkout-input--select ${errors.thana ? 'checkout-input--invalid' : ''}`}
                       autoComplete="address-level3"
                       disabled={!city}
+                      aria-invalid={Boolean(errors.thana)}
+                      aria-describedby={errors.thana ? 'checkout-thana-error' : undefined}
                     >
                       <option value="">
                         {city ? 'Select thana' : 'Select district first'}
@@ -844,7 +912,7 @@ export default function CheckoutPageClient() {
                   icon={MapPin}
                   full
                   clientReady={clientReady}
-                  filled={Boolean(address.trim())}
+                  filled={Boolean(address.trim()) && !errors.address}
                   fieldId="checkout-address"
                   {...(errors.address?.message ? { error: errors.address.message } : {})}
                 >
@@ -856,6 +924,8 @@ export default function CheckoutPageClient() {
                     className={`checkout-input checkout-input--area ${errors.address ? 'checkout-input--invalid' : ''}`}
                     placeholder="House, road, area"
                     autoComplete="street-address"
+                    aria-invalid={Boolean(errors.address)}
+                    aria-describedby={errors.address ? 'checkout-address-error' : undefined}
                   />
                 </CheckoutField>
               </div>
@@ -913,18 +983,31 @@ export default function CheckoutPageClient() {
               <div className="checkout-payments">
                 {paymentOptions.map((option) => {
                   const available = isPaymentAvailable(option.id, paymentSettings)
+                  const needsSignIn = isGuest && isDigitalPayment(option.id)
+                  const disabledReason = !available
+                    ? 'Not available — contact support to enable'
+                    : needsSignIn
+                      ? 'Sign in to pay online — Cash on Delivery works without an account'
+                      : undefined
                   return (
                     <CheckoutPaymentCard
                       key={option.id}
                       option={option}
                       selected={payment}
-                      disabled={!available}
-                      {...(!available
-                        ? { disabledReason: 'Not available — contact support to enable' }
-                        : {})}
+                      disabled={!available || needsSignIn}
+                      {...(disabledReason ? { disabledReason } : {})}
                       onSelect={(id) => {
                         setValue('payment', id, { shouldValidate: true })
                         setPaymentEngaged(true)
+                        trackSelectPayment({
+                          paymentType: id,
+                          value: totalBdt,
+                          numItems: itemCount,
+                          items: analyticsItems,
+                          ...(couponApplied && couponCode.trim()
+                            ? { coupon: couponCode.trim() }
+                            : {}),
+                        })
                         clearSubmitError()
                       }}
                     />

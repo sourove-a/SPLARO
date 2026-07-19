@@ -33,9 +33,9 @@ export function ProductAIAssist({
   if (!suggestions.length && !onFillAll) return null
 
   return (
-    <div className="mt-3 rounded-xl border border-[rgba(200,169,126,0.25)] bg-[rgba(200,169,126,0.06)] p-3">
+    <div className="mt-3 rounded-xl border border-[rgba(16, 17, 20, 0.25)] bg-[rgba(16, 17, 20, 0.06)] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#9a7b52]">
+        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#3f3f46]">
           <Sparkles className="h-3 w-3" /> AI suggestions
         </p>
         {onFillAll ? (

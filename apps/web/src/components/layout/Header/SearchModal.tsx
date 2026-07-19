@@ -1,251 +1,227 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AnimatePresence, motion } from '@/lib/motion/react'
-import { Search, X, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
-import type { Category, StorefrontProduct } from '@/data/storefront'
-import { LuxuryDialog, LuxuryDialogContent } from '@/components/ui/radix'
+import { Search, X } from 'lucide-react'
+import { AnimatePresence, motion } from '@/lib/motion/react'
 import { safeClientNavigate } from '@/lib/navigation/safe-client-navigate'
-
-const TRENDING = [
-  'Summer Edition',
-  'Men',
-  'Women',
-  'Kids',
-  'Footwear',
-  'New products',
-]
-
-const PLACEHOLDER = '/images/placeholder-product.svg'
-
-const QUICK_CATEGORIES: Array<{
-  label: Exclude<Category, 'All' | 'Accessories'>
-  href: string
-}> = [
-  { label: 'Summer Edition', href: '/c/summer-edition' },
-  { label: 'Men', href: '/c/men' },
-  { label: 'Women', href: '/c/women' },
-  { label: 'Kids', href: '/c/kids' },
-  { label: 'Footwear', href: '/c/footwear' },
-]
-
-const QUICK_LINKS = QUICK_CATEGORIES.map(({ label, href }) => ({ label, href }))
+import { cn } from '@/lib/utils/cn'
 
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
+  /** desktop = expand beside nav; mobile = full header row */
+  variant?: 'mobile' | 'desktop'
 }
 
-function pickCategoryImages(products: StorefrontProduct[]) {
-  const images: Record<string, string> = {}
-  for (const product of products) {
-    if (!product.image || images[product.category]) continue
-    images[product.category] = product.image
-  }
-  return images
-}
+type SuggestProduct = { id: string; name: string; slug: string }
 
-export function SearchModal({ isOpen, onClose }: SearchModalProps) {
+/** Inline header search — no full-screen modal / trending chrome. */
+export function SearchModal({ isOpen, onClose, variant = 'mobile' }: SearchModalProps) {
   const router = useRouter()
-  const [query, setQuery] = useState('')
-  const [categoryImages, setCategoryImages] = useState<Record<string, string>>({})
+  const listId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [query, setQuery] = useState('')
+  const [suggestProducts, setSuggestProducts] = useState<SuggestProduct[]>([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
 
   useEffect(() => {
-    if (isOpen) {
-      // preventScroll — without it, browsers can scroll the underlying page to the input.
-      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 80)
-    } else {
+    if (!isOpen) {
       setQuery('')
+      setSuggestProducts([])
+      setSuggestLoading(false)
+      return
     }
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    }, 40)
+    return () => window.clearTimeout(t)
   }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, onClose])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const q = query.trim()
+    if (q.length < 2) {
+      setSuggestProducts([])
+      setSuggestLoading(false)
+      return
+    }
+
     let cancelled = false
     const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 8000)
-    // Cached + capped — thumbs are optional; never block typing / Enter.
-    void fetch('/api/products?limit=48', { cache: 'force-cache', signal: controller.signal })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((payload: { products?: StorefrontProduct[] } | null) => {
-        if (cancelled || !payload?.products?.length) return
-        setCategoryImages(pickCategoryImages(payload.products))
+    setSuggestLoading(true)
+    const debounce = window.setTimeout(() => {
+      void fetch(`/api/search/suggest?q=${encodeURIComponent(q)}&limit=6`, {
+        signal: controller.signal,
+        cache: 'no-store',
       })
-      .catch(() => {})
-      .finally(() => window.clearTimeout(timeout))
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload: { products?: SuggestProduct[] } | null) => {
+          if (cancelled || !payload) return
+          setSuggestProducts(payload.products ?? [])
+        })
+        .catch(() => {
+          if (!cancelled) setSuggestProducts([])
+        })
+        .finally(() => {
+          if (!cancelled) setSuggestLoading(false)
+        })
+    }, 200)
+
     return () => {
       cancelled = true
       controller.abort()
-      window.clearTimeout(timeout)
+      window.clearTimeout(debounce)
     }
-  }, [isOpen])
+  }, [isOpen, query])
+
+  function goSearch(term: string) {
+    const q = term.trim()
+    if (!q) return
+    safeClientNavigate(router, `/search?q=${encodeURIComponent(q)}`)
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  const trimmed = query.trim()
+  const showPanel = trimmed.length >= 2
+  const isDesktop = variant === 'desktop'
 
   return (
-    <LuxuryDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <LuxuryDialogContent hideClose className="search-modal spl-radix-dialog--search" aria-label="Search">
-        <div className="search-modal__shine" aria-hidden="true" />
-        <div className="search-modal__sweep" aria-hidden="true" />
+    <>
+      <button
+        type="button"
+        className="site-header-search__dismiss"
+        aria-label="Close search"
+        onClick={onClose}
+      />
 
-        <div className="container-luxury search-modal__inner">
-          <div className="search-modal__top">
-            <div className="search-modal__bar">
-              <div className="search-modal__bar-shine" aria-hidden="true" />
-              <Search className="search-modal__bar-icon" strokeWidth={2} />
-              <input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search SPLARO products..."
-                className="search-modal__input"
-                autoComplete="off"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && query.trim()) {
-                    safeClientNavigate(router, `/search?q=${encodeURIComponent(query.trim())}`)
-                    onClose()
-                  }
+      <motion.div
+        className={cn(
+          'site-header-search',
+          isDesktop ? 'site-header-search--desktop' : 'site-header-search--mobile',
+        )}
+        role="search"
+        initial={false}
+        animate={{ opacity: 1, scaleX: 1, y: 0 }}
+        exit={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+        {...(isDesktop ? { style: { transformOrigin: 'right center' as const } } : {})}
+      >
+        <div className="site-header-search__row">
+          <label className="site-header-search__field">
+            <span className="site-header-search__field-shine" aria-hidden />
+            <Search className="site-header-search__icon" strokeWidth={1.4} aria-hidden />
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="search"
+              role="searchbox"
+              name="splaro-header-q"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search SPLARO"
+              className="site-header-search__input"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              enterKeyHint="search"
+              aria-autocomplete="list"
+              aria-controls={showPanel ? listId : undefined}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  goSearch(query)
+                }
+              }}
+            />
+            {query ? (
+              <button
+                type="button"
+                className="site-header-search__clear"
+                aria-label="Clear"
+                onClick={() => {
+                  setQuery('')
+                  inputRef.current?.focus({ preventScroll: true })
                 }}
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="search-modal__clear"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-              ) : null}
-            </div>
+              >
+                <X strokeWidth={1.75} aria-hidden />
+              </button>
+            ) : null}
+          </label>
 
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close search"
-              className="search-modal__close"
+          <button
+            type="button"
+            className="site-header-search__close"
+            aria-label="Close search"
+            onClick={onClose}
+          >
+            <X strokeWidth={1.45} aria-hidden />
+          </button>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {showPanel ? (
+            <motion.div
+              id={listId}
+              key="suggest"
+              className="site-header-search__panel"
+              role="listbox"
+              aria-label="Suggestions"
+              initial={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
             >
-              <X className="h-4 w-4" strokeWidth={1.5} />
-            </button>
-          </div>
+              <button
+                type="button"
+                className="site-header-search__go"
+                onClick={() => goSearch(trimmed)}
+              >
+                <Search strokeWidth={1.5} aria-hidden />
+                <span>
+                  Search for <strong>&ldquo;{trimmed}&rdquo;</strong>
+                </span>
+              </button>
 
-          <div className="search-modal__body">
-            <AnimatePresence mode="wait">
-                  {query ? (
-                    <motion.div
-                      key="results"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
+              {suggestProducts.length > 0 ? (
+                <ul className="site-header-search__list">
+                  {suggestProducts.map((product) => (
+                    <li key={product.id}>
                       <Link
-                        href={`/search?q=${encodeURIComponent(query)}`}
+                        href={`/products/${product.slug}`}
+                        className="site-header-search__item"
+                        role="option"
                         onClick={onClose}
-                        className="search-modal__result-row"
                       >
-                        <Search className="h-4 w-4 text-black/45" strokeWidth={2} />
-                        <span className="search-modal__result-text">
-                          Search for{' '}
-                          <strong>&ldquo;{query}&rdquo;</strong>
-                        </span>
-                        <ArrowRight strokeWidth={2} />
+                        {product.name}
                       </Link>
-
-                      <div className="mt-4">
-                        <p className="search-modal__section-label">Suggestions</p>
-                        <div className="search-modal__chips">
-                          {TRENDING.filter((t) =>
-                            t.toLowerCase().includes(query.toLowerCase()),
-                          ).map((term) => (
-                            <Link
-                              key={term}
-                              href={`/search?q=${encodeURIComponent(term)}`}
-                              onClick={onClose}
-                              className="search-modal__chip"
-                            >
-                              {term}
-                              <ArrowRight strokeWidth={2.5} />
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="default"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="search-modal__layout"
-                    >
-                      <div>
-                        <p className="search-modal__section-label">
-                          <TrendingUp strokeWidth={2} />
-                          Trending Now
-                        </p>
-                        <div className="search-modal__chips">
-                          {TRENDING.map((term) => (
-                            <Link
-                              key={term}
-                              href={`/search?q=${encodeURIComponent(term)}`}
-                              onClick={onClose}
-                              className="search-modal__chip"
-                            >
-                              {term}
-                            </Link>
-                          ))}
-                        </div>
-
-                        <p className="search-modal__section-label mt-6">Quick Links</p>
-                        <div className="search-modal__links">
-                          {QUICK_LINKS.map(({ label, href }) => (
-                            <Link
-                              key={label}
-                              href={href}
-                              onClick={onClose}
-                              className="search-modal__link"
-                            >
-                              {label}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="search-modal__cats">
-                        <p className="search-modal__section-label">Shop by Category</p>
-                        <div className="search-modal__cat-grid">
-                          {QUICK_CATEGORIES.map((cat) => (
-                            <Link
-                              key={cat.label}
-                              href={cat.href}
-                              onClick={onClose}
-                              className="search-modal__cat"
-                            >
-                              <div className="search-modal__cat-frame">
-                                <Image
-                                  src={categoryImages[cat.label] ?? PLACEHOLDER}
-                                  alt={cat.label}
-                                  fill
-                                  sizes="66px"
-                                  className="object-contain object-center"
-                                />
-                              </div>
-                              <p className="search-modal__cat-label">{cat.label}</p>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-      </LuxuryDialogContent>
-    </LuxuryDialog>
+                    </li>
+                  ))}
+                </ul>
+              ) : suggestLoading ? (
+                <p className="site-header-search__hint" aria-live="polite">
+                  Searching…
+                </p>
+              ) : (
+                <p className="site-header-search__hint">No matching products</p>
+              )}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </motion.div>
+    </>
   )
 }

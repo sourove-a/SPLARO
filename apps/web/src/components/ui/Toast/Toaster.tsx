@@ -18,9 +18,21 @@ export function Toaster() {
           padding: '14px 20px',
         },
         success: {
-          iconTheme: { primary: '#C8A97E', secondary: '#111111' },
+          style: {
+            background: '#f0fdf4',
+            color: '#14532d',
+            border: '1px solid rgba(22, 163, 74, 0.28)',
+            boxShadow: '0 12px 32px rgba(22, 101, 52, 0.14)',
+          },
+          iconTheme: { primary: '#16a34a', secondary: '#ffffff' },
         },
         error: {
+          style: {
+            background: '#fef2f2',
+            color: '#7f1d1d',
+            border: '1px solid rgba(220, 38, 38, 0.28)',
+            boxShadow: '0 12px 32px rgba(127, 29, 29, 0.14)',
+          },
           iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
         },
       }}

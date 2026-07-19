@@ -10,6 +10,7 @@ import { StorefrontSettingsProvider } from '@/components/providers/StorefrontSet
 import { AnalyticsScripts } from '@/components/analytics/AnalyticsScripts'
 import { GoogleAnalyticsHead, GA_ENV_ID } from '@/components/analytics/GoogleAnalyticsHead'
 import { AttributionCapture } from '@/components/analytics/AttributionCapture'
+import { RouteAnalyticsTracker } from '@/components/analytics/RouteAnalyticsTracker'
 import { STRIP_EXTENSION_ATTRS_SCRIPT } from '@/lib/hydration/strip-extension-attrs'
 import { WINDOWS_NATIVE_SCROLL_SCRIPT } from '@/lib/hydration/windows-native-scroll-script'
 import { CHUNK_RECOVERY_SCRIPT } from '@/lib/hydration/chunk-recovery-script'
@@ -93,7 +94,6 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: siteUrl,
     siteName: 'SPLARO',
     title: 'SPLARO — Luxury Fashion & Lifestyle',
     description:
@@ -113,9 +113,6 @@ export const metadata: Metadata = {
     description: 'Quiet luxury fashion — premium essentials, footwear, and accessories.',
     images: [`${siteUrl}/og-image.jpg`],
     creator: '@splaro_official',
-  },
-  alternates: {
-    canonical: siteUrl,
   },
   icons: splaroMetadataIcons,
   ...(process.env.NEXT_PUBLIC_FACEBOOK_DOMAIN_VERIFICATION?.trim()
@@ -166,7 +163,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
       className={`${inter.variable} ${cormorant.variable}`}
       data-color-scheme="light"
-      style={{ colorScheme: 'light only' }}
+      style={{ colorScheme: 'light only', backgroundColor: '#ffffff' }}
     >
       <head>
         {/* Phone OS dark mode — keep SPLARO white/light on every device */}
@@ -252,7 +249,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <style id="splaro-critical-home" dangerouslySetInnerHTML={{ __html: CRITICAL_HOME_CSS }} />
       </head>
-      <body className={`${inter.className} antialiased`} suppressHydrationWarning>
+      <body
+        className={`${inter.className} antialiased`}
+        suppressHydrationWarning
+        style={{ backgroundColor: '#ffffff' }}
+      >
+        <a className="storefront-skip-link" href="#main-content">
+          Skip to main content
+        </a>
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: WINDOWS_NATIVE_SCROLL_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: CHUNK_RECOVERY_SCRIPT }} />
@@ -298,6 +302,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <StorefrontSettingsProvider settings={settings}>
             <AnalyticsScripts envGaId={GA_ENV_ID} />
             <AttributionCapture />
+            <RouteAnalyticsTracker />
             <StorefrontChrome>{children}</StorefrontChrome>
             <Toaster />
             <GlobalPressFeedback />

@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const token = body.token?.trim()
 
   if (!email || !token) {
-    return NextResponse.json({ error: 'Email and Telegram token required' }, { status: 400 })
+    return NextResponse.json({ error: 'Email and login token required' }, { status: 400 })
   }
 
   const storeId = process.env['NEXT_PUBLIC_STORE_ID'] ?? 'splaro'
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, token, storeId }),
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     })
 
     const data = (await res.json()) as {
@@ -59,7 +60,13 @@ export async function POST(request: Request) {
 
     response.cookies.set(ADMIN_SESSION_COOKIE, sessionToken, sessionCookieOptions())
     return response
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      return NextResponse.json(
+        { error: 'Login timed out — please try again.' },
+        { status: 504 },
+      )
+    }
     return NextResponse.json({ error: 'Unable to connect. Please try again.' }, { status: 503 })
   }
 }

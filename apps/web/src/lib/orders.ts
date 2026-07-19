@@ -125,11 +125,16 @@ export async function fetchUserOrders(): Promise<StoredOrder[]> {
   return (payload.orders ?? []).map(normalizeOrder)
 }
 
-export async function fetchOrderById(orderIdOrInvoice: string): Promise<StoredOrder | null> {
+export async function fetchOrderById(
+  orderIdOrInvoice: string,
+  accessKey?: string,
+): Promise<StoredOrder | null> {
   try {
-    const response = await fetch(`/api/orders/${encodeURIComponent(orderIdOrInvoice)}`, {
-      credentials: 'include',
-    })
+    const query = accessKey ? `?key=${encodeURIComponent(accessKey)}` : ''
+    const response = await fetch(
+      `/api/orders/${encodeURIComponent(orderIdOrInvoice)}${query}`,
+      { credentials: 'include' },
+    )
     if (!response.ok) return null
     const payload = (await response.json()) as { order?: ApiOrder }
     if (!payload.order) return null

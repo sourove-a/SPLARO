@@ -547,7 +547,7 @@ function SheetsPanel() {
           {sheets?.autoSyncEnabled ? <span className="ai-command-pill ai-command-pill--ok">🟢 Auto-sync ON</span> : <span className="ai-command-pill">Auto-sync OFF</span>}
         </div>
         {sheets?.spreadsheetUrl ? (
-          <a href={sheets.spreadsheetUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-black text-[#9a7b52] hover:underline">
+          <a href={sheets.spreadsheetUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-black text-[#3f3f46] hover:underline">
             Open spreadsheet <ExternalLink className="h-3 w-3" />
           </a>
         ) : null}

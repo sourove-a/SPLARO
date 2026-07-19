@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { useFooterEarthActive } from '@/components/footer/earth-live/useFooterEarthActive'
@@ -74,15 +75,15 @@ export function EarthBackdrop() {
           />
         ) : null}
 
-        <img
+        <Image
           className="earth-backdrop__poster-img"
           src={FOOTER_GLOBE_POSTER}
           alt=""
           width={1920}
           height={1080}
+          sizes="100vw"
           loading={posterOnly ? 'lazy' : 'eager'}
           fetchPriority={posterOnly ? 'low' : 'high'}
-          decoding="async"
           draggable={false}
         />
       </div>

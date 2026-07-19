@@ -15,10 +15,10 @@
 .admin-sidebar__flat-label {
   padding: 0.7rem 0.8rem 0.3rem;
   font-size: 0.58rem;
-  font-weight: 750;
+  font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--admin-text-muted);
+  color: #3a3e4a;
 }
 
 .admin-sidebar__flat-items {
@@ -35,9 +35,9 @@
   border: 1px solid transparent;
   border-radius: 14px;
   font-size: 0.8125rem;
-  font-weight: 560;
+  font-weight: 650;
   letter-spacing: -0.012em;
-  color: #3a3a42;
+  color: #17181f;
   gap: 0.72rem;
   box-shadow: none;
 }
@@ -45,7 +45,7 @@
 .admin-sidebar .admin-nav-item:hover {
   background: rgba(17, 17, 20, 0.045);
   border-color: transparent;
-  color: #111111;
+  color: #040507;
   box-shadow: none;
   transform: none;
 }
@@ -54,7 +54,7 @@
   background: #111111;
   border-color: #111111;
   color: #ffffff;
-  font-weight: 640;
+  font-weight: 700;
   box-shadow: 0 6px 18px rgba(17, 17, 20, 0.16);
 }
 

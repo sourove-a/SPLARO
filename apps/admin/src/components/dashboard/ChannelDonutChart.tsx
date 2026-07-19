@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { formatBDT } from '@/lib/utils/currency'
 import { useDashboardInsights } from '@/lib/api/hooks'
 
-const COLORS = ['#5E7CFF', '#111111', '#6B6B6B', '#D4BC94', '#E8D5B7']
+const COLORS = ['#111216', '#C8A97E', '#62646B', '#A7A8AD', '#E3D4BD']
 
 type MixRow = { name: string; value: number; revenue: number }
 

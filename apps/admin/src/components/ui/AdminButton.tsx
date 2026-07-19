@@ -6,7 +6,7 @@ import { type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils/cn'
 import { isExternalHref, markAdminLinkNavigation } from '@/lib/navigation/client-nav'
 
-type AdminButtonVariant = 'default' | 'gold' | 'ghost' | 'dark' | 'danger' | 'warning'
+type AdminButtonVariant = 'default' | 'gold' | 'ghost' | 'dark' | 'danger' | 'warning' | 'success'
 type AdminButtonSize = 'sm' | 'md'
 
 interface AdminButtonBaseProps {
@@ -34,6 +34,7 @@ const variantClass: Record<AdminButtonVariant, string> = {
   dark: 'admin-btn admin-btn--dark',
   danger: 'admin-btn admin-btn--danger',
   warning: 'admin-btn admin-btn--warning',
+  success: 'admin-btn admin-btn--success',
 }
 
 const sizeClass: Record<AdminButtonSize, string | undefined> = {

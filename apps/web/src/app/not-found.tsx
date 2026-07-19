@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
+import '@/styles/pages/content.css'
+import '@/styles/pages/account.css'
 
 export const metadata: Metadata = {
   title: 'Page Not Found',

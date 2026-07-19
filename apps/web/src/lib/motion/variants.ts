@@ -47,11 +47,14 @@ export const exitPop: Variants = {
   exit: { opacity: 0, scale: 0.88, transition: { duration: 0.2, ease: EASE_EXPO_OUT } },
 }
 
-/** Hover/tap — transform only, no layout, no bounce */
+/** Hover/tap — opacity only (sharp: no scale/translate jump). */
 export const cardHover = {
-  whileHover: { y: -3, transition: { duration: 0.28, ease: EASE_EXPO_OUT } },
-  whileTap: { scale: 0.992, transition: { duration: 0.1, ease: EASE_EXPO_OUT } },
+  whileHover: { opacity: 0.94, transition: { duration: 0.2, ease: EASE_EXPO_OUT } },
+  whileTap: { opacity: 0.88, transition: { duration: 0.1, ease: EASE_EXPO_OUT } },
 }
+
+/** Shared press — use instead of `whileTap: { scale: 0.992 }`. */
+export const pressTap = { opacity: 0.9, transition: { duration: 0.1, ease: EASE_EXPO_OUT } }
 
 export const revealVariants = {
   fadeUp,

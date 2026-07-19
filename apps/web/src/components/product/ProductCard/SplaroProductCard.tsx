@@ -11,6 +11,7 @@ import { useWishlistStore } from '@/store/wishlistStore'
 import { useMobileViewport, useMounted } from '@/lib/hooks/use-mobile-viewport'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
+import { trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 
 const IMAGE_EASE = [0.16, 1, 0.3, 1] as const
 const IMAGE_SPRING = { type: 'spring' as const, stiffness: 380, damping: 34, mass: 0.82 }
@@ -117,10 +118,10 @@ export function SplaroProductCard({
     : { duration: 0.42, ease: IMAGE_EASE }
 
   const imageEnter = reducedMotion
-    ? { opacity: 1, scale: 1 }
-    : { opacity: 0, scale: 1.035 }
+    ? { opacity: 1 }
+    : { opacity: 0 }
 
-  const imageExit = reducedMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.98 }
+  const imageExit = reducedMotion ? { opacity: 1 } : { opacity: 0 }
 
   const handleGalleryPrev = useCallback(() => {
     setGalleryIndex((current) => (current - 1 + imageGallery.length) % imageGallery.length)
@@ -147,16 +148,23 @@ export function SplaroProductCard({
         window.setTimeout(() => setAdding(false), 420)
         return
       }
+      const addingToWishlist = !isInWishlist(id)
       toggleWishlist(id)
+      if (addingToWishlist) {
+        trackAddToWishlist({ id, name, price, quantity: 1, brand: 'SPLARO' })
+      }
     },
     [
       adding,
       colorHexes.length,
       id,
       isHomepage,
+      isInWishlist,
       isShop,
+      name,
       onAddToBag,
       onShowDetails,
+      price,
       productSizes.length,
       toggleWishlist,
     ],
@@ -165,20 +173,20 @@ export function SplaroProductCard({
   return (
     <article
       className={cn(
-        'splaro-card ilyn-card group',
-        !inStock && 'splaro-card--out-of-stock ilyn-card--out-of-stock',
-        isShop && 'splaro-card--shop ilyn-card--shop',
-        isHomepage && 'splaro-card--homepage ilyn-card--homepage',
+        'splaro-card group',
+        !inStock && 'splaro-card--out-of-stock',
+        isShop && 'splaro-card--shop',
+        isHomepage && 'splaro-card--homepage',
       )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <m.div
-        className="splaro-card__media ilyn-card__media"
+        className="splaro-card__media"
       >
         <ProductTransitionLink
           href={link}
-          className="splaro-card__link ilyn-card__link"
+          className="splaro-card__link"
           aria-label={name}
           prefetch={!(isHomepage && mounted && isMobile)}
         >
@@ -186,7 +194,7 @@ export function SplaroProductCard({
             <AnimatePresence mode="sync" initial={false}>
               <m.div
                 key={displayImage}
-                className="splaro-card__img-frame ilyn-card__img-frame"
+                className="splaro-card__img-frame"
                 initial={imageEnter}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={imageExit}
@@ -199,11 +207,12 @@ export function SplaroProductCard({
                   fill
                   fit={imageFit}
                   priority={priority}
+                  allowStockMedia
                   className={cn(
-                    'splaro-card__img splaro-card__img--primary ilyn-card__img ilyn-card__img--primary',
+                    'splaro-card__img splaro-card__img--primary',
                     imageFit === 'cover'
-                      ? 'splaro-card__img--cover ilyn-card__img--cover'
-                      : 'splaro-card__img--contain ilyn-card__img--contain',
+                      ? 'splaro-card__img--cover'
+                      : 'splaro-card__img--contain',
                   )}
                 />
               </m.div>
@@ -213,7 +222,7 @@ export function SplaroProductCard({
 
         {showGalleryNav ? (
           <m.div
-            className="ilyn-card__gallery-nav"
+            className="splaro-card__gallery-nav"
             initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 32 }}
@@ -226,37 +235,37 @@ export function SplaroProductCard({
         {showStatus ? (
           <span
             className={cn(
-              'splaro-card__badge ilyn-card__badge',
-              status === 'Limited' && 'splaro-card__badge--limited ilyn-card__badge--limited',
+              'splaro-card__badge',
+              status === 'Limited' && 'splaro-card__badge--limited',
             )}
           >
             {status === 'New' ? 'NEW' : status.toUpperCase()}
           </span>
         ) : null}
         {hasDiscount && !showStatus ? (
-          <span className="splaro-card__badge splaro-card__badge--sale ilyn-card__badge ilyn-card__badge--sale">
+          <span className="splaro-card__badge splaro-card__badge--sale">
             -{discount}%
           </span>
         ) : null}
 
         {showCollectionTag ? (
-          <span className="splaro-card__collection ilyn-card__collection">{tag}</span>
+          <span className="splaro-card__collection">{tag}</span>
         ) : null}
 
-        {!inStock ? <span className="splaro-card__sold-badge ilyn-card__sold-badge">Sold out</span> : null}
+        {!inStock ? <span className="splaro-card__sold-badge">Sold out</span> : null}
 
         {inStock ? (
           <m.button
             type="button"
             data-no-press=""
-            {...(reducedMotion ? {} : { whileTap: { scale: 0.992 } })}
+            {...(reducedMotion ? {} : { whileTap: { opacity: 0.9 } })}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              'splaro-card__wish ilyn-card__wish',
-              !isShop && !isHomepage && saved && 'splaro-card__wish--saved ilyn-card__wish--saved',
-              'splaro-card__wish--touch ilyn-card__wish--touch',
-              isHomepage && 'splaro-card__wish--homepage ilyn-card__wish--homepage',
-              adding && 'splaro-card__wish--adding ilyn-card__wish--adding',
+              'splaro-card__wish',
+              !isShop && !isHomepage && saved && 'splaro-card__wish--saved',
+              'splaro-card__wish--touch',
+              isHomepage && 'splaro-card__wish--homepage',
+              adding && 'splaro-card__wish--adding',
             )}
             onClick={handleCardAction}
             disabled={adding}
@@ -312,18 +321,18 @@ export function SplaroProductCard({
 
         <ProductTransitionLink
           href={link}
-          className="splaro-card__info ilyn-card__info"
+          className="splaro-card__info"
           tabIndex={-1}
         >
-        <div className="splaro-card__title-row ilyn-card__title-row">
-          <h3 className="splaro-card__name ilyn-card__name">{name}</h3>
+        <div className="splaro-card__title-row">
+          <h3 className="splaro-card__name">{name}</h3>
           {productCode ? (
-            <span className="splaro-card__code ilyn-card__code">{productCode}</span>
+            <span className="splaro-card__code">{productCode}</span>
           ) : null}
         </div>
 
         {colorHexes.length > 0 ? (
-          <div className="splaro-card__colors ilyn-card__colors">
+          <div className="splaro-card__colors">
             <span>
               {colorHexes.length} color{colorHexes.length > 1 ? 's' : ''}
             </span>
@@ -335,12 +344,12 @@ export function SplaroProductCard({
           </div>
         ) : null}
 
-        <div className="splaro-card__price-row ilyn-card__price-row">
-          <span className="splaro-card__price ilyn-card__price">{formatBDT(price)}</span>
+        <div className="splaro-card__price-row">
+          <span className="splaro-card__price">{formatBDT(price)}</span>
           {hasDiscount ? (
-            <span className="splaro-card__compare ilyn-card__compare">{formatBDT(compareAtPrice!)}</span>
+            <span className="splaro-card__compare">{formatBDT(compareAtPrice!)}</span>
           ) : null}
-          {meta ? <span className="splaro-card__meta ilyn-card__meta">{meta}</span> : null}
+          {meta ? <span className="splaro-card__meta">{meta}</span> : null}
         </div>
       </ProductTransitionLink>
     </article>

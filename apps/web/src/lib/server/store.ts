@@ -39,13 +39,25 @@ async function writeJsonFile<T>(filename: string, data: T): Promise<void> {
 export type OrderStatus =
   | 'pending'
   | 'confirmed'
+  | 'processing'
   | 'packed'
   | 'shipped'
+  | 'courier_booked'
+  | 'picked_up'
   | 'in_transit'
+  | 'out_for_delivery'
   | 'delivered'
+  | 'returned'
   | 'cancelled'
+  | 'refunded'
 
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
+export type PaymentStatus =
+  | 'unpaid'
+  | 'pending'
+  | 'paid'
+  | 'failed'
+  | 'refunded'
+  | 'partially_refunded'
 
 export interface StoredOrderItem {
   productId: string

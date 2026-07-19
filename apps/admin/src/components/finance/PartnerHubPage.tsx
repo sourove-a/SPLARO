@@ -93,7 +93,7 @@ function PartnerAvatar({
         {partner.avatarUrl ? (
           <Image src={partner.avatarUrl} alt={partner.name} width={size} height={size} className="h-full w-full object-cover" unoptimized />
         ) : (
-          <span className="text-lg font-black text-[#9a7b52]">{initials}</span>
+          <span className="text-lg font-black text-[#3f3f46]">{initials}</span>
         )}
       </div>
       {onUpload ? (

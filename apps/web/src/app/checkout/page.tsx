@@ -3,7 +3,8 @@ import CheckoutPageClient from './page-client'
 
 export const metadata: Metadata = {
   title: 'Checkout',
-  description: 'Complete your SPLARO order with cash on delivery or SSLCommerz secure checkout.',
+  description: 'Complete your SPLARO order with secure cash on delivery.',
+  robots: { index: false, follow: false },
 }
 
 export default function CheckoutPage() {

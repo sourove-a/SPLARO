@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { DEPARTMENT_SLUGS, departmentHref } from '@splaro/config'
+import { DEPARTMENT_SLUGS, departmentHref, LOCAL_EDITORIAL } from '@splaro/config'
 import { buildCategoryTree, type CategoryTreeNode } from '../../common/category-tree.util'
 import { PrismaService } from '../../common/prisma.service'
 import { storefrontVisibleProductWhere } from '../../common/storefront-product.util'
@@ -28,80 +28,68 @@ const EDITORIAL_HEROES: Record<string, MegaMenuHero[]> = {
     {
       label: 'New Arrivals',
       href: '/new-arrivals?dept=men',
-      image:
-        'https://images.unsplash.com/photo-1617137968427-85924c800a22?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.menNew,
     },
     {
       label: 'Best Sellers',
       href: '/best-sellers?dept=men',
-      image:
-        'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.menBest,
     },
     {
       label: 'Panjabi',
       href: '/c/panjabi',
-      image:
-        'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.menSummer,
     },
   ],
   women: [
     {
       label: 'New Arrivals',
       href: '/new-arrivals?dept=women',
-      image:
-        'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.womenNew,
     },
     {
       label: 'Best Sellers',
       href: '/best-sellers?dept=women',
-      image:
-        'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.womenBest,
     },
     {
       label: 'Sarees',
       href: '/c/sarees',
-      image:
-        'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.womenPremium,
     },
   ],
   kids: [
     {
       label: 'Girls Wear',
       href: '/c/girls-wear',
-      image:
-        'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.kidsDresses,
     },
     {
       label: 'Boys Wear',
       href: '/c/boys-wear',
-      image:
-        'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.kidsPanjabi,
     },
     {
       label: 'Party Wear',
       href: '/c/kids-party-wear',
-      image:
-        'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.kidsSchool,
     },
   ],
   footwear: [
     {
       label: 'Sneakers',
       href: '/c/sneakers',
-      image:
-        'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.footwearSneakers,
     },
     {
       label: 'Sandals',
       href: '/c/sandals',
-      image:
-        'https://images.unsplash.com/photo-1562273138-f46be4ebdf33?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.footwearSandals,
     },
     {
       label: 'Shop all',
       href: '/c/footwear',
-      image:
-        'https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=900&q=80&auto=format',
+      image: LOCAL_EDITORIAL.footwearLoafers,
     },
   ],
 }
@@ -109,7 +97,13 @@ const EDITORIAL_HEROES: Record<string, MegaMenuHero[]> = {
 function isBlankHeroImage(url: string | undefined): boolean {
   const value = url?.trim() ?? ''
   if (!value) return true
+  // Placeholder only — keep real product photos (incl. Unsplash CDN) for dept megas
   return /placeholder-product|placehold\.co/i.test(value)
+}
+
+/** Shared homepage heroes — OK as last resort, never preferred over dept product shots. */
+function isSharedHomepageHero(url: string | undefined): boolean {
+  return /\/images\/hero\/(new-season|summer)(-|_)?/i.test(url?.trim() ?? '')
 }
 
 /** Normalize mislabeled mega-menu hero links (seed defaults pointed at department roots). */
@@ -263,16 +257,24 @@ export class NavBuilderService {
       Math.max(baseHeroes.length, 3),
     )
 
-    const heroes: MegaMenuHero[] = baseHeroes.map((hero, index) => ({
-      ...hero,
-      href: normalizeHeroHref(hero.label, hero.href, dept.slug),
-      image:
-        (!isBlankHeroImage(hero.image) ? hero.image : undefined) ||
-        liveImages[index] ||
-        EDITORIAL_HEROES[dept.slug]?.[index]?.image ||
-        liveImages[0] ||
-        '',
-    })).filter((hero) => Boolean(hero.image))
+    const heroes: MegaMenuHero[] = baseHeroes.map((hero, index) => {
+      const configured =
+        hero.image && !isBlankHeroImage(hero.image) && !isSharedHomepageHero(hero.image)
+          ? hero.image
+          : undefined
+      return {
+        ...hero,
+        href: normalizeHeroHref(hero.label, hero.href, dept.slug),
+        // Dept product photos first — stops Men mega showing Women homepage heroes
+        image:
+          liveImages[index] ||
+          configured ||
+          liveImages[0] ||
+          (!isBlankHeroImage(hero.image) ? hero.image : undefined) ||
+          EDITORIAL_HEROES[dept.slug]?.[index]?.image ||
+          '',
+      }
+    }).filter((hero) => Boolean(hero.image))
 
     return { categories, heroes }
   }

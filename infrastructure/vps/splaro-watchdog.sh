@@ -17,6 +17,31 @@ PM2_CONFIG="${APP_DIR}/infrastructure/pm2/ecosystem.config.js"
 mkdir -p "$LOG_DIR"
 log() { echo "[watchdog $(date '+%F %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 
+telegram_alert() {
+  local message=$1
+  [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || return 0
+  [ -n "${TELEGRAM_ADMIN_USER_ID:-}" ] || return 0
+  curl -sf -m 8 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_ADMIN_USER_ID}" \
+    --data-urlencode "text=${message}" >/dev/null 2>&1 || true
+}
+
+ensure_service() {
+  local service=$1
+  local label=$2
+  if systemctl is-active --quiet "$service"; then return 0; fi
+  log "$label down — restarting $service"
+  systemctl restart "$service" >>"$LOG_FILE" 2>&1 || true
+  if systemctl is-active --quiet "$service"; then
+    log "$label recovered"
+    telegram_alert "✅ SPLARO watchdog recovered ${label} on $(hostname)"
+    return 0
+  fi
+  log "WARN: $label still down"
+  telegram_alert "🚨 SPLARO watchdog could not recover ${label} on $(hostname)"
+  return 1
+}
+
 exec 9>"$LOCK_FILE"
 flock -n 9 || exit 0
 
@@ -24,6 +49,11 @@ if [ -f "$APP_DIR/.env" ]; then
   # shellcheck disable=SC1091
   set -a && source "$APP_DIR/.env" && set +a
 fi
+
+ensure_service postgresql@16-main.service PostgreSQL || true
+ensure_service redis-server.service Redis || true
+ensure_service meilisearch.service Meilisearch || true
+ensure_service nginx.service Nginx || true
 
 api_ok() {
   curl -sf -m 8 http://127.0.0.1:4000/api/v1/health >/dev/null 2>&1
@@ -50,16 +80,19 @@ fi
 
 if ! api_ok; then
   log "WARN: API still down after reload"
+  telegram_alert "🚨 SPLARO API still down after watchdog reload on $(hostname)"
 else
   log "API healthy"
 fi
 
 if ! web_ok; then
   log "WARN: web still down after reload"
+  telegram_alert "🚨 SPLARO web still down after watchdog reload on $(hostname)"
 else
   log "web healthy"
 fi
 
 if ! admin_ok; then
   log "WARN: admin not responding on :3001"
+  telegram_alert "🚨 SPLARO admin not responding on $(hostname)"
 fi

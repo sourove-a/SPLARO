@@ -34,16 +34,16 @@ export async function startBkashCheckout(input: {
 }
 
 export async function startNagadCheckout(input: {
-  orderId: string
+  invoiceNumber: string
   amount: number
 }): Promise<{ redirectUrl: string; paymentRefId: string }> {
   const base = paymentsBase()
-  const callbackUrl = `${base}/nagad/verify?orderId=${encodeURIComponent(input.orderId)}`
+  const callbackUrl = `${base}/nagad/verify?invoiceNumber=${encodeURIComponent(input.invoiceNumber)}`
   const res = await fetch(`${base}/nagad/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      orderId: input.orderId,
+      invoiceNumber: input.invoiceNumber,
       amount: input.amount,
       callbackUrl,
     }),

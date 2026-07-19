@@ -9,7 +9,7 @@ export class RedisService implements OnModuleDestroy {
   private readonly enabled: boolean
 
   constructor() {
-    const url = process.env['REDIS_URL'] ?? 'redis://localhost:6379'
+    const url = process.env['REDIS_URL'] ?? 'redis://127.0.0.1:6379'
     this.enabled = process.env['REDIS_ENABLED'] !== 'false'
     const isProd = process.env['NODE_ENV'] === 'production'
 
@@ -68,7 +68,7 @@ export class RedisService implements OnModuleDestroy {
 
   private async ensureClient(): Promise<void> {
     if (!this.enabled || this.client) return
-    const url = process.env['REDIS_URL'] ?? 'redis://localhost:6379'
+    const url = process.env['REDIS_URL'] ?? 'redis://127.0.0.1:6379'
     try {
       const client = new Redis(url, {
         password: process.env['REDIS_PASSWORD'] || undefined,

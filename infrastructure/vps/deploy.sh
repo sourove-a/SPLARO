@@ -10,6 +10,7 @@ set -euo pipefail
 APP_DIR="${SPLARO_APP_DIR:-/var/www/splaro}"
 LOG_FILE="/var/log/splaro/deploy.log"
 BRANCH="${SPLARO_BRANCH:-main}"
+DEPLOY_SHA="${SPLARO_DEPLOY_SHA:-}"
 REPO_SSH="${SPLARO_REPO_SSH:-git@github.com:sourove-a/SPLARO.git}"
 DEPLOY_KEY="${SPLARO_DEPLOY_KEY:-/root/.ssh/github_deploy}"
 TIMESTAMP="$(date '+%Y-%m-%d %H:%M:%S')"
@@ -82,7 +83,24 @@ fi
 
 export SPLARO_APP_DIR="$APP_DIR"
 export SPLARO_LOG_DIR="${SPLARO_LOG_DIR:-/var/log/splaro}"
-export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=6144"
+export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=3072"
+
+ensure_swap() {
+  if swapon --show 2>/dev/null | grep -q .; then
+    log "Swap ready"
+    return 0
+  fi
+  if [ ! -f /swapfile ]; then
+    log "Creating 4G swapfile..."
+    fallocate -l 4G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=4096 status=none
+    chmod 600 /swapfile
+    mkswap /swapfile >/dev/null
+  fi
+  swapon /swapfile 2>/dev/null || true
+  grep -q '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  swapon --show 2>/dev/null | grep -q . || die "Swap unavailable — refusing memory-risk deploy"
+  log "Swap enabled"
+}
 
 # ── Git sync ─────────────────────────────────────────────────
 # Hard-reset to origin so stray edits on the VPS can never block a deploy.
@@ -90,7 +108,16 @@ export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=6144"
 log "Syncing to origin/$BRANCH..."
 GIT_SSH_COMMAND="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git fetch origin "$BRANCH"
 git checkout "$BRANCH" 2>/dev/null || git checkout -B "$BRANCH" "origin/$BRANCH"
-git reset --hard "origin/$BRANCH"
+if [ -n "$DEPLOY_SHA" ]; then
+  git cat-file -e "${DEPLOY_SHA}^{commit}" 2>/dev/null || die "CI-approved commit not found: $DEPLOY_SHA"
+  git merge-base --is-ancestor "$DEPLOY_SHA" "origin/$BRANCH" \
+    || die "Refusing deploy: $DEPLOY_SHA is not on origin/$BRANCH"
+  git reset --hard "$DEPLOY_SHA"
+  log "Pinned to CI-approved commit $DEPLOY_SHA"
+else
+  log "WARNING: SPLARO_DEPLOY_SHA missing — manual deploy uses origin/$BRANCH"
+  git reset --hard "origin/$BRANCH"
+fi
 
 # ── pnpm ─────────────────────────────────────────────────────
 export PNPM_HOME="${PNPM_HOME:-/root/.local/share/pnpm}"
@@ -98,8 +125,12 @@ export PATH="$PNPM_HOME:/root/.local/bin:$PATH"
 [ -f infrastructure/hostinger/ensure-pnpm.sh ] && bash infrastructure/hostinger/ensure-pnpm.sh
 command -v pnpm >/dev/null || die "pnpm not found"
 
-log "pnpm install..."
-NODE_ENV=development pnpm install --frozen-lockfile --prod=false
+ensure_swap
+
+log "pnpm install (memory-safe)..."
+export npm_config_child_concurrency="${npm_config_child_concurrency:-1}"
+export PNPM_NETWORK_CONCURRENCY="${PNPM_NETWORK_CONCURRENCY:-8}"
+NODE_ENV=development pnpm install --frozen-lockfile --prod=false --network-concurrency="$PNPM_NETWORK_CONCURRENCY"
 
 log "Prisma..."
 pnpm db:generate
@@ -111,17 +142,9 @@ pnpm db:bootstrap-store 2>&1 | tail -8 || log "WARN: store bootstrap skipped"
 log "Build..."
 # 8GB VPS OOM-kills parallel turbo (api tsc + two next builds) → exit 137 and
 # leaves dist/.next wiped. Sequential + concurrency=1 keeps the site rebuildable.
-# Ensure swap exists (idempotent) so peak RSS doesn't SIGKILL the builder.
-if ! swapon --show 2>/dev/null | grep -q .; then
-  if [ ! -f /swapfile ]; then
-    log "Creating 4G swapfile (no swap configured)..."
-    fallocate -l 4G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=4096 status=none
-    chmod 600 /swapfile
-    mkswap /swapfile >/dev/null
-  fi
-  swapon /swapfile 2>/dev/null || true
-  grep -q '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-fi
+# Swap already verified before dependency install; keep this idempotent guard
+# next to build too in case an operator disabled swap during a long deploy.
+ensure_swap
 # Move .next aside instead of deleting it — a build killed mid-write (OOM,
 # this script erroring out) can leave .next/server with a partial manifest
 # set; the next build then silently reuses that stale dir and crashes at

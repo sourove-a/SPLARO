@@ -33,11 +33,13 @@ export function StorefrontImage({
   className,
   alt,
   allowStockMedia,
+  priority,
+  fetchPriority,
   ...rest
 }: StorefrontImageProps) {
   const isMobile = useMobileViewport()
   const mounted = useMounted()
-  // Mobile-first until mount proves desktop — ILYN-style LCP (never start at 1920/900).
+  // Mobile-first until mount proves desktop — premium LCP (never start at 1920/900).
   const effectiveProfile =
     !mounted || isMobile ? mobileImageProfile(profile) : profile
   const optimizedSrc = optimizeImageSrc(
@@ -53,6 +55,16 @@ export function StorefrontImage({
   }, [optimizedSrc])
 
   const useBlur = withBlur && (rest.fill !== undefined || (rest.width !== undefined && rest.height !== undefined))
+  let priorityProps: Pick<ImageProps, 'priority' | 'fetchPriority'> = {}
+
+  if (priority) {
+    priorityProps = {
+      priority: true,
+      fetchPriority: fetchPriority ?? 'high',
+    }
+  } else if (fetchPriority) {
+    priorityProps = { fetchPriority }
+  }
 
   const sizeMap: Record<ImageProfile, string> = {
     card: IMAGE_SIZES.card,
@@ -78,6 +90,7 @@ export function StorefrontImage({
         fit === 'contain' && 'sf-image--contain',
         className,
       )}
+      {...priorityProps}
       {...(useBlur ? { placeholder: 'blur' as const, blurDataURL: IMAGE_BLUR_PLACEHOLDER } : {})}
       {...rest}
     />

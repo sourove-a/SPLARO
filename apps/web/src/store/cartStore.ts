@@ -13,13 +13,60 @@ export interface CartItem {
   slug: string
 }
 
+function normPart(value?: string) {
+  return (value ?? '').trim().toLowerCase()
+}
+
+function isHexColor(value: string) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())
+}
+
+/** Prefer a human color name over a hex code when merging lines. */
+function preferColorLabel(a?: string, b?: string): string | undefined {
+  const ca = a?.trim() || undefined
+  const cb = b?.trim() || undefined
+  if (!ca) return cb
+  if (!cb) return ca
+  if (isHexColor(ca) && !isHexColor(cb)) return cb
+  if (isHexColor(cb) && !isHexColor(ca)) return ca
+  return ca
+}
+
+/**
+ * Same bag line when product + size match and color/variant are compatible.
+ * Empty color matches any (fixes Accessories quick-add omitting color vs PDP/shop).
+ * Differing variantIds stay separate; hex vs name for the same pick merges.
+ */
 function sameCartLine(a: CartItem, b: Pick<CartItem, 'productId' | 'variantId' | 'size' | 'color'>) {
-  return (
-    a.productId === b.productId &&
-    (a.variantId ?? '') === (b.variantId ?? '') &&
-    (a.size ?? '') === (b.size ?? '') &&
-    (a.color ?? '') === (b.color ?? '')
-  )
+  if (a.productId !== b.productId) return false
+
+  const sizeA = normPart(a.size)
+  const sizeB = normPart(b.size)
+  if (sizeA && sizeB && sizeA !== sizeB) return false
+
+  const varA = a.variantId ?? ''
+  const varB = b.variantId ?? ''
+  if (varA && varB) return varA === varB
+
+  const colorA = normPart(a.color)
+  const colorB = normPart(b.color)
+  if (!colorA || !colorB) return true
+  if (colorA === colorB) return true
+  // Hex from shop card vs name from PDP — treat as same line when size already matched.
+  if (isHexColor(colorA) !== isHexColor(colorB)) return true
+  return false
+}
+
+function mergeCartLine(existing: CartItem, incoming: CartItem): CartItem {
+  const color = preferColorLabel(existing.color, incoming.color)
+  return {
+    ...existing,
+    quantity: existing.quantity + incoming.quantity,
+    ...(incoming.variantId && !existing.variantId ? { variantId: incoming.variantId } : {}),
+    ...(incoming.size && !existing.size ? { size: incoming.size } : {}),
+    ...(color ? { color } : {}),
+    ...(!existing.image && incoming.image ? { image: incoming.image } : {}),
+  }
 }
 
 export type CartLineRef = Pick<CartItem, 'productId' | 'variantId' | 'size' | 'color'>
@@ -73,9 +120,7 @@ export const useCartStore = create<CartStore>()(
 
         let updated: CartItem[]
         if (existing) {
-          updated = items.map((i) =>
-            sameCartLine(i, newItem) ? { ...i, quantity: i.quantity + newItem.quantity } : i,
-          )
+          updated = items.map((i) => (sameCartLine(i, newItem) ? mergeCartLine(i, newItem) : i))
         } else {
           updated = [...items, newItem as CartItem]
         }

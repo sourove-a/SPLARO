@@ -1,8 +1,13 @@
 import { BadRequestException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'crypto'
 import { PrismaService } from '../../common/prisma.service'
+import { RedisService } from '../../common/redis.service'
 import { EmailService } from '../email/email.service'
+import {
+  generateEmailVerificationHTML,
+  generateEmailVerificationText,
+} from '../email/email-verification.template'
 import {
   generatePasswordResetEmailHTML,
   generatePasswordResetEmailText,
@@ -13,6 +18,18 @@ import { StorefrontOtpService, isStorefrontPhoneOtpEnabled } from './storefront-
 
 const SCRYPT_KEYLEN = 64
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30
+const EMAIL_VERIFY_TTL_SEC = 10 * 60
+const EMAIL_VERIFY_COOLDOWN_SEC = 60
+const EMAIL_VERIFY_MAX_ATTEMPTS = 5
+
+interface EmailVerificationPayload {
+  digest: string
+  attempts: number
+  email: string
+  expiresAt: number
+}
+
+const memoryEmailVerification = new Map<string, EmailVerificationPayload>()
 
 function verifyPassword(password: string, passwordHash: string): boolean {
   const [salt, storedHash] = passwordHash.split(':')
@@ -38,6 +55,15 @@ function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '')
 }
 
+function shouldUseGoogleAvatar(currentAvatar?: string | null): boolean {
+  if (!currentAvatar?.trim()) return true
+  try {
+    return new URL(currentAvatar).hostname.endsWith('.googleusercontent.com')
+  } catch {
+    return false
+  }
+}
+
 export interface StorefrontAuthUser {
   id: string
   name: string
@@ -46,6 +72,7 @@ export interface StorefrontAuthUser {
   customerId?: string
   avatar?: string | null
   phoneVerified?: boolean
+  emailVerified: boolean
   loyaltyTier?: string
   needsPhone?: boolean
 }
@@ -58,6 +85,7 @@ export class StorefrontAuthService {
     private readonly email: EmailService,
     private readonly googleIdToken: GoogleIdTokenService,
     private readonly otp: StorefrontOtpService,
+    private readonly redis: RedisService,
   ) {}
 
   async signup(
@@ -95,6 +123,7 @@ export class StorefrontAuthService {
         lastName: true,
         avatar: true,
         phoneVerified: true,
+        emailVerified: true,
       },
     })
     if (!user) throw new BadRequestException('Signup failed')
@@ -129,6 +158,7 @@ export class StorefrontAuthService {
         isActive: true,
         avatar: true,
         phoneVerified: true,
+        emailVerified: true,
         customer: { select: { id: true, storeId: true, loyaltyTier: true } },
       },
     })
@@ -165,6 +195,7 @@ export class StorefrontAuthService {
             isActive: true,
             avatar: true,
             phoneVerified: true,
+            emailVerified: true,
             customer: { select: { id: true, loyaltyTier: true } },
           },
         },
@@ -277,7 +308,9 @@ export class StorefrontAuthService {
           firstName: googleUser.firstName,
           lastName: googleUser.lastName,
           lastLoginAt: new Date(),
-          ...(googleUser.picture ? { avatar: googleUser.picture } : {}),
+          ...(googleUser.picture && shouldUseGoogleAvatar(user.avatar)
+            ? { avatar: googleUser.picture }
+            : {}),
         },
         select: {
           id: true,
@@ -348,6 +381,7 @@ export class StorefrontAuthService {
         lastName: true,
         avatar: true,
         phoneVerified: true,
+        emailVerified: true,
       },
     })
     if (!user) throw new UnauthorizedException('Session expired')
@@ -425,6 +459,104 @@ export class StorefrontAuthService {
     const refreshed = await this.validateSession(sessionToken)
     if (!refreshed) throw new UnauthorizedException('Session expired')
     return refreshed
+  }
+
+  async sendEmailVerification(
+    storeId: string,
+    sessionToken: string,
+  ): Promise<{ success: true; message: string; expiresIn: number }> {
+    const current = await this.validateSession(sessionToken)
+    if (!current) throw new UnauthorizedException('Session expired')
+    if (current.emailVerified) {
+      return { success: true, message: 'Email is already verified', expiresIn: 0 }
+    }
+    if (!current.email) throw new BadRequestException('Add an email address first')
+
+    const key = this.emailVerificationKey(storeId, current.id)
+    const existing = await this.getEmailVerification(key)
+    if (existing && existing.expiresAt - Date.now() > (EMAIL_VERIFY_TTL_SEC - EMAIL_VERIFY_COOLDOWN_SEC) * 1000) {
+      throw new BadRequestException('Please wait before requesting another code')
+    }
+
+    const code = String(randomInt(100000, 1000000))
+    const payload: EmailVerificationPayload = {
+      digest: this.emailVerificationDigest(current.id, current.email, code),
+      attempts: 0,
+      email: current.email,
+      expiresAt: Date.now() + EMAIL_VERIFY_TTL_SEC * 1000,
+    }
+    await this.storeEmailVerification(key, payload)
+
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? 'https://splaro.co').replace(/\/$/, '')
+    const sent = await this.email.sendForStore({
+      storeId,
+      to: current.email,
+      subject: `${code} is your SPLARO verification code`,
+      html: generateEmailVerificationHTML({
+        firstName: current.name.split(/\s+/)[0] ?? 'there',
+        code,
+        siteUrl,
+        expiresInMinutes: EMAIL_VERIFY_TTL_SEC / 60,
+      }),
+      text: generateEmailVerificationText({
+        firstName: current.name.split(/\s+/)[0] ?? 'there',
+        code,
+        expiresInMinutes: EMAIL_VERIFY_TTL_SEC / 60,
+      }),
+      transactional: true,
+    })
+
+    if (!sent) {
+      await this.deleteEmailVerification(key)
+      throw new ServiceUnavailableException('Could not send verification email. Please try again shortly.')
+    }
+
+    return {
+      success: true,
+      message: `Verification code sent to ${current.email}`,
+      expiresIn: EMAIL_VERIFY_TTL_SEC,
+    }
+  }
+
+  async verifyEmail(
+    storeId: string,
+    sessionToken: string,
+    codeRaw: string,
+  ): Promise<{ success: true; user: StorefrontAuthUser }> {
+    const current = await this.validateSession(sessionToken)
+    if (!current) throw new UnauthorizedException('Session expired')
+    if (current.emailVerified) return { success: true, user: current }
+
+    const code = codeRaw?.replace(/\D/g, '')
+    if (code.length !== 6) throw new BadRequestException('Enter the 6-digit verification code')
+
+    const key = this.emailVerificationKey(storeId, current.id)
+    const payload = await this.getEmailVerification(key)
+    if (!payload || payload.expiresAt <= Date.now() || payload.email !== current.email) {
+      await this.deleteEmailVerification(key)
+      throw new BadRequestException('Verification code expired. Request a new code.')
+    }
+
+    const expected = Buffer.from(payload.digest, 'hex')
+    const actual = Buffer.from(this.emailVerificationDigest(current.id, current.email, code), 'hex')
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+      const attempts = payload.attempts + 1
+      if (attempts >= EMAIL_VERIFY_MAX_ATTEMPTS) {
+        await this.deleteEmailVerification(key)
+        throw new BadRequestException('Too many incorrect attempts. Request a new code.')
+      }
+      await this.storeEmailVerification(key, { ...payload, attempts })
+      throw new BadRequestException('Incorrect verification code')
+    }
+
+    await this.prisma.user.update({
+      where: { id: current.id },
+      data: { emailVerified: true, verifyToken: null },
+    })
+    await this.deleteEmailVerification(key)
+    const user = await this.validateSession(sessionToken)
+    if (!user) throw new UnauthorizedException('Session expired')
+    return { success: true, user }
   }
 
   async getDefaultAddress(customerId: string) {
@@ -610,6 +742,41 @@ export class StorefrontAuthService {
     })
   }
 
+  private emailVerificationKey(storeId: string, userId: string) {
+    return `splaro:email-verify:${storeId}:${userId}`
+  }
+
+  private emailVerificationDigest(userId: string, email: string, code: string) {
+    const secret = process.env.ADMIN_SESSION_SECRET ?? process.env.ENCRYPTION_KEY ?? 'splaro-local-email-verification'
+    return createHash('sha256').update(`${userId}:${email}:${code}:${secret}`).digest('hex')
+  }
+
+  private async storeEmailVerification(key: string, payload: EmailVerificationPayload) {
+    await this.redis.setJson(key, payload, Math.max(1, Math.ceil((payload.expiresAt - Date.now()) / 1000)))
+    if (!this.redis.isReady) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException('Email verification is temporarily unavailable')
+      }
+      memoryEmailVerification.set(key, payload)
+    }
+  }
+
+  private async getEmailVerification(key: string): Promise<EmailVerificationPayload | null> {
+    const cached = await this.redis.getJson<EmailVerificationPayload>(key)
+    if (cached) return cached
+    const memory = memoryEmailVerification.get(key)
+    if (!memory || memory.expiresAt <= Date.now()) {
+      memoryEmailVerification.delete(key)
+      return null
+    }
+    return memory
+  }
+
+  private async deleteEmailVerification(key: string) {
+    await this.redis.del(key)
+    memoryEmailVerification.delete(key)
+  }
+
   private userNeedsPhone(phone: string | null | undefined, customerId?: string | null) {
     const digits = normalizePhone(phone ?? '')
     if (digits.length < 11) return true
@@ -625,6 +792,7 @@ export class StorefrontAuthService {
       lastName: string
       avatar?: string | null
       phoneVerified?: boolean
+      emailVerified?: boolean
     },
     customerId?: string,
     loyaltyTier?: string,
@@ -639,6 +807,7 @@ export class StorefrontAuthService {
       ...(customerId ? { customerId } : {}),
       ...(user.avatar ? { avatar: user.avatar } : {}),
       ...(user.phoneVerified ? { phoneVerified: true } : {}),
+      emailVerified: Boolean(user.emailVerified),
       ...(loyaltyTier ? { loyaltyTier } : {}),
       ...(phonePending ? { needsPhone: true } : {}),
     }

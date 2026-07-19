@@ -21,8 +21,9 @@ interface ShopExperienceProps {
   /** Breadcrumb label fallback + screen-reader page title (no hero block). */
   pageTitle?: string
   collectionSlug?: string
+  parentCategorySlug?: string
   categorySlug?: string
-  listingMode?: 'full' | 'scoped'
+  listingMode?: 'full' | 'scoped' | 'paged'
 }
 
 export function ShopExperience({
@@ -34,8 +35,9 @@ export function ShopExperience({
   initialSort,
   pageTitle,
   collectionSlug,
+  parentCategorySlug,
   categorySlug,
-  listingMode = collectionSlug || categorySlug ? 'scoped' : 'full',
+  listingMode = collectionSlug || categorySlug || parentCategorySlug ? 'scoped' : 'full',
 }: ShopExperienceProps) {
   const settings = useStorefrontSettings()
   const headerNav = settings.config.headerNav
@@ -46,7 +48,7 @@ export function ShopExperience({
   )
 
   return (
-    <div className="shop-page-shell">
+    <div className="shop-page-shell shop-page-shell--soft-enter">
       <div className="shop-page-intro">
         <div className="shop-page-intro__top">
           <ShopBreadcrumbs items={breadcrumbs} />
@@ -62,6 +64,7 @@ export function ShopExperience({
         {...(catalogPreset ? { catalogPreset } : {})}
         {...(initialSort ? { initialSort } : {})}
         {...(collectionSlug ? { collectionSlug } : {})}
+        {...(parentCategorySlug ? { parentCategorySlug } : {})}
         {...(categorySlug ? { categorySlug } : {})}
         listingMode={listingMode}
       />

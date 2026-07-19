@@ -32,48 +32,42 @@ export function CartSummary({ subtotal, onClose, continueHref = '/shop' }: CartS
   }
 
   return (
-    <div className="border-t border-black/5 bg-white/55 px-6 py-5 backdrop-blur-2xl">
+    <div className="cart-summary">
       <CartTrustSignals />
 
-      <div className="mb-4 flex items-baseline justify-between">
-        <span className="text-sm font-semibold uppercase tracking-[0.12em] text-luxury-gray">
-          Subtotal
-        </span>
-        <span className="text-lg font-black text-luxury-black">{formatBDT(subtotal)}</span>
+      <div className="cart-summary__row">
+        <span className="cart-summary__label">Subtotal</span>
+        <span className="cart-summary__value">{formatBDT(subtotal)}</span>
       </div>
-      <p className="mb-4 text-xs text-luxury-gray/75">
-        Shipping and taxes are calculated at checkout.
-      </p>
+      <p className="cart-summary__note">Shipping and taxes are calculated at checkout.</p>
 
       <button
         type="button"
         onClick={handleCheckout}
         disabled={navigating || !authHydrated}
-        className="glass-action glass-action-dark cart-checkout-btn flex w-full justify-center"
+        className="cart-summary__checkout"
       >
         {navigating || !authHydrated ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-            {authHydrated ? 'Opening checkout…' : 'Loading…'}
+            <Loader2 className="cart-summary__spinner" strokeWidth={2} aria-hidden />
+            {authHydrated ? 'Opening…' : 'Loading…'}
           </>
         ) : (
           'Proceed to Checkout'
         )}
       </button>
+
       {onClose ? (
         <button
           type="button"
           onClick={onClose}
           disabled={navigating}
-          className="mt-2.5 w-full py-2 text-[0.8125rem] font-semibold uppercase tracking-[0.16em] text-luxury-gray transition-colors hover:text-luxury-black disabled:opacity-50"
+          className="cart-summary__continue"
         >
           Continue Shopping
         </button>
       ) : (
-        <Link
-          href={continueHref}
-          className="mt-2.5 block w-full py-2 text-center text-[0.8125rem] font-semibold uppercase tracking-[0.16em] text-luxury-gray transition-colors hover:text-luxury-black"
-        >
+        <Link href={continueHref} className="cart-summary__continue">
           Continue Shopping
         </Link>
       )}

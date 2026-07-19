@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
 import { ProductCard } from '@/components/product/ProductCard/ProductCard'
 import type { ProductCardData } from '@splaro/types'
+import { trackSearch } from '@/lib/analytics/meta-pixel'
 
 export default function SearchPageClient() {
   const searchParams = useSearchParams()
@@ -13,6 +14,7 @@ export default function SearchPageClient() {
   const [results, setResults] = useState<ProductCardData[]>([])
   const [loading, setLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const lastTrackedSearch = useRef('')
 
   useEffect(() => {
     if (!query.trim()) {
@@ -40,8 +42,14 @@ export default function SearchPageClient() {
           throw new Error(payload.error ?? 'Search service offline')
         }
         if (!cancelled) {
-          setResults(payload.products ?? [])
+          const products = payload.products ?? []
+          setResults(products)
           setSearchError(null)
+          const trackingKey = `${query.trim().toLowerCase()}:${products.length}`
+          if (lastTrackedSearch.current !== trackingKey) {
+            lastTrackedSearch.current = trackingKey
+            trackSearch({ query: query.trim(), resultCount: products.length })
+          }
         }
       })
       .catch((err: unknown) => {

@@ -36,11 +36,17 @@ export function CheckoutField({
         </span>
       </div>
       {error ? (
-        <span className="checkout-field__error" role="alert">
+        <span
+          className="checkout-field__error"
+          id={fieldId ? `${fieldId}-error` : undefined}
+          role="alert"
+        >
           {error}
         </span>
       ) : hint ? (
-        <span className="checkout-field__hint">{hint}</span>
+        <span className="checkout-field__hint" id={fieldId ? `${fieldId}-hint` : undefined}>
+          {hint}
+        </span>
       ) : null}
     </label>
   )

@@ -10,8 +10,9 @@ const config: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@splaro/database', '@splaro/config', '@splaro/types'],
   experimental: onHostinger ? { cpus: 1, workerThreads: false } : {},
-  eslint: { ignoreDuringBuilds: onHostinger },
-  typescript: { ignoreBuildErrors: onHostinger },
+  // Never hide type/lint errors on build — Hostinger is legacy; CI must stay green.
+  eslint: { ignoreDuringBuilds: false },
+  typescript: { ignoreBuildErrors: false },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.r2.cloudflarestorage.com' },

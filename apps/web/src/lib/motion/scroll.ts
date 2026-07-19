@@ -1,6 +1,85 @@
-/** Scroll profile helpers — native document scroll only (Lenis removed). */
+import type { LenisOptions, ScrollToOptions } from 'lenis'
+
+/** Expo-out — matches SPLARO --transition-expo feel */
+export const scrollEaseOutExpo = (t: number) =>
+  t >= 1 ? 1 : 1 - 2 ** (-10 * t)
+
+/** Fixed header clearance for in-page anchors */
+export const SCROLL_ANCHOR_OFFSET = -120
+
+export const SCROLL_TO_TOP: ScrollToOptions = {
+  duration: 0.72,
+  easing: scrollEaseOutExpo,
+}
+
+export const SCROLL_ROUTE_TOP: ScrollToOptions = {
+  duration: 0.38,
+  easing: scrollEaseOutExpo,
+}
+
+/** Hard reload / bfcache — snap without animation */
+export const SCROLL_BOOT: ScrollToOptions = {
+  immediate: true,
+}
+
+export const SCROLL_ANCHOR: ScrollToOptions = {
+  offset: SCROLL_ANCHOR_OFFSET,
+  duration: 1.05,
+  easing: scrollEaseOutExpo,
+}
 
 export type ScrollProfile = 'mac' | 'windows' | 'mobile'
+
+const LENIS_SHARED = {
+  infinite: false,
+  orientation: 'vertical' as const,
+  gestureOrientation: 'vertical' as const,
+  autoRaf: true,
+  /** Keep limit in sync as product rails / images load — false caused mid-page freeze. */
+  autoResize: true,
+  overscroll: true,
+  allowNestedScroll: true,
+  stopInertiaOnNavigate: true,
+  anchors: SCROLL_ANCHOR,
+  easing: scrollEaseOutExpo,
+} satisfies Partial<LenisOptions>
+
+/** Mac / Linux desktop — noticeable inertia, still snappy */
+const LENIS_DESKTOP: LenisOptions = {
+  ...LENIS_SHARED,
+  lerp: 0.075,
+  smoothWheel: true,
+  wheelMultiplier: 1.12,
+  syncTouch: false,
+  touchMultiplier: 1,
+  autoToggle: false,
+}
+
+/** Windows desktop profile — kept for edge cases; Windows always uses native scroll. */
+const LENIS_WINDOWS: LenisOptions = {
+  ...LENIS_SHARED,
+  lerp: 0.14,
+  smoothWheel: true,
+  wheelMultiplier: 1,
+  syncTouch: false,
+  touchMultiplier: 1,
+  autoToggle: false,
+}
+
+/**
+ * Phone / tablet profile — syncTouch MUST stay false.
+ * syncTouch:true fought native iOS/Android momentum → jump + dead taps.
+ */
+const LENIS_MOBILE: LenisOptions = {
+  ...LENIS_SHARED,
+  lerp: 0.12,
+  smoothWheel: false,
+  syncTouch: false,
+  touchMultiplier: 1,
+  wheelMultiplier: 1,
+  autoToggle: false,
+  overscroll: false,
+}
 
 function getScrollMedia() {
   if (typeof window === 'undefined') return null
@@ -45,6 +124,47 @@ export function applyScrollProfileAttributes(profile: ScrollProfile) {
   document.documentElement.setAttribute('data-scroll-profile', profile)
 }
 
+export function buildLenisOptions(profile: ScrollProfile = detectScrollProfile()): LenisOptions {
+  if (profile === 'mobile') return { ...LENIS_MOBILE }
+  if (profile === 'windows') return { ...LENIS_WINDOWS }
+  return { ...LENIS_DESKTOP }
+}
+
+/**
+ * Lenis when motion is allowed AND the device isn't soft-GL/lite.
+ * Soft-GL + Lenis RAF + decorative WebGL starved Windows main thread.
+ */
+export function isSmoothScrollEligible() {
+  const mq = getScrollMedia()
+  if (!mq) return false
+  if (mq.reduced.matches) return false
+  if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-perf') === 'lite') {
+    return false
+  }
+  return true
+}
+
+/** @deprecated use isSmoothScrollEligible */
+export function isSmoothScrollEnabled() {
+  return isSmoothScrollEligible()
+}
+
+export function subscribeSmoothScrollEligibility(onChange: (eligible: boolean) => void) {
+  const mq = getScrollMedia()
+  if (!mq) {
+    onChange(false)
+    return () => {}
+  }
+
+  const update = () => onChange(isSmoothScrollEligible())
+  update()
+  mq.reduced.addEventListener('change', update)
+
+  return () => {
+    mq.reduced.removeEventListener('change', update)
+  }
+}
+
 export function subscribeScrollProfile(onChange: (profile: ScrollProfile) => void) {
   if (typeof window === 'undefined') {
     onChange('mac')
@@ -58,18 +178,17 @@ export function subscribeScrollProfile(onChange: (profile: ScrollProfile) => voi
   }
 
   update()
+  window.addEventListener('resize', update)
+  window.addEventListener('orientationchange', update)
 
   const mq = getScrollMedia()
-  const onMedia = () => update()
-  mq?.coarse.addEventListener('change', onMedia)
-  mq?.mobileLayout.addEventListener('change', onMedia)
-  window.addEventListener('resize', onMedia, { passive: true })
-  window.addEventListener('orientationchange', onMedia)
+  mq?.coarse.addEventListener('change', update)
+  mq?.mobileLayout.addEventListener('change', update)
 
   return () => {
-    mq?.coarse.removeEventListener('change', onMedia)
-    mq?.mobileLayout.removeEventListener('change', onMedia)
-    window.removeEventListener('resize', onMedia)
-    window.removeEventListener('orientationchange', onMedia)
+    window.removeEventListener('resize', update)
+    window.removeEventListener('orientationchange', update)
+    mq?.coarse.removeEventListener('change', update)
+    mq?.mobileLayout.removeEventListener('change', update)
   }
 }

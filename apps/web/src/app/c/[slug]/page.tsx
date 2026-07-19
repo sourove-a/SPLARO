@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { CollectionPageContent, titleFromCollectionSlug } from '@/lib/storefront/collection-page'
 import { collectionHref } from '@/lib/storefront/collection-paths'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -9,11 +10,11 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const title = titleFromCollectionSlug(slug)
-  return {
+  return createRouteMetadata({
     title: `${title} — Shop`,
     description: `Shop SPLARO ${title} collection with filters, quick add, and bKash or Nagad checkout.`,
-    alternates: { canonical: collectionHref(slug) },
-  }
+    path: collectionHref(slug) as `/${string}`,
+  })
 }
 
 export default async function ShortCollectionRoute({ params }: Props) {

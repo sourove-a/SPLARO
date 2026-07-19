@@ -74,6 +74,11 @@ export class MetaCapiService {
     const pixelId = await this.resolvePixelId(input.storeId)
     const token = resolveMetaAccessToken()
     if (!pixelId || !token) return
+    const order = await this.prisma.order.findUnique({
+      where: { id: input.orderId },
+      select: { invoiceNumber: true },
+    })
+    const eventId = order?.invoiceNumber ?? input.orderId
 
     const eventTime = Math.floor(Date.now() / 1000)
     const payload = {
@@ -81,7 +86,7 @@ export class MetaCapiService {
         {
           event_name: 'Purchase',
           event_time: eventTime,
-          event_id: input.orderId,
+          event_id: eventId,
           action_source: 'website',
           event_source_url: input.eventSourceUrl ?? resolveMetaWebUrl(),
           user_data: {
@@ -94,7 +99,7 @@ export class MetaCapiService {
           custom_data: {
             currency: input.currency ?? 'BDT',
             value: input.total,
-            order_id: input.orderId,
+            order_id: eventId,
           },
         },
       ],

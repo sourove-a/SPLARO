@@ -21,7 +21,7 @@ export function catalogFetchAttempts(): number {
   if (isCiOrProductionBuild()) return 1
   const raw = Number(process.env.SPLARO_CATALOG_FETCH_ATTEMPTS)
   if (Number.isFinite(raw) && raw >= 1) return Math.floor(raw)
-  return isLocalDevRuntime() ? 3 : 2
+  return 2
 }
 
 export function settingsFetchTimeoutMs(): number {

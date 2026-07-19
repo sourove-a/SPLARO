@@ -51,9 +51,16 @@ export async function GET(request: Request) {
   const page = Math.max(Number(searchParams.get('page') ?? 1), 1)
   const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? LISTING_PAGE_SIZE), 1), 100)
 
-  const scoped = Boolean(collectionSlug || categorySlug || parentCategorySlug || searchParams.has('page'))
+  // Any page/limit/filter must hit Nest pagination — never pull the full catalog then slice.
+  const useListing = Boolean(
+    collectionSlug ||
+      categorySlug ||
+      parentCategorySlug ||
+      searchParams.has('page') ||
+      searchParams.has('limit'),
+  )
 
-  if (scoped) {
+  if (useListing) {
     try {
       const listing = await fetchStorefrontProductListing({
         ...(collectionSlug ? { collectionSlug } : {}),
@@ -78,12 +85,7 @@ export async function GET(request: Request) {
         },
       )
     } catch {
-      const stale = staleListingFallback()
-      if (stale) {
-        return NextResponse.json(stale, {
-          headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' },
-        })
-      }
+      // Listing failures must not fall back to the unfiltered stale catalog.
       return NextResponse.json(
         { products: [], total: 0, totalPages: 0, page: 1, source: 'api-unavailable' },
         { status: 503 },
@@ -92,11 +94,8 @@ export async function GET(request: Request) {
   }
 
   const { products, source } = await getStorefrontCatalog()
-  // Honor ?limit= even without scoped filters — Search warm used limit=48 but got the full dump.
-  const capped =
-    searchParams.has('limit') && products.length > limit ? products.slice(0, limit) : products
   return NextResponse.json(
-    { products: capped, total: capped.length, source },
+    { products, total: products.length, source },
     {
       headers: {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',

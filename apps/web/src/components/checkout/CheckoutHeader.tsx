@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ArrowLeft, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, UserRound } from 'lucide-react'
+import { CHECKOUT_LOGIN_PATH } from '@/lib/checkout/checkout-auth'
 
 interface CheckoutHeaderProps {
   userName?: string | undefined
@@ -24,7 +25,14 @@ export function CheckoutHeader({ userName, isSignedIn }: CheckoutHeaderProps) {
               Signed in as <strong>{userName}</strong> · Saved details applied
             </>
           ) : (
-            <>Account required to place an order</>
+            <>
+              Guest checkout — no account needed for Cash on Delivery.{' '}
+              <Link href={CHECKOUT_LOGIN_PATH} className="checkout-signin-link">
+                <UserRound className="h-3 w-3" aria-hidden />
+                Sign in
+              </Link>{' '}
+              for saved details &amp; online payment.
+            </>
           )}
         </p>
       </div>

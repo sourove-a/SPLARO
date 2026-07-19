@@ -17,7 +17,7 @@ function slugMatches(href: string, slug: string): boolean {
   return collectionSlugFromHref(href) === slug || href === collectionHref(slug)
 }
 
-/** ILYN-style trail: Home / Kids / Girls */
+/** premium trail: Home / Kids / Girls */
 export function resolveCollectionBreadcrumbs(
   slug: string | undefined,
   title: string | undefined,
@@ -70,7 +70,7 @@ export function resolveCollectionBreadcrumbs(
   return items
 }
 
-/** Sub-category pills under breadcrumb (ILYN Girls → All / Tops / Dress). */
+/** Sub-category pills under breadcrumb (premium Girls → All / Tops / Dress). */
 export function resolveCollectionSubNav(
   slug: string,
   headerNav: NavLink[] | undefined,

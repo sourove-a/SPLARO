@@ -40,7 +40,7 @@ import {
 } from '../../common/dtos/storefront.dto'
 import { PrismaService } from '../../common/prisma.service'
 import { CATALOG_CACHE_TTL } from '../../common/catalog-cache.constants'
-import { buildCategoryTree } from '../../common/category-tree.util'
+import { buildCategoryTree, collectDescendantIds } from '../../common/category-tree.util'
 import { CacheService } from '../../common/cache.service'
 import {
   assertCartLineStock,
@@ -67,6 +67,7 @@ import { LegalPagesService } from '../content/legal-pages.service'
 import { FootwearConfigService } from '../content/footwear-config.service'
 import { PurgeDemoCatalogService } from '../catalog/purge-demo-catalog.service'
 import { SeedDemoCatalogService } from '../catalog/seed-demo-catalog.service'
+import { PaymentIntegrationService } from '../integrations/payment-integration.service'
 
 function bearerToken(authorization?: string): string | undefined {
   return authorization?.replace(/^Bearer\s+/i, '').trim() || undefined
@@ -106,6 +107,7 @@ export class StorefrontController {
     private readonly purgeDemoCatalog: PurgeDemoCatalogService,
     private readonly seedDemoCatalog: SeedDemoCatalogService,
     private readonly navBuilder: NavBuilderService,
+    private readonly paymentIntegration: PaymentIntegrationService,
   ) {}
 
   @Get('nav')
@@ -135,6 +137,11 @@ export class StorefrontController {
 
       const config = mergeStorefrontConfig(store.settings?.storefrontConfig)
       const settings = store.settings
+      const [bkashConfigured, nagadConfigured, sslcommerzConfigured] = await Promise.all([
+        this.paymentIntegration.isConfigured(sid, 'bkash').catch(() => false),
+        this.paymentIntegration.isConfigured(sid, 'nagad').catch(() => false),
+        this.paymentIntegration.isConfigured(sid, 'sslcommerz').catch(() => false),
+      ])
 
       return {
         store: {
@@ -159,9 +166,9 @@ export class StorefrontController {
         },
         payments: {
           cod: settings?.codEnabled ?? true,
-          bkash: settings?.bkashEnabled ?? true,
-          nagad: settings?.nagadEnabled ?? true,
-          sslcommerz: settings?.sslcommerzEnabled ?? true,
+          bkash: Boolean(settings?.bkashEnabled) && bkashConfigured,
+          nagad: Boolean(settings?.nagadEnabled) && nagadConfigured,
+          sslcommerz: Boolean(settings?.sslcommerzEnabled) && sslcommerzConfigured,
         },
         marketing: {
           facebookPixelId: settings?.facebookPixelId ?? '',
@@ -242,7 +249,14 @@ export class StorefrontController {
           include: {
             images: { orderBy: { position: 'asc' as const } },
             variants: { where: { isActive: true } },
-            category: { select: { id: true, name: true, slug: true } },
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                parent: { select: { name: true, slug: true } },
+              },
+            },
           },
         })
         const order = new Map(ids.map((id, index) => [id, index]))
@@ -260,22 +274,22 @@ export class StorefrontController {
     const limit = Math.min(Math.max(Number(limitParam) || 40, 1), 100)
     const page = Math.max(Number(pageParam) || 1, 1)
 
+    // Tree filter (any depth). Prefer parentCategorySlug — never slug "startsWith"
+    // (that pulled men-footwear into /c/men). Unknown slug → empty set, not full catalog.
+    const treeSlug = parentCategory ?? category
+    let categoryIds: string[] | undefined
+    if (treeSlug) {
+      const flat = await this.prisma.category.findMany({
+        where: { storeId: sid },
+        select: { id: true, parentId: true, slug: true },
+      })
+      const root = flat.find((entry) => entry.slug === treeSlug)
+      categoryIds = root ? collectDescendantIds(flat, root.id) : []
+    }
+
     const where = storefrontVisibleProductWhere({
       storeId: sid,
-      ...(category
-        ? {
-            category: {
-              OR: [{ slug: category }, { slug: { startsWith: `${category}-` } }],
-            },
-          }
-        : {}),
-      ...(parentCategory
-        ? {
-            category: {
-              OR: [{ slug: parentCategory }, { parent: { slug: parentCategory } }],
-            },
-          }
-        : {}),
+      ...(categoryIds ? { categoryId: { in: categoryIds } } : {}),
       ...(collection
         ? {
             collections: {
@@ -293,7 +307,14 @@ export class StorefrontController {
     const productInclude = {
       images: { orderBy: { position: 'asc' as const } },
       variants: { where: { isActive: true } },
-      category: { select: { id: true, name: true, slug: true } },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          parent: { select: { name: true, slug: true } },
+        },
+      },
     }
 
     const load = async () => {
@@ -329,7 +350,7 @@ export class StorefrontController {
       return this.cache.getOrSet(this.cache.storeKey(sid, 'products'), CATALOG_CACHE_TTL.products, load)
     }
 
-    const cacheKey = `${this.cache.storeKey(sid, 'products')}:cat:${category ?? ''}:parent:${parentCategory ?? ''}:col:${collection ?? ''}:p${page}:l${limit}`
+    const cacheKey = `${this.cache.storeKey(sid, 'products')}:treev2:cat:${category ?? ''}:parent:${parentCategory ?? ''}:col:${collection ?? ''}:p${page}:l${limit}`
     return this.cache.getOrSet(cacheKey, CATALOG_CACHE_TTL.products, load)
   }
 
@@ -345,7 +366,14 @@ export class StorefrontController {
           include: {
             images: { orderBy: { position: 'asc' } },
             variants: { where: { isActive: true } },
-            category: { select: { id: true, name: true, slug: true } },
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                parent: { select: { name: true, slug: true } },
+              },
+            },
             reviews: {
               where: { status: 'APPROVED' },
               orderBy: { createdAt: 'desc' },
@@ -535,6 +563,62 @@ export class StorefrontController {
     return { user }
   }
 
+  @Post('auth/email-verification/send')
+  @Throttle({ default: { limit: 4, ttl: 60_000 } })
+  async sendEmailVerification(
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    try {
+      const result = await this.storefrontAuth.sendEmailVerification(sid, sessionToken)
+      if (result.expiresIn > 0) {
+        const user = await this.storefrontAuth.validateSession(sessionToken)
+        if (user) {
+          void this.telegramHub.notifyCustomerEmailVerification(sid, {
+            name: user.name,
+            email: user.email,
+            status: 'REQUESTED',
+          })
+        }
+      }
+      return result
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) {
+        void this.telegramHub.notifyAdminError(
+          sid,
+          'Customer Verification Email Failed',
+          error.message,
+          { area: 'Storefront email verification' },
+        )
+      }
+      throw error
+    }
+  }
+
+  @Post('auth/email-verification/verify')
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  async verifyEmail(
+    @Query('storeId') storeId: string,
+    @Body() body: { code?: string },
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const result = await this.storefrontAuth.verifyEmail(sid, sessionToken, body.code ?? '')
+    void this.telegramHub.notifyCustomerEmailVerification(sid, {
+      name: result.user.name,
+      email: result.user.email,
+      status: 'VERIFIED',
+    })
+    return result
+  }
+
   @Get('customer/address')
   async getCustomerAddress(
     @Query('storeId') storeId: string,
@@ -674,26 +758,58 @@ export class StorefrontController {
     @Headers('authorization') authorization?: string,
     @Headers('x-splaro-session') sessionHeader?: string,
   ) {
-    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
-    if (!sessionToken) {
-      throw new UnauthorizedException('Create an account or sign in to place an order')
-    }
-    const user = await this.storefrontAuth.validateSession(sessionToken)
-    if (!user) {
-      throw new UnauthorizedException('Create an account or sign in to place an order')
-    }
     const sid = await resolveStoreId(this.prisma, body.storeId ?? storeId)
-    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+    const requestIdempotencyKey = (body.idempotencyKey ?? idempotencyKey)?.trim()
+    if (
+      !requestIdempotencyKey ||
+      requestIdempotencyKey.length < 16 ||
+      requestIdempotencyKey.length > 80 ||
+      !/^[A-Za-z0-9_-]+$/.test(requestIdempotencyKey)
+    ) {
+      throw new BadRequestException('A valid idempotency key is required')
+    }
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    const user = sessionToken
+      ? await this.storefrontAuth.validateSession(sessionToken)
+      : null
+    const normalizedMethod = body.paymentMethod.trim().toLowerCase()
+    const isCod =
+      normalizedMethod === 'cod' ||
+      normalizedMethod === 'cash' ||
+      normalizedMethod === 'cash_on_delivery' ||
+      normalizedMethod === 'cash on delivery'
+    if (!user && !isCod) {
+      throw new UnauthorizedException('Sign in to use digital payment')
+    }
+    const customerId = user
+      ? await this.storefrontAuth.ensureCustomerId(user, sid)
+      : undefined
 
     const order = await this.storefrontOrders.create({
       ...body,
       storeId: body.storeId ?? storeId,
-      customerId,
-      idempotencyKey: body.idempotencyKey ?? idempotencyKey,
+      ...(customerId ? { customerId } : {}),
+      idempotencyKey: requestIdempotencyKey,
       clientIp: clientIp(req),
       userAgent: req.headers['user-agent'],
     })
     return { order: serializePublicOrder(order) }
+  }
+
+  @Get('customer/orders')
+  async listCustomerOrders(
+    @Query('storeId') storeId: string,
+    @Headers('authorization') authorization?: string,
+    @Headers('x-splaro-session') sessionHeader?: string,
+  ) {
+    const sessionToken = sessionFromHeaders(authorization, sessionHeader)
+    if (!sessionToken) throw new UnauthorizedException('Not signed in')
+    const user = await this.storefrontAuth.validateSession(sessionToken)
+    if (!user) throw new UnauthorizedException('Session expired')
+    const sid = await resolveStoreId(this.prisma, storeId)
+    const customerId = await this.storefrontAuth.ensureCustomerId(user, sid)
+    const orders = await this.storefrontOrders.listForCustomer(sid, customerId)
+    return { orders: serializePublicOrders(orders) }
   }
 
   @Post('orders/payment-event')

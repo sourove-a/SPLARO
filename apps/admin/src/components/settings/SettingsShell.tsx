@@ -8,7 +8,7 @@ import { toastApiSaved, toastFail } from '@/lib/admin/feedback'
 import { apiOfflineMessage, apiOfflineSaveMessage } from '@/lib/admin/offline-copy'
 import { verifySettingsApplied } from '@/lib/admin/settings-save'
 import { usePermission } from '@/lib/api/hooks'
-import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY } from '@/lib/storefront/homepage-defaults'
+import { DEFAULT_HOMEPAGE_SECTIONS, DEFAULT_OUR_STORY, mergeStoryDeckCards } from '@/lib/storefront/homepage-defaults'
 import type { AdminSettingsData } from '@/lib/api/settings'
 import { SettingsSidebar, type SettingsSection, isSettingsSection } from './SettingsSidebar'
 import { ModuleLiveStrip } from '@/components/ui/connection/ModuleLiveStrip'
@@ -41,6 +41,7 @@ export const EMPTY_SETTINGS: AdminSettingsData = {
   payments: { cod: true, bkash: false, sslcommerz: false, nagad: false },
   shipping: { dhakaSameDay: true, outsideDhaka: true, freeShippingMin: '0', dhakaDeliveryCharge: 60, outsideDhakaCharge: 120 },
   smtp: { enabled: false, host: '', port: 587, secure: false, user: '', password: '', fromName: '', fromEmail: '' },
+  smtpAccounts: [],
   emailEnabled: false,
   marketing: { facebookPixelId: '', googleAnalyticsId: '' },
   telegram: null,
@@ -80,11 +81,13 @@ export function SettingsShell() {
         ...EMPTY_SETTINGS,
         ...apiData,
         smtp: { ...EMPTY_SETTINGS.smtp, ...(apiData.smtp ?? {}), password: '' },
+        smtpAccounts: (apiData.smtpAccounts ?? []).map((account) => ({ ...account, password: '' })),
         newsletter: { ...EMPTY_SETTINGS.newsletter, ...(apiData.newsletter ?? {}) },
         ourStory: {
           ...DEFAULT_OUR_STORY,
           ...(apiData.ourStory ?? {}),
           pillars: apiData.ourStory?.pillars?.length ? apiData.ourStory.pillars : DEFAULT_OUR_STORY.pillars,
+          storyDeckCards: mergeStoryDeckCards(apiData.ourStory?.storyDeckCards),
           customerStories: {
             ...DEFAULT_OUR_STORY.customerStories,
             ...(apiData.ourStory?.customerStories ?? {}),
@@ -173,19 +176,12 @@ export function SettingsShell() {
   const sharedProps = { draft, setDraft, save, saving, apiOnline: settingsLoaded && canEditSettings }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: '1.25rem',
-        minHeight: 0,
-        alignItems: 'flex-start',
-      }}
-    >
+    <div className="settings-layout">
       <aside className="settings-sidebar-panel settings-sidebar-nav">
         <SettingsSidebar active={section} onChange={changeSection} settingsLoaded={settingsLoaded} />
       </aside>
 
-      <div key={animKey} className="settings-section-enter" style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div key={animKey} className="settings-section-enter settings-layout__main">
         <ModuleLiveStrip
           onRefresh={() => void refetch()}
           items={[

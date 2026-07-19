@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   DollarSign,
   ShoppingBag,
@@ -22,30 +22,31 @@ import { QuickActions } from '@/components/dashboard/QuickActions'
 import { StoreHealthCards } from '@/components/agent/StoreHealthCards'
 import { ClientDateTime } from '@/components/ui/ClientDateTime'
 import { formatBDT } from '@/lib/utils/currency'
-import { useDashboardStats, useExecutiveDashboard } from '@/lib/api/hooks'
+import { useAdminSession, useDashboardStats, useExecutiveDashboard } from '@/lib/api/hooks'
 import { useAdminUiStore } from '@/store/uiStore'
 
 const DATE_RANGES = ['Today', '7 Days', '30 Days', 'Quarter'] as const
 type DateRange = (typeof DATE_RANGES)[number]
 
+function DashboardSectionHeader({ id, title, meta }: { id: string; title: string; meta: string }) {
+  return (
+    <div className="premium-dash__section-head">
+      <div className="premium-dash__section-title-wrap">
+        <span className="premium-dash__section-mark" aria-hidden />
+        <h2 id={id} className="premium-dash__section-title">{title}</h2>
+      </div>
+      <p className="premium-dash__section-meta">{meta}</p>
+    </div>
+  )
+}
+
 export function PremiumDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('30 Days')
-  const [userName, setUserName] = useState('there')
   const openAgentChat = useAdminUiStore((s) => s.openAgentChat)
   const { data: stats, isLoading, isError } = useDashboardStats(dateRange)
   const { data: executive } = useExecutiveDashboard()
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.user?.name) {
-          const first = String(data.user.name).split(' ')[0]
-          setUserName(first ?? 'there')
-        }
-      })
-      .catch(() => undefined)
-  }, [])
+  const { data: sessionUser } = useAdminSession()
+  const userName = sessionUser?.name?.split(' ')[0] || 'there'
 
   const revenue = stats?.revenue.value
   const orders = stats?.orders.value
@@ -95,37 +96,53 @@ export function PremiumDashboard() {
         </div>
       </header>
 
-      <StoreHealthCards onAsk={(q) => openAgentChat(q)} />
-
-      <section className="premium-dash__kpi-grid" aria-label="Key metrics">
-        <StatCard title="Total Revenue" value={fmt(revenue)} change={stats?.revenue.change} icon={DollarSign} color="gold" loading={isLoading} sparkline />
-        <StatCard title="Total Orders" value={fmtNum(orders)} change={stats?.orders.change} icon={ShoppingBag} loading={isLoading} sparkline />
-        <StatCard title="Total Customers" value={fmtNum(customers)} change={stats?.customers.change} icon={Users} loading={isLoading} sparkline />
-        <StatCard title="Net Profit" value={fmt(netProfit)} change={stats?.revenue.change} icon={TrendingUp} color="green" loading={isLoading} sparkline />
-        <StatCard title="Avg Order Value" value={fmt(aov)} change={stats?.avgOrderValue.change} icon={BarChart3} loading={isLoading} sparkline />
-        <StatCard title="Conversion" value="—" emptyHint="Visitor analytics not connected yet" icon={Percent} color="gold" loading={isLoading} />
-      </section>
-
-      <section className="premium-dash__charts grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <SalesChart period={dateRange} title="Sales Overview" />
+      <section className="premium-dash__zone" aria-labelledby="dash-live-pulse">
+        <DashboardSectionHeader id="dash-live-pulse" title="Live pulse" meta="Store signals · now" />
+        <div>
+          <StoreHealthCards onAsk={(q) => openAgentChat(q)} />
         </div>
-        <ChannelDonutChart period={dateRange} />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-2">
-        <RecentActivities period={dateRange} />
-        <AlertsPanel
-          {...(stats?.alerts.codRiskOrders !== undefined ? { codRisk: stats.alerts.codRiskOrders } : {})}
-          {...(stats?.alerts.failedPayments !== undefined ? { failedPayments: stats.alerts.failedPayments } : {})}
-        />
+      <section className="premium-dash__zone" aria-labelledby="dash-performance">
+        <DashboardSectionHeader id="dash-performance" title="Performance ledger" meta={`${dateRange} · verified commerce data`} />
+        <div className="premium-dash__kpi-grid" aria-label="Key metrics">
+          <StatCard title="Total Revenue" value={fmt(revenue)} change={stats?.revenue.change} icon={DollarSign} color="gold" loading={isLoading} sparkline />
+          <StatCard title="Total Orders" value={fmtNum(orders)} change={stats?.orders.change} icon={ShoppingBag} loading={isLoading} sparkline />
+          <StatCard title="Total Customers" value={fmtNum(customers)} change={stats?.customers.change} icon={Users} loading={isLoading} sparkline />
+          <StatCard title="Net Profit" value={fmt(netProfit)} change={stats?.revenue.change} icon={TrendingUp} color="green" loading={isLoading} sparkline />
+          <StatCard title="Avg Order Value" value={fmt(aov)} change={stats?.avgOrderValue.change} icon={BarChart3} loading={isLoading} sparkline />
+          <StatCard title="Conversion" value="—" emptyHint="Visitor analytics not connected yet" icon={Percent} color="gold" loading={isLoading} />
+        </div>
       </section>
 
-      <RecentOrdersTable />
+      <section className="premium-dash__zone" aria-labelledby="dash-revenue-intelligence">
+        <DashboardSectionHeader id="dash-revenue-intelligence" title="Revenue intelligence" meta="Trend and payment mix" />
+        <div className="premium-dash__charts grid gap-5 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <SalesChart period={dateRange} title="Sales Overview" />
+          </div>
+          <ChannelDonutChart period={dateRange} />
+        </div>
+      </section>
 
-      <section className="grid gap-5 lg:grid-cols-2">
-        <TopCategories period={dateRange} />
-        <TopProducts period={dateRange} />
+      <section className="premium-dash__zone" aria-labelledby="dash-operations-desk">
+        <DashboardSectionHeader id="dash-operations-desk" title="Operations desk" meta="Activity, alerts and recent orders" />
+        <div className="premium-dash__operations">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <RecentActivities period={dateRange} />
+            <AlertsPanel
+              {...(stats?.alerts.codRiskOrders !== undefined ? { codRisk: stats.alerts.codRiskOrders } : {})}
+              {...(stats?.alerts.failedPayments !== undefined ? { failedPayments: stats.alerts.failedPayments } : {})}
+            />
+          </div>
+
+          <RecentOrdersTable />
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <TopCategories period={dateRange} />
+            <TopProducts period={dateRange} />
+          </div>
+        </div>
       </section>
 
       <div className="lg:hidden">

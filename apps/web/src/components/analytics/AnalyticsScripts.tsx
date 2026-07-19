@@ -11,11 +11,17 @@ const ENV_FB_PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID ?? ''
 
 export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
   const { marketing } = useStorefrontSettings()
-  const envGa = (envGaId ?? ENV_GA_ID).trim()
-  const dbGa = marketing?.googleAnalyticsId?.trim() ?? ''
-  // Env GA loads in layout (GoogleAnalyticsHead). Inject here only if admin ID differs.
-  const GA_ID = dbGa && dbGa !== envGa ? dbGa : envGa ? '' : dbGa
-  const FB_PIXEL_ID = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID
+  const rawEnvGa = (envGaId ?? ENV_GA_ID).trim()
+  const rawDbGa = marketing?.googleAnalyticsId?.trim() ?? ''
+  const envGa = /^G-[A-Z0-9]+$/i.test(rawEnvGa) ? rawEnvGa : ''
+  const dbGa = /^G-[A-Z0-9]+$/i.test(rawDbGa) ? rawDbGa : ''
+  // Env GA is already configured in the layout. Never configure a second
+  // property in the same browser session; DB is only the fallback.
+  const GA_ID = envGa ? '' : dbGa
+  const rawFbPixelId = marketing?.facebookPixelId?.trim() || ENV_FB_PIXEL_ID.trim()
+  const FB_PIXEL_ID = /^\d+$/.test(rawFbPixelId) ? rawFbPixelId : ''
+  const serializedGaId = JSON.stringify(GA_ID)
+  const serializedFbPixelId = JSON.stringify(FB_PIXEL_ID)
 
   if (!GA_ID && !FB_PIXEL_ID) return null
 
@@ -26,10 +32,20 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
           <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="lazyOnload" />
           <Script id="splaro-ga4" strategy="lazyOnload">
             {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${GA_ID}', { anonymize_ip: true });
+              (function () {
+                var id = ${serializedGaId};
+                window.dataLayer = window.dataLayer || [];
+                window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+                window.__splaroGaConfigured = window.__splaroGaConfigured || {};
+                if (!window.__splaroGaConfigured[id]) {
+                  window.gtag('js', new Date());
+                  window.gtag('config', id, { anonymize_ip: true, send_page_view: false });
+                  window.__splaroGaConfigured[id] = true;
+                }
+                window.__splaroAnalyticsReady = window.__splaroAnalyticsReady || {};
+                window.__splaroAnalyticsReady.ga = true;
+                window.dispatchEvent(new Event('splaro:ga-ready'));
+              })();
             `}
           </Script>
         </>
@@ -39,16 +55,25 @@ export function AnalyticsScripts({ envGaId }: { envGaId?: string } = {}) {
         <>
           <Script id="splaro-meta-pixel" strategy="lazyOnload">
             {`
-              !function(f,b,e,v,n,t,s)
-              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-              n.queue=[];t=b.createElement(e);t.async=!0;
-              t.src=v;s=b.getElementsByTagName(e)[0];
-              s.parentNode.insertBefore(t,s)}(window, document,'script',
-              'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '${FB_PIXEL_ID}');
-              fbq('track', 'PageView');
+              (function () {
+                !function(f,b,e,v,n,t,s)
+                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+                n.queue=[];t=b.createElement(e);t.async=!0;
+                t.src=v;s=b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t,s)}(window, document,'script',
+                'https://connect.facebook.net/en_US/fbevents.js');
+                window.__splaroMetaInitialized = window.__splaroMetaInitialized || {};
+                var id = ${serializedFbPixelId};
+                if (!window.__splaroMetaInitialized[id]) {
+                  window.fbq('init', id);
+                  window.__splaroMetaInitialized[id] = true;
+                }
+                window.__splaroAnalyticsReady = window.__splaroAnalyticsReady || {};
+                window.__splaroAnalyticsReady.meta = true;
+                window.dispatchEvent(new Event('splaro:meta-ready'));
+              })();
             `}
           </Script>
           <noscript>

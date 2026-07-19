@@ -21,6 +21,12 @@ import { OrderEventsService } from '../orders/order-events.service'
 import { assertOrderStatusTransition, STOCK_RESTORING_STATUSES } from '../../common/order-status.util'
 import { restoreOrderStock } from '../../common/order-stock.util'
 import TelegramBot from 'node-telegram-bot-api'
+import type {
+  Chat,
+  InlineKeyboardMarkup,
+  Message,
+  Update,
+} from 'node-telegram-bot-api'
 import { mapStaffRoleToTelegram, maskTelegramId } from './telegram.util'
 import type { TelegramDeliveryDiagnostics, TelegramHealthSnapshot } from './telegram.types'
 import { formatBDT } from '../../common/utils/currency'
@@ -105,7 +111,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
       !webhookUrl &&
       this.isPrimaryClusterInstance() &&
       pollingEnv !== '0'
-    this.bot = new TelegramBot(token, { polling: usePolling })
+    this.bot = new TelegramBot(token, usePolling ? { polling: true } : {})
     void this.bot.setMyCommands(BOT_COMMANDS).catch(() => undefined)
     this.registerCommands()
 
@@ -191,7 +197,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   async sendToStore(
     storeId: string,
     message: string,
-    replyMarkup?: TelegramBot.InlineKeyboardMarkup,
+    replyMarkup?: InlineKeyboardMarkup,
   ): Promise<void> {
     await this.sendToStoreWithResult(storeId, message, replyMarkup)
   }
@@ -200,7 +206,7 @@ export class TelegramService implements OnModuleInit, OnApplicationBootstrap {
   async sendToStoreWithResult(
     storeId: string,
     message: string,
-    replyMarkup?: TelegramBot.InlineKeyboardMarkup,
+    replyMarkup?: InlineKeyboardMarkup,
   ): Promise<boolean> {
     const config = await this.prisma.telegramConfig.findUnique({ where: { storeId } })
     if (!config?.isActive || !this.bot) return false
@@ -890,7 +896,7 @@ ${items}
   private async executeAction(
     action: string,
     ctx: TelegramCtx,
-    msg: TelegramBot.Message,
+    msg: Message,
     firstName?: string,
   ): Promise<void> {
     switch (action) {
@@ -1532,7 +1538,7 @@ ${items}
     }
   }
 
-  private async resolveContext(msg: TelegramBot.Message): Promise<TelegramCtx | null> {
+  private async resolveContext(msg: Message): Promise<TelegramCtx | null> {
     const chatId = msg.chat.id.toString()
     const userId = msg.from?.id?.toString() ?? chatId
     return this.resolveContextFromIds(chatId, userId, msg.chat.type)
@@ -1541,7 +1547,7 @@ ${items}
   private async resolveContextFromIds(
     chatId: string,
     userId: string,
-    chatType?: TelegramBot.Chat['type'],
+    chatType?: Chat['type'],
   ): Promise<TelegramCtx | null> {
     const isGroup = chatType === 'group' || chatType === 'supergroup' || chatId.startsWith('-')
 
@@ -1577,7 +1583,7 @@ ${items}
 
   async handleWebhookUpdate(body: unknown): Promise<void> {
     if (!this.bot || !body || typeof body !== 'object') return
-    this.bot.processUpdate(body as TelegramBot.Update)
+    this.bot.processUpdate(body as Update)
   }
 
   private async replyAgentChat(chatId: string, text: string, telegramUserId?: string): Promise<void> {

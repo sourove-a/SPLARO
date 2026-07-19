@@ -4,12 +4,9 @@ import { useEffect, useState } from 'react'
 
 const CANARY_VAR = '--accent-gold'
 const EXPECTED_GOLD_VALUES = [
-  '#c8a97e',
-  'rgb(200, 169, 126)',
-  '200, 169, 126',
-  '#b8945e',
-  'rgb(184, 148, 94)',
-  '184, 148, 94',
+  '#101114',
+  'rgb(16, 17, 20)',
+  '16, 17, 20',
 ]
 
 function probeCssHealth(): boolean {

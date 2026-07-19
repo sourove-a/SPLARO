@@ -38,6 +38,9 @@ export function safeClientNavigate(
   path: string,
   method: 'push' | 'replace' = 'push',
 ) {
+  window.dispatchEvent(
+    new CustomEvent('splaro:navigation-start', { detail: { path } }),
+  )
   let settled = false
   const settle = () => {
     settled = true
@@ -63,7 +66,7 @@ export function safeClientNavigate(
     }
     settle()
     hardNavigate(path)
-  }, 2800)
+  }, 12000)
 
   window.addEventListener('unhandledrejection', onRejection)
 

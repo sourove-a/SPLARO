@@ -4,6 +4,7 @@
   "private": true,
   "description": "SPLARO — Luxury Women's Fashion eCommerce Platform",
   "scripts": {
+    "preinstall": "node scripts/only-pnpm.mjs",
     "dev": "turbo run dev --parallel",
     "dev:stack": "node scripts/dev-stack.mjs",
     "dev:reset": "node scripts/dev-reset.mjs",
@@ -39,8 +40,8 @@
     "db:purge-demo": "node scripts/api-ts-run.mjs scripts/purge-demo-catalog.ts",
     "db:bootstrap-store": "node scripts/api-ts-run.mjs scripts/bootstrap-production-store.ts",
     "telegram:configure": "node scripts/tsx-run.mjs packages/database prisma/configure-telegram.ts",
-    "db:studio": "cd packages/database && npx prisma studio",
-    "db:reset": "cd packages/database && npx prisma migrate reset",
+    "db:studio": "node scripts/db-run.mjs studio",
+    "db:reset": "node scripts/db-run.mjs migrate reset",
     "db:backup": "bash infrastructure/scripts/backup-db.sh",
     "infra:up": "docker compose up -d postgres redis",
     "infra:redis": "node scripts/infra-redis.mjs",
@@ -62,10 +63,10 @@
     "setup:server": "bash infrastructure/scripts/setup-server.sh",
     "install:vps": "bash infrastructure/vps/install-stack.sh",
     "clean": "node scripts/clean-all.mjs",
-    "check": "turbo run check",
-    "check:web": "turbo run check --filter=@splaro/web",
-    "check:admin": "turbo run check --filter=@splaro/admin",
-    "check:api": "turbo run check --filter=@splaro/api",
+    "check": "corepack pnpm run check:web && corepack pnpm run check:admin && corepack pnpm run check:api",
+    "check:web": "corepack pnpm --dir apps/web run check",
+    "check:admin": "corepack pnpm --dir apps/admin run check",
+    "check:api": "corepack pnpm --dir apps/api run check",
     "typecheck": "turbo run type-check",
     "doctor": "node scripts/doctor.mjs",
     "verify:css": "node scripts/verify-css.mjs",
@@ -88,14 +89,6 @@
     "start:hostinger": "node apps/web/.next/standalone/apps/web/server.js",
     "postinstall": "node scripts/postinstall.mjs"
   },
-  "pnpm": {
-    "overrides": {
-      "react": "^19.0.0",
-      "react-dom": "^19.0.0",
-      "@types/react": "^19.0.0",
-      "@types/react-dom": "^19.0.0"
-    }
-  },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "eslint": "^8.57.0",
@@ -104,8 +97,18 @@
     "typescript": "^5.5.0"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=20.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "lodash@<4.18.1": "^4.18.1",
+      "multer@<2.2.0": "^2.2.0",
+      "qs@>=6.11.1 <6.15.2": "^6.15.3",
+      "js-yaml@>=4.0.0 <4.2.0": "^4.3.0",
+      "uuid@>=9.0.0 <11.1.1": "^11.1.1",
+      "file-type@>=13.0.0 <21.3.2": "^21.3.4",
+      "postcss@>=8.0.0 <8.5.10": "^8.5.10"
+    }
   },
   "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a"
 }

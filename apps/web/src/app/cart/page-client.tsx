@@ -1,6 +1,6 @@
 'use client'
 
-import { RefreshCw, ShoppingBag } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { useCartStore, cartLineKey, toCartLineRef } from '@/store/cartStore'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { CartEmptyState } from '@/components/cart/CartEmptyState'
@@ -10,7 +10,7 @@ import { CartSummary } from '@/components/cart/CartSummary'
 import { cn } from '@/lib/utils/cn'
 
 export function CartPageClient() {
-  const { items, subtotal, removeItem, updateQuantity, clearCart } = useCartStore()
+  const { items, itemCount, subtotal, removeItem, updateQuantity, clearCart } = useCartStore()
   const cartHydrated = useCartStore((state) => state._hydrated)
   const { shipping } = useStorefrontSettings()
   const freeShippingThreshold = shipping.freeDeliveryThreshold
@@ -19,11 +19,11 @@ export function CartPageClient() {
 
   if (!cartHydrated) {
     return (
-      <div className="cart-page-shell cart-page-shell--loading px-3 pb-28 pt-6 sm:px-5 lg:px-8 lg:pb-12">
-        <section className="cart-page mx-auto max-w-3xl">
-          <div className="cart-page__panel glass-panel flex min-h-[240px] flex-col items-center justify-center py-16">
-            <RefreshCw className="h-8 w-8 animate-spin text-black/35" strokeWidth={2} />
-            <p className="mt-4 text-sm font-black text-black/55">Loading your bag…</p>
+      <div className="cart-page-shell cart-page-shell--loading">
+        <section className="cart-page">
+          <div className="cart-page__panel cart-page__panel--loading">
+            <RefreshCw className="cart-page__spinner" strokeWidth={1.75} aria-hidden />
+            <p className="cart-page__loading-text">Loading your bag…</p>
           </div>
         </section>
       </div>
@@ -31,24 +31,18 @@ export function CartPageClient() {
   }
 
   return (
-    <div
-      className={cn(
-        'cart-page-shell px-3 pb-28 pt-6 sm:px-5 lg:px-8 lg:pb-12',
-        isEmpty && 'cart-page-shell--empty',
-      )}
-    >
-      <section className="cart-page mx-auto max-w-3xl">
+    <div className={cn('cart-page-shell', isEmpty && 'cart-page-shell--empty')}>
+      <section className="cart-page">
         {!isEmpty ? (
           <header className="cart-page__header">
             <div className="cart-page__title-row">
-              <ShoppingBag className="h-5 w-5 text-luxury-black" strokeWidth={1.5} />
-              <h1 className="cart-page__title">Your Bag</h1>
-              <span className="cart-page__count">({items.length})</span>
-              <button
-                type="button"
-                onClick={clearCart}
-                className="ml-auto text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-luxury-gray transition-colors hover:text-red-600"
-              >
+              <div className="cart-page__heading">
+                <h1 className="cart-page__title">Your Bag</h1>
+                <span className="cart-page__count" aria-label={`${itemCount} items`}>
+                  {itemCount}
+                </span>
+              </div>
+              <button type="button" onClick={clearCart} className="cart-page__clear">
                 Clear all
               </button>
             </div>
@@ -56,7 +50,7 @@ export function CartPageClient() {
           </header>
         ) : null}
 
-        <div className="cart-page__panel glass-panel">
+        <div className="cart-page__panel">
           {showFreeShippingBar ? (
             <CartFreeShippingBar subtotal={subtotal} threshold={freeShippingThreshold} />
           ) : null}
@@ -65,23 +59,22 @@ export function CartPageClient() {
             {isEmpty ? (
               <CartEmptyState />
             ) : (
-              <ul className="divide-y divide-black/5">
+              <ul className="cart-page__lines">
                 {items.map((item) => (
-                  <CartLineItem
-                    key={cartLineKey(item)}
-                    item={item}
-                    onDecrease={() => updateQuantity(toCartLineRef(item), item.quantity - 1)}
-                    onIncrease={() => updateQuantity(toCartLineRef(item), item.quantity + 1)}
-                    onRemove={() => removeItem(toCartLineRef(item))}
-                  />
+                  <li key={cartLineKey(item)}>
+                    <CartLineItem
+                      item={item}
+                      onDecrease={() => updateQuantity(toCartLineRef(item), item.quantity - 1)}
+                      onIncrease={() => updateQuantity(toCartLineRef(item), item.quantity + 1)}
+                      onRemove={() => removeItem(toCartLineRef(item))}
+                    />
+                  </li>
                 ))}
               </ul>
             )}
           </div>
 
-          {!isEmpty ? (
-            <CartSummary subtotal={subtotal} continueHref="/shop" />
-          ) : null}
+          {!isEmpty ? <CartSummary subtotal={subtotal} continueHref="/shop" /> : null}
         </div>
       </section>
     </div>

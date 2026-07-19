@@ -9,8 +9,6 @@ import { serializeJsonLd } from '@/lib/seo/json-ld'
 import ProductPageClient from './product-page-client'
 import { RelatedProducts } from './related-products'
 import { ProductRelatedSkeleton } from './product-related-section'
-import { optimizeImageSrc } from '@/lib/assets/image-optimize'
-import { sanitizeRemoteImageUrl } from '@/lib/assets/images'
 import {
   sanitizeStorefrontDescription,
   sanitizeStorefrontShortDescription,
@@ -90,11 +88,25 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!result) notFound()
 
-  const { product, reviews } = result
+  const { product: rawProduct, reviews } = result
+  // QA/seed wording ("seeded for storefront QA…") must never reach customers —
+  // swap it for honest brand copy before the client renders it.
+  const safeShortDescription = sanitizeStorefrontShortDescription(
+    rawProduct.shortDescription,
+  )
+  const product = {
+    ...rawProduct,
+    description: sanitizeStorefrontDescription(
+      rawProduct.description,
+      `${rawProduct.name} — a premium SPLARO piece, crafted with quality materials for everyday wear in Bangladesh.`,
+    ),
+    ...(safeShortDescription
+      ? { shortDescription: safeShortDescription }
+      : rawProduct.shortDescription
+        ? { shortDescription: '' }
+        : {}),
+  }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://splaro.co'
-  const heroPreloadUrl = product.images[0]
-    ? optimizeImageSrc(sanitizeRemoteImageUrl(product.images[0]), 'gallery')
-    : null
   const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const inStock = product.variants.some((variant) => variant.stock > 0)
 
@@ -158,9 +170,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <>
-      {heroPreloadUrl ? (
-        <link rel="preload" as="image" href={heroPreloadUrl} fetchPriority="high" />
-      ) : null}
+      {/* First gallery image preload is handled by <StorefrontImage priority> on the
+          client (product-page-client.tsx) — it resolves to whichever URL actually
+          gets rendered (raw vs Next-optimized). A manual preload here always used
+          the raw source URL and caused every PDP hero photo to be double-fetched
+          when the Next image optimizer is active. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}

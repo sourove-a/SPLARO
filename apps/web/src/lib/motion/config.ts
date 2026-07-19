@@ -27,15 +27,11 @@ export const MOTION_DEFAULT: Transition = {
   ease: EASE_EXPO_OUT,
 }
 
-/** Route enter — soft fade + rise, the "premium settle" on every navigation.
-    Only applied on client-side navigations (see useMotionReady), so a blocked
-    first paint can never be hidden behind opacity 0. */
+/** Route enter — soft fade only (no y/scale — avoids product-nav “jump”). */
 export const pageEnter: Variants = {
-  initial: { opacity: 0, y: 16, scale: 0.994 },
+  initial: { opacity: 0 },
   animate: {
     opacity: 1,
-    y: 0,
-    scale: 1,
     transition: PAGE_ENTER,
   },
 }

@@ -31,7 +31,7 @@ function HealthCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'admin-glass-mini group w-full p-4 text-left transition-transform duration-200 hover:-translate-y-0.5',
+        'admin-glass-mini premium-dash__health-card group w-full p-4 text-left transition-transform duration-200 hover:-translate-y-0.5',
         onClick && 'cursor-pointer',
       )}
     >

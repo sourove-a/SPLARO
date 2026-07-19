@@ -9,15 +9,14 @@ import { storefrontVisibleProductWhere } from '../../common/storefront-product.u
 import { isValidBdMobile, normalizeBdPhone } from '../../common/bd-phone.util'
 import { assertCouponForOrder } from '../coupons/coupon-validate.util'
 import { resolveCheckoutVariant, type CheckoutVariantRow } from '../../common/cart-line.util'
-import {
-  assertPaymentMethodEnabled,
-  loadStorePaymentFlags,
-} from '../../common/payment-flags.util'
+import { assertPaymentMethodEnabled, loadStorePaymentFlags } from '../../common/payment-flags.util'
 import {
   computeExpectedDeliveryChargeBdt,
   resolveOrderDistrict,
 } from '../../common/delivery-charge.util'
-import { OrderSideEffectsQueueService } from '../orders/order-side-effects-queue.service'
+import { CommerceEventOutboxService } from '../orders/commerce-event-outbox.service'
+import { PaymentIntegrationService } from '../integrations/payment-integration.service'
+import { StockReservationService } from '../payments/stock-reservation.service'
 import type { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client'
 
 export interface OrderAttributionInput {
@@ -76,13 +75,29 @@ const DIGITAL_PAYMENT_DISCOUNT_RATE = 0.05
 /** Rounding tolerance when comparing client-displayed total to server total. */
 const TOTAL_TOLERANCE_BDT = 5
 
+type DigitalPaymentProvider = 'bkash' | 'nagad' | 'sslcommerz'
+
 function mapPaymentMethod(method: string): PaymentMethod {
-  const normalized = method.toLowerCase()
+  const normalized = method.trim().toLowerCase()
+  if (
+    normalized === 'cod' ||
+    normalized === 'cash' ||
+    normalized === 'cash_on_delivery' ||
+    normalized === 'cash on delivery'
+  ) {
+    return 'CASH_ON_DELIVERY'
+  }
   if (normalized.includes('bkash')) return 'BKASH'
   if (normalized.includes('nagad')) return 'NAGAD'
   if (normalized.includes('ssl')) return 'SSLCOMMERZ'
   if (normalized.includes('card')) return 'CARD'
-  return 'CASH_ON_DELIVERY'
+  throw new BadRequestException('Unsupported payment method')
+}
+
+function digitalPaymentProvider(method: PaymentMethod): DigitalPaymentProvider {
+  if (method === 'BKASH') return 'bkash'
+  if (method === 'NAGAD') return 'nagad'
+  return 'sslcommerz'
 }
 
 @Injectable()
@@ -96,7 +111,9 @@ export class StorefrontOrdersService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly sideEffects: OrderSideEffectsQueueService,
+    private readonly commerceEvents: CommerceEventOutboxService,
+    private readonly paymentIntegration: PaymentIntegrationService,
+    private readonly reservations: StockReservationService,
     @Optional() private readonly redis: RedisService,
   ) {}
 
@@ -155,9 +172,7 @@ export class StorefrontOrdersService {
     }
 
     if (!isValidBdMobile(input.customer.phone)) {
-      throw new BadRequestException(
-        'Valid Bangladeshi mobile number required (01XXXXXXXXX)',
-      )
+      throw new BadRequestException('Valid Bangladeshi mobile number required (01XXXXXXXXX)')
     }
 
     const sid = await resolveStoreId(this.prisma, input.storeId)
@@ -183,8 +198,9 @@ export class StorefrontOrdersService {
       }
       const variant = resolved.variant
 
-      if (variant.stock < item.quantity) {
-        errors.push(`${item.name}: only ${variant.stock} left in stock`)
+      const available = Math.max(0, variant.stock - variant.reservedStock)
+      if (available < item.quantity) {
+        errors.push(`${item.name}: only ${available} left in stock`)
         continue
       }
 
@@ -201,6 +217,12 @@ export class StorefrontOrdersService {
 
     const paymentFlags = await loadStorePaymentFlags(this.prisma, sid)
     assertPaymentMethodEnabled(paymentMethod, paymentFlags)
+    if (paymentMethod !== 'CASH_ON_DELIVERY') {
+      const provider = digitalPaymentProvider(paymentMethod)
+      if (!(await this.paymentIntegration.isConfigured(sid, provider))) {
+        throw new BadRequestException('This digital payment method is not configured')
+      }
+    }
 
     // ── Server-side money math ────────────────────────────────
     const serverSubtotal = Math.round(
@@ -261,8 +283,23 @@ export class StorefrontOrdersService {
     const normalizedPhone = normalizeBdPhone(input.customer.phone)
     const shippingEmail = input.customer.email?.trim().toLowerCase() || null
     const lineFingerprint = this.lineFingerprint(lines)
+    const customerIdentity = input.customerId
+      ? `customer:${input.customerId}`
+      : `phone:${normalizedPhone}`
+    const stockLines = lines.map((line) => ({
+      variantId: line.variant.id,
+      quantity: line.item.quantity,
+      name: line.item.name,
+    }))
 
     const idemKey = input.idempotencyKey?.trim()
+    if (idemKey) {
+      const durableExisting = await this.prisma.order.findUnique({
+        where: { storeId_idempotencyKey: { storeId: sid, idempotencyKey: idemKey } },
+        include: StorefrontOrdersService.ORDER_INCLUDE,
+      })
+      if (durableExisting) return durableExisting
+    }
     if (idemKey && this.redis) {
       const cached = await this.redis.getJson<{ orderId: string }>(
         `splaro:order-idem:${sid}:${idemKey}`,
@@ -311,99 +348,138 @@ export class StorefrontOrdersService {
       const invoiceNumber = await generateOrderCode(this.prisma, sid)
       try {
         order = await this.prisma.$transaction(async (tx) => {
-      // Guarded decrement: `stock >= quantity` in the WHERE clause makes the
-      // check-and-decrement atomic, so two concurrent checkouts can never
-      // oversell the last unit or push stock negative.
-      for (const line of lines) {
-        const updated = await tx.productVariant.updateMany({
-          where: { id: line.variant.id, stock: { gte: line.item.quantity } },
-          data: { stock: { decrement: line.item.quantity } },
-        })
-        if (updated.count === 0) {
-          throw new BadRequestException(`${line.item.name}: just sold out — please refresh your cart`)
-        }
-      }
+          if (coupon) {
+            await tx.$queryRaw`SELECT "id" FROM "Coupon" WHERE "id" = ${coupon.couponId} FOR UPDATE`
+            const row = await tx.coupon.findUnique({
+              where: { id: coupon.couponId },
+              select: { usageLimit: true, usedCount: true, perCustomerLimit: true },
+            })
+            if (!row) {
+              throw new BadRequestException('Coupon no longer available')
+            }
+            if (row.usageLimit != null && row.usedCount >= row.usageLimit) {
+              throw new BadRequestException('Coupon usage limit reached')
+            }
+            if (row.perCustomerLimit != null) {
+              const customerUses = await tx.couponRedemption.count({
+                where: { couponId: coupon.couponId, customerIdentity },
+              })
+              if (customerUses >= row.perCustomerLimit) {
+                throw new BadRequestException('Coupon per-customer limit reached')
+              }
+            }
+          }
 
-      if (coupon) {
-        const row = await tx.coupon.findUnique({
-          where: { id: coupon.couponId },
-          select: { usageLimit: true, usedCount: true },
-        })
-        if (!row) {
-          throw new BadRequestException('Coupon no longer available')
-        }
-        if (row.usageLimit != null && row.usedCount >= row.usageLimit) {
-          throw new BadRequestException('Coupon usage limit reached')
-        }
-        await tx.coupon.update({
-          where: { id: coupon.couponId },
-          data: { usedCount: { increment: 1 } },
-        })
-      }
-
-      const created = await tx.order.create({
-        data: {
-          storeId: sid,
-          invoiceNumber,
-          ...(input.customerId ? { customerId: input.customerId } : {}),
-          status,
-          paymentStatus,
-          paymentMethod,
-          subtotal: serverSubtotal,
-          deliveryCharge: delivery,
-          discount: serverDiscount,
-          total: serverTotal,
-          couponCode: coupon ? input.couponCode : null,
-          shippingName: input.customer.name,
-          shippingPhone: normalizedPhone,
-          shippingEmail,
-          shippingAddress: input.customer.address,
-          shippingCity: input.customer.city,
-          shippingDistrict: input.customer.district ?? input.customer.city,
-          shippingDivision: input.customer.division ?? 'Dhaka',
-          confirmedAt: null,
-          fraudScore: fraud.score,
-          fraudFlags: fraud.flags,
-          isCodRisk: fraud.isCodRisk,
-          utmSource: attr?.utmSource ?? null,
-          utmMedium: attr?.utmMedium ?? null,
-          utmCampaign: attr?.utmCampaign ?? null,
-          utmContent: attr?.utmContent ?? null,
-          utmTerm: attr?.utmTerm ?? null,
-          fbclid: attr?.fbclid ?? null,
-          referrer: attr?.referrer ?? null,
-          trafficSource: attr?.trafficSource ?? null,
-          landingPage: attr?.landingPage ?? null,
-          clientIp: input.clientIp ?? null,
-          items: {
-            create: lines.map(({ item, variant, unitPrice }) => ({
-              product: { connect: { id: item.productId } },
-              variant: { connect: { id: variant.id } },
-              productName: item.name,
-              variantName: [item.size, item.color].filter(Boolean).join(' / ') || null,
-              sku: variant.sku ?? null,
-              image: item.image ?? variant.image ?? null,
-              price: unitPrice,
-              quantity: item.quantity,
-              subtotal: unitPrice * item.quantity,
-            }) satisfies Prisma.OrderItemCreateWithoutOrderInput),
-          },
-          statusHistory: {
-            create: { status, note: 'Order placed from storefront' },
-          },
-          payments: {
-            create: {
-              method: paymentMethod,
-              status: paymentStatus,
-              amount: serverTotal,
-              currency: 'BDT',
+          const created = await tx.order.create({
+            data: {
+              storeId: sid,
+              invoiceNumber,
+              idempotencyKey: idemKey ?? null,
+              ...(input.customerId ? { customerId: input.customerId } : {}),
+              status,
+              paymentStatus,
+              paymentMethod,
+              subtotal: serverSubtotal,
+              deliveryCharge: delivery,
+              discount: serverDiscount,
+              total: serverTotal,
+              couponId: coupon?.couponId ?? null,
+              couponCode: coupon ? input.couponCode : null,
+              shippingName: input.customer.name,
+              shippingPhone: normalizedPhone,
+              shippingEmail,
+              shippingAddress: input.customer.address,
+              shippingCity: input.customer.city,
+              shippingDistrict: input.customer.district ?? input.customer.city,
+              shippingDivision: input.customer.division ?? 'Dhaka',
+              confirmedAt: null,
+              fraudScore: fraud.score,
+              fraudFlags: fraud.flags,
+              isCodRisk: fraud.isCodRisk,
+              utmSource: attr?.utmSource ?? null,
+              utmMedium: attr?.utmMedium ?? null,
+              utmCampaign: attr?.utmCampaign ?? null,
+              utmContent: attr?.utmContent ?? null,
+              utmTerm: attr?.utmTerm ?? null,
+              fbclid: attr?.fbclid ?? null,
+              referrer: attr?.referrer ?? null,
+              trafficSource: attr?.trafficSource ?? null,
+              landingPage: attr?.landingPage ?? null,
+              clientIp: input.clientIp ?? null,
+              items: {
+                create: lines.map(
+                  ({ item, variant, unitPrice }) =>
+                    ({
+                      product: { connect: { id: item.productId } },
+                      variant: { connect: { id: variant.id } },
+                      productName: item.name,
+                      variantName: [item.size, item.color].filter(Boolean).join(' / ') || null,
+                      sku: variant.sku ?? null,
+                      image: item.image ?? variant.image ?? null,
+                      price: unitPrice,
+                      quantity: item.quantity,
+                      subtotal: unitPrice * item.quantity,
+                    }) satisfies Prisma.OrderItemCreateWithoutOrderInput,
+                ),
+              },
+              statusHistory: {
+                create: { status, note: 'Order placed from storefront' },
+              },
+              payments: {
+                create: {
+                  method: paymentMethod,
+                  status: paymentStatus,
+                  amount: serverTotal,
+                  currency: 'BDT',
+                },
+              },
             },
-          },
-        },
-        include: StorefrontOrdersService.ORDER_INCLUDE,
-      })
+            include: StorefrontOrdersService.ORDER_INCLUDE,
+          })
 
-      return created
+          if (paymentMethod === 'CASH_ON_DELIVERY') {
+            await this.reservations.decrementCodStock(tx, stockLines)
+          } else {
+            await this.reservations.createReservation(tx, created.id, stockLines)
+          }
+
+          if (coupon) {
+            await tx.couponRedemption.create({
+              data: {
+                couponId: coupon.couponId,
+                orderId: created.id,
+                customerId: input.customerId ?? null,
+                customerIdentity,
+                code: coupon.code,
+                discountAmount: coupon.discount,
+                freeShipping: coupon.freeShipping,
+                orderSubtotal: serverSubtotal,
+              },
+            })
+            await tx.coupon.update({
+              where: { id: coupon.couponId },
+              data: { usedCount: { increment: 1 } },
+            })
+          }
+
+          if (paymentMethod === 'CASH_ON_DELIVERY') {
+            await this.commerceEvents.enqueueOrderPlaced(tx, {
+              storeId: sid,
+              orderId: created.id,
+              customerEmail: input.customer.email,
+              meta: {
+                total: Number(created.total),
+                email: input.customer.email,
+                phone: normalizedPhone,
+                fbclid: attr?.fbclid ?? null,
+                clientIp: input.clientIp ?? null,
+                userAgent: input.userAgent ?? null,
+                eventSourceUrl: attr?.landingPage ?? null,
+              },
+            })
+          }
+
+          return created
         })
         break
       } catch (error) {
@@ -412,7 +488,18 @@ export class StorefrontOrdersService {
           typeof error === 'object' &&
           'code' in error &&
           (error as { code: string }).code === 'P2002'
-        if (!unique || attempt === 5) throw error
+        if (!unique) throw error
+        if (idemKey) {
+          const durableExisting = await this.prisma.order.findUnique({
+            where: { storeId_idempotencyKey: { storeId: sid, idempotencyKey: idemKey } },
+            include: StorefrontOrdersService.ORDER_INCLUDE,
+          })
+          if (durableExisting) {
+            order = durableExisting
+            break
+          }
+        }
+        if (attempt === 5) throw error
       }
     }
 
@@ -424,20 +511,9 @@ export class StorefrontOrdersService {
       await this.redis.setJson(`splaro:order-idem:${sid}:${idemKey}`, { orderId: order.id }, 600)
     }
 
-    void this.sideEffects.enqueueOrderPlaced({
-      storeId: sid,
-      orderId: order.id,
-      customerEmail: input.customer.email,
-      meta: {
-        total: Number(order.total),
-        email: input.customer.email,
-        phone: input.customer.phone,
-        fbclid: attr?.fbclid ?? null,
-        clientIp: input.clientIp ?? null,
-        userAgent: input.userAgent ?? null,
-        eventSourceUrl: attr?.landingPage ?? null,
-      },
-    })
+    if (paymentMethod === 'CASH_ON_DELIVERY') {
+      void this.commerceEvents.dispatchForOrder(order.id)
+    }
 
     return order
   }
@@ -449,6 +525,28 @@ export class StorefrontOrdersService {
       where: {
         storeId: sid,
         shippingPhone: { contains: normalized.slice(-10) },
+      },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+  }
+
+  async listForCustomer(storeId: string, customerId: string) {
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, storeId },
+      select: { phone: true, email: true },
+    })
+    const phone = customer?.phone?.replace(/\D/g, '').slice(-10)
+    const email = customer?.email?.trim().toLowerCase()
+    return this.prisma.order.findMany({
+      where: {
+        storeId,
+        OR: [
+          { customerId },
+          ...(phone ? [{ shippingPhone: { contains: phone } }] : []),
+          ...(email ? [{ shippingEmail: { equals: email, mode: 'insensitive' as const } }] : []),
+        ],
       },
       include: { items: true },
       orderBy: { createdAt: 'desc' },

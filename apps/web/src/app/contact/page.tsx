@@ -1,14 +1,15 @@
-import type { Metadata } from 'next'
 import { ContentPage } from '@/components/content/ContentPage'
 import { ContactExtras } from '@/components/content/ContactExtras'
 import { getLegalPage } from '@/lib/content/get-legal-page'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata() {
   const page = await getLegalPage('contact')
-  return {
+  return createRouteMetadata({
     title: page.metaTitle ?? page.title,
     description: page.metaDescription ?? page.description,
-  }
+    path: '/contact',
+  })
 }
 
 export default async function ContactPage() {

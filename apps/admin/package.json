@@ -5,8 +5,8 @@
   "scripts": {
     "predev": "node ../../scripts/ensure-next-cache.mjs apps/admin && node ../../scripts/verify-css.mjs && node ../../scripts/check-api-up.mjs",
     "prebuild": "node ../../scripts/verify-css.mjs && node ../../scripts/stop-next-dev-for-build.mjs 3001",
-    "dev": "next dev --port 3001",
-    "dev:fresh": "node ../../scripts/ensure-next-cache.mjs --fresh apps/admin && next dev --port 3001",
+    "dev": "next dev --turbo --port 3001",
+    "dev:fresh": "node ../../scripts/ensure-next-cache.mjs --fresh apps/admin && next dev --turbo --port 3001",
     "css:fix": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && echo 'Admin CSS cache cleared — run pnpm dev:admin'",
     "build": "next build",
     "start": "next start --port 3001",
@@ -17,7 +17,7 @@
   "dependencies": {
     "@splaro/types": "workspace:*",
     "@splaro/config": "workspace:*",
-    "next": "15.0.0",
+    "next": "15.5.20",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "framer-motion": "^11.3.0",
@@ -64,7 +64,7 @@
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.39",
     "eslint": "^8.57.0",
-    "eslint-config-next": "15.0.0",
+    "eslint-config-next": "15.5.20",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.5"
   }

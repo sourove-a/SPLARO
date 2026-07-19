@@ -9,7 +9,7 @@ import { SplaroAdminLogo } from '@/components/brand/SplaroAdminLogo'
 import { AdminNavLink } from '@/components/layout/AdminNavLink'
 import { useAdminConnection } from '@/lib/hooks/use-admin-connection'
 import { useAdminSession } from '@/lib/api/hooks'
-import { getVisibleAdminRoutes, getSidebarNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
+import { getSidebarNavGroups, type AdminNavGroup, type AdminNavItem } from '@/lib/navigation/admin-nav'
 import { useFeatureFlags } from '@/lib/feature-flags'
 import type { AdminNavSession } from '@/lib/navigation/admin-nav-permissions'
 import { getModuleMaturity } from '@/lib/modules/module-maturity'
@@ -366,10 +366,13 @@ export function AdminSidebar() {
     ? { duration: 0 }
     : { duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }
 
+  // Prefetch only the hottest post-login routes — blanket prefetch fights dashboard boot.
   useEffect(() => {
-    for (const route of getVisibleAdminRoutes(navSession)) {
+    if (!navSession) return
+    const hot = ['/dashboard', '/dashboard/orders', '/dashboard/products', '/dashboard/menu-control']
+    for (const href of hot) {
       try {
-        router.prefetch(route.href)
+        router.prefetch(href)
       } catch {
         /* prefetch best-effort */
       }

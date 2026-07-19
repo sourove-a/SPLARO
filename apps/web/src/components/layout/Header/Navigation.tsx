@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from '@/lib/motion/react'
+import { AnimatePresence, LayoutGroup, motion } from '@/lib/motion/react'
 import { ChevronDown } from 'lucide-react'
 import { useStorefrontSettings } from '@/components/providers/StorefrontSettingsProvider'
 import { cn } from '@/lib/utils/cn'
@@ -25,6 +25,7 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   const pathname = usePathname()
   const settings = useStorefrontSettings()
   const navItems = (settings.config.headerNav ?? []).filter((item) => !item.hidden)
+  const navSignature = navItems.map((item) => `${item.label}:${item.href}`).join('|')
 
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -33,6 +34,11 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
   useEffect(() => {
     onMegaMenuChange?.(openIndex !== null)
   }, [openIndex, onMegaMenuChange])
+
+  // Hidden/reordered items — close mega so index never points at the wrong link
+  useEffect(() => {
+    setOpenIndex(null)
+  }, [navSignature])
 
   useEffect(() => {
     return () => {
@@ -105,67 +111,81 @@ export function Navigation({ onMegaMenuChange }: NavigationProps) {
 
   if (!navItems.length) return null
 
+  const navMotion = {
+    duration: 0.28,
+    ease: [0.4, 0, 0.2, 1] as const,
+  }
+
   return (
     <div ref={navLayerRef} className="site-header-glass__nav-layer">
       <div className="site-header-glass__nav-center">
         <nav aria-label="Main navigation">
-          <ul className="site-header-glass__nav-list">
-            {navItems.map((item, i) => {
-              const hasMega = Boolean(item.megaMenu)
-              const isOpen = openIndex === i
-              const isActive = isNavActive(pathname, item.href)
+          <LayoutGroup id="site-header-nav">
+            <ul className="site-header-glass__nav-list">
+              <AnimatePresence initial={false} mode="popLayout">
+                {navItems.map((item, i) => {
+                  const hasMega = Boolean(item.megaMenu)
+                  const isOpen = openIndex === i
+                  const isActive = isNavActive(pathname, item.href)
 
-              return (
-                <li
-                  key={`${item.label}-${item.href}`}
-                  onMouseEnter={() => (hasMega ? openMenu(i) : setOpenIndex(null))}
-                  onMouseLeave={() => {
-                    if (hasMega) scheduleClose()
-                  }}
-                >
-                  <Link
-                    href={item.href}
-                    scroll={false}
-                    onClick={closeMenu}
-                    onFocus={() => {
-                      if (hasMega) openMenu(i)
-                    }}
-                    aria-haspopup={hasMega ? 'true' : undefined}
-                    aria-expanded={hasMega ? isOpen : undefined}
-                    className={cn(
-                      'site-header-glass__nav-link',
-                      isActive && 'site-header-glass__nav-link--active',
-                      isOpen && 'site-header-glass__nav-link--open',
-                    )}
-                  >
-                    {isOpen ? (
-                      <motion.span
-                        layoutId="nav-mega-pill"
-                        className="site-header-glass__nav-pill"
-                        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                        aria-hidden
-                      />
-                    ) : null}
-                    <span className="site-header-glass__nav-link-text">{item.label}</span>
-                    {item.badge ? (
-                      <span className="site-header-glass__nav-badge">{item.badge}</span>
-                    ) : null}
-                    {hasMega ? (
-                      <ChevronDown
-                        className="site-header-glass__nav-chevron"
-                        strokeWidth={2}
-                        aria-hidden
-                      />
-                    ) : null}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+                  return (
+                    <motion.li
+                      key={`${item.label}-${item.href}`}
+                      layout
+                      initial={{ opacity: 1, y: 0 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 1, y: 0, transition: { duration: 0.2 } }}
+                      transition={navMotion}
+                      onMouseEnter={() => (hasMega ? openMenu(i) : setOpenIndex(null))}
+                      onMouseLeave={() => {
+                        if (hasMega) scheduleClose()
+                      }}
+                    >
+                      <Link
+                        href={item.href}
+                        scroll={false}
+                        onClick={closeMenu}
+                        onFocus={() => {
+                          if (hasMega) openMenu(i)
+                        }}
+                        aria-haspopup={hasMega ? 'true' : undefined}
+                        aria-expanded={hasMega ? isOpen : undefined}
+                        className={cn(
+                          'site-header-glass__nav-link',
+                          isActive && 'site-header-glass__nav-link--active',
+                          isOpen && 'site-header-glass__nav-link--open',
+                        )}
+                      >
+                        {isOpen ? (
+                          <motion.span
+                            layoutId="nav-mega-pill"
+                            className="site-header-glass__nav-pill"
+                            transition={navMotion}
+                            aria-hidden
+                          />
+                        ) : null}
+                        <span className="site-header-glass__nav-link-text">{item.label}</span>
+                        {item.badge ? (
+                          <span className="site-header-glass__nav-badge">{item.badge}</span>
+                        ) : null}
+                        {hasMega ? (
+                          <ChevronDown
+                            className="site-header-glass__nav-chevron"
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                        ) : null}
+                      </Link>
+                    </motion.li>
+                  )
+                })}
+              </AnimatePresence>
+            </ul>
+          </LayoutGroup>
         </nav>
       </div>
 
-      {/* Always mounted — open/close is a pure CSS class flip (ILYN-style curtain).
+      {/* Always mounted — open/close is a pure CSS class flip (premium curtain).
           lastMega keeps the final content visible through the fade-out. */}
       {lastMega ? (
         <div

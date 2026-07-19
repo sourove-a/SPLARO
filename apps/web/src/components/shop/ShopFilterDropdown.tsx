@@ -1,5 +1,7 @@
 'use client'
 
+import '@/styles/pages/shop.css'
+
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'

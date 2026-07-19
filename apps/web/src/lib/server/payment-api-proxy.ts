@@ -34,15 +34,15 @@ export async function createBkashViaApi(input: {
 }
 
 export async function initNagadViaApi(input: {
-  orderId: string
+  invoiceNumber: string
   amount: number
 }): Promise<{ url: string; paymentRefId: string }> {
-  const callbackUrl = `${paymentsBase()}/nagad/verify?orderId=${encodeURIComponent(input.orderId)}`
+  const callbackUrl = `${paymentsBase()}/nagad/verify?invoiceNumber=${encodeURIComponent(input.invoiceNumber)}`
   const res = await fetchWithTimeout(`${paymentsBase()}/nagad/init`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      orderId: input.orderId,
+      invoiceNumber: input.invoiceNumber,
       amount: input.amount,
       callbackUrl,
     }),

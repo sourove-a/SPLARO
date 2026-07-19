@@ -1,4 +1,10 @@
-import type TelegramBot from 'node-telegram-bot-api'
+import type {
+  BotCommand,
+  InlineKeyboardButton,
+  InlineKeyboardMarkup,
+  KeyboardButton,
+  ReplyKeyboardMarkup,
+} from 'node-telegram-bot-api'
 
 /** Reply keyboard button labels — also used as route keys */
 export const TG_BTN = {
@@ -48,8 +54,8 @@ export function parseOrderCallback(data: string): { action: 'confirm' | 'courier
   return { action: m[1] as 'confirm' | 'courier' | 'track', invoice: m[2]! }
 }
 
-export function mainReplyKeyboard(): TelegramBot.ReplyKeyboardMarkup {
-  const row = (labels: string[]) => labels as unknown as TelegramBot.KeyboardButton[]
+export function mainReplyKeyboard(): ReplyKeyboardMarkup {
+  const row = (labels: string[]) => labels as unknown as KeyboardButton[]
   return {
     keyboard: [
       row([TG_BTN.DASHBOARD, TG_BTN.PENDING]),
@@ -64,7 +70,7 @@ export function mainReplyKeyboard(): TelegramBot.ReplyKeyboardMarkup {
   }
 }
 
-export function inlineMainMenu(): TelegramBot.InlineKeyboardMarkup {
+export function inlineMainMenu(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
@@ -83,7 +89,7 @@ export function inlineMainMenu(): TelegramBot.InlineKeyboardMarkup {
   }
 }
 
-export function inlineOrdersMenu(): TelegramBot.InlineKeyboardMarkup {
+export function inlineOrdersMenu(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
@@ -103,7 +109,7 @@ export function inlineOrdersMenu(): TelegramBot.InlineKeyboardMarkup {
   }
 }
 
-export function inlineFinanceMenu(): TelegramBot.InlineKeyboardMarkup {
+export function inlineFinanceMenu(): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
@@ -119,7 +125,7 @@ export function inlineFinanceMenu(): TelegramBot.InlineKeyboardMarkup {
   }
 }
 
-export function orderActionKeyboard(invoiceNumber: string): TelegramBot.InlineKeyboardMarkup {
+export function orderActionKeyboard(invoiceNumber: string): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
@@ -131,14 +137,14 @@ export function orderActionKeyboard(invoiceNumber: string): TelegramBot.InlineKe
   }
 }
 
-export function loginCopyKeyboard(code: string): TelegramBot.InlineKeyboardMarkup {
+export function loginCopyKeyboard(code: string): InlineKeyboardMarkup {
   return {
     inline_keyboard: [
       [
         {
           text: '📋 Copy Token',
           copy_text: { text: code },
-        } as TelegramBot.InlineKeyboardButton,
+        } as InlineKeyboardButton,
       ],
       [{ text: '◀️ Menu', callback_data: TG_CALLBACK.MENU_MAIN }],
     ],
@@ -185,7 +191,7 @@ Use the buttons below or the keyboard at the bottom.
 `.trim()
 }
 
-export const BOT_COMMANDS: TelegramBot.BotCommand[] = [
+export const BOT_COMMANDS: BotCommand[] = [
   { command: 'start', description: 'Welcome & open menu' },
   { command: 'menu', description: 'Control panel' },
   { command: 'login', description: 'Link admin or get login token' },

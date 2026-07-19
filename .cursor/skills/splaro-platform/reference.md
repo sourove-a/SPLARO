@@ -151,4 +151,4 @@ Do not: `window.open(..., 'noopener')` for blank docs; await-then-open; put cuid
 | Size Guide leaves wrong chart | Modal is category-aware via `resolveSizeGuideKey` — footwear vs apparel |
 | Native scrollIntoView + Lenis | Use `lenis.scrollTo(element)` on PDP — `scrollIntoView` desyncs virtual scroll |
 | Google Continue = double G | Hidden GIS was under glass at `opacity: 0.02` — keep `.auth-google-glass__hidden` off-screen; one SVG mark only |
-| Homepage slow vs ILYN | Logo PNG 500KB+ / Unsplash @1920 / dead `cdn.splaro.co` — use WebP heroes+logos; skip dead CDN hosts |
+| Homepage slow vs fast storefronts | Logo PNG 500KB+ / Unsplash @1920 / dead `cdn.splaro.co` — use WebP heroes+logos; skip dead CDN hosts |

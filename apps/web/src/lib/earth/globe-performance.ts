@@ -193,10 +193,27 @@ export function shouldPreloadEarthAssets(options?: EarthMotionOptions): boolean 
   return true
 }
 
-/** Native OS scroll everywhere — Instagram-level responsiveness (2026-07-16). */
+/**
+ * Native scroll on Windows / mobile / lite / reduced-motion.
+ * Mac / Linux desktop → Lenis (premium inertia).
+ *
+ * Owner lock: never Lenis on Windows (RDP hang).
+ * Mac Lenis must NOT put `data-lenis-prevent` on page product rails — that froze
+ * vertical wheel mid-home (~1100px). Rails use native overflow-x + trackpad deltaX.
+ */
 export function shouldUseNativeScroll(): boolean {
   if (typeof window === 'undefined') return true
-  return true
+  if (prefersReducedMotion()) return true
+  if (isWindowsOS()) return true
+  if (isLowPowerDevice()) return true
+  if (
+    window.matchMedia('(max-width: 1023px)').matches ||
+    window.matchMedia('(pointer: coarse)').matches
+  ) {
+    return true
+  }
+  if (document.documentElement.getAttribute('data-perf') === 'lite') return true
+  return false
 }
 
 export function earthIntersectionRootMargin(compact = false): string {

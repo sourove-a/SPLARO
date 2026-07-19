@@ -37,8 +37,8 @@ export class EmailService {
     const transactional = Boolean(input.transactional)
     if (!transactional && !store.settings?.emailEnabled) return false
 
-    const smtp = this.resolveSmtp(store.settings?.storefrontConfig)
-    if (smtp?.enabled && smtp.host && smtp.user && smtp.password) {
+    const smtpAccounts = this.resolveSmtpAccounts(store.settings?.storefrontConfig)
+    for (const smtp of smtpAccounts) {
       const sent = await this.sendViaSmtp(smtp, store.name, input)
       if (sent) return true
     }
@@ -73,7 +73,7 @@ export class EmailService {
   ): Promise<boolean> {
     try {
       const transport = this.createTransport(smtp)
-      await transport.sendMail({
+      const result = await transport.sendMail({
         from: `"${smtp.fromName || storeName}" <${smtp.fromEmail || smtp.user}>`,
         to: input.to,
         subject: input.subject,
@@ -81,7 +81,15 @@ export class EmailService {
         text: input.text,
         replyTo: smtp.replyTo || smtp.fromEmail || undefined,
       })
-      return true
+      const accepted = Array.isArray(result.accepted)
+        ? result.accepted.map((address) => String(address).toLowerCase())
+        : []
+      const recipient = input.to.trim().toLowerCase()
+      if (accepted.length > 0 && !accepted.includes(recipient)) {
+        this.logger.error(`SMTP did not accept recipient ${input.to}`)
+        return false
+      }
+      return accepted.length > 0
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Email send failed'
       this.logger.error(`Email to ${input.to} failed: ${message}`)
@@ -116,12 +124,25 @@ export class EmailService {
     return fromSettings ?? null
   }
 
-  async verifySmtp(storeId: string): Promise<{ ok: boolean; message: string }> {
+  private resolveSmtpAccounts(storefrontConfig: unknown): SmtpConfig[] {
+    const config = mergeStorefrontConfig(storefrontConfig)
+    const pool = (config.smtpAccounts ?? [])
+      .filter((account) => account.enabled && account.host && account.user && account.password)
+      .sort((a, b) => a.priority - b.priority)
+    if (pool.length > 0) return pool
+    const single = this.resolveSmtp(storefrontConfig)
+    return single?.enabled && single.host && single.user && single.password ? [single] : []
+  }
+
+  async verifySmtp(storeId: string, accountId?: string): Promise<{ ok: boolean; message: string }> {
     const store = await this.prisma.store.findUnique({
       where: { id: storeId },
       include: { settings: true },
     })
-    const smtp = this.resolveSmtp(store?.settings?.storefrontConfig)
+    const config = mergeStorefrontConfig(store?.settings?.storefrontConfig)
+    const smtp = accountId
+      ? config.smtpAccounts?.find((account) => account.id === accountId) ?? null
+      : this.resolveSmtpAccounts(store?.settings?.storefrontConfig)[0] ?? null
     if (!smtp?.host || !smtp.user || !smtp.password) {
       return { ok: false, message: 'SMTP host, user and password are required.' }
     }

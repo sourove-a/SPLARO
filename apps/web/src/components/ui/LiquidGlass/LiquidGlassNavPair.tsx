@@ -12,7 +12,7 @@ interface LiquidGlassNavPairProps {
   size?: 'sm' | 'md' | 'lg'
 }
 
-/** Paired white-glass prev/next controls — ILYN-style square buttons. */
+/** Paired white-glass prev/next controls — premium square buttons. */
 export function LiquidGlassNavPair({
   onPrev,
   onNext,

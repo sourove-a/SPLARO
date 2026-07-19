@@ -186,7 +186,7 @@ export function ProductMediaPanel({
 
       <button
         type="button"
-        className="mb-3 flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[rgba(200,169,126,0.45)] bg-[rgba(200,169,126,0.06)] px-3 py-2.5 text-xs font-bold text-[#8a6d45] transition hover:bg-[rgba(200,169,126,0.12)] disabled:opacity-50"
+        className="mb-3 flex w-full items-center justify-center gap-2 rounded-[12px] border border-dashed border-[rgba(16, 17, 20, 0.45)] bg-[rgba(16, 17, 20, 0.06)] px-3 py-2.5 text-xs font-bold text-[#3f3f46] transition hover:bg-[rgba(16, 17, 20, 0.12)] disabled:opacity-50"
         disabled={disabled || imageUrls.length >= MAX_PRODUCT_IMAGES}
         onClick={() => setLibraryOpen(true)}
       >

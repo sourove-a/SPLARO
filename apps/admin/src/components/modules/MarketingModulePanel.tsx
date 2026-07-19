@@ -7,13 +7,12 @@ import {
   confirmCampaignCreated,
   confirmCampaignDeleted,
   confirmCampaignDuplicated,
-  confirmCampaignScheduled,
   confirmCampaignSent,
 } from '@/lib/admin/marketing-save'
 import { ChevronDown, Copy, Megaphone, Plus, RefreshCw, Search, Send, Trash2 } from 'lucide-react'
 import { AdminButton } from '@/components/ui/AdminButton'
 import { RowActionsMenu } from '@/components/ui/RowActionsMenu'
-import { useCampaigns, useCampaignStats, useCreateCampaign, useUpdateCampaign, useDeleteCampaign, useDuplicateCampaign, useSendCampaign } from '@/lib/api/hooks'
+import { useCampaigns, useCampaignStats, useCreateCampaign, useDeleteCampaign, useDuplicateCampaign, useSendCampaign } from '@/lib/api/hooks'
 import { formatCampaignType, mapCampaignStatus } from '@/lib/api/marketing'
 import { formatRelativeTime } from '@/lib/api/orders'
 import type { ModuleContextProps } from '@/lib/modules/module-data'
@@ -24,9 +23,9 @@ import { WhatsAppPanelLive, AffiliatePanelLive, InfluencersPanelLive } from '@/c
 import { renderModuleSubPanel } from '@/components/modules/renderModuleSubPanel'
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const GOLD = '#c8a97e'
-const GOLD_LIGHT = 'rgba(200,169,126,0.10)'
-const GOLD_BORDER = 'rgba(200,169,126,0.32)'
+const GOLD = '#16181d'
+const GOLD_LIGHT = 'rgba(16, 17, 20, 0.10)'
+const GOLD_BORDER = 'rgba(16, 17, 20, 0.32)'
 
 
 const TH: React.CSSProperties = { padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 800, color: 'var(--admin-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }
@@ -85,7 +84,6 @@ function CampaignsPanel() {
   const { data: campaigns = [], isLoading, isError, refetch, isFetched } = useCampaigns()
   const { data: stats, isError: statsError } = useCampaignStats()
   const createCampaign = useCreateCampaign()
-  const updateCampaign = useUpdateCampaign()
   const deleteCampaignMut = useDeleteCampaign()
   const duplicateCampaign = useDuplicateCampaign()
   const sendCampaignMut = useSendCampaign()
@@ -157,18 +155,6 @@ function CampaignsPanel() {
     void refetch()
   }
 
-  const handleSchedule = async (row: CampaignRow) => {
-    const date = window.prompt('Schedule date (YYYY-MM-DD):', new Date(Date.now() + 86400000).toISOString().slice(0, 10))
-    if (!date?.trim()) return
-    const scheduledAt = new Date(`${date.trim()}T09:00:00`).toISOString()
-    const ok = await confirmCampaignScheduled(
-      row.id,
-      scheduledAt,
-      () => updateCampaign.mutateAsync({ id: row.id, scheduledAt, status: 'SCHEDULED' }),
-    )
-    if (ok) void refetch()
-  }
-
   const handleDuplicate = async (row: CampaignRow) => {
     const expectedName = `${row.name} (copy)`
     const id = await confirmCampaignDuplicated(expectedName, () => duplicateCampaign.mutateAsync(row.id))
@@ -190,7 +176,7 @@ function CampaignsPanel() {
   )
 
   const TABS = ['all', 'live', 'scheduled', 'draft', 'ended'] as const
-  const busy = createCampaign.isPending || sendCampaignMut.isPending || updateCampaign.isPending || duplicateCampaign.isPending || deleteCampaignMut.isPending
+  const busy = createCampaign.isPending || sendCampaignMut.isPending || duplicateCampaign.isPending || deleteCampaignMut.isPending
 
   return (
     <div className="settings-section-enter" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -239,7 +225,7 @@ function CampaignsPanel() {
           <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <input className="admin-input" placeholder="Campaign name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             <select className="admin-input" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CampaignType }))}>
-              {(['EMAIL', 'SMS', 'WHATSAPP', 'PUSH'] as const).map((t) => (
+              {(['EMAIL'] as const).map((t) => (
                 <option key={t} value={t}>{formatCampaignType(t)}</option>
               ))}
             </select>
@@ -297,7 +283,7 @@ function CampaignsPanel() {
         {isLoading ? (
           <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>Loading campaigns…</p>
         ) : filtered.length === 0 ? (
-          <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No campaigns yet. Create one to reach customers via email, SMS, or push.</p>
+          <p style={{ padding: '20px', fontSize: 13, fontWeight: 600, color: 'var(--admin-text-muted)' }}>No email campaigns yet. Create a discount campaign for customers who accepted marketing.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -354,9 +340,6 @@ function CampaignsPanel() {
                                 <>
                                   <AdminButton variant="gold" size="sm" loading={busy} onClick={() => void handleSend(c)}>
                                     <Send className="h-3.5 w-3.5" /> Send now
-                                  </AdminButton>
-                                  <AdminButton size="sm" loading={busy} onClick={() => void handleSchedule(c)}>
-                                    Schedule
                                   </AdminButton>
                                 </>
                               )}

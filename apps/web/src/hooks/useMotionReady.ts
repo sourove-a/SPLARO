@@ -13,6 +13,12 @@ function isPerfLite(): boolean {
   return document.documentElement.getAttribute('data-perf') === 'lite'
 }
 
+/** Windows ANGLE + below-fold reveals = scroll stutter; treat like lite for reveals. */
+function isWindowsPerfGate(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.documentElement.getAttribute('data-os') === 'windows'
+}
+
 function subscribePerfLite(onChange: () => void) {
   if (typeof document === 'undefined') return () => {}
   const html = document.documentElement
@@ -40,6 +46,7 @@ export function useMotionReady() {
   )
   const [settled, setSettled] = useState(false)
   const [lite, setLite] = useState(false)
+  const [windowsGate, setWindowsGate] = useState(false)
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setSettled(true))
@@ -52,9 +59,14 @@ export function useMotionReady() {
     return subscribePerfLite(syncLite)
   }, [])
 
+  useEffect(() => {
+    setWindowsGate(isWindowsPerfGate())
+  }, [])
+
   const motionOk = !reducedMotion && !lite
+  // Enter/micro ok on Windows desktop; scroll-reveals off (GPU pressure).
   const allowEnterAnimation = isClientNav && motionOk
-  const allowRevealAnimation = settled && motionOk
+  const allowRevealAnimation = settled && motionOk && !windowsGate
   const showMotion = (isClientNav || settled) && motionOk
 
   return {

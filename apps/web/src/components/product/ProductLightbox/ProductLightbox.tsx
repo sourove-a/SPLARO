@@ -1,5 +1,7 @@
 'use client'
 
+import '@/styles/pages/pdp.css'
+
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from 'react-zoom-pan-pinch'
@@ -10,6 +12,8 @@ import { MotionPressable } from '@/components/ui/MotionPressable'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
 import { EASE_EXPO_OUT } from '@/lib/motion/config'
 import { cn } from '@/lib/utils/cn'
+import { useDialogFocusTrap } from '@/hooks/useDialogFocusTrap'
+import { useOverlayScrollLock } from '@/hooks/useOverlayScrollLock'
 
 export type ProductMediaItem = { type: 'image' | 'video'; url: string }
 
@@ -35,19 +39,19 @@ export function ProductLightbox({
   showMotion,
 }: ProductLightboxProps) {
   const closeRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const pinchRef = useRef<ReactZoomPanPinchRef | null>(null)
   const swipeRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
   const active = media[activeIndex]
+  useDialogFocusTrap(isOpen, dialogRef, onClose)
+  useOverlayScrollLock(isOpen)
 
   useEffect(() => {
     if (!isOpen) return
     closeRef.current?.focus({ preventScroll: true })
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     document.body.classList.add('product-lightbox-open')
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
       if (event.key === 'ArrowLeft') onPrev()
       if (event.key === 'ArrowRight') onNext()
     }
@@ -55,13 +59,13 @@ export function ProductLightbox({
     window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = previousOverflow
       document.body.classList.remove('product-lightbox-open')
     }
   }, [isOpen, onClose, onNext, onPrev])
 
   useEffect(() => {
-    pinchRef.current?.resetTransform(0)
+    // Soft reset when changing slides — hard 0ms reset felt like a jump
+    pinchRef.current?.resetTransform(220)
   }, [activeIndex, isOpen])
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -98,6 +102,7 @@ export function ProductLightbox({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
+          ref={dialogRef}
           key="product-lightbox"
           className="pp-lightbox"
           role="dialog"
@@ -167,11 +172,22 @@ export function ProductLightbox({
                 ref={pinchRef}
                 initialScale={1}
                 minScale={1}
-                maxScale={4}
+                maxScale={3}
                 centerOnInit
-                wheel={{ step: 0.12 }}
+                limitToBounds
+                smooth
+                panning={{ velocityDisabled: true }}
+                wheel={{ step: 0.12, smoothStep: 0.04 }}
                 pinch={{ step: 5 }}
-                doubleClick={{ mode: 'toggle', step: 1.6 }}
+                doubleClick={{ mode: 'toggle', step: 1.5, animationTime: 220, animationType: 'easeOut' }}
+                alignmentAnimation={{
+                  sizeX: 0,
+                  sizeY: 0,
+                  animationTime: 220,
+                  animationType: 'easeOut',
+                }}
+                velocityAnimation={{ disabled: true }}
+                zoomAnimation={{ animationTime: 220, animationType: 'easeOut' }}
               >
                 <TransformComponent
                   wrapperClass="pp-lightbox__pinch-wrap"
@@ -211,8 +227,20 @@ export function ProductLightbox({
             </MotionPressable>
           ) : null}
 
-          <div className="pp-lightbox__counter">
-            {activeIndex + 1} / {media.length}
+          <div className="pp-lightbox__counter" aria-live="polite">
+            <span className="pp-lightbox__counter-label">
+              {activeIndex + 1} / {media.length}
+            </span>
+            {media.length > 1 ? (
+              <span className="pp-lightbox__counter-track" aria-hidden>
+                <span
+                  className="pp-lightbox__counter-fill"
+                  style={{
+                    width: `${((activeIndex + 1) / media.length) * 100}%`,
+                  }}
+                />
+              </span>
+            ) : null}
           </div>
         </motion.div>
       ) : null}

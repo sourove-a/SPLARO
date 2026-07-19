@@ -10,25 +10,25 @@ const prisma = new PrismaClient()
 /** Verified HTTP 200 as of 2026-07-13 */
 const BY_SLUG: Record<string, string> = {
   'heritage-block-print-kurti':
-    'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'minimalist-tote-bag':
-    'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'classic-leather-loafer':
-    'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'floral-party-lehenga-set':
-    'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'premium-cotton-polo':
-    'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'urban-linen-panjabi':
-    'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'midnight-silk-evening-saree':
-    'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
   'white-kantha-odyssey-theme-shalwar-kameez':
-    'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=900&q=80&auto=format',
+    '/images/placeholder-product.jpg',
 }
 
 const FALLBACK =
-  'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=900&q=80&auto=format'
+  '/images/placeholder-product.jpg'
 
 async function urlOk(url: string): Promise<boolean> {
   try {

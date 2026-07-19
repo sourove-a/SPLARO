@@ -92,6 +92,16 @@ The 8GB VPS build is flaky under load. Skipping any step here has caused a live 
 5. **One agent deploys at a time.** If Claude and Cursor both push/deploy against this repo close together, the VPS build queue and PM2 restarts race and produce exactly the corrupted-`.next` failure in step 3. Check `git log --oneline -3` on the VPS before you deploy — if HEAD was touched in the last few minutes by a run you didn't trigger, wait.
 6. **Never re-enable Lenis smooth scroll on Windows.** `shouldUseNativeScroll()` in `apps/web/src/lib/earth/globe-performance.ts` force-returns `true` for any Windows UA — this is intentional, not a TODO. Lenis's JS-driven wheel handling hangs/dead-locks over RDP (input batching breaks its RAF timing). Tried removing this bypass on 2026-07-16, shipped, owner reported scroll broken within minutes, reverted immediately. Don't retry without owner sign-off and real Windows/RDP testing before shipping.
 
+### Auto-deploy reliability contract
+
+- `main` push runs `CI`; only successful CI triggers `Deploy VPS` via `workflow_run`.
+- Deploy workflow passes exact `workflow_run.head_sha` as `SPLARO_DEPLOY_SHA`; VPS must deploy that CI-approved commit, never an unverified newer `origin/main` tip.
+- Deploy concurrency queues runs with `cancel-in-progress: false`; never kill active VPS build midway.
+- VPS creates/verifies 4GB swap before `pnpm install`, not only before Next build. Install uses child concurrency `1` and bounded network concurrency.
+- Required Actions secrets: `VPS_HOST`, `VPS_USER`, `VPS_PORT`, `VPS_SSH_KEY` (aliases supported). VPS requires `/opt/splaro/deploy.sh` and read-only `/root/.ssh/github_deploy`.
+- One-time/recovery sync: `pnpm setup:github-deploy:sync`. This uploads Actions SSH secrets and registers `splaro-vps-read` deploy key.
+- Never push/deploy without owner permission. After push, watch CI → Deploy VPS → live smoke; success status alone is not enough.
+
 ## Apps
 
 | App | Path | Role |
@@ -263,7 +273,7 @@ Auth: do not re-add earth video to login without owner ask. Google sign-in stays
 
 ### Performance / CDN heroes (2026-07-15)
 
-- Defaults: `/images/hero/{key}-1600.webp` + `-828.webp` — ILYN-style same-origin static (not Unsplash 1920).
+- Defaults: `/images/hero/{key}-1600.webp` + `-828.webp` — premium same-origin static (not Unsplash 1920).
 - Resolver: `apps/web/src/lib/assets/hero-cdn.ts`; `HeroSlider` `<picture>`.
 - Logos: `splaro-logo-*-premium.webp` (~10KB).
 - Dead: never route to `cdn.splaro.co` until DNS exists (`resolve-asset-url.ts`).
@@ -281,6 +291,32 @@ Working setup (do not break):
 - Rule: Google button must **never unmount** while a client id is available (baked or via `/api/auth/config`).
 
 **One Google mark only (owner lock — 2026-07-15):** Visible mark = SVG in `AuthGoogleGlassFooter` (`GoogleMarkIcon`). Hidden GIS trigger = `.auth-google-glass__hidden` → **off-screen**, `opacity: 0`, `pointer-events: none` (still ≥44×44 so GIS mounts; `click()` works). Never stack GIS icon under the glass at low opacity — that was the **double-G** bug on `/login`. No `drop-shadow` / pseudo / background logo on `.auth-google-glass__mark`.
+
+### Optional customer email verification
+
+Password signup stays instant and optional: account creates with `User.emailVerified = false`; verification never blocks signup, login, checkout, COD, or account access. Google sign-in keeps Google token verified status.
+
+| Concern | Contract |
+|---------|----------|
+| Account UI | Profile shows amber `Unverified` or green `Verified`; verified email stays read-only/locked |
+| Send route | Web BFF `POST /api/auth/email-verification/send` → API `POST /storefront/auth/email-verification/send` |
+| Verify route | Web BFF `POST /api/auth/email-verification/verify` → API `POST /storefront/auth/email-verification/verify` |
+| Code security | 6 digits, SHA-256 digest only, 10-minute TTL, 60-second resend cooldown, max 5 wrong attempts |
+| Delivery honesty | `EmailService.sendForStore(... transactional: true)`; success only after SMTP accepts recipient |
+| Email design | `apps/api/src/modules/email/email-verification.template.ts` — SPLARO ivory/black/gold responsive template |
+| Telegram | `notifyCustomers` sends signup, code-sent, and verified events; SMTP infrastructure failure sends red admin error |
+| Secret rule | Verification code/OTP never logged or sent to Telegram/admin; only customer email receives it |
+| Redis | Production requires Redis; memory fallback development-only |
+
+Key implementation: `StorefrontAuthService.sendEmailVerification()` and `verifyEmail()`. Session payload must include real `emailVerified`; never show universal/fake verified badge. Verified email changes require separate secure re-verification flow—do not unlock current field or accept direct email mutation.
+
+### Customer avatar / Google photo
+
+- Google signup uses verified ID-token `picture` and persists it to `User.avatar`.
+- `apps/web/next.config.mjs` must keep `**.googleusercontent.com` in image remote patterns and CSP `img-src`.
+- Account avatar upload remains available for every customer; upload saves through BFF `/api/account/profile` → API `/storefront/auth/profile`.
+- Custom avatar wins: later Google login must not overwrite uploaded data/custom URL. Google-hosted avatar may refresh from newest Google picture.
+- Avatar upload control styles belong in `account.css`, not route-specific `shop.css`.
 
 ### Main customer routes
 
@@ -345,15 +381,89 @@ Code: `apps/api/src/modules/courier/`, `orders/order-status.service.ts`, `common
 ## Windows dev (parity — do not regress)
 
 - `pnpm dev:stack` / `dev:reset` / `doctor` — cross-platform `.mjs` (no bash required)
-- `pnpm db:*` — `scripts/db-run.mjs` loads `.env` on Windows
-- `pnpm infra:redis` — Docker on Windows (not Homebrew)
-- Ports: `scripts/port-utils.mjs` — Windows `taskkill /PID … /T /F` (process **tree**); never drop `/T`
+- `pnpm db:*` — `scripts/db-run.mjs` loads `.env` on Windows (`db:studio` / `db:reset` too — no `cd &&`)
+- `pnpm infra:redis` — Docker on Windows only (`docker compose`, then `docker-compose` fallback; not Homebrew). Prefer `redis://127.0.0.1:6379`
+- Ports: `scripts/port-utils.mjs` — Windows **always** `taskkill /PID … /T /F` (soft kill without `/F` leaves Next zombies). Never drop `/T` or `/F`
+- Process lookup: bulk CIM table + **per-PID** `getCommandLineForPid` fallback (folder name need not be `SPLARO-BRAND`)
+- `stop-next-dev-for-build.mjs` — uses per-PID command; if still unknown on :3000/:3001, reclaim (avoids corrupt `.next` on Windows)
 - Shutdown: `killProcessTree` in `spawn-utils.mjs` for `dev-stack` / `dev-reset` / `api-dev` — `child.kill` alone leaves zombie Next/API on Windows
 - Orphan API match: normalize `\` → `/` before path checks (`api-port.mjs`)
 - Loopback: Redis + API defaults `127.0.0.1` not `localhost` (IPv6 stall)
+- `.githooks/pre-push` — POSIX `sh` + `pwd` root resolve (Git for Windows `sh.exe`)
 - Linux/VPS bash deploy scripts stay on the server — Windows local uses `pnpm` / turbo only (do not run server `bash` build scripts on Windows)
 - Scroll hang: `apps/web/src/lib/hydration/windows-native-scroll-script.ts`
 - Hard refresh: `Ctrl+Shift+R`
+- **Never `npm install` at repo root** — use `pnpm install`. Guard: `scripts/only-pnpm.mjs` (`preinstall`). Swiper lives in `apps/web` (`pnpm --dir apps/web add swiper` if needed).
+- **Scroll (2026-07-17):** Mac / Linux desktop → Lenis again (lerp ~0.075) with freeze fixes: no `data-lenis-prevent` on product rails, `autoResize: true`, aggressive height sync. **Windows / mobile / lite** → always native. Never Lenis on Windows.
+
+
+## Department mega menus (Men / Women) — locked (2026-07-17)
+
+**Rule:** Men mega = Men categories only; Women mega = Women only; Shop = all products (`/shop`, no dept mega).
+**Live source:** `GET /storefront/nav` → `NavBuilderService` (Category tree children with products). Never skip merging this in web settings.
+**Bugs fixed:** (1) Accessories FALLBACK mega short-circuited Men/Women restore; (2) FALLBACK used `/c/men-*` slugs that dumped full catalog; (3) PLP no longer falls through to All products for unknown slugs.
+**Key files:** `apps/web/src/lib/storefront/settings.ts`, `apps/web/src/lib/catalog/server.ts`, `apps/api/.../nav-builder.service.ts`, `packages/config/src/category-tree-defaults.ts`.
+
+## Header search — inline expand (2026-07-17)
+
+**Mobile:** Search fills the header row (logo/menu hide). Premium glass pill + close.
+**Desktop:** Logo + nav stay; field expands only in the gap after Accessories → search icon (account/cart remain). Over-hero uses luminous glass field (no full white takeover).
+**No:** full-screen modal, trending chips, quick links, category grid.
+**Suggest:** ≥2 chars → slim dropdown (Search for… + products). Escape / X / tap outside closes.
+**Key files:** `Header.tsx`, `SearchModal.tsx`, `globals.css` (`.site-header-search*`).
+
+### White brick bug — locked (2026-07-17)
+
+**Symptom:** Over-hero search pill shows a solid white rectangle inside the glass field (icon ok, X ok).
+**Cause:** Global OS-dark form lock in `globals.css` forced `background-color: #ffffff !important` + autofill `box-shadow: 0 0 0 1000px #ffffff inset` on every input except auth/newsletter — including `.site-header-search__input`.
+**Fix (do not regress):**
+1. Always exclude `.site-header-search__input` from the dark-mode form lock + global autofill white-inset selectors (same list as `.auth-field__input` / `.ed-newsletter__input`).
+2. Search input must keep `background: transparent !important` — the **pill** (`.site-header-search__field`) owns the fill/glass, never the `<input>`.
+3. Search autofill uses transparent inset + matching `-webkit-text-fill-color` (dark on solid header, white on over-hero).
+4. Prefer `type="text"` + `inputMode="search"` + `role="searchbox"` (avoid WebKit `type=search` chrome).
+**Never:** re-apply global `#ffffff` form lock to header search; never put opaque white bg on `.site-header-search__input`.
+
+## Homepage dept rails + header nav (2026-07-17)
+
+**Order:** Men → Women → Kids → Footwear → Accessories (homepage rails + department links in header).
+**Hide sync:** Admin header nav `hidden: true` also removes matching homepage department rail (SSR + live client filter). Catalog channel unpublish still hides both.
+**Smooth:** Next/prev on dept rails uses `smoothScrollByX` (`motion` animate on `scrollLeft`) — avoids Windows native smooth-scroll jump. Header nav items use `AnimatePresence` + layout when shown/hidden.
+**Mobile peek:** ≤767px — no arrow buttons; hand swipe + `scroll-snap` center; side tiles half-peek (~14vw); active tile `scale(1)` / sides `0.9` via scroll-driven `is-active`. Desktop keeps arrows + multi-tile fill.
+**Key files:** `homepage-department-rows.ts`, `HomeDepartmentRow.tsx`, `HomeCategoryTile.tsx`, `home.css`, `smooth-scroll-x.ts`, `Navigation.tsx`, `settings.ts` (`orderDepartmentNavLinks`), `GlassStorefront.tsx`.
+
+## PDP micro-motion (2026-07-17)
+
+**What:** Jump-free premium transitions on product page — CTAs, gallery progress, lightbox zoom, related rail.
+
+**Why:** Reference-style soft easing. Zoom stays on existing `react-zoom-pan-pinch` in `ProductLightbox`. No scale-on-press (historical jump regressions).
+
+**Tokens**
+- Global aliases in `apps/web/src/app/globals.css`: `--ease-premium` → `--ease-smooth` (`cubic-bezier(0.4,0,0.2,1)`), `--dur-fast` / `--dur-base` → existing durations (values unchanged sitewide).
+- PDP-scoped in `.pp-view` (`pdp.css`): `--pp-ease`, `--pp-dur-fast: 200ms`, `--pp-dur-base: 300ms`, `--pp-dur-slow: 340ms`.
+
+**Related rail — Swiper coverflow (2026-07-17)**
+- Wire: `product-related-section.tsx` → `PremiumSwiperCarousel` (`effect="coverflow"`, `speed={300}`, `spaceBetween={24}`).
+- Breakpoints for related: 2 / 2 / 3 / 4 (never 1 full-width card on mobile). Default component breakpoints are 1 / 2 / 3 / 4.
+- Switch to flat: pass `effect="slide"`.
+- Jump-free: expo-out on `.swiper-wrapper`, no coverflow shadows, glass circular arrows (opacity press only), soft edge fades.
+- **Do not** put Swiper on homepage dept rails / hero / brand deck / footer.
+- Key files: `components/ui/PremiumSwiperCarousel/*`, `product-related-section.tsx`, `pdp.css` (`.pp-related*`).
+
+**Do not**
+- Enable Swiper Zoom on PDP gallery (not wired; would replace custom gallery).
+**Files**
+- `apps/web/src/styles/pages/pdp.css` — CTA hover/active (no transform), gallery progress fill width transition, nav `translateY(-50%)` preserved on press, desktop-only gallery image peek `scale(1.02)`, related `.pc-shell` media peek.
+- `apps/web/src/app/products/[slug]/product-page-client.tsx` — gallery progress bar markup.
+- `apps/web/src/components/product/ProductLightbox/ProductLightbox.tsx` — maxScale 3, soft zoom/reset (220ms), counter fill; pinch velocity disabled.
+- `apps/web/src/app/products/[slug]/product-related-section.tsx` — Swiper coverflow via `PremiumSwiperCarousel`.
+
+**Do not**
+- Enable Swiper Zoom on PDP gallery (not wired; would replace custom gallery).
+- Global duration overrides that change shop/header feel.
+- Scale transforms on CTA `:active` / size pills.
+- Put Swiper on homepage dept rails / hero / brand deck / footer.
+
+**Verified:** `pnpm check:web` clean (pre-existing lint warnings only). Playwright desktop 1440 + mobile 390 on `/products/premium-cotton-polo` — progress fill grows on next, `--pp-ease` resolved, `/shop` loads. No new runtime pageerrors from these changes (pre-existing hydration tabindex / view-transition noise remains).
 
 ## Additional reference
 

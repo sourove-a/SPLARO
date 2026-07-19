@@ -12,6 +12,7 @@ export interface AuthUser {
   phone: string
   avatar?: string | null
   phoneVerified?: boolean
+  emailVerified?: boolean
   loyaltyTier?: string
   needsPhone?: boolean
 }

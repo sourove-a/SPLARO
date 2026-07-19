@@ -102,5 +102,6 @@ export const SHEET_HEADERS: Record<BusinessSheetTab, string[]> = {
     'Last Updated (BD)',
     'Product ID',
     'Variant ID',
+    'Product Link',
   ],
 }

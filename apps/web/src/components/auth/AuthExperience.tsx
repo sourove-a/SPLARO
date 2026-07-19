@@ -32,17 +32,14 @@ function useAuthMode(): AuthMode {
   return pathname === '/signup' ? 'signup' : 'login'
 }
 
-function useAuthCopy(mode: AuthMode, nextPath: string) {
-  return useMemo(() => {
-    if (nextPath === '/checkout') {
-      return mode === 'login'
-        ? { title: 'Sign in', subtitle: 'Use your account to finish checkout faster.' }
-            : { title: 'Create account', subtitle: 'Sign up to place your order — account required for checkout.' }
-    }
-    return mode === 'login'
-      ? { title: 'Sign in', subtitle: 'Welcome back.' }
-      : { title: 'Create account', subtitle: 'One account for checkout, orders, and your saved bag.' }
-  }, [mode, nextPath])
+function useAuthCopy(mode: AuthMode) {
+  return useMemo(
+    () =>
+      mode === 'login'
+        ? { title: 'Sign in', subtitle: 'Welcome back.' }
+        : { title: 'Create account', subtitle: 'One account for orders and your bag.' },
+    [mode],
+  )
 }
 
 export function AuthExperience() {
@@ -51,7 +48,7 @@ export function AuthExperience() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next') ?? '/account'
-  const copy = useAuthCopy(mode, nextPath)
+  const copy = useAuthCopy(mode)
   const showMotion = useAuthShowMotion()
   const fadeSlide = authFadeSlide(!showMotion)
   const formMotion = authFormMotion(!showMotion)
@@ -133,7 +130,7 @@ export function AuthExperience() {
     }
   }
 
-  const finishAuth = (user: { id?: string; name: string; email: string; phone: string }, authMode: AuthMode) => {
+  const finishAuth = useCallback((user: { id?: string; name: string; email: string; phone: string }, authMode: AuthMode) => {
     if (authMode === 'signup') {
       signUp(user)
       window.localStorage.setItem(
@@ -152,7 +149,7 @@ export function AuthExperience() {
     const destination = resolvePostAuthDestination(nextPath, authMode)
     setRedirecting(true)
     safeClientNavigate(router, destination, 'replace')
-  }
+  }, [nextPath, router, signIn, signUp])
 
   const handleGoogle = useCallback(async (credential: string) => {
     setError('')
@@ -193,7 +190,7 @@ export function AuthExperience() {
       setError(message)
       setGoogleError(message)
     }
-  }, [mode, setGoogleError, setGoogleStep, signIn])
+  }, [finishAuth, mode, setGoogleError, setGoogleStep, signIn])
 
   useEffect(() => {
     registerGoogleHandler(handleGoogle)
@@ -511,7 +508,6 @@ export function AuthExperience() {
       return (
         <motion.form
           key={formKey}
-          layout
           onSubmit={onSubmit}
           className="auth-form"
           {...formMotion}
@@ -534,9 +530,9 @@ export function AuthExperience() {
       <motion.div
         key="auth-success"
         className="auth-success"
-        initial={{ opacity: 0, scale: 0.96 }}
+        initial={{ opacity: 1, scale: 1 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0 }}
+        exit={{ opacity: 1 }}
         transition={motionTransition}
         aria-live="polite"
       >

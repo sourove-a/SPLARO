@@ -225,12 +225,14 @@ export class CustomersController {
   /* ─── Bulk operations ──────────────────────────────────────── */
 
   @Post('bulk/block')
-  async bulkBlock(@Body() body: { customerIds: string[]; blocked: boolean }) {
+  async bulkBlock(@Body() body: { customerIds: string[]; blocked: boolean; storeId?: string }) {
+    const sid = await this.sid(body.storeId)
     const results = await Promise.all(
       body.customerIds.map(async (id) => {
         try {
-          const customer = await this.prisma.customer.findUnique({
-            where: { id },
+          // Store-scoped lookup — same IDOR guard as single-record ops.
+          const customer = await this.prisma.customer.findFirst({
+            where: { id, storeId: sid },
             select: { userId: true },
           })
           if (!customer) return { id, success: false, error: 'Not found' }
@@ -248,12 +250,22 @@ export class CustomersController {
   }
 
   @Post('bulk/tags')
-  async bulkAddTags(@Body() body: { customerIds: string[]; tags: string[] }) {
-    await this.prisma.customer.updateMany({
-      where: { id: { in: body.customerIds } },
-      data: { tags: { push: body.tags } },
+  async bulkAddTags(@Body() body: { customerIds: string[]; tags: string[]; storeId?: string }) {
+    const sid = await this.sid(body.storeId)
+    const customers = await this.prisma.customer.findMany({
+      where: { id: { in: body.customerIds }, storeId: sid },
+      select: { id: true, tags: true },
     })
-    return { ok: true, updated: body.customerIds.length }
+    // Merge + dedupe per customer — raw `push` accumulates duplicate tags.
+    await this.prisma.$transaction(
+      customers.map((c) =>
+        this.prisma.customer.update({
+          where: { id: c.id },
+          data: { tags: [...new Set([...c.tags, ...body.tags])] },
+        }),
+      ),
+    )
+    return { ok: true, updated: customers.length }
   }
 
   /** Get wishlist for a customer */

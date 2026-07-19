@@ -1,4 +1,4 @@
-import { getServerApiBaseUrl } from '@splaro/config'
+import { getServerApiBaseUrl } from '@splaro/config/domains'
 import { fetchWithTimeout } from '@/lib/server/build-safe-fetch'
 import { upstreamFetchTimeoutMs } from '@/lib/server/fetch-timeouts'
 

@@ -12,7 +12,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useWishlistStore } from '@/store/wishlistStore'
 import { cn } from '@/lib/utils/cn'
 import { formatBDT } from '@/lib/utils/currency'
-import { trackAddToCart } from '@/lib/analytics/meta-pixel'
+import { trackAddToCart, trackAddToWishlist } from '@/lib/analytics/meta-pixel'
 import { resolveQuickAddVariant } from '@/lib/catalog/index'
 import { fadeUp, cardHover } from '@/lib/motion/variants'
 import { PRODUCT_IMAGE_PLACEHOLDER } from '@/lib/assets/brand'
@@ -82,12 +82,14 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      const defaultColorOpt = product.colorOptions?.[0]
+      const defaultColorHex = defaultColorOpt?.hex ?? product.colorHexes?.[0]
+      const colorLabel = defaultColorOpt?.name ?? defaultColorHex
       const defaultSize = product.sizes?.[0]
-      const defaultColor = product.colorHexes?.[0] ?? product.colorOptions?.[0]?.hex
       const variant = resolveQuickAddVariant(
         product.variantRefs?.length ? { variantRefs: product.variantRefs } : {},
         defaultSize,
-        defaultColor,
+        defaultColorHex,
       )
       const size = variant?.size ?? defaultSize
       addToCart({
@@ -99,9 +101,18 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
         slug: product.slug,
         ...(variant ? { variantId: variant.id } : {}),
         ...(size ? { size } : {}),
-        ...(defaultColor ? { color: defaultColor } : {}),
+        ...(colorLabel ? { color: colorLabel } : {}),
       })
-      trackAddToCart({ id: product.id, name: product.name, price: product.price })
+      trackAddToCart({
+        id: variant?.id ?? product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        brand: 'SPLARO',
+        ...(size || colorLabel
+          ? { variant: [size, colorLabel].filter(Boolean).join(' / ') }
+          : {}),
+      })
     },
     [addToCart, product, images],
   )
@@ -110,9 +121,19 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      const adding = !isInWishlist(product.id)
       toggleWishlist(product.id)
+      if (adding) {
+        trackAddToWishlist({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+          brand: 'SPLARO',
+        })
+      }
     },
-    [toggleWishlist, product.id],
+    [toggleWishlist, isInWishlist, product.id, product.name, product.price],
   )
 
   const prevImg = useCallback(
@@ -224,7 +245,7 @@ function ProductCardDefault({ product, priority }: { product: ProductCardData; p
           aria-label={inWishlist ? 'Remove from wishlist' : 'Save'}
           aria-pressed={inWishlist}
           transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-          {...(showMotion ? { whileTap: { scale: 0.992 } } : {})}
+          {...(showMotion ? { whileTap: { opacity: 0.9 } } : {})}
         >
           <Heart size={14} strokeWidth={1.6} className={cn(inWishlist && 'fill-current')} />
         </motion.button>
@@ -372,7 +393,19 @@ function ProductCardShop({
             type="button"
             variant="icon"
             className={cn('shop-wishlist-btn', saved && 'shop-wishlist-btn--saved')}
-            onClick={() => toggleWishlist(product.id)}
+            onClick={() => {
+              const adding = !saved
+              toggleWishlist(product.id)
+              if (adding) {
+                trackAddToWishlist({
+                  id: product.id,
+                  name: product.name,
+                  price: product.price,
+                  quantity: 1,
+                  brand: 'SPLARO',
+                })
+              }
+            }}
             aria-label={saved ? 'Remove from saved' : 'Save product'}
           >
             <Heart className={cn('h-3.5 w-3.5', saved && 'fill-current')} strokeWidth={2} />

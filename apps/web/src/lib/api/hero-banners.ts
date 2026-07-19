@@ -54,7 +54,7 @@ function isHeroVideoUrl(url: string): boolean {
 }
 
 /**
- * Force ILYN-style light heroes: local WebP when known; never LCP on Pexels UHD
+ * Force premium light heroes: local WebP when known; never LCP on Pexels UHD
  * video-as-image (DB often stores mp4 in `image`).
  */
 function sanitizeHeroBanner(banner: HeroBanner, index: number): HeroBanner {

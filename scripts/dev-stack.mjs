@@ -64,7 +64,7 @@ console.log('\n🚀 SPLARO dev stack — API → Admin → Web\n')
 cleanupOrphanApiProcesses(port)
 
 console.log('📦 Ensuring Redis…')
-spawnSync('pnpm', ['infra:redis'], { cwd: ROOT, stdio: 'inherit', ...cliSpawnOpts() })
+spawnSync('corepack', ['pnpm', 'infra:redis'], { cwd: ROOT, stdio: 'inherit', ...cliSpawnOpts() })
 
 run('node', ['scripts/api-preflight.mjs'])
 
@@ -74,7 +74,7 @@ if (alreadyHealthy) {
   console.log(`✅ API already running on :${port} — reusing existing instance\n`)
 } else {
   await reclaimPort(port)
-  api = run('pnpm', ['--filter', '@splaro/api', 'dev'])
+  api = run('corepack', ['pnpm', '--filter', '@splaro/api', 'dev'])
   const ready = await waitForApi()
   if (!ready) {
     shutdown(1)
@@ -90,7 +90,8 @@ for (const port of getNextDevPorts()) {
 console.log('🔍 Fresh Next.js caches for dev stack…')
 run('node', ['scripts/ensure-next-cache.mjs', '--fresh', '--ports-cleared'])
 
-run('pnpm', ['exec', 'turbo', 'run', 'dev', '--parallel', '--filter=@splaro/admin', '--filter=@splaro/web'])
+run('corepack', ['pnpm', '--dir', 'apps/admin', 'run', 'dev'])
+run('corepack', ['pnpm', '--dir', 'apps/web', 'run', 'dev'])
 
 api?.on('exit', (code) => {
   if (code && code !== 0) shutdown(code)

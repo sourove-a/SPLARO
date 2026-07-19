@@ -59,6 +59,20 @@ enum PaymentMethod {
   BANK_TRANSFER
 }
 
+enum StockReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+  EXPIRED
+}
+
+enum CommerceEventStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
 enum CourierProvider {
   STEADFAST
   PATHAO
@@ -478,6 +492,7 @@ model Store {
   collections      Collection[]
   brands           Brand[]
   orders           Order[]
+  commerceEvents   CommerceEventOutbox[]
   customers        Customer[]
   coupons          Coupon[]
   banners          Banner[]
@@ -709,6 +724,7 @@ model Customer {
   rmas              RMA[]
   referrals         Referral[]
   webPushTokens     WebPushToken[]
+  couponRedemptions CouponRedemption[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -855,6 +871,7 @@ model ProductVariant {
   orderItems     OrderItem[]
   cartItems      CartItem[]
   inventoryLogs  InventoryLog[]
+  reservationItems StockReservationItem[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -954,6 +971,7 @@ model Order {
   id                String               @id @default(cuid())
   invoiceNumber     String               @unique
   storeId           String
+  idempotencyKey    String?
   customerId        String?
   addressId         String?
   status            OrderStatus          @default(PENDING)
@@ -1014,6 +1032,9 @@ model Order {
   partnerTransactions PartnerTransaction[]
   profitCalculation ProfitCalculation?
   statusHistory     OrderStatusHistory[]
+  stockReservation  StockReservation?
+  couponRedemption  CouponRedemption?
+  commerceEvents    CommerceEventOutbox[]
   rmas              RMA[]
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
@@ -1023,6 +1044,7 @@ model Order {
   @@index([storeId, trafficSource])
   @@index([invoiceNumber])
   @@index([shippingPhone])
+  @@unique([storeId, idempotencyKey])
 }
 
 model OrderNote {
@@ -1091,7 +1113,7 @@ model Payment {
   status          PaymentStatus @default(PENDING)
   amount          Decimal       @db.Decimal(12, 2)
   currency        String        @default("BDT")
-  transactionId   String?
+  transactionId   String?       @unique
   gatewayResponse Json?
   paidAt          DateTime?
   failureReason   String?
@@ -1104,7 +1126,55 @@ model Payment {
   updatedAt       DateTime      @updatedAt
 
   @@index([orderId])
-  @@index([transactionId])
+}
+
+model StockReservation {
+  id        String                 @id @default(cuid())
+  orderId   String                 @unique
+  status    StockReservationStatus @default(ACTIVE)
+  expiresAt DateTime
+  consumedAt DateTime?
+  releasedAt DateTime?
+  order     Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  items     StockReservationItem[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  @@index([status, expiresAt])
+}
+
+model StockReservationItem {
+  id            String           @id @default(cuid())
+  reservationId String
+  variantId     String
+  quantity      Int
+  reservation   StockReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  variant       ProductVariant   @relation(fields: [variantId], references: [id])
+  createdAt     DateTime         @default(now())
+
+  @@unique([reservationId, variantId])
+  @@index([variantId])
+}
+
+model CommerceEventOutbox {
+  id          String              @id @default(cuid())
+  storeId     String
+  orderId     String
+  eventType   String
+  dedupeKey   String              @unique
+  payload     Json
+  status      CommerceEventStatus @default(PENDING)
+  attempts    Int                 @default(0)
+  availableAt DateTime            @default(now())
+  processedAt DateTime?
+  lastError   String?
+  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order       Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([status, availableAt])
+  @@index([storeId, orderId])
 }
 
 // ── COURIER SHIPMENT ──────────────────────────────────────────
@@ -1290,11 +1360,31 @@ model Coupon {
   expiresAt         DateTime?
   store             Store      @relation(fields: [storeId], references: [id])
   orders            Order[]
+  redemptions       CouponRedemption[]
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
   @@unique([storeId, code])
   @@index([storeId, isActive])
+}
+
+model CouponRedemption {
+  id               String    @id @default(cuid())
+  couponId         String
+  orderId          String    @unique
+  customerId       String?
+  customerIdentity String
+  code             String
+  discountAmount   Decimal   @default(0) @db.Decimal(8, 2)
+  freeShipping     Boolean   @default(false)
+  orderSubtotal    Decimal   @db.Decimal(12, 2)
+  coupon           Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  order            Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer         Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+
+  @@index([couponId, customerIdentity])
+  @@index([customerId])
 }
 
 // ── REVIEW ────────────────────────────────────────────────────

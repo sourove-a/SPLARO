@@ -31,11 +31,18 @@ export function ModuleLiveStrip({
 }) {
   if (!items.length && !onRefresh) return null
 
+  const okCount = items.filter((item) => item.ok).length
+  const allOk = okCount === items.length
+
   return (
-    <div className={cn('admin-conn-strip', className)} role="status" aria-live="polite">
+    <div className={cn('admin-conn-strip', allOk && 'admin-conn-strip--live', className)} role="status" aria-live="polite">
       {title ? <p className="admin-conn-strip__title">{title}</p> : null}
       <div className="admin-conn-strip__row">
         <div className="admin-conn-strip__chips">
+          <span className={cn('admin-conn-strip__pulse', !allOk && 'admin-conn-strip__pulse--warn')} aria-hidden>
+            <span className="admin-conn-strip__pulse-dot" />
+            {allOk ? 'Live' : `${okCount}/${items.length}`}
+          </span>
           {items.map((item) => (
             <ConnectionChip
               key={item.label}

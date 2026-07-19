@@ -119,13 +119,14 @@ export async function assertCouponForOrder(
   storeId: string,
   code: string,
   subtotal: number,
-): Promise<{ couponId: string; discount: number; freeShipping: boolean }> {
+): Promise<{ couponId: string; code: string; discount: number; freeShipping: boolean }> {
   const result = await validateStorefrontCoupon(prisma, storeId, code, subtotal)
   if (!result.valid) {
     throw new BadRequestException(result.message)
   }
   return {
     couponId: result.couponId,
+    code: result.code,
     discount: result.discount,
     freeShipping: result.freeShipping,
   }

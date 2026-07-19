@@ -16,8 +16,8 @@ export class BkashCreatePaymentDto {
 
 export class NagadInitPaymentDto {
   @IsString()
-  @MinLength(1)
-  orderId!: string
+  @MinLength(3)
+  invoiceNumber!: string
 
   @IsNumber()
   @Min(0)

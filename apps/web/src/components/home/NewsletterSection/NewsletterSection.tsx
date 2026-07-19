@@ -62,7 +62,7 @@ export function NewsletterSection() {
     }
   }
 
-  const fade = reduceMotion ? { duration: 0 } : { duration: 0.32, ease: SHELL_EASE }
+  const fade = reduceMotion ? { duration: 0 } : { duration: 0.24, ease: SHELL_EASE }
 
   return (
     <section className="ed-newsletter" aria-labelledby="newsletter-heading">
@@ -73,39 +73,13 @@ export function NewsletterSection() {
       <div className="ed-newsletter__ambient" aria-hidden />
 
       <div className="ed-newsletter__inner">
-        <motion.span
-          className="ed-newsletter__eyebrow"
-          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={fade}
-        >
-          {newsletter.eyebrow}
-        </motion.span>
+        <span className="ed-newsletter__eyebrow">{newsletter.eyebrow}</span>
 
-        <motion.h2
-          id="newsletter-heading"
-          className="ed-newsletter__title"
-          initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ ...fade, delay: reduceMotion ? 0 : 0.05 }}
-        >
+        <h2 id="newsletter-heading" className="ed-newsletter__title">
           {newsletter.title}
-        </motion.h2>
+        </h2>
 
-        <motion.div
-          className="ed-newsletter__shell"
-          data-focused={focused ? 'true' : 'false'}
-          initial={reduceMotion ? false : { opacity: 0, y: 14, scale: 0.985 }}
-          whileInView={{ opacity: 1, y: 0, scale: 1 }}
-          viewport={{ once: true, margin: '-30px' }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { type: 'spring', stiffness: 340, damping: 32, mass: 0.9, delay: 0.08 }
-          }
-        >
+        <div className="ed-newsletter__shell" data-focused={focused ? 'true' : 'false'}>
           <div className="ed-newsletter__shell-sheen" aria-hidden />
           <div className="ed-newsletter__shell-shine" aria-hidden />
           <div className="ed-newsletter__shell-sweep" aria-hidden />
@@ -120,7 +94,11 @@ export function NewsletterSection() {
                 initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 {...(reduceMotion ? {} : { exit: { opacity: 0, scale: 0.98 } })}
-                transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 30 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 420, damping: 30 }
+                }
               >
                 <span className="ed-newsletter__success-icon">
                   <Check strokeWidth={2.4} />
@@ -128,16 +106,7 @@ export function NewsletterSection() {
                 <p className="ed-newsletter__success-title">You&apos;re on the list.</p>
               </motion.div>
             ) : (
-              <motion.form
-                key="form"
-                className="ed-newsletter__form"
-                onSubmit={onSubmit}
-                noValidate
-                initial={reduceMotion ? false : { opacity: 0 }}
-                animate={{ opacity: 1 }}
-                {...(reduceMotion ? {} : { exit: { opacity: 0 } })}
-                transition={fade}
-              >
+              <form key="form" className="ed-newsletter__form" onSubmit={onSubmit} noValidate>
                 <div className="ed-newsletter__field" suppressHydrationWarning>
                   <Mail className="ed-newsletter__icon" strokeWidth={1.7} />
                   {clientReady ? (
@@ -164,16 +133,22 @@ export function NewsletterSection() {
                       disabled={status === 'loading'}
                     />
                   ) : (
-                    <div className="ed-newsletter__input ed-newsletter__input--placeholder" aria-hidden />
+                    <div
+                      className="ed-newsletter__input ed-newsletter__input--placeholder"
+                      aria-hidden
+                    />
                   )}
                 </div>
 
-                <motion.button
+                <button
                   type="submit"
                   className="ed-newsletter__btn"
                   disabled={status === 'loading'}
-                  {...(reduceMotion ? {} : { whileTap: { scale: 0.992 } })}
-                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  aria-label={
+                    status === 'loading'
+                      ? 'Joining the SPLARO newsletter'
+                      : `${newsletter.buttonLabel} to the SPLARO newsletter`
+                  }
                 >
                   {status === 'loading' ? (
                     <>
@@ -186,11 +161,11 @@ export function NewsletterSection() {
                       <Send className="h-3.5 w-3.5" strokeWidth={2} />
                     </>
                   )}
-                </motion.button>
-              </motion.form>
+                </button>
+              </form>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
 
         <AnimatePresence initial={false}>
           {status === 'error' && error ? (

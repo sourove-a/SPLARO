@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from '@/lib/motion/react'
-import { Award, ChevronRight, Heart, Shield, ShoppingBag, Sparkles, Truck } from 'lucide-react'
+import { ChevronRight, Heart, ShoppingBag, Sparkles } from 'lucide-react'
 import {
   LiquidGlassFilterRow,
   LiquidGlassPagination,
@@ -23,18 +23,47 @@ import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProduc
 
 const PAGE_SIZE = 12
 
-const TRUST_BADGES = [
-  { icon: Shield, label: 'Authentic quality' },
-  { icon: Truck, label: 'Nationwide delivery' },
-  { icon: Award, label: 'Curated edit' },
-] as const
-
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
+
+/** Keyword fallback — live products often sit on parent slug `accessories`. */
+const ACCESSORY_KEYWORDS: Record<string, string[]> = {
+  glasses: ['glass', 'sunglass', 'eyewear', 'spectacle', 'optical', 'aviator'],
+  watches: ['watch'],
+  bags: ['bag', 'backpack', 'tote', 'duffel'],
+  handbags: ['handbag', 'purse', 'clutch'],
+  jewelry: ['jewel', 'necklace', 'earring', 'bracelet', 'ring'],
+  wallets: ['wallet', 'cardholder'],
+  scarves: ['scarf', 'hijab', 'stole'],
+  belts: ['belt'],
+  hats: ['hat', 'beanie', 'fedora'],
+  'prayer-caps': ['prayer cap', 'prayer-cap', ' topi', 'kufi', 'prayercap'],
+  'home-decor': ['decor', 'candle', 'frame', 'vase', 'home'],
+}
+
+function productAccessoryHaystack(product: CatalogProduct) {
+  return `${product.name} ${product.slug} ${product.categorySlug ?? ''} ${product.categoryName ?? ''}`.toLowerCase()
+}
 
 function matchesAccessoryCategory(product: CatalogProduct, activeCat: string) {
   if (activeCat === 'all') return true
-  const slug = product.categorySlug ?? ''
-  return slug === activeCat || slug.startsWith(`${activeCat}-`) || slug.startsWith(activeCat)
+  const slug = (product.categorySlug ?? '').toLowerCase()
+  if (
+    slug === activeCat ||
+    slug.startsWith(`${activeCat}-`) ||
+    slug.endsWith(`-${activeCat}`)
+  ) {
+    return true
+  }
+
+  const hay = productAccessoryHaystack(product)
+  const keywords = ACCESSORY_KEYWORDS[activeCat]
+  if (!keywords?.length) return false
+
+  if (activeCat === 'hats' && /prayer/.test(hay)) return false
+  if (activeCat === 'bags' && /(wallet|watch|scarf|belt|prayer)/.test(hay)) return false
+  if (activeCat === 'handbags' && /(backpack|wallet|watch)/.test(hay)) return false
+
+  return keywords.some((keyword) => hay.includes(keyword))
 }
 
 function countForCategory(products: CatalogProduct[], catId: string) {
@@ -99,6 +128,15 @@ function AddToCartButton({ product }: { product: CatalogProduct }) {
       aria-label={`Add ${product.name} to cart`}
       onClick={() => {
         const variant = resolveQuickAddVariant(product)
+        const colorLabel =
+          product.colorOptions?.find(
+            (option) =>
+              option.hex &&
+              variant?.colorHex &&
+              option.hex.toLowerCase() === variant.colorHex.toLowerCase(),
+          )?.name ??
+          product.colorOptions?.[0]?.name ??
+          variant?.colorHex
         addToCart({
           productId: product.id,
           quantity: 1,
@@ -108,6 +146,7 @@ function AddToCartButton({ product }: { product: CatalogProduct }) {
           slug: product.slug,
           ...(variant ? { variantId: variant.id } : {}),
           ...(variant?.size ? { size: variant.size } : {}),
+          ...(colorLabel ? { color: colorLabel } : {}),
         })
       }}
       className="shop-bag-btn"
@@ -118,8 +157,8 @@ function AddToCartButton({ product }: { product: CatalogProduct }) {
 }
 
 function AccessoryProductCard({ product, index }: { product: CatalogProduct; index: number }) {
+  const addToCart = useCartStore((state) => state.addItem)
   const colorHexes = product.colorOptions?.map((c) => c.hex) ?? product.colors ?? []
-  const collection = product.categoryName ?? product.category
 
   if (!product.image) {
     const hasDiscount = Boolean(product.compareAtPrice && product.compareAtPrice > product.price)
@@ -129,11 +168,11 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.98 }}
         transition={{ duration: 0.3, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
-        className="group"
+        className="shop-product-grid__cell group min-w-0"
       >
         <div className="relative">
           <Link href={`/products/${product.slug}`} className="block text-inherit no-underline">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-white">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[14px] bg-white">
               <CategoryPlaceholder />
             </div>
             <div className="pt-3">
@@ -169,19 +208,45 @@ function AccessoryProductCard({ product, index }: { product: CatalogProduct; ind
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.3, delay: index * 0.03, ease: [0.16, 1, 0.3, 1] }}
+      className="shop-product-grid__cell min-w-0"
     >
       <SplaroProductCard
         id={product.id}
         slug={product.slug}
         name={product.name}
         price={product.price}
+        variant="shop"
+        fit="contain"
         {...(product.compareAtPrice ? { compareAtPrice: product.compareAtPrice } : {})}
         image={product.image}
         {...(product.hoverImage ? { imageHover: product.hoverImage } : {})}
-        {...(collection ? { collection } : {})}
         {...(product.code ? { productCode: product.code } : {})}
         colorHexes={colorHexes}
         status={product.status}
+        sizes={product.sizes}
+        onAddToBag={() => {
+          const variant = resolveQuickAddVariant(product)
+          const colorLabel =
+            product.colorOptions?.find(
+              (option) =>
+                option.hex &&
+                variant?.colorHex &&
+                option.hex.toLowerCase() === variant.colorHex.toLowerCase(),
+            )?.name ??
+            product.colorOptions?.[0]?.name ??
+            variant?.colorHex
+          addToCart({
+            productId: product.id,
+            quantity: 1,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            slug: product.slug,
+            ...(variant ? { variantId: variant.id } : {}),
+            ...(variant?.size ? { size: variant.size } : {}),
+            ...(colorLabel ? { color: colorLabel } : {}),
+          })
+        }}
       />
     </motion.div>
   )
@@ -237,14 +302,14 @@ function AccessoriesEmptyState({
           {catalogEmpty
             ? 'No accessories live yet'
             : filteredEmpty
-              ? `No ${label.toLowerCase()} in this edit yet`
+              ? `No ${label.toLowerCase()} right now`
               : 'Nothing matched this filter'}
         </h2>
         <p className="accessories-empty__body">
           {catalogEmpty
             ? 'Accessories are not published in the live catalog yet. Check Shop or New arrivals for pieces that are live now.'
             : filteredEmpty
-              ? `No published ${label.toLowerCase()} in accessories right now. Browse the full edit or the main shop.`
+              ? `We do not have ${label.toLowerCase()} live right now. Browse all accessories or the main shop.`
               : 'Try another category or reset filters to see what is currently live.'}
         </p>
         <div className="accessories-empty__actions">
@@ -265,36 +330,12 @@ function AccessoriesEmptyState({
   )
 }
 
-interface AccessoriesHeroProps {
-  catalogTotal: number
-}
-
-function AccessoriesHero({ catalogTotal }: AccessoriesHeroProps) {
+function AccessoriesHero() {
   return (
     <header className="accessories-hero">
-      <p className="accessories-hero__eyebrow label-luxury">SPLARO Atelier</p>
-      <div className="accessories-hero__head">
-        <h1 className="accessories-hero__title">
-          Accessories
-          <span className="text-gold"> Edit</span>
-        </h1>
-        {catalogTotal > 0 ? (
-          <p className="accessories-hero__count">
-            {catalogTotal} live piece{catalogTotal === 1 ? '' : 's'}
-          </p>
-        ) : null}
-      </div>
-      <p className="accessories-hero__subtitle">
-        Eyewear, leather, jewelry, and finishing pieces from our live catalog.
-      </p>
-      <div className="accessories-hero__badges">
-        {TRUST_BADGES.map(({ icon: Icon, label }) => (
-          <span key={label} className="shop-trust-badge">
-            <Icon size={12} strokeWidth={2.2} className="text-gold" />
-            {label}
-          </span>
-        ))}
-      </div>
+      <p className="accessories-hero__brand">SPLARO</p>
+      <h1 className="accessories-hero__title">Accessories</h1>
+      <div className="accessories-hero__rule" aria-hidden />
     </header>
   )
 }
@@ -316,18 +357,20 @@ export function AccessoriesClient({
     setPage(1)
   }, [initialCat])
 
-  const filterItems = useMemo(
-    () =>
-      ACCESSORIES_FILTER_CATEGORIES.map((cat) => {
-        const count = countForCategory(products, cat.id)
-        return {
-          id: cat.id,
-          label: count > 0 && cat.id !== 'all' ? `${cat.label} (${count})` : cat.label,
-          ...(count === 0 && cat.id !== 'all' && products.length > 0 ? { unavailable: true } : {}),
-        }
-      }),
-    [products],
-  )
+  const filterItems = useMemo(() => {
+    return ACCESSORIES_FILTER_CATEGORIES.filter((cat) => {
+      if (cat.id === 'all') return true
+      const count = countForCategory(products, cat.id)
+      // Hide empty categories — keep the active one if deep-linked to an empty cat.
+      return count > 0 || cat.id === activeCat
+    }).map((cat) => {
+      const count = countForCategory(products, cat.id)
+      return {
+        id: cat.id,
+        label: count > 0 && cat.id !== 'all' ? `${cat.label} (${count})` : cat.label,
+      }
+    })
+  }, [products, activeCat])
 
   const filtered = useMemo(() => {
     let list =
@@ -372,7 +415,7 @@ export function AccessoriesClient({
   return (
     <section className="accessories-page">
       <div className="accessories-page__inner">
-        <AccessoriesHero catalogTotal={total} />
+        <AccessoriesHero />
 
         <div className="accessories-toolbar">
           <div className="accessories-toolbar__filters">
@@ -380,6 +423,7 @@ export function AccessoriesClient({
               className="accessories-toolbar__rail"
               trackClassName="accessories-toolbar__scroll"
               variant="pill"
+              hideArrows
               ariaLabel="Accessories categories"
             >
               <LiquidGlassFilterRow
@@ -416,9 +460,9 @@ export function AccessoriesClient({
               <div>
                 <h2 className="accessories-grid-head__title">{sectionTitle}</h2>
                 <p className="accessories-grid-head__meta">
-                  {filtered.length} live item{filtered.length === 1 ? '' : 's'}
+                  {filtered.length} piece{filtered.length === 1 ? '' : 's'}
                   {filterLabel ? ` · ${filterLabel}` : ''}
-                  {total > filtered.length ? ` · ${total} in accessories collection` : ''}
+                  {total > filtered.length ? ` · ${total} total` : ''}
                 </p>
               </div>
               {filtered.length > PAGE_SIZE ? (
@@ -428,7 +472,7 @@ export function AccessoriesClient({
               ) : null}
             </div>
 
-            <div className="accessories-grid">
+            <div className="accessories-grid shop-product-grid">
               <AnimatePresence mode="popLayout">
                 {paginated.map((product, index) => (
                   <AccessoryProductCard key={product.id} product={product} index={index} />

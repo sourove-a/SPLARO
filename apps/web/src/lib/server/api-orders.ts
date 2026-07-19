@@ -30,18 +30,42 @@ function normalizeApiOrderStatus(status: string): StoredOrder['status'] {
   const allowed: StoredOrder['status'][] = [
     'pending',
     'confirmed',
+    'processing',
     'packed',
     'shipped',
+    'courier_booked',
+    'picked_up',
     'in_transit',
+    'out_for_delivery',
     'delivered',
+    'returned',
     'cancelled',
+    'refunded',
   ]
-  return allowed.includes(normalized as StoredOrder['status'])
-    ? (normalized as StoredOrder['status'])
-    : 'confirmed'
+  if (!allowed.includes(normalized as StoredOrder['status'])) {
+    throw new Error(`Order API contract error: unknown status "${status}"`)
+  }
+  return normalized as StoredOrder['status']
+}
+
+function normalizeApiPaymentStatus(status: string): StoredOrder['payment']['status'] {
+  const normalized = status.toLowerCase()
+  const allowed: StoredOrder['payment']['status'][] = [
+    'unpaid',
+    'pending',
+    'paid',
+    'failed',
+    'refunded',
+    'partially_refunded',
+  ]
+  if (!allowed.includes(normalized as StoredOrder['payment']['status'])) {
+    throw new Error(`Order API contract error: unknown payment status "${status}"`)
+  }
+  return normalized as StoredOrder['payment']['status']
 }
 
 export interface ApiCreateOrderInput {
+  idempotencyKey?: string
   customer: {
     name: string
     email: string
@@ -69,7 +93,7 @@ export interface ApiCreateOrderInput {
   }
   clientIp?: string
   userAgent?: string
-  /** Required storefront session — guest orders are not allowed. */
+  /** Optional for guest COD; digital and customer-history requests require it. */
   sessionToken?: string
 }
 
@@ -139,7 +163,7 @@ function mapApiOrderToStored(order: {
     total: Number(order.total),
     payment: {
       method: order.paymentMethod,
-      status: order.paymentStatus === 'PAID' ? 'paid' : 'pending',
+      status: normalizeApiPaymentStatus(order.paymentStatus),
     },
     tracking: {
       stage: order.status,
@@ -154,7 +178,7 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
   if (input.clientIp) headers['X-Forwarded-For'] = input.clientIp
   if (input.userAgent) headers['User-Agent'] = input.userAgent
   if (input.sessionToken) headers['x-splaro-session'] = input.sessionToken
-  const idempotencyKey = checkoutIdempotencyKey(input)
+  const idempotencyKey = input.idempotencyKey ?? checkoutIdempotencyKey(input)
   headers['Idempotency-Key'] = idempotencyKey
 
   const res = await fetchWithTimeout(`${base}/storefront/orders?storeId=${encodeURIComponent(STORE_ID)}`, {
@@ -165,6 +189,8 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
       idempotencyKey,
       customer: {
         ...input.customer,
+        // Guest checkout: email is optional — omit blank so @IsEmail validation passes.
+        ...(input.customer.email.trim() ? {} : { email: undefined }),
         district: input.customer.city,
         division: 'Dhaka',
       },
@@ -194,6 +220,34 @@ export async function createOrderViaApi(input: ApiCreateOrderInput): Promise<Sto
 
   const payload = (await res.json()) as { order: Parameters<typeof mapApiOrderToStored>[0] }
   return mapApiOrderToStored(payload.order)
+}
+
+export async function fetchCustomerOrdersViaApi(sessionToken: string): Promise<StoredOrder[]> {
+  const base = getServerApiBaseUrl()
+  const res = await fetchWithTimeout(
+    `${base}/storefront/customer/orders?storeId=${encodeURIComponent(STORE_ID)}`,
+    {
+      headers: {
+        ...internalApiHeaders(),
+        'x-splaro-session': sessionToken,
+      },
+      cache: 'no-store',
+    },
+  )
+  if (!res) {
+    throw new Error('Order history service timed out')
+  }
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as { message?: string | string[] } | null
+    const message = Array.isArray(payload?.message)
+      ? payload.message.join('; ')
+      : payload?.message ?? `Order history API failed (${res.status})`
+    throw new Error(message)
+  }
+  const payload = (await res.json()) as {
+    orders: Parameters<typeof mapApiOrderToStored>[0][]
+  }
+  return (payload.orders ?? []).map(mapApiOrderToStored)
 }
 
 export async function fetchOrdersViaApi(phone: string): Promise<StoredOrder[]> {

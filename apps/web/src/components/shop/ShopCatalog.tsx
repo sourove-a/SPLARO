@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from '@/lib/motion/react'
 import { X } from 'lucide-react'
 import { useMotionReady } from '@/hooks/useMotionReady'
-import { ShopFilterBar } from '@/components/shop/ShopFilterBar'
+import { ShopFilterBar, type ShopGridDensity } from '@/components/shop/ShopFilterBar'
 import { SplaroProductCard } from '@/components/product/ProductCard/SplaroProductCard'
+import { ProductCardSkeleton } from '@/components/product/ProductCard/ProductCardSkeleton'
 import { buildQuickViewProduct } from '@/lib/catalog/quick-view-product'
 import { storefrontToCardData } from '@/lib/catalog/product-card-map'
 import {
@@ -70,8 +72,9 @@ interface ShopCatalogProps {
   catalogPreset?: ShopCatalogPreset
   initialSort?: CatalogSortOption
   collectionSlug?: string
+  parentCategorySlug?: string
   categorySlug?: string
-  listingMode?: 'full' | 'scoped'
+  listingMode?: 'full' | 'scoped' | 'paged'
   layout?: 'default' | 'homepage'
 }
 
@@ -101,6 +104,7 @@ export function ShopCatalog({
   catalogPreset,
   initialSort = 'Default',
   collectionSlug,
+  parentCategorySlug,
   categorySlug,
   listingMode = 'full',
   layout = 'default',
@@ -108,12 +112,16 @@ export function ShopCatalog({
   const isHomepage = layout === 'homepage'
   const isMobile = useMobileViewport()
   const mounted = useMounted()
+  const router = useRouter()
   const homepageProductLimit = HOMEPAGE_PRODUCT_LIMIT
   const priorityCount = mounted && isMobile ? 2 : 4
   const { allowRevealAnimation, showMotion } = useMotionReady()
   const addItem = useCartStore((state) => state.addItem)
   const setCartOpen = useUiStore((state) => state.setCartOpen)
-  const useApiListing = listingMode === 'scoped' && Boolean(collectionSlug || categorySlug)
+  const scopedParentSlug = parentCategorySlug || collectionSlug
+  const useApiListing =
+    listingMode === 'paged' ||
+    (listingMode === 'scoped' && Boolean(scopedParentSlug || categorySlug))
   const { config } = useStorefrontSettings()
   const shopFilters = config.shopFilters!
   const defaultSortLabel = getDefaultSortLabel(shopFilters)
@@ -137,7 +145,21 @@ export function ShopCatalog({
   const [apiPage, setApiPage] = useState(initialCatalog?.page ?? 1)
   const [apiTotalPages, setApiTotalPages] = useState(initialCatalog?.totalPages ?? 1)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [isCatalogLoading, setIsCatalogLoading] = useState(() => {
+    const hasProducts = (initialCatalog?.products?.length ?? 0) > 0
+    if (hasProducts) return false
+    if (initialCatalog?.source === 'empty' || initialCatalog?.source === 'api-unavailable') {
+      return false
+    }
+    return true
+  })
+  /** Optimistic skeleton while category pills navigate to /c/* (Next can skip loading.tsx when prefetched). */
+  const [isNavPending, setIsNavPending] = useState(false)
   const [quickViewProduct, setQuickViewProduct] = useState<ShopProduct | null>(null)
+  const [gridDensity, setGridDensity] = useState<ShopGridDensity>(2)
+  const loadMoreSkeletonCount = gridDensity === 1 ? 2 : 4
+  const showProductSkeleton =
+    isNavPending || (isCatalogLoading && catalogProducts.length === 0)
   const catalogProductsRef = useRef(catalogProducts)
   catalogProductsRef.current = catalogProducts
   const catalogChannels = useCatalogChannels()
@@ -149,12 +171,13 @@ export function ShopCatalog({
 
   useEffect(() => {
     let cancelled = false
-    const MAX_ATTEMPTS = 4
+    const MAX_ATTEMPTS = 2
 
     const applyCatalog = (data: { products?: StorefrontProduct[]; source?: CatalogSource }) => {
       if (data.products?.length) {
         setCatalogProducts(data.products.map(sanitizeStorefrontProduct))
         setCatalogSource('api')
+        setIsCatalogLoading(false)
         return true
       }
       if (data.source && data.source !== 'api-unavailable') {
@@ -165,10 +188,35 @@ export function ShopCatalog({
 
     const load = async (attempt = 0) => {
       try {
-        const res = await fetch('/api/products', { cache: 'no-store' })
-        const data = (await res.json()) as { products?: StorefrontProduct[]; source?: CatalogSource }
+        // Paged / scoped PLP must never hit unscoped /api/products (full catalog dump).
+        const listingParams = useApiListing
+          ? buildListingSearchParams({
+              page: 1,
+              limit: PAGE_SIZE,
+              ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
+              ...(categorySlug && categorySlug !== scopedParentSlug
+                ? { categorySlug }
+                : {}),
+            })
+          : null
+        const res = await fetch(
+          listingParams ? `/api/products?${listingParams.toString()}` : '/api/products',
+          { cache: 'no-store' },
+        )
+        const data = (await res.json()) as {
+          products?: StorefrontProduct[]
+          source?: CatalogSource
+          totalPages?: number
+          page?: number
+        }
         if (cancelled) return
-        if (applyCatalog(data)) return
+        if (applyCatalog(data)) {
+          if (useApiListing) {
+            setApiPage(data.page ?? 1)
+            setApiTotalPages(data.totalPages ?? 1)
+          }
+          return
+        }
         if ((data.source === 'api-unavailable' || !res.ok) && attempt < MAX_ATTEMPTS - 1) {
           await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)))
           return load(attempt + 1)
@@ -179,6 +227,7 @@ export function ShopCatalog({
             !res.ok || data.source === 'api-unavailable' ? 'api-unavailable' : data.source ?? 'empty',
           )
         }
+        setIsCatalogLoading(false)
       } catch {
         if (cancelled) return
         if (attempt < MAX_ATTEMPTS - 1) {
@@ -188,6 +237,7 @@ export function ShopCatalog({
         if (!catalogProductsRef.current.length) {
           setCatalogSource('api-unavailable')
         }
+        setIsCatalogLoading(false)
       }
     }
 
@@ -196,39 +246,35 @@ export function ShopCatalog({
 
     // Homepage preview is fixed at 8 — skip idle full-catalog refresh (Instagram-style).
     if (isHomepage && hasSsrCatalog) {
+      setIsCatalogLoading(false)
       return () => {
         cancelled = true
       }
     }
 
     if (hasSsrCatalog) {
-      // Stale-while-revalidate — keep SSR paint fast; refresh after idle
-      const win = window as Window & {
-        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
-        cancelIdleCallback?: (id: number) => void
-      }
-      let idleId: number | undefined
-      let timer: ReturnType<typeof setTimeout> | undefined
-      const run = () => {
-        if (!cancelled) void load()
-      }
-      if (win.requestIdleCallback) {
-        idleId = win.requestIdleCallback(run, { timeout: 4000 })
-      } else {
-        timer = setTimeout(run, 2500)
-      }
+      // The SSR payload is already the requested catalog. Re-fetching the full
+      // listing immediately after hydration duplicates transfer and API work.
+      setIsCatalogLoading(false)
       return () => {
         cancelled = true
-        if (idleId !== undefined) win.cancelIdleCallback?.(idleId)
-        if (timer !== undefined) clearTimeout(timer)
       }
     }
 
+    // Empty scoped SSR stays empty/scoped — do not fall through to full shop.
+    setIsCatalogLoading(true)
     void load()
     return () => {
       cancelled = true
     }
-  }, [initialCatalog?.source, initialCatalog?.products.length, isHomepage])
+  }, [
+    initialCatalog?.source,
+    initialCatalog?.products.length,
+    isHomepage,
+    useApiListing,
+    scopedParentSlug,
+    categorySlug,
+  ])
 
   useEffect(() => {
     if (!initialCatalog) return
@@ -254,6 +300,32 @@ export function ShopCatalog({
   }, [filterCategories, currentCategory, controlledCategory])
 
   const updateCategory = (category: Category) => {
+    // Paged /shop: navigate to department PLP instead of filtering a full dump in-memory.
+    if (listingMode === 'paged') {
+      if (category === 'All') {
+        if (controlledCategory === undefined) setActiveCategory('All')
+        onCategoryChange?.('All')
+        startFilterTransition(() => {
+          setOpenFilter(null)
+          setSelectedColor('All')
+          setSelectedSize('All')
+          setVisibleCount(PAGE_SIZE)
+        })
+        return
+      }
+      const href = catalogChannels.find((channel) => channel.shopCategory === category)?.href
+      if (href) {
+        // Paint skeleton first — prefetched RSC can swap pages before loading.tsx appears.
+        setIsNavPending(true)
+        requestAnimationFrame(() => {
+          startFilterTransition(() => {
+            router.push(href)
+          })
+        })
+        return
+      }
+    }
+
     if (controlledCategory === undefined) setActiveCategory(category)
     onCategoryChange?.(category)
     startFilterTransition(() => {
@@ -404,8 +476,8 @@ export function ShopCatalog({
       const params = buildListingSearchParams({
         page: nextPage,
         limit: PAGE_SIZE,
-        ...(collectionSlug ? { collectionSlug } : {}),
-        ...(categorySlug ? { categorySlug } : {}),
+        ...(scopedParentSlug ? { parentCategorySlug: scopedParentSlug } : {}),
+        ...(categorySlug && categorySlug !== scopedParentSlug ? { categorySlug } : {}),
       })
       const res = await fetch(`/api/products?${params.toString()}`, { cache: 'no-store' })
       if (!res.ok) return false
@@ -437,7 +509,7 @@ export function ShopCatalog({
     apiPage,
     apiTotalPages,
     categorySlug,
-    collectionSlug,
+    scopedParentSlug,
     loadingMore,
     useApiListing,
   ])
@@ -479,7 +551,14 @@ export function ShopCatalog({
     mobilePriceMax,
   ].join('|')
 
-  const animateGrid = showMotion && (isHomepage ? allowRevealAnimation : true)
+  // Full catalog grids (shop/collections) skip the entrance stagger — with 18+
+  // cards the per-card motion.div setup cost was the largest Shop TBT driver.
+  // Homepage keeps it (fixed 8-item preview, cheap, already fast).
+  const animateGrid = isHomepage && showMotion && allowRevealAnimation
+  const useLiteGridMotion =
+    typeof document !== 'undefined' &&
+    (document.documentElement.getAttribute('data-os') === 'windows' ||
+      document.documentElement.getAttribute('data-perf') === 'lite')
 
   return (
     <>
@@ -500,6 +579,7 @@ export function ShopCatalog({
             categories={filterCategories}
             activeCategory={currentCategory}
             onCategoryChange={updateCategory}
+            showCategoryNav={listingMode !== 'scoped'}
             colorOptions={colorOptions}
             sizeOptions={sizeOptions}
             selectedColor={selectedColor}
@@ -523,6 +603,8 @@ export function ShopCatalog({
             }}
             onSortChange={(value) => applyFilterChange(() => setSortBy(value))}
             onClearFilters={clearFilters}
+            gridDensity={gridDensity}
+            onGridDensityChange={setGridDensity}
           />
         ) : null}
 
@@ -531,9 +613,9 @@ export function ShopCatalog({
             <motion.div
               key="active-chips"
               className="shop-active-chips"
-              initial={{ opacity: 0, y: -6 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
+              exit={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: GRID_EASE }}
             >
               {selectedColor !== 'All' ? (
@@ -542,7 +624,7 @@ export function ShopCatalog({
                   className="shop-active-chip"
                   onClick={() => setSelectedColor('All')}
                   layout
-                  whileTap={{ scale: 0.992 }}
+                  whileTap={{ opacity: 0.96 }}
                 >
                   {selectedColor} <X className="h-3 w-3" />
                 </motion.button>
@@ -553,7 +635,7 @@ export function ShopCatalog({
                   className="shop-active-chip"
                   onClick={() => setSelectedSize('All')}
                   layout
-                  whileTap={{ scale: 0.992 }}
+                  whileTap={{ opacity: 0.96 }}
                 >
                   Size {selectedSize} <X className="h-3 w-3" />
                 </motion.button>
@@ -567,7 +649,7 @@ export function ShopCatalog({
                     setMobilePriceMax(null)
                   }}
                   layout
-                  whileTap={{ scale: 0.992 }}
+                  whileTap={{ opacity: 0.96 }}
                 >
                   Price range <X className="h-3 w-3" />
                 </motion.button>
@@ -578,7 +660,7 @@ export function ShopCatalog({
                   className="shop-active-chip"
                   onClick={() => setSelectedPrice(defaultPriceLabel)}
                   layout
-                  whileTap={{ scale: 0.992 }}
+                  whileTap={{ opacity: 0.96 }}
                 >
                   {selectedPrice} <X className="h-3 w-3" />
                 </motion.button>
@@ -589,7 +671,7 @@ export function ShopCatalog({
                   className="shop-active-chip"
                   onClick={() => setSortBy(defaultSortLabel)}
                   layout
-                  whileTap={{ scale: 0.992 }}
+                  whileTap={{ opacity: 0.96 }}
                 >
                   {sortBy} <X className="h-3 w-3" />
                 </motion.button>
@@ -601,25 +683,58 @@ export function ShopCatalog({
           ) : null}
         </AnimatePresence>
 
-        {animateGrid ? (
+        {showProductSkeleton ? (
+          <div
+            className={cn(
+              'shop-product-grid shop-product-grid--skeleton',
+              isHomepage && 'shop-product-grid--homepage',
+              !isHomepage && gridDensity === 1 && 'shop-product-grid--cols-1',
+              !isHomepage && gridDensity === 2 && 'shop-product-grid--cols-2',
+            )}
+            aria-busy="true"
+            aria-label="Loading products"
+          >
+            {Array.from({ length: isHomepage ? 8 : Math.min(PAGE_SIZE, 8) }, (_, index) => (
+              <div key={`catalog-skeleton-${index}`} className="shop-product-grid__cell min-w-0">
+                <ProductCardSkeleton />
+              </div>
+            ))}
+          </div>
+        ) : animateGrid ? (
           <motion.div
             key={gridFilterKey}
-            className={cn('shop-product-grid', isHomepage && 'shop-product-grid--homepage')}
-            initial={{ opacity: 0 }}
+            className={cn(
+              'shop-product-grid',
+              !isHomepage && 'shop-product-grid--soft-enter',
+              isHomepage && 'shop-product-grid--homepage',
+              !isHomepage && gridDensity === 1 && 'shop-product-grid--cols-1',
+              !isHomepage && gridDensity === 2 && 'shop-product-grid--cols-2',
+            )}
+            initial={false}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.24, ease: GRID_EASE }}
           >
             {visibleProducts.map((product, index) => {
               const card = storefrontToCardData(product)
-              const motionProps = {
-                initial: { opacity: 0, y: 12, scale: 0.988 },
-                animate: { opacity: 1, y: 0, scale: 1 },
-                transition: {
-                  duration: 0.3,
-                  delay: Math.min(index * 0.028, 0.2),
-                  ease: GRID_EASE,
-                },
-              }
+              const motionProps = useLiteGridMotion
+                ? {
+                    initial: { opacity: 0 },
+                    animate: { opacity: 1 },
+                    transition: {
+                      duration: 0.18,
+                      delay: Math.min(index * 0.012, 0.08),
+                      ease: GRID_EASE,
+                    },
+                  }
+                : {
+                    initial: { opacity: 0, y: 12 },
+                    animate: { opacity: 1, y: 0 },
+                    transition: {
+                      duration: 0.3,
+                      delay: Math.min(index * 0.028, 0.2),
+                      ease: GRID_EASE,
+                    },
+                  }
               const cardCode = resolveCardProductCode(product)
 
               return (
@@ -655,9 +770,25 @@ export function ShopCatalog({
                 </motion.div>
               )
             })}
+            {loadingMore
+              ? Array.from({ length: loadMoreSkeletonCount }, (_, index) => (
+                  <div key={`more-skeleton-${index}`} className="shop-product-grid__cell min-w-0">
+                    <ProductCardSkeleton />
+                  </div>
+                ))
+              : null}
           </motion.div>
         ) : (
-          <div className={cn('shop-product-grid', isHomepage && 'shop-product-grid--homepage')}>
+          <div
+            key={gridFilterKey}
+            className={cn(
+              'shop-product-grid',
+              !isHomepage && 'shop-product-grid--soft-enter',
+              isHomepage && 'shop-product-grid--homepage',
+              !isHomepage && gridDensity === 1 && 'shop-product-grid--cols-1',
+              !isHomepage && gridDensity === 2 && 'shop-product-grid--cols-2',
+            )}
+          >
             {visibleProducts.map((product, index) => {
               const card = storefrontToCardData(product)
               const cardCode = resolveCardProductCode(product)
@@ -690,6 +821,13 @@ export function ShopCatalog({
                 </div>
               )
             })}
+            {loadingMore
+              ? Array.from({ length: loadMoreSkeletonCount }, (_, index) => (
+                  <div key={`more-skeleton-${index}`} className="shop-product-grid__cell min-w-0">
+                    <ProductCardSkeleton />
+                  </div>
+                ))
+              : null}
           </div>
         )}
 
@@ -710,9 +848,9 @@ export function ShopCatalog({
               key="results-footer"
               className="shop-results-footer"
               aria-live="polite"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
+              exit={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: GRID_EASE }}
             >
               1 – {visibleProducts.length} of {filteredProducts.length} Item
@@ -725,7 +863,7 @@ export function ShopCatalog({
           animateGrid ? (
             <motion.div
               className="shop-load-more-wrap mt-8"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.32, ease: GRID_EASE }}
             >
@@ -734,7 +872,7 @@ export function ShopCatalog({
                 className="shop-load-more-btn"
                 disabled={loadingMore}
                 onClick={() => void handleLoadMore()}
-                whileTap={{ scale: 0.992 }}
+                whileTap={{ opacity: 0.96 }}
                 whileHover={{ borderColor: 'rgba(16, 17, 20, 0.55)' }}
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
@@ -754,7 +892,9 @@ export function ShopCatalog({
           )
         ) : null}
 
-        {filteredProducts.length === 0 && catalogSource !== 'api-unavailable' ? (
+        {!showProductSkeleton &&
+        filteredProducts.length === 0 &&
+        catalogSource !== 'api-unavailable' ? (
           <div className="shop-empty glass-tile">
             {catalogIsEmpty && !hasActiveFilters ? (
               <>

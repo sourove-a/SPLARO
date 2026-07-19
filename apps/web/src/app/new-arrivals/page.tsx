@@ -1,11 +1,12 @@
-import type { Metadata } from 'next'
 import { ShopExperience } from '@/components/shop/ShopExperience'
 import { getStorefrontCatalog } from '@/lib/catalog/server'
+import { createRouteMetadata } from '@/lib/seo/route-metadata'
 
-export const metadata: Metadata = {
+export const metadata = createRouteMetadata({
   title: 'New Arrivals',
   description: 'Discover the latest SPLARO arrivals — new season drops across apparel and footwear.',
-}
+  path: '/new-arrivals',
+})
 
 export const revalidate = 60
 
